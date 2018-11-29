@@ -1,0 +1,12 @@
+/*
+ * Copyright(c) 2012-2018 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+#ifndef ENGINE_FAST_H_
+#define ENGINE_FAST_H_
+
+int ocf_read_fast(struct ocf_request *rq);
+int ocf_write_fast(struct ocf_request *rq);
+
+#endif /* ENGINE_WI_H_ */

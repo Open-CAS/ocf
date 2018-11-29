@@ -1,0 +1,372 @@
+/*
+ * Copyright(c) 2012-2018 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+#ifndef UTILS_CACHE_LINE_H_
+#define UTILS_CACHE_LINE_H_
+
+#include "../metadata/metadata.h"
+#include "../eviction/eviction.h"
+#include "../eviction/ops.h"
+#include "../concurrency/ocf_cache_concurrency.h"
+#include "../engine/cache_engine.h"
+#include "../ocf_request.h"
+#include "../ocf_def_priv.h"
+
+/**
+ * @file utils_cache_line.h
+ * @brief OCF utilities for cache line operations
+ */
+
+static inline ocf_cache_line_size_t ocf_line_size(
+		struct ocf_cache *cache)
+{
+	return cache->metadata.settings.size;
+}
+
+static inline uint64_t ocf_line_pages(struct ocf_cache *cache)
+{
+	return cache->metadata.settings.size / PAGE_SIZE;
+}
+
+static inline uint64_t ocf_line_sectors(struct ocf_cache *cache)
+{
+	return cache->metadata.settings.sector_count;
+}
+
+static inline uint64_t ocf_line_end_sector(struct ocf_cache *cache)
+{
+	return cache->metadata.settings.sector_end;
+}
+
+static inline uint64_t ocf_line_start_sector(struct ocf_cache *cache)
+{
+	return cache->metadata.settings.sector_start;
+}
+
+static inline uint64_t ocf_bytes_round_lines(struct ocf_cache *cache,
+		uint64_t bytes)
+{
+	return (bytes + ocf_line_size(cache) - 1) / ocf_line_size(cache);
+}
+
+static inline uint64_t ocf_bytes_2_lines(struct ocf_cache *cache,
+		uint64_t bytes)
+{
+	return bytes / ocf_line_size(cache);
+}
+
+static inline uint64_t ocf_bytes_2_lines_round_up(
+		struct ocf_cache *cache, uint64_t bytes)
+{
+	return DIV_ROUND_UP(bytes, ocf_line_size(cache));
+}
+
+static inline uint64_t ocf_lines_2_bytes(struct ocf_cache *cache,
+		uint64_t lines)
+{
+	return lines * ocf_line_size(cache);
+}
+
+/**
+ * @brief Set cache line invalid
+ *
+ * @param cache Cache instance
+ * @param start_bit Start bit of cache line for which state will be set
+ * @param end_bit End bit of cache line for which state will be set
+ * @param rq OCF request
+ * @param map_idx Array index to map containing cache line to invalid
+ */
+void set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
+		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx);
+
+
+/**
+ * @brief Set cache line invalid without flush
+ *
+ * @param cache Cache instance
+ * @param start_bit Start bit of cache line for which state will be set
+ * @param end_bit End bit of cache line for which state will be set
+ * @param line Cache line to invalid
+ */
+void set_cache_line_invalid_no_flush(struct ocf_cache *cache, uint8_t start_bit,
+		uint8_t end_bit, ocf_cache_line_t line);
+
+/**
+ * @brief Set cache line valid
+ *
+ * @param cache Cache instance
+ * @param start_bit Start bit of cache line for which state will be set
+ * @param end_bit End bit of cache line for which state will be set
+ * @param rq OCF request
+ * @param map_idx Array index to map containing cache line to invalid
+ */
+void set_cache_line_valid(struct ocf_cache *cache, uint8_t start_bit,
+		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx);
+
+/**
+ * @brief Set cache line clean
+ *
+ * @param cache Cache instance
+ * @param start_bit Start bit of cache line for which state will be set
+ * @param end_bit End bit of cache line for which state will be set
+ * @param rq OCF request
+ * @param map_idx Array index to map containing cache line to invalid
+ */
+void set_cache_line_clean(struct ocf_cache *cache, uint8_t start_bit,
+		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx);
+
+/**
+ * @brief Set cache line dirty
+ *
+ * @param cache Cache instance
+ * @param start_bit Start bit of cache line for which state will be set
+ * @param end_bit End bit of cache line for which state will be set
+ * @param rq OCF request
+ * @param map_idx Array index to map containing cache line to invalid
+ */
+void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
+		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx);
+
+/**
+ * @brief Remove cache line from cleaning policy
+ *
+ * @param cache - cache instance
+ * @param line - cache line to be removed
+ *
+ */
+static inline void ocf_purge_cleaning_policy(struct ocf_cache *cache,
+		ocf_cache_line_t line)
+{
+	ocf_cleaning_t clean_type = cache->conf_meta->cleaning_policy_type;
+
+	ENV_BUG_ON(clean_type >= ocf_cleaning_max);
+
+	/* Remove from cleaning policy */
+	if (cleaning_policy_ops[clean_type].purge_cache_block != NULL)
+		cleaning_policy_ops[clean_type].purge_cache_block(cache, line);
+}
+
+/**
+ * @brief Remove cache line from eviction policy
+ *
+ * @param cache - cache instance
+ * @param line - cache line to be removed
+ */
+static inline void ocf_purge_eviction_policy(struct ocf_cache *cache,
+		ocf_cache_line_t line)
+{
+	ocf_eviction_purge_cache_line(cache, line);
+}
+
+/**
+ * @brief Set cache line clean and invalid and remove form lists
+ *
+ * @param cache Cache instance
+ * @param start Start bit of range in cache line to purge
+ * @param end End bit of range in cache line to purge
+ * @param rq OCF request
+ * @param map_idx Array index to map containing cache line to purge
+ */
+static inline void _ocf_purge_cache_line_sec(struct ocf_cache *cache,
+		uint8_t start, uint8_t stop, struct ocf_request *rq,
+		uint32_t map_idx)
+{
+
+	set_cache_line_clean(cache, start, stop, rq, map_idx);
+
+	set_cache_line_invalid(cache, start, stop, rq, map_idx);
+}
+
+/**
+ * @brief Purge cache line (remove completely, form collision, move to free
+ * partition, from cleaning policy and eviction policy)
+ *
+ * @param rq - OCF request to purge
+ */
+static inline void ocf_purge_map_info(struct ocf_request *rq)
+{
+	uint32_t map_idx = 0;
+	uint8_t start_bit;
+	uint8_t end_bit;
+	struct ocf_map_info *map = rq->map;
+	struct ocf_cache *cache = rq->cache;
+	uint32_t count = rq->core_line_count;
+
+	/* Purge range on the basis of map info
+	 *
+	 * | 01234567 | 01234567 | ... | 01234567 | 01234567 |
+	 * | -----+++ | ++++++++ | +++ | ++++++++ | +++++--- |
+	 * |   first  |          Middle           |   last   |
+	 */
+
+	for (map_idx = 0; map_idx < count; map_idx++) {
+		if (map[map_idx].status == LOOKUP_MISS)
+			continue;
+
+		start_bit = 0;
+		end_bit = ocf_line_end_sector(cache);
+
+		if (map_idx == 0) {
+			/* First */
+
+			start_bit = BYTES_TO_SECTORS(rq->byte_position)
+					% ocf_line_sectors(cache);
+
+		}
+
+		if (map_idx == (count - 1)) {
+			/* Last */
+
+			end_bit = BYTES_TO_SECTORS(rq->byte_position +
+					rq->byte_length - 1) %
+					ocf_line_sectors(cache);
+		}
+
+		_ocf_purge_cache_line_sec(cache, start_bit, end_bit, rq,
+				map_idx);
+	}
+}
+
+static inline void ocf_set_valid_map_info(struct ocf_request *rq)
+{
+	uint32_t map_idx = 0;
+	uint8_t start_bit;
+	uint8_t end_bit;
+	struct ocf_cache *cache = rq->cache;
+	uint32_t count = rq->core_line_count;
+	struct ocf_map_info *map = rq->map;
+
+	/* Set valid bits for sectors on the basis of map info
+	 *
+	 * | 01234567 | 01234567 | ... | 01234567 | 01234567 |
+	 * | -----+++ | ++++++++ | +++ | ++++++++ | +++++--- |
+	 * |   first  |          Middle           |   last   |
+	 */
+
+	for (map_idx = 0; map_idx < count; map_idx++) {
+		ENV_BUG_ON(map[map_idx].status == LOOKUP_MISS);
+
+		start_bit = 0;
+		end_bit = ocf_line_end_sector(cache);
+
+		if (map_idx == 0) {
+			/* First */
+
+			start_bit = BYTES_TO_SECTORS(rq->byte_position)
+					% ocf_line_sectors(cache);
+		}
+
+		if (map_idx == (count - 1)) {
+			/* Last */
+
+			end_bit = BYTES_TO_SECTORS(rq->byte_position +
+					rq->byte_length - 1)
+					% ocf_line_sectors(cache);
+		}
+
+		set_cache_line_valid(cache, start_bit, end_bit, rq, map_idx);
+	}
+}
+
+static inline void ocf_set_dirty_map_info(struct ocf_request *rq)
+{
+	uint32_t map_idx = 0;
+	uint8_t start_bit;
+	uint8_t end_bit;
+	struct ocf_cache *cache = rq->cache;
+	uint32_t count = rq->core_line_count;
+
+	/* Set valid bits for sectors on the basis of map info
+	 *
+	 * | 01234567 | 01234567 | ... | 01234567 | 01234567 |
+	 * | -----+++ | ++++++++ | +++ | ++++++++ | +++++--- |
+	 * |   first  |          Middle           |   last   |
+	 */
+
+	for (map_idx = 0; map_idx < count; map_idx++) {
+		start_bit = 0;
+		end_bit = ocf_line_end_sector(cache);
+
+		if (map_idx == 0) {
+			/* First */
+
+			start_bit = BYTES_TO_SECTORS(rq->byte_position)
+					% ocf_line_sectors(cache);
+		}
+
+		if (map_idx == (count - 1)) {
+			/* Last */
+
+			end_bit = BYTES_TO_SECTORS(rq->byte_position +
+					rq->byte_length - 1) %
+					ocf_line_sectors(cache);
+		}
+
+		set_cache_line_dirty(cache, start_bit, end_bit, rq, map_idx);
+	}
+}
+
+static inline void ocf_set_clean_map_info(struct ocf_request *rq)
+{
+	uint32_t map_idx = 0;
+	uint8_t start_bit;
+	uint8_t end_bit;
+	struct ocf_cache *cache = rq->cache;
+	uint32_t count = rq->core_line_count;
+
+	/* Set valid bits for sectors on the basis of map info
+	 *
+	 * | 01234567 | 01234567 | ... | 01234567 | 01234567 |
+	 * | -----+++ | ++++++++ | +++ | ++++++++ | +++++--- |
+	 * |   first  |          Middle           |   last   |
+	 */
+
+	for (map_idx = 0; map_idx < count; map_idx++) {
+		start_bit = 0;
+		end_bit = ocf_line_end_sector(cache);
+
+		if (map_idx == 0) {
+			/* First */
+
+			start_bit = BYTES_TO_SECTORS(rq->byte_position)
+					% ocf_line_sectors(cache);
+		}
+
+		if (map_idx == (count - 1)) {
+			/* Last */
+
+			end_bit = BYTES_TO_SECTORS(rq->byte_position +
+					rq->byte_length - 1) %
+					ocf_line_sectors(cache);
+
+		}
+
+		set_cache_line_clean(cache, start_bit, end_bit, rq, map_idx);
+	}
+}
+
+/**
+ * @brief Validate cache line size
+ *
+ * @param[in] size Cache line size
+ *
+ * @retval true cache line size is valid
+ * @retval false cache line is invalid
+ */
+static inline bool ocf_cache_line_size_is_valid(uint64_t size)
+{
+	switch (size) {
+	case 4 * KiB:
+	case 8 * KiB:
+	case 16 * KiB:
+	case 32 * KiB:
+	case 64 * KiB:
+		return true;
+	default:
+		return false;
+	}
+}
+
+#endif /* UTILS_CACHE_LINE_H_ */
