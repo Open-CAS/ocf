@@ -55,6 +55,10 @@ bool __wrap_ocf_fallback_pt_is_on(ocf_cache_t cache)
 {
 }
 
+char *__wrap_ocf_cache_get_name(ocf_cache_t cache)
+{
+}
+
 static void ocf_mngt_cache_set_fallback_pt_error_threshold_test01(void **state)
 {
 	struct ocf_cache cache;

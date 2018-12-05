@@ -99,6 +99,10 @@ int __wrap_ocf_mngt_cache_reset_fallback_pt_error_counter(ocf_cache_t cache)
 	return mock();
 }
 
+char *__wrap_ocf_cache_get_name(ocf_cache_t cache)
+{
+}
+
 static void _cache_mng_set_cache_mode_test01(void **state)
 {
 	int result;
