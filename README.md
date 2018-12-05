@@ -47,7 +47,7 @@ make -C $OCFDIF inc O=$INCDIR
 This by default will not copy OCF source files but create symbolic links to them,
 to avoid source duplication and allow for easy OCF code modification. If you prefer
 to copy OCF source files (e.g. you don't want to distribute whole OCF repository
-as your submodule), you can use following commands:
+as your submodule) you can use following commands:
 
 ~~~{.sh}
 make -C $OCFDIF src O=$SRCDIR CMD=cp
