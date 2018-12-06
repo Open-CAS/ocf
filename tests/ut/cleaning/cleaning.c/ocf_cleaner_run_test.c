@@ -184,13 +184,13 @@ int __wrap_env_bit_test(int nr, const void *addr)
 	return mock();
 }
 
-int __wrap_env_rmutex_trylock(env_rmutex *rmutex)
+int __wrap_env_rwsem_down_write_trylock(env_rwsem *s)
 {
 	function_called();
 	return mock();
 }
 
-void __wrap_env_rmutex_unlock(env_rmutex *rmutex)
+void __wrap_env_rwsem_up_write(env_rwsem *s)
 {
 	function_called();
 }
@@ -224,8 +224,8 @@ static void ocf_cleaner_run_test01(void **state)
 	expect_function_call(__wrap_ocf_mngt_is_cache_locked);
 	will_return(__wrap_ocf_mngt_is_cache_locked, 0);
 
-	expect_function_call(__wrap_env_rmutex_trylock);
-	will_return(__wrap_env_rmutex_trylock, 1);
+	expect_function_call(__wrap_env_rwsem_down_write_trylock);
+	will_return(__wrap_env_rwsem_down_write_trylock, 1);
 
 	expect_function_call(__wrap__ocf_cleaner_run_check_dirty_inactive);
 	will_return(__wrap__ocf_cleaner_run_check_dirty_inactive, 0);
@@ -233,7 +233,7 @@ static void ocf_cleaner_run_test01(void **state)
 	expect_function_call(__wrap_cleaning_alru_perform_cleaning);
 	will_return(__wrap_cleaning_alru_perform_cleaning, 0);
 
-	expect_function_call(__wrap_env_rmutex_unlock);
+	expect_function_call(__wrap_env_rwsem_up_write);
 
 	result = ocf_cleaner_run(&cache.cleaner, io_queue);
 	assert_int_equal(result, 0);

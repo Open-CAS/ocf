@@ -13,6 +13,8 @@
 #define __USE_GNU
 #endif
 
+#define OCF_PREFIX_SHORT "OCF"
+
 #include <linux/limits.h>
 #include <linux/stddef.h>
 #include <stdint.h>

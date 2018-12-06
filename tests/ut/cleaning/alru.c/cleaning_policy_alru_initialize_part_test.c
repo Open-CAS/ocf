@@ -46,12 +46,14 @@ static void cleaning_policy_alru_initialize_test01(void **state)
         ocf_part_id_t part_id = 0;
 
         int collision_table_entries = 900729;
-        cache.collision_table_entries = collision_table_entries;
 
         print_test_description("Check if all variables are set correctly");
 
         cache.user_parts[part_id].runtime = test_malloc(sizeof(struct ocf_user_part_runtime));
-		cache.runtime_meta = test_malloc(sizeof(struct ocf_superblock_runtime));
+        cache.device = test_malloc(sizeof(struct ocf_cache_device));
+        cache.device->runtime_meta = test_malloc(sizeof(struct ocf_superblock_runtime));
+
+        cache.device->collision_table_entries = collision_table_entries;
 
         result = cleaning_policy_alru_initialize_part(&cache, &cache.user_parts[part_id], 1, 1);
 
@@ -61,10 +63,11 @@ static void cleaning_policy_alru_initialize_test01(void **state)
         assert_int_equal(cache.user_parts[part_id].runtime->cleaning.policy.alru.lru_head, collision_table_entries);
         assert_int_equal(cache.user_parts[part_id].runtime->cleaning.policy.alru.lru_tail, collision_table_entries);
 
-        assert_int_equal(cache.runtime_meta->cleaning_thread_access, 0);
+        assert_int_equal(cache.device->runtime_meta->cleaning_thread_access, 0);
 
-        test_free(cache.runtime_meta);
-		test_free(cache.user_parts[part_id].runtime);
+        test_free(cache.device->runtime_meta);
+        test_free(cache.device);
+        test_free(cache.user_parts[part_id].runtime);
 }
 
 static void cleaning_policy_alru_initialize_test02(void **state)
@@ -74,12 +77,12 @@ static void cleaning_policy_alru_initialize_test02(void **state)
         ocf_part_id_t part_id = 0;
 
         uint32_t collision_table_entries = 900729;
-        cache.collision_table_entries = collision_table_entries;
 
         print_test_description("Check if only appropirate variables are changed");
 
         cache.user_parts[part_id].runtime = test_malloc(sizeof(struct ocf_user_part_runtime));
-		cache.runtime_meta = test_malloc(sizeof(struct ocf_superblock_runtime));
+        cache.device = test_malloc(sizeof(struct ocf_cache_device));
+        cache.device->runtime_meta = test_malloc(sizeof(struct ocf_superblock_runtime));
 
         cache.user_parts[part_id].runtime->cleaning.policy.alru.size = 1;
         cache.user_parts[part_id].runtime->cleaning.policy.alru.lru_head = -collision_table_entries;
@@ -93,10 +96,11 @@ static void cleaning_policy_alru_initialize_test02(void **state)
         assert_int_equal(cache.user_parts[part_id].runtime->cleaning.policy.alru.lru_head, -collision_table_entries);
         assert_int_equal(cache.user_parts[part_id].runtime->cleaning.policy.alru.lru_tail, -collision_table_entries);
 
-        assert_int_equal(cache.runtime_meta->cleaning_thread_access, 0);
+        assert_int_equal(cache.device->runtime_meta->cleaning_thread_access, 0);
 
-        test_free(cache.runtime_meta);
-		test_free(cache.user_parts[part_id].runtime);
+        test_free(cache.device->runtime_meta);
+        test_free(cache.device);
+        test_free(cache.user_parts[part_id].runtime);
 }
 
 /*
