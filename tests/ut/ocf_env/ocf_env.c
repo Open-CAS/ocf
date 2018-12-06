@@ -119,7 +119,7 @@ void env_allocator_destroy(env_allocator *allocator)
 	if (allocator) {
 		if (env_atomic_read(&allocator->count)) {
 			fprintf(stderr, "Not all object deallocated\n");
-			ENV_WARN(true, OCF_PREFIX_SHORT" Cleanup problem\n");
+			ENV_WARN(true, "Cleanup problem\n");
 		}
 
 		free(allocator->name);

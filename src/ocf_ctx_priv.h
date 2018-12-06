@@ -33,7 +33,7 @@ struct ocf_ctx {
 };
 
 #define ocf_log_prefix(ctx, lvl, prefix, fmt, ...) \
-	ocf_log_raw(ctx->logger, lvl, OCF_PREFIX_SHORT prefix fmt, ##__VA_ARGS__)
+	ocf_log_raw(ctx->logger, lvl, prefix fmt, ##__VA_ARGS__)
 
 #define ocf_log(ctx, lvl, fmt, ...) \
 	ocf_log_prefix(ctx, lvl, "", fmt, ##__VA_ARGS__)
