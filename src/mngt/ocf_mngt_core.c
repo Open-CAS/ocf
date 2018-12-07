@@ -351,7 +351,7 @@ int ocf_mngt_cache_add_core_nolock(ocf_cache_t cache, ocf_core_t *core,
 		if (result)
 			return result;
 	} else {
-		result = snprintf(core_name, sizeof(core_name), "%hu",
+		result = snprintf(core_name, sizeof(core_name), "core%hu",
 				cfg->core_id);
 		if (result < 0)
 			return result;
