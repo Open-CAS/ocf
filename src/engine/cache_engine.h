@@ -63,20 +63,20 @@ bool ocf_fallback_pt_is_on(ocf_cache_t cache);
 bool ocf_seq_cutoff_check(ocf_core_t core, uint32_t dir, uint64_t addr,
 		uint64_t bytes);
 
-struct ocf_request *ocf_engine_pop_rq(struct ocf_cache *cache,
+struct ocf_request *ocf_engine_pop_req(struct ocf_cache *cache,
 		struct ocf_queue *q);
 
-int ocf_engine_hndl_rq(struct ocf_request *rq,
+int ocf_engine_hndl_req(struct ocf_request *req,
 		ocf_req_cache_mode_t req_cache_mode);
 
 #define OCF_FAST_PATH_YES	7
 #define OCF_FAST_PATH_NO	13
 
-int ocf_engine_hndl_fast_rq(struct ocf_request *rq,
+int ocf_engine_hndl_fast_req(struct ocf_request *req,
 		ocf_req_cache_mode_t req_cache_mode);
 
-void ocf_engine_hndl_discard_rq(struct ocf_request *rq);
+void ocf_engine_hndl_discard_req(struct ocf_request *req);
 
-void ocf_engine_hndl_ops_rq(struct ocf_request *rq);
+void ocf_engine_hndl_ops_req(struct ocf_request *req);
 
 #endif

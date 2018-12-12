@@ -7,7 +7,7 @@
 #define OCF_CACHE_CONCURRENCY_H_
 
 /**
- * @file utils_rq.h
+ * @file utils_req.h
  * @brief OCF cache concurrency module
  */
 
@@ -53,66 +53,66 @@ size_t ocf_cache_concurrency_size_of(struct ocf_cache *cache);
 /**
  * @brief Lock OCF request for WRITE access (Lock all cache lines in map info)
  *
- * @note rq->resume callback has to be set
+ * @note req->resume callback has to be set
  *
- * @param rq - OCF request
+ * @param req - OCF request
  *
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  *
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- * added into waiting list. When lock will be acquired rq->resume be called
+ * added into waiting list. When lock will be acquired req->resume be called
  */
-int ocf_rq_trylock_wr(struct ocf_request *rq);
+int ocf_req_trylock_wr(struct ocf_request *req);
 
 /**
  * @brief Try complete lock of OCF request for WRITE access (Lock cache lines
  * that marked as invalid)
  *
- * @param rq - OCF request
+ * @param req - OCF request
  *
  * @note If request not locked it will be added into waiting list
  *
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  *
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- * added into waiting list. When lock will be acquired rq->resume be called
+ * added into waiting list. When lock will be acquired req->resume be called
  */
-int ocf_rq_retrylock_wr(struct ocf_request *rq);
+int ocf_req_retrylock_wr(struct ocf_request *req);
 
 /**
  * @brief Lock OCF request for READ access (Lock all cache lines in map info)
  *
- * @note rq->resume callback has to be set
+ * @note req->resume callback has to be set
  *
- * @param rq - OCF request
+ * @param req - OCF request
  *
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  *
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- * added into waiting list. When lock will be acquired rq->resume be called
+ * added into waiting list. When lock will be acquired req->resume be called
  */
-int ocf_rq_trylock_rd(struct ocf_request *rq);
+int ocf_req_trylock_rd(struct ocf_request *req);
 
 /**
  * @brief Unlock OCF request from WRITE access
  *
- * @param rq - OCF request
+ * @param req - OCF request
  */
-void ocf_rq_unlock_wr(struct ocf_request *rq);
+void ocf_req_unlock_wr(struct ocf_request *req);
 
 /**
  * @brief Unlock OCF request from READ access
  *
- * @param rq - OCF request
+ * @param req - OCF request
  */
-void ocf_rq_unlock_rd(struct ocf_request *rq);
+void ocf_req_unlock_rd(struct ocf_request *req);
 
 /**
  * @brief Unlock OCF request from READ or WRITE access
  *
- * @param rq - OCF request
+ * @param req - OCF request
  */
-void ocf_rq_unlock(struct ocf_request *rq);
+void ocf_req_unlock(struct ocf_request *req);
 
 /**
  * @Check if cache line is used.
@@ -148,11 +148,11 @@ bool ocf_cache_line_are_waiters(struct ocf_cache *cache,
  * @brief un_lock request map info entry from from WRITE or READ access.
  *
  * @param cache - OCF cache instance
- * @param rq - OCF request
+ * @param req - OCF request
  * @param entry - request map entry number
  */
-void ocf_rq_unlock_entry(struct ocf_cache *cache,
-		struct ocf_request *rq, uint32_t entry);
+void ocf_req_unlock_entry(struct ocf_cache *cache,
+		struct ocf_request *req, uint32_t entry);
 
 /**
  * @brief Release cache line read lock

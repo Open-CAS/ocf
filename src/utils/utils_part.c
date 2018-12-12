@@ -87,9 +87,9 @@ int ocf_part_init(struct ocf_cache *cache)
 	return 0;
 }
 
-void ocf_part_move(struct ocf_request *rq)
+void ocf_part_move(struct ocf_request *req)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 	struct ocf_map_info *entry;
 	ocf_cache_line_t line;
 	ocf_part_id_t id_old, id_new;
@@ -98,8 +98,8 @@ void ocf_part_move(struct ocf_request *rq)
 
 	ENV_BUG_ON(type >= ocf_cleaning_max);
 
-	entry = &rq->map[0];
-	for (i = 0; i < rq->core_line_count; i++, entry++) {
+	entry = &req->map[0];
+	for (i = 0; i < req->core_line_count; i++, entry++) {
 		if (!entry->re_part) {
 			/* Changing partition not required */
 			continue;
@@ -112,7 +112,7 @@ void ocf_part_move(struct ocf_request *rq)
 
 		line = entry->coll_idx;
 		id_old = ocf_metadata_get_partition_id(cache, line);
-		id_new = rq->part_id;
+		id_new = req->part_id;
 
 		ENV_BUG_ON(id_old >= OCF_IO_CLASS_MAX ||
 				id_new >= OCF_IO_CLASS_MAX);
@@ -157,15 +157,15 @@ void ocf_part_move(struct ocf_request *rq)
 				cleaning_policy_ops[type].
 					set_hot_cache_line(cache, line);
 
-			env_atomic_inc(&cache->core_runtime_meta[rq->core_id].
+			env_atomic_inc(&cache->core_runtime_meta[req->core_id].
 					part_counters[id_new].dirty_clines);
-			env_atomic_dec(&cache->core_runtime_meta[rq->core_id].
+			env_atomic_dec(&cache->core_runtime_meta[req->core_id].
 					part_counters[id_old].dirty_clines);
 		}
 
-		env_atomic_inc(&cache->core_runtime_meta[rq->core_id].
+		env_atomic_inc(&cache->core_runtime_meta[req->core_id].
 				part_counters[id_new].cached_clines);
-		env_atomic_dec(&cache->core_runtime_meta[rq->core_id].
+		env_atomic_dec(&cache->core_runtime_meta[req->core_id].
 				part_counters[id_old].cached_clines);
 
 		/* DONE */

@@ -50,7 +50,7 @@ static inline ocf_part_id_t ocf_part_class2id(ocf_cache_t cache, uint64_t class)
 	return PARTITION_DEFAULT;
 }
 
-void ocf_part_move(struct ocf_request *rq);
+void ocf_part_move(struct ocf_request *req);
 
 #define for_each_part(cache, part, id) \
 	for_each_lst_entry(&cache->lst_part, part, id, \

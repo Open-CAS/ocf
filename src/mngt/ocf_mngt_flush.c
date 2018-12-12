@@ -102,13 +102,13 @@ static int _ocf_mngt_get_sectors(struct ocf_cache *cache, int core_id,
 			break;
 	}
 
-	ocf_core_log(&cache->core_obj[core_id], log_debug,
+	ocf_core_log(&cache->core[core_id], log_debug,
 			"%u dirty cache lines to clean\n", j);
 
 	if (dirty != j) {
 		ocf_cache_log(cache, log_debug, "Wrong number of dirty "
 				"blocks for flushing core %s (%u!=%u)\n",
-				cache->core_obj[core_id].name, j, dirty);
+				cache->core[core_id].name, j, dirty);
 	}
 
 
@@ -139,7 +139,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	 *       each core. Cores can be partitions of single device.
 	 */
 
-	num = cache->conf_meta->core_obj_count;
+	num = cache->conf_meta->core_count;
 	if (num == 0) {
 		*fcnum = 0;
 		return 0;
@@ -173,7 +173,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 					sizeof(*fc[j].flush_data));
 		}
 
-		if (++j == cache->conf_meta->core_obj_count)
+		if (++j == cache->conf_meta->core_count)
 			break;
 	}
 
@@ -334,7 +334,7 @@ static int _ocf_mngt_flush_containers(ocf_cache_t cache,
 			if (!env_atomic_read(&fctbl[i].completed))
 				continue;
 
-			core = &cache->core_obj[fctbl[i].core_id];
+			core = &cache->core[fctbl[i].core_id];
 			env_atomic_set(&core->flushed, fctbl[i].iter);
 			env_atomic_set(&fctbl[i].completed, 0);
 
@@ -451,9 +451,9 @@ static int _ocf_mng_cache_flush_nolock(ocf_cache_t cache, bool interruption)
 		if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
 			continue;
 
-		env_atomic_set(&cache->core_obj[i].flushed, 0);
+		env_atomic_set(&cache->core[i].flushed, 0);
 
-		if (++j == cache->conf_meta->core_obj_count)
+		if (++j == cache->conf_meta->core_count)
 			break;
 	}
 
@@ -598,7 +598,7 @@ int ocf_mngt_core_purge(ocf_cache_t cache, ocf_core_id_t core_id, bool interrupt
 		return -OCF_ERR_CORE_NOT_AVAIL;
 	}
 
-	core_size = ocf_data_obj_get_length(&cache->core_obj[core_id].obj);
+	core_size = ocf_data_obj_get_length(&cache->core[core_id].obj);
 	core_size = core_size ?: ~0ULL;
 
 	_ocf_mngt_begin_flush(cache);

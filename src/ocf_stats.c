@@ -111,7 +111,7 @@ int ocf_stats_initialize(ocf_cache_t cache, ocf_core_id_t core_id)
 		if (!env_bit_test(id, cache->conf_meta->valid_object_bitmap))
 			continue;
 
-		ocf_stats_init(&cache->core_obj[id]);
+		ocf_stats_init(&cache->core[id]);
 	}
 
 	ocf_mngt_cache_unlock(cache);
@@ -276,7 +276,7 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 	ENV_BUG_ON(env_memset(stats, sizeof(*stats), 0));
 
 	stats->core_size_bytes = ocf_data_obj_get_length(
-			&cache->core_obj[core_id].obj);
+			&cache->core[core_id].obj);
 	stats->core_size = ocf_bytes_2_lines_round_up(cache,
 			stats->core_size_bytes);
 	stats->seq_cutoff_threshold = ocf_core_get_seq_cutoff_threshold(core);

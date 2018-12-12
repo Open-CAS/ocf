@@ -643,7 +643,7 @@ static int block_is_busy(struct ocf_cache *cache,
 	ocf_metadata_get_core_info(cache, cache_line,
 			&core_id, &core_line);
 
-	if (!cache->core_obj[core_id].opened)
+	if (!cache->core[core_id].opened)
 		return true;
 
 	if (ocf_cache_line_is_used(cache, cache_line))

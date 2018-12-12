@@ -39,14 +39,14 @@ int raw_volatile_flush_all(struct ocf_cache *cache,
 /*
  * RAM RAW volatile Implementation - Mark to Flush
  */
-void raw_volatile_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
+void raw_volatile_flush_mark(struct ocf_cache *cache, struct ocf_request *req,
 		uint32_t map_idx, int to_state, uint8_t start, uint8_t stop);
 
 /*
  * RAM RAW volatile Implementation - Do Flush asynchronously
  */
 int raw_volatile_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *rq, struct ocf_metadata_raw *raw,
+		struct ocf_request *req, struct ocf_metadata_raw *raw,
 		ocf_req_end_t complete);
 
 #endif /* __METADATA_RAW_VOLATILE_H__ */

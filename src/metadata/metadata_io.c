@@ -455,7 +455,7 @@ out:
 	ctx_data_free(cache->owner, data);
 	ocf_io_put(io);
 
-	if (env_atomic_dec_return(&mio->rq_remaining))
+	if (env_atomic_dec_return(&mio->req_remaining))
 		return;
 
 	env_completion_complete(&mio->completion);
@@ -505,7 +505,7 @@ static int metadata_submit_io(
 		goto free_data;
 
 	/* Submit IO */
-	env_atomic_inc(&mio->rq_remaining);
+	env_atomic_inc(&mio->req_remaining);
 	ocf_dobj_submit_io(io);
 
 	return 0;
@@ -542,7 +542,7 @@ static int metadata_io(struct metadata_io *mio)
 		return -EINVAL;
 	}
 
-	env_atomic_set(&mio->rq_remaining, 1);
+	env_atomic_set(&mio->req_remaining, 1);
 	env_completion_init(&mio->completion);
 
 	while (count) {
@@ -559,7 +559,7 @@ static int metadata_io(struct metadata_io *mio)
 		OCF_COND_RESCHED(step, 128);
 	}
 
-	if (env_atomic_dec_return(&mio->rq_remaining) == 0)
+	if (env_atomic_dec_return(&mio->req_remaining) == 0)
 		env_completion_complete(&mio->completion);
 
 	/* Wait for all IO to be finished */

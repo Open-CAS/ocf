@@ -75,7 +75,7 @@ int __wrap_cleaning_policy_acp_add_core(ocf_cache_t cache, ocf_core_id_t core_id
 int __wrap_cleaning_policy_acp_remove_core(ocf_cache_t cache,
 		                ocf_core_id_t core_id){}
 
-void __wrap_cleaning_policy_acp_request_pending(struct ocf_request *rq){
+void __wrap_cleaning_policy_acp_request_pending(struct ocf_request *req){
 }
 
 void cleaning_policy_acp_setup(struct ocf_cache *cache)

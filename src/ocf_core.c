@@ -9,7 +9,7 @@
 #include "ocf_io_priv.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
-#include "utils/utils_rq.h"
+#include "utils/utils_req.h"
 #include "utils/utils_part.h"
 #include "utils/utils_device.h"
 #include "ocf_request.h"
@@ -34,7 +34,7 @@ ocf_core_id_t ocf_core_get_id(ocf_core_t core)
 	OCF_CHECK_NULL(core);
 
 	cache = core->obj.cache;
-	core_id = core - cache->core_obj;
+	core_id = core - cache->core;
 
 	return core_id;
 }
@@ -82,7 +82,7 @@ int ocf_core_get(ocf_cache_t cache, ocf_core_id_t id, ocf_core_t *core)
 	if (!ocf_core_is_valid(cache, id))
 		return -OCF_ERR_CORE_NOT_AVAIL;
 
-	*core = &cache->core_obj[id];
+	*core = &cache->core[id];
 	return 0;
 }
 
@@ -122,29 +122,29 @@ int ocf_core_set_uuid(ocf_core_t core, const struct ocf_data_obj_uuid *uuid)
 	return result;
 }
 
-static inline void inc_dirty_rq_counter(struct ocf_core_io *core_io,
+static inline void inc_dirty_req_counter(struct ocf_core_io *core_io,
 		ocf_cache_t cache)
 {
 	core_io->dirty = 1;
 	env_atomic_inc(&cache->pending_dirty_requests);
 }
 
-static inline void dec_counter_if_rq_was_dirty(struct ocf_core_io *core_io,
+static inline void dec_counter_if_req_was_dirty(struct ocf_core_io *core_io,
 		ocf_cache_t cache)
 {
-	int pending_dirty_rq_count;
+	int pending_dirty_req_count;
 
 	if (!core_io->dirty)
 		return;
 
-	pending_dirty_rq_count =
+	pending_dirty_req_count =
 		env_atomic_dec_return(&cache->pending_dirty_requests);
 
-	ENV_BUG_ON(pending_dirty_rq_count < 0);
+	ENV_BUG_ON(pending_dirty_req_count < 0);
 
 	core_io->dirty = 0;
 
-	if (!pending_dirty_rq_count)
+	if (!pending_dirty_req_count)
 		env_waitqueue_wake_up(&cache->pending_dirty_wq);
 }
 
@@ -332,7 +332,7 @@ static void ocf_req_complete(struct ocf_request *req, int error)
 	/* Complete IO */
 	ocf_io_end(req->io, error);
 
-	dec_counter_if_rq_was_dirty(ocf_io_to_core_io(req->io), req->cache);
+	dec_counter_if_req_was_dirty(ocf_io_to_core_io(req->io), req->cache);
 
 	/* Invalidate OCF IO, it is not valid after completion */
 	ocf_core_io_put(req->io);
@@ -398,22 +398,22 @@ int ocf_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 		req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
 
 	if (req_cache_mode == ocf_req_cache_mode_wb) {
-		inc_dirty_rq_counter(core_io, cache);
+		inc_dirty_req_counter(core_io, cache);
 
 		//Double cache mode check prevents sending WB request
 		//while flushing is performed.
 		req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
 		if (req_cache_mode != ocf_req_cache_mode_wb)
-			dec_counter_if_rq_was_dirty(core_io, cache);
+			dec_counter_if_req_was_dirty(core_io, cache);
 	}
 
 	if (cache->conf_meta->valid_parts_no <= 1)
 		io->class = 0;
 
-	core_io->req = ocf_rq_new(cache, ocf_core_get_id(core),
+	core_io->req = ocf_req_new(cache, ocf_core_get_id(core),
 			io->addr, io->bytes, io->dir);
 	if (!core_io->req) {
-		dec_counter_if_rq_was_dirty(core_io, cache);
+		dec_counter_if_req_was_dirty(core_io, cache);
 		io->end(io, -ENOMEM);
 		return 0;
 	}
@@ -432,10 +432,10 @@ int ocf_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 	ocf_core_update_stats(core, io);
 
 	ocf_core_io_get(io);
-	ret = ocf_engine_hndl_rq(core_io->req, req_cache_mode);
+	ret = ocf_engine_hndl_req(core_io->req, req_cache_mode);
 	if (ret) {
-		dec_counter_if_rq_was_dirty(core_io, cache);
-		ocf_rq_put(core_io->req);
+		dec_counter_if_req_was_dirty(core_io, cache);
+		ocf_req_put(core_io->req);
 		io->end(io, ret);
 	}
 
@@ -472,13 +472,13 @@ int ocf_submit_io_fast(struct ocf_io *io)
 
 	req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
 	if (req_cache_mode == ocf_req_cache_mode_wb) {
-		inc_dirty_rq_counter(core_io, cache);
+		inc_dirty_req_counter(core_io, cache);
 
 		//Double cache mode check prevents sending WB request
 		//while flushing is performed.
 		req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
 		if (req_cache_mode != ocf_req_cache_mode_wb)
-			dec_counter_if_rq_was_dirty(core_io, cache);
+			dec_counter_if_req_was_dirty(core_io, cache);
 	}
 
 	switch (req_cache_mode) {
@@ -499,20 +499,20 @@ int ocf_submit_io_fast(struct ocf_io *io)
 	if (cache->conf_meta->valid_parts_no <= 1)
 		io->class = 0;
 
-	core_io->req = ocf_rq_new_extended(cache, ocf_core_get_id(core),
+	core_io->req = ocf_req_new_extended(cache, ocf_core_get_id(core),
 			io->addr, io->bytes, io->dir);
 	// We need additional pointer to req in case completion arrives before
 	// we leave this function and core_io is freed
 	req = core_io->req;
 
 	if (!req) {
-		dec_counter_if_rq_was_dirty(core_io, cache);
+		dec_counter_if_req_was_dirty(core_io, cache);
 		io->end(io, -ENOMEM);
 		return 0;
 	}
 	if (req->d2c) {
-		dec_counter_if_rq_was_dirty(core_io, cache);
-		ocf_rq_put(req);
+		dec_counter_if_req_was_dirty(core_io, cache);
+		ocf_req_put(req);
 		return -EIO;
 	}
 
@@ -525,16 +525,16 @@ int ocf_submit_io_fast(struct ocf_io *io)
 	ocf_core_update_stats(core, io);
 	ocf_core_io_get(io);
 
-	fast = ocf_engine_hndl_fast_rq(req, req_cache_mode);
+	fast = ocf_engine_hndl_fast_req(req, req_cache_mode);
 	if (fast != OCF_FAST_PATH_NO) {
 		ocf_seq_cutoff_update(core, req);
 		return 0;
 	}
 
-	dec_counter_if_rq_was_dirty(core_io, cache);
+	dec_counter_if_req_was_dirty(core_io, cache);
 
 	ocf_core_io_put(io);
-	ocf_rq_put(req);
+	ocf_req_put(req);
 	return -EIO;
 }
 
@@ -563,7 +563,7 @@ int ocf_submit_flush(struct ocf_io *io)
 		return 0;
 	}
 
-	core_io->req = ocf_rq_new(cache, ocf_core_get_id(core),
+	core_io->req = ocf_req_new(cache, ocf_core_get_id(core),
 			io->addr, io->bytes, io->dir);
 	if (!core_io->req) {
 		ocf_io_end(io, -ENOMEM);
@@ -576,7 +576,7 @@ int ocf_submit_flush(struct ocf_io *io)
 	core_io->req->data = core_io->data;
 
 	ocf_core_io_get(io);
-	ocf_engine_hndl_ops_rq(core_io->req);
+	ocf_engine_hndl_ops_req(core_io->req);
 
 	return 0;
 }
@@ -606,7 +606,7 @@ int ocf_submit_discard(struct ocf_io *io)
 		return 0;
 	}
 
-	core_io->req = ocf_rq_new_discard(cache, ocf_core_get_id(core),
+	core_io->req = ocf_req_new_discard(cache, ocf_core_get_id(core),
 			io->addr, io->bytes, OCF_WRITE);
 	if (!core_io->req) {
 		ocf_io_end(io, -ENOMEM);
@@ -619,7 +619,7 @@ int ocf_submit_discard(struct ocf_io *io)
 	core_io->req->data = core_io->data;
 
 	ocf_core_io_get(io);
-	ocf_engine_hndl_discard_rq(core_io->req);
+	ocf_engine_hndl_discard_req(core_io->req);
 
 	return 0;
 }
@@ -639,10 +639,10 @@ int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
 		if (!env_bit_test(id, cache->conf_meta->valid_object_bitmap))
 			continue;
 
-		if (only_opened && !cache->core_obj[id].opened)
+		if (only_opened && !cache->core[id].opened)
 			continue;
 
-		result = visitor(&cache->core_obj[id], cntx);
+		result = visitor(&cache->core[id], cntx);
 		if (result)
 			break;
 	}

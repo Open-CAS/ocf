@@ -428,7 +428,7 @@ int raw_dynamic_flush_all(struct ocf_cache *cache,
 /*
  * RAM DYNAMIC Implementation - Mark to Flush
  */
-void raw_dynamic_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
+void raw_dynamic_flush_mark(struct ocf_cache *cache, struct ocf_request *req,
 		uint32_t map_idx, int to_state, uint8_t start, uint8_t stop)
 {
 	ENV_BUG();
@@ -437,7 +437,7 @@ void raw_dynamic_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
 /*
  * RAM DYNAMIC Implementation - Do flushing asynchronously
  */
-int raw_dynamic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *rq,
+int raw_dynamic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 		struct ocf_metadata_raw *raw, ocf_req_end_t complete)
 {
 	ENV_BUG();

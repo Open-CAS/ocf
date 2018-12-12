@@ -8,7 +8,7 @@
 #include "engine_wi.h"
 #include "engine_common.h"
 #include "../concurrency/ocf_concurrency.h"
-#include "../utils/utils_rq.h"
+#include "../utils/utils_req.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_io.h"
 #include "../metadata/metadata.h"
@@ -16,119 +16,119 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "wi"
 #include "engine_debug.h"
 
-static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *rq);
+static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *req);
 
 static const struct ocf_io_if _io_if_wi_flush_metadata = {
 		.read = ocf_write_wi_update_and_flush_metadata,
 		.write = ocf_write_wi_update_and_flush_metadata,
 };
 
-static void _ocf_write_wi_io_flush_metadata(struct ocf_request *rq, int error)
+static void _ocf_write_wi_io_flush_metadata(struct ocf_request *req, int error)
 {
 	if (error) {
-		env_atomic_inc(&rq->cache->core_obj[rq->core_id].counters->
+		env_atomic_inc(&req->cache->core[req->core_id].counters->
 				cache_errors.write);
-		rq->error |= error;
+		req->error |= error;
 	}
 
-	if (env_atomic_dec_return(&rq->req_remaining))
+	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	if (rq->error)
-		ocf_engine_error(rq, true, "Failed to write data to cache");
+	if (req->error)
+		ocf_engine_error(req, true, "Failed to write data to cache");
 
-	ocf_rq_unlock_wr(rq);
+	ocf_req_unlock_wr(req);
 
-	rq->complete(rq, rq->error);
+	req->complete(req, req->error);
 
-	ocf_rq_put(rq);
+	ocf_req_put(req);
 }
 
-static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *rq)
+static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *req)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
-	env_atomic_set(&rq->req_remaining, 1); /* One core IO */
+	env_atomic_set(&req->req_remaining, 1); /* One core IO */
 
-	if (ocf_engine_mapped_count(rq)) {
+	if (ocf_engine_mapped_count(req)) {
 		/* There are mapped cache line, need to remove them */
 
 		OCF_METADATA_LOCK_WR(); /*- Metadata WR access ---------------*/
 
 		/* Remove mapped cache lines from metadata */
-		ocf_purge_map_info(rq);
+		ocf_purge_map_info(req);
 
 		OCF_METADATA_UNLOCK_WR(); /*- END Metadata WR access ---------*/
 
-		if (rq->info.flush_metadata) {
+		if (req->info.flush_metadata) {
 			/* Request was dirty and need to flush metadata */
-			ocf_metadata_flush_do_asynch(cache, rq,
+			ocf_metadata_flush_do_asynch(cache, req,
 					_ocf_write_wi_io_flush_metadata);
 		}
 
 	}
 
-	_ocf_write_wi_io_flush_metadata(rq, 0);
+	_ocf_write_wi_io_flush_metadata(req, 0);
 
 	return 0;
 }
 
-static void _ocf_write_wi_core_io(struct ocf_request *rq, int error)
+static void _ocf_write_wi_core_io(struct ocf_request *req, int error)
 {
 	if (error) {
-		rq->error = error;
-		rq->info.core_error = 1;
-		env_atomic_inc(&rq->cache->core_obj[rq->core_id].counters->
+		req->error = error;
+		req->info.core_error = 1;
+		env_atomic_inc(&req->cache->core[req->core_id].counters->
 				core_errors.write);
 	}
 
-	if (env_atomic_dec_return(&rq->req_remaining))
+	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	OCF_DEBUG_RQ(rq, "Completion");
+	OCF_DEBUG_RQ(req, "Completion");
 
-	if (rq->error) {
-		ocf_rq_unlock_wr(rq);
+	if (req->error) {
+		ocf_req_unlock_wr(req);
 
-		rq->complete(rq, rq->error);
+		req->complete(req, req->error);
 
-		ocf_rq_put(rq);
+		ocf_req_put(req);
 	} else {
-		ocf_engine_push_rq_front_if(rq, &_io_if_wi_flush_metadata,
+		ocf_engine_push_req_front_if(req, &_io_if_wi_flush_metadata,
 				true);
 	}
 }
 
-static int _ocf_write_wi_do(struct ocf_request *rq)
+static int _ocf_write_wi_do(struct ocf_request *req)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
 	/* Get OCF request - increase reference counter */
-	ocf_rq_get(rq);
+	ocf_req_get(req);
 
-	env_atomic_set(&rq->req_remaining, 1); /* One core IO */
+	env_atomic_set(&req->req_remaining, 1); /* One core IO */
 
-	OCF_DEBUG_RQ(rq, "Submit");
+	OCF_DEBUG_RQ(req, "Submit");
 
 	/* Submit write IO to the core */
-	ocf_submit_obj_req(&cache->core_obj[rq->core_id].obj, rq,
+	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
 			   _ocf_write_wi_core_io);
 
 	/* Update statistics */
-	ocf_engine_update_block_stats(rq);
-	env_atomic64_inc(&cache->core_obj[rq->core_id].counters->
-			part_counters[rq->part_id].write_reqs.pass_through);
+	ocf_engine_update_block_stats(req);
+	env_atomic64_inc(&cache->core[req->core_id].counters->
+			part_counters[req->part_id].write_reqs.pass_through);
 
 	/* Put OCF request - decrease reference counter */
-	ocf_rq_put(rq);
+	ocf_req_put(req);
 
 	return 0;
 }
 
-static void _ocf_write_wi_on_resume(struct ocf_request *rq)
+static void _ocf_write_wi_on_resume(struct ocf_request *req)
 {
-	OCF_DEBUG_RQ(rq, "On resume");
-	ocf_engine_push_rq_front(rq, true);
+	OCF_DEBUG_RQ(req, "On resume");
+	ocf_engine_push_req_front(req, true);
 }
 
 static const struct ocf_io_if _io_if_wi_resume = {
@@ -136,30 +136,30 @@ static const struct ocf_io_if _io_if_wi_resume = {
 	.write = _ocf_write_wi_do,
 };
 
-int ocf_write_wi(struct ocf_request *rq)
+int ocf_write_wi(struct ocf_request *req)
 {
 	int lock = OCF_LOCK_NOT_ACQUIRED;
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
-	OCF_DEBUG_TRACE(rq->cache);
+	OCF_DEBUG_TRACE(req->cache);
 
-	ocf_io_start(rq->io);
+	ocf_io_start(req->io);
 
 	/* Get OCF request - increase reference counter */
-	ocf_rq_get(rq);
+	ocf_req_get(req);
 
 	/* Set resume call backs */
-	rq->resume = _ocf_write_wi_on_resume;
-	rq->io_if = &_io_if_wi_resume;
+	req->resume = _ocf_write_wi_on_resume;
+	req->io_if = &_io_if_wi_resume;
 
 	OCF_METADATA_LOCK_RD(); /*- Metadata READ access, No eviction --------*/
 
 	/* Travers to check if request is mapped fully */
-	ocf_engine_traverse(rq);
+	ocf_engine_traverse(req);
 
-	if (ocf_engine_mapped_count(rq)) {
+	if (ocf_engine_mapped_count(req)) {
 		/* Some cache line are mapped, lock request for WRITE access */
-		lock = ocf_rq_trylock_wr(rq);
+		lock = ocf_req_trylock_wr(req);
 	} else {
 		lock = OCF_LOCK_ACQUIRED;
 	}
@@ -168,19 +168,19 @@ int ocf_write_wi(struct ocf_request *rq)
 
 	if (lock >= 0) {
 		if (lock == OCF_LOCK_ACQUIRED) {
-			_ocf_write_wi_do(rq);
+			_ocf_write_wi_do(req);
 		} else {
 			/* WR lock was not acquired, need to wait for resume */
-			OCF_DEBUG_RQ(rq, "NO LOCK");
+			OCF_DEBUG_RQ(req, "NO LOCK");
 		}
 	} else {
-		OCF_DEBUG_RQ(rq, "LOCK ERROR %d", lock);
-		rq->complete(rq, lock);
-		ocf_rq_put(rq);
+		OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);
+		req->complete(req, lock);
+		ocf_req_put(req);
 	}
 
 	/* Put OCF request - decrease reference counter */
-	ocf_rq_put(rq);
+	ocf_req_put(req);
 
 	return 0;
 }

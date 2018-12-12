@@ -6,6 +6,6 @@
 #ifndef ENGINE_BF_H_
 #define ENGINE_BF_H_
 
-void ocf_engine_backfill(struct ocf_request *rq);
+void ocf_engine_backfill(struct ocf_request *req);
 
 #endif /* ENGINE_BF_H_ */

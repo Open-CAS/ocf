@@ -5,7 +5,7 @@
 
 #include "ocf/ocf.h"
 #include "ocf_cache_priv.h"
-#include "utils/utils_rq.h"
+#include "utils/utils_req.h"
 #include "ocf_utils.h"
 #include "ocf_ctx_priv.h"
 
@@ -13,7 +13,7 @@ int ocf_utils_init(struct ocf_ctx *ocf_ctx)
 {
 	int result;
 
-	result = ocf_rq_allocator_init(ocf_ctx);
+	result = ocf_req_allocator_init(ocf_ctx);
 	if (result)
 		goto ocf_utils_init_ERROR;
 
@@ -34,7 +34,7 @@ ocf_utils_init_ERROR:
 
 void ocf_utils_deinit(struct ocf_ctx *ocf_ctx)
 {
-	ocf_rq_allocator_deinit(ocf_ctx);
+	ocf_req_allocator_deinit(ocf_ctx);
 
 	if (ocf_ctx->resources.core_io_allocator) {
 		env_allocator_destroy(ocf_ctx->resources.core_io_allocator);

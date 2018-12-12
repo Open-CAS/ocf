@@ -48,21 +48,21 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 }
 
 void set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
-		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx)
+		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx)
 {
-	ocf_cache_line_t line = rq->map[map_idx].coll_idx;
+	ocf_cache_line_t line = req->map[map_idx].coll_idx;
 	ocf_part_id_t part_id;
 	ocf_core_id_t core_id;
 
-	ENV_BUG_ON(!rq);
+	ENV_BUG_ON(!req);
 
 	part_id = ocf_metadata_get_partition_id(cache, line);
-	core_id = rq->core_id;
+	core_id = req->core_id;
 
 	__set_cache_line_invalid(cache, start_bit, end_bit, line, core_id,
 			part_id);
 
-	ocf_metadata_flush_mark(cache, rq, map_idx, INVALID, start_bit,
+	ocf_metadata_flush_mark(cache, req, map_idx, INVALID, start_bit,
 			end_bit);
 }
 
@@ -79,10 +79,10 @@ void set_cache_line_invalid_no_flush(struct ocf_cache *cache, uint8_t start_bit,
 }
 
 void set_cache_line_valid(struct ocf_cache *cache, uint8_t start_bit,
-		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx)
+		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx)
 {
-	ocf_core_id_t core_id = rq->core_id;
-	ocf_cache_line_t line = rq->map[map_idx].coll_idx;
+	ocf_core_id_t core_id = req->core_id;
+	ocf_cache_line_t line = req->map[map_idx].coll_idx;
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, line);
 
 	ENV_BUG_ON(!(core_id < OCF_CORE_MAX));
@@ -99,10 +99,10 @@ void set_cache_line_valid(struct ocf_cache *cache, uint8_t start_bit,
 }
 
 void set_cache_line_clean(struct ocf_cache *cache, uint8_t start_bit,
-		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx)
+		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx)
 {
-	ocf_core_id_t core_id = rq->core_id;
-	ocf_cache_line_t line = rq->map[map_idx].coll_idx;
+	ocf_core_id_t core_id = req->core_id;
+	ocf_cache_line_t line = req->map[map_idx].coll_idx;
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, line);
 	uint8_t evp_type = cache->conf_meta->eviction_policy_type;
 
@@ -135,14 +135,14 @@ void set_cache_line_clean(struct ocf_cache *cache, uint8_t start_bit,
 		ocf_purge_cleaning_policy(cache, line);
 	}
 
-	ocf_metadata_flush_mark(cache, rq, map_idx, CLEAN, start_bit, end_bit);
+	ocf_metadata_flush_mark(cache, req, map_idx, CLEAN, start_bit, end_bit);
 }
 
 void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
-		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx)
+		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx)
 {
-	ocf_core_id_t core_id = rq->core_id;
-	ocf_cache_line_t line = rq->map[map_idx].coll_idx;
+	ocf_core_id_t core_id = req->core_id;
+	ocf_cache_line_t line = req->map[map_idx].coll_idx;
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, line);
 	uint8_t evp_type = cache->conf_meta->eviction_policy_type;
 
@@ -173,5 +173,5 @@ void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
 
 	ocf_cleaning_set_hot_cache_line(cache, line);
 
-	ocf_metadata_flush_mark(cache, rq, map_idx, DIRTY, start_bit, end_bit);
+	ocf_metadata_flush_mark(cache, req, map_idx, DIRTY, start_bit, end_bit);
 }

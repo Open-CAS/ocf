@@ -30,11 +30,11 @@
 #define OCF_DEBUG_PARAM(cache, format, ...) OCF_DEBUG_LOG(cache, "- "format, \
 			##__VA_ARGS__)
 
-#define OCF_DEBUG_RQ(rq, format, ...) \
-	ocf_cache_log(rq->cache, log_info, "[Engine][%s][%s, %llu, %u] %s - " \
+#define OCF_DEBUG_RQ(req, format, ...) \
+	ocf_cache_log(req->cache, log_info, "[Engine][%s][%s, %llu, %u] %s - " \
 		format"\n", OCF_ENGINE_DEBUG_IO_NAME, \
-		OCF_READ == (rq)->rw ? "RD" : "WR", rq->byte_position, \
-		rq->byte_length, __func__, ##__VA_ARGS__)
+		OCF_READ == (req)->rw ? "RD" : "WR", req->byte_position, \
+		req->byte_length, __func__, ##__VA_ARGS__)
 
 #else
 #define OCF_DEBUG_PREFIX
@@ -42,7 +42,7 @@
 #define OCF_DEBUG_TRACE(cache)
 #define OCF_DEBUG_MSG(cache, msg)
 #define OCF_DEBUG_PARAM(cache, format, ...)
-#define OCF_DEBUG_RQ(rq, format, ...)
+#define OCF_DEBUG_RQ(req, format, ...)
 #endif
 
 #endif /* ENGINE_DEBUG_H_ */

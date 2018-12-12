@@ -975,7 +975,7 @@ static int ocf_metadata_hash_load_superblock(struct ocf_cache *cache)
 		uuid.size = muuid->size;
 
 		/* Initialize core data object */
-		ocf_data_obj_init(&cache->core_obj[i].obj,
+		ocf_data_obj_init(&cache->core[i].obj,
 				ocf_ctx_get_data_obj_type(cache->owner,
 						cache->core_conf_meta[i].type),
 				&uuid, false);
@@ -983,7 +983,7 @@ static int ocf_metadata_hash_load_superblock(struct ocf_cache *cache)
 
 	/* Restore all dynamics items */
 
-	if (sb_config->core_obj_count > OCF_CORE_MAX) {
+	if (sb_config->core_count > OCF_CORE_MAX) {
 		ocf_cache_log(cache, log_err,
 			"Loading cache state ERROR, invalid cores count\n");
 		goto ocf_metadata_hash_load_superblock_ERROR;
@@ -1024,7 +1024,7 @@ static int ocf_metadata_hash_flush_superblock(struct ocf_cache *cache)
 	/* Synchronize core objects types */
 	for (i = 0; i < OCF_CORE_MAX; i++) {
 		cache->core_conf_meta[i].type = ocf_ctx_get_data_obj_type_id(
-				cache->owner, cache->core_obj[i].obj.type);
+				cache->owner, cache->core[i].obj.type);
 	}
 
 	/* Calculate checksum */
@@ -1207,7 +1207,7 @@ static void ocf_metadata_hash_flush(struct ocf_cache *cache,
  * Flush specified cache line
  */
 static void ocf_metadata_hash_flush_mark(struct ocf_cache *cache,
-		struct ocf_request *rq, uint32_t map_idx, int to_state,
+		struct ocf_request *req, uint32_t map_idx, int to_state,
 		uint8_t start, uint8_t stop)
 {
 	struct ocf_metadata_hash_ctrl *ctrl = NULL;
@@ -1224,14 +1224,14 @@ static void ocf_metadata_hash_flush_mark(struct ocf_cache *cache,
 	/* Collision table to get mapping cache line to HDD sector*/
 	ocf_metadata_raw_flush_mark(cache,
 			&(ctrl->raw_desc[metadata_segment_collision]),
-			rq, map_idx, to_state, start, stop);
+			req, map_idx, to_state, start, stop);
 }
 
 /*
  * Flush specified cache lines asynchronously
  */
 static void ocf_metadata_hash_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *rq, ocf_req_end_t complete)
+		struct ocf_request *req, ocf_req_end_t complete)
 {
 	int result = 0;
 	struct ocf_metadata_hash_ctrl *ctrl = NULL;
@@ -1245,9 +1245,9 @@ static void ocf_metadata_hash_flush_do_asynch(struct ocf_cache *cache,
 	 * line persistent in case of recovery
 	 */
 
-	env_atomic_inc(&rq->req_remaining); /* Core device IO */
+	env_atomic_inc(&req->req_remaining); /* Core device IO */
 
-	result |= ocf_metadata_raw_flush_do_asynch(cache, rq,
+	result |= ocf_metadata_raw_flush_do_asynch(cache, req,
 			&(ctrl->raw_desc[metadata_segment_collision]),
 			complete);
 

@@ -6,6 +6,6 @@
 #ifndef ENGINE_2DC_H_
 #define ENGINE_2DC_H_
 
-int ocf_io_d2c(struct ocf_request *rq);
+int ocf_io_d2c(struct ocf_request *req);
 
 #endif /* ENGINE_2DC_H_ */

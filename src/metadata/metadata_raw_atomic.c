@@ -32,7 +32,7 @@
 #endif
 
 struct _raw_atomic_flush_ctx {
-	struct ocf_request *rq;
+	struct ocf_request *req;
 	ocf_req_end_t complete;
 	env_atomic flush_req_cnt;
 };
@@ -41,18 +41,18 @@ static void _raw_atomic_io_discard_cmpl(struct _raw_atomic_flush_ctx *ctx,
 		int error)
 {
 	if (error)
-		ctx->rq->error = error;
+		ctx->req->error = error;
 
 	if (env_atomic_dec_return(&ctx->flush_req_cnt))
 		return;
 
-	if (ctx->rq->error)
-		ocf_metadata_error(ctx->rq->cache);
+	if (ctx->req->error)
+		ocf_metadata_error(ctx->req->cache);
 
 	/* Call metadata flush completed call back */
 	OCF_DEBUG_MSG(cache, "Asynchronous flushing complete");
 
-	ctx->complete(ctx->rq, ctx->rq->error);
+	ctx->complete(ctx->req, ctx->req->error);
 
 	env_free(ctx);
 }
@@ -69,12 +69,12 @@ static void _raw_atomic_io_discard_end(struct ocf_io *io, int error)
 static int _raw_atomic_io_discard_do(struct ocf_cache *cache, void *context,
 		uint64_t start_addr, uint32_t len, struct _raw_atomic_flush_ctx *ctx)
 {
-	struct ocf_request *rq = context;
+	struct ocf_request *req = context;
 	struct ocf_io *io = ocf_new_cache_io(cache);
 
 	if (!io) {
-		rq->error = -ENOMEM;
-		return rq->error;
+		req->error = -ENOMEM;
+		return req->error;
 	}
 
 	OCF_DEBUG_PARAM(cache, "Page to flushing = %u, count of pages = %u",
@@ -90,17 +90,17 @@ static int _raw_atomic_io_discard_do(struct ocf_cache *cache, void *context,
 	else
 		ocf_dobj_submit_write_zeroes(io);
 
-	return rq->error;
+	return req->error;
 }
 
-void raw_atomic_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
+void raw_atomic_flush_mark(struct ocf_cache *cache, struct ocf_request *req,
 		uint32_t map_idx, int to_state, uint8_t start, uint8_t stop)
 {
 	if (to_state == INVALID) {
-		rq->map[map_idx].flush = true;
-		rq->map[map_idx].start_flush = start;
-		rq->map[map_idx].stop_flush = stop;
-		rq->info.flush_metadata = true;
+		req->map[map_idx].flush = true;
+		req->map[map_idx].start_flush = start;
+		req->map[map_idx].stop_flush = stop;
+		req->info.flush_metadata = true;
 	}
 }
 
@@ -114,10 +114,10 @@ static inline void _raw_atomic_add_page(struct ocf_cache *cache,
 }
 
 static int _raw_atomic_flush_do_asynch_sec(struct ocf_cache *cache,
-		struct ocf_request *rq, int map_idx,
+		struct ocf_request *req, int map_idx,
 		struct _raw_atomic_flush_ctx *ctx)
 {
-	struct ocf_map_info *map = &rq->map[map_idx];
+	struct ocf_map_info *map = &req->map[map_idx];
 	uint32_t len = 0;
 	uint64_t start_addr;
 	int result = 0;
@@ -130,12 +130,12 @@ static int _raw_atomic_flush_do_asynch_sec(struct ocf_cache *cache,
 	len = SECTORS_TO_BYTES(map->stop_flush - map->start_flush);
 	len += SECTORS_TO_BYTES(1);
 
-	result = _raw_atomic_io_discard_do(cache, rq, start_addr, len, ctx);
+	result = _raw_atomic_io_discard_do(cache, req, start_addr, len, ctx);
 
 	return result;
 }
 
-int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *rq,
+int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 		struct ocf_metadata_raw *raw, ocf_req_end_t complete)
 {
 	int result = 0, i;
@@ -143,33 +143,33 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *rq,
 	uint32_t *clines_tab;
 	int clines_to_flush = 0;
 	uint32_t len = 0;
-	int line_no = rq->core_line_count;
+	int line_no = req->core_line_count;
 	struct ocf_map_info *map;
 	uint64_t start_addr;
 	struct _raw_atomic_flush_ctx *ctx;
 
 	ENV_BUG_ON(!complete);
 
-	if (!rq->info.flush_metadata) {
+	if (!req->info.flush_metadata) {
 		/* Nothing to flush call flush callback */
-		complete(rq, 0);
+		complete(req, 0);
 		return 0;
 	}
 
 	ctx = env_zalloc(sizeof(*ctx), ENV_MEM_NOIO);
 	if (!ctx) {
-		complete(rq, -ENOMEM);
+		complete(req, -ENOMEM);
 		return -ENOMEM;
 	}
 
-	ctx->rq = rq;
+	ctx->req = req;
 	ctx->complete = complete;
 	env_atomic_set(&ctx->flush_req_cnt, 1);
 
 	if (line_no == 1) {
-		map = &rq->map[0];
+		map = &req->map[0];
 		if (map->flush && map->status != LOOKUP_MISS) {
-			result = _raw_atomic_flush_do_asynch_sec(cache, rq,
+			result = _raw_atomic_flush_do_asynch_sec(cache, req,
 					0, ctx);
 		}
 		_raw_atomic_io_discard_cmpl(ctx, result);
@@ -182,14 +182,14 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *rq,
 		clines_tab = env_zalloc(sizeof(*clines_tab) * line_no,
 				ENV_MEM_NOIO);
 		if (!clines_tab) {
-			complete(rq, -ENOMEM);
+			complete(req, -ENOMEM);
 			env_free(ctx);
 			return -ENOMEM;
 		}
 	}
 
 	for (i = 0; i < line_no; i++) {
-		map = &rq->map[i];
+		map = &req->map[i];
 
 		if (!map->flush || map->status == LOOKUP_MISS)
 			continue;
@@ -197,7 +197,7 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *rq,
 		if (i == 0) {
 			/* First */
 			if (map->start_flush) {
-				_raw_atomic_flush_do_asynch_sec(cache, rq, i,
+				_raw_atomic_flush_do_asynch_sec(cache, req, i,
 						ctx);
 			} else {
 				_raw_atomic_add_page(cache, clines_tab,
@@ -206,7 +206,7 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *rq,
 		} else if (i == (line_no - 1)) {
 			/* Last */
 			if (map->stop_flush != ocf_line_end_sector(cache)) {
-				_raw_atomic_flush_do_asynch_sec(cache, rq,
+				_raw_atomic_flush_do_asynch_sec(cache, req,
 						i, ctx);
 			} else {
 				_raw_atomic_add_page(cache, clines_tab,
@@ -241,7 +241,7 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *rq,
 			len += ocf_line_size(cache);
 		}
 
-		result  |= _raw_atomic_io_discard_do(cache, rq, start_addr,
+		result  |= _raw_atomic_io_discard_do(cache, req, start_addr,
 				len, ctx);
 
 		if (result)

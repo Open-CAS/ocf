@@ -6,6 +6,6 @@
 #ifndef ENGINE_INV_H_
 #define ENGINE_INV_H_
 
-void ocf_engine_invalidate(struct ocf_request *rq);
+void ocf_engine_invalidate(struct ocf_request *req);
 
 #endif /* ENGINE_INV_H_ */

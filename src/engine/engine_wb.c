@@ -9,7 +9,7 @@
 #include "engine_common.h"
 #include "engine_wb.h"
 #include "../metadata/metadata.h"
-#include "../utils/utils_rq.h"
+#include "../utils/utils_req.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_part.h"
@@ -23,59 +23,59 @@ static const struct ocf_io_if _io_if_wb_resume = {
 		.write = ocf_write_wb_do,
 };
 
-static void _ocf_write_wb_update_bits(struct ocf_request *rq)
+static void _ocf_write_wb_update_bits(struct ocf_request *req)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
-	if (ocf_engine_is_miss(rq)) {
+	if (ocf_engine_is_miss(req)) {
 		OCF_METADATA_LOCK_RD();
 		/* Update valid status bits */
-		ocf_set_valid_map_info(rq);
+		ocf_set_valid_map_info(req);
 
 		OCF_METADATA_UNLOCK_RD();
 	}
 
-	if (!ocf_engine_is_dirty_all(rq)) {
+	if (!ocf_engine_is_dirty_all(req)) {
 		OCF_METADATA_LOCK_WR();
 
 		/* set dirty bits, and mark if metadata flushing is required */
-		ocf_set_dirty_map_info(rq);
+		ocf_set_dirty_map_info(req);
 
 		OCF_METADATA_UNLOCK_WR();
 	}
 }
 
-static void _ocf_write_wb_io_flush_metadata(struct ocf_request *rq, int error)
+static void _ocf_write_wb_io_flush_metadata(struct ocf_request *req, int error)
 {
 	if (error)
-		rq->error = error;
+		req->error = error;
 
-	if (env_atomic_dec_return(&rq->req_remaining))
+	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	if (rq->error)
-		ocf_engine_error(rq, true, "Failed to write data to cache");
+	if (req->error)
+		ocf_engine_error(req, true, "Failed to write data to cache");
 
-	ocf_rq_unlock_wr(rq);
+	ocf_req_unlock_wr(req);
 
-	rq->complete(rq, rq->error);
+	req->complete(req, req->error);
 
-	ocf_rq_put(rq);
+	ocf_req_put(req);
 }
 
-static int ocf_write_wb_do_flush_metadata(struct ocf_request *rq)
+static int ocf_write_wb_do_flush_metadata(struct ocf_request *req)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
-	env_atomic_set(&rq->req_remaining, 1); /* One core IO */
+	env_atomic_set(&req->req_remaining, 1); /* One core IO */
 
-	if (rq->info.flush_metadata) {
-		OCF_DEBUG_RQ(rq, "Flush metadata");
-		ocf_metadata_flush_do_asynch(cache, rq,
+	if (req->info.flush_metadata) {
+		OCF_DEBUG_RQ(req, "Flush metadata");
+		ocf_metadata_flush_do_asynch(cache, req,
 				_ocf_write_wb_io_flush_metadata);
 	}
 
-	_ocf_write_wb_io_flush_metadata(rq, 0);
+	_ocf_write_wb_io_flush_metadata(req, 0);
 
 	return 0;
 }
@@ -85,39 +85,39 @@ static const struct ocf_io_if _io_if_wb_flush_metadata = {
 		.write = ocf_write_wb_do_flush_metadata,
 };
 
-static void _ocf_write_wb_io(struct ocf_request *rq, int error)
+static void _ocf_write_wb_io(struct ocf_request *req, int error)
 {
 	if (error) {
-		env_atomic_inc(&rq->cache->core_obj[rq->core_id].counters->
+		env_atomic_inc(&req->cache->core[req->core_id].counters->
 				cache_errors.write);
-		rq->error |= error;
+		req->error |= error;
 	}
 
-	if (env_atomic_dec_return(&rq->req_remaining))
+	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	OCF_DEBUG_RQ(rq, "Completion");
+	OCF_DEBUG_RQ(req, "Completion");
 
-	if (rq->error) {
-		ocf_engine_error(rq, true, "Failed to write data to cache");
+	if (req->error) {
+		ocf_engine_error(req, true, "Failed to write data to cache");
 
-		ocf_rq_unlock_wr(rq);
+		ocf_req_unlock_wr(req);
 
-		rq->complete(rq, rq->error);
+		req->complete(req, req->error);
 
-		ocf_rq_put(rq);
+		ocf_req_put(req);
 	} else {
-		ocf_engine_push_rq_front_if(rq, &_io_if_wb_flush_metadata,
+		ocf_engine_push_req_front_if(req, &_io_if_wb_flush_metadata,
 				true);
 	}
 }
 
 
-static inline void _ocf_write_wb_submit(struct ocf_request *rq)
+static inline void _ocf_write_wb_submit(struct ocf_request *req)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
-	env_atomic_set(&rq->req_remaining, ocf_engine_io_count(rq));
+	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req));
 
 	/*
 	 * 1. Submit data
@@ -125,73 +125,73 @@ static inline void _ocf_write_wb_submit(struct ocf_request *rq)
 	 * 3. Then continue processing request (flush metadata)
 	 */
 
-	if (rq->info.re_part) {
-		OCF_DEBUG_RQ(rq, "Re-Part");
+	if (req->info.re_part) {
+		OCF_DEBUG_RQ(req, "Re-Part");
 
 		OCF_METADATA_LOCK_WR();
 
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
-		ocf_part_move(rq);
+		ocf_part_move(req);
 
 		OCF_METADATA_UNLOCK_WR();
 	}
 
-	OCF_DEBUG_RQ(rq, "Submit Data");
+	OCF_DEBUG_RQ(req, "Submit Data");
 
 	/* Data IO */
-	ocf_submit_cache_reqs(cache, rq->map, rq, OCF_WRITE,
-			ocf_engine_io_count(rq), _ocf_write_wb_io);
+	ocf_submit_cache_reqs(cache, req->map, req, OCF_WRITE,
+			ocf_engine_io_count(req), _ocf_write_wb_io);
 }
 
-int ocf_write_wb_do(struct ocf_request *rq)
+int ocf_write_wb_do(struct ocf_request *req)
 {
 	/* Get OCF request - increase reference counter */
-	ocf_rq_get(rq);
+	ocf_req_get(req);
 
 	/* Updata status bits */
-	_ocf_write_wb_update_bits(rq);
+	_ocf_write_wb_update_bits(req);
 
 	/* Submit IO */
-	_ocf_write_wb_submit(rq);
+	_ocf_write_wb_submit(req);
 
 	/* Updata statistics */
-	ocf_engine_update_request_stats(rq);
-	ocf_engine_update_block_stats(rq);
+	ocf_engine_update_request_stats(req);
+	ocf_engine_update_block_stats(req);
 
 	/* Put OCF request - decrease reference counter */
-	ocf_rq_put(rq);
+	ocf_req_put(req);
 
 	return 0;
 }
 
-int ocf_write_wb(struct ocf_request *rq)
+int ocf_write_wb(struct ocf_request *req)
 {
 	bool mapped;
 	int lock = OCF_LOCK_NOT_ACQUIRED;
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
-	ocf_io_start(rq->io);
+	ocf_io_start(req->io);
 
 	/* Not sure if we need this. */
-	ocf_rq_get(rq);
+	ocf_req_get(req);
 
 	/* Set resume call backs */
-	rq->resume = ocf_engine_on_resume;
-	rq->io_if = &_io_if_wb_resume;
+	req->resume = ocf_engine_on_resume;
+	req->io_if = &_io_if_wb_resume;
 
 	/* TODO: Handle fits into dirty */
 
 	OCF_METADATA_LOCK_RD(); /*- Metadata READ access, No eviction --------*/
 
 	/* Travers to check if request is mapped fully */
-	ocf_engine_traverse(rq);
+	ocf_engine_traverse(req);
 
-	mapped = ocf_engine_is_mapped(rq);
+	mapped = ocf_engine_is_mapped(req);
 	if (mapped) {
 		/* All cache line are mapped, lock request for WRITE access */
-		lock = ocf_rq_trylock_wr(rq);
+		lock = ocf_req_trylock_wr(req);
 	}
 
 	OCF_METADATA_UNLOCK_RD(); /*- END Metadata READ access----------------*/
@@ -203,36 +203,36 @@ int ocf_write_wb(struct ocf_request *rq)
 		 * again. If there are misses need to call eviction. This
 		 * process is called 'mapping'.
 		 */
-		ocf_engine_map(rq);
+		ocf_engine_map(req);
 
-		if (!rq->info.eviction_error) {
+		if (!req->info.eviction_error) {
 			/* Lock request for WRITE access */
-			lock = ocf_rq_trylock_wr(rq);
+			lock = ocf_req_trylock_wr(req);
 		}
 
 		OCF_METADATA_UNLOCK_WR(); /*- END Metadata WR access ---------*/
 	}
 
-	if (!rq->info.eviction_error) {
+	if (!req->info.eviction_error) {
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* WR lock was not acquired, need to wait for resume */
-				OCF_DEBUG_RQ(rq, "NO LOCK");
+				OCF_DEBUG_RQ(req, "NO LOCK");
 			} else {
-				ocf_write_wb_do(rq);
+				ocf_write_wb_do(req);
 			}
 		} else {
-			OCF_DEBUG_RQ(rq, "LOCK ERROR %d", lock);
-			rq->complete(rq, lock);
-			ocf_rq_put(rq);
+			OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);
+			req->complete(req, lock);
+			ocf_req_put(req);
 		}
 	} else {
-		ocf_rq_clear(rq);
-		ocf_get_io_if(ocf_cache_mode_pt)->write(rq);
+		ocf_req_clear(req);
+		ocf_get_io_if(ocf_cache_mode_pt)->write(req);
 	}
 
 	/* Put OCF request - decrease reference counter */
-	ocf_rq_put(rq);
+	ocf_req_put(req);
 
 	return 0;
 }

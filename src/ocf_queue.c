@@ -101,7 +101,7 @@ void ocf_queue_run(ocf_queue_t q)
 
 	while (env_atomic_read(&q->io_no) > 0) {
 		/* Make sure a request is dequeued. */
-		io_req = ocf_engine_pop_rq(cache, q);
+		io_req = ocf_engine_pop_req(cache, q);
 
 		if (!io_req)
 			continue;

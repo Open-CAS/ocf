@@ -130,11 +130,11 @@ struct raw_iface {
 	int (*flush_all)(struct ocf_cache *cache,
 			struct ocf_metadata_raw *raw);
 
-	void (*flush_mark)(struct ocf_cache *cache, struct ocf_request *rq,
+	void (*flush_mark)(struct ocf_cache *cache, struct ocf_request *req,
 			uint32_t map_idx, int to_state, uint8_t start,
 			uint8_t stop);
 
-	int (*flush_do_asynch)(struct ocf_cache *cache, struct ocf_request *rq,
+	int (*flush_do_asynch)(struct ocf_cache *cache, struct ocf_request *req,
 			struct ocf_metadata_raw *raw,
 			ocf_req_end_t complete);
 };
@@ -308,17 +308,17 @@ static inline int ocf_metadata_raw_flush_all(struct ocf_cache *cache,
 
 
 static inline void ocf_metadata_raw_flush_mark(struct ocf_cache *cache,
-		struct ocf_metadata_raw *raw, struct ocf_request *rq,
+		struct ocf_metadata_raw *raw, struct ocf_request *req,
 		uint32_t map_idx, int to_state, uint8_t start, uint8_t stop)
 {
-	raw->iface->flush_mark(cache, rq, map_idx, to_state, start, stop);
+	raw->iface->flush_mark(cache, req, map_idx, to_state, start, stop);
 }
 
 static inline int ocf_metadata_raw_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *rq, struct ocf_metadata_raw *raw,
+		struct ocf_request *req, struct ocf_metadata_raw *raw,
 		ocf_req_end_t complete)
 {
-	return raw->iface->flush_do_asynch(cache, rq, raw, complete);
+	return raw->iface->flush_do_asynch(cache, req, raw, complete);
 }
 
 /*

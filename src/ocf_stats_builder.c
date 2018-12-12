@@ -66,7 +66,7 @@ static void _set(struct ocf_stat *stat, uint64_t value, uint64_t denominator)
 	stat->percent = _percentage(value, denominator);
 }
 
-static void _fill_rq(struct ocf_stats_requests *rq, struct ocf_stats_core *s)
+static void _fill_req(struct ocf_stats_requests *req, struct ocf_stats_core *s)
 {
 	uint64_t serviced = s->read_reqs.total + s->write_reqs.total;
 	uint64_t total = serviced + s->read_reqs.pass_through +
@@ -76,26 +76,26 @@ static void _fill_rq(struct ocf_stats_requests *rq, struct ocf_stats_core *s)
 	/* Reads Section */
 	hit = s->read_reqs.total - (s->read_reqs.full_miss +
 			s->read_reqs.partial_miss);
-	_set(&rq->rd_hits, hit, total);
-	_set(&rq->rd_partial_misses, s->read_reqs.partial_miss, total);
-	_set(&rq->rd_full_misses, s->read_reqs.full_miss, total);
-	_set(&rq->rd_total, s->read_reqs.total, total);
+	_set(&req->rd_hits, hit, total);
+	_set(&req->rd_partial_misses, s->read_reqs.partial_miss, total);
+	_set(&req->rd_full_misses, s->read_reqs.full_miss, total);
+	_set(&req->rd_total, s->read_reqs.total, total);
 
 	/* Write Section */
 	hit = s->write_reqs.total - (s->write_reqs.full_miss +
 					s->write_reqs.partial_miss);
-	_set(&rq->wr_hits, hit, total);
-	_set(&rq->wr_partial_misses, s->write_reqs.partial_miss, total);
-	_set(&rq->wr_full_misses, s->write_reqs.full_miss, total);
-	_set(&rq->wr_total, s->write_reqs.total, total);
+	_set(&req->wr_hits, hit, total);
+	_set(&req->wr_partial_misses, s->write_reqs.partial_miss, total);
+	_set(&req->wr_full_misses, s->write_reqs.full_miss, total);
+	_set(&req->wr_total, s->write_reqs.total, total);
 
 	/* Pass-Through section */
-	_set(&rq->rd_pt, s->read_reqs.pass_through, total);
-	_set(&rq->wr_pt, s->write_reqs.pass_through, total);
+	_set(&req->rd_pt, s->read_reqs.pass_through, total);
+	_set(&req->wr_pt, s->write_reqs.pass_through, total);
 
 	/* Summary */
-	_set(&rq->serviced, serviced, total);
-	_set(&rq->total, total, total);
+	_set(&req->serviced, serviced, total);
+	_set(&req->total, total, total);
 }
 
 static void _fill_blocks(struct ocf_stats_blocks *blocks,
@@ -155,7 +155,7 @@ static void _fill_errors(struct ocf_stats_errors *errors,
 
 int ocf_stats_collect_core(ocf_core_t core,
 		struct ocf_stats_usage *usage,
-		struct ocf_stats_requests *rq,
+		struct ocf_stats_requests *req,
 		struct ocf_stats_blocks *blocks,
 		struct ocf_stats_errors *errors)
 {
@@ -176,7 +176,7 @@ int ocf_stats_collect_core(ocf_core_t core,
 	cache_occupancy = _get_cache_occupancy(cache);
 
 	_ocf_stats_zero(usage);
-	_ocf_stats_zero(rq);
+	_ocf_stats_zero(req);
 	_ocf_stats_zero(blocks);
 	_ocf_stats_zero(errors);
 
@@ -198,8 +198,8 @@ int ocf_stats_collect_core(ocf_core_t core,
 			_lines4k(s.cache_occupancy, cache_line_size));
 	}
 
-	if (rq)
-		_fill_rq(rq, &s);
+	if (req)
+		_fill_req(req, &s);
 
 	if (blocks)
 		_fill_blocks(blocks, &s);
@@ -257,7 +257,7 @@ static int _accumulate_stats(ocf_core_t core, void *cntx)
 
 int ocf_stats_collect_cache(ocf_cache_t cache,
 		struct ocf_stats_usage *usage,
-		struct ocf_stats_requests *rq,
+		struct ocf_stats_requests *req,
 		struct ocf_stats_blocks *blocks,
 		struct ocf_stats_errors *errors)
 {
@@ -275,7 +275,7 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
 	cache_line_size = ocf_cache_get_line_size(cache);
 
 	_ocf_stats_zero(usage);
-	_ocf_stats_zero(rq);
+	_ocf_stats_zero(req);
 	_ocf_stats_zero(blocks);
 	_ocf_stats_zero(errors);
 
@@ -301,8 +301,8 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
 			_lines4k(info.size, cache_line_size));
 	}
 
-	if (rq)
-		_fill_rq(rq, &s);
+	if (req)
+		_fill_req(req, &s);
 
 	if (blocks)
 		_fill_blocks(blocks, &s);

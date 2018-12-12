@@ -92,13 +92,13 @@ int raw_dynamic_flush_all(struct ocf_cache *cache,
 /*
  * RAW DYNAMIC - Mark specified entry to be flushed
  */
-void raw_dynamic_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
+void raw_dynamic_flush_mark(struct ocf_cache *cache, struct ocf_request *req,
 		uint32_t map_idx, int to_state, uint8_t start, uint8_t stop);
 
 /*
  * DYNAMIC Implementation - Do Flush Asynchronously
  */
-int raw_dynamic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *rq,
+int raw_dynamic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 		struct ocf_metadata_raw *raw, ocf_req_end_t complete);
 
 

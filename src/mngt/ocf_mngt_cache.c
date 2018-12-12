@@ -273,7 +273,7 @@ static void __init_eviction_policy(struct ocf_cache *cache,
 static void __init_cores(struct ocf_cache *cache)
 {
 	/* No core devices yet */
-	cache->conf_meta->core_obj_count = 0;
+	cache->conf_meta->core_count = 0;
 	ENV_BUG_ON(env_memset(cache->conf_meta->valid_object_bitmap,
 			sizeof(cache->conf_meta->valid_object_bitmap), 0));
 }
@@ -359,22 +359,22 @@ static void _ocf_mngt_close_all_uninitialized_cores(
 	ocf_data_obj_t obj;
 	int j, i;
 
-	for (j = cache->conf_meta->core_obj_count, i = 0; j > 0; ++i) {
+	for (j = cache->conf_meta->core_count, i = 0; j > 0; ++i) {
 		if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
 			continue;
 
-		obj = &(cache->core_obj[i].obj);
+		obj = &(cache->core[i].obj);
 		ocf_data_obj_close(obj);
 
 		--j;
 
-		env_free(cache->core_obj[i].counters);
-		cache->core_obj[i].counters = NULL;
+		env_free(cache->core[i].counters);
+		cache->core[i].counters = NULL;
 
 		env_bit_clear(i, cache->conf_meta->valid_object_bitmap);
 	}
 
-	cache->conf_meta->core_obj_count = 0;
+	cache->conf_meta->core_count = 0;
 }
 
 /**
@@ -407,17 +407,17 @@ static int _ocf_mngt_init_instance_add_cores(
 	}
 
 	/* Count value will be re-calculated on the basis of 'added' flag */
-	cache->conf_meta->core_obj_count = 0;
+	cache->conf_meta->core_count = 0;
 
 	/* Check in metadata which cores were added into cache */
 	for (i = 0; i < OCF_CORE_MAX; i++) {
 		ocf_data_obj_t tobj = NULL;
-		ocf_core_t core = &cache->core_obj[i];
+		ocf_core_t core = &cache->core[i];
 
 		if (!cache->core_conf_meta[i].added)
 			continue;
 
-		if (!cache->core_obj[i].obj.type)
+		if (!cache->core[i].obj.type)
 			goto _cache_mng_init_instance_add_cores_ERROR;
 
 		ret = snprintf(core_name, sizeof(core_name), "core%d", i);
@@ -458,7 +458,7 @@ static int _ocf_mngt_init_instance_add_cores(
 		}
 
 		env_bit_set(i, cache->conf_meta->valid_object_bitmap);
-		cache->conf_meta->core_obj_count++;
+		cache->conf_meta->core_count++;
 		core->obj.cache = cache;
 
 		core->counters =
@@ -478,7 +478,7 @@ static int _ocf_mngt_init_instance_add_cores(
 
 		hd_lines = ocf_bytes_2_lines(cache,
 				ocf_data_obj_get_length(
-				&cache->core_obj[i].obj));
+				&cache->core[i].obj));
 
 		if (hd_lines) {
 			ocf_cache_log(cache, log_info,
@@ -1265,7 +1265,7 @@ static int _ocf_mngt_cache_add_cores_t_clean_pol(ocf_cache_t cache)
 	int result;
 
 	if (cleaning_policy_ops[clean_type].add_core) {
-		no = cache->conf_meta->core_obj_count;
+		no = cache->conf_meta->core_count;
 		for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {
 			if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
 				continue;
@@ -1537,7 +1537,7 @@ static int _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop)
 	int result;
 
 	if (stop)
-		ENV_BUG_ON(cache->conf_meta->core_obj_count != 0);
+		ENV_BUG_ON(cache->conf_meta->core_count != 0);
 
 	ocf_stop_cleaner(cache);
 
@@ -1590,7 +1590,7 @@ static int _ocf_mngt_cache_stop(ocf_cache_t cache)
 	int i, j, no, result = 0;
 	ocf_ctx_t owner = cache->owner;
 
-	no = cache->conf_meta->core_obj_count;
+	no = cache->conf_meta->core_count;
 
 	env_bit_set(ocf_cache_state_stopping, &cache->cache_state);
 	env_bit_clear(ocf_cache_state_running, &cache->cache_state);
@@ -1607,7 +1607,7 @@ static int _ocf_mngt_cache_stop(ocf_cache_t cache)
 		cache_mng_core_close(cache, i);
 		j++;
 	}
-	ENV_BUG_ON(cache->conf_meta->core_obj_count != 0);
+	ENV_BUG_ON(cache->conf_meta->core_count != 0);
 
 	if (env_atomic_read(&cache->attached))
 		result = _ocf_mngt_cache_unplug(cache, true);
@@ -2062,7 +2062,7 @@ int ocf_mngt_cache_detach(ocf_cache_t cache)
 	int result;
 	ocf_cache_mode_t mode;
 
-	no = cache->conf_meta->core_obj_count;
+	no = cache->conf_meta->core_count;
 
 	result = ocf_mngt_cache_lock(cache);
 	if (result)

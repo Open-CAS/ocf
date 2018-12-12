@@ -6,6 +6,6 @@
 #ifndef __CACHE_ENGINE_OPS_H_
 #define __CACHE_ENGINE_OPS_H_
 
-int ocf_engine_ops(struct ocf_request *rq);
+int ocf_engine_ops(struct ocf_request *req);
 
 #endif /* __CACHE_ENGINE_OPS_H_ */
