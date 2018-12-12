@@ -291,12 +291,12 @@ static int _raw_ram_flush_all(struct ocf_cache *cache,
  * RAM RAM Implementation - Mark to Flush
  */
 static void _raw_ram_flush_mark(struct ocf_cache *cache,
-		struct ocf_request *rq, uint32_t map_idx, int to_state,
+		struct ocf_request *req, uint32_t map_idx, int to_state,
 		uint8_t start, uint8_t stop)
 {
 	if (to_state == DIRTY || to_state == CLEAN) {
-		rq->map[map_idx].flush = true;
-		rq->info.flush_metadata = true;
+		req->map[map_idx].flush = true;
+		req->info.flush_metadata = true;
 	}
 }
 
@@ -305,7 +305,7 @@ static void _raw_ram_flush_mark(struct ocf_cache *cache,
  ******************************************************************************/
 struct _raw_ram_flush_ctx {
 	struct ocf_metadata_raw *raw;
-	struct ocf_request *rq;
+	struct ocf_request *req;
 	ocf_req_end_t complete;
 	env_atomic flush_req_cnt;
 	int error;
@@ -327,8 +327,8 @@ static void _raw_ram_flush_do_asynch_io_complete(struct ocf_cache *cache,
 	OCF_DEBUG_MSG(cache, "Asynchronous flushing complete");
 
 	/* Call metadata flush completed call back */
-	ctx->rq->error |= ctx->error;
-	ctx->complete(ctx->rq, ctx->error);
+	ctx->req->error |= ctx->error;
+	ctx->complete(ctx->req, ctx->error);
 
 	env_free(ctx);
 }
@@ -382,15 +382,15 @@ int _raw_ram_flush_do_page_cmp(const void *item1, const void *item2)
 	return 0;
 }
 
-static void __raw_ram_flush_do_asynch_add_pages(struct ocf_request *rq,
+static void __raw_ram_flush_do_asynch_add_pages(struct ocf_request *req,
 		uint32_t *pages_tab, struct ocf_metadata_raw *raw,
 		int *pages_to_flush) {
 	int i, j = 0;
-	int line_no = rq->core_line_count;
+	int line_no = req->core_line_count;
 	struct ocf_map_info *map;
 
 	for (i = 0; i < line_no; i++) {
-		map = &rq->map[i];
+		map = &req->map[i];
 		if (map->flush) {
 			pages_tab[j] = _RAW_RAM_PAGE(raw, map->coll_idx);
 			j++;
@@ -401,13 +401,13 @@ static void __raw_ram_flush_do_asynch_add_pages(struct ocf_request *rq,
 }
 
 static int _raw_ram_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *rq, struct ocf_metadata_raw *raw,
+		struct ocf_request *req, struct ocf_metadata_raw *raw,
 		ocf_req_end_t complete)
 {
 	int result = 0, i;
 	uint32_t __pages_tab[MAX_STACK_TAB_SIZE];
 	uint32_t *pages_tab;
-	int line_no = rq->core_line_count;
+	int line_no = req->core_line_count;
 	int pages_to_flush;
 	uint32_t start_page = 0;
 	uint32_t count = 0;
@@ -417,19 +417,19 @@ static int _raw_ram_flush_do_asynch(struct ocf_cache *cache,
 
 	OCF_DEBUG_TRACE(cache);
 
-	if (!rq->info.flush_metadata) {
+	if (!req->info.flush_metadata) {
 		/* Nothing to flush call flush callback */
-		complete(rq, 0);
+		complete(req, 0);
 		return 0;
 	}
 
 	ctx = env_zalloc(sizeof(*ctx), ENV_MEM_NOIO);
 	if (!ctx) {
-		complete(rq, -ENOMEM);
+		complete(req, -ENOMEM);
 		return -ENOMEM;
 	}
 
-	ctx->rq = rq;
+	ctx->req = req;
 	ctx->complete = complete;
 	ctx->raw = raw;
 	env_atomic_set(&ctx->flush_req_cnt, 1);
@@ -440,7 +440,7 @@ static int _raw_ram_flush_do_asynch(struct ocf_cache *cache,
 		pages_tab = env_zalloc(sizeof(*pages_tab) * line_no, ENV_MEM_NOIO);
 		if (!pages_tab) {
 			env_free(ctx);
-			complete(rq, -ENOMEM);
+			complete(req, -ENOMEM);
 			return -ENOMEM;
 		}
 	}
@@ -449,7 +449,7 @@ static int _raw_ram_flush_do_asynch(struct ocf_cache *cache,
 	 * to prevent freeing of asynchronous context
 	 */
 
-	__raw_ram_flush_do_asynch_add_pages(rq, pages_tab, raw,
+	__raw_ram_flush_do_asynch_add_pages(req, pages_tab, raw,
 			&pages_to_flush);
 
 	env_sort(pages_tab, pages_to_flush, sizeof(*pages_tab),
@@ -479,7 +479,7 @@ static int _raw_ram_flush_do_asynch(struct ocf_cache *cache,
 
 		env_atomic_inc(&ctx->flush_req_cnt);
 
-		result  |= metadata_io_write_i_asynch(cache, rq->io_queue, ctx,
+		result  |= metadata_io_write_i_asynch(cache, req->io_queue, ctx,
 				raw->ssd_pages_offset + start_page, count,
 				_raw_ram_flush_do_asynch_fill,
 				_raw_ram_flush_do_asynch_io_complete);

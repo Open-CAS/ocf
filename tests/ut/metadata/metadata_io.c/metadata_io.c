@@ -42,7 +42,7 @@ void __wrap_env_cond_resched(void)
 {
 }
 
-void __wrap_ocf_engine_push_rq_front(struct ocf_request *rq)
+void __wrap_ocf_engine_push_req_front(struct ocf_request *req)
 {
 }
 

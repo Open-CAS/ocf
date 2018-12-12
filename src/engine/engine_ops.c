@@ -7,55 +7,55 @@
 #include "engine_common.h"
 #include "cache_engine.h"
 #include "engine_ops.h"
-#include "../utils/utils_rq.h"
+#include "../utils/utils_req.h"
 #include "../utils/utils_io.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "ops"
 #include "engine_debug.h"
 
-static void _ocf_engine_ops_io(struct ocf_request *rq, int error)
+static void _ocf_engine_ops_io(struct ocf_request *req, int error)
 {
 	if (error)
-		rq->error |= error;
+		req->error |= error;
 
-	if (env_atomic_dec_return(&rq->req_remaining))
+	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	OCF_DEBUG_RQ(rq, "Completion");
+	OCF_DEBUG_RQ(req, "Completion");
 
-	if (rq->error) {
+	if (req->error) {
 		/* An error occured */
-		ocf_engine_error(rq, false, "Core operation failure");
+		ocf_engine_error(req, false, "Core operation failure");
 	}
 
 	/* Complete requests - both to cache and to core*/
-	rq->complete(rq, rq->error);
+	req->complete(req, req->error);
 
 	/* Release OCF request */
-	ocf_rq_put(rq);
+	ocf_req_put(req);
 }
 
-int ocf_engine_ops(struct ocf_request *rq)
+int ocf_engine_ops(struct ocf_request *req)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
-	OCF_DEBUG_TRACE(rq->cache);
+	OCF_DEBUG_TRACE(req->cache);
 
 	/* Get OCF request - increase reference counter */
-	ocf_rq_get(rq);
+	ocf_req_get(req);
 
 	/* IO to the core device and to the cache device */
-	env_atomic_set(&rq->req_remaining, 2);
+	env_atomic_set(&req->req_remaining, 2);
 
 	/* Submit operation into core device */
-	ocf_submit_obj_req(&cache->core_obj[rq->core_id].obj, rq,
+	ocf_submit_obj_req(&cache->core_obj[req->core_id].obj, req,
 			_ocf_engine_ops_io);
 
-	ocf_submit_cache_reqs(cache, rq->map, rq, rq->rw,
+	ocf_submit_cache_reqs(cache, req->map, req, req->rw,
 			1, _ocf_engine_ops_io);
 
 	/* Put OCF request - decrease reference counter */
-	ocf_rq_put(rq);
+	ocf_req_put(req);
 
 	return 0;
 }

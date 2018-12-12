@@ -14,7 +14,7 @@
 struct ocf_submit_io_wait_context {
 	env_completion complete;
 	int error;
-	env_atomic rq_remaining;
+	env_atomic req_remaining;
 };
 
 /*
@@ -39,7 +39,7 @@ int ocf_submit_obj_flush_wait(ocf_data_obj_t obj)
 	struct ocf_submit_io_wait_context cntx = { };
 	struct ocf_io *io;
 
-	env_atomic_set(&cntx.rq_remaining, 1);
+	env_atomic_set(&cntx.req_remaining, 1);
 	env_completion_init(&cntx.complete);
 
 	io = ocf_dobj_new_io(obj);
@@ -66,7 +66,7 @@ static void ocf_submit_obj_discard_wait_io(struct ocf_io *io, int error)
 
 	ocf_io_put(io); /* Release IO */
 
-	if (env_atomic_dec_return(&cntx->rq_remaining))
+	if (env_atomic_dec_return(&cntx->req_remaining))
 		return;
 
 	/* All discard IO handled, signal it by setting completion */
@@ -81,7 +81,7 @@ int ocf_submit_obj_discard_wait(ocf_data_obj_t obj, uint64_t addr,
 	uint64_t max_length = (uint32_t)~0;
 
 	ENV_BUG_ON(env_memset(&cntx, sizeof(cntx), 0));
-	env_atomic_set(&cntx.rq_remaining, 1);
+	env_atomic_set(&cntx.req_remaining, 1);
 	env_completion_init(&cntx.complete);
 
 	while (length) {
@@ -94,7 +94,7 @@ int ocf_submit_obj_discard_wait(ocf_data_obj_t obj, uint64_t addr,
 
 		bytes = min(length, max_length);
 
-		env_atomic_inc(&cntx.rq_remaining);
+		env_atomic_inc(&cntx.req_remaining);
 
 		ocf_io_configure(io, addr, bytes, OCF_WRITE, 0, 0);
 		ocf_io_set_cmpl(io, &cntx, NULL,
@@ -105,7 +105,7 @@ int ocf_submit_obj_discard_wait(ocf_data_obj_t obj, uint64_t addr,
 		length -= bytes;
 	}
 
-	if (env_atomic_dec_return(&cntx.rq_remaining) == 0)
+	if (env_atomic_dec_return(&cntx.req_remaining) == 0)
 		env_completion_complete(&cntx.complete);
 
 	env_completion_wait(&cntx.complete);
@@ -201,10 +201,10 @@ end:
 
 static void ocf_submit_obj_req_cmpl(struct ocf_io *io, int error)
 {
-	struct ocf_request *rq = io->priv1;
+	struct ocf_request *req = io->priv1;
 	ocf_req_end_t callback = io->priv2;
 
-	callback(rq, error);
+	callback(req, error);
 }
 
 void ocf_submit_cache_reqs(struct ocf_cache *cache,

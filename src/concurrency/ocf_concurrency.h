@@ -9,7 +9,7 @@
 #include "../ocf_cache_priv.h"
 
 /**
- * @file utils_rq.h
+ * @file utils_req.h
  * @brief OCF concurrency
  */
 

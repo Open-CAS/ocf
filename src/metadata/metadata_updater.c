@@ -142,7 +142,7 @@ uint32_t ocf_metadata_updater_run(ocf_metadata_updater_t mu)
 		}
 		env_mutex_unlock(&syncher->lock);
 		if (ret == 0)
-			ocf_engine_push_rq_front(&curr->fl_req, true);
+			ocf_engine_push_req_front(&curr->fl_req, true);
 		env_cond_resched();
 		env_mutex_lock(&syncher->lock);
 	}

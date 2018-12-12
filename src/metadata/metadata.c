@@ -139,17 +139,17 @@ int ocf_metadata_load_recovery(struct ocf_cache *cache)
 	return cache->metadata.iface.load_recovery(cache);
 }
 
-void ocf_metadata_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
+void ocf_metadata_flush_mark(struct ocf_cache *cache, struct ocf_request *req,
 		uint32_t map_idx, int to_state, uint8_t start, uint8_t stop)
 {
-	cache->metadata.iface.flush_mark(cache, rq, map_idx, to_state,
+	cache->metadata.iface.flush_mark(cache, req, map_idx, to_state,
 			start, stop);
 }
 
 void ocf_metadata_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *rq, ocf_req_end_t complete)
+		struct ocf_request *req, ocf_req_end_t complete)
 {
-	cache->metadata.iface.flush_do_asynch(cache, rq, complete);
+	cache->metadata.iface.flush_do_asynch(cache, req, complete);
 }
 
 static inline int ocf_metadata_check_properties(void)

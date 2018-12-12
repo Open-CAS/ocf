@@ -7,7 +7,7 @@
 #include "engine_d2c.h"
 #include "engine_common.h"
 #include "cache_engine.h"
-#include "../utils/utils_rq.h"
+#include "../utils/utils_req.h"
 #include "../utils/utils_io.h"
 #include "../metadata/metadata.h"
 
@@ -33,7 +33,7 @@ static void _ocf_d2c_completion(struct ocf_request *req, int error)
 	req->complete(req, req->error);
 
 	/* Release OCF request */
-	ocf_rq_put(req);
+	ocf_req_put(req);
 }
 
 int ocf_io_d2c(struct ocf_request *req)
@@ -46,7 +46,7 @@ int ocf_io_d2c(struct ocf_request *req)
 	ocf_io_start(req->io);
 
 	/* Get OCF request - increase reference counter */
-	ocf_rq_get(req);
+	ocf_req_get(req);
 
 	ocf_submit_obj_req(&core->obj, req, _ocf_d2c_completion);
 
@@ -61,7 +61,7 @@ int ocf_io_d2c(struct ocf_request *req)
 	}
 
 	/* Put OCF request - decrease reference counter */
-	ocf_rq_put(req);
+	ocf_req_put(req);
 
 	return 0;
 

@@ -79,7 +79,7 @@ struct metadata_io {
 	uint32_t page;
 	uint32_t count;
 	env_completion completion;
-	env_atomic rq_remaining;
+	env_atomic req_remaining;
 	ocf_metadata_io_event_t hndl_fn;
 	void *hndl_cntx;
 };

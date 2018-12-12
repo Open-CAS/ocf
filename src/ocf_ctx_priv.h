@@ -27,7 +27,7 @@ struct ocf_ctx {
 	} core_pool;
 
 	struct {
-		struct ocf_rq_allocator *rq;
+		struct ocf_req_allocator *req;
 		env_allocator *core_io_allocator;
 	} resources;
 };

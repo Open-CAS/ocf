@@ -20,7 +20,7 @@
 #include "engine_d2c.h"
 #include "engine_ops.h"
 #include "../utils/utils_part.h"
-#include "../utils/utils_rq.h"
+#include "../utils/utils_req.h"
 #include "../metadata/metadata.h"
 #include "../layer_space_management.h"
 
@@ -106,11 +106,11 @@ const struct ocf_io_if *ocf_get_io_if(ocf_req_cache_mode_t req_cache_mode)
 	return cache_mode_io_if_map[req_cache_mode];
 }
 
-struct ocf_request *ocf_engine_pop_rq(struct ocf_cache *cache,
+struct ocf_request *ocf_engine_pop_req(struct ocf_cache *cache,
 		struct ocf_queue *q)
 {
 	unsigned long lock_flags;
-	struct ocf_request *rq;
+	struct ocf_request *req;
 
 	OCF_CHECK_NULL(q);
 
@@ -125,22 +125,22 @@ struct ocf_request *ocf_engine_pop_rq(struct ocf_cache *cache,
 	}
 
 	/* Get the first request and remove it from the list */
-	rq = list_first_entry(&q->io_list, struct ocf_request, list);
+	req = list_first_entry(&q->io_list, struct ocf_request, list);
 
 	env_atomic_dec(&q->io_no);
-	list_del(&rq->list);
+	list_del(&req->list);
 
 	/* UNLOCK */
 	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
 
-	OCF_CHECK_NULL(rq);
+	OCF_CHECK_NULL(req);
 
-	if (ocf_rq_alloc_map(rq)) {
-		rq->complete(rq, rq->error);
+	if (ocf_req_alloc_map(req)) {
+		req->complete(req, req->error);
 		return NULL;
 	}
 
-	return rq;
+	return req;
 }
 
 bool ocf_fallback_pt_is_on(ocf_cache_t cache)
@@ -218,7 +218,7 @@ ocf_cache_mode_t ocf_get_effective_cache_mode(ocf_cache_t cache,
 {
 	ocf_cache_mode_t mode;
 
-	if (cache->pt_unaligned_io && !ocf_rq_is_4k(io->addr, io->bytes))
+	if (cache->pt_unaligned_io && !ocf_req_is_4k(io->addr, io->bytes))
 		return ocf_cache_mode_pt;
 
 	mode = ocf_part_get_cache_mode(cache,
@@ -239,27 +239,27 @@ ocf_cache_mode_t ocf_get_effective_cache_mode(ocf_cache_t cache,
 	return mode;
 }
 
-int ocf_engine_hndl_rq(struct ocf_request *rq,
+int ocf_engine_hndl_req(struct ocf_request *req,
 		ocf_req_cache_mode_t req_cache_mode)
 {
-	ocf_cache_t cache = rq->cache;
+	ocf_cache_t cache = req->cache;
 
 	OCF_CHECK_NULL(cache);
 
-	rq->io_if = ocf_get_io_if(req_cache_mode);
-	if (!rq->io_if)
+	req->io_if = ocf_get_io_if(req_cache_mode);
+	if (!req->io_if)
 		return -EINVAL;
 
 	/* Till OCF engine is not synchronous fully need to push OCF request
 	 * to into OCF workers
 	 */
 
-	ocf_engine_push_rq_back(rq, true);
+	ocf_engine_push_req_back(req, true);
 
 	return 0;
 }
 
-int ocf_engine_hndl_fast_rq(struct ocf_request *rq,
+int ocf_engine_hndl_fast_req(struct ocf_request *req,
 		ocf_req_cache_mode_t req_cache_mode)
 {
 	const struct ocf_io_if *io_if;
@@ -268,47 +268,47 @@ int ocf_engine_hndl_fast_rq(struct ocf_request *rq,
 	if (!io_if)
 		return -EINVAL;
 
-	switch (rq->rw) {
+	switch (req->rw) {
 	case OCF_READ:
-		return io_if->read(rq);
+		return io_if->read(req);
 	case OCF_WRITE:
-		return io_if->write(rq);
+		return io_if->write(req);
 	default:
 		return OCF_FAST_PATH_NO;
 	}
 }
 
-static void ocf_engine_hndl_2dc_rq(struct ocf_request *rq)
+static void ocf_engine_hndl_2dc_req(struct ocf_request *req)
 {
-	if (OCF_READ == rq->rw)
-		IO_IFS[OCF_IO_D2C_IF].read(rq);
-	else if (OCF_WRITE == rq->rw)
-		IO_IFS[OCF_IO_D2C_IF].write(rq);
+	if (OCF_READ == req->rw)
+		IO_IFS[OCF_IO_D2C_IF].read(req);
+	else if (OCF_WRITE == req->rw)
+		IO_IFS[OCF_IO_D2C_IF].write(req);
 	else
 		ENV_BUG();
 }
 
-void ocf_engine_hndl_discard_rq(struct ocf_request *rq)
+void ocf_engine_hndl_discard_req(struct ocf_request *req)
 {
-	if (rq->d2c) {
-		ocf_engine_hndl_2dc_rq(rq);
+	if (req->d2c) {
+		ocf_engine_hndl_2dc_req(req);
 		return;
 	}
 
-	if (OCF_READ == rq->rw)
-		IO_IFS[OCF_IO_DISCARD_IF].read(rq);
-	else if (OCF_WRITE == rq->rw)
-		IO_IFS[OCF_IO_DISCARD_IF].write(rq);
+	if (OCF_READ == req->rw)
+		IO_IFS[OCF_IO_DISCARD_IF].read(req);
+	else if (OCF_WRITE == req->rw)
+		IO_IFS[OCF_IO_DISCARD_IF].write(req);
 	else
 		ENV_BUG();
 }
 
-void ocf_engine_hndl_ops_rq(struct ocf_request *rq)
+void ocf_engine_hndl_ops_req(struct ocf_request *req)
 {
-	if (rq->d2c)
-		rq->io_if = &IO_IFS[OCF_IO_D2C_IF];
+	if (req->d2c)
+		req->io_if = &IO_IFS[OCF_IO_D2C_IF];
 	else
-		rq->io_if = &IO_IFS[OCF_IO_OPS_IF];
+		req->io_if = &IO_IFS[OCF_IO_OPS_IF];
 
-	ocf_engine_push_rq_back(rq, true);
+	ocf_engine_push_req_back(req, true);
 }

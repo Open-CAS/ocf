@@ -10,7 +10,7 @@
 #include "engine_inv.h"
 #include "engine_common.h"
 #include "cache_engine.h"
-#include "../utils/utils_rq.h"
+#include "../utils/utils_req.h"
 #include "../utils/utils_io.h"
 #include "../concurrency/ocf_concurrency.h"
 
@@ -37,56 +37,56 @@ static inline void backfill_queue_inc_block(struct ocf_cache *cache)
 		env_atomic_set(&cache->pending_read_misses_list_blocked, 1);
 }
 
-static void _ocf_backfill_do_io(struct ocf_request *rq, int error)
+static void _ocf_backfill_do_io(struct ocf_request *req, int error)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
 	if (error)
-		rq->error = error;
+		req->error = error;
 
-	if (rq->error)
-		inc_fallback_pt_error_counter(rq->cache);
+	if (req->error)
+		inc_fallback_pt_error_counter(req->cache);
 
 	/* Handle callback-caller race to let only one of the two complete the
 	 * request. Also, complete original request only if this is the last
 	 * sub-request to complete
 	 */
-	if (env_atomic_dec_return(&rq->req_remaining) == 0) {
+	if (env_atomic_dec_return(&req->req_remaining) == 0) {
 		/* We must free the pages we have allocated */
-		ctx_data_secure_erase(cache->owner, rq->data);
-		ctx_data_munlock(cache->owner, rq->data);
-		ctx_data_free(cache->owner, rq->data);
-		rq->data = NULL;
+		ctx_data_secure_erase(cache->owner, req->data);
+		ctx_data_munlock(cache->owner, req->data);
+		ctx_data_free(cache->owner, req->data);
+		req->data = NULL;
 
-		if (rq->error) {
-			env_atomic_inc(&cache->core_obj[rq->core_id].
+		if (req->error) {
+			env_atomic_inc(&cache->core_obj[req->core_id].
 					counters->cache_errors.write);
-			ocf_engine_invalidate(rq);
+			ocf_engine_invalidate(req);
 		} else {
-			ocf_rq_unlock(rq);
+			ocf_req_unlock(req);
 
 			/* always free the request at the last point
 			 * of the completion path
 			 */
-			ocf_rq_put(rq);
+			ocf_req_put(req);
 		}
 	}
 }
 
-static int _ocf_backfill_do(struct ocf_request *rq)
+static int _ocf_backfill_do(struct ocf_request *req)
 {
 	unsigned int reqs_to_issue;
 
-	backfill_queue_dec_unblock(rq->cache);
+	backfill_queue_dec_unblock(req->cache);
 
-	reqs_to_issue = ocf_engine_io_count(rq);
+	reqs_to_issue = ocf_engine_io_count(req);
 
 	/* There will be #reqs_to_issue completions */
-	env_atomic_set(&rq->req_remaining, reqs_to_issue);
+	env_atomic_set(&req->req_remaining, reqs_to_issue);
 
-	rq->data = rq->cp_data;
+	req->data = req->cp_data;
 
-	ocf_submit_cache_reqs(rq->cache, rq->map, rq, OCF_WRITE, reqs_to_issue,
+	ocf_submit_cache_reqs(req->cache, req->map, req, OCF_WRITE, reqs_to_issue,
 			      _ocf_backfill_do_io);
 
 	return 0;
@@ -97,8 +97,8 @@ static const struct ocf_io_if _io_if_backfill = {
 	.write = _ocf_backfill_do,
 };
 
-void ocf_engine_backfill(struct ocf_request *rq)
+void ocf_engine_backfill(struct ocf_request *req)
 {
-	backfill_queue_inc_block(rq->cache);
-	ocf_engine_push_rq_front_if(rq, &_io_if_backfill, true);
+	backfill_queue_inc_block(req->cache);
+	ocf_engine_push_req_front_if(req, &_io_if_backfill, true);
 }

@@ -10,7 +10,7 @@
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
 #include "../utils/utils_part.h"
-#include "../utils/utils_rq.h"
+#include "../utils/utils_req.h"
 #include "../utils/utils_device.h"
 #include "../eviction/ops.h"
 #include "../ocf_logger_priv.h"
@@ -437,12 +437,12 @@ int ocf_mngt_cache_visit_reverse(ocf_ctx_t ocf_ctx,
 
 void ocf_mngt_wait_for_io_finish(ocf_cache_t cache)
 {
-	uint32_t rq_active = 0;
+	uint32_t req_active = 0;
 
 	do {
-		rq_active = ocf_rq_get_allocated(cache);
-		if (rq_active)
+		req_active = ocf_req_get_allocated(cache);
+		if (req_active)
 			env_msleep(500);
-	} while (rq_active);
+	} while (req_active);
 }
 

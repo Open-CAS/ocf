@@ -5,8 +5,8 @@
 #ifndef ENGINE_WB_H_
 #define ENGINE_WB_H_
 
-int ocf_write_wb(struct ocf_request *rq);
+int ocf_write_wb(struct ocf_request *req);
 
-int ocf_write_wb_do(struct ocf_request *rq);
+int ocf_write_wb_do(struct ocf_request *req);
 
 #endif /* ENGINE_WI_H_ */

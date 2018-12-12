@@ -77,10 +77,10 @@ struct ocf_map_info {
 	/*!< This bit indicates if cache line need to be flushed */
 
 	uint8_t start_flush;
-	/*!< If rq need flush, contain first sector of range to flush */
+	/*!< If req need flush, contain first sector of range to flush */
 
 	uint8_t stop_flush;
-	/*!< If rq need flush, contain last sector of range to flush */
+	/*!< If req need flush, contain last sector of range to flush */
 };
 
 /**
@@ -126,7 +126,7 @@ struct ocf_request {
 	const struct ocf_io_if *io_if;
 	/*!< IO interface */
 
-	void (*resume)(struct ocf_request *rq);
+	void (*resume)(struct ocf_request *req);
 	/*!< OCF request resume callback */
 
 	ocf_core_id_t core_id;
@@ -199,6 +199,6 @@ struct ocf_request {
 	struct ocf_map_info __map[];
 };
 
-typedef void (*ocf_req_end_t)(struct ocf_request *rq, int error);
+typedef void (*ocf_req_end_t)(struct ocf_request *req, int error);
 
 #endif

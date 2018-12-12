@@ -7,7 +7,7 @@
 #include "engine_pt.h"
 #include "engine_common.h"
 #include "cache_engine.h"
-#include "../utils/utils_rq.h"
+#include "../utils/utils_req.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_part.h"
 #include "../metadata/metadata.h"
@@ -16,86 +16,86 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "pt"
 #include "engine_debug.h"
 
-static void _ocf_read_pt_io(struct ocf_request *rq, int error)
+static void _ocf_read_pt_io(struct ocf_request *req, int error)
 {
 	if (error)
-		rq->error |= error;
+		req->error |= error;
 
-	if (env_atomic_dec_return(&rq->req_remaining))
+	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	OCF_DEBUG_RQ(rq, "Completion");
+	OCF_DEBUG_RQ(req, "Completion");
 
-	if (rq->error) {
-		rq->info.core_error = 1;
-		env_atomic_inc(&rq->cache->core_obj[rq->core_id].counters->
+	if (req->error) {
+		req->info.core_error = 1;
+		env_atomic_inc(&req->cache->core_obj[req->core_id].counters->
 				core_errors.read);
 	}
 
 	/* Complete request */
-	rq->complete(rq, rq->error);
+	req->complete(req, req->error);
 
-	ocf_rq_unlock_rd(rq);
+	ocf_req_unlock_rd(req);
 
 	/* Release OCF request */
-	ocf_rq_put(rq);
+	ocf_req_put(req);
 }
 
-static inline void _ocf_read_pt_submit(struct ocf_request *rq)
+static inline void _ocf_read_pt_submit(struct ocf_request *req)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
-	env_atomic_set(&rq->req_remaining, 1); /* Core device IO */
+	env_atomic_set(&req->req_remaining, 1); /* Core device IO */
 
-	OCF_DEBUG_RQ(rq, "Submit");
+	OCF_DEBUG_RQ(req, "Submit");
 
 	/* Core read */
-	ocf_submit_obj_req(&cache->core_obj[rq->core_id].obj, rq,
+	ocf_submit_obj_req(&cache->core_obj[req->core_id].obj, req,
 			_ocf_read_pt_io);
 }
 
-int ocf_read_pt_do(struct ocf_request *rq)
+int ocf_read_pt_do(struct ocf_request *req)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
 	/* Get OCF request - increase reference counter */
-	ocf_rq_get(rq);
+	ocf_req_get(req);
 
-	if (rq->info.dirty_any) {
+	if (req->info.dirty_any) {
 		OCF_METADATA_LOCK_RD();
 		/* Need to clean, start it */
-		ocf_engine_clean(rq);
+		ocf_engine_clean(req);
 		OCF_METADATA_UNLOCK_RD();
 
 		/* Do not processing, because first we need to clean request */
-		ocf_rq_put(rq);
+		ocf_req_put(req);
 
 		return 0;
 	}
 
-	if (rq->info.re_part) {
-		OCF_DEBUG_RQ(rq, "Re-Part");
+	if (req->info.re_part) {
+		OCF_DEBUG_RQ(req, "Re-Part");
 
 		OCF_METADATA_LOCK_WR();
 
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
-		ocf_part_move(rq);
+		ocf_part_move(req);
 
 		OCF_METADATA_UNLOCK_WR();
 	}
 
 	/* Submit read IO to the core */
-	_ocf_read_pt_submit(rq);
+	_ocf_read_pt_submit(req);
 
 	/* Update statistics */
-	ocf_engine_update_block_stats(rq);
-	env_atomic64_inc(&cache->core_obj[rq->core_id].counters->
-			part_counters[rq->part_id].read_reqs.pass_through);
+	ocf_engine_update_block_stats(req);
+	env_atomic64_inc(&cache->core_obj[req->core_id].counters->
+			part_counters[req->part_id].read_reqs.pass_through);
 
 	/* Put OCF request - decrease reference counter */
-	ocf_rq_put(rq);
+	ocf_req_put(req);
 
 	return 0;
 }
@@ -105,36 +105,36 @@ static const struct ocf_io_if _io_if_pt_resume = {
 	.write = ocf_read_pt_do,
 };
 
-int ocf_read_pt(struct ocf_request *rq)
+int ocf_read_pt(struct ocf_request *req)
 {
 	bool use_cache = false;
 	int lock = OCF_LOCK_NOT_ACQUIRED;
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 
-	OCF_DEBUG_TRACE(rq->cache);
+	OCF_DEBUG_TRACE(req->cache);
 
-	ocf_io_start(rq->io);
+	ocf_io_start(req->io);
 
 	/* Get OCF request - increase reference counter */
-	ocf_rq_get(rq);
+	ocf_req_get(req);
 
 	/* Set resume call backs */
-	rq->resume = ocf_engine_on_resume;
-	rq->io_if = &_io_if_pt_resume;
+	req->resume = ocf_engine_on_resume;
+	req->io_if = &_io_if_pt_resume;
 
 	OCF_METADATA_LOCK_RD(); /*- Metadata RD access -----------------------*/
 
 	/* Traverse request to check if there are mapped cache lines */
-	ocf_engine_traverse(rq);
+	ocf_engine_traverse(req);
 
-	if (rq->info.seq_cutoff && ocf_engine_is_dirty_all(rq)) {
+	if (req->info.seq_cutoff && ocf_engine_is_dirty_all(req)) {
 		use_cache = true;
 	} else {
-		if (ocf_engine_mapped_count(rq)) {
+		if (ocf_engine_mapped_count(req)) {
 			/* There are mapped cache line,
 			 * lock request for READ access
 			 */
-			lock = ocf_rq_trylock_rd(rq);
+			lock = ocf_req_trylock_rd(req);
 		} else {
 			/* No mapped cache lines, no need to get lock */
 			lock = OCF_LOCK_ACQUIRED;
@@ -148,32 +148,32 @@ int ocf_read_pt(struct ocf_request *rq)
 		 * There is dirt HIT, and sequential cut off,
 		 * because of this force read data from cache
 		 */
-		ocf_rq_clear(rq);
-		ocf_get_io_if(ocf_cache_mode_wt)->read(rq);
+		ocf_req_clear(req);
+		ocf_get_io_if(ocf_cache_mode_wt)->read(req);
 	} else {
 		if (lock >= 0) {
 			if (lock == OCF_LOCK_ACQUIRED) {
 				/* Lock acquired perform read off operations */
-				ocf_read_pt_do(rq);
+				ocf_read_pt_do(req);
 			} else {
 				/* WR lock was not acquired, need to wait for resume */
-				OCF_DEBUG_RQ(rq, "NO LOCK");
+				OCF_DEBUG_RQ(req, "NO LOCK");
 			}
 		} else {
-			OCF_DEBUG_RQ(rq, "LOCK ERROR %d", lock);
-			rq->complete(rq, lock);
-			ocf_rq_put(rq);
+			OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);
+			req->complete(req, lock);
+			ocf_req_put(req);
 		}
 	}
 
 	/* Put OCF request - decrease reference counter */
-	ocf_rq_put(rq);
+	ocf_req_put(req);
 
 	return 0;
 }
 
-void ocf_engine_push_rq_front_pt(struct ocf_request *rq)
+void ocf_engine_push_req_front_pt(struct ocf_request *req)
 {
-	ocf_engine_push_rq_front_if(rq, &_io_if_pt_resume, true);
+	ocf_engine_push_req_front_if(req, &_io_if_pt_resume, true);
 }
 

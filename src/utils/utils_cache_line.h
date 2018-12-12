@@ -75,11 +75,11 @@ static inline uint64_t ocf_lines_2_bytes(struct ocf_cache *cache,
  * @param cache Cache instance
  * @param start_bit Start bit of cache line for which state will be set
  * @param end_bit End bit of cache line for which state will be set
- * @param rq OCF request
+ * @param req OCF request
  * @param map_idx Array index to map containing cache line to invalid
  */
 void set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
-		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx);
+		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx);
 
 
 /**
@@ -99,11 +99,11 @@ void set_cache_line_invalid_no_flush(struct ocf_cache *cache, uint8_t start_bit,
  * @param cache Cache instance
  * @param start_bit Start bit of cache line for which state will be set
  * @param end_bit End bit of cache line for which state will be set
- * @param rq OCF request
+ * @param req OCF request
  * @param map_idx Array index to map containing cache line to invalid
  */
 void set_cache_line_valid(struct ocf_cache *cache, uint8_t start_bit,
-		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx);
+		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx);
 
 /**
  * @brief Set cache line clean
@@ -111,11 +111,11 @@ void set_cache_line_valid(struct ocf_cache *cache, uint8_t start_bit,
  * @param cache Cache instance
  * @param start_bit Start bit of cache line for which state will be set
  * @param end_bit End bit of cache line for which state will be set
- * @param rq OCF request
+ * @param req OCF request
  * @param map_idx Array index to map containing cache line to invalid
  */
 void set_cache_line_clean(struct ocf_cache *cache, uint8_t start_bit,
-		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx);
+		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx);
 
 /**
  * @brief Set cache line dirty
@@ -123,11 +123,11 @@ void set_cache_line_clean(struct ocf_cache *cache, uint8_t start_bit,
  * @param cache Cache instance
  * @param start_bit Start bit of cache line for which state will be set
  * @param end_bit End bit of cache line for which state will be set
- * @param rq OCF request
+ * @param req OCF request
  * @param map_idx Array index to map containing cache line to invalid
  */
 void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
-		uint8_t end_bit, struct ocf_request *rq, uint32_t map_idx);
+		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx);
 
 /**
  * @brief Remove cache line from cleaning policy
@@ -166,33 +166,33 @@ static inline void ocf_purge_eviction_policy(struct ocf_cache *cache,
  * @param cache Cache instance
  * @param start Start bit of range in cache line to purge
  * @param end End bit of range in cache line to purge
- * @param rq OCF request
+ * @param req OCF request
  * @param map_idx Array index to map containing cache line to purge
  */
 static inline void _ocf_purge_cache_line_sec(struct ocf_cache *cache,
-		uint8_t start, uint8_t stop, struct ocf_request *rq,
+		uint8_t start, uint8_t stop, struct ocf_request *req,
 		uint32_t map_idx)
 {
 
-	set_cache_line_clean(cache, start, stop, rq, map_idx);
+	set_cache_line_clean(cache, start, stop, req, map_idx);
 
-	set_cache_line_invalid(cache, start, stop, rq, map_idx);
+	set_cache_line_invalid(cache, start, stop, req, map_idx);
 }
 
 /**
  * @brief Purge cache line (remove completely, form collision, move to free
  * partition, from cleaning policy and eviction policy)
  *
- * @param rq - OCF request to purge
+ * @param req - OCF request to purge
  */
-static inline void ocf_purge_map_info(struct ocf_request *rq)
+static inline void ocf_purge_map_info(struct ocf_request *req)
 {
 	uint32_t map_idx = 0;
 	uint8_t start_bit;
 	uint8_t end_bit;
-	struct ocf_map_info *map = rq->map;
-	struct ocf_cache *cache = rq->cache;
-	uint32_t count = rq->core_line_count;
+	struct ocf_map_info *map = req->map;
+	struct ocf_cache *cache = req->cache;
+	uint32_t count = req->core_line_count;
 
 	/* Purge range on the basis of map info
 	 *
@@ -211,7 +211,7 @@ static inline void ocf_purge_map_info(struct ocf_request *rq)
 		if (map_idx == 0) {
 			/* First */
 
-			start_bit = BYTES_TO_SECTORS(rq->byte_position)
+			start_bit = BYTES_TO_SECTORS(req->byte_position)
 					% ocf_line_sectors(cache);
 
 		}
@@ -219,24 +219,24 @@ static inline void ocf_purge_map_info(struct ocf_request *rq)
 		if (map_idx == (count - 1)) {
 			/* Last */
 
-			end_bit = BYTES_TO_SECTORS(rq->byte_position +
-					rq->byte_length - 1) %
+			end_bit = BYTES_TO_SECTORS(req->byte_position +
+					req->byte_length - 1) %
 					ocf_line_sectors(cache);
 		}
 
-		_ocf_purge_cache_line_sec(cache, start_bit, end_bit, rq,
+		_ocf_purge_cache_line_sec(cache, start_bit, end_bit, req,
 				map_idx);
 	}
 }
 
-static inline void ocf_set_valid_map_info(struct ocf_request *rq)
+static inline void ocf_set_valid_map_info(struct ocf_request *req)
 {
 	uint32_t map_idx = 0;
 	uint8_t start_bit;
 	uint8_t end_bit;
-	struct ocf_cache *cache = rq->cache;
-	uint32_t count = rq->core_line_count;
-	struct ocf_map_info *map = rq->map;
+	struct ocf_cache *cache = req->cache;
+	uint32_t count = req->core_line_count;
+	struct ocf_map_info *map = req->map;
 
 	/* Set valid bits for sectors on the basis of map info
 	 *
@@ -254,29 +254,29 @@ static inline void ocf_set_valid_map_info(struct ocf_request *rq)
 		if (map_idx == 0) {
 			/* First */
 
-			start_bit = BYTES_TO_SECTORS(rq->byte_position)
+			start_bit = BYTES_TO_SECTORS(req->byte_position)
 					% ocf_line_sectors(cache);
 		}
 
 		if (map_idx == (count - 1)) {
 			/* Last */
 
-			end_bit = BYTES_TO_SECTORS(rq->byte_position +
-					rq->byte_length - 1)
+			end_bit = BYTES_TO_SECTORS(req->byte_position +
+					req->byte_length - 1)
 					% ocf_line_sectors(cache);
 		}
 
-		set_cache_line_valid(cache, start_bit, end_bit, rq, map_idx);
+		set_cache_line_valid(cache, start_bit, end_bit, req, map_idx);
 	}
 }
 
-static inline void ocf_set_dirty_map_info(struct ocf_request *rq)
+static inline void ocf_set_dirty_map_info(struct ocf_request *req)
 {
 	uint32_t map_idx = 0;
 	uint8_t start_bit;
 	uint8_t end_bit;
-	struct ocf_cache *cache = rq->cache;
-	uint32_t count = rq->core_line_count;
+	struct ocf_cache *cache = req->cache;
+	uint32_t count = req->core_line_count;
 
 	/* Set valid bits for sectors on the basis of map info
 	 *
@@ -292,29 +292,29 @@ static inline void ocf_set_dirty_map_info(struct ocf_request *rq)
 		if (map_idx == 0) {
 			/* First */
 
-			start_bit = BYTES_TO_SECTORS(rq->byte_position)
+			start_bit = BYTES_TO_SECTORS(req->byte_position)
 					% ocf_line_sectors(cache);
 		}
 
 		if (map_idx == (count - 1)) {
 			/* Last */
 
-			end_bit = BYTES_TO_SECTORS(rq->byte_position +
-					rq->byte_length - 1) %
+			end_bit = BYTES_TO_SECTORS(req->byte_position +
+					req->byte_length - 1) %
 					ocf_line_sectors(cache);
 		}
 
-		set_cache_line_dirty(cache, start_bit, end_bit, rq, map_idx);
+		set_cache_line_dirty(cache, start_bit, end_bit, req, map_idx);
 	}
 }
 
-static inline void ocf_set_clean_map_info(struct ocf_request *rq)
+static inline void ocf_set_clean_map_info(struct ocf_request *req)
 {
 	uint32_t map_idx = 0;
 	uint8_t start_bit;
 	uint8_t end_bit;
-	struct ocf_cache *cache = rq->cache;
-	uint32_t count = rq->core_line_count;
+	struct ocf_cache *cache = req->cache;
+	uint32_t count = req->core_line_count;
 
 	/* Set valid bits for sectors on the basis of map info
 	 *
@@ -330,20 +330,20 @@ static inline void ocf_set_clean_map_info(struct ocf_request *rq)
 		if (map_idx == 0) {
 			/* First */
 
-			start_bit = BYTES_TO_SECTORS(rq->byte_position)
+			start_bit = BYTES_TO_SECTORS(req->byte_position)
 					% ocf_line_sectors(cache);
 		}
 
 		if (map_idx == (count - 1)) {
 			/* Last */
 
-			end_bit = BYTES_TO_SECTORS(rq->byte_position +
-					rq->byte_length - 1) %
+			end_bit = BYTES_TO_SECTORS(req->byte_position +
+					req->byte_length - 1) %
 					ocf_line_sectors(cache);
 
 		}
 
-		set_cache_line_clean(cache, start_bit, end_bit, rq, map_idx);
+		set_cache_line_clean(cache, start_bit, end_bit, req, map_idx);
 	}
 }
 

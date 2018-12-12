@@ -244,7 +244,7 @@ void ocf_metadata_flush(struct ocf_cache *cache, ocf_cache_line_t line);
  * @param[in] cache - Cache instance
  * @param[in] line - cache line which to be flushed
  */
-void ocf_metadata_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
+void ocf_metadata_flush_mark(struct ocf_cache *cache, struct ocf_request *req,
 		uint32_t map_idx, int to_state, uint8_t start, uint8_t stop);
 
 /**
@@ -257,7 +257,7 @@ void ocf_metadata_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
  * @param context - context that will be passed into callback
  */
 void ocf_metadata_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *rq, ocf_req_end_t complete);
+		struct ocf_request *req, ocf_req_end_t complete);
 
 /**
  * @brief Load metadata

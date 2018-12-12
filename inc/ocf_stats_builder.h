@@ -156,7 +156,7 @@ struct ocf_stats_errors {
  *
  * @param cache Cache instance for each statistics will be collected
  * @param usage Usage statistics
- * @param rq Request statistics
+ * @param req Request statistics
  * @param blocks Blocks statistics
  * @param errors Errors statistics
  *
@@ -165,7 +165,7 @@ struct ocf_stats_errors {
  */
 int ocf_stats_collect_cache(ocf_cache_t cache,
 		struct ocf_stats_usage *usage,
-		struct ocf_stats_requests *rq,
+		struct ocf_stats_requests *req,
 		struct ocf_stats_blocks *blocks,
 		struct ocf_stats_errors *errors);
 
@@ -174,7 +174,7 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
  *
  * @param cache Core for each statistics will be collected
  * @param usage Usage statistics
- * @param rq Request statistics
+ * @param req Request statistics
  * @param blocks Blocks statistics
  * @param errors Errors statistics
  *
@@ -183,7 +183,7 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
  */
 int ocf_stats_collect_core(ocf_core_t core,
 		struct ocf_stats_usage *usage,
-		struct ocf_stats_requests *rq,
+		struct ocf_stats_requests *req,
 		struct ocf_stats_blocks *blocks,
 		struct ocf_stats_errors *errors);
 

@@ -11,7 +11,7 @@
 #include "../concurrency/ocf_concurrency.h"
 #include "../mngt/ocf_mngt_common.h"
 #include "../engine/engine_zero.h"
-#include "../utils/utils_rq.h"
+#include "../utils/utils_req.h"
 
 #define OCF_EVICTION_MAX_SCAN 1024
 
@@ -345,22 +345,22 @@ static void evp_lru_zero_line_complete(struct ocf_request *ocf_req, int error)
 static void evp_lru_zero_line(struct ocf_cache *cache, uint32_t io_queue,
 		ocf_cache_line_t line)
 {
-	struct ocf_request *rq;
+	struct ocf_request *req;
 	ocf_core_id_t id;
 	uint64_t addr, core_line;
 
 	ocf_metadata_get_core_info(cache, line, &id, &core_line);
 	addr = core_line * ocf_line_size(cache);
 
-	rq = ocf_rq_new(cache, id, addr, ocf_line_size(cache), OCF_WRITE);
-	if (rq) {
-		rq->info.internal = true;
-		rq->complete = evp_lru_zero_line_complete;
-		rq->io_queue = io_queue;
+	req = ocf_req_new(cache, id, addr, ocf_line_size(cache), OCF_WRITE);
+	if (req) {
+		req->info.internal = true;
+		req->complete = evp_lru_zero_line_complete;
+		req->io_queue = io_queue;
 
 		env_atomic_inc(&cache->pending_eviction_clines);
 
-		ocf_engine_zero_line(rq);
+		ocf_engine_zero_line(req);
 	}
 }
 
