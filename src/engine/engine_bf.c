@@ -59,7 +59,7 @@ static void _ocf_backfill_do_io(struct ocf_request *req, int error)
 		req->data = NULL;
 
 		if (req->error) {
-			env_atomic_inc(&cache->core_obj[req->core_id].
+			env_atomic_inc(&cache->core[req->core_id].
 					counters->cache_errors.write);
 			ocf_engine_invalidate(req);
 		} else {

@@ -38,7 +38,7 @@ static void _ocf_read_generic_hit_io(struct ocf_request *req, int error)
 		OCF_DEBUG_RQ(req, "HIT completion");
 
 		if (req->error) {
-			env_atomic_inc(&req->cache->core_obj[req->core_id].
+			env_atomic_inc(&req->cache->core[req->core_id].
 				counters->cache_errors.read);
 			ocf_engine_push_req_front_pt(req);
 		} else {
@@ -78,7 +78,7 @@ static void _ocf_read_generic_miss_io(struct ocf_request *req, int error)
 			req->complete(req, req->error);
 
 			req->info.core_error = 1;
-			env_atomic_inc(&cache->core_obj[req->core_id].
+			env_atomic_inc(&cache->core[req->core_id].
 					counters->core_errors.read);
 
 			ctx_data_free(cache->owner, req->cp_data);
@@ -128,7 +128,7 @@ static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
 		goto err_alloc;
 
 	/* Submit read request to core device. */
-	ocf_submit_obj_req(&cache->core_obj[req->core_id].obj, req,
+	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
 			_ocf_read_generic_miss_io);
 
 	return;

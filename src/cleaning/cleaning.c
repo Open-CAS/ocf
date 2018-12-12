@@ -86,7 +86,7 @@ static int _ocf_cleaner_run_check_dirty_inactive(struct ocf_cache *cache)
 		if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
 			continue;
 
-		if (cache->core_obj[i].opened && env_atomic_read(&(cache->
+		if (cache->core[i].opened && env_atomic_read(&(cache->
 				core_runtime_meta[i].dirty_clines))) {
 			return 0;
 		}

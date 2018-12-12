@@ -467,7 +467,7 @@ static void _ocf_cleaner_core_io_cmpl(struct ocf_io *io, int error)
 	if (error) {
 		map->invalid |= 1;
 		_ocf_cleaner_set_error(req);
-		env_atomic_inc(&req->cache->core_obj[map->core_id].counters->
+		env_atomic_inc(&req->cache->core[map->core_id].counters->
 				core_errors.write);
 	}
 
@@ -484,7 +484,7 @@ static void _ocf_cleaner_core_io_for_dirty_range(struct ocf_request *req,
 	struct ocf_cache *cache = req->cache;
 	struct ocf_io *io;
 	struct ocf_counters_block *core_stats =
-		&cache->core_obj[iter->core_id].counters->core_blocks;
+		&cache->core[iter->core_id].counters->core_blocks;
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache,
 			iter->coll_idx);
 
@@ -624,7 +624,7 @@ static void _ocf_cleaner_cache_io_cmpl(struct ocf_io *io, int error)
 	if (error) {
 		map->invalid |= 1;
 		_ocf_cleaner_set_error(req);
-		env_atomic_inc(&req->cache->core_obj[map->core_id].counters->
+		env_atomic_inc(&req->cache->core[map->core_id].counters->
 				cache_errors.read);
 	}
 
@@ -657,7 +657,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 		if (iter->status == LOOKUP_MISS)
 			continue;
 
-		cache_stats = &cache->core_obj[iter->core_id].
+		cache_stats = &cache->core[iter->core_id].
 				counters->cache_blocks;
 
 		io = ocf_new_cache_io(cache);
@@ -910,7 +910,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 		ocf_metadata_get_core_info(cache, cache_line, &core_id,
 				&core_sector);
 
-		if (unlikely(!cache->core_obj[core_id].opened)) {
+		if (unlikely(!cache->core[core_id].opened)) {
 			OCF_DEBUG_MSG(cache, "Core object inactive");
 			continue;
 		}

@@ -34,7 +34,7 @@ ocf_core_id_t ocf_core_get_id(ocf_core_t core)
 	OCF_CHECK_NULL(core);
 
 	cache = core->obj.cache;
-	core_id = core - cache->core_obj;
+	core_id = core - cache->core;
 
 	return core_id;
 }
@@ -82,7 +82,7 @@ int ocf_core_get(ocf_cache_t cache, ocf_core_id_t id, ocf_core_t *core)
 	if (!ocf_core_is_valid(cache, id))
 		return -OCF_ERR_CORE_NOT_AVAIL;
 
-	*core = &cache->core_obj[id];
+	*core = &cache->core[id];
 	return 0;
 }
 
@@ -639,10 +639,10 @@ int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
 		if (!env_bit_test(id, cache->conf_meta->valid_object_bitmap))
 			continue;
 
-		if (only_opened && !cache->core_obj[id].opened)
+		if (only_opened && !cache->core[id].opened)
 			continue;
 
-		result = visitor(&cache->core_obj[id], cntx);
+		result = visitor(&cache->core[id], cntx);
 		if (result)
 			break;
 	}

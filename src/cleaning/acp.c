@@ -303,7 +303,7 @@ int cleaning_policy_acp_initialize(struct ocf_cache *cache,
 			 ACP_BUCKET_DEFAULTS[i]) / 100;
 	}
 
-	if (cache->conf_meta->core_obj_count > 0) {
+	if (cache->conf_meta->core_count > 0) {
 		err = _acp_load_cores(cache);
 		if (err) {
 			cleaning_policy_acp_deinitialize(cache);
@@ -404,7 +404,7 @@ static void _acp_handle_flush_error(struct ocf_cache *cache,
 			env_secs_to_ticks(ACP_CHUNK_CLEANING_BACKOFF_TIME);
 
 	if (ocf_cache_log_rl(cache)) {
-		ocf_core_log(&cache->core_obj[flush->chunk->core_id],
+		ocf_core_log(&cache->core[flush->chunk->core_id],
 				log_err, "Cleaning error (%d) in range"
 				" <%llu; %llu) backing off for %u seconds\n",
 				flush->error,
@@ -454,7 +454,7 @@ static inline bool _acp_can_clean_chunk(struct ocf_cache *cache,
 {
 	/* Check if core device is opened and if timeout after cleaning error
 	 * expired or wasn't set in the first place */
-	return (cache->core_obj[chunk->core_id].opened &&
+	return (cache->core[chunk->core_id].opened &&
 			(chunk->next_cleaning_timestamp > env_get_tick_count() ||
 					!chunk->next_cleaning_timestamp));
 }

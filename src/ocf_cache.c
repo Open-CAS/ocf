@@ -96,7 +96,7 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 				cache->device->obj.type);
 		info->size = cache->conf_meta->cachelines;
 	}
-	info->core_count = cache->conf_meta->core_obj_count;
+	info->core_count = cache->conf_meta->core_count;
 
 	info->cache_mode = ocf_cache_get_mode(cache);
 
@@ -130,7 +130,7 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 		initial_dirty_blocks_total += env_atomic_read(&(cache->
 				core_runtime_meta[i].initial_dirty_clines));
 
-		if (!cache->core_obj[i].opened) {
+		if (!cache->core[i].opened) {
 			cache_occupancy_inactive += env_atomic_read(&cache->
 				core_runtime_meta[i].cached_clines);
 
@@ -146,7 +146,7 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 		}
 
 		flushed_total += env_atomic_read(
-				&cache->core_obj[i].flushed);
+				&cache->core[i].flushed);
 	}
 
 	info->dirty = dirty_blocks_total;
@@ -209,7 +209,7 @@ uint64_t ocf_cache_bytes_2_lines(ocf_cache_t cache, uint64_t bytes)
 uint32_t ocf_cache_get_core_count(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	return cache->conf_meta->core_obj_count;
+	return cache->conf_meta->core_count;
 }
 
 ocf_ctx_t ocf_cache_get_ctx(ocf_cache_t cache)

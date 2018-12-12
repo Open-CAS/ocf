@@ -24,7 +24,7 @@ static void _ocf_read_wa_io(struct ocf_request *req, int error)
 
 	if (req->error) {
 		req->info.core_error = 1;
-		env_atomic_inc(&req->cache->core_obj[req->core_id].counters->
+		env_atomic_inc(&req->cache->core[req->core_id].counters->
 				core_errors.write);
 	}
 
@@ -72,12 +72,12 @@ int ocf_write_wa(struct ocf_request *req)
 
 		/* Submit write IO to the core */
 		env_atomic_set(&req->req_remaining, 1);
-		ocf_submit_obj_req(&cache->core_obj[req->core_id].obj, req,
+		ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
 				_ocf_read_wa_io);
 
 		/* Update statistics */
 		ocf_engine_update_block_stats(req);
-		env_atomic64_inc(&cache->core_obj[req->core_id].counters->
+		env_atomic64_inc(&cache->core[req->core_id].counters->
 			part_counters[req->part_id].write_reqs.pass_through);
 	}
 

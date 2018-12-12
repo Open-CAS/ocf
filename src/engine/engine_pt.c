@@ -28,7 +28,7 @@ static void _ocf_read_pt_io(struct ocf_request *req, int error)
 
 	if (req->error) {
 		req->info.core_error = 1;
-		env_atomic_inc(&req->cache->core_obj[req->core_id].counters->
+		env_atomic_inc(&req->cache->core[req->core_id].counters->
 				core_errors.read);
 	}
 
@@ -50,7 +50,7 @@ static inline void _ocf_read_pt_submit(struct ocf_request *req)
 	OCF_DEBUG_RQ(req, "Submit");
 
 	/* Core read */
-	ocf_submit_obj_req(&cache->core_obj[req->core_id].obj, req,
+	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
 			_ocf_read_pt_io);
 }
 
@@ -91,7 +91,7 @@ int ocf_read_pt_do(struct ocf_request *req)
 
 	/* Update statistics */
 	ocf_engine_update_block_stats(req);
-	env_atomic64_inc(&cache->core_obj[req->core_id].counters->
+	env_atomic64_inc(&cache->core[req->core_id].counters->
 			part_counters[req->part_id].read_reqs.pass_through);
 
 	/* Put OCF request - decrease reference counter */

@@ -88,7 +88,7 @@ static const struct ocf_io_if _io_if_wb_flush_metadata = {
 static void _ocf_write_wb_io(struct ocf_request *req, int error)
 {
 	if (error) {
-		env_atomic_inc(&req->cache->core_obj[req->core_id].counters->
+		env_atomic_inc(&req->cache->core[req->core_id].counters->
 				cache_errors.write);
 		req->error |= error;
 	}

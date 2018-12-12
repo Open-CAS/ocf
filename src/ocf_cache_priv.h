@@ -175,7 +175,7 @@ struct ocf_cache {
 	uint32_t io_queues_no;
 
 	uint16_t ocf_core_inactive_count;
-	struct ocf_core core_obj[OCF_CORE_MAX];
+	struct ocf_core core[OCF_CORE_MAX];
 	struct ocf_core_meta_config *core_conf_meta;
 	struct ocf_core_meta_runtime *core_runtime_meta;
 

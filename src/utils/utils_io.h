@@ -74,7 +74,7 @@ static inline struct ocf_io *ocf_new_core_io(struct ocf_cache *cache,
 {
 	ENV_BUG_ON(core_id >= OCF_CORE_MAX);
 
-	return ocf_dobj_new_io(&cache->core_obj[core_id].obj);
+	return ocf_dobj_new_io(&cache->core[core_id].obj);
 }
 
 #endif /* UTILS_IO_H_ */

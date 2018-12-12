@@ -16,7 +16,7 @@
 
 static void _ocf_d2c_completion(struct ocf_request *req, int error)
 {
-	ocf_core_t core = &req->cache->core_obj[req->core_id];
+	ocf_core_t core = &req->cache->core[req->core_id];
 	req->error = error;
 
 	OCF_DEBUG_RQ(req, "Completion");
@@ -39,7 +39,7 @@ static void _ocf_d2c_completion(struct ocf_request *req, int error)
 int ocf_io_d2c(struct ocf_request *req)
 {
 	ocf_cache_t cache = req->cache;
-	ocf_core_t core = &cache->core_obj[req->core_id];
+	ocf_core_t core = &cache->core[req->core_id];
 
 	OCF_DEBUG_TRACE(req->cache);
 

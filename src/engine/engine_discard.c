@@ -63,7 +63,7 @@ static int _ocf_discard_core(struct ocf_request *req)
 	struct ocf_cache *cache = req->cache;
 	struct ocf_io *io;
 
-	io = ocf_dobj_new_io(&cache->core_obj[req->core_id].obj);
+	io = ocf_dobj_new_io(&cache->core[req->core_id].obj);
 	if (!io) {
 		_ocf_discard_complete_req(req, -ENOMEM);
 		return -ENOMEM;

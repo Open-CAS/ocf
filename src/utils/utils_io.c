@@ -219,7 +219,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 	uint32_t i;
 	int err;
 
-	cache_stats = &cache->core_obj[req->core_id].
+	cache_stats = &cache->core[req->core_id].
 			counters->cache_blocks;
 
 	if (reqs == 1) {
@@ -316,7 +316,7 @@ void ocf_submit_obj_req(ocf_data_obj_t obj, struct ocf_request *req,
 	struct ocf_io *io;
 	int err;
 
-	core_stats = &cache->core_obj[req->core_id].
+	core_stats = &cache->core[req->core_id].
 			counters->core_blocks;
 	if (dir == OCF_WRITE)
 		env_atomic64_add(req->byte_length, &core_stats->write_bytes);

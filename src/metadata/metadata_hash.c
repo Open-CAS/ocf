@@ -975,7 +975,7 @@ static int ocf_metadata_hash_load_superblock(struct ocf_cache *cache)
 		uuid.size = muuid->size;
 
 		/* Initialize core data object */
-		ocf_data_obj_init(&cache->core_obj[i].obj,
+		ocf_data_obj_init(&cache->core[i].obj,
 				ocf_ctx_get_data_obj_type(cache->owner,
 						cache->core_conf_meta[i].type),
 				&uuid, false);
@@ -983,7 +983,7 @@ static int ocf_metadata_hash_load_superblock(struct ocf_cache *cache)
 
 	/* Restore all dynamics items */
 
-	if (sb_config->core_obj_count > OCF_CORE_MAX) {
+	if (sb_config->core_count > OCF_CORE_MAX) {
 		ocf_cache_log(cache, log_err,
 			"Loading cache state ERROR, invalid cores count\n");
 		goto ocf_metadata_hash_load_superblock_ERROR;
@@ -1024,7 +1024,7 @@ static int ocf_metadata_hash_flush_superblock(struct ocf_cache *cache)
 	/* Synchronize core objects types */
 	for (i = 0; i < OCF_CORE_MAX; i++) {
 		cache->core_conf_meta[i].type = ocf_ctx_get_data_obj_type_id(
-				cache->owner, cache->core_obj[i].obj.type);
+				cache->owner, cache->core[i].obj.type);
 	}
 
 	/* Calculate checksum */

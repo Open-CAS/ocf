@@ -29,7 +29,7 @@ struct ocf_superblock_config {
 
 	ocf_cache_line_size_t line_size;
 	ocf_metadata_layout_t metadata_layout;
-	uint32_t core_obj_count;
+	uint32_t core_count;
 
 	unsigned long valid_object_bitmap[(OCF_CORE_MAX /
 			(sizeof(unsigned long) * 8)) + 1];

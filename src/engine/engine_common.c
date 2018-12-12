@@ -24,7 +24,7 @@ void ocf_engine_error(struct ocf_request *req,
 	if (stop_cache)
 		env_bit_clear(ocf_cache_state_running, &cache->cache_state);
 
-	ocf_core_log(&cache->core_obj[req->core_id], log_err,
+	ocf_core_log(&cache->core[req->core_id], log_err,
 			"%s sector: %" ENV_PRIu64 ", bytes: %u\n", msg,
 			BYTES_TO_SECTORS(req->byte_position), req->byte_length);
 }
@@ -446,7 +446,7 @@ void ocf_engine_update_block_stats(struct ocf_request *req)
 	ocf_part_id_t part_id = req->part_id;
 	struct ocf_counters_block *blocks;
 
-	blocks = &cache->core_obj[core_id].counters->
+	blocks = &cache->core[core_id].counters->
 			part_counters[part_id].blocks;
 
 	if (req->rw == OCF_READ)
@@ -466,11 +466,11 @@ void ocf_engine_update_request_stats(struct ocf_request *req)
 
 	switch (req->rw) {
 	case OCF_READ:
-		reqs = &cache->core_obj[core_id].counters->
+		reqs = &cache->core[core_id].counters->
 				part_counters[part_id].read_reqs;
 		break;
 	case OCF_WRITE:
-		reqs = &cache->core_obj[core_id].counters->
+		reqs = &cache->core[core_id].counters->
 				part_counters[part_id].write_reqs;
 		break;
 	default:
