@@ -306,7 +306,7 @@ static void _raw_ram_flush_mark(struct ocf_cache *cache,
 struct _raw_ram_flush_ctx {
 	struct ocf_metadata_raw *raw;
 	struct ocf_request *rq;
-	ocf_metadata_asynch_flush_hndl complete;
+	ocf_req_end_t complete;
 	env_atomic flush_req_cnt;
 	int error;
 };
@@ -402,7 +402,7 @@ static void __raw_ram_flush_do_asynch_add_pages(struct ocf_request *rq,
 
 static int _raw_ram_flush_do_asynch(struct ocf_cache *cache,
 		struct ocf_request *rq, struct ocf_metadata_raw *raw,
-		ocf_end_t complete)
+		ocf_req_end_t complete)
 {
 	int result = 0, i;
 	uint32_t __pages_tab[MAX_STACK_TAB_SIZE];

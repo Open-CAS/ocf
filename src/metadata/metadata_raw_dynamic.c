@@ -437,9 +437,8 @@ void raw_dynamic_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
 /*
  * RAM DYNAMIC Implementation - Do flushing asynchronously
  */
-int raw_dynamic_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *rq, struct ocf_metadata_raw *raw,
-		ocf_end_t complete)
+int raw_dynamic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *rq,
+		struct ocf_metadata_raw *raw, ocf_req_end_t complete)
 {
 	ENV_BUG();
 	return -ENOSYS;

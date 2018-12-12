@@ -16,10 +16,8 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "inv"
 #include "engine_debug.h"
 
-static void _ocf_invalidate_rq(void *private_data, int error)
+static void _ocf_invalidate_rq(struct ocf_request *rq, int error)
 {
-	struct ocf_request *rq = private_data;
-
 	if (error) {
 		rq->error = error;
 		env_atomic_inc(&rq->cache->core_obj[rq->core_id].counters->

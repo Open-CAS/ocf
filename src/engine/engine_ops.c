@@ -13,10 +13,8 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "ops"
 #include "engine_debug.h"
 
-static void _ocf_engine_ops_io(void *private_data, int error)
+static void _ocf_engine_ops_io(struct ocf_request *rq, int error)
 {
-	struct ocf_request *rq = private_data;
-
 	if (error)
 		rq->error |= error;
 
@@ -50,11 +48,11 @@ int ocf_engine_ops(struct ocf_request *rq)
 	env_atomic_set(&rq->req_remaining, 2);
 
 	/* Submit operation into core device */
-	ocf_submit_obj_req(&cache->core_obj[rq->core_id].obj, rq, rq->rw,
-			_ocf_engine_ops_io, rq);
+	ocf_submit_obj_req(&cache->core_obj[rq->core_id].obj, rq,
+			_ocf_engine_ops_io);
 
 	ocf_submit_cache_reqs(cache, rq->map, rq, rq->rw,
-			1, _ocf_engine_ops_io, rq);
+			1, _ocf_engine_ops_io);
 
 	/* Put OCF request - decrease reference counter */
 	ocf_rq_put(rq);

@@ -1231,7 +1231,7 @@ static void ocf_metadata_hash_flush_mark(struct ocf_cache *cache,
  * Flush specified cache lines asynchronously
  */
 static void ocf_metadata_hash_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *rq, ocf_metadata_asynch_flush_hndl complete)
+		struct ocf_request *rq, ocf_req_end_t complete)
 {
 	int result = 0;
 	struct ocf_metadata_hash_ctrl *ctrl = NULL;

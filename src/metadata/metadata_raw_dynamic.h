@@ -98,9 +98,8 @@ void raw_dynamic_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
 /*
  * DYNAMIC Implementation - Do Flush Asynchronously
  */
-int raw_dynamic_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *rq, struct ocf_metadata_raw *raw,
-		ocf_end_t complete);
+int raw_dynamic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *rq,
+		struct ocf_metadata_raw *raw, ocf_req_end_t complete);
 
 
 #endif /* METADATA_RAW_H_ */

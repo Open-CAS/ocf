@@ -199,4 +199,6 @@ struct ocf_request {
 	struct ocf_map_info __map[];
 };
 
+typedef void (*ocf_req_end_t)(struct ocf_request *rq, int error);
+
 #endif

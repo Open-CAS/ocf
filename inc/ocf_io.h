@@ -17,16 +17,6 @@
 struct ocf_io;
 
 /**
- * @brief OCF IO legacy completion
- *
- * @note This type of completion is for legacy completion type
- *
- * @param[in] private_data Private data for completion function
- * @param[in] error Completion status code
- */
-typedef void (*ocf_end_t)(void *private_data, int error);
-
-/**
  * @brief OCF IO start
  *
  * @note OCF IO start notification callback
@@ -246,40 +236,6 @@ static inline void ocf_io_set_start(struct ocf_io *io, ocf_start_io_t fn)
 static inline void ocf_io_set_handle(struct ocf_io *io, ocf_handle_io_t fn)
 {
 	io->handle = fn;
-}
-
-/**
- * @brief Call default completion function
- *
- * @note It is helper function for legacy completion functions
- *
- * @param[in] io OCF IO
- * @param[in] error Completion status code
- */
-static inline void ocf_io_end_default(struct ocf_io *io, int error)
-{
-	ocf_end_t end = io->priv2;
-
-	end(io->priv1, error);
-
-	ocf_io_put(io);
-}
-
-/**
- * @brief Set OCF IO default completion function
- *
- * @note This type of completion is for legacy completion type
- *
- * @param[in] io OCF IO
- * @param[in] context Context for completion function
- * @param[in] fn Completion function
- */
-static inline void ocf_io_set_default_cmpl(struct ocf_io *io, void *context,
-		ocf_end_t fn)
-{
-	io->priv1 = context;
-	io->priv2 = fn;
-	io->end = ocf_io_end_default;
 }
 
 /**

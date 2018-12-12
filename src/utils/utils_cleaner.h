@@ -6,6 +6,8 @@
 #ifndef UTILS_CLEANER_H_
 #define UTILS_CLEANER_H_
 
+#include "../ocf_request.h"
+
 /**
  * @brief Getter for next cache line to be cleaned
  *
@@ -32,7 +34,7 @@ struct ocf_cleaner_attribs {
 	uint32_t count; /*!< max number of cache lines to be cleaned */
 
 	void *cmpl_context; /*!< Completion context of cleaning requester */
-	ocf_end_t cmpl_fn; /*!< Completion function of requester */
+	void (*cmpl_fn)(void *priv, int error); /*!< Completion function of requester */
 
 	ocf_cleaner_get_item getter;
 		/*!< Getter for collecting cache lines which will be cleaned */

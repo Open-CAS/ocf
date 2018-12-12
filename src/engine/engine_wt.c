@@ -44,10 +44,8 @@ static void _ocf_write_wt_io(struct ocf_request *rq)
 	}
 }
 
-static void _ocf_write_wt_cache_io(void *private_data, int error)
+static void _ocf_write_wt_cache_io(struct ocf_request *rq, int error)
 {
-	struct ocf_request *rq = private_data;
-
 	if (error) {
 		rq->error = rq->error ?: error;
 		env_atomic_inc(&rq->cache->core_obj[rq->core_id].counters->
@@ -60,10 +58,8 @@ static void _ocf_write_wt_cache_io(void *private_data, int error)
 	_ocf_write_wt_io(rq);
 }
 
-static void _ocf_write_wt_core_io(void *private_data, int error)
+static void _ocf_write_wt_core_io(struct ocf_request *rq, int error)
 {
-	struct ocf_request *rq = private_data;
-
 	if (error) {
 		rq->error = error;
 		rq->info.core_error = 1;
@@ -94,11 +90,11 @@ static inline void _ocf_write_wt_submit(struct ocf_request *rq)
 
 	/* To cache */
 	ocf_submit_cache_reqs(cache, rq->map, rq, OCF_WRITE,
-			ocf_engine_io_count(rq), _ocf_write_wt_cache_io, rq);
+			ocf_engine_io_count(rq), _ocf_write_wt_cache_io);
 
 	/* To core */
-	ocf_submit_obj_req(&cache->core_obj[rq->core_id].obj, rq, OCF_WRITE,
-			_ocf_write_wt_core_io, rq);
+	ocf_submit_obj_req(&cache->core_obj[rq->core_id].obj, rq,
+			_ocf_write_wt_core_io);
 }
 
 static void _ocf_write_wt_update_bits(struct ocf_request *rq)

@@ -4,6 +4,7 @@
  */
 
 #include "ocf/ocf.h"
+#include "../ocf_priv.h"
 #include "../ocf_cache_priv.h"
 #include "../ocf_data_obj_priv.h"
 #include "../ocf_request.h"
@@ -26,25 +27,9 @@ struct discard_io_request {
 	int error;
 };
 
-void ocf_submit_obj_flush(ocf_data_obj_t obj, ocf_end_t callback, void *ctx)
+static void _ocf_obj_flush_end(struct ocf_io *io, int err)
 {
-       struct ocf_io *io;
-
-       io = ocf_dobj_new_io(obj);
-       if (!io) {
-		callback(ctx, -ENOMEM);
-		return;
-       }
-
-       ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
-       ocf_io_set_default_cmpl(io, ctx, callback);
-
-       ocf_dobj_submit_flush(io);
-}
-
-static void _ocf_obj_flush_end(void *_cntx, int err)
-{
-	struct ocf_submit_io_wait_context *cntx = _cntx;
+	struct ocf_submit_io_wait_context *cntx = io->priv1;
 	cntx->error = err;
 	env_completion_complete(&cntx->complete);
 }
@@ -52,10 +37,19 @@ static void _ocf_obj_flush_end(void *_cntx, int err)
 int ocf_submit_obj_flush_wait(ocf_data_obj_t obj)
 {
 	struct ocf_submit_io_wait_context cntx = { };
+	struct ocf_io *io;
+
 	env_atomic_set(&cntx.rq_remaining, 1);
 	env_completion_init(&cntx.complete);
 
-	ocf_submit_obj_flush(obj, _ocf_obj_flush_end, &cntx);
+	io = ocf_dobj_new_io(obj);
+	if (!io)
+		return -ENOMEM;
+
+	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
+	ocf_io_set_cmpl(io, &cntx, NULL, _ocf_obj_flush_end);
+
+	ocf_dobj_submit_flush(io);
 
 	env_completion_wait(&cntx.complete);
 
@@ -208,28 +202,17 @@ end:
 	return result;
 }
 
-void ocf_submit_obj_discard(ocf_data_obj_t obj, struct ocf_request *req,
-		ocf_end_t callback, void *ctx)
+static void ocf_submit_obj_req_cmpl(struct ocf_io *io, int error)
 {
-	struct ocf_io *io = ocf_dobj_new_io(obj);
+	struct ocf_request *rq = io->priv1;
+	ocf_req_end_t callback = io->priv2;
 
-	if (!io) {
-		callback(ctx, -ENOMEM);
-		return;
-	}
-
-	ocf_io_configure(io, SECTORS_TO_BYTES(req->discard.sector),
-			SECTORS_TO_BYTES(req->discard.nr_sects),
-			OCF_WRITE, 0, 0);
-	ocf_io_set_default_cmpl(io, ctx, callback);
-	ocf_io_set_data(io, req->data, 0);
-
-	ocf_dobj_submit_discard(io);
+	callback(rq, error);
 }
 
 void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		struct ocf_map_info *map_info, struct ocf_request *req, int dir,
-		unsigned int reqs, ocf_end_t callback, void *ctx)
+		unsigned int reqs, ocf_req_end_t callback)
 {
 	struct ocf_counters_block *cache_stats;
 	uint64_t flags = req->io ? req->io->flags : 0;
@@ -245,7 +228,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 	if (reqs == 1) {
 		io = ocf_new_cache_io(cache);
 		if (!io) {
-			callback(ctx, -ENOMEM);
+			callback(req, -ENOMEM);
 			goto update_stats;
 		}
 
@@ -257,12 +240,12 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		bytes = req->byte_length;
 
 		ocf_io_configure(io, addr, bytes, dir, class, flags);
-		ocf_io_set_default_cmpl(io, ctx, callback);
+		ocf_io_set_cmpl(io, req, callback, ocf_submit_obj_req_cmpl);
 
 		err = ocf_io_set_data(io, req->data, 0);
 		if (err) {
 			ocf_io_put(io);
-			callback(ctx, err);
+			callback(req, err);
 			goto update_stats;
 		}
 
@@ -279,7 +262,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		if (!io) {
 			/* Finish all IOs which left with ERROR */
 			for (; i < reqs; i++)
-				callback(ctx, -ENOMEM);
+				callback(req, -ENOMEM);
 			goto update_stats;
 		}
 
@@ -304,14 +287,14 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		}
 
 		ocf_io_configure(io, addr, bytes, dir, class, flags);
-		ocf_io_set_default_cmpl(io, ctx, callback);
+		ocf_io_set_cmpl(io, req, callback, ocf_submit_obj_req_cmpl);
 
 		err = ocf_io_set_data(io, req->data, total_bytes);
 		if (err) {
 			ocf_io_put(io);
 			/* Finish all IOs which left with ERROR */
 			for (; i < reqs; i++)
-				callback(ctx, err);
+				callback(req, err);
 			goto update_stats;
 		}
 		ocf_dobj_submit_io(io);
@@ -325,36 +308,37 @@ update_stats:
 		env_atomic64_add(total_bytes, &cache_stats->read_bytes);
 }
 
-void ocf_submit_obj_req(ocf_data_obj_t obj, struct ocf_request *rq,
-		int dir, ocf_end_t callback, void *ctx)
+void ocf_submit_obj_req(ocf_data_obj_t obj, struct ocf_request *req,
+		ocf_req_end_t callback)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
 	struct ocf_counters_block *core_stats;
-	uint64_t flags = rq->io ? rq->io->flags : 0;
-	uint32_t class = rq->io ? rq->io->class : 0;
+	uint64_t flags = req->io ? req->io->flags : 0;
+	uint32_t class = req->io ? req->io->class : 0;
+	int dir = req->rw;
 	struct ocf_io *io;
 	int err;
 
-	core_stats = &cache->core_obj[rq->core_id].
+	core_stats = &cache->core_obj[req->core_id].
 			counters->core_blocks;
 	if (dir == OCF_WRITE)
-		env_atomic64_add(rq->byte_length, &core_stats->write_bytes);
+		env_atomic64_add(req->byte_length, &core_stats->write_bytes);
 	else if (dir == OCF_READ)
-		env_atomic64_add(rq->byte_length, &core_stats->read_bytes);
+		env_atomic64_add(req->byte_length, &core_stats->read_bytes);
 
 	io = ocf_dobj_new_io(obj);
 	if (!io) {
-		callback(ctx, -ENOMEM);
+		callback(req, -ENOMEM);
 		return;
 	}
 
-	ocf_io_configure(io, rq->byte_position, rq->byte_length, dir,
+	ocf_io_configure(io, req->byte_position, req->byte_length, dir,
 			class, flags);
-	ocf_io_set_default_cmpl(io, ctx, callback);
-	err = ocf_io_set_data(io, rq->data, 0);
+	ocf_io_set_cmpl(io, req, callback, ocf_submit_obj_req_cmpl);
+	err = ocf_io_set_data(io, req->data, 0);
 	if (err) {
 		ocf_io_put(io);
-		callback(ctx, err);
+		callback(req, err);
 		return;
 	}
 	ocf_dobj_submit_io(io);

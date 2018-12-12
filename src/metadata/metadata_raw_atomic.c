@@ -33,7 +33,7 @@
 
 struct _raw_atomic_flush_ctx {
 	struct ocf_request *rq;
-	ocf_metadata_asynch_flush_hndl complete;
+	ocf_req_end_t complete;
 	env_atomic flush_req_cnt;
 };
 
@@ -135,9 +135,8 @@ static int _raw_atomic_flush_do_asynch_sec(struct ocf_cache *cache,
 	return result;
 }
 
-int raw_atomic_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *rq, struct ocf_metadata_raw *raw,
-		ocf_end_t complete)
+int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *rq,
+		struct ocf_metadata_raw *raw, ocf_req_end_t complete)
 {
 	int result = 0, i;
 	uint32_t __clines_tab[MAX_STACK_TAB_SIZE];

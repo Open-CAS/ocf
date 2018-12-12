@@ -176,7 +176,7 @@ static void _ocf_cleaner_set_error(struct ocf_request *rq)
 static void _ocf_cleaner_complete_rq(struct ocf_request *rq)
 {
 	struct ocf_request *master = NULL;
-	ocf_end_t cmpl;
+	ocf_req_end_t cmpl;
 
 	if (ocf_cleaner_rq_type_master == rq->master_io_req_type) {
 		OCF_DEBUG_MSG(rq->cache, "Master completion");
@@ -255,9 +255,9 @@ static void _ocf_cleaner_finish_rq(struct ocf_request *rq)
 	_ocf_cleaner_dealloc_rq(rq);
 }
 
-static void _ocf_cleaner_flush_cache_io_end(void *priv, int error)
+static void _ocf_cleaner_flush_cache_io_end(struct ocf_io *io, int error)
 {
-	struct ocf_request *rq = priv;
+	struct ocf_request *rq = io->priv1;
 
 	if (error) {
 		ocf_metadata_error(rq->cache);
@@ -271,10 +271,21 @@ static void _ocf_cleaner_flush_cache_io_end(void *priv, int error)
 
 static int _ocf_cleaner_fire_flush_cache(struct ocf_request *rq)
 {
+	struct ocf_io *io;
+
 	OCF_DEBUG_TRACE(rq->cache);
 
-	ocf_submit_obj_flush(&rq->cache->device->obj,
-			_ocf_cleaner_flush_cache_io_end, rq);
+	io = ocf_dobj_new_io(&rq->cache->device->obj);
+	if (!io) {
+		ocf_metadata_error(rq->cache);
+		rq->error = -ENOMEM;
+		return -ENOMEM;
+	}
+
+	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0); 
+	ocf_io_set_cmpl(io, rq, NULL, _ocf_cleaner_flush_cache_io_end);
+
+	ocf_dobj_submit_flush(io);
 
 	return 0;
 }
@@ -284,10 +295,8 @@ static const struct ocf_io_if _io_if_flush_cache = {
 	.write = _ocf_cleaner_fire_flush_cache,
 };
 
-static void _ocf_cleaner_metadata_io_end(void *private_data, int error)
+static void _ocf_cleaner_metadata_io_end(struct ocf_request *rq, int error)
 {
-	struct ocf_request *rq = private_data;
-
 	if (error) {
 		ocf_metadata_error(rq->cache);
 		rq->error = error;
