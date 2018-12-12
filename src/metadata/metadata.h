@@ -257,7 +257,7 @@ void ocf_metadata_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
  * @param context - context that will be passed into callback
  */
 void ocf_metadata_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *rq, ocf_end_t complete);
+		struct ocf_request *rq, ocf_req_end_t complete);
 
 /**
  * @brief Load metadata

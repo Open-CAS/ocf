@@ -37,9 +37,8 @@ static inline void backfill_queue_inc_block(struct ocf_cache *cache)
 		env_atomic_set(&cache->pending_read_misses_list_blocked, 1);
 }
 
-static void _ocf_backfill_do_io(void *private_data, int error)
+static void _ocf_backfill_do_io(struct ocf_request *rq, int error)
 {
-	struct ocf_request *rq = (struct ocf_request *)private_data;
 	struct ocf_cache *cache = rq->cache;
 
 	if (error)
@@ -88,7 +87,7 @@ static int _ocf_backfill_do(struct ocf_request *rq)
 	rq->data = rq->cp_data;
 
 	ocf_submit_cache_reqs(rq->cache, rq->map, rq, OCF_WRITE, reqs_to_issue,
-			      _ocf_backfill_do_io, rq);
+			      _ocf_backfill_do_io);
 
 	return 0;
 }

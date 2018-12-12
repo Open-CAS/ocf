@@ -47,10 +47,8 @@ static const struct ocf_io_if _io_if_zero_purge = {
 	.write = ocf_zero_purge,
 };
 
-static void _ocf_zero_io_flush_metadata(void *private_data, int error)
+static void _ocf_zero_io_flush_metadata(struct ocf_request *rq, int error)
 {
-	struct ocf_request *rq = (struct ocf_request *) private_data;
-
 	if (error) {
 		env_atomic_inc(&rq->cache->core_obj[rq->core_id].counters->
 				cache_errors.write);

@@ -24,19 +24,6 @@ enum ocf_metadata_shutdown_status {
 	ocf_metadata_detached = 2, /*!< Cache device detached */
 };
 
-/**
- * @brief Asynchronous metadata request completed
- *
- * @param cache - Cache instance
- * @param error - Indicates operation result, 0 - Finished successfully
- * @param line - cache line for which completion is signaled
- * @param context - Context of metadata request
- */
-typedef void (*ocf_metadata_asynch_hndl)(struct ocf_cache *cache,
-		int error, ocf_cache_line_t line, void *context);
-
-typedef void (*ocf_metadata_asynch_flush_hndl)(void *context, int error);
-
 /*
  * Metadata cache line location on pages interface
  */
@@ -222,7 +209,7 @@ struct ocf_metadata_iface {
 	 * @param context - context that will be passed into callback
 	 */
 	void (*flush_do_asynch)(struct ocf_cache *cache,
-			struct ocf_request *rq, ocf_end_t complete);
+			struct ocf_request *rq, ocf_req_end_t complete);
 
 
 	/* TODO Provide documentation below */

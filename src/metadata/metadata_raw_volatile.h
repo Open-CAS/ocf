@@ -47,6 +47,6 @@ void raw_volatile_flush_mark(struct ocf_cache *cache, struct ocf_request *rq,
  */
 int raw_volatile_flush_do_asynch(struct ocf_cache *cache,
 		struct ocf_request *rq, struct ocf_metadata_raw *raw,
-		ocf_end_t complete);
+		ocf_req_end_t complete);
 
 #endif /* __METADATA_RAW_VOLATILE_H__ */

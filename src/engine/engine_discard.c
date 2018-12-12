@@ -43,35 +43,47 @@ static const struct ocf_io_if _io_if_discard_core = {
 	.write = _ocf_discard_core
 };
 
-static void _ocf_discard_complete_rq(struct ocf_request *rq, int error)
+static void _ocf_discard_complete_rq(struct ocf_request *req, int error)
 {
-	rq->complete(rq, error);
+	req->complete(req, error);
 
-	ocf_rq_put(rq);
+	ocf_rq_put(req);
 }
-
-static void _ocf_discard_core_io(void *private_data, int error)
+static void _ocf_discard_core_io(struct ocf_io *io, int error)
 {
-	struct ocf_request *rq = private_data;
+	struct ocf_request *rq = io->priv1;
 
 	OCF_DEBUG_RQ(rq, "Core DISCARD Completion");
 
 	_ocf_discard_complete_rq(rq, error);
 }
 
-static int _ocf_discard_core(struct ocf_request *rq)
+static int _ocf_discard_core(struct ocf_request *req)
 {
-	struct ocf_cache *cache = rq->cache;
+	struct ocf_cache *cache = req->cache;
+	struct ocf_io *io;
 
-	ocf_submit_obj_discard(&cache->core_obj[rq->core_id].obj, rq,
-			_ocf_discard_core_io, rq);
+	io = ocf_dobj_new_io(&cache->core_obj[req->core_id].obj);
+	if (!io) {
+		_ocf_discard_complete_rq(req, -ENOMEM);
+		return -ENOMEM;
+	}
+
+	ocf_io_configure(io, SECTORS_TO_BYTES(req->discard.sector),
+			SECTORS_TO_BYTES(req->discard.nr_sects),
+			OCF_WRITE, 0, 0);
+
+	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_core_io);
+	ocf_io_set_data(io, req->data, 0);
+
+	ocf_dobj_submit_discard(io);
 
 	return 0;
 }
 
-static void _ocf_discard_cache_flush_io_cmpl(void *priv, int error)
+static void _ocf_discard_cache_flush_io_cmpl(struct ocf_io *io, int error)
 {
-	struct ocf_request *rq = priv;
+	struct ocf_request *rq = io->priv1;
 
 	if (error) {
 		ocf_metadata_error(rq->cache);
@@ -83,10 +95,21 @@ static void _ocf_discard_cache_flush_io_cmpl(void *priv, int error)
 	ocf_engine_push_rq_front(rq, true);
 }
 
-static int _ocf_discard_flush_cache(struct ocf_request *rq)
+static int _ocf_discard_flush_cache(struct ocf_request *req)
 {
-	ocf_submit_obj_flush(&rq->cache->device->obj,
-			_ocf_discard_cache_flush_io_cmpl, rq);
+	struct ocf_io *io;
+
+	io = ocf_dobj_new_io(&req->cache->device->obj);
+	if (!io) {
+		ocf_metadata_error(req->cache);
+		_ocf_discard_complete_rq(req, -ENOMEM);
+		return -ENOMEM;
+	}
+
+	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
+	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_cache_flush_io_cmpl);
+
+	ocf_dobj_submit_flush(io);
 
 	return 0;
 }
@@ -105,10 +128,8 @@ static void _ocf_discard_finish_step(struct ocf_request *rq)
 	ocf_engine_push_rq_front(rq, true);
 }
 
-static void _ocf_discard_step_io(void *private_data, int error)
+static void _ocf_discard_step_io(struct ocf_request *rq, int error)
 {
-	struct ocf_request *rq = private_data;
-
 	if (error)
 		rq->error |= error;
 

@@ -136,7 +136,7 @@ struct raw_iface {
 
 	int (*flush_do_asynch)(struct ocf_cache *cache, struct ocf_request *rq,
 			struct ocf_metadata_raw *raw,
-			ocf_metadata_asynch_flush_hndl complete);
+			ocf_req_end_t complete);
 };
 
 /**
@@ -316,7 +316,7 @@ static inline void ocf_metadata_raw_flush_mark(struct ocf_cache *cache,
 
 static inline int ocf_metadata_raw_flush_do_asynch(struct ocf_cache *cache,
 		struct ocf_request *rq, struct ocf_metadata_raw *raw,
-		ocf_metadata_asynch_flush_hndl complete)
+		ocf_req_end_t complete)
 {
 	return raw->iface->flush_do_asynch(cache, rq, raw, complete);
 }

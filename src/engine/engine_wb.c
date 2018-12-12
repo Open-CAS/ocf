@@ -45,10 +45,8 @@ static void _ocf_write_wb_update_bits(struct ocf_request *rq)
 	}
 }
 
-static void _ocf_write_wb_io_flush_metadata(void *private_data, int error)
+static void _ocf_write_wb_io_flush_metadata(struct ocf_request *rq, int error)
 {
-	struct ocf_request *rq = (struct ocf_request *) private_data;
-
 	if (error)
 		rq->error = error;
 
@@ -87,10 +85,8 @@ static const struct ocf_io_if _io_if_wb_flush_metadata = {
 		.write = ocf_write_wb_do_flush_metadata,
 };
 
-static void _ocf_write_wb_io(void *private_data, int error)
+static void _ocf_write_wb_io(struct ocf_request *rq, int error)
 {
-	struct ocf_request *rq = (struct ocf_request *) private_data;
-
 	if (error) {
 		env_atomic_inc(&rq->cache->core_obj[rq->core_id].counters->
 				cache_errors.write);
@@ -146,7 +142,7 @@ static inline void _ocf_write_wb_submit(struct ocf_request *rq)
 
 	/* Data IO */
 	ocf_submit_cache_reqs(cache, rq->map, rq, OCF_WRITE,
-			ocf_engine_io_count(rq), _ocf_write_wb_io, rq);
+			ocf_engine_io_count(rq), _ocf_write_wb_io);
 }
 
 int ocf_write_wb_do(struct ocf_request *rq)
