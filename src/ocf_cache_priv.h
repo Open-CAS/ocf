@@ -211,11 +211,11 @@ struct ocf_cache {
 };
 
 #define ocf_cache_log_prefix(cache, lvl, prefix, fmt, ...) \
-	ocf_log_prefix(ocf_cache_get_ctx(cache), lvl, "[Cache %s] ", \
-			prefix fmt, ocf_cache_get_name(cache), ##__VA_ARGS__)
+	ocf_log_prefix(ocf_cache_get_ctx(cache), lvl, "%s" prefix, \
+			fmt, ocf_cache_get_name(cache), ##__VA_ARGS__)
 
 #define ocf_cache_log(cache, lvl, fmt, ...) \
-	ocf_cache_log_prefix(cache, lvl, "", fmt, ##__VA_ARGS__)
+	ocf_cache_log_prefix(cache, lvl, ": ", fmt, ##__VA_ARGS__)
 
 #define ocf_cache_log_rl(cache) \
 	ocf_log_rl(ocf_cache_get_ctx(cache))

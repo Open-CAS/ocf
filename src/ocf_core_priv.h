@@ -47,10 +47,10 @@ bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id);
 int ocf_core_set_user_metadata_raw(ocf_core_t core, void *data, size_t size);
 
 #define ocf_core_log_prefix(core, lvl, prefix, fmt, ...) \
-	ocf_cache_log_prefix(ocf_core_get_cache(core), lvl, "[Core %s] ", \
-			prefix fmt, ocf_core_get_name(core), ##__VA_ARGS__)
+	ocf_cache_log_prefix(ocf_core_get_cache(core), lvl, ".%s" prefix, \
+			fmt, ocf_core_get_name(core), ##__VA_ARGS__)
 
 #define ocf_core_log(core, lvl, fmt, ...) \
-	ocf_core_log_prefix(core, lvl, "", fmt, ##__VA_ARGS__)
+	ocf_core_log_prefix(core, lvl, ": ", fmt, ##__VA_ARGS__)
 
 #endif /* __OCF_CORE_PRIV_H__ */

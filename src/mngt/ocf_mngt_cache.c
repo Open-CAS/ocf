@@ -420,7 +420,7 @@ static int _ocf_mngt_init_instance_add_cores(
 		if (!cache->core_obj[i].obj.type)
 			goto _cache_mng_init_instance_add_cores_ERROR;
 
-		ret = snprintf(core_name, sizeof(core_name), "%d", i);
+		ret = snprintf(core_name, sizeof(core_name), "core%d", i);
 		if (ret < 0 || ret >= sizeof(core_name))
 			goto _cache_mng_init_instance_add_cores_ERROR;
 
@@ -716,7 +716,7 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cachemng_init_params *param,
 			goto out;
 	} else {
 		ret = snprintf(cache_name, sizeof(cache_name),
-				"%hu", param->id);
+				"cache%hu", param->id);
 		if (ret < 0)
 			goto out;
 	}
