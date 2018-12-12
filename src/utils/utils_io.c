@@ -77,8 +77,8 @@ int ocf_submit_obj_discard_wait(ocf_data_obj_t obj, uint64_t addr,
 		uint64_t length)
 {
 	struct ocf_submit_io_wait_context cntx = { };
-	uint32_t bytes;
-	uint32_t max_length = ~0;
+	uint64_t bytes;
+	uint64_t max_length = (uint32_t)~0;
 
 	ENV_BUG_ON(env_memset(&cntx, sizeof(cntx), 0));
 	env_atomic_set(&cntx.rq_remaining, 1);
@@ -92,10 +92,7 @@ int ocf_submit_obj_discard_wait(ocf_data_obj_t obj, uint64_t addr,
 			break;
 		}
 
-		if (length > max_length)
-			bytes = max_length;
-		else
-			bytes = length;
+		bytes = min(length, max_length);
 
 		env_atomic_inc(&cntx.rq_remaining);
 
