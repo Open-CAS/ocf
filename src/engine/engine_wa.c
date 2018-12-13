@@ -14,7 +14,7 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "wa"
 #include "engine_debug.h"
 
-static void _ocf_read_wa_io(struct ocf_request *req, int error)
+static void _ocf_read_wa_complete(struct ocf_request *req, int error)
 {
 	if (error)
 		req->error |= error;
@@ -73,7 +73,7 @@ int ocf_write_wa(struct ocf_request *req)
 		/* Submit write IO to the core */
 		env_atomic_set(&req->req_remaining, 1);
 		ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
-				_ocf_read_wa_io);
+				_ocf_read_wa_complete);
 
 		/* Update statistics */
 		ocf_engine_update_block_stats(req);

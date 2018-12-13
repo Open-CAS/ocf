@@ -18,7 +18,7 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "wt"
 #include "engine_debug.h"
 
-static void _ocf_write_wt_io(struct ocf_request *req)
+static void _ocf_write_wt_req_complete(struct ocf_request *req)
 {
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
@@ -44,7 +44,7 @@ static void _ocf_write_wt_io(struct ocf_request *req)
 	}
 }
 
-static void _ocf_write_wt_cache_io(struct ocf_request *req, int error)
+static void _ocf_write_wt_cache_complete(struct ocf_request *req, int error)
 {
 	if (error) {
 		req->error = req->error ?: error;
@@ -55,10 +55,10 @@ static void _ocf_write_wt_cache_io(struct ocf_request *req, int error)
 			inc_fallback_pt_error_counter(req->cache);
 	}
 
-	_ocf_write_wt_io(req);
+	_ocf_write_wt_req_complete(req);
 }
 
-static void _ocf_write_wt_core_io(struct ocf_request *req, int error)
+static void _ocf_write_wt_core_complete(struct ocf_request *req, int error)
 {
 	if (error) {
 		req->error = error;
@@ -67,7 +67,7 @@ static void _ocf_write_wt_core_io(struct ocf_request *req, int error)
 				core_errors.write);
 	}
 
-	_ocf_write_wt_io(req);
+	_ocf_write_wt_req_complete(req);
 }
 
 static inline void _ocf_write_wt_submit(struct ocf_request *req)
@@ -85,16 +85,16 @@ static inline void _ocf_write_wt_submit(struct ocf_request *req)
 		/* Metadata flush IO */
 
 		ocf_metadata_flush_do_asynch(cache, req,
-				_ocf_write_wt_cache_io);
+				_ocf_write_wt_cache_complete);
 	}
 
 	/* To cache */
 	ocf_submit_cache_reqs(cache, req->map, req, OCF_WRITE,
-			ocf_engine_io_count(req), _ocf_write_wt_cache_io);
+			ocf_engine_io_count(req), _ocf_write_wt_cache_complete);
 
 	/* To core */
 	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
-			_ocf_write_wt_core_io);
+			_ocf_write_wt_core_complete);
 }
 
 static void _ocf_write_wt_update_bits(struct ocf_request *req)

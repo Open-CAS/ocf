@@ -49,7 +49,7 @@ static void _ocf_discard_complete_req(struct ocf_request *req, int error)
 
 	ocf_req_put(req);
 }
-static void _ocf_discard_core_io(struct ocf_io *io, int error)
+static void _ocf_discard_core_complete(struct ocf_io *io, int error)
 {
 	struct ocf_request *req = io->priv1;
 
@@ -73,7 +73,7 @@ static int _ocf_discard_core(struct ocf_request *req)
 			SECTORS_TO_BYTES(req->discard.nr_sects),
 			OCF_WRITE, 0, 0);
 
-	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_core_io);
+	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_core_complete);
 	ocf_io_set_data(io, req->data, 0);
 
 	ocf_dobj_submit_discard(io);
@@ -81,7 +81,7 @@ static int _ocf_discard_core(struct ocf_request *req)
 	return 0;
 }
 
-static void _ocf_discard_cache_flush_io_cmpl(struct ocf_io *io, int error)
+static void _ocf_discard_cache_flush_complete(struct ocf_io *io, int error)
 {
 	struct ocf_request *req = io->priv1;
 
@@ -107,7 +107,7 @@ static int _ocf_discard_flush_cache(struct ocf_request *req)
 	}
 
 	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
-	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_cache_flush_io_cmpl);
+	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_cache_flush_complete);
 
 	ocf_dobj_submit_flush(io);
 
@@ -128,7 +128,7 @@ static void _ocf_discard_finish_step(struct ocf_request *req)
 	ocf_engine_push_req_front(req, true);
 }
 
-static void _ocf_discard_step_io(struct ocf_request *req, int error)
+static void _ocf_discard_step_complete(struct ocf_request *req, int error)
 {
 	if (error)
 		req->error |= error;
@@ -170,14 +170,14 @@ int _ocf_discard_step_do(struct ocf_request *req)
 		if (req->info.flush_metadata) {
 			/* Request was dirty and need to flush metadata */
 			ocf_metadata_flush_do_asynch(cache, req,
-					_ocf_discard_step_io);
+					_ocf_discard_step_complete);
 		}
 
 		OCF_METADATA_UNLOCK_WR(); /*- END Metadata WR access ---------*/
 	}
 
 	OCF_DEBUG_RQ(req, "Discard");
-	_ocf_discard_step_io(req, 0);
+	_ocf_discard_step_complete(req, 0);
 
 	/* Put OCF request - decrease reference counter */
 	ocf_req_put(req);

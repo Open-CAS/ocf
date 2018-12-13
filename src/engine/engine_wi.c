@@ -73,7 +73,7 @@ static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *req)
 	return 0;
 }
 
-static void _ocf_write_wi_core_io(struct ocf_request *req, int error)
+static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 {
 	if (error) {
 		req->error = error;
@@ -112,7 +112,7 @@ static int _ocf_write_wi_do(struct ocf_request *req)
 
 	/* Submit write IO to the core */
 	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
-			   _ocf_write_wi_core_io);
+			   _ocf_write_wi_core_complete);
 
 	/* Update statistics */
 	ocf_engine_update_block_stats(req);

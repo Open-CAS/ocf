@@ -16,7 +16,7 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "pt"
 #include "engine_debug.h"
 
-static void _ocf_read_pt_io(struct ocf_request *req, int error)
+static void _ocf_read_pt_complete(struct ocf_request *req, int error)
 {
 	if (error)
 		req->error |= error;
@@ -51,7 +51,7 @@ static inline void _ocf_read_pt_submit(struct ocf_request *req)
 
 	/* Core read */
 	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
-			_ocf_read_pt_io);
+			_ocf_read_pt_complete);
 }
 
 int ocf_read_pt_do(struct ocf_request *req)
