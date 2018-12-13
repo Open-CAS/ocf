@@ -13,7 +13,7 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "ops"
 #include "engine_debug.h"
 
-static void _ocf_engine_ops_io(struct ocf_request *req, int error)
+static void _ocf_engine_ops_complete(struct ocf_request *req, int error)
 {
 	if (error)
 		req->error |= error;
@@ -49,10 +49,10 @@ int ocf_engine_ops(struct ocf_request *req)
 
 	/* Submit operation into core device */
 	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
-			_ocf_engine_ops_io);
+			_ocf_engine_ops_complete);
 
 	ocf_submit_cache_reqs(cache, req->map, req, req->rw,
-			1, _ocf_engine_ops_io);
+			1, _ocf_engine_ops_complete);
 
 	/* Put OCF request - decrease reference counter */
 	ocf_req_put(req);

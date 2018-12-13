@@ -85,7 +85,7 @@ static const struct ocf_io_if _io_if_wb_flush_metadata = {
 		.write = ocf_write_wb_do_flush_metadata,
 };
 
-static void _ocf_write_wb_io(struct ocf_request *req, int error)
+static void _ocf_write_wb_complete(struct ocf_request *req, int error)
 {
 	if (error) {
 		env_atomic_inc(&req->cache->core[req->core_id].counters->
@@ -142,7 +142,7 @@ static inline void _ocf_write_wb_submit(struct ocf_request *req)
 
 	/* Data IO */
 	ocf_submit_cache_reqs(cache, req->map, req, OCF_WRITE,
-			ocf_engine_io_count(req), _ocf_write_wb_io);
+			ocf_engine_io_count(req), _ocf_write_wb_complete);
 }
 
 int ocf_write_wb_do(struct ocf_request *req)

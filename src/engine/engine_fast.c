@@ -28,7 +28,7 @@
  *   |_|  \_\___|\__,_|\__,_| |_|  \__,_|___/\__| |_|   \__,_|\__|_| |_|
  */
 
-static void _ocf_read_fast_io(struct ocf_request *req, int error)
+static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 {
 	if (error)
 		req->error |= error;
@@ -89,7 +89,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 	OCF_DEBUG_RQ(req, "Submit");
 	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req));
 	ocf_submit_cache_reqs(req->cache, req->map, req, OCF_READ,
-		ocf_engine_io_count(req), _ocf_read_fast_io);
+		ocf_engine_io_count(req), _ocf_read_fast_complete);
 
 
 	/* Updata statistics */

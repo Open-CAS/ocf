@@ -22,7 +22,7 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "rd"
 #include "engine_debug.h"
 
-static void _ocf_read_generic_hit_io(struct ocf_request *req, int error)
+static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 {
 	if (error)
 		req->error |= error;
@@ -56,7 +56,7 @@ static void _ocf_read_generic_hit_io(struct ocf_request *req, int error)
 	}
 }
 
-static void _ocf_read_generic_miss_io(struct ocf_request *req, int error)
+static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 {
 	struct ocf_cache *cache = req->cache;
 
@@ -108,7 +108,7 @@ static inline void _ocf_read_generic_submit_hit(struct ocf_request *req)
 	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req));
 
 	ocf_submit_cache_reqs(req->cache, req->map, req, OCF_READ,
-		ocf_engine_io_count(req), _ocf_read_generic_hit_io);
+		ocf_engine_io_count(req), _ocf_read_generic_hit_complete);
 }
 
 static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
@@ -129,12 +129,12 @@ static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
 
 	/* Submit read request to core device. */
 	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
-			_ocf_read_generic_miss_io);
+			_ocf_read_generic_miss_complete);
 
 	return;
 
 err_alloc:
-	_ocf_read_generic_miss_io(req, -ENOMEM);
+	_ocf_read_generic_miss_complete(req, -ENOMEM);
 }
 
 static int _ocf_read_generic_do(struct ocf_request *req)
