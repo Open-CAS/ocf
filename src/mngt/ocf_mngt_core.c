@@ -190,33 +190,34 @@ error_out:
 
 static unsigned long _ffz(unsigned long word)
 {
-	asm("rep; bsf %1,%0"
-			: "=r" (word)
-			: "r" (~word));
-	return word;
+	int i;
+
+	for (i = 0; i < sizeof(word)*8 && (word & 1); i++)
+		word <<= 1;
+
+	return i;
 }
 
-static unsigned long _ocf_mngt_find_first_free_core(const unsigned long *bitmap,
-		unsigned long size)
+static unsigned long _ocf_mngt_find_first_free_core(const unsigned long *bitmap)
 {
 	unsigned long i;
-	unsigned long ret = size;
+	unsigned long ret = OCF_CORE_MAX;
 
 	/* check core 0 availability */
 	bool zero_core_free = !(*bitmap & 0x1UL);
 
 	/* check if any core id is free except 0 */
-	for (i = 0; i * sizeof(unsigned long) * 8 < size; i++) {
+	for (i = 0; i * sizeof(unsigned long) * 8 < OCF_CORE_MAX; i++) {
 		unsigned long long ignore_mask = (i == 0) ? 1UL : 0UL;
 		if (~(bitmap[i] | ignore_mask)) {
-			ret = MIN(size, i * sizeof(unsigned long) * 8 +
+			ret = MIN(OCF_CORE_MAX, i * sizeof(unsigned long) * 8 +
 				  _ffz(bitmap[i] | ignore_mask));
 			break;
 		}
 	}
 
 	/* return 0 only if no other core is free */
-	if (ret == size && zero_core_free)
+	if (ret == OCF_CORE_MAX && zero_core_free)
 		return 0;
 
 	return ret;
@@ -287,8 +288,7 @@ static int __ocf_mngt_find_core_id(ocf_cache_t cache,
 
 		/* Core is unspecified */
 		cfg->core_id = _ocf_mngt_find_first_free_core(
-				cache->conf_meta->valid_object_bitmap,
-				OCF_CORE_MAX);
+				cache->conf_meta->valid_object_bitmap);
 		/* no need to check if find_first_zero_bit failed and
 		 * *core_id == MAX_CORE_OBJS_PER_CACHE, as above there is check
 		 * for core_count being greater or equal to
