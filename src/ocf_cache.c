@@ -141,7 +141,7 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 				core_runtime_meta[i].dirty_since);
 		if (core_dirty_since) {
 			dirty_since = (dirty_since ?
-				MIN(dirty_since, core_dirty_since) :
+				OCF_MIN(dirty_since, core_dirty_since) :
 				core_dirty_since);
 		}
 

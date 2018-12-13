@@ -190,7 +190,7 @@ uint32_t raw_dynamic_size_on_ssd(struct ocf_cache *cache,
 {
 	const size_t alignment = 128 * KiB / PAGE_SIZE;
 
-	return DIV_ROUND_UP(raw->ssd_pages, alignment) * alignment;
+	return OCF_DIV_ROUND_UP(raw->ssd_pages, alignment) * alignment;
 }
 
 /*

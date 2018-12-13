@@ -695,7 +695,7 @@ int cleaning_policy_acp_add_core(ocf_cache_t cache,
 		ocf_core_id_t core_id)
 {
 	uint64_t core_size = cache->core_conf_meta[core_id].length;
-	uint64_t num_chunks = DIV_ROUND_UP(core_size, ACP_CHUNK_SIZE);
+	uint64_t num_chunks = OCF_DIV_ROUND_UP(core_size, ACP_CHUNK_SIZE);
 	struct acp_context *acp = _acp_get_ctx_from_cache(cache);
 	int i;
 

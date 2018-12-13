@@ -200,7 +200,7 @@ static int _ocf_discard_step(struct ocf_request *req)
 
 	req->byte_position = SECTORS_TO_BYTES(req->discard.sector +
 			req->discard.handled);
-	req->byte_length = MIN(SECTORS_TO_BYTES(req->discard.nr_sects -
+	req->byte_length = OCF_MIN(SECTORS_TO_BYTES(req->discard.nr_sects -
 			req->discard.handled), MAX_TRIM_RQ_SIZE);
 	req->core_line_first = ocf_bytes_2_lines(cache, req->byte_position);
 	req->core_line_last =

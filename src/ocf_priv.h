@@ -6,6 +6,7 @@
 #define __OCF_PRIV_H__
 
 #include "ocf_env.h"
+#include "ocf_def_priv.h"
 
 #define OCF_CHECK_NULL(p) ENV_BUG_ON(!(p))
 

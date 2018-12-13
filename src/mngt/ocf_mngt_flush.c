@@ -264,10 +264,10 @@ static void _ocf_mngt_flush_portion(struct flush_container *fc)
 	/* regardless those calculations, limit flush portion to be
 	 * between OCF_MNG_FLUSH_MIN and OCF_MNG_FLUSH_MAX
 	 */
-	fc->flush_portion = MIN(fc->flush_portion, OCF_MNG_FLUSH_MAX);
-	fc->flush_portion = MAX(fc->flush_portion, OCF_MNG_FLUSH_MIN);
+	fc->flush_portion = OCF_MIN(fc->flush_portion, OCF_MNG_FLUSH_MAX);
+	fc->flush_portion = OCF_MAX(fc->flush_portion, OCF_MNG_FLUSH_MIN);
 
-	curr_count = MIN(fc->count - fc->iter, fc->flush_portion);
+	curr_count = OCF_MIN(fc->count - fc->iter, fc->flush_portion);
 
 	ocf_cleaner_do_flush_data_async(fc->cache,
 			&fc->flush_data[fc->iter],

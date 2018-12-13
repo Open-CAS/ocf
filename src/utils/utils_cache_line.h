@@ -60,7 +60,7 @@ static inline uint64_t ocf_bytes_2_lines(struct ocf_cache *cache,
 static inline uint64_t ocf_bytes_2_lines_round_up(
 		struct ocf_cache *cache, uint64_t bytes)
 {
-	return DIV_ROUND_UP(bytes, ocf_line_size(cache));
+	return OCF_DIV_ROUND_UP(bytes, ocf_line_size(cache));
 }
 
 static inline uint64_t ocf_lines_2_bytes(struct ocf_cache *cache,

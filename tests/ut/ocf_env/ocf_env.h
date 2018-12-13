@@ -56,8 +56,6 @@ typedef uint64_t sector_t;
 #define ENV_MEM_NOIO	1
 #define ENV_MEM_ATOMIC	2
 
-#define min(x, y) MIN(x, y)
-
 #define ENV_WARN(cond, fmt, args...) ({})
 
 #define ENV_WARN_ON(cond) ({ \
