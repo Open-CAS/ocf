@@ -210,8 +210,8 @@ static unsigned long _ocf_mngt_find_first_free_core(const unsigned long *bitmap)
 	for (i = 0; i * sizeof(unsigned long) * 8 < OCF_CORE_MAX; i++) {
 		unsigned long long ignore_mask = (i == 0) ? 1UL : 0UL;
 		if (~(bitmap[i] | ignore_mask)) {
-			ret = MIN(OCF_CORE_MAX, i * sizeof(unsigned long) * 8 +
-				  _ffz(bitmap[i] | ignore_mask));
+			ret = OCF_MIN(OCF_CORE_MAX, i * sizeof(unsigned long) *
+					8 + _ffz(bitmap[i] | ignore_mask));
 			break;
 		}
 	}
@@ -243,7 +243,7 @@ static int __ocf_mngt_lookup_core_uuid(ocf_cache_t cache,
 		}
 
 		if (!env_strncmp(core->obj.uuid.data, cfg->uuid.data,
-				min(core->obj.uuid.size,
+				OCF_MIN(core->obj.uuid.size,
 				cfg->uuid.size)))
 			return i;
 	}

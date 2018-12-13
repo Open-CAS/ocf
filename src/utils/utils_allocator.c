@@ -170,7 +170,7 @@ struct ocf_mpool *ocf_mpool_create(struct ocf_cache *cache,
 	mpool->cache = cache;
 	mpool->flags = flags;
 
-	for (i = 0; i < min(ocf_mpool_max, mpool_max + 1); i++) {
+	for (i = 0; i < OCF_MIN(ocf_mpool_max, mpool_max + 1); i++) {
 		result = snprintf(name, sizeof(name), "%s_%u", name_perfix,
 				(1 << i));
 		if (result < 0 || result >= sizeof(name))

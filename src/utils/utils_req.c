@@ -253,7 +253,7 @@ struct ocf_request *ocf_req_new_discard(struct ocf_cache *cache,
 	struct ocf_request *req;
 
 	req = ocf_req_new_extended(cache, core_id, addr,
-			MIN(bytes, MAX_TRIM_RQ_SIZE),rw);
+			OCF_MIN(bytes, MAX_TRIM_RQ_SIZE),rw);
 
 	if (!req)
 		return NULL;

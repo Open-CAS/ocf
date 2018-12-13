@@ -83,7 +83,7 @@ ocf_data_obj_t ocf_mngt_core_pool_lookup(ocf_ctx_t ctx, ocf_uuid_t uuid,
 	list_for_each_entry(sobj, &ctx->core_pool.core_pool_head,
 			core_pool_item) {
 		if (sobj->type == type && !env_strncmp(sobj->uuid.data,
-				uuid->data, min(sobj->uuid.size, uuid->size))) {
+			uuid->data, OCF_MIN(sobj->uuid.size, uuid->size))) {
 			return sobj;
 		}
 	}

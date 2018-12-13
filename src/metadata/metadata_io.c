@@ -90,7 +90,7 @@ int metadata_io_read_i_atomic(struct ocf_cache *cache,
 	count = io_sectors_count;
 	for (i = 0; i < io_sectors_count; i += curr_count) {
 		/* Get sectors count of this IO iteration */
-		curr_count = MIN(max_sectors_count, count);
+		curr_count = OCF_MIN(max_sectors_count, count);
 
 		env_completion_init(&meta_atom_req.complete);
 		meta_atom_req.error = 0;
@@ -268,7 +268,7 @@ int metadata_io_write_i_asynch(struct ocf_cache *cache, uint32_t queue,
 {
 	uint32_t curr_count, written;
 	uint32_t max_count = metadata_io_max_page(cache);
-	uint32_t io_count = DIV_ROUND_UP(count, max_count);
+	uint32_t io_count = OCF_DIV_ROUND_UP(count, max_count);
 	uint32_t i, i_fill;
 	int error = 0, ret;
 	struct ocf_io *io;
@@ -546,7 +546,7 @@ static int metadata_io(struct metadata_io *mio)
 	env_completion_init(&mio->completion);
 
 	while (count) {
-		this_count = MIN(count, max_count);
+		this_count = OCF_MIN(count, max_count);
 
 		err = metadata_submit_io(cache, mio, this_count, written);
 		if (err)

@@ -92,7 +92,7 @@ int ocf_submit_obj_discard_wait(ocf_data_obj_t obj, uint64_t addr,
 			break;
 		}
 
-		bytes = min(length, max_length);
+		bytes = OCF_MIN(length, max_length);
 
 		env_atomic_inc(&cntx.req_remaining);
 
@@ -139,7 +139,7 @@ int ocf_submit_write_zeroes_wait(ocf_data_obj_t obj, uint64_t addr,
 	while (length) {
 		env_completion_init(&cntx.complete);
 
-		bytes = MIN(length, max_length);
+		bytes = OCF_MIN(length, max_length);
 
 		ocf_io_configure(io, addr, bytes, OCF_WRITE, 0, 0);
 		ocf_io_set_cmpl(io, &cntx, NULL,

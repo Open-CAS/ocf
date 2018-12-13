@@ -85,11 +85,11 @@ static ocf_cache_line_t ocf_metadata_hash_get_entires(
 				OCF_HASH_PRIME - 1;
 
 	case metadata_segment_sb_config:
-		return DIV_ROUND_UP(sizeof(struct ocf_superblock_config),
+		return OCF_DIV_ROUND_UP(sizeof(struct ocf_superblock_config),
 				PAGE_SIZE);
 
 	case metadata_segment_sb_runtime:
-		return DIV_ROUND_UP(sizeof(struct ocf_superblock_runtime),
+		return OCF_DIV_ROUND_UP(sizeof(struct ocf_superblock_runtime),
 				PAGE_SIZE);
 
 	case metadata_segment_reserved:
@@ -247,7 +247,7 @@ static int ocf_metadata_hash_calculate_metadata_size(
 			 * Setup SSD location and size
 			 */
 			raw->ssd_pages_offset = count_pages;
-			raw->ssd_pages = DIV_ROUND_UP(raw->entries,
+			raw->ssd_pages = OCF_DIV_ROUND_UP(raw->entries,
 					raw->entries_in_page);
 
 			/* Update offset for next container */
@@ -495,7 +495,7 @@ static int ocf_metadata_hash_init(struct ocf_cache *cache,
 		 * Setup SSD location and size
 		 */
 		raw->ssd_pages_offset = page;
-		raw->ssd_pages = DIV_ROUND_UP(raw->entries,
+		raw->ssd_pages = OCF_DIV_ROUND_UP(raw->entries,
 				raw->entries_in_page);
 
 		/* Update offset for next container */

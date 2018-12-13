@@ -15,32 +15,26 @@
 #define BYTES_TO_PAGES(x)	((((uint64_t)x) + (PAGE_SIZE - 1)) / PAGE_SIZE)
 #define PAGES_TO_BYTES(x)	(((uint64_t)x) * PAGE_SIZE)
 
-#ifndef DIV_ROUND_UP
-# define DIV_ROUND_UP(x, y)			\
+#define OCF_DIV_ROUND_UP(x, y)			\
 	({					\
 		__typeof__ (x) __x = (x);	\
 		__typeof__ (y) __y = (y);	\
 		(__x + __y - 1) / __y;		\
 	})
-#endif
 
-#ifndef MAX
-# define MAX(x,y)				\
+#define OCF_MAX(x,y)				\
 	({					\
 		__typeof__ (x) __x = (x);	\
 		__typeof__ (y) __y = (y);	\
 		__x > __y ? __x : __y;		\
 	})
-#endif
 
-#ifndef MIN
-#define MIN(x,y)				\
+#define OCF_MIN(x,y)				\
 	({					\
 		__typeof__ (x) __x = (x);	\
 		__typeof__ (y) __y = (y);	\
 		__x < __y ? __x : __y;		\
 	})
-#endif
 
 #define METADATA_VERSION() ((OCF_VERSION_MAIN << 16) + \
 		(OCF_VERSION_MAJOR << 8) + OCF_VERSION_MINOR)
