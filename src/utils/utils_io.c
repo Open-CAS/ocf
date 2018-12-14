@@ -237,6 +237,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		bytes = req->byte_length;
 
 		ocf_io_configure(io, addr, bytes, dir, class, flags);
+		ocf_io_set_queue(io, req->io_queue);
 		ocf_io_set_cmpl(io, req, callback, ocf_submit_obj_req_cmpl);
 
 		err = ocf_io_set_data(io, req->data, 0);
@@ -284,6 +285,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		}
 
 		ocf_io_configure(io, addr, bytes, dir, class, flags);
+		ocf_io_set_queue(io, req->io_queue);
 		ocf_io_set_cmpl(io, req, callback, ocf_submit_obj_req_cmpl);
 
 		err = ocf_io_set_data(io, req->data, total_bytes);
@@ -331,6 +333,7 @@ void ocf_submit_obj_req(ocf_data_obj_t obj, struct ocf_request *req,
 
 	ocf_io_configure(io, req->byte_position, req->byte_length, dir,
 			class, flags);
+	ocf_io_set_queue(io, req->io_queue);
 	ocf_io_set_cmpl(io, req, callback, ocf_submit_obj_req_cmpl);
 	err = ocf_io_set_data(io, req->data, 0);
 	if (err) {
