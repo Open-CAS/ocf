@@ -10,24 +10,9 @@
 #include "metadata_raw_atomic.h"
 #include "../ocf_def_priv.h"
 
-#define OCF_METADATA_RAW_DEBUG 0
-
-#if 1 == OCF_METADATA_RAW_DEBUG
-#define OCF_DEBUG_TRACE(cache) \
-	ocf_cache_log(log_info, "[Metadata][Raw] %s\n", __func__)
-
-#define OCF_DEBUG_MSG(cache, msg) \
-	ocf_cache_log(cache, log_info, "[Metadata][Raw] %s - %s\n", \
-			__func__, msg)
-
-#define OCF_DEBUG_PARAM(cache, format, ...) \
-	ocf_cache_log(cache, log_info, "[Metadata][Raw] %s - "format"\n", \
-			__func__, ##__VA_ARGS__)
-#else
-#define OCF_DEBUG_TRACE(cache)
-#define OCF_DEBUG_MSG(cache, msg)
-#define OCF_DEBUG_PARAM(cache, format, ...)
-#endif
+#define OCF_DEBUG_TAG "meta.io"
+#define OCF_DEBUG 0
+#include "../ocf_debug.h"
 
 /*******************************************************************************
  * Common RAW Implementation
@@ -75,7 +60,7 @@ static bool _raw_ssd_page_is_valid(struct ocf_metadata_raw *raw, uint32_t page)
 static int _raw_ram_deinit(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	if (raw->mem_pool) {
 		env_vfree(raw->mem_pool);
@@ -93,7 +78,7 @@ static int _raw_ram_init(ocf_cache_t cache,
 {
 	size_t mem_pool_size;
 
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	/* Allocate memory pool for entries */
 	mem_pool_size = raw->ssd_pages;
@@ -203,8 +188,8 @@ static int _raw_ram_set(ocf_cache_t cache,
 static int _raw_ram_flush(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, ocf_cache_line_t line)
 {
-	OCF_DEBUG_PARAM(cache, "Line = %u", line);
-	OCF_DEBUG_PARAM(cache, "Page = %llu", _RAW_RAM_PAGE(raw, line));
+	OCF_DEBUG_CACHE_PARAM(cache, "Line = %u", line);
+	OCF_DEBUG_CACHE_PARAM(cache, "Page = %u", _RAW_RAM_PAGE(raw, line));
 
 	ENV_BUG_ON(!_raw_is_valid(raw, line, raw->entry_size));
 
@@ -229,7 +214,7 @@ static int _raw_ram_load_all_io(ocf_cache_t cache,
 	raw_page = page - raw->ssd_pages_offset;
 	line = raw_page * raw->entries_in_page;
 
-	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
+	OCF_DEBUG_CACHE_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
 
 	ctx_data_rd_check(cache->owner, _RAW_RAM_ADDR(raw, line), data, size);
 	ctx_data_seek(cache->owner, data, ctx_data_seek_current,
@@ -244,7 +229,7 @@ static int _raw_ram_load_all_io(ocf_cache_t cache,
 static int _raw_ram_load_all(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	return metadata_io_read_i(cache, raw->ssd_pages_offset,
 			raw->ssd_pages, _raw_ram_load_all_io, raw);
@@ -267,7 +252,7 @@ static int _raw_ram_flush_all_fill(ocf_cache_t cache,
 	raw_page = page - raw->ssd_pages_offset;
 	line = raw_page * raw->entries_in_page;
 
-	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
+	OCF_DEBUG_CACHE_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
 
 	ctx_data_wr_check(cache->owner, data, _RAW_RAM_ADDR(raw, line), size);
 	ctx_data_zero_check(cache->owner, data, PAGE_SIZE - size);
@@ -281,7 +266,7 @@ static int _raw_ram_flush_all_fill(ocf_cache_t cache,
 static int _raw_ram_flush_all(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	return metadata_io_write_i(cache, raw->ssd_pages_offset,
 			raw->ssd_pages, _raw_ram_flush_all_fill, raw);
@@ -324,7 +309,7 @@ static void _raw_ram_flush_do_asynch_io_complete(ocf_cache_t cache,
 	if (env_atomic_dec_return(&ctx->flush_req_cnt))
 		return;
 
-	OCF_DEBUG_MSG(cache, "Asynchronous flushing complete");
+	OCF_DEBUG_CACHE_MSG(cache, "Asynchronous flushing complete");
 
 	/* Call metadata flush completed call back */
 	ctx->req->error |= ctx->error;
@@ -356,7 +341,7 @@ static int _raw_ram_flush_do_asynch_fill(ocf_cache_t cache,
 	raw_page = page - raw->ssd_pages_offset;
 	line = raw_page * raw->entries_in_page;
 
-	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
+	OCF_DEBUG_CACHE_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
 
 	ctx_data_wr_check(cache->owner, data, _RAW_RAM_ADDR(raw, line), size);
 	ctx_data_zero_check(cache->owner, data, PAGE_SIZE - size);
@@ -415,7 +400,7 @@ static int _raw_ram_flush_do_asynch(ocf_cache_t cache,
 
 	ENV_BUG_ON(!complete);
 
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	if (!req->info.flush_metadata) {
 		/* Nothing to flush call flush callback */

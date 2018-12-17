@@ -11,19 +11,9 @@
 #include "../utils/utils_io.h"
 #include "../ocf_def_priv.h"
 
-#define OCF_METADATA_RAW_DEBUG  0
-
-#if 1 == OCF_METADATA_RAW_DEBUG
-#define OCF_DEBUG_TRACE(cache) \
-	ocf_cache_log(cache, log_info, "[Metadata][Volatile] %s\n", __func__)
-
-#define OCF_DEBUG_PARAM(cache, format, ...) \
-	ocf_cache_log(cache, log_info, "[Metadata][Volatile] %s - "format"\n", \
-			__func__, ##__VA_ARGS__)
-#else
-#define OCF_DEBUG_TRACE(cache)
-#define OCF_DEBUG_PARAM(cache, format, ...)
-#endif
+#define OCF_DEBUG_TAG "meta.volatile"
+#define OCF_DEBUG 0
+#include "../ocf_debug.h"
 
 /*******************************************************************************
  * Common RAW Implementation
@@ -68,7 +58,8 @@ static void *_raw_dynamic_get_item(struct ocf_cache *cache,
 
 	ENV_BUG_ON(!_raw_is_valid(raw, line, size));
 
-	OCF_DEBUG_PARAM(cache, "Accessing item %u on page %u", line, page);
+	OCF_DEBUG_CACHE_PARAM(cache, "Accessing item %u on page %u",
+			line, page);
 
 	if (!ctrl->pages[page]) {
 		/* No page, allocate one, and set*/
@@ -88,7 +79,7 @@ static void *_raw_dynamic_get_item(struct ocf_cache *cache,
 			goto _raw_dynamic_get_item_SKIP;
 		}
 
-		OCF_DEBUG_PARAM(cache, "New page allocation - %u", page);
+		OCF_DEBUG_CACHE_PARAM(cache, "New page allocation - %u", page);
 
 		new = env_zalloc(PAGE_SIZE, ENV_MEM_NORMAL);
 		if (new) {
@@ -119,7 +110,7 @@ int raw_dynamic_deinit(struct ocf_cache *cache,
 	if (!ctrl)
 		return 0;
 
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	for (i = 0; i < raw->ssd_pages; i++)
 		env_free(ctrl->pages[i]);
@@ -139,7 +130,7 @@ int raw_dynamic_init(struct ocf_cache *cache,
 	struct _raw_ctrl *ctrl;
 	size_t size = sizeof(*ctrl) + (sizeof(ctrl->pages[0]) * raw->ssd_pages);
 
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	if (raw->entry_size > PAGE_SIZE)
 		return -1;
@@ -176,7 +167,7 @@ size_t raw_dynamic_size_of(struct ocf_cache *cache,
 	/* Size of control structure */
 	size += sizeof(*ctrl) + (sizeof(ctrl->pages[0]) * raw->ssd_pages);
 
-	OCF_DEBUG_PARAM(cache, "Count = %d, Size = %lu",
+	OCF_DEBUG_CACHE_PARAM(cache, "Count = %d, Size = %lu",
 			env_atomic_read(&ctrl->count), size);
 
 	return size;
@@ -274,7 +265,7 @@ int raw_dynamic_flush(struct ocf_cache *cache,
 	uint32_t page = _RAW_DYNAMIC_PAGE(raw, line);
 	struct _raw_ctrl *ctrl = (struct _raw_ctrl *)raw->priv;
 
-	OCF_DEBUG_PARAM(cache, "Line %u, page = %u", line, page);
+	OCF_DEBUG_CACHE_PARAM(cache, "Line %u, page = %u", line, page);
 
 	ENV_BUG_ON(!ctrl->pages[page]);
 
@@ -307,7 +298,7 @@ int raw_dynamic_load_all(struct ocf_cache *cache,
 		return -ENOMEM;
 	}
 
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	/* Loading, need to load all metadata, when page is zero set, no need
 	 * to allocate space for it
@@ -364,11 +355,13 @@ int raw_dynamic_load_all(struct ocf_cache *cache,
 				break;
 
 			if (cmp == 0) {
-				OCF_DEBUG_PARAM(cache, "Zero loaded %llu", i);
+				OCF_DEBUG_CACHE_PARAM(cache,
+						"Zero loaded %llu", i);
 				continue;
 			}
 
-			OCF_DEBUG_PARAM(cache, "Non-zero loaded %llu", i);
+			OCF_DEBUG_CACHE_PARAM(cache,
+					"Non-zero loaded %llu", i);
 
 			ctrl->pages[i] = page;
 			page = NULL;
@@ -405,11 +398,11 @@ static int _raw_dynamic_flush_all_fill(struct ocf_cache *cache,
 	raw_page = page - raw->ssd_pages_offset;
 
 	if (ctrl->pages[raw_page]) {
-		OCF_DEBUG_PARAM(cache, "Page = %u", raw_page);
+		OCF_DEBUG_CACHE_PARAM(cache, "Page = %u", raw_page);
 		ctx_data_wr_check(cache->owner, data, ctrl->pages[raw_page],
 				PAGE_SIZE);
 	} else {
-		OCF_DEBUG_PARAM(cache, "Zero fill, Page = %u", raw_page);
+		OCF_DEBUG_CACHE_PARAM(cache, "Zero fill, Page = %u", raw_page);
 		/* Page was not allocated before set only zeros */
 		ctx_data_zero_check(cache->owner, data, PAGE_SIZE);
 	}
@@ -420,7 +413,7 @@ static int _raw_dynamic_flush_all_fill(struct ocf_cache *cache,
 int raw_dynamic_flush_all(struct ocf_cache *cache,
 		struct ocf_metadata_raw *raw)
 {
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 	return metadata_io_write_i(cache, raw->ssd_pages_offset,
 			raw->ssd_pages, _raw_dynamic_flush_all_fill, raw);
 }

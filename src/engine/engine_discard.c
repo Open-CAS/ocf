@@ -13,8 +13,6 @@
 #include "../utils/utils_cache_line.h"
 #include "../concurrency/ocf_concurrency.h"
 
-#define OCF_ENGINE_DEBUG 0
-
 #define OCF_ENGINE_DEBUG_IO_NAME "discard"
 #include "engine_debug.h"
 
@@ -53,7 +51,7 @@ static void _ocf_discard_core_complete(struct ocf_io *io, int error)
 {
 	struct ocf_request *req = io->priv1;
 
-	OCF_DEBUG_RQ(req, "Core DISCARD Completion");
+	OCF_DEBUG_REQ(req, "Core DISCARD Completion");
 
 	_ocf_discard_complete_req(req, error);
 
@@ -143,7 +141,7 @@ static void _ocf_discard_step_complete(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	OCF_DEBUG_RQ(req, "Completion");
+	OCF_DEBUG_REQ(req, "Completion");
 
 	/* Release WRITE lock of request */
 	ocf_req_unlock_wr(req);
@@ -183,7 +181,7 @@ int _ocf_discard_step_do(struct ocf_request *req)
 		OCF_METADATA_UNLOCK_WR(); /*- END Metadata WR access ---------*/
 	}
 
-	OCF_DEBUG_RQ(req, "Discard");
+	OCF_DEBUG_REQ(req, "Discard");
 	_ocf_discard_step_complete(req, 0);
 
 	/* Put OCF request - decrease reference counter */
@@ -194,7 +192,7 @@ int _ocf_discard_step_do(struct ocf_request *req)
 
 static void _ocf_discard_on_resume(struct ocf_request *req)
 {
-	OCF_DEBUG_RQ(req, "On resume");
+	OCF_DEBUG_REQ(req, "On resume");
 	ocf_engine_push_req_front(req, true);
 }
 
@@ -203,7 +201,7 @@ static int _ocf_discard_step(struct ocf_request *req)
 	int lock;
 	struct ocf_cache *cache = req->cache;
 
-	OCF_DEBUG_TRACE(req->cache);
+	OCF_DEBUG_CACHE_TRACE(req->cache);
 
 	req->byte_position = SECTORS_TO_BYTES(req->discard.sector +
 			req->discard.handled);
@@ -237,10 +235,10 @@ static int _ocf_discard_step(struct ocf_request *req)
 			_ocf_discard_step_do(req);
 		} else {
 			/* WR lock was not acquired, need to wait for resume */
-			OCF_DEBUG_RQ(req, "NO LOCK")
+			OCF_DEBUG_REQ(req, "NO LOCK");
 		}
 	} else {
-		OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);
+		OCF_DEBUG_REQ(req, "LOCK ERROR %d", lock);
 		req->error |= lock;
 		_ocf_discard_finish_step(req);
 	}
@@ -252,7 +250,7 @@ static int _ocf_discard_step(struct ocf_request *req)
 
 int ocf_discard(struct ocf_request *req)
 {
-	OCF_DEBUG_TRACE(req->cache);
+	OCF_DEBUG_CACHE_TRACE(req->cache);
 
 	ocf_io_start(req->io);
 

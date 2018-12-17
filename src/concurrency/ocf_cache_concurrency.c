@@ -9,21 +9,9 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_allocator.h"
 
-#define OCF_CACHE_CONCURRENCY_DEBUG 0
-
-#if 1 == OCF_CACHE_CONCURRENCY_DEBUG
-#define OCF_DEBUG_TRACE(cache) \
-	ocf_cache_log(cache, log_info, "[Concurrency][Cache] %s\n", __func__)
-
-#define OCF_DEBUG_RQ(req, format, ...) \
-	ocf_cache_log(req->cache, log_info, "[Concurrency][Cache][%s] %s - " \
-			format"\n", OCF_READ == (req)->rw ? "RD" : "WR", \
-			__func__, ##__VA_ARGS__)
-
-#else
-#define OCF_DEBUG_TRACE(cache)
-#define OCF_DEBUG_RQ(req, format, ...)
-#endif
+#define OCF_DEBUG_TAG "conc"
+#define OCF_DEBUG 0
+#include "../ocf_debug.h"
 
 #define OCF_CACHE_LINE_ACCESS_WR	INT_MAX
 #define OCF_CACHE_LINE_ACCESS_IDLE	0
@@ -78,7 +66,7 @@ int ocf_cache_concurrency_init(struct ocf_cache *cache)
 
 	ENV_BUG_ON(cache->device->concurrency.cache);
 
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	c = env_vmalloc(sizeof(*c));
 	if (!c) {
@@ -139,7 +127,7 @@ void ocf_cache_concurrency_deinit(struct ocf_cache *cache)
 	if (!cache->device->concurrency.cache)
 		return;
 
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	concurrency = cache->device->concurrency.cache;
 
@@ -673,7 +661,7 @@ static int _ocf_req_lock_rd_common(struct ocf_request *req, void *context,
 	struct ocf_cache_concurrency *c = req->cache->device->concurrency.cache;
 	ocf_cache_line_t line;
 
-	OCF_DEBUG_RQ(req, "Lock");
+	OCF_DEBUG_REQ(req, "Lock");
 
 	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
 	ENV_BUG_ON(!on_lock);
@@ -702,7 +690,7 @@ static int _ocf_req_lock_rd_common(struct ocf_request *req, void *context,
 		} else {
 			/* Not possible to lock all request */
 			locked = false;
-			OCF_DEBUG_RQ(req, "NO Lock, cache line = %u", line);
+			OCF_DEBUG_REQ(req, "NO Lock, cache line = %u", line);
 			break;
 		}
 	}
@@ -733,7 +721,7 @@ static int _ocf_req_lock_rd_common(struct ocf_request *req, void *context,
 	env_rwlock_write_lock(&c->lock);
 	/* At this point one thread tries to get locks */
 
-	OCF_DEBUG_RQ(req, "Exclusive");
+	OCF_DEBUG_REQ(req, "Exclusive");
 
 	waiting = true;
 	for (i = 0; i < req->core_line_count; i++) {
@@ -761,7 +749,7 @@ static int _ocf_req_lock_rd_common(struct ocf_request *req, void *context,
 			__remove_line_from_waiters_list(c, req, i, context, OCF_READ);
 	}
 
-	OCF_DEBUG_RQ(req, "Exclusive END");
+	OCF_DEBUG_REQ(req, "Exclusive END");
 
 	env_rwlock_write_unlock(&c->lock);
 
@@ -794,7 +782,7 @@ static void _req_on_lock(void *ctx, uint32_t ctx_id,
 
 	if (env_atomic_dec_return(&req->lock_remaining) == 0) {
 		/* All cache line locked, resume request */
-		OCF_DEBUG_RQ(req, "Resume");
+		OCF_DEBUG_REQ(req, "Resume");
 		OCF_CHECK_NULL(req->resume);
 		env_atomic_dec(&c->waiting);
 		req->resume(req);
@@ -829,7 +817,7 @@ static int _ocf_req_lock_wr_common(struct ocf_request *req, void *context,
 	struct ocf_cache_concurrency *c = req->cache->device->concurrency.cache;
 	ocf_cache_line_t line;
 
-	OCF_DEBUG_RQ(req, "Lock");
+	OCF_DEBUG_REQ(req, "Lock");
 
 	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
 
@@ -857,7 +845,7 @@ static int _ocf_req_lock_wr_common(struct ocf_request *req, void *context,
 		} else {
 			/* Not possible to lock all request */
 			locked = false;
-			OCF_DEBUG_RQ(req, "NO Lock, cache line = %u", line);
+			OCF_DEBUG_REQ(req, "NO Lock, cache line = %u", line);
 			break;
 		}
 	}
@@ -888,7 +876,7 @@ static int _ocf_req_lock_wr_common(struct ocf_request *req, void *context,
 	env_rwlock_write_lock(&c->lock);
 	/* At this point one thread tires getting locks */
 
-	OCF_DEBUG_RQ(req, "Exclusive");
+	OCF_DEBUG_REQ(req, "Exclusive");
 
 	waiting = true;
 	for (i = 0; i < req->core_line_count; i++) {
@@ -916,7 +904,7 @@ static int _ocf_req_lock_wr_common(struct ocf_request *req, void *context,
 			__remove_line_from_waiters_list(c, req, i, context, OCF_WRITE);
 	}
 
-	OCF_DEBUG_RQ(req, "Exclusive END");
+	OCF_DEBUG_REQ(req, "Exclusive END");
 
 	env_rwlock_write_unlock(&c->lock);
 
@@ -949,7 +937,7 @@ void ocf_req_unlock_rd(struct ocf_request *req)
 	int32_t i;
 	ocf_cache_line_t line;
 
-	OCF_DEBUG_RQ(req, "Unlock");
+	OCF_DEBUG_REQ(req, "Unlock");
 
 	for (i = 0; i < req->core_line_count; i++) {
 
@@ -977,7 +965,7 @@ void ocf_req_unlock_wr(struct ocf_request *req)
 	int32_t i;
 	ocf_cache_line_t line;
 
-	OCF_DEBUG_RQ(req, "Unlock");
+	OCF_DEBUG_REQ(req, "Unlock");
 
 	for (i = 0; i < req->core_line_count; i++) {
 
@@ -1005,7 +993,7 @@ void ocf_req_unlock(struct ocf_request *req)
 	int32_t i;
 	ocf_cache_line_t line;
 
-	OCF_DEBUG_RQ(req, "Unlock");
+	OCF_DEBUG_REQ(req, "Unlock");
 
 	for (i = 0; i < req->core_line_count; i++) {
 
@@ -1118,7 +1106,7 @@ void ocf_cache_line_unlock_rd(struct ocf_cache *cache, ocf_cache_line_t line)
 {
 	struct ocf_cache_concurrency *c = cache->device->concurrency.cache;
 
-	OCF_DEBUG_RQ(cache, "Cache line = %u", line);
+	OCF_DEBUG_CACHE_PARAM(cache, "Cache line = %u", line);
 
 	__unlock_cache_line_rd(c, line);
 }

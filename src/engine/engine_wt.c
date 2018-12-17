@@ -23,7 +23,7 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	OCF_DEBUG_RQ(req, "Completion");
+	OCF_DEBUG_REQ(req, "Completion");
 
 	if (req->error) {
 		/* An error occured */
@@ -75,7 +75,7 @@ static inline void _ocf_write_wt_submit(struct ocf_request *req)
 	struct ocf_cache *cache = req->cache;
 
 	/* Submit IOs */
-	OCF_DEBUG_RQ(req, "Submit");
+	OCF_DEBUG_REQ(req, "Submit");
 
 	/* Calculate how many IOs need to be submited */
 	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req)); /* Cache IO */
@@ -123,7 +123,7 @@ static void _ocf_write_wt_update_bits(struct ocf_request *req)
 	}
 
 	if (req->info.re_part) {
-		OCF_DEBUG_RQ(req, "Re-Part");
+		OCF_DEBUG_REQ(req, "Re-Part");
 
 		OCF_METADATA_LOCK_WR();
 
@@ -211,12 +211,12 @@ int ocf_write_wt(struct ocf_request *req)
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* WR lock was not acquired, need to wait for resume */
-				OCF_DEBUG_RQ(req, "NO LOCK");
+				OCF_DEBUG_REQ(req, "NO LOCK");
 			} else {
 				_ocf_write_wt_do(req);
 			}
 		} else {
-			OCF_DEBUG_RQ(req, "LOCK ERROR %d\n", lock);
+			OCF_DEBUG_REQ(req, "LOCK ERROR %d", lock);
 			req->complete(req, lock);
 			ocf_req_put(req);
 		}

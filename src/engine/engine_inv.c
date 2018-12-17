@@ -27,7 +27,7 @@ static void _ocf_invalidate_req(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	OCF_DEBUG_RQ(req, "Completion");
+	OCF_DEBUG_REQ(req, "Completion");
 
 	if (req->error)
 		ocf_engine_error(req, true, "Failed to flush metadata to cache");

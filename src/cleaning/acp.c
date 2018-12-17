@@ -16,33 +16,16 @@
 #include "cleaning_priv.h"
 #include "../utils/utils_core.h"
 
-#define OCF_ACP_DEBUG 0
+#define OCF_DEBUG_TAG "clean.acp"
+#define OCF_DEBUG 0
+#include "../ocf_debug.h"
 
-#if 1 == OCF_ACP_DEBUG
-
-#define OCF_DEBUG_PREFIX "[Clean] %s():%d "
-
-#define OCF_DEBUG_LOG(cache, format, ...) \
-	ocf_cache_log_prefix(cache, log_info, OCF_DEBUG_PREFIX, \
-			format"\n", __func__, __LINE__, ##__VA_ARGS__)
-
-#define OCF_DEBUG_TRACE(cache) OCF_DEBUG_LOG(cache, "")
-
-#define OCF_DEBUG_MSG(cache, msg) OCF_DEBUG_LOG(cache, "- %s", msg)
-
-#define OCF_DEBUG_PARAM(cache, format, ...) OCF_DEBUG_LOG(cache, "- "format, \
-			##__VA_ARGS__)
-
+#if 1 == OCF_DEBUG
 #define ACP_DEBUG_INIT(acp) acp->checksum = 0
 #define ACP_DEBUG_BEGIN(acp, cache_line) acp->checksum ^= cache_line
 #define ACP_DEBUG_END(acp, cache_line) acp->checksum ^= cache_line
 #define ACP_DEBUG_CHECK(acp) ENV_BUG_ON(acp->checksum)
 #else
-#define OCF_DEBUG_PREFIX
-#define OCF_DEBUG_LOG(cache, format, ...)
-#define OCF_DEBUG_TRACE(cache)
-#define OCF_DEBUG_MSG(cache, msg)
-#define OCF_DEBUG_PARAM(cache, format, ...)
 #define ACP_DEBUG_INIT(acp)
 #define ACP_DEBUG_BEGIN(acp, cache_line)
 #define ACP_DEBUG_END(acp, cache_line)
@@ -129,7 +112,7 @@ struct acp_context {
 	/* cleaner completion callback */
 	ocf_cleaner_end_t cmpl;
 
-#if 1 == OCF_ACP_DEBUG
+#if 1 == OCF_DEBUG
 	/* debug only */
 	uint64_t checksum;
 #endif
@@ -205,7 +188,7 @@ static int _acp_load_cores(struct ocf_cache *cache)
 	int err = 0;
 
 	for_each_core(cache, i) {
-		OCF_DEBUG_PARAM(cache, "loading core %i\n", i);
+		OCF_DEBUG_CACHE_PARAM(cache, "loading core %i\n", i);
 		err = cleaning_policy_acp_add_core(cache, i);
 		if (err)
 			break;
@@ -503,7 +486,7 @@ static bool _acp_prepare_flush_data(struct acp_context *acp,
 	size_t lines_per_chunk = ACP_CHUNK_SIZE / ocf_line_size(cache);
 	uint64_t first_core_line = chunk->chunk_id * lines_per_chunk;
 
-	OCF_DEBUG_PARAM(cache, "lines per chunk %llu chunk %llu "
+	OCF_DEBUG_CACHE_PARAM(cache, "lines per chunk %llu chunk %llu "
 			"first_core_line %llu\n", (uint64_t)lines_per_chunk,
 			chunk->chunk_id, first_core_line);
 
@@ -683,7 +666,7 @@ int cleaning_policy_acp_add_core(ocf_cache_t cache,
 	struct acp_context *acp = _acp_get_ctx_from_cache(cache);
 	int i;
 
-	OCF_DEBUG_PARAM(cache, "%s core_id %llu num_chunks %llu\n",
+	OCF_DEBUG_CACHE_PARAM(cache, "%s core_id %llu num_chunks %llu\n",
 			__func__, (uint64_t)core_id, (uint64_t) num_chunks);
 
 	ACP_LOCK_CHUNKS_WR();
@@ -695,11 +678,11 @@ int cleaning_policy_acp_add_core(ocf_cache_t cache,
 
 	if (!acp->chunk_info[core_id]) {
 		ACP_UNLOCK_CHUNKS_WR();
-		OCF_DEBUG_PARAM(cache, "failed to allocate acp tables\n");
+		OCF_DEBUG_CACHE_MSG(cache, "Failed to allocate acp tables\n");
 		return -ENOMEM;
 	}
 
-	OCF_DEBUG_PARAM(cache, "successfully allocated acp tables\n");
+	OCF_DEBUG_CACHE_MSG(cache, "Successfully allocated acp tables\n");
 
 	/* increment counters */
 	acp->num_chunks[core_id] = num_chunks;

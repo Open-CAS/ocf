@@ -18,30 +18,9 @@
 #define is_alru_head(x) (x == collision_table_entries)
 #define is_alru_tail(x) (x == collision_table_entries)
 
-#define OCF_CLEANING_DEBUG 0
-
-#if 1 == OCF_CLEANING_DEBUG
-
-#define OCF_DEBUG_PREFIX "[Clean] %s():%d "
-
-#define OCF_DEBUG_LOG(cache, format, ...) \
-	ocf_cache_log_prefix(cache, log_info, OCF_DEBUG_PREFIX, \
-			format"\n", __func__, __LINE__, ##__VA_ARGS__)
-
-#define OCF_DEBUG_TRACE(cache) OCF_DEBUG_LOG(cache, "")
-
-#define OCF_DEBUG_MSG(cache, msg) OCF_DEBUG_LOG(cache, "- %s", msg)
-
-#define OCF_DEBUG_PARAM(cache, format, ...) OCF_DEBUG_LOG(cache, "- "format, \
-			##__VA_ARGS__)
-
-#else
-#define OCF_DEBUG_PREFIX
-#define OCF_DEBUG_LOG(cache, format, ...)
-#define OCF_DEBUG_TRACE(cache)
-#define OCF_DEBUG_MSG(cache, msg)
-#define OCF_DEBUG_PARAM(cache, format, ...)
-#endif
+#define OCF_DEBUG_TAG "clean.alru"
+#define OCF_DEBUG 0
+#include "../ocf_debug.h"
 
 struct flush_merge_struct {
 	ocf_cache_line_t cache_line;
@@ -636,12 +615,12 @@ static bool is_cleanup_possible(ocf_cache_t cache)
 	config = (void *)&cache->conf_meta->cleaning[ocf_cleaning_alru].data;
 
 	if (check_for_io_activity(cache, config)) {
-		OCF_DEBUG_PARAM(cache, "IO activity detected");
+		OCF_DEBUG_CACHE_PARAM(cache, "IO activity detected");
 		return false;
 	}
 
 	if (clean_later(cache, &delta)) {
-		OCF_DEBUG_PARAM(cache,
+		OCF_DEBUG_CACHE_PARAM(cache,
 			"Cleaning policy configured to clean later "
 			"delta=%u wake_up=%u", delta,
 			config->thread_wakeup_time);
@@ -724,7 +703,7 @@ static int get_data_to_flush(struct alru_flush_ctx *fctx)
 
 		last_access = compute_timestamp(config);
 
-		OCF_DEBUG_PARAM(cache, "Last access=%u, timestamp=%u rel=%d",
+		OCF_DEBUG_CACHE_PARAM(cache, "Last access=%u, timestamp=%u rel=%d",
 				last_access, policy.meta.alru.timestamp,
 				policy.meta.alru.timestamp < last_access);
 
@@ -745,7 +724,7 @@ static int get_data_to_flush(struct alru_flush_ctx *fctx)
 	}
 
 end:
-	OCF_DEBUG_PARAM(cache, "Collected items_to_clean=%u", to_flush);
+	OCF_DEBUG_CACHE_PARAM(cache, "Collected items_to_clean=%u", to_flush);
 
 	return to_flush;
 }

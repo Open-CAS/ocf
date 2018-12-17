@@ -24,7 +24,7 @@ static void _ocf_read_pt_complete(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	OCF_DEBUG_RQ(req, "Completion");
+	OCF_DEBUG_REQ(req, "Completion");
 
 	if (req->error) {
 		req->info.core_error = 1;
@@ -47,7 +47,7 @@ static inline void _ocf_read_pt_submit(struct ocf_request *req)
 
 	env_atomic_set(&req->req_remaining, 1); /* Core device IO */
 
-	OCF_DEBUG_RQ(req, "Submit");
+	OCF_DEBUG_REQ(req, "Submit");
 
 	/* Core read */
 	ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
@@ -74,7 +74,7 @@ int ocf_read_pt_do(struct ocf_request *req)
 	}
 
 	if (req->info.re_part) {
-		OCF_DEBUG_RQ(req, "Re-Part");
+		OCF_DEBUG_REQ(req, "Re-Part");
 
 		OCF_METADATA_LOCK_WR();
 
@@ -111,7 +111,7 @@ int ocf_read_pt(struct ocf_request *req)
 	int lock = OCF_LOCK_NOT_ACQUIRED;
 	struct ocf_cache *cache = req->cache;
 
-	OCF_DEBUG_TRACE(req->cache);
+	OCF_DEBUG_CACHE_TRACE(req->cache);
 
 	ocf_io_start(req->io);
 
@@ -157,10 +157,10 @@ int ocf_read_pt(struct ocf_request *req)
 				ocf_read_pt_do(req);
 			} else {
 				/* WR lock was not acquired, need to wait for resume */
-				OCF_DEBUG_RQ(req, "NO LOCK");
+				OCF_DEBUG_REQ(req, "NO LOCK");
 			}
 		} else {
-			OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);
+			OCF_DEBUG_REQ(req, "LOCK ERROR %d", lock);
 			req->complete(req, lock);
 			ocf_req_put(req);
 		}

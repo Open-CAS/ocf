@@ -15,8 +15,6 @@
 #include "../concurrency/ocf_concurrency.h"
 #include "../metadata/metadata.h"
 
-#define OCF_ENGINE_DEBUG 0
-
 #define OCF_ENGINE_DEBUG_IO_NAME "fast"
 #include "engine_debug.h"
 
@@ -38,10 +36,10 @@ static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 		return;
 	}
 
-	OCF_DEBUG_RQ(req, "HIT completion");
+	OCF_DEBUG_REQ(req, "HIT completion");
 
 	if (req->error) {
-		OCF_DEBUG_RQ(req, "ERROR");
+		OCF_DEBUG_REQ(req, "ERROR");
 
 		env_atomic_inc(&req->cache->core[req->core_id].counters->
 				cache_errors.read);
@@ -63,7 +61,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 
 	if (ocf_engine_is_miss(req)) {
 		/* It seams that after resume, now request is MISS, do PT */
-		OCF_DEBUG_RQ(req, "Switching to read PT");
+		OCF_DEBUG_REQ(req, "Switching to read PT");
 		ocf_read_pt_do(req);
 		return 0;
 
@@ -73,7 +71,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 	ocf_req_get(req);
 
 	if (req->info.re_part) {
-		OCF_DEBUG_RQ(req, "Re-Part");
+		OCF_DEBUG_REQ(req, "Re-Part");
 
 		OCF_METADATA_LOCK_WR();
 
@@ -86,7 +84,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 	}
 
 	/* Submit IO */
-	OCF_DEBUG_RQ(req, "Submit");
+	OCF_DEBUG_REQ(req, "Submit");
 	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req));
 	ocf_submit_cache_reqs(req->cache, req->map, req, OCF_READ,
 		ocf_engine_io_count(req), _ocf_read_fast_complete);
@@ -136,23 +134,23 @@ int ocf_read_fast(struct ocf_request *req)
 	OCF_METADATA_UNLOCK_RD();
 
 	if (hit) {
-		OCF_DEBUG_RQ(req, "Fast path success");
+		OCF_DEBUG_REQ(req, "Fast path success");
 
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* Lock was not acquired, need to wait for resume */
-				OCF_DEBUG_RQ(req, "NO LOCK");
+				OCF_DEBUG_REQ(req, "NO LOCK");
 			} else {
 				/* Lock was acquired can perform IO */
 				_ocf_read_fast_do(req);
 			}
 		} else {
-			OCF_DEBUG_RQ(req, "LOCK ERROR");
+			OCF_DEBUG_REQ(req, "LOCK ERROR");
 			req->complete(req, lock);
 			ocf_req_put(req);
 		}
 	} else {
-		OCF_DEBUG_RQ(req, "Fast path failure");
+		OCF_DEBUG_REQ(req, "Fast path failure");
 	}
 
 	/* Put OCF request - decrease reference counter */
@@ -207,22 +205,22 @@ int ocf_write_fast(struct ocf_request *req)
 
 	if (mapped) {
 		if (lock >= 0) {
-			OCF_DEBUG_RQ(req, "Fast path success");
+			OCF_DEBUG_REQ(req, "Fast path success");
 
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* Lock was not acquired, need to wait for resume */
-				OCF_DEBUG_RQ(req, "NO LOCK");
+				OCF_DEBUG_REQ(req, "NO LOCK");
 			} else {
 				/* Lock was acquired can perform IO */
 				ocf_write_wb_do(req);
 			}
 		} else {
-			OCF_DEBUG_RQ(req, "Fast path lock failure");
+			OCF_DEBUG_REQ(req, "Fast path lock failure");
 			req->complete(req, lock);
 			ocf_req_put(req);
 		}
 	} else {
-		OCF_DEBUG_RQ(req, "Fast path failure");
+		OCF_DEBUG_REQ(req, "Fast path failure");
 	}
 
 	/* Put OCF request - decrease reference counter */

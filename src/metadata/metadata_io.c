@@ -13,24 +13,9 @@
 #include "../utils/utils_io.h"
 #include "../ocf_def_priv.h"
 
-#define OCF_METADATA_IO_DEBUG 0
-
-#if 1 == OCF_METADATA_IO_DEBUG
-#define OCF_DEBUG_TRACE(cache) \
-	ocf_cache_log(cache, log_info, "[Metadata][IO] %s\n", __func__)
-
-#define OCF_DEBUG_MSG(cache, msg) \
-	ocf_cache_log(cache, log_info, "[Metadata][IO] %s - %s\n", \
-			__func__, msg)
-
-#define OCF_DEBUG_PARAM(cache, format, ...) \
-	ocf_cache_log(cache, log_info, "[Metadata][IO] %s - "format"\n", \
-			__func__, ##__VA_ARGS__)
-#else
-#define OCF_DEBUG_TRACE(cache)
-#define OCF_DEBUG_MSG(cache, msg)
-#define OCF_DEBUG_PARAM(cache, format, ...)
-#endif
+#define OCF_DEBUG_TAG "meta.io"
+#define OCF_DEBUG 0
+#include "../ocf_debug.h"
 
 static void metadata_io_write_i_asynch_end(struct metadata_io_request *request,
 		int error);
@@ -56,7 +41,7 @@ static void metadata_io_read_i_atomic_end(struct ocf_io *io, int error)
 {
 	struct metadata_io_request_atomic *meta_atom_req = io->priv1;
 
-	OCF_DEBUG_TRACE(ocf_volume_get_cache(io->volume));
+	OCF_DEBUG_CACHE_TRACE(ocf_volume_get_cache(io->volume));
 
 	meta_atom_req->error |= error;
 	env_completion_complete(&meta_atom_req->complete);
@@ -79,7 +64,7 @@ int metadata_io_read_i_atomic(ocf_cache_t cache,
 	struct metadata_io_request_atomic meta_atom_req;
 	unsigned char step = 0;
 
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	/* Allocate one 4k page for metadata*/
 	data = ctx_data_alloc(cache->owner, 1);
@@ -223,7 +208,7 @@ static void metadata_io_write_i_asynch_end(struct metadata_io_request *request,
 	if (env_atomic_dec_return(&request->req_remaining))
 		return;
 
-	OCF_DEBUG_PARAM(cache, "Page = %u", request->page);
+	OCF_DEBUG_CACHE_PARAM(cache, "Page = %u", request->page);
 
 	ctx_data_free(cache->owner, request->data);
 	request->data = NULL;
@@ -234,7 +219,7 @@ static void metadata_io_write_i_asynch_end(struct metadata_io_request *request,
 		return;
 	}
 
-	OCF_DEBUG_MSG(cache, "Asynchronous IO completed");
+	OCF_DEBUG_CACHE_MSG(cache, "Asynchronous IO completed");
 
 	/* All IOs have been finished, call IO end callback */
 	a_req->on_complete(request->cache, a_req->context, request->error);
@@ -306,7 +291,7 @@ int metadata_io_write_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 		a_req->reqs[i].asynch = a_req;
 	}
 
-	OCF_DEBUG_PARAM(cache, "IO count = %u", io_count);
+	OCF_DEBUG_CACHE_PARAM(cache, "IO count = %u", io_count);
 
 	i = 0;
 	written = 0;
@@ -389,7 +374,7 @@ int metadata_io_write_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 		return 0;
 	}
 
-	OCF_DEBUG_MSG(cache, "ERROR");
+	OCF_DEBUG_CACHE_MSG(cache, "ERROR");
 
 	if (i == 0) {
 		/*
