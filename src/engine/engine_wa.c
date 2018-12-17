@@ -31,7 +31,7 @@ static void _ocf_read_wa_complete(struct ocf_request *req, int error)
 	/* Complete request */
 	req->complete(req, req->error);
 
-	OCF_DEBUG_RQ(req, "Completion");
+	OCF_DEBUG_REQ(req, "Completion");
 
 	/* Release OCF request */
 	ocf_req_put(req);
@@ -68,7 +68,7 @@ int ocf_write_wa(struct ocf_request *req)
 
 		/* There is no mapped cache line, write directly into core */
 
-		OCF_DEBUG_RQ(req, "Submit");
+		OCF_DEBUG_REQ(req, "Submit");
 
 		/* Submit write IO to the core */
 		env_atomic_set(&req->req_remaining, 1);

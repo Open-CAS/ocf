@@ -18,30 +18,9 @@
 #define is_alru_head(x) (x == collision_table_entries)
 #define is_alru_tail(x) (x == collision_table_entries)
 
-#define OCF_CLEANING_DEBUG 0
-
-#if 1 == OCF_CLEANING_DEBUG
-
-#define OCF_DEBUG_PREFIX "[Clean] %s():%d "
-
-#define OCF_DEBUG_LOG(cache, format, ...) \
-	ocf_cache_log_prefix(cache, log_info, OCF_DEBUG_PREFIX, \
-			format"\n", __func__, __LINE__, ##__VA_ARGS__)
-
-#define OCF_DEBUG_TRACE(cache) OCF_DEBUG_LOG(cache, "")
-
-#define OCF_DEBUG_MSG(cache, msg) OCF_DEBUG_LOG(cache, "- %s", msg)
-
-#define OCF_DEBUG_PARAM(cache, format, ...) OCF_DEBUG_LOG(cache, "- "format, \
-			##__VA_ARGS__)
-
-#else
-#define OCF_DEBUG_PREFIX
-#define OCF_DEBUG_LOG(cache, format, ...)
-#define OCF_DEBUG_TRACE(cache)
-#define OCF_DEBUG_MSG(cache, msg)
-#define OCF_DEBUG_PARAM(cache, format, ...)
-#endif
+#define OCF_DEBUG_TAG "clean.alru"
+#define OCF_DEBUG 0
+#include "../ocf_debug.h"
 
 struct flush_merge_struct {
 	ocf_cache_line_t cache_line;
@@ -719,10 +698,6 @@ static int get_data_to_flush(struct flush_data *dst, uint32_t clines_no,
 
 	last_access = compute_timestamp(config);
 
-	OCF_DEBUG_PARAM(cache, "Last access=%u, timestamp=%u rel=%d",
-			last_access, policy.meta.alru.timestamp,
-			policy.meta.alru.timestamp < last_access);
-
 	while (to_flush < clines_no &&
 			more_blocks_to_flush(cache, cache_line, last_access)) {
 		if (!block_is_busy(cache, cache_line)) {
@@ -734,7 +709,11 @@ static int get_data_to_flush(struct flush_data *dst, uint32_t clines_no,
 		cache_line = policy.meta.alru.lru_prev;
 	}
 
-	OCF_DEBUG_PARAM(cache, "Collected items_to_clean=%u", to_flush);
+	OCF_DEBUG_CACHE_PARAM(cache, "Last access=%u, timestamp=%u rel=%d, "
+			"collected items to clean=%d", last_access,
+			policy.meta.alru.timestamp,
+			policy.meta.alru.timestamp < last_access,
+			to_flush);
 
 	return to_flush;
 }

@@ -21,7 +21,7 @@ static void _ocf_engine_ops_complete(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	OCF_DEBUG_RQ(req, "Completion");
+	OCF_DEBUG_REQ(req, "Completion");
 
 	if (req->error) {
 		/* An error occured */
@@ -39,7 +39,7 @@ int ocf_engine_ops(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
 
-	OCF_DEBUG_TRACE(req->cache);
+	OCF_DEBUG_CACHE_TRACE(req->cache);
 
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);

@@ -12,24 +12,9 @@
 #include "../utils/utils_cache_line.h"
 #include "../ocf_def_priv.h"
 
-#define OCF_METADATA_RAW_ATOMIC_DEBUG 0
-
-#if 1 == OCF_METADATA_RAW_ATOMIC_DEBUG
-#define OCF_DEBUG_TRACE(cache) \
-	ocf_cache_log(cache, log_info, "[Metadata][Raw][Atomic] %s\n", __func__)
-
-#define OCF_DEBUG_MSG(cache, msg) \
-	ocf_cache_log(cache, log_info, "[Metadata][Raw][Atomic] %s - %s\n", \
-			__func__, msg)
-
-#define OCF_DEBUG_PARAM(cache, format, ...) \
-	ocf_cache_log(cache, log_info, "[Metadata][Raw][Atomic] %s - "format"\n", \
-			__func__, ##__VA_ARGS__)
-#else
-#define OCF_DEBUG_TRACE(cache)
-#define OCF_DEBUG_MSG(cache, msg)
-#define OCF_DEBUG_PARAM(cache, format, ...)
-#endif
+#define OCF_DEBUG_TAG "meta.raw.atomic"
+#define OCF_DEBUG 0
+#include "../ocf_debug.h"
 
 struct _raw_atomic_flush_ctx {
 	struct ocf_request *req;
@@ -50,8 +35,6 @@ static void _raw_atomic_io_discard_cmpl(struct _raw_atomic_flush_ctx *ctx,
 		ocf_metadata_error(ctx->req->cache);
 
 	/* Call metadata flush completed call back */
-	OCF_DEBUG_MSG(cache, "Asynchronous flushing complete");
-
 	ctx->complete(ctx->req, ctx->req->error);
 
 	env_free(ctx);
@@ -77,8 +60,8 @@ static int _raw_atomic_io_discard_do(struct ocf_cache *cache, void *context,
 		return req->error;
 	}
 
-	OCF_DEBUG_PARAM(cache, "Page to flushing = %u, count of pages = %u",
-			start_line, len);
+	OCF_DEBUG_CACHE_PARAM(cache, "Page to flushing = %llu,"
+			" count of pages = %u", start_addr, len);
 
 	env_atomic_inc(&ctx->flush_req_cnt);
 

@@ -10,19 +10,9 @@
 #include "../ocf_cache_priv.h"
 #include "../ocf_queue_priv.h"
 
-#define OCF_UTILS_RQ_DEBUG 0
-
-#if 1 == OCF_UTILS_RQ_DEBUG
-#define OCF_DEBUG_TRACE(cache) \
-	ocf_cache_log(cache, log_info, "[Utils][RQ] %s\n", __func__)
-
-#define OCF_DEBUG_PARAM(cache, format, ...) \
-	ocf_cache_log(cache, log_info, "[Utils][RQ] %s - "format"\n", \
-			__func__, ##__VA_ARGS__)
-#else
-#define OCF_DEBUG_TRACE(cache)
-#define OCF_DEBUG_PARAM(cache, format, ...)
-#endif
+#define OCF_DEBUG_TAG "utils.req"
+#define OCF_DEBUG 0
+#include "../ocf_debug.h"
 
 enum ocf_req_size {
 	ocf_req_size_1 = 0,
@@ -69,8 +59,6 @@ int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
 	struct ocf_req_allocator *req;
 	char name[ALLOCATOR_NAME_MAX] = { '\0' };
 
-	OCF_DEBUG_TRACE(cache);
-
 	ocf_ctx->resources.req = env_zalloc(sizeof(*(ocf_ctx->resources.req)),
 			ENV_MEM_NORMAL);
 	req = ocf_ctx->resources.req;
@@ -90,9 +78,6 @@ int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
 
 		if (!req->allocator[i])
 			goto ocf_utils_req_init_ERROR;
-
-		OCF_DEBUG_PARAM(cache, "New request allocator, lines = %u, "
-				"size = %lu", 1 << i, req->size[i]);
 	}
 
 	return 0;
@@ -109,8 +94,7 @@ void ocf_req_allocator_deinit(struct ocf_ctx *ocf_ctx)
 	int i;
 	struct ocf_req_allocator *req;
 
-	OCF_DEBUG_TRACE(cache);
-
+	OCF_DEBUG_TRACE(ocf_ctx);
 
 	if (!ocf_ctx->resources.req)
 		return;
@@ -197,7 +181,7 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	if (allocator)
 		req->map = req->__map;
 
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_CACHE_TRACE(cache);
 
 	ocf_queue_get(queue);
 	req->io_queue = queue;
@@ -271,7 +255,7 @@ struct ocf_request *ocf_req_new_discard(ocf_queue_t queue, ocf_core_t core,
 
 void ocf_req_get(struct ocf_request *req)
 {
-	OCF_DEBUG_TRACE(req->cache);
+	OCF_DEBUG_CACHE_TRACE(req->cache);
 
 	env_atomic_inc(&req->ref_count);
 }
@@ -285,7 +269,7 @@ void ocf_req_put(struct ocf_request *req)
 
 	ocf_queue_put(req->io_queue);
 
-	OCF_DEBUG_TRACE(req->cache);
+	OCF_DEBUG_CACHE_TRACE(req->cache);
 
 	if (!req->d2c && !env_atomic_dec_return(
 			&req->cache->pending_cache_requests)) {

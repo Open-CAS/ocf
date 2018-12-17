@@ -35,7 +35,7 @@ static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 	 * sub-request to complete
 	 */
 	if (env_atomic_dec_return(&req->req_remaining) == 0) {
-		OCF_DEBUG_RQ(req, "HIT completion");
+		OCF_DEBUG_REQ(req, "HIT completion");
 
 		if (req->error) {
 			env_atomic_inc(&req->cache->core[req->core_id].
@@ -68,7 +68,7 @@ static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 	 * sub-request to complete
 	 */
 	if (env_atomic_dec_return(&req->req_remaining) == 0) {
-		OCF_DEBUG_RQ(req, "MISS completion");
+		OCF_DEBUG_REQ(req, "MISS completion");
 
 		if (req->error) {
 			/*
@@ -145,7 +145,7 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 		/* Miss can be handled only on write locks.
 		 * Need to switch to PT
 		 */
-		OCF_DEBUG_RQ(req, "Switching to PT");
+		OCF_DEBUG_REQ(req, "Switching to PT");
 		ocf_read_pt_do(req);
 		return 0;
 	}
@@ -177,7 +177,7 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 	}
 
 	if (req->info.re_part) {
-		OCF_DEBUG_RQ(req, "Re-Part");
+		OCF_DEBUG_REQ(req, "Re-Part");
 
 		OCF_METADATA_LOCK_WR();
 
@@ -189,7 +189,7 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 		OCF_METADATA_UNLOCK_WR();
 	}
 
-	OCF_DEBUG_RQ(req, "Submit");
+	OCF_DEBUG_REQ(req, "Submit");
 
 	/* Submit IO */
 	if (ocf_engine_is_hit(req))
@@ -293,13 +293,13 @@ int ocf_read_generic(struct ocf_request *req)
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* Lock was not acquired, need to wait for resume */
-				OCF_DEBUG_RQ(req, "NO LOCK");
+				OCF_DEBUG_REQ(req, "NO LOCK");
 			} else {
 				/* Lock was acquired can perform IO */
 				_ocf_read_generic_do(req);
 			}
 		} else {
-			OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);
+			OCF_DEBUG_REQ(req, "LOCK ERROR %d", lock);
 			req->complete(req, lock);
 			ocf_req_put(req);
 		}

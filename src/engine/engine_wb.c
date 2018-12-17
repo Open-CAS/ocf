@@ -70,7 +70,7 @@ static int ocf_write_wb_do_flush_metadata(struct ocf_request *req)
 	env_atomic_set(&req->req_remaining, 1); /* One core IO */
 
 	if (req->info.flush_metadata) {
-		OCF_DEBUG_RQ(req, "Flush metadata");
+		OCF_DEBUG_REQ(req, "Flush metadata");
 		ocf_metadata_flush_do_asynch(cache, req,
 				_ocf_write_wb_io_flush_metadata);
 	}
@@ -96,7 +96,7 @@ static void _ocf_write_wb_complete(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	OCF_DEBUG_RQ(req, "Completion");
+	OCF_DEBUG_REQ(req, "Completion");
 
 	if (req->error) {
 		ocf_engine_error(req, true, "Failed to write data to cache");
@@ -126,7 +126,7 @@ static inline void _ocf_write_wb_submit(struct ocf_request *req)
 	 */
 
 	if (req->info.re_part) {
-		OCF_DEBUG_RQ(req, "Re-Part");
+		OCF_DEBUG_REQ(req, "Re-Part");
 
 		OCF_METADATA_LOCK_WR();
 
@@ -138,7 +138,7 @@ static inline void _ocf_write_wb_submit(struct ocf_request *req)
 		OCF_METADATA_UNLOCK_WR();
 	}
 
-	OCF_DEBUG_RQ(req, "Submit Data");
+	OCF_DEBUG_REQ(req, "Submit Data");
 
 	/* Data IO */
 	ocf_submit_cache_reqs(cache, req->map, req, OCF_WRITE,
@@ -217,12 +217,12 @@ int ocf_write_wb(struct ocf_request *req)
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* WR lock was not acquired, need to wait for resume */
-				OCF_DEBUG_RQ(req, "NO LOCK");
+				OCF_DEBUG_REQ(req, "NO LOCK");
 			} else {
 				ocf_write_wb_do(req);
 			}
 		} else {
-			OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);
+			OCF_DEBUG_REQ(req, "LOCK ERROR %d", lock);
 			req->complete(req, lock);
 			ocf_req_put(req);
 		}

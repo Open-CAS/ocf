@@ -8,7 +8,6 @@
 #include "../ocf_cache_priv.h"
 #include "../ocf_queue_priv.h"
 #include "engine_common.h"
-#define OCF_ENGINE_DEBUG_IO_NAME "common"
 #include "engine_debug.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_req.h"
@@ -160,7 +159,7 @@ void ocf_engine_traverse(struct ocf_request *req)
 	struct ocf_cache *cache = req->cache;
 	ocf_core_id_t core_id = req->core_id;
 
-	OCF_DEBUG_TRACE(req->cache);
+	OCF_DEBUG_CACHE_TRACE(req->cache);
 
 	ocf_req_clear_info(req);
 	req->info.seq_req = true;
@@ -176,13 +175,14 @@ void ocf_engine_traverse(struct ocf_request *req)
 		if (entry->status != LOOKUP_HIT) {
 			req->info.seq_req = false;
 			/* There is miss then lookup for next map entry */
-			OCF_DEBUG_PARAM(cache, "Miss, core line = %llu",
+			OCF_DEBUG_CACHE_PARAM(cache, "Miss, core line = %llu",
 					entry->core_line);
 			continue;
 		}
 
-		OCF_DEBUG_PARAM(cache, "Hit, cache line %u, core line = %llu",
-				entry->coll_idx, entry->core_line);
+		OCF_DEBUG_CACHE_PARAM(cache, "Hit, cache line %u, "
+				"core line = %llu", entry->coll_idx,
+				entry->core_line);
 
 		/* Update eviction (LRU) */
 		ocf_eviction_set_hot_cache_line(cache, entry->coll_idx);
@@ -190,7 +190,7 @@ void ocf_engine_traverse(struct ocf_request *req)
 		ocf_engine_update_req_info(cache, req, i);
 	}
 
-	OCF_DEBUG_PARAM(cache, "Sequential - %s", req->info.seq_req ?
+	OCF_DEBUG_CACHE_PARAM(cache, "Sequential - %s", req->info.seq_req ?
 			"Yes" : "No");
 }
 
@@ -202,7 +202,7 @@ int ocf_engine_check(struct ocf_request *req)
 
 	struct ocf_cache *cache = req->cache;
 
-	OCF_DEBUG_TRACE(req->cache);
+	OCF_DEBUG_CACHE_TRACE(req->cache);
 
 	ocf_req_clear_info(req);
 	req->info.seq_req = true;
@@ -222,21 +222,21 @@ int ocf_engine_check(struct ocf_request *req)
 			entry->invalid = true;
 			req->info.seq_req = false;
 
-			OCF_DEBUG_PARAM(cache, "Invalid, Cache line %u",
+			OCF_DEBUG_CACHE_PARAM(cache, "Invalid, Cache line %u",
 					entry->coll_idx);
 
 			result = -1;
 		} else {
 			entry->invalid = false;
 
-			OCF_DEBUG_PARAM(cache, "Valid, Cache line %u",
+			OCF_DEBUG_CACHE_PARAM(cache, "Valid, Cache line %u",
 					entry->coll_idx);
 
 			ocf_engine_update_req_info(cache, req, i);
 		}
 	}
 
-	OCF_DEBUG_PARAM(cache, "Sequential - %s", req->info.seq_req ?
+	OCF_DEBUG_CACHE_PARAM(cache, "Sequential - %s", req->info.seq_req ?
 			"Yes" : "No");
 
 	return result;
@@ -299,7 +299,7 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 			break;
 
 		case LOOKUP_MAPPED:
-			OCF_DEBUG_RQ(req, "Canceling cache line %u",
+			OCF_DEBUG_REQ(req, "Canceling cache line %u",
 					entry->coll_idx);
 			set_cache_line_invalid_no_flush(cache, 0,
 					ocf_line_end_sector(cache),
@@ -332,7 +332,7 @@ void ocf_engine_map(struct ocf_request *req)
 	ocf_req_clear_info(req);
 	req->info.seq_req = true;
 
-	OCF_DEBUG_TRACE(req->cache);
+	OCF_DEBUG_CACHE_TRACE(req->cache);
 
 	for (i = 0, core_line = req->core_line_first;
 			core_line <= req->core_line_last; core_line++, i++) {
@@ -349,7 +349,7 @@ void ocf_engine_map(struct ocf_request *req)
 				 * Eviction error (mapping error), need to
 				 * clean, return and do pass through
 				 */
-				OCF_DEBUG_RQ(req, "Eviction ERROR when mapping");
+				OCF_DEBUG_REQ(req, "Eviction ERROR when mapping");
 				ocf_engine_map_hndl_error(cache, req);
 				break;
 			}
@@ -357,7 +357,7 @@ void ocf_engine_map(struct ocf_request *req)
 			entry->status = status;
 		}
 
-		OCF_DEBUG_PARAM(req->cache,
+		OCF_DEBUG_CACHE_PARAM(req->cache,
 			"%s, cache line %u, core line = %llu",
 			entry->status == LOOKUP_HIT ? "Hit" : "Map",
 			entry->coll_idx, entry->core_line);
@@ -366,7 +366,7 @@ void ocf_engine_map(struct ocf_request *req)
 
 	}
 
-	OCF_DEBUG_PARAM(req->cache, "Sequential - %s", req->info.seq_req ?
+	OCF_DEBUG_CACHE_PARAM(req->cache, "Sequential - %s", req->info.seq_req ?
 			"Yes" : "No");
 }
 
@@ -375,7 +375,7 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	struct ocf_request *req = private_data;
 
 	if (error) {
-		OCF_DEBUG_RQ(req, "Cleaning ERROR");
+		OCF_DEBUG_REQ(req, "Cleaning ERROR");
 		req->error |= error;
 
 		/* End request and do not processing */
@@ -615,7 +615,7 @@ void ocf_engine_on_resume(struct ocf_request *req)
 	/* Exchange IO interface */
 	req->priv = (void *)req->io_if;
 
-	OCF_DEBUG_RQ(req, "On resume");
+	OCF_DEBUG_REQ(req, "On resume");
 
 	ocf_engine_push_req_front_if(req, &_io_if_refresh, false);
 }

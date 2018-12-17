@@ -158,7 +158,7 @@ void ocf_engine_zero_line(struct ocf_request *req)
 		ENV_BUG_ON(lock != OCF_LOCK_ACQUIRED);
 		ocf_engine_push_req_front_if(req, &_io_if_ocf_zero_do, true);
 	} else {
-		OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);
+		OCF_DEBUG_REQ(req, "LOCK ERROR %d", lock);
 		req->complete(req, lock);
 		ocf_req_put(req);
 	}
