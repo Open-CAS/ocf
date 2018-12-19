@@ -12,6 +12,7 @@
  */
 
 #include "ocf_types.h"
+#include "ocf_env.h"
 
 struct ocf_io;
 
@@ -136,6 +137,16 @@ struct ocf_data_obj_properties {
 	struct ocf_data_obj_ops ops;
 		/*!< Data object operations */
 };
+
+static inline struct ocf_data_obj_uuid ocf_str_to_uuid(char *str)
+{
+	struct ocf_data_obj_uuid uuid = {
+		.data = str,
+		.size = env_strnlen(str, OCF_DATA_OBJ_UUID_MAX_SIZE),
+	};
+
+	return uuid;
+}
 
 /**
  * @brief Get data object type
