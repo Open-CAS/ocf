@@ -76,7 +76,7 @@ struct ocf_io {
 	/**
 	 * @brief OCF IO destination class
 	 */
-	uint32_t class;
+	uint32_t io_class;
 
 	/**
 	 * @brief OCF IO direction
@@ -157,15 +157,15 @@ void *ocf_io_get_priv(struct ocf_io *io);
  * @param[in] addr OCF IO destination address
  * @param[in] bytes OCF IO size in bytes
  * @param[in] dir OCF IO direction
- * @param[in] class OCF IO destination class
+ * @param[in] io_class OCF IO destination class
  * @param[in] flags OCF IO flags
  */
 static inline void ocf_io_configure(struct ocf_io *io, uint64_t addr,
-		uint32_t bytes, uint32_t dir, uint32_t class, uint64_t flags)
+		uint32_t bytes, uint32_t dir, uint32_t io_class, uint64_t flags)
 {
 	io->addr = addr;
 	io->bytes = bytes;
-	io->class = class;
+	io->io_class = io_class;
 	io->flags = flags;
 	io->dir = dir;
 }

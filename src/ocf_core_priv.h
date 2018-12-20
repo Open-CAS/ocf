@@ -24,6 +24,12 @@ struct ocf_core_io {
 
 	struct ocf_request *req;
 	ctx_data_t *data;
+
+	log_sid_t sid;
+	/*!< Sequence ID */
+
+	uint64_t timestamp;
+	/*!< Timestamp */
 };
 
 struct ocf_core {

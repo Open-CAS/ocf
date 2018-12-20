@@ -222,7 +222,7 @@ ocf_cache_mode_t ocf_get_effective_cache_mode(ocf_cache_t cache,
 		return ocf_cache_mode_pt;
 
 	mode = ocf_part_get_cache_mode(cache,
-			ocf_part_class2id(cache, io->class));
+			ocf_part_class2id(cache, io->io_class));
 	if (!ocf_cache_mode_is_valid(mode))
 		mode = cache->conf_meta->cache_mode;
 

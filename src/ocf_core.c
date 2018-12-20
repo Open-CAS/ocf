@@ -13,6 +13,7 @@
 #include "utils/utils_part.h"
 #include "utils/utils_device.h"
 #include "ocf_request.h"
+#include "ocf_trace_priv.h"
 
 struct ocf_core_dobj {
 	ocf_core_t core;
@@ -287,7 +288,7 @@ static inline int ocf_core_validate_io(struct ocf_io *io)
 	if (io->addr + io->bytes > ocf_dobj_get_length(io->obj))
 		return -EINVAL;
 
-	if (io->class >= OCF_IO_CLASS_MAX)
+	if (io->io_class >= OCF_IO_CLASS_MAX)
 		return -EINVAL;
 
 	if (io->dir != OCF_READ && io->dir != OCF_WRITE)
@@ -304,6 +305,9 @@ static inline int ocf_core_validate_io(struct ocf_io *io)
 
 static void ocf_req_complete(struct ocf_request *req, int error)
 {
+	/* Log trace */
+	ocf_trace_io_cmpl(ocf_io_to_core_io(req->io), req->cache);
+
 	/* Complete IO */
 	ocf_io_end(req->io, error);
 
@@ -335,6 +339,8 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 	core = ocf_data_obj_to_core(io->obj);
 	cache = ocf_core_get_cache(core);
 
+	ocf_trace_init_io(core_io, cache);
+
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
 					&cache->cache_state))) {
 		ocf_io_end(io, -EIO);
@@ -358,9 +364,6 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 			dec_counter_if_req_was_dirty(core_io, cache);
 	}
 
-	if (cache->conf_meta->valid_parts_no <= 1)
-		io->class = 0;
-
 	core_io->req = ocf_req_new(cache, ocf_core_get_id(core),
 			io->addr, io->bytes, io->dir);
 	if (!core_io->req) {
@@ -373,7 +376,7 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 		req_cache_mode = ocf_req_cache_mode_d2c;
 
 	core_io->req->io_queue = io->io_queue;
-	core_io->req->part_id = ocf_part_class2id(cache, io->class);
+	core_io->req->part_id = ocf_part_class2id(cache, io->io_class);
 	core_io->req->data = core_io->data;
 	core_io->req->complete = ocf_req_complete;
 	core_io->req->io = io;
@@ -381,6 +384,11 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 	ocf_seq_cutoff_update(core, core_io->req);
 
 	ocf_core_update_stats(core, io);
+
+	if (io->dir == OCF_WRITE)
+		ocf_trace_io(core_io, ocf_event_operation_wr, cache);
+	else if (io->dir == OCF_READ)
+		ocf_trace_io(core_io, ocf_event_operation_rd, cache);
 
 	ocf_io_get(io);
 	ret = ocf_engine_hndl_req(core_io->req, req_cache_mode);
@@ -395,6 +403,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 {
 	struct ocf_core_io *core_io;
 	ocf_req_cache_mode_t req_cache_mode;
+	struct ocf_event_io trace_event;
 	struct ocf_request *req;
 	ocf_core_t core;
 	ocf_cache_t cache;
@@ -444,9 +453,6 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 		req_cache_mode = ocf_req_cache_mode_fast;
 	}
 
-	if (cache->conf_meta->valid_parts_no <= 1)
-		io->class = 0;
-
 	core_io->req = ocf_req_new_extended(cache, ocf_core_get_id(core),
 			io->addr, io->bytes, io->dir);
 	// We need additional pointer to req in case completion arrives before
@@ -465,16 +471,26 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 	}
 
 	req->io_queue = io->io_queue;
-	req->part_id = ocf_part_class2id(cache, io->class);
+	req->part_id = ocf_part_class2id(cache, io->io_class);
 	req->data = core_io->data;
 	req->complete = ocf_req_complete;
 	req->io = io;
 
 	ocf_core_update_stats(core, io);
+
+	if (cache->trace.trace_callback) {
+		if (io->dir == OCF_WRITE)
+			ocf_trace_prep_io_event(&trace_event, core_io, ocf_event_operation_wr);
+		else if (io->dir == OCF_READ)
+			ocf_trace_prep_io_event(&trace_event, core_io, ocf_event_operation_rd);
+	}
+
 	ocf_io_get(io);
 
 	fast = ocf_engine_hndl_fast_req(req, req_cache_mode);
 	if (fast != OCF_FAST_PATH_NO) {
+		ocf_trace_push(cache, core_io->req->io_queue,
+				&trace_event, sizeof(trace_event));
 		ocf_seq_cutoff_update(core, req);
 		return 0;
 	}
@@ -529,6 +545,7 @@ static void ocf_core_data_obj_submit_flush(struct ocf_io *io)
 	core_io->req->io = io;
 	core_io->req->data = core_io->data;
 
+	ocf_trace_io(core_io, ocf_event_operation_flush, cache);
 	ocf_io_get(io);
 	ocf_engine_hndl_ops_req(core_io->req);
 }
@@ -571,6 +588,7 @@ static void ocf_core_data_obj_submit_discard(struct ocf_io *io)
 	core_io->req->io = io;
 	core_io->req->data = core_io->data;
 
+	ocf_trace_io(core_io, ocf_event_operation_discard, cache);
 	ocf_io_get(io);
 	ocf_engine_hndl_discard_req(core_io->req);
 }
