@@ -32,6 +32,8 @@ static void _ocf_obj_flush_end(struct ocf_io *io, int err)
 	struct ocf_submit_io_wait_context *cntx = io->priv1;
 	cntx->error = err;
 	env_completion_complete(&cntx->complete);
+
+	ocf_io_put(io);
 }
 
 int ocf_submit_obj_flush_wait(ocf_data_obj_t obj)
@@ -205,6 +207,8 @@ static void ocf_submit_obj_req_cmpl(struct ocf_io *io, int error)
 	ocf_req_end_t callback = io->priv2;
 
 	callback(req, error);
+
+	ocf_io_put(io);
 }
 
 void ocf_submit_cache_reqs(struct ocf_cache *cache,
