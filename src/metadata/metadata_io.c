@@ -152,6 +152,8 @@ static void metadata_io_write_i_asynch_cmpl(struct ocf_io *io, int error)
 	struct metadata_io_request *request = io->priv1;
 
 	metadata_io_write_i_asynch_end(request, error);
+
+	ocf_io_put(io);
 }
 
 static int ocf_restart_meta_io(struct ocf_request *req)
