@@ -193,7 +193,7 @@ static unsigned long _ffz(unsigned long word)
 	int i;
 
 	for (i = 0; i < sizeof(word)*8 && (word & 1); i++)
-		word <<= 1;
+		word >>= 1;
 
 	return i;
 }
