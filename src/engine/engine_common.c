@@ -14,7 +14,7 @@
 #include "../utils/utils_req.h"
 #include "../utils/utils_cleaner.h"
 #include "../metadata/metadata.h"
-#include "../layer_space_management.h"
+#include "../eviction/eviction.h"
 
 void ocf_engine_error(struct ocf_request *req,
 		bool stop_cache, const char *msg)
