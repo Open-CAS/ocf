@@ -674,6 +674,7 @@ finalize:
 			result = -EINVAL;
 			break;
 		}
+		env_cond_resched();
 	}
 
 	if (result == 0) {
