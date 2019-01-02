@@ -34,17 +34,17 @@ cd ocf
 ## Deployment
 
 OCF doesn't compile as separate library. It's designed to be included into another
-software. For this purpose OCF Makefile provides two useful targets for deploying
-OCF source into target directories. Assuming OCFDIR is ocf directory, and SRCDIR and
-INCDIR are your source and include directories, you can use following commands to
-deploy OCF into your project:
+software stack. For this purpose OCF provides Makefile with two useful targets for
+deploying its source into target directories. Assuming OCFDIR is OCF directory, and
+SRCDIR and INCDIR are respectively your source and include directories, use following
+commands to deploy OCF into your project:
 
 ~~~{.sh}
 make -C $OCFDIF src O=$SRCDIR
 make -C $OCFDIF inc O=$INCDIR
 ~~~
 
-This by default will not copy OCF source files but create symbolic links to them,
+By default this will not copy OCF source files but create symbolic links to them,
 to avoid source duplication and allow for easy OCF code modification. If you prefer
 to copy OCF source files (e.g. you don't want to distribute whole OCF repository
 as your submodule) you can use following commands:
