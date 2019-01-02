@@ -22,7 +22,7 @@
 #include "../utils/utils_part.h"
 #include "../utils/utils_req.h"
 #include "../metadata/metadata.h"
-#include "../layer_space_management.h"
+#include "../eviction/eviction.h"
 
 enum ocf_io_if_type {
 	/* Public OCF IO interfaces to be set by user */
