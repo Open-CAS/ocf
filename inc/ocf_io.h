@@ -139,23 +139,16 @@ struct ocf_io_ops {
 	 * @return Data vector from IO
 	 */
 	ctx_data_t *(*get_data)(struct ocf_io *io);
-
-	/**
-	 * @brief Increase reference counter in OCF IO
-	 *
-	 * @param[in] io OCF IO
-	 */
-	void (*get)(struct ocf_io *io);
-
-	/**
-	 * @brief Decrease reference counter in OCF IO
-	 *
-	 * @note If IO don't have any reference - deallocate it
-	 *
-	 * @param[in] io OCF IO
-	 */
-	void (*put)(struct ocf_io *io);
 };
+
+/**
+ * @brief Get IO private context structure
+ *
+ * @param[in] io OCF IO
+ *
+ * @return IO private context structure
+ */
+void *ocf_io_get_priv(struct ocf_io *io);
 
 /**
  * @brief Configure OCF IO
@@ -184,10 +177,7 @@ static inline void ocf_io_configure(struct ocf_io *io, uint64_t addr,
  *
  * @param[in] io OCF IO
  */
-static inline void ocf_io_get(struct ocf_io *io)
-{
-	io->ops->get(io);
-}
+void ocf_io_get(struct ocf_io *io);
 
 /**
  * @brief Decrease reference counter in OCF IO
@@ -196,10 +186,7 @@ static inline void ocf_io_get(struct ocf_io *io)
  *
  * @param[in] io OCF IO
  */
-static inline void ocf_io_put(struct ocf_io *io)
-{
-	io->ops->put(io);
-}
+void ocf_io_put(struct ocf_io *io);
 
 /**
  * @brief Set OCF IO completion function

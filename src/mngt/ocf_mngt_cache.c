@@ -131,7 +131,7 @@ struct ocf_cachemng_attach_params {
 		bool device_alloc : 1;
 			/*!< data structure allocated */
 
-		bool uuid_alloc : 1;
+		bool data_obj_inited : 1;
 			/*!< uuid for cache device is allocated */
 
 		bool attached_metadata_inited : 1;
@@ -436,10 +436,8 @@ static int _ocf_mngt_init_instance_add_cores(
 			 * Attach bottom device to core structure
 			 * in cache
 			 */
-			core->obj.type = tobj->type;
-			core->obj.priv = tobj->priv;
-			ocf_mngt_core_pool_remove(ocf_cache_get_ctx(cache),
-					tobj);
+			ocf_dobj_move(&core->obj, tobj);
+			ocf_mngt_core_pool_remove(cache->owner, tobj);
 
 			core->opened = true;
 			ocf_cache_log(cache, log_info,
@@ -623,6 +621,7 @@ static int _ocf_mngt_init_new_cache(struct ocf_cachemng_init_params *params)
 static int _ocf_mngt_attach_cache_device(struct ocf_cache *cache,
 		struct ocf_cachemng_attach_params *attach_params)
 {
+	ocf_data_obj_type_t type;
 	int ret;
 
 	cache->device = env_vzalloc(sizeof(*cache->device));
@@ -633,18 +632,19 @@ static int _ocf_mngt_attach_cache_device(struct ocf_cache *cache,
 	cache->device->obj.cache = cache;
 
 	/* Prepare UUID of cache data object */
-	cache->device->obj.type = ocf_ctx_get_data_obj_type(cache->owner,
+	type = ocf_ctx_get_data_obj_type(cache->owner,
 			attach_params->device_type);
-	if (!cache->device->obj.type) {
+	if (!type) {
 		ret = -OCF_ERR_INVAL_DATA_OBJ_TYPE;
 		goto err;
 	}
 
-	if (ocf_uuid_cache_set(cache, &attach_params->uuid)) {
-		ret = -OCF_ERR_INVAL;
+	ret = ocf_dobj_init(&cache->device->obj, type,
+			&attach_params->uuid, true);
+	if (ret)
 		goto err;
-	}
-	attach_params->flags.uuid_alloc = true;
+
+	attach_params->flags.data_obj_inited = true;
 
 	/*
 	 * Open cache device, It has to be done first because metadata service
@@ -1098,8 +1098,8 @@ static void _ocf_mngt_attach_handle_error(
 	if (attach_params->flags.concurrency_inited)
 		ocf_concurrency_deinit(cache);
 
-	if (attach_params->flags.uuid_alloc)
-		ocf_uuid_cache_clear(cache);
+	if (attach_params->flags.data_obj_inited)
+		ocf_dobj_deinit(&cache->device->obj);
 
 	if (attach_params->flags.device_alloc)
 		env_vfree(cache->device);
@@ -1572,7 +1572,7 @@ static int _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop)
 	ocf_metadata_deinit_variable_size(cache);
 	ocf_concurrency_deinit(cache);
 
-	ocf_uuid_cache_clear(cache);
+	ocf_dobj_deinit(&cache->device->obj);
 
 	env_vfree(cache->device);
 	cache->device = NULL;

@@ -17,6 +17,7 @@ struct ocf_data_obj_type {
 struct ocf_data_obj {
 	ocf_data_obj_type_t type;
 	struct ocf_data_obj_uuid uuid;
+	bool opened;
 	bool uuid_copy;
 	void *priv;
 	ocf_cache_t cache;
@@ -31,6 +32,11 @@ int ocf_data_obj_type_init(struct ocf_data_obj_type **type,
 		const struct ocf_data_obj_properties *properties);
 
 void ocf_data_obj_type_deinit(struct ocf_data_obj_type *type);
+
+void ocf_dobj_move(ocf_data_obj_t obj, ocf_data_obj_t from);
+
+void ocf_dobj_set_uuid(ocf_data_obj_t obj,
+		const struct ocf_data_obj_uuid *uuid);
 
 static inline void ocf_dobj_submit_metadata(struct ocf_io *io)
 {

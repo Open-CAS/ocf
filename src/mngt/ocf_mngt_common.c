@@ -96,7 +96,7 @@ void cache_mng_core_remove_from_meta(struct ocf_cache *cache, int core_id)
 	cache->core_conf_meta[core_id].added = false;
 
 	/* Clear UUID of core */
-	ocf_uuid_core_clear(cache, &cache->core[core_id]);
+	ocf_metadata_clear_core_uuid(&cache->core[core_id]);
 	cache->core_conf_meta[core_id].seq_no = OCF_SEQ_NO_INVALID;
 
 	OCF_METADATA_UNLOCK_WR();
