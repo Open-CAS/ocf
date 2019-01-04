@@ -22,7 +22,7 @@ int cache_mng_core_close(ocf_cache_t cache, ocf_core_id_t core_id)
 	if (!cache->core[core_id].opened)
 		return -OCF_ERR_CORE_IN_INACTIVE_STATE;
 
-	ocf_data_obj_close(&cache->core[core_id].obj);
+	ocf_dobj_close(&cache->core[core_id].obj);
 	cache->core[core_id].opened = false;
 
 	return 0;
@@ -57,7 +57,7 @@ void cache_mng_core_deinit_attached_meta(struct ocf_cache *cache, int core_id)
 
 	core = &cache->core[core_id].obj;
 
-	core_size = ocf_data_obj_get_length(core);
+	core_size = ocf_dobj_get_length(core);
 	if (!core_size)
 		core_size = ~0ULL;
 

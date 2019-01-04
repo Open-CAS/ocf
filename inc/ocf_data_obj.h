@@ -136,6 +136,9 @@ struct ocf_data_obj_properties {
 
 	struct ocf_data_obj_ops ops;
 		/*!< Data object operations */
+
+	struct ocf_io_ops io_ops;
+		/*!< IO operations */
 };
 
 static inline struct ocf_data_obj_uuid ocf_str_to_uuid(char *str)
@@ -147,15 +150,6 @@ static inline struct ocf_data_obj_uuid ocf_str_to_uuid(char *str)
 
 	return uuid;
 }
-
-/**
- * @brief Get data object type
- *
- * @param[in] obj Data object
- *
- * @return Data object type
- */
-ocf_data_obj_type_t ocf_data_obj_get_type(ocf_data_obj_t obj);
 
 /**
  * @brief Get private context of data object
@@ -175,75 +169,11 @@ void *ocf_data_obj_get_priv(ocf_data_obj_t obj);
 void ocf_data_obj_set_priv(ocf_data_obj_t obj, void *priv);
 
 /**
- * @brief Get data object UUID
- *
- * @param[in] obj Data object
- *
- * @return UUID of data object
- */
-const struct ocf_data_obj_uuid *ocf_data_obj_get_uuid(ocf_data_obj_t obj);
-
-/**
- * @brief Get data object length
- *
- * @param[in] obj Data object
- *
- * @return Length of data object in bytes
- */
-uint64_t ocf_data_obj_get_length(ocf_data_obj_t obj);
-
-/**
- * @brief Get cache handle for given data object
- *
- * @param obj data object handle
- *
- * @return Handle to cache for which data object belongs to
- */
-ocf_cache_t ocf_data_obj_get_cache(ocf_data_obj_t obj);
-
-/**
- * @brief Initialize data object
- *
- * @param[in] obj data object handle
- * @param[in] type cache/core object type
- * @param[in] uuid OCF data object UUID
- * @param[in] uuid_copy crate copy of uuid data
- *
- * @return Zero when success, othewise en error
- */
-int ocf_data_obj_init(ocf_data_obj_t obj, ocf_data_obj_type_t type,
-		struct ocf_data_obj_uuid *uuid, bool uuid_copy);
-
-/**
- * @brief Deinitialize data object
- *
- * @param[in] obj data object handle
- */
-void ocf_data_obj_deinit(ocf_data_obj_t obj);
-
-/**
- * @brief Allocate and initialize data object
- *
- * @param[out] obj pointer to data object handle
- * @param[in] type cache/core object type
- * @param[in] uuid OCF data object UUID
- *
- * @return Zero when success, othewise en error
- */
-int ocf_data_obj_create(ocf_data_obj_t *obj, ocf_data_obj_type_t type,
-		struct ocf_data_obj_uuid *uuid);
-
-/**
- * @brief Deinitialize and free data object
- *
- * @param[in] obj data object handle
- */
-void ocf_data_obj_destroy(ocf_data_obj_t obj);
-
-/**
  * @brief Allocate new io from data object allocator
  *
  * @param[in] obj data object handle
+ *
+ * @return ocf_io object on success, otherwise NULL
  */
 struct ocf_io *ocf_data_obj_new_io(ocf_data_obj_t obj);
 
@@ -258,7 +188,148 @@ void ocf_data_obj_del_io(struct ocf_io* io);
  * @brief Return io context data
  *
  * @param[in] io ocf io handle
+ *
+ * @return ocf_io private context data
  */
 void *ocf_data_obj_get_data_from_io(struct ocf_io* io);
+
+/**
+ * @brief Initialize data object
+ *
+ * @param[in] obj data object handle
+ * @param[in] type cache/core object type
+ * @param[in] uuid OCF data object UUID
+ * @param[in] uuid_copy crate copy of uuid data
+ *
+ * @return Zero when success, othewise error
+ */
+int ocf_dobj_init(ocf_data_obj_t obj, ocf_data_obj_type_t type,
+		struct ocf_data_obj_uuid *uuid, bool uuid_copy);
+
+/**
+ * @brief Deinitialize data object
+ *
+ * @param[in] obj data object handle
+ */
+void ocf_dobj_deinit(ocf_data_obj_t obj);
+
+/**
+ * @brief Allocate and initialize data object
+ *
+ * @param[out] obj pointer to data object handle
+ * @param[in] type cache/core object type
+ * @param[in] uuid OCF data object UUID
+ *
+ * @return Zero when success, othewise en error
+ */
+int ocf_dobj_create(ocf_data_obj_t *obj, ocf_data_obj_type_t type,
+		struct ocf_data_obj_uuid *uuid);
+
+/**
+ * @brief Deinitialize and free data object
+ *
+ * @param[in] obj data object handle
+ */
+void ocf_data_obj_destroy(ocf_data_obj_t obj);
+
+/**
+ * @brief Get data object type
+ *
+ * @param[in] obj Data object
+ *
+ * @return Data object type
+ */
+ocf_data_obj_type_t ocf_dobj_get_type(ocf_data_obj_t obj);
+
+/**
+ * @brief Get data object UUID
+ *
+ * @param[in] obj Data object
+ *
+ * @return UUID of data object
+ */
+const struct ocf_data_obj_uuid *ocf_dobj_get_uuid(ocf_data_obj_t obj);
+
+/**
+ * @brief Get cache handle for given data object
+ *
+ * @param obj data object handle
+ *
+ * @return Handle to cache for which data object belongs to
+ */
+ocf_cache_t ocf_dobj_get_cache(ocf_data_obj_t obj);
+
+/**
+ * @brief Check if data object supports atomic mode
+ *
+ * @param[in] obj Data object
+ *
+ * @return Non-zero value if data object is atomic, otherwise zero
+ */
+int ocf_dobj_is_atomic(ocf_data_obj_t obj);
+
+/**
+ * @brief Allocate new io
+ *
+ * @param[in] io IO
+ *
+ * @return ocf_io on success atomic, otherwise NULL
+ */
+struct ocf_io *ocf_dobj_new_io(ocf_data_obj_t obj);
+
+/**
+ * @brief Submit io to data object
+ *
+ * @param[in] io IO
+ */
+void ocf_dobj_submit_io(struct ocf_io *io);
+
+/**
+ * @brief Submit flush to data object
+ *
+ * @param[in] io IO
+ */
+void ocf_dobj_submit_flush(struct ocf_io *io);
+
+/**
+ * @brief Submit discard to data object
+ *
+ * @param[in] io IO
+ */
+void ocf_dobj_submit_discard(struct ocf_io *io);
+
+/**
+ * @brief Open data object
+ *
+ * @param[in] obj Data object
+ *
+ * @return Zero when success, othewise en error
+ */
+int ocf_dobj_open(ocf_data_obj_t obj);
+
+/**
+ * @brief Get data object max io size
+ *
+ * @param[in] obj Data object
+ */
+void ocf_dobj_close(ocf_data_obj_t obj);
+
+/**
+ * @brief Get data object max io size
+ *
+ * @param[in] obj Data object
+ *
+ * @return Data object max io size in bytes
+ */
+unsigned int ocf_dobj_get_max_io_size(ocf_data_obj_t obj);
+
+/**
+ * @brief Get data object length
+ *
+ * @param[in] obj Data object
+ *
+ * @return Length of data object in bytes
+ */
+uint64_t ocf_dobj_get_length(ocf_data_obj_t obj);
 
 #endif /* __OCF_DATA_OBJ_H__ */

@@ -7,7 +7,7 @@
 #define __OCF_CTX_PRIV_H__
 
 #include "ocf_env.h"
-#include "ocf/ocf_logger.h"
+#include "ocf/ocf_ctx.h"
 #include "ocf_logger_priv.h"
 
 #define OCF_DATA_OBJ_TYPE_MAX 8
@@ -32,17 +32,34 @@ struct ocf_ctx {
 	} resources;
 };
 
-#define ocf_log_prefix(ctx, lvl, prefix, fmt, ...) \
-	ocf_log_raw(ctx->logger, lvl, prefix fmt, ##__VA_ARGS__)
+#define ocf_log_prefix(ctx, lvl, prefix, fmt, ...) ({ \
+	int __ocf_log_return_value = 0; \
+	if (ctx->logger) { \
+		__ocf_log_return_value = ocf_log_raw(ctx->logger, \
+				lvl, prefix fmt, ##__VA_ARGS__); \
+	} \
+	__ocf_log_return_value; \
+})
 
 #define ocf_log(ctx, lvl, fmt, ...) \
 	ocf_log_prefix(ctx, lvl, "", fmt, ##__VA_ARGS__)
 
-#define ocf_log_rl(ctx) \
-	ocf_log_raw_rl(ctx->logger, __func__)
+#define ocf_log_rl(ctx) ({ \
+	int __ocf_log_return_value = 0; \
+	if (ctx->logger) { \
+		__ocf_log_return_value = ocf_log_raw_rl(ctx->logger, \
+				__func__); \
+	} \
+	__ocf_log_return_value; \
+})
 
-#define ocf_log_stack_trace(ctx) \
-	ocf_log_stack_trace_raw(ctx->logger)
+#define ocf_log_stack_trace(ctx) ({ \
+	int __ocf_log_return_value = 0; \
+	if (ctx->logger) { \
+		__ocf_log_return_value = ocf_log_stack_trace_raw(ctx->logger); \
+	} \
+	__ocf_log_return_value; \
+})
 
 /**
  * @name Environment data buffer operations wrappers

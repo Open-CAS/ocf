@@ -30,7 +30,7 @@ int ocf_metadata_get_atomic_entry(ocf_cache_t cache,
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(entry);
 
-	if (addr > ocf_data_obj_get_length(&cache->device->obj))
+	if (addr > ocf_dobj_get_length(&cache->device->obj))
 		return -EFAULT;
 
 	if (addr < cache->device->metadata_offset) {

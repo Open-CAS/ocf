@@ -6,6 +6,8 @@
 #ifndef __OCF_LOGGER_PRIV_H__
 #define __OCF_LOGGER_PRIV_H__
 
+#include "ocf/ocf_logger.h"
+
 __attribute__((format(printf, 3, 4)))
 int ocf_log_raw(const struct ocf_logger *logger, ocf_logger_lvl_t lvl,
 		const char *fmt, ...);

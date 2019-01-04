@@ -410,7 +410,7 @@ uint32_t evp_lru_req_clines(struct ocf_cache *cache, uint32_t io_queue,
 
 		ENV_BUG_ON(metadata_test_dirty(cache, curr_cline));
 
-		if (ocf_data_obj_is_atomic(&cache->device->obj)) {
+		if (ocf_dobj_is_atomic(&cache->device->obj)) {
 			/* atomic cache, we have to trim cache lines before
 			 * eviction
 			 */

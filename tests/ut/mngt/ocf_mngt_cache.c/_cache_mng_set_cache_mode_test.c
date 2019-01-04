@@ -55,6 +55,7 @@ const char *__wrap_ocf_get_io_iface_name(ocf_cache_mode_t cache_mode)
 
 ocf_ctx_t __wrap_ocf_cache_get_ctx(ocf_cache_t cache)
 {
+	return cache->owner;
 }
 
 int __wrap_ocf_log_raw(const struct ocf_logger *logger, ocf_logger_lvl_t lvl,
@@ -105,18 +106,22 @@ char *__wrap_ocf_cache_get_name(ocf_cache_t cache)
 
 static void _cache_mng_set_cache_mode_test01(void **state)
 {
+	ocf_cache_mode_t mode_old = -20;
+	ocf_cache_mode_t mode_new = ocf_cache_mode_none;
+	struct ocf_ctx ctx = {
+		.logger = 0x1, /* Just not NULL, we don't care. */
+	};
+	struct ocf_superblock_config sb_config = {
+		.cache_mode = mode_old,
+	};
+	struct ocf_cache cache = {
+		.owner = &ctx,
+		.conf_meta = &sb_config,
+	};
+	uint8_t flush = 0;
 	int result;
-	struct ocf_cache cache;
-	ocf_cache_mode_t mode_old, mode_new;
-	uint8_t flush;
 
 	print_test_description("Invalid new mode produces appropirate error code");
-
-	cache.conf_meta = test_malloc(sizeof(struct ocf_superblock_config));
-	mode_old = -20;
-	cache.conf_meta->cache_mode = mode_old;
-	mode_new = ocf_cache_mode_none;
-	flush = 0;
 
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 0);
@@ -125,24 +130,26 @@ static void _cache_mng_set_cache_mode_test01(void **state)
 
 	assert_int_equal(result, -OCF_ERR_INVAL);
 	assert_int_equal(cache.conf_meta->cache_mode, mode_old);
-
-	test_free(cache.conf_meta);
 }
 
 static void _cache_mng_set_cache_mode_test02(void **state)
 {
+	ocf_cache_mode_t mode_old = ocf_cache_mode_wt;
+	ocf_cache_mode_t mode_new = ocf_cache_mode_wt;
+	struct ocf_ctx ctx = {
+		.logger = 0x1, /* Just not NULL, we don't care. */
+	};
+	struct ocf_superblock_config sb_config = {
+		.cache_mode = mode_old,
+	};
+	struct ocf_cache cache = {
+		.owner = &ctx,
+		.conf_meta = &sb_config,
+	};
+	uint8_t flush = 0;
 	int result;
-	struct ocf_cache cache;
-	ocf_cache_mode_t mode_old, mode_new;
-	uint8_t flush;
 
 	print_test_description("Attempt to set mode the same as previous");
-
-	mode_old = mode_new = ocf_cache_mode_wt;
-	flush = 0;
-
-	cache.conf_meta = test_malloc(sizeof(struct ocf_superblock_config));
-	cache.conf_meta->cache_mode = mode_old;
 
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
@@ -154,24 +161,27 @@ static void _cache_mng_set_cache_mode_test02(void **state)
 
 	assert_int_equal(result, 0);
 	assert_int_equal(cache.conf_meta->cache_mode, mode_old);
-
-	test_free(cache.conf_meta);
 }
 
 static void _cache_mng_set_cache_mode_test03(void **state)
 {
+	ocf_cache_mode_t mode_old = ocf_cache_mode_wt;
+	ocf_cache_mode_t mode_new = ocf_cache_mode_pt;
+	struct ocf_ctx ctx = {
+		.logger = 0x1, /* Just not NULL, we don't care. */
+	};
+	struct ocf_superblock_config sb_config = {
+		.cache_mode = mode_old,
+	};
+	struct ocf_cache cache = {
+		.owner = &ctx,
+		.conf_meta = &sb_config,
+	};
+	uint8_t flush = 1;
 	int result;
-	struct ocf_cache cache;
-	ocf_cache_mode_t mode_old, mode_new;
-	uint8_t flush;
 
 	print_test_description("Flush flag is set, but operation failed -"
 		       " check if error code is correct");
-
-	mode_old = ocf_cache_mode_wt;
-	mode_new = ocf_cache_mode_pt;
-	cache.conf_meta->cache_mode = mode_old;
-	flush = 1;
 
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
@@ -187,22 +197,25 @@ static void _cache_mng_set_cache_mode_test03(void **state)
 
 static void _cache_mng_set_cache_mode_test04(void **state)
 {
+	ocf_cache_mode_t mode_old = ocf_cache_mode_wb;
+	ocf_cache_mode_t mode_new = ocf_cache_mode_wa;
+	struct ocf_ctx ctx = {
+		.logger = 0x1, /* Just not NULL, we don't care. */
+	};
+	struct ocf_superblock_config sb_config = {
+		.cache_mode = mode_old,
+	};
+	struct ocf_cache cache = {
+		.owner = &ctx,
+		.conf_meta = &sb_config,
+	};
+	uint8_t flush = 0;
 	int result;
-	struct ocf_cache cache;
-	ocf_cache_mode_t mode_old, mode_new;
-	uint8_t flush;
 	int i;
 
 	print_test_description("Flush flag is not set, "
 		       "old cache mode is write back. "
 		       "Setting new cache mode is succesfull");
-
-	mode_old = ocf_cache_mode_wb;
-	mode_new = ocf_cache_mode_wa;
-	flush = 0;
-
-	cache.conf_meta = test_malloc(sizeof(struct ocf_superblock_config));
-	cache.conf_meta->cache_mode = mode_old;
 
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
@@ -226,27 +239,28 @@ static void _cache_mng_set_cache_mode_test04(void **state)
 
 	assert_int_equal(result, 0);
 	assert_int_equal(cache.conf_meta->cache_mode, mode_new);
-
-	test_free(cache.conf_meta);
 }
 
 static void _cache_mng_set_cache_mode_test05(void **state)
 {
+	ocf_cache_mode_t mode_old = ocf_cache_mode_wt;
+	ocf_cache_mode_t mode_new = ocf_cache_mode_wa;
+	struct ocf_ctx ctx = {
+		.logger = 0x1, /* Just not NULL, we don't care. */
+	};
+	struct ocf_superblock_config sb_config = {
+		.cache_mode = mode_old,
+	};
+	struct ocf_cache cache = {
+		.owner = &ctx,
+		.conf_meta = &sb_config,
+	};
+	uint8_t flush = 0;
 	int result;
-	struct ocf_cache cache;
-	ocf_cache_mode_t mode_old, mode_new;
-	uint8_t flush;
 	int i;
 
 	print_test_description("Flush flag is not set, "
 		       "flushing metadata superblock fails");
-
-	mode_old = ocf_cache_mode_wt;
-	mode_new = ocf_cache_mode_wa;
-	flush = 0;
-
-	cache.conf_meta = test_malloc(sizeof(struct ocf_superblock_config));
-	cache.conf_meta->cache_mode = mode_old;
 
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
@@ -261,25 +275,27 @@ static void _cache_mng_set_cache_mode_test05(void **state)
 
 	assert_int_equal(result, -OCF_ERR_WRITE_CACHE);
 	assert_int_equal(cache.conf_meta->cache_mode, mode_old);
-
-	test_free(cache.conf_meta);
 }
 
 static void _cache_mng_set_cache_mode_test06(void **state)
 {
+	ocf_cache_mode_t mode_old = ocf_cache_mode_wt;
+	ocf_cache_mode_t mode_new = ocf_cache_mode_wa;
+	struct ocf_ctx ctx = {
+		.logger = 0x1, /* Just not NULL, we don't care. */
+	};
+	struct ocf_superblock_config sb_config = {
+		.cache_mode = mode_old,
+	};
+	struct ocf_cache cache = {
+		.owner = &ctx,
+		.conf_meta = &sb_config,
+	};
+	uint8_t flush = 0;
 	int result;
-	struct ocf_cache cache;
-	ocf_cache_mode_t mode_old, mode_new;
-	uint8_t flush;
 	int i;
 
 	print_test_description("No flush, mode changed successfully");
-	mode_old = ocf_cache_mode_wt;
-	mode_new = ocf_cache_mode_wa;
-	flush = 0;
-
-	cache.conf_meta = test_malloc(sizeof(struct ocf_superblock_config));
-	cache.conf_meta->cache_mode = mode_old;
 
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
@@ -294,25 +310,26 @@ static void _cache_mng_set_cache_mode_test06(void **state)
 
 	assert_int_equal(result, 0);
 	assert_int_equal(cache.conf_meta->cache_mode, mode_new);
-
-	test_free(cache.conf_meta);
 }
 
 static void _cache_mng_set_cache_mode_test07(void **state)
 {
+	ocf_cache_mode_t mode_old = ocf_cache_mode_wt;
+	ocf_cache_mode_t mode_new = ocf_cache_mode_wa;
+	struct ocf_ctx ctx = {
+		.logger = 0x1, /* Just not NULL, we don't care. */
+	};
+	struct ocf_superblock_config sb_config = {
+		.cache_mode = mode_old,
+	};
+	struct ocf_cache cache = {
+		.owner = &ctx,
+		.conf_meta = &sb_config,
+	};
+	uint8_t flush = 1;
 	int result;
-	struct ocf_cache cache;
-	ocf_cache_mode_t mode_old, mode_new;
-	uint8_t flush;
-	int i;
 
 	print_test_description("Flush performed, mode changed successfully");
-	mode_old = ocf_cache_mode_wt;
-	mode_new = ocf_cache_mode_wa;
-	flush = 1;
-
-	cache.conf_meta = test_malloc(sizeof(struct ocf_superblock_config));
-	cache.conf_meta->cache_mode = mode_old;
 
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
@@ -330,8 +347,6 @@ static void _cache_mng_set_cache_mode_test07(void **state)
 
 	assert_int_equal(result, 0);
 	assert_int_equal(cache.conf_meta->cache_mode, mode_new);
-
-	test_free(cache.conf_meta);
 }
 
 /*

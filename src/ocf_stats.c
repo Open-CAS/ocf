@@ -275,7 +275,7 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 
 	ENV_BUG_ON(env_memset(stats, sizeof(*stats), 0));
 
-	stats->core_size_bytes = ocf_data_obj_get_length(
+	stats->core_size_bytes = ocf_dobj_get_length(
 			&cache->core[core_id].obj);
 	stats->core_size = ocf_bytes_2_lines_round_up(cache,
 			stats->core_size_bytes);
