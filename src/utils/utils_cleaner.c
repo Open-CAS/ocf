@@ -267,6 +267,8 @@ static void _ocf_cleaner_flush_cache_io_end(struct ocf_io *io, int error)
 	OCF_DEBUG_MSG(req->cache, "Cache flush finished");
 
 	_ocf_cleaner_finish_req(req);
+
+	ocf_io_put(io);
 }
 
 static int _ocf_cleaner_fire_flush_cache(struct ocf_request *req)
