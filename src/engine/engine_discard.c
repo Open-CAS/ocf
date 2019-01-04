@@ -56,6 +56,8 @@ static void _ocf_discard_core_complete(struct ocf_io *io, int error)
 	OCF_DEBUG_RQ(req, "Core DISCARD Completion");
 
 	_ocf_discard_complete_req(req, error);
+
+	ocf_io_put(io);
 }
 
 static int _ocf_discard_core(struct ocf_request *req)
@@ -88,11 +90,14 @@ static void _ocf_discard_cache_flush_complete(struct ocf_io *io, int error)
 	if (error) {
 		ocf_metadata_error(req->cache);
 		_ocf_discard_complete_req(req, error);
+		ocf_io_put(io);
 		return;
 	}
 
 	req->io_if = &_io_if_discard_core;
 	ocf_engine_push_req_front(req, true);
+
+	ocf_io_put(io);
 }
 
 static int _ocf_discard_flush_cache(struct ocf_request *req)
