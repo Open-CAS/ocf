@@ -64,12 +64,14 @@ error_out:
 static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 		struct ocf_mngt_core_config *cfg)
 {
-	int result = 0;
 	ocf_core_t tmp_core;
+	struct ocf_data_obj_uuid new_uuid;
 	ocf_data_obj_t obj;
+	ocf_data_obj_type_t type;
 	ocf_seq_no_t core_sequence_no;
 	ocf_cleaning_t clean_type;
 	uint64_t length;
+	int result = 0;
 
 	tmp_core = &cache->core[cfg->core_id];
 	obj = &tmp_core->obj;
@@ -77,13 +79,19 @@ static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 	tmp_core->obj.cache = cache;
 
 	/* Set uuid */
-	ocf_uuid_core_set(cache, tmp_core, &cfg->uuid);
+	result = ocf_metadata_set_core_uuid(tmp_core, &cfg->uuid, &new_uuid);
+	if (result)
+		return -OCF_ERR_INVAL;
 
-	obj->type = ocf_ctx_get_data_obj_type(cache->owner, cfg->data_obj_type);
-	if (!obj->type) {
+	type = ocf_ctx_get_data_obj_type(cache->owner, cfg->data_obj_type);
+	if (!type) {
 		result = -OCF_ERR_INVAL_DATA_OBJ_TYPE;
 		goto error_out;
 	}
+
+	result = ocf_dobj_init(obj, type, &new_uuid, false);
+	if (result)
+		goto error_out;
 
 	if (cfg->user_metadata.data && cfg->user_metadata.size > 0) {
 		result = ocf_core_set_user_metadata_raw(tmp_core,
@@ -184,7 +192,7 @@ error_after_clean_pol:
 error_after_open:
 	ocf_dobj_close(obj);
 error_out:
-	ocf_uuid_core_clear(cache, tmp_core);
+	ocf_metadata_clear_core_uuid(tmp_core);
 	*core = NULL;
 	return result;
 }
@@ -336,17 +344,22 @@ static int _ocf_mngt_find_core_id(ocf_cache_t cache,
 int ocf_mngt_core_init_front_dobj(ocf_core_t core)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
-	ocf_data_obj_t front_obj;
+	ocf_data_obj_type_t type;
+	struct ocf_data_obj_uuid uuid = {
+		.data = core,
+		.size = sizeof(core),
+	};
+	int ret;
 
-	front_obj = &core->front_obj;
-	front_obj->uuid.data = core;
-	front_obj->uuid.size = sizeof(core);
-
-	front_obj->type = ocf_ctx_get_data_obj_type(cache->owner, 0);
-	if (!front_obj->type)
+	type = ocf_ctx_get_data_obj_type(cache->owner, 0);
+	if (!type)
 		return -OCF_ERR_INVAL;
 
-	return ocf_dobj_open(front_obj);
+	ret = ocf_dobj_init(&core->front_obj, type, &uuid, false);
+	if (ret)
+		return ret;
+
+	return ocf_dobj_open(&core->front_obj);
 }
 
 int ocf_mngt_cache_add_core_nolock(ocf_cache_t cache, ocf_core_t *core,

@@ -35,60 +35,30 @@ static inline int _ocf_uuid_set(const struct ocf_data_obj_uuid *uuid,
 	return 0;
 }
 
-static inline int ocf_uuid_cache_set(ocf_cache_t cache,
-		const struct ocf_data_obj_uuid *uuid)
+static inline int ocf_metadata_set_core_uuid(ocf_core_t core,
+		const struct ocf_data_obj_uuid *uuid,
+		struct ocf_data_obj_uuid *new_uuid)
 {
-	int result;
-	void *u;
-
-	if (!uuid)
-		return -EINVAL;
-
-	u = env_vmalloc(uuid->size);
-	if (!u)
-		return -ENOMEM;
-
-	cache->device->obj.uuid.size = 0;
-	result = env_memcpy(u, uuid->size,
-			uuid->data, uuid->size);
-	if (result) {
-		env_vfree(u);
-		return result;
-	}
-
-	cache->device->obj.uuid.data = u;
-	cache->device->obj.uuid.size = uuid->size;
-
-	return 0;
-}
-
-static inline void ocf_uuid_cache_clear(ocf_cache_t cache)
-{
-	env_vfree(cache->device->obj.uuid.data);
-	cache->device->obj.uuid.size = 0;
-}
-
-static inline int ocf_uuid_core_set(ocf_cache_t cache, ocf_core_t core,
-		const struct ocf_data_obj_uuid *uuid)
-{
-
-	struct ocf_data_obj_uuid *cuuid = &ocf_core_get_data_object(core)->uuid;
+	ocf_cache_t cache = ocf_core_get_cache(core);
 	struct ocf_metadata_uuid *muuid = ocf_metadata_get_core_uuid(cache,
 						ocf_core_get_id(core));
-	if (_ocf_uuid_set(uuid, muuid)) {
-		return -ENOBUFS;
-	}
 
-	cuuid->data = muuid->data;
-	cuuid->size = muuid->size;
+	if (_ocf_uuid_set(uuid, muuid))
+		return -ENOBUFS;
+
+	if (new_uuid) {
+		new_uuid->data = muuid->data;
+		new_uuid->size = muuid->size;
+	}
 
 	return 0;
 }
 
-static inline void ocf_uuid_core_clear(ocf_cache_t cache, ocf_core_t core)
+static inline void ocf_metadata_clear_core_uuid(ocf_core_t core)
 {
 	struct ocf_data_obj_uuid uuid = { .size = 0, };
-	ocf_uuid_core_set(cache, core, &uuid);
+
+	ocf_metadata_set_core_uuid(core, &uuid, NULL);
 }
 
 #endif /* UTILS_MEM_H_ */

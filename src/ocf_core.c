@@ -14,6 +14,10 @@
 #include "utils/utils_device.h"
 #include "ocf_request.h"
 
+struct ocf_core_dobj {
+	ocf_core_t core;
+};
+
 ocf_cache_t ocf_core_get_cache(ocf_core_t core)
 {
 	OCF_CHECK_NULL(core);
@@ -116,9 +120,11 @@ int ocf_core_set_uuid(ocf_core_t core, const struct ocf_data_obj_uuid *uuid)
 		return 0;
 	}
 
-	result = ocf_uuid_core_set(cache, core, uuid);
+	result = ocf_metadata_set_core_uuid(core, uuid, NULL);
 	if (result)
 		return result;
+
+	ocf_dobj_set_uuid(&core->obj, uuid);
 
 	result = ocf_metadata_flush_superblock(cache);
 	if (result) {
@@ -228,12 +234,14 @@ int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
 
 static inline struct ocf_core_io *ocf_io_to_core_io(struct ocf_io *io)
 {
-	return ocf_data_obj_get_data_from_io(io);
+	return ocf_io_get_priv(io);
 }
 
 static inline ocf_core_t ocf_data_obj_to_core(ocf_data_obj_t obj)
 {
-	return ocf_data_obj_get_priv(obj);
+	struct ocf_core_dobj *core_dobj = ocf_dobj_get_priv(obj);
+
+	return core_dobj->core;
 }
 
 static inline void inc_dirty_req_counter(struct ocf_core_io *core_io,
@@ -569,35 +577,19 @@ static void ocf_core_data_obj_submit_discard(struct ocf_io *io)
 
 /* *** DATA OBJECT OPS *** */
 
-struct ocf_io *ocf_core_data_obj_new_io(ocf_data_obj_t obj)
-{
-	struct ocf_core_io *core_io;
-	struct ocf_io *io;
-
-	io = ocf_data_obj_new_io(obj);
-	if (!io)
-		return NULL;
-
-	core_io = ocf_data_obj_get_data_from_io(io);
-
-	env_atomic_set(&core_io->ref_counter, 1);
-
-	return io;
-}
-
 static int ocf_core_data_obj_open(ocf_data_obj_t obj)
 {
+	struct ocf_core_dobj *core_dobj = ocf_dobj_get_priv(obj);
 	const struct ocf_data_obj_uuid *uuid = ocf_dobj_get_uuid(obj);
 	ocf_core_t core = (ocf_core_t)uuid->data;
 
-	ocf_data_obj_set_priv(obj, core);
+	core_dobj->core = core;
 
 	return 0;
 }
 
 static void ocf_core_data_obj_close(ocf_data_obj_t obj)
 {
-	ocf_data_obj_set_priv(obj, NULL);
 }
 
 static unsigned int ocf_core_data_obj_get_max_io_size(ocf_data_obj_t obj)
@@ -643,44 +635,14 @@ static ctx_data_t *ocf_core_io_get_data(struct ocf_io *io)
 	return core_io->data;
 }
 
-static void ocf_core_io_get(struct ocf_io *io)
-{
-	struct ocf_core_io *core_io;
-
-	OCF_CHECK_NULL(io);
-
-	core_io = ocf_io_to_core_io(io);
-
-	ENV_BUG_ON(env_atomic_inc_return(&core_io->ref_counter) < 1);
-}
-
-static void ocf_core_io_put(struct ocf_io *io)
-{
-	struct ocf_core_io *core_io;
-	int value;
-
-	OCF_CHECK_NULL(io);
-
-	core_io = ocf_io_to_core_io(io);
-	value = env_atomic_dec_return(&core_io->ref_counter);
-
-	ENV_BUG_ON(value < 0);
-
-	if (value)
-		return;
-
-	ocf_data_obj_del_io(io);
-}
-
 const struct ocf_data_obj_properties ocf_core_data_obj_properties = { 
 	.name = "OCF Core",
-	.io_context_size = sizeof(struct ocf_core_io),
+	.io_priv_size = sizeof(struct ocf_core_io),
+	.dobj_priv_size = sizeof(struct ocf_core_dobj),
 	.caps = { 
 		.atomic_writes = 0,
 	},
 	.ops = { 
-		.new_io = ocf_core_data_obj_new_io,
-
 		.submit_io = ocf_core_data_obj_submit_io,
 		.submit_flush = ocf_core_data_obj_submit_flush,
 		.submit_discard = ocf_core_data_obj_submit_discard,
@@ -694,8 +656,6 @@ const struct ocf_data_obj_properties ocf_core_data_obj_properties = {
 	.io_ops = {
 		.set_data = ocf_core_io_set_data,
 		.get_data = ocf_core_io_get_data,
-		.get = ocf_core_io_get,
-		.put = ocf_core_io_put,
 	},
 };
 

@@ -45,15 +45,6 @@ struct ocf_data_obj_caps {
  */
 struct ocf_data_obj_ops {
 	/**
-	 * @brief Allocate new IO for this data object
-	 *
-	 * @param[in] obj Data object for which IO is created
-	 * @return IO On success
-	 * @return NULL On failure
-	 */
-	struct ocf_io *(*new_io)(ocf_data_obj_t obj);
-
-	/**
 	 * @brief Submit IO on this data object
 	 *
 	 * @param[in] io IO to be submitted
@@ -128,8 +119,11 @@ struct ocf_data_obj_properties {
 	const char *name;
 		/*!< The name of data object operations */
 
-	uint32_t io_context_size;
-		/*!< Size of io context structure */
+	uint32_t io_priv_size;
+		/*!< Size of io private context structure */
+
+	uint32_t dobj_priv_size;
+		/*!< Size of data object private context structure */
 
 	struct ocf_data_obj_caps caps;
 		/*!< Data object capabilities */
@@ -152,48 +146,10 @@ static inline struct ocf_data_obj_uuid ocf_str_to_uuid(char *str)
 }
 
 /**
- * @brief Get private context of data object
- *
- * @param[in] obj Data object
- *
- * @return Data object private context
- */
-void *ocf_data_obj_get_priv(ocf_data_obj_t obj);
-
-/**
- * @brief Set private context for data object
- *
- * @param[in] obj Data object
- * @param[in] priv Data object private context to be set
- */
-void ocf_data_obj_set_priv(ocf_data_obj_t obj, void *priv);
-
-/**
- * @brief Allocate new io from data object allocator
- *
- * @param[in] obj data object handle
  *
  * @return ocf_io object on success, otherwise NULL
- */
-struct ocf_io *ocf_data_obj_new_io(ocf_data_obj_t obj);
-
-/**
- * @brief Delete io from data object allocator
- *
- * @param[in] io handle to previously allocated io
- */
-void ocf_data_obj_del_io(struct ocf_io* io);
-
-/**
- * @brief Return io context data
- *
- * @param[in] io ocf io handle
  *
  * @return ocf_io private context data
- */
-void *ocf_data_obj_get_data_from_io(struct ocf_io* io);
-
-/**
  * @brief Initialize data object
  *
  * @param[in] obj data object handle
@@ -249,6 +205,15 @@ ocf_data_obj_type_t ocf_dobj_get_type(ocf_data_obj_t obj);
  * @return UUID of data object
  */
 const struct ocf_data_obj_uuid *ocf_dobj_get_uuid(ocf_data_obj_t obj);
+
+/**
+ * @brief Get private context of data object
+ *
+ * @param[in] obj Data object
+ *
+ * @return Data object private context
+ */
+void *ocf_dobj_get_priv(ocf_data_obj_t obj);
 
 /**
  * @brief Get cache handle for given data object

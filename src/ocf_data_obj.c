@@ -12,53 +12,6 @@
 /* *** Bottom interface *** */
 
 /*
- * This is io allocator dedicated for bottom devices.
- * Out IO structure looks like this:
- * --------------> +-------------------------+
- * | OCF is aware  |                         |
- * | of this part. | struct ocf_io_meta      |
- * |               |                         |
- * |               +-------------------------+ <----------------
- * |               |                         |  Bottom adapter |
- * |               | struct ocf_io           |  is aware of    |
- * |               |                         |  this part.     |
- * --------------> +-------------------------+                 |
- *                 |                         |                 |
- *                 | Bottom adapter specific |                 |
- *                 | data structure.         |                 |
- *                 |                         |                 |
- *                 +-------------------------+ <----------------
- */
-
-#define OCF_IO_ALLOCATOR_TOTAL_SIZE(size) \
-		(sizeof(struct ocf_io_meta) + sizeof(struct ocf_io) + size)
-
-static env_allocator *ocf_io_allocator_create(uint32_t size, const char *name)
-{
-	return env_allocator_create(OCF_IO_ALLOCATOR_TOTAL_SIZE(size), name);
-}
-
-static void ocf_io_allocator_destroy(env_allocator *allocator)
-{
-	env_allocator_destroy(allocator);
-}
-
-static struct ocf_io *ocf_io_allocator_new(env_allocator *allocator)
-{
-	void *data = env_allocator_new(allocator);
-
-	return data ? (data + sizeof(struct ocf_io_meta)) : NULL;
-}
-
-static void ocf_io_allocator_del(env_allocator *allocator, struct ocf_io *io)
-{
-	if (!io)
-		return;
-
-	env_allocator_del(allocator, (void *)io - sizeof(struct ocf_io_meta));
-}
-
-/*
  * Data object type
  */
 
@@ -69,7 +22,7 @@ int ocf_data_obj_type_init(struct ocf_data_obj_type **type,
 	struct ocf_data_obj_type *new_type;
 	int ret;
 
-	if (!ops->new_io || !ops->submit_io || !ops->open || !ops->close ||
+	if (!ops->submit_io || !ops->open || !ops->close ||
 			!ops->get_max_io_size || !ops->get_length) {
 		return -EINVAL;
 	}
@@ -82,7 +35,7 @@ int ocf_data_obj_type_init(struct ocf_data_obj_type **type,
 		return -OCF_ERR_NO_MEM;
 
 	new_type->allocator = ocf_io_allocator_create(
-			properties->io_context_size, properties->name);
+			properties->io_priv_size, properties->name);
 	if (!new_type->allocator) {
 		ret = -ENOMEM;
 		goto err;
@@ -106,64 +59,29 @@ void ocf_data_obj_type_deinit(struct ocf_data_obj_type *type)
 }
 
 /*
- * Data object backend API
- */
-
-void *ocf_data_obj_get_priv(ocf_data_obj_t obj)
-{
-	OCF_CHECK_NULL(obj);
-
-	return obj->priv;
-}
-
-void ocf_data_obj_set_priv(ocf_data_obj_t obj, void *priv)
-{
-	OCF_CHECK_NULL(obj);
-
-	obj->priv = priv;
-}
-
-struct ocf_io *ocf_data_obj_new_io(ocf_data_obj_t obj)
-{
-	struct ocf_io *io;
-
-	OCF_CHECK_NULL(obj);
-
-	io = ocf_io_allocator_new(obj->type->allocator);
-	if (!io)
-		return NULL;
-
-	io->obj = obj;
-	io->ops = &obj->type->properties->io_ops;
-
-	return io;
-}
-
-void ocf_data_obj_del_io(struct ocf_io* io)
-{
-	OCF_CHECK_NULL(io);
-
-	ocf_io_allocator_del(io->obj->type->allocator, io);
-}
-
-void *ocf_data_obj_get_data_from_io(struct ocf_io* io)
-{
-	return (void *)io + sizeof(struct ocf_io);
-}
-
-/*
  * Data object frontend API
  */
 
 int ocf_dobj_init(ocf_data_obj_t obj, ocf_data_obj_type_t type,
 		struct ocf_data_obj_uuid *uuid, bool uuid_copy)
 {
+	uint32_t priv_size = type->properties->dobj_priv_size;
+	void *data;
+	int ret;
+
 	if (!obj || !type)
 		return -OCF_ERR_INVAL;
 
+	obj->opened = false;
 	obj->type = type;
 
+	obj->priv = env_zalloc(priv_size, ENV_MEM_NORMAL);
+	if (!obj->priv)
+		return -OCF_ERR_NO_MEM;
+
 	if (!uuid) {
+		obj->uuid.size = 0;
+		obj->uuid.data = NULL;
 		obj->uuid_copy = false;
 		return 0;
 	}
@@ -171,9 +89,17 @@ int ocf_dobj_init(ocf_data_obj_t obj, ocf_data_obj_type_t type,
 	obj->uuid_copy = uuid_copy;
 
 	if (uuid_copy) {
-		obj->uuid.data = env_strdup(uuid->data, ENV_MEM_NORMAL);
-		if (!obj->uuid.data)
-			return -OCF_ERR_NO_MEM;
+		data = env_vmalloc(uuid->size);
+		if (!data)
+			goto err;
+
+		ret = env_memcpy(data, uuid->size, uuid->data, uuid->size);
+		if (ret) {
+			env_vfree(data);
+			goto err;
+		}
+
+		obj->uuid.data = data;
 	} else {
 		obj->uuid.data = uuid->data;
 	}
@@ -181,14 +107,42 @@ int ocf_dobj_init(ocf_data_obj_t obj, ocf_data_obj_type_t type,
 	obj->uuid.size = uuid->size;
 
 	return 0;
+
+err:
+	env_free(obj->priv);
+	return -OCF_ERR_NO_MEM;
 }
 
 void ocf_dobj_deinit(ocf_data_obj_t obj)
 {
 	OCF_CHECK_NULL(obj);
 
+	env_free(obj->priv);
+
 	if (obj->uuid_copy && obj->uuid.data)
-		env_free(obj->uuid.data);
+		env_vfree(obj->uuid.data);
+}
+
+void ocf_dobj_move(ocf_data_obj_t obj, ocf_data_obj_t from)
+{
+	OCF_CHECK_NULL(obj);
+	OCF_CHECK_NULL(from);
+
+	ocf_dobj_deinit(obj);
+
+	obj->opened = from->opened;
+	obj->type = from->type;
+	obj->uuid = from->uuid;
+	obj->uuid_copy = from->uuid_copy;
+	obj->priv = from->priv;
+	obj->cache = from->cache;
+	obj->features = from->features;
+
+	/*
+	 * Deinitialize original object without freeing resources.
+	 */
+	from->opened = false;
+	from->priv = NULL;
 }
 
 int ocf_dobj_create(ocf_data_obj_t *obj, ocf_data_obj_type_t type,
@@ -229,12 +183,27 @@ ocf_data_obj_type_t ocf_dobj_get_type(ocf_data_obj_t obj)
 	return obj->type;
 }
 
-const struct ocf_data_obj_uuid *ocf_dobj_get_uuid(
-		ocf_data_obj_t obj)
+const struct ocf_data_obj_uuid *ocf_dobj_get_uuid(ocf_data_obj_t obj)
 {
 	OCF_CHECK_NULL(obj);
 
 	return &obj->uuid;
+}
+
+void ocf_dobj_set_uuid(ocf_data_obj_t obj, const struct ocf_data_obj_uuid *uuid)
+{
+	OCF_CHECK_NULL(obj);
+
+	if (obj->uuid_copy && obj->uuid.data)
+		env_vfree(obj->uuid.data);
+
+	obj->uuid.data = uuid->data;
+	obj->uuid.size = uuid->size;
+}
+
+void *ocf_dobj_get_priv(ocf_data_obj_t obj)
+{
+	return obj->priv;
 }
 
 ocf_cache_t ocf_dobj_get_cache(ocf_data_obj_t obj)
@@ -251,14 +220,18 @@ int ocf_dobj_is_atomic(ocf_data_obj_t obj)
 
 struct ocf_io *ocf_dobj_new_io(ocf_data_obj_t obj)
 {
-	ENV_BUG_ON(!obj->type->properties->ops.new_io);
+	if (!obj->opened)
+		return NULL;
 
-	return obj->type->properties->ops.new_io(obj);
+	return ocf_io_new(obj);
 }
 
 void ocf_dobj_submit_io(struct ocf_io *io)
 {
 	ENV_BUG_ON(!io->obj->type->properties->ops.submit_io);
+
+	if (!io->obj->opened)
+		io->end(io, -EIO);
 
 	io->obj->type->properties->ops.submit_io(io);
 }
@@ -266,6 +239,9 @@ void ocf_dobj_submit_io(struct ocf_io *io)
 void ocf_dobj_submit_flush(struct ocf_io *io)
 {
 	ENV_BUG_ON(!io->obj->type->properties->ops.submit_flush);
+
+	if (!io->obj->opened)
+		io->end(io, -EIO);
 
 	if (!io->obj->type->properties->ops.submit_flush) {
 		ocf_io_end(io, 0); 
@@ -277,6 +253,9 @@ void ocf_dobj_submit_flush(struct ocf_io *io)
 
 void ocf_dobj_submit_discard(struct ocf_io *io)
 {
+	if (!io->obj->opened)
+		io->end(io, -EIO);
+
 	if (!io->obj->type->properties->ops.submit_discard) {
 		ocf_io_end(io, 0); 
 		return;
@@ -287,21 +266,35 @@ void ocf_dobj_submit_discard(struct ocf_io *io)
 
 int ocf_dobj_open(ocf_data_obj_t obj)
 {
-	ENV_BUG_ON(!obj->type->properties->ops.open);
+	int ret;
 
-	return obj->type->properties->ops.open(obj);
+	ENV_BUG_ON(!obj->type->properties->ops.open);
+	ENV_BUG_ON(obj->opened);
+
+	ret = obj->type->properties->ops.open(obj);
+	if (ret)
+		return ret;
+
+	obj->opened = true;
+
+	return 0;
 }
 
 void ocf_dobj_close(ocf_data_obj_t obj)
 {
 	ENV_BUG_ON(!obj->type->properties->ops.close);
+	ENV_BUG_ON(!obj->opened);
 
 	obj->type->properties->ops.close(obj);
+	obj->opened = false;
 }
 
 unsigned int ocf_dobj_get_max_io_size(ocf_data_obj_t obj)
 {
 	ENV_BUG_ON(!obj->type->properties->ops.get_max_io_size);
+
+	if (!obj->opened)
+		return 0;
 
 	return obj->type->properties->ops.get_max_io_size(obj);
 }
@@ -309,6 +302,9 @@ unsigned int ocf_dobj_get_max_io_size(ocf_data_obj_t obj)
 uint64_t ocf_dobj_get_length(ocf_data_obj_t obj)
 {
 	ENV_BUG_ON(!obj->type->properties->ops.get_length);
+
+	if (!obj->opened)
+		return 0;
 
 	return obj->type->properties->ops.get_length(obj);
 }

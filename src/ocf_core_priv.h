@@ -19,8 +19,6 @@
 	ocf_core_log_prefix(core, lvl, ": ", fmt, ##__VA_ARGS__)
 
 struct ocf_core_io {
-	env_atomic ref_counter;
-
 	bool dirty;
 	/*!< Indicates if io leaves dirty data  */
 
