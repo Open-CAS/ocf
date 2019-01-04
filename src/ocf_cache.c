@@ -182,7 +182,7 @@ const struct ocf_data_obj_uuid *ocf_cache_get_uuid(ocf_cache_t cache)
 	if (!ocf_cache_is_device_attached(cache))
 		return NULL;
 
-	return ocf_data_obj_get_uuid(ocf_cache_get_data_object(cache));
+	return ocf_dobj_get_uuid(ocf_cache_get_data_object(cache));
 }
 
 uint8_t ocf_cache_get_type_id(ocf_cache_t cache)
@@ -191,7 +191,7 @@ uint8_t ocf_cache_get_type_id(ocf_cache_t cache)
 		return 0xff;
 
 	return ocf_ctx_get_data_obj_type_id(ocf_cache_get_ctx(cache),
-		ocf_data_obj_get_type(ocf_cache_get_data_object(cache)));
+		ocf_dobj_get_type(ocf_cache_get_data_object(cache)));
 }
 
 ocf_cache_line_size_t ocf_cache_get_line_size(ocf_cache_t cache)

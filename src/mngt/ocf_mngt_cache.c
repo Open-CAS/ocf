@@ -5,6 +5,7 @@
 
 #include "ocf/ocf.h"
 #include "ocf_mngt_common.h"
+#include "ocf_mngt_core_priv.h"
 #include "../ocf_priv.h"
 #include "../ocf_core_priv.h"
 #include "../ocf_queue_priv.h"
@@ -364,7 +365,7 @@ static void _ocf_mngt_close_all_uninitialized_cores(
 			continue;
 
 		obj = &(cache->core[i].obj);
-		ocf_data_obj_close(obj);
+		ocf_dobj_close(obj);
 
 		--j;
 
@@ -418,15 +419,15 @@ static int _ocf_mngt_init_instance_add_cores(
 			continue;
 
 		if (!cache->core[i].obj.type)
-			goto _cache_mng_init_instance_add_cores_ERROR;
+			goto err;
 
 		ret = snprintf(core_name, sizeof(core_name), "core%d", i);
 		if (ret < 0 || ret >= sizeof(core_name))
-			goto _cache_mng_init_instance_add_cores_ERROR;
+			goto err;
 
 		ret = ocf_core_set_name(core, core_name, sizeof(core_name));
 		if (ret)
-			goto _cache_mng_init_instance_add_cores_ERROR;
+			goto err;
 
 		tobj = ocf_mngt_core_pool_lookup(ocf_cache_get_ctx(cache),
 				&core->obj.uuid, core->obj.type);
@@ -444,7 +445,7 @@ static int _ocf_mngt_init_instance_add_cores(
 			ocf_cache_log(cache, log_info,
 					"Attached core %u from pool\n", i);
 		} else {
-			ret = ocf_data_obj_open(&core->obj);
+			ret = ocf_dobj_open(&core->obj);
 			if (ret == -OCF_ERR_NOT_OPEN_EXC) {
 				ocf_cache_log(cache, log_warn,
 						"Cannot open core %u. "
@@ -461,10 +462,13 @@ static int _ocf_mngt_init_instance_add_cores(
 		cache->conf_meta->core_count++;
 		core->obj.cache = cache;
 
+		if (ocf_mngt_core_init_front_dobj(core))
+			goto err;
+
 		core->counters =
 			env_zalloc(sizeof(*core->counters), ENV_MEM_NORMAL);
 		if (!core->counters)
-			goto _cache_mng_init_instance_add_cores_ERROR;
+			goto err;
 
 		if (!core->opened) {
 			env_bit_set(ocf_cache_state_incomplete,
@@ -477,7 +481,7 @@ static int _ocf_mngt_init_instance_add_cores(
 		}
 
 		hd_lines = ocf_bytes_2_lines(cache,
-				ocf_data_obj_get_length(
+				ocf_dobj_get_length(
 				&cache->core[i].obj));
 
 		if (hd_lines) {
@@ -489,7 +493,7 @@ static int _ocf_mngt_init_instance_add_cores(
 	attach_params->flags.cores_opened = true;
 	return 0;
 
-_cache_mng_init_instance_add_cores_ERROR:
+err:
 	_ocf_mngt_close_all_uninitialized_cores(cache);
 
 	return -OCF_ERR_START_CACHE_FAIL;
@@ -633,12 +637,12 @@ static int _ocf_mngt_attach_cache_device(struct ocf_cache *cache,
 			attach_params->device_type);
 	if (!cache->device->obj.type) {
 		ret = -OCF_ERR_INVAL_DATA_OBJ_TYPE;
-		goto _cache_mng_attach_cache_device_ERROR;
+		goto err;
 	}
 
 	if (ocf_uuid_cache_set(cache, &attach_params->uuid)) {
 		ret = -OCF_ERR_INVAL;
-		goto _cache_mng_attach_cache_device_ERROR;
+		goto err;
 	}
 	attach_params->flags.uuid_alloc = true;
 
@@ -646,21 +650,21 @@ static int _ocf_mngt_attach_cache_device(struct ocf_cache *cache,
 	 * Open cache device, It has to be done first because metadata service
 	 * need to know size of cache device.
 	 */
-	ret = ocf_data_obj_open(&cache->device->obj);
+	ret = ocf_dobj_open(&cache->device->obj);
 	if (ret) {
 		ocf_cache_log(cache, log_err, "ERROR: Cache not available\n");
-		goto _cache_mng_attach_cache_device_ERROR;
+		goto err;
 	}
 	attach_params->flags.device_opened = true;
 
-	attach_params->device_size = ocf_data_obj_get_length(&cache->device->obj);
+	attach_params->device_size = ocf_dobj_get_length(&cache->device->obj);
 
 	/* Check minimum size of cache device */
 	if (attach_params->device_size < OCF_CACHE_SIZE_MIN) {
 		ocf_cache_log(cache, log_err, "ERROR: Cache cache size must "
 			"be at least %llu [MiB]\n", OCF_CACHE_SIZE_MIN / MiB);
 		ret = -OCF_ERR_START_CACHE_FAIL;
-		goto _cache_mng_attach_cache_device_ERROR;
+		goto err;
 	}
 
 	if (cache->metadata.is_volatile) {
@@ -672,7 +676,7 @@ static int _ocf_mngt_attach_cache_device(struct ocf_cache *cache,
 
 	return 0;
 
-_cache_mng_attach_cache_device_ERROR:
+err:
 	return ret;
 }
 
@@ -829,7 +833,7 @@ static int _ocf_mngt_init_test_device(struct ocf_cache *cache)
 		goto end;
 	}
 
-	if (!ocf_data_obj_is_atomic(&cache->device->obj))
+	if (!ocf_dobj_is_atomic(&cache->device->obj))
 		goto end;
 
 	/*
@@ -1089,7 +1093,7 @@ static void _ocf_mngt_attach_handle_error(
 		ocf_metadata_deinit_variable_size(cache);
 
 	if (attach_params->flags.device_opened)
-		ocf_data_obj_close(&cache->device->obj);
+		ocf_dobj_close(&cache->device->obj);
 
 	if (attach_params->flags.concurrency_inited)
 		ocf_concurrency_deinit(cache);
@@ -1105,11 +1109,11 @@ static int _ocf_mngt_cache_discard_after_metadata(struct ocf_cache *cache)
 {
 	int result;
 	uint64_t addr = cache->device->metadata_offset;
-	uint64_t length = ocf_data_obj_get_length(
+	uint64_t length = ocf_dobj_get_length(
 			&cache->device->obj) - addr;
 	bool discard = cache->device->obj.features.discard_zeroes;
 
-	if (!discard &&	ocf_data_obj_is_atomic(&cache->device->obj)) {
+	if (!discard &&	ocf_dobj_is_atomic(&cache->device->obj)) {
 		/* discard does not zero data - need to explicitly write
 		    zeroes */
 		result = ocf_submit_write_zeroes_wait(
@@ -1129,7 +1133,7 @@ static int _ocf_mngt_cache_discard_after_metadata(struct ocf_cache *cache)
 				discard ? "Discarding whole cache device" :
 					"Overwriting cache with zeroes");
 
-		if (ocf_data_obj_is_atomic(&cache->device->obj)) {
+		if (ocf_dobj_is_atomic(&cache->device->obj)) {
 			ocf_cache_log(cache, log_err, "This step is required"
 					" for atomic mode!\n");
 		} else {
@@ -1351,7 +1355,6 @@ static int _ocf_mngt_cache_attach(ocf_cache_t cache,
 		break;
 	case ocf_init_mode_load:
 		result = _ocf_mngt_init_instance_load(&attach_params);
-
 		break;
 	default:
 		result = OCF_ERR_INVAL;
@@ -1564,7 +1567,7 @@ static int _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop)
 		result = ocf_metadata_flush_all(cache);
 	}
 
-	ocf_data_obj_close(&cache->device->obj);
+	ocf_dobj_close(&cache->device->obj);
 
 	ocf_metadata_deinit_variable_size(cache);
 	ocf_concurrency_deinit(cache);

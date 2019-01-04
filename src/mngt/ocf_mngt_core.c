@@ -5,6 +5,7 @@
 
 #include "ocf/ocf.h"
 #include "ocf_mngt_common.h"
+#include "ocf_mngt_core_priv.h"
 #include "../ocf_priv.h"
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
@@ -36,11 +37,11 @@ static int _ocf_mngt_cache_try_add_core(ocf_cache_t cache, ocf_core_t *core,
 		goto error_out;
 	}
 
-	result = ocf_data_obj_open(obj);
+	result = ocf_dobj_open(obj);
 	if (result)
 		goto error_out;
 
-	if (!ocf_data_obj_get_length(obj)) {
+	if (!ocf_dobj_get_length(obj)) {
 		result = -OCF_ERR_CORE_NOT_AVAIL;
 		goto error_after_open;
 	}
@@ -54,7 +55,7 @@ static int _ocf_mngt_cache_try_add_core(ocf_cache_t cache, ocf_core_t *core,
 	return 0;
 
 error_after_open:
-	ocf_data_obj_close(obj);
+	ocf_dobj_close(obj);
 error_out:
 	*core = NULL;
 	return result;
@@ -92,11 +93,11 @@ static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 			goto error_out;
 	}
 
-	result = ocf_data_obj_open(obj);
+	result = ocf_dobj_open(obj);
 	if (result)
 		goto error_out;
 
-	length = ocf_data_obj_get_length(obj);
+	length = ocf_dobj_get_length(obj);
 	if (!length) {
 		result = -OCF_ERR_CORE_NOT_AVAIL;
 		goto error_after_open;
@@ -181,7 +182,7 @@ error_after_clean_pol:
 		cleaning_policy_ops[clean_type].remove_core(cache, cfg->core_id);
 
 error_after_open:
-	ocf_data_obj_close(obj);
+	ocf_dobj_close(obj);
 error_out:
 	ocf_uuid_core_clear(cache, tmp_core);
 	*core = NULL;
@@ -332,6 +333,22 @@ static int _ocf_mngt_find_core_id(ocf_cache_t cache,
 	return result;
 }
 
+int ocf_mngt_core_init_front_dobj(ocf_core_t core)
+{
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	ocf_data_obj_t front_obj;
+
+	front_obj = &core->front_obj;
+	front_obj->uuid.data = core;
+	front_obj->uuid.size = sizeof(core);
+
+	front_obj->type = ocf_ctx_get_data_obj_type(cache->owner, 0);
+	if (!front_obj->type)
+		return -OCF_ERR_INVAL;
+
+	return ocf_dobj_open(front_obj);
+}
+
 int ocf_mngt_cache_add_core_nolock(ocf_cache_t cache, ocf_core_t *core,
 		struct ocf_mngt_core_config *cfg)
 {
@@ -369,6 +386,12 @@ int ocf_mngt_cache_add_core_nolock(ocf_cache_t cache, ocf_core_t *core,
 	else
 		result = _ocf_mngt_cache_add_core(cache, core, cfg);
 
+	if (result)
+		goto out;
+
+	result = ocf_mngt_core_init_front_dobj(*core);
+
+out:
 	if (!result) {
 		ocf_core_log(*core, log_info, "Successfully added\n");
 	} else {
@@ -416,6 +439,8 @@ static int _ocf_mngt_cache_remove_core(ocf_core_t core, bool detach)
 		}
 		return status;
 	}
+
+	ocf_dobj_close(&core->front_obj);
 
 	/* Deinit everything*/
 	if (ocf_cache_is_device_attached(cache)) {

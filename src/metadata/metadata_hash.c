@@ -577,7 +577,7 @@ static int ocf_metadata_hash_init_variable_size(struct ocf_cache *cache,
 		if (cache->device->init_mode == ocf_init_mode_metadata_volatile) {
 			raw->raw_type = metadata_raw_type_volatile;
 		} else if (i == metadata_segment_collision &&
-				ocf_data_obj_is_atomic(&cache->device->obj)) {
+				ocf_dobj_is_atomic(&cache->device->obj)) {
 			raw->raw_type = metadata_raw_type_atomic;
 		}
 
@@ -975,7 +975,7 @@ static int ocf_metadata_hash_load_superblock(struct ocf_cache *cache)
 		uuid.size = muuid->size;
 
 		/* Initialize core data object */
-		ocf_data_obj_init(&cache->core[i].obj,
+		ocf_dobj_init(&cache->core[i].obj,
 				ocf_ctx_get_data_obj_type(cache->owner,
 						cache->core_conf_meta[i].type),
 				&uuid, false);
@@ -1544,7 +1544,7 @@ static int ocf_metadata_hash_load_recovery(struct ocf_cache *cache)
 	OCF_DEBUG_TRACE(cache);
 
 
-	if (ocf_data_obj_is_atomic(&cache->device->obj)) {
+	if (ocf_dobj_is_atomic(&cache->device->obj)) {
 		result = _ocf_metadata_hash_load_recovery_atomic(cache);
 		rebuild_dirty_only = false;
 	} else {

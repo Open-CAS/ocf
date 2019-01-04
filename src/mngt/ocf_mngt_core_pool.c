@@ -38,9 +38,9 @@ int ocf_mngt_core_pool_add(ocf_ctx_t ctx, ocf_uuid_t uuid, uint8_t type)
 	if (result)
 		return result;
 
-	result = ocf_data_obj_open(obj);
+	result = ocf_dobj_open(obj);
 	if (result) {
-		ocf_data_obj_deinit(obj);
+		ocf_dobj_deinit(obj);
 		return result;
 	}
 
@@ -99,14 +99,14 @@ void ocf_mngt_core_pool_remove(ocf_ctx_t ctx, ocf_data_obj_t obj)
 	ctx->core_pool.core_pool_count--;
 	list_del(&obj->core_pool_item);
 	env_mutex_unlock(&ctx->lock);
-	ocf_data_obj_deinit(obj);
+	ocf_dobj_deinit(obj);
 }
 
 void ocf_mngt_core_pool_close_and_remove(ocf_ctx_t ctx, ocf_data_obj_t obj)
 {
 	OCF_CHECK_NULL(ctx);
 	OCF_CHECK_NULL(obj);
-	ocf_data_obj_close(obj);
+	ocf_dobj_close(obj);
 	ocf_mngt_core_pool_remove(ctx, obj);
 }
 

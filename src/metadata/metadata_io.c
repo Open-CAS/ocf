@@ -46,7 +46,7 @@ static struct ocf_io_if meta_restart_if = {
  */
 static uint32_t metadata_io_max_page(struct ocf_cache *cache)
 {
-	return ocf_data_obj_get_max_io_size(&cache->device->obj) /
+	return ocf_dobj_get_max_io_size(&cache->device->obj) /
 			BYTES_TO_SECTORS(PAGE_SIZE);
 }
 
@@ -57,7 +57,7 @@ static void metadata_io_read_i_atomic_end(struct ocf_io *io, int error)
 {
 	struct metadata_io_request_atomic *meta_atom_req = io->priv1;
 
-	OCF_DEBUG_TRACE(ocf_data_obj_get_cache(io->obj));
+	OCF_DEBUG_TRACE(ocf_dobj_get_cache(io->obj));
 
 	meta_atom_req->error |= error;
 	env_completion_complete(&meta_atom_req->complete);

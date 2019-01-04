@@ -35,6 +35,15 @@ ocf_cache_t ocf_core_get_cache(ocf_core_t core);
 ocf_data_obj_t ocf_core_get_data_object(ocf_core_t core);
 
 /**
+ * @brief Obtain data object of the core
+ *
+ * @param[in] core Core object
+ *
+ * @retval Front data object
+ */
+ocf_data_obj_t ocf_core_get_front_data_object(ocf_core_t core);
+
+/**
  * @brief Get UUID of data object associated with core
  *
  * @param[in] core Core object
@@ -43,7 +52,7 @@ ocf_data_obj_t ocf_core_get_data_object(ocf_core_t core);
  */
 static inline const struct ocf_data_obj_uuid *ocf_core_get_uuid(ocf_core_t core)
 {
-	return ocf_data_obj_get_uuid(ocf_core_get_data_object(core));
+	return ocf_dobj_get_uuid(ocf_core_get_data_object(core));
 }
 
 /**
@@ -156,30 +165,29 @@ int ocf_core_get_user_metadata(ocf_core_t core, void *data, size_t size);
  *
  * @retval ocf_io object
  */
-struct ocf_io *ocf_new_io(ocf_core_t core);
+static inline struct ocf_io *ocf_core_new_io(ocf_core_t core)
+{
+	ocf_data_obj_t obj = ocf_core_get_front_data_object(core);
+
+	return ocf_dobj_new_io(obj);
+}
 
 /**
  * @brief Submit ocf_io
  *
  * @param[in] io IO to be submitted
  * @param[in] mode Cache mode to be enforced
- *
- * @retval 0 Success
- * @retval Non-zero Fail
  */
-int ocf_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode);
+void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode);
 
 /**
  * @brief Submit ocf_io
  *
  * @param[in] io IO to be submitted
- *
- * @retval 0 Success
- * @retval Non-zero Fail
  */
-static inline int ocf_submit_io(struct ocf_io *io)
+static inline void ocf_core_submit_io(struct ocf_io *io)
 {
-	return ocf_submit_io_mode(io, ocf_cache_mode_none);
+	ocf_dobj_submit_io(io);
 }
 
 /**
@@ -191,27 +199,27 @@ static inline int ocf_submit_io(struct ocf_io *io)
  * @retval 0 IO has been submitted successfully
  * @retval Non-zero Fast submit failed. Try to submit IO with ocf_submit_io()
  */
-int ocf_submit_io_fast(struct ocf_io *io);
+int ocf_core_submit_io_fast(struct ocf_io *io);
 
 /**
  * @brief Submit ocf_io with flush command
  *
  * @param[in] io IO to be submitted
- *
- * @retval 0 Success
- * @retval Non-zero Fail
  */
-int ocf_submit_flush(struct ocf_io *io);
+static inline void ocf_core_submit_flush(struct ocf_io *io)
+{
+	ocf_dobj_submit_flush(io);
+}
 
 /**
  * @brief Submit ocf_io with discard command
  *
  * @param[in] io IO to be submitted
- *
- * @retval 0 Success
- * @retval Non-zero Fail
  */
-int ocf_submit_discard(struct ocf_io *io);
+static inline void ocf_core_submit_discard(struct ocf_io *io)
+{
+	ocf_dobj_submit_discard(io);
+}
 
 /**
  * @brief Core visitor function type which is called back when iterating over

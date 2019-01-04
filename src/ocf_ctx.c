@@ -9,6 +9,7 @@
 #include "ocf_data_obj_priv.h"
 #include "ocf_utils.h"
 #include "ocf_logger_priv.h"
+#include "ocf_core_priv.h"
 
 /*
  *
@@ -106,7 +107,7 @@ int ocf_ctx_data_obj_create(ocf_ctx_t ctx, ocf_data_obj_t *obj,
 	if (type_id >= OCF_DATA_OBJ_TYPE_MAX)
 		return -EINVAL;
 
-	return ocf_data_obj_create(obj, ctx->data_obj_type[type_id], uuid);
+	return ocf_dobj_create(obj, ctx->data_obj_type[type_id], uuid);
 }
 
 /*
@@ -144,7 +145,7 @@ out:
  */
 int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_ops *ops)
 {
-	struct ocf_ctx *ocf_ctx;
+	ocf_ctx_t ocf_ctx;
 
 	OCF_CHECK_NULL(ctx);
 	OCF_CHECK_NULL(ops);
@@ -163,6 +164,12 @@ int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_ops *ops)
 	if (ocf_utils_init(ocf_ctx)) {
 		env_free(ocf_ctx);
 		return -ENOMEM;
+	}
+
+	if (ocf_core_data_obj_type_init(ocf_ctx)) {
+		ocf_utils_deinit(ocf_ctx);
+		env_free(ocf_ctx);
+		return -EINVAL;
 	}
 
 	*ctx = ocf_ctx;
@@ -186,6 +193,8 @@ int ocf_ctx_exit(ocf_ctx_t ctx)
 	env_mutex_unlock(&ctx->lock);
 	if (result)
 		return result;
+
+	ocf_core_data_obj_type_deinit(ctx);
 
 	ocf_utils_deinit(ctx);
 	if (ctx->logger && ctx->logger->close)

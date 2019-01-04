@@ -8,12 +8,17 @@
 
 #include "ocf/ocf.h"
 #include "ocf_env.h"
+#include "ocf_ctx_priv.h"
 #include "ocf_data_obj_priv.h"
 
-struct ocf_core_io {
-	struct ocf_io base;
-	ocf_core_t core;
+#define ocf_core_log_prefix(core, lvl, prefix, fmt, ...) \
+	ocf_cache_log_prefix(ocf_core_get_cache(core), lvl, ".%s" prefix, \
+			fmt, ocf_core_get_name(core), ##__VA_ARGS__)
 
+#define ocf_core_log(core, lvl, fmt, ...) \
+	ocf_core_log_prefix(core, lvl, ": ", fmt, ##__VA_ARGS__)
+
+struct ocf_core_io {
 	env_atomic ref_counter;
 
 	bool dirty;
@@ -26,6 +31,7 @@ struct ocf_core_io {
 struct ocf_core {
 	char name[OCF_CORE_NAME_SIZE];
 
+	struct ocf_data_obj front_obj;
 	struct ocf_data_obj obj;
 
 	struct {
@@ -46,11 +52,8 @@ bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id);
 
 int ocf_core_set_user_metadata_raw(ocf_core_t core, void *data, size_t size);
 
-#define ocf_core_log_prefix(core, lvl, prefix, fmt, ...) \
-	ocf_cache_log_prefix(ocf_core_get_cache(core), lvl, ".%s" prefix, \
-			fmt, ocf_core_get_name(core), ##__VA_ARGS__)
+int ocf_core_data_obj_type_init(ocf_ctx_t ctx);
 
-#define ocf_core_log(core, lvl, fmt, ...) \
-	ocf_core_log_prefix(core, lvl, ": ", fmt, ##__VA_ARGS__)
+void ocf_core_data_obj_type_deinit(ocf_ctx_t ctx);
 
 #endif /* __OCF_CORE_PRIV_H__ */

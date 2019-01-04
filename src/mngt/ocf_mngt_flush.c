@@ -598,7 +598,7 @@ int ocf_mngt_core_purge(ocf_cache_t cache, ocf_core_id_t core_id, bool interrupt
 		return -OCF_ERR_CORE_NOT_AVAIL;
 	}
 
-	core_size = ocf_data_obj_get_length(&cache->core[core_id].obj);
+	core_size = ocf_dobj_get_length(&cache->core[core_id].obj);
 	core_size = core_size ?: ~0ULL;
 
 	_ocf_mngt_begin_flush(cache);
