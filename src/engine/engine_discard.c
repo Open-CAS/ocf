@@ -77,6 +77,7 @@ static int _ocf_discard_core(struct ocf_request *req)
 
 	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_core_complete);
 	ocf_io_set_data(io, req->data, 0);
+	ocf_io_set_queue(io, req->io_queue);
 
 	ocf_dobj_submit_discard(io);
 
@@ -113,6 +114,7 @@ static int _ocf_discard_flush_cache(struct ocf_request *req)
 
 	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
 	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_cache_flush_complete);
+	ocf_io_set_queue(io, req->io_queue);
 
 	ocf_dobj_submit_flush(io);
 
