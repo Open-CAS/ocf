@@ -82,16 +82,16 @@ void ocf_io_get(struct ocf_io *io)
 {
 	struct ocf_io_meta *io_meta = ocf_io_get_meta(io);
 
-	atomic_inc_return(&io_meta->ref_count);
+	env_atomic_inc_return(&io_meta->ref_count);
 }
 
 void ocf_io_put(struct ocf_io *io)
 {
 	struct ocf_io_meta *io_meta = ocf_io_get_meta(io);
-	
-	if (atomic_dec_return(&io_meta->ref_count))
+
+	if (env_atomic_dec_return(&io_meta->ref_count))
 		return;
-	
+
 	env_allocator_del(io->obj->type->allocator,
 			(void *)io - sizeof(struct ocf_io_meta));
 }
