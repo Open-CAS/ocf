@@ -16,7 +16,7 @@ int ocf_log_raw(ocf_logger_t logger, ocf_logger_lvl_t lvl,
 		const char *fmt, ...)
 {
 	va_list args;
-	int ret;
+	int ret = 0;
 
 	if (!logger->ops->printf)
 		return -ENOTSUP;
