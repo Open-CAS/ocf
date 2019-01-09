@@ -14,6 +14,7 @@
 #include "../engine/engine_common.h"
 #include "../concurrency/ocf_cache_concurrency.h"
 #include "cleaning_priv.h"
+#include "../utils/utils_core.h"
 
 #define OCF_ACP_DEBUG 0
 
@@ -183,10 +184,6 @@ static struct acp_chunk_info *_acp_get_chunk(struct ocf_cache *cache,
 
 	return &acp->chunk_info[core_line.core_id][chunk_id];
 }
-
-#define for_each_core(cache, iter) \
-	for (iter = 0; iter < OCF_CORE_MAX; iter++) \
-		if (cache->core_conf_meta[iter].added)
 
 static void _acp_remove_cores(struct ocf_cache *cache)
 {

@@ -1856,7 +1856,7 @@ int ocf_mngt_cache_detach(ocf_cache_t cache)
 		return -EINVAL;
 
 	/* prevent dirty io */
-	env_atomic_inc(&cache->dirty_rq_barrier);
+	env_atomic_inc(&cache->flush_started);
 
 	result = ocf_mngt_cache_flush(cache, true);
 	if (result)
@@ -1867,7 +1867,7 @@ int ocf_mngt_cache_detach(ocf_cache_t cache)
 	env_waitqueue_wait(cache->pending_cache_wq,
 			!env_atomic_read(&cache->pending_cache_requests));
 
-	ENV_BUG_ON(env_atomic_dec_return(&cache->dirty_rq_barrier) < 0);
+	ENV_BUG_ON(env_atomic_dec_return(&cache->flush_started) < 0);
 
 	/* remove cacheline metadata and cleaning policy meta for all cores */
 	for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {

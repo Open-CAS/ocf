@@ -173,18 +173,19 @@ void ocf_core_stats_initialize(ocf_core_t core);
 void ocf_core_stats_initialize_all(ocf_cache_t cache);
 
 /**
- * @brief ocf_io_class_get_stats retrieve cache statistics
+ * @brief ocf_core_io_class_get_stats retrieve io class statistics
+ *			for given core
  *
  * Retrieve buffer of cache statistics for given cache instance.
  *
- * @param[in] core core ID to which request pertains
- * @param[in] io_class IO class, stats of which are requested
- * @param[out] stats statistics structure that shall be filled as
+ * @param[in] core core handle to which request pertains
+ * @param[in] part_id IO class, stats of which are requested
+ * @param[out] stats statistic structure that shall be filled as
  *             a result of this function invocation.
  *
  * @result zero upon successful completion; error code otherwise
  */
-int ocf_io_class_get_stats(ocf_core_t core, uint32_t io_class,
+int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 		struct ocf_stats_io_class *stats);
 
 /**

@@ -57,15 +57,15 @@ struct ocf_io_class_info {
  * function meant to retrieve information pertaining to particular IO class,
  * specifically to fill ocf_io_class_info structure based on input parameters.
  *
- * @param[in] cache cache id, to which specified request pertains.
+ * @param[in] cache cache handle, to which specified request pertains.
  * @param[in] io_class id of an io class which shall be retreived.
- * @param[out] info io class info structure to be filled as a
+ * @param[out] info io class info structures to be filled as a
  *             result of this function call.
  *
  * @return function returns 0 upon successful completion; appropriate error
  *         code is returned otherwise
  */
-int ocf_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
+int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 		struct ocf_io_class_info *info);
 
 /**

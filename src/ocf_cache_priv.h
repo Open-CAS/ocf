@@ -195,8 +195,8 @@ struct ocf_cache {
 
 	env_atomic flush_in_progress;
 
-	/* Interpreted as a counter rather than a flag */
-	env_atomic dirty_rq_barrier;
+	/* Prevent dirty requests. May be incremented recursively */
+	env_atomic flush_started;
 
 	/* 1 if cache device attached, 0 otherwise */
 	env_atomic attached;

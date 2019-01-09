@@ -233,7 +233,7 @@ ocf_cache_mode_t ocf_get_effective_cache_mode(ocf_cache_t cache,
 		mode = ocf_cache_mode_pt;
 
 	if (mode == ocf_cache_mode_wb &&
-			env_atomic_read(&cache->dirty_rq_barrier))
+			env_atomic_read(&cache->flush_started))
 		mode = ocf_cache_mode_wt;
 
 	return mode;
