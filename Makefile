@@ -24,6 +24,14 @@ else
 $(error Not allowed program command)
 endif
 
+ifneq ($(strip $(ENV)),)
+ifeq ($(strip $(ENV)),posix)
+ENVDIR=$(PWD)/env/posix
+else
+$(error Invalid environment selected)
+endif
+endif
+
 #
 # Installing headers
 #
@@ -69,6 +77,35 @@ $(SRC_RM): validate
 		@echo "  RM      $@"; rm $@,)
 
 #
+# Installing environment
+#
+ENV_IN=$(shell find $(ENVDIR) -name '*.[c|h]' -type f)
+ENV_OUT=$(patsubst $(ENVDIR)%,$(OUTDIR)/src/ocf/env/%,$(ENV_IN))
+ENV_RM=$(shell find $(OUTDIR)/src/ocf/env -name '*.[c|h]' -xtype l 2>/dev/null)
+
+env: | env_check env_dep
+	@$(MAKE) distcleandir
+
+env_check:
+ifeq ($(ENVDIR),)
+	$(error No environment selected)
+endif
+
+env_dep: $(ENV_OUT) $(ENV_RM)
+
+$(ENV_OUT):
+ifeq ($(strip $(OUTDIR)),)
+	$(error No output specified for installing sources)
+endif
+	@echo " INSTALL  $@"
+	@mkdir -p $(dir $@)
+	@$(INSTALL) $(subst $(OUTDIR)/src/ocf/env,$(ENVDIR),$@) $@
+
+$(ENV_RM): validate
+	$(if $(shell readlink $@ | grep $(ENVDIR)), \
+		@echo "  RM      $@"; rm $@,)
+
+#
 # Distclean
 #
 dist_dir=$(foreach dir,$(shell find $(OUTDIR) -type d -empty), \
@@ -96,5 +133,5 @@ doc: validate
 	@mkdir -p $(OUTDIR)/doc
 	@cd doc && mv html $(OUTDIR)/doc/ocf
 
-.PHONY: inc src validate help distclean distcleandir doc \
-    $(INC_RM) $(SRC_RM) $(DIST_DIR)
+.PHONY: inc src env env_check env_dep validate help distclean distcleandir doc \
+    $(INC_RM) $(SRC_RM) $(ENV_RM) $(DIST_DIR)
