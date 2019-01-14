@@ -13,6 +13,7 @@
 
 #include "ocf_types.h"
 #include "ocf_env.h"
+#include "ocf_err.h"
 
 struct ocf_io;
 
@@ -135,21 +136,28 @@ struct ocf_data_obj_properties {
 		/*!< IO operations */
 };
 
-static inline struct ocf_data_obj_uuid ocf_str_to_uuid(char *str)
+/**
+ * @brief Initialize UUID from string
+ *
+ * @param[in] uuid UUID to be initialized
+ * @param[in] str NULL-terminated string
+ *
+ * @return Zero when success, othewise error
+ */
+static inline int ocf_uuid_set_str(ocf_uuid_t uuid, char *str)
 {
-	struct ocf_data_obj_uuid uuid = {
-		.data = str,
-		.size = env_strnlen(str, OCF_DATA_OBJ_UUID_MAX_SIZE),
-	};
+	size_t len = env_strnlen(str, OCF_DATA_OBJ_UUID_MAX_SIZE);
 
-	return uuid;
+	if (len >= OCF_DATA_OBJ_UUID_MAX_SIZE)
+		return -OCF_ERR_INVAL;
+
+	uuid->data = str;
+	uuid->size = len + 1;
+
+	return 0;
 }
 
 /**
- *
- * @return ocf_io object on success, otherwise NULL
- *
- * @return ocf_io private context data
  * @brief Initialize data object
  *
  * @param[in] obj data object handle
