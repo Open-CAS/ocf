@@ -377,7 +377,7 @@ int ocf_mngt_cache_add_core_nolock(ocf_cache_t cache, ocf_core_t *core,
 
 	if (cfg->name) {
 		result = env_strncpy(core_name, sizeof(core_name), cfg->name,
-				cfg->name_size);
+				sizeof(core_name));
 		if (result)
 			return result;
 	} else {
