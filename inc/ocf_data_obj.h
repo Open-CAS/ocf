@@ -158,6 +158,16 @@ static inline int ocf_uuid_set_str(ocf_uuid_t uuid, char *str)
 }
 
 /**
+ * @brief Obtain string from UUID
+ * @param[in] uuid pointer to UUID
+ * @return String contained within UUID
+ */
+static inline const char *ocf_uuid_to_str(const struct ocf_data_obj_uuid *uuid)
+{
+	return uuid->data;
+}
+
+/**
  * @brief Initialize data object
  *
  * @param[in] obj data object handle
