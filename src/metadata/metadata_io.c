@@ -46,8 +46,7 @@ static struct ocf_io_if meta_restart_if = {
  */
 static uint32_t metadata_io_max_page(struct ocf_cache *cache)
 {
-	return ocf_dobj_get_max_io_size(&cache->device->obj) /
-			BYTES_TO_SECTORS(PAGE_SIZE);
+	return ocf_dobj_get_max_io_size(&cache->device->obj) / PAGE_SIZE;
 }
 
 /*
