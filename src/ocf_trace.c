@@ -24,7 +24,9 @@ static int _ocf_core_desc(ocf_core_t core, void  *ctx)
 	ocf_cache_t cache = visitor_ctx->cache;
 
 	ocf_event_init_hdr(&core_desc.hdr, ocf_event_type_core_desc,
-			ocf_trace_seq_id(cache), env_get_tick_ns(), sizeof(core_desc));
+			ocf_trace_seq_id(cache),
+			env_ticks_to_nsecs(env_get_tick_count()),
+			sizeof(core_desc));
 	core_desc.id = ocf_core_get_id(core);
 	core_desc.core_size = ocf_dobj_get_length(
 			ocf_core_get_data_object(core));
@@ -42,7 +44,9 @@ static int _ocf_trace_cache_info(ocf_cache_t cache, uint32_t io_queue)
 	struct core_trace_visitor_ctx visitor_ctx;
 
 	ocf_event_init_hdr(&cache_desc.hdr, ocf_event_type_cache_desc,
-			ocf_trace_seq_id(cache), env_get_tick_ns(), sizeof(cache_desc));
+			ocf_trace_seq_id(cache),
+			env_ticks_to_nsecs(env_get_tick_count()),
+			sizeof(cache_desc));
 
 	cache_desc.id = ocf_cache_get_id(cache);
 	cache_desc.cache_line_size = ocf_cache_get_line_size(cache);
@@ -70,10 +74,10 @@ static int _ocf_trace_cache_info(ocf_cache_t cache, uint32_t io_queue)
 	return retval;
 }
 
-int ocf_mgnt_start_trace(ocf_cache_t cache, void *trace_ctx,
+int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 	ocf_trace_callback_t trace_callback)
 {
-	int result;
+	int queue, result;
 	uint32_t i;
 
 	OCF_CHECK_NULL(cache);
@@ -98,9 +102,8 @@ int ocf_mgnt_start_trace(ocf_cache_t cache, void *trace_ctx,
 	cache->trace.trace_ctx = trace_ctx;
 
 	// Reset trace stop flag
-	for (int queue = 0; queue < cache->io_queues_no; queue++) {
+	for (queue = 0; queue < cache->io_queues_no; queue++)
 		env_atomic_set(&cache->io_queues[queue].trace_stop, 0);
-	}
 
 	for (i = 0; i < cache->io_queues_no; i++) {
 		result = _ocf_trace_cache_info(cache, i);
@@ -121,9 +124,9 @@ trace_deinit:
 	return result;
 }
 
-int ocf_mgnt_stop_trace(ocf_cache_t cache)
+int ocf_mngt_stop_trace(ocf_cache_t cache)
 {
-	int result;
+	int queue, result;
 
 	result = ocf_mngt_cache_lock(cache);
 	if (result)
@@ -138,8 +141,9 @@ int ocf_mgnt_stop_trace(ocf_cache_t cache)
 	}
 
 	// Set trace stop flag
-	for (int queue = 0; queue < cache->io_queues_no; queue++) {
-		env_atomic_set(&cache->io_queues[queue].trace_stop, OCF_TRACING_STOP);
+	for (queue = 0; queue < cache->io_queues_no; queue++) {
+		env_atomic_set(&cache->io_queues[queue].trace_stop,
+				OCF_TRACING_STOP);
 	}
 
 	cache->trace.trace_callback = NULL;

@@ -172,7 +172,7 @@ typedef void (*ocf_trace_callback_t)(ocf_cache_t cache, void *trace_ctx,
  * @retval 0 Tracing started successfully
  * @retval Non-zero Error
  */
-int ocf_mgnt_start_trace(ocf_cache_t cache, void *trace_ctx,
+int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 		ocf_trace_callback_t trace_callback);
 
 /**
@@ -183,6 +183,6 @@ int ocf_mgnt_start_trace(ocf_cache_t cache, void *trace_ctx,
  * @retval 0 Tracing stopped successfully
  * @retval Non-zero Error
  */
-int ocf_mgnt_stop_trace(ocf_cache_t cache);
+int ocf_mngt_stop_trace(ocf_cache_t cache);
 
 #endif /* __OCF_TRACE_H__ */
