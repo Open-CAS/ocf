@@ -41,11 +41,6 @@ struct ocf_mngt_core_config {
 	const char *name;
 
 	/**
-	 * @brief OCF core name size
-	 */
-	size_t name_size;
-
-	/**
 	 * @brief OCF cache ID number
 	 */
 	ocf_cache_id_t cache_id;
@@ -214,11 +209,6 @@ struct ocf_mngt_cache_config {
 	 *		cache name
 	 */
 	const char *name;
-
-	/**
-	 * @brief Size of cache name
-	 */
-	size_t name_size;
 
 	/**
 	 * @brief Cache mode
