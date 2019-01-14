@@ -17,9 +17,23 @@
 #include "ocf_stats_priv.h"
 #include "cleaning/cleaning.h"
 #include "ocf_logger_priv.h"
+#include "ocf/ocf_trace.h"
 
 #define DIRTY_FLUSHED 1
 #define DIRTY_NOT_FLUSHED 0
+
+/**
+ * @brief Structure used for aggregating trace-related ocf_cache fields
+ */
+struct ocf_trace {
+	/* Placeholder for push_event callback */
+	volatile ocf_trace_callback_t trace_callback;
+
+	/* Telemetry context */
+	volatile void *trace_ctx;
+
+	env_atomic64 trace_seq_ref;
+};
 
 struct ocf_metadata_uuid {
 	uint32_t size;
@@ -208,6 +222,8 @@ struct ocf_cache {
 	bool use_submit_io_fast;
 
 	void *cleaning_policy_context;
+
+	struct ocf_trace trace;
 };
 
 #define ocf_cache_log_prefix(cache, lvl, prefix, fmt, ...) \
