@@ -27,10 +27,10 @@
  */
 struct ocf_trace {
 	/* Placeholder for push_event callback */
-	volatile ocf_trace_callback_t trace_callback;
+	ocf_trace_callback_t trace_callback;
 
 	/* Telemetry context */
-	volatile void *trace_ctx;
+	void *trace_ctx;
 
 	env_atomic64 trace_seq_ref;
 };

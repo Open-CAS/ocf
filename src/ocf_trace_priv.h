@@ -6,6 +6,8 @@
 #ifndef __OCF_TRACE_PRIV_H__
 #define __OCF_TRACE_PRIV_H__
 
+#include "ocf/ocf.h"
+#include "ocf_env.h"
 #include "ocf/ocf_trace.h"
 #include "engine/engine_common.h"
 #include "ocf_request.h"
@@ -14,10 +16,11 @@
 
 static inline bool ocf_is_trace_ongoing(ocf_cache_t cache)
 {
-	for (int i = 0; i < cache->io_queues_no; i++) {
-		if (env_atomic64_read(&cache->io_queues[i].trace_ref_cntr)) {
+	int i;
+
+	for (i = 0; i < cache->io_queues_no; i++) {
+		if (env_atomic64_read(&cache->io_queues[i].trace_ref_cntr))
 			return true;
-		}
 	}
 
 	return false;
@@ -39,7 +42,7 @@ static inline uint64_t ocf_trace_seq_id(ocf_cache_t cache)
 
 static inline void ocf_trace_init_io(struct ocf_core_io *io, ocf_cache_t cache)
 {
-	io->timestamp = env_get_tick_ns();
+	io->timestamp = env_ticks_to_nsecs(env_get_tick_count());
 	io->sid = ocf_trace_seq_id(cache);
 }
 
@@ -120,7 +123,9 @@ static inline void ocf_trace_io_cmpl(struct ocf_core_io *io, ocf_cache_t cache)
 
 	rq = io->req;
 	ocf_event_init_hdr(&ev.hdr, ocf_event_type_io_cmpl,
-		ocf_trace_seq_id(cache), env_get_tick_ns(), sizeof(ev));
+			ocf_trace_seq_id(cache),
+			env_ticks_to_nsecs(env_get_tick_count()),
+			sizeof(ev));
 	ev.rsid = io->sid;
 	ev.is_hit = ocf_engine_is_hit(rq);
 
