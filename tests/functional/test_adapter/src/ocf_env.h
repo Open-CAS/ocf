@@ -563,11 +563,6 @@ static inline int env_in_interrupt(void)
 	return 0;
 }
 
-/* TODO(mwysocza): Is this really needed? */
-static inline void env_touch_lockup_watchdog(void)
-{
-}
-
 static inline uint64_t env_get_tick_count(void)
 {
 	struct timeval tv;
