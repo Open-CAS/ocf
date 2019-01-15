@@ -426,6 +426,11 @@ static inline void env_atomic64_dec(env_atomic64 *a)
 	env_atomic64_sub(1, a);
 }
 
+static inline long env_atomic64_inc_return(env_atomic64 *a)
+{
+	return __sync_add_and_fetch(&a->counter, 1);
+}
+
 static inline long env_atomic64_cmpxchg(env_atomic64 *a, long old, long new)
 {
 	return __sync_val_compare_and_swap(&a->counter, old, new);
@@ -563,31 +568,31 @@ static inline int env_in_interrupt(void)
 	return 0;
 }
 
-/* TODO(mwysocza): Is this really needed? */
-static inline void env_touch_lockup_watchdog(void)
-{
-}
-
 static inline uint64_t env_get_tick_count(void)
 {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	return tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+static inline uint64_t env_ticks_to_nsecs(uint64_t j)
+{
+	return j * 1000;
 }
 
 static inline uint64_t env_ticks_to_msecs(uint64_t j)
 {
-	return j;
+	return j / 1000;
 }
 
 static inline uint64_t env_ticks_to_secs(uint64_t j)
 {
-	return j / 1000;
+	return j / 1000000;
 }
 
 static inline uint64_t env_secs_to_ticks(uint64_t j)
 {
-	return j * 1000;
+	return j * 1000000;
 }
 
 /* *** SORTING *** */
