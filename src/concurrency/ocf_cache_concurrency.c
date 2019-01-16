@@ -639,7 +639,7 @@ static inline void __remove_line_from_waiters_list(struct ocf_cache_concurrency 
 	struct __waiters_list *lst = &c->waiters_lsts[idx];
 	struct list_head *iter, *next;
 	struct __waiter *waiter;
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	__lock_waiters_list(c, line, flags);
 

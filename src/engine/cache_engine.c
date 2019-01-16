@@ -109,7 +109,7 @@ const struct ocf_io_if *ocf_get_io_if(ocf_req_cache_mode_t req_cache_mode)
 struct ocf_request *ocf_engine_pop_req(struct ocf_cache *cache,
 		struct ocf_queue *q)
 {
-	unsigned long lock_flags;
+	unsigned long lock_flags = 0;
 	struct ocf_request *req;
 
 	OCF_CHECK_NULL(q);

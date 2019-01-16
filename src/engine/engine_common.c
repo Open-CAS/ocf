@@ -489,7 +489,7 @@ void ocf_engine_push_req_back(struct ocf_request *req, bool allow_sync)
 {
 	struct ocf_cache *cache = req->cache;
 	struct ocf_queue *q = NULL;
-	unsigned long lock_flags;
+	unsigned long lock_flags = 0;
 
 	INIT_LIST_HEAD(&req->list);
 
@@ -514,7 +514,7 @@ void ocf_engine_push_req_front(struct ocf_request *req, bool allow_sync)
 {
 	struct ocf_cache *cache = req->cache;
 	struct ocf_queue *q = NULL;
-	unsigned long lock_flags;
+	unsigned long lock_flags = 0;
 
 	INIT_LIST_HEAD(&req->list);
 

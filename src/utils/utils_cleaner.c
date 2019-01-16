@@ -284,7 +284,7 @@ static int _ocf_cleaner_fire_flush_cache(struct ocf_request *req)
 		return -ENOMEM;
 	}
 
-	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0); 
+	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
 	ocf_io_set_cmpl(io, req, NULL, _ocf_cleaner_flush_cache_io_end);
 
 	ocf_dobj_submit_flush(io);
@@ -941,7 +941,6 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 		if (err)
 			_ocf_cleaner_fire_error(master, req, err);
 		req = NULL;
-		i_out = 0;
 	}
 
 	/* prevent cleaning completion race */

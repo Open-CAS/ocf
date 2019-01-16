@@ -230,7 +230,6 @@ static int ocf_metadata_hash_calculate_metadata_size(
 
 	OCF_DEBUG_PARAM(cache, "Cache lines = %lld", cache_lines);
 
-	cache_lines = ctrl->device_lines;
 	lowest_diff = cache_lines;
 
 	do {
@@ -755,7 +754,6 @@ static void ocf_metadata_hash_init_freelist_striping(
 
 	/* Modified initialization procedure */
 	prev = next = collision_table_entries;
-	idx = 0;
 	last_page = pages;
 
 	for (i = 0; i < pages; i++) {
