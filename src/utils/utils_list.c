@@ -41,7 +41,7 @@ void ocf_lst_sort(struct ocf_lst *lst)
 		} else {
 			/* search for place where put element at the list */
 			struct ocf_lst_entry *pos;
-			ocf_cache_line_t pos_idx = lst->invalid;
+			ocf_cache_line_t pos_idx;
 
 			for_each_lst(lst, pos, pos_idx)
 				if (lst->cmp(lst->cache, pos, iter) > 0)
