@@ -99,15 +99,7 @@ void ocf_mngt_core_pool_remove(ocf_ctx_t ctx, ocf_data_obj_t obj)
 	ctx->core_pool.core_pool_count--;
 	list_del(&obj->core_pool_item);
 	env_mutex_unlock(&ctx->lock);
-	ocf_dobj_deinit(obj);
-}
-
-void ocf_mngt_core_pool_close_and_remove(ocf_ctx_t ctx, ocf_data_obj_t obj)
-{
-	OCF_CHECK_NULL(ctx);
-	OCF_CHECK_NULL(obj);
-	ocf_dobj_close(obj);
-	ocf_mngt_core_pool_remove(ctx, obj);
+	ocf_dobj_destroy(obj);
 }
 
 void ocf_mngt_core_pool_deinit(ocf_ctx_t ctx)
@@ -118,6 +110,7 @@ void ocf_mngt_core_pool_deinit(ocf_ctx_t ctx)
 
 	list_for_each_entry_safe(sobj, tobj, &ctx->core_pool.core_pool_head,
 			core_pool_item) {
-		ocf_mngt_core_pool_close_and_remove(ctx, sobj);
+		ocf_dobj_close(sobj);
+		ocf_mngt_core_pool_remove(ctx, sobj);
 	}
 }

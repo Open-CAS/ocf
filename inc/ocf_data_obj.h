@@ -204,7 +204,7 @@ int ocf_dobj_create(ocf_data_obj_t *obj, ocf_data_obj_type_t type,
  *
  * @param[in] obj data object handle
  */
-void ocf_data_obj_destroy(ocf_data_obj_t obj);
+void ocf_dobj_destroy(ocf_data_obj_t obj);
 
 /**
  * @brief Get data object type

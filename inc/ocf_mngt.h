@@ -778,20 +778,15 @@ int ocf_mngt_core_pool_visit(ocf_ctx_t ctx,
 		int (*visitor)(ocf_uuid_t, void *), void *visitor_ctx);
 
 /**
- * @brief Remove core from pool
+ * @brief Remove data object from pool
+ *
+ * Important: This function destroys data object instance but doesn't close it,
+ * so it should be either moved or closed before calling this function.
  *
  * @param[in] ctx OCF context
  * @param[in] obj Core data object
  */
 void ocf_mngt_core_pool_remove(ocf_ctx_t ctx, ocf_data_obj_t obj);
-
-/**
- * @brief Close and remove core from pool
- *
- * @param[in] ctx OCF context
- * @param[in] obj Core data object
- */
-void ocf_mngt_core_pool_close_and_remove(ocf_ctx_t ctx, ocf_data_obj_t obj);
 
 /**
  * @brief Deinit core pool

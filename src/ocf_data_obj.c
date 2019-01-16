@@ -168,7 +168,7 @@ int ocf_dobj_create(ocf_data_obj_t *obj, ocf_data_obj_type_t type,
 	return 0;
 }
 
-void ocf_data_obj_destroy(ocf_data_obj_t obj)
+void ocf_dobj_destroy(ocf_data_obj_t obj)
 {
 	OCF_CHECK_NULL(obj);
 
