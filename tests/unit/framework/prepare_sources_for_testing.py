@@ -15,7 +15,7 @@ from collections import defaultdict
 import tests_config
 #
 # This script purpose is to remove unused functions definitions
-# It is giving the oportunity to unit test all functions from OCF.
+# It is giving the opportunity to unit test all functions from OCF.
 # As a parameter should be given path to file containing function,
 # which is target of testing. However that file has to be after
 # preprocessing.
@@ -24,7 +24,7 @@ import tests_config
 # has to be given definitions of functions, which are used by
 # tested function.
 #
-# In brief: this script allow wraping all function calls in UT
+# In brief: this script allow wrapping all function calls in UT
 #
 
 class UnitTestsSourcesGenerator(object):
@@ -58,8 +58,8 @@ class UnitTestsSourcesGenerator(object):
 
 		self.set_ctags_path()
 
-		self.set_main_UT_dir(tests_config.MAIN_DIRECTORY_OF_UNIT_TESTS)
-		self.set_main_tested_dir(tests_config.MAIN_DIRECTORY_OF_TESTED_PROJECT)
+		self.set_main_UT_dir()
+		self.set_main_tested_dir()
 
 		self.test_catalouges_list = tests_config.DIRECTORIES_WITH_TESTS_LIST
 		self.set_includes_to_copy_dict(tests_config.INCLUDES_TO_COPY_DICT)
@@ -179,14 +179,11 @@ class UnitTestsSourcesGenerator(object):
 		test_files_paths = self.get_files_with_tests_list()
 
 		for test_path in test_files_paths:
-			tested_file_relative_path = self.get_tested_file_path(self.get_main_UT_dir() + test_path)
-
 			tested_file_path = self.get_sources_to_test_repo() + test_path
 			if not os.path.isfile(tested_file_path):
 				print "No source to test for " + test_path + " test"
 				continue
 
-			test_file_dir = os.path.dirname(test_path)
 			test_file_path = self.get_main_UT_dir() + test_path
 
 			cmake_buf = self.generate_test_cmake_buf(test_file_path, tested_file_path)
@@ -248,8 +245,6 @@ class UnitTestsSourcesGenerator(object):
 		return functions_list
 
 	def get_functions_to_leave(self, path):
-		buf = ""
-
 		with open(path) as f:
 			l = f.readlines()
 			buf = ''.join(l)
@@ -315,15 +310,15 @@ class UnitTestsSourcesGenerator(object):
 		self.tested_files_paths_list = self.remove_duplicates_from_list(self.tested_files_paths_list)
 
 	def get_tested_files_paths_list(self):
-		   return self.tested_files_paths_list
+		return self.tested_files_paths_list
 
 	def get_files_with_tests_list(self):
 		return self.test_files_paths_list
 
 	def set_files_with_tests_list(self):
-		test_catalouges_list = self.get_tests_catalouges_list()
-		for catalouge in test_catalouges_list:
-			dir_with_tests_path = self.get_main_UT_dir() + catalouge
+		test_catalogues_list = self.get_tests_catalouges_list()
+		for catalogue in test_catalogues_list:
+			dir_with_tests_path = self.get_main_UT_dir() + catalogue
 
 			for path, dirs, files in os.walk(dir_with_tests_path):
 				test_files = self.get_test_files_from_dir(path + os.sep)
@@ -336,14 +331,14 @@ class UnitTestsSourcesGenerator(object):
 		file_path = self.get_tested_file_path(path)
 		function_name = self.get_tested_function_name(path)
 
-		if file_path == None:
+		if file_path is None:
 			print path + " file has no tested_file tag!"
 			return None
 		elif not os.path.isfile(self.get_main_tested_dir() + file_path):
 			print "Tested file given in " + path + " not exist!"
 			return None
 
-		if function_name == None:
+		if function_name is None:
 			print path + " file has no tested_function_name tag!"
 			return None
 
@@ -359,7 +354,6 @@ class UnitTestsSourcesGenerator(object):
 		return None
 
 	def get_tested_file_path(self, test_file_path):
-		buf = ""
 		with open(test_file_path) as f:
 			buf = f.readlines()
 			buf = ''.join(buf)
@@ -381,7 +375,6 @@ class UnitTestsSourcesGenerator(object):
 		return None
 
 	def get_tested_function_name(self, test_file_path):
-		buf = ""
 		with open(test_file_path) as f:
 			buf = f.readlines()
 			buf = ''.join(buf)
@@ -421,7 +414,6 @@ class UnitTestsSourcesGenerator(object):
 		return ret
 
 	def remove_hashes(self, path):
-		buf = []
 		with open(path) as f:
 			buf = f.readlines()
 
@@ -445,7 +437,7 @@ class UnitTestsSourcesGenerator(object):
 		brackets_counter = 0
 		current_line_index = first_line_of_function_index
 
-		while(True):
+		while True:
 			if "{" in code_lines_list[current_line_index]:
 				brackets_counter += code_lines_list[current_line_index].count("{")
 				brackets_counter -= code_lines_list[current_line_index].count("}")
@@ -453,7 +445,7 @@ class UnitTestsSourcesGenerator(object):
 			else:
 				current_line_index += 1
 
-		while(brackets_counter > 0):
+		while brackets_counter > 0:
 			current_line_index += 1
 			if "{" in code_lines_list[current_line_index]:
 				brackets_counter += code_lines_list[current_line_index].count("{")
@@ -480,7 +472,6 @@ class UnitTestsSourcesGenerator(object):
 		del code_lines_list[line_id + 1: last_line_id + 1]
 
 	def set_ctags_path(self):
-			path = ""
 			status, output = commands.getstatusoutput("/usr/bin/ctags --version &> /dev/null")
 			if status == 0:
 				path = "/usr/bin/ctags "
@@ -546,7 +537,7 @@ class UnitTestsSourcesGenerator(object):
 	def get_main_tested_dir(self):
 		return os.path.normpath(self.main_tested_dir) + os.sep
 
-	def  remove_duplicates_from_list(self, l):
+	def remove_duplicates_from_list(self, l):
 		return list(set(l))
 
 	def set_framework_includes(self):
@@ -561,7 +552,7 @@ class UnitTestsSourcesGenerator(object):
 	def get_includes_to_copy_dict(self):
 			return self.includes_to_copy_dict
 
-	def set_main_UT_dir(self, path):
+	def set_main_UT_dir(self):
 		main_UT_dir = os.path.normpath(os.path.normpath(self.get_script_dir_path()\
 			+ os.sep + tests_config.MAIN_DIRECTORY_OF_UNIT_TESTS))
 		if not os.path.isdir(main_UT_dir):
@@ -570,7 +561,7 @@ class UnitTestsSourcesGenerator(object):
 
 		self.main_UT_dir = main_UT_dir
 
-	def set_main_tested_dir(self, path):
+	def set_main_tested_dir(self):
 		main_tested_dir = os.path.normpath(os.path.normpath(self.get_script_dir_path()\
 			 + os.sep + tests_config.MAIN_DIRECTORY_OF_TESTED_PROJECT))
 		if not os.path.isdir(main_tested_dir):

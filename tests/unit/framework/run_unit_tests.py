@@ -29,8 +29,8 @@ status, output = commands.getstatusoutput("cp " + main_tested_dir +\
 
 
 if os.system(script_path + os.sep + "prepare_sources_for_testing.py") != 0:
-    print "Preparing sources for testing failed!"
-    exit()
+	print "Preparing sources for testing failed!"
+	exit()
 
 
 build_dir = main_UT_dir + "build" + os.sep
