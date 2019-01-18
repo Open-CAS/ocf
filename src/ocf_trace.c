@@ -82,9 +82,8 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 
 	OCF_CHECK_NULL(cache);
 
-	if (!trace_callback) {
+	if (!trace_callback)
 		return -EINVAL;
-	}
 
 	result = ocf_mngt_cache_lock(cache);
 	if (result)
@@ -150,10 +149,8 @@ int ocf_mngt_stop_trace(ocf_cache_t cache)
 	cache->trace.trace_ctx = NULL;
 
 	// Poll for all ongoing traces completion
-	while (ocf_is_trace_ongoing(cache)) {
+	while (ocf_is_trace_ongoing(cache))
 		env_msleep(20);
-	}
-
 	ocf_mngt_cache_unlock(cache);
 
 	return result;
