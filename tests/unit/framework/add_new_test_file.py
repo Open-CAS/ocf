@@ -48,6 +48,9 @@ class TestGenerator(object):
 		buf += self.get_empty_test_function()
 		buf += self.get_test_main()
 
+		with open(dst_path, "w") as f:
+			f.writelines(buf)
+
 		print dst_path + " generated successfully!"
 
 	def get_markups(self):
