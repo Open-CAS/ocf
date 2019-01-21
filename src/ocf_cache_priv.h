@@ -194,7 +194,9 @@ struct ocf_cache {
 	struct ocf_core_meta_runtime *core_runtime_meta;
 
 	env_atomic flush_in_progress;
-	env_atomic flush_started;
+
+	/* Interpreted as a counter rather than a flag */
+	env_atomic dirty_rq_barrier;
 
 	/* 1 if cache device attached, 0 otherwise */
 	env_atomic attached;

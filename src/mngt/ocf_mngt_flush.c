@@ -18,7 +18,7 @@ static inline void  _ocf_mngt_begin_flush(struct ocf_cache *cache)
 {
 	env_mutex_lock(&cache->flush_mutex);
 
-	env_atomic_set(&cache->flush_started, 1);
+	env_atomic_inc(&cache->dirty_rq_barrier);
 
 	env_waitqueue_wait(cache->pending_dirty_wq,
 			!env_atomic_read(&cache->pending_dirty_requests));
@@ -26,7 +26,7 @@ static inline void  _ocf_mngt_begin_flush(struct ocf_cache *cache)
 
 static inline void _ocf_mngt_end_flush(struct ocf_cache *cache)
 {
-	env_atomic_set(&cache->flush_started, 0);
+	ENV_BUG_ON(env_atomic_dec_return(&cache->dirty_rq_barrier) < 0);
 
 	env_mutex_unlock(&cache->flush_mutex);
 }
