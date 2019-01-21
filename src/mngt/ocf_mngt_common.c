@@ -160,8 +160,8 @@ static int _ocf_cleaning_wait_for_finish(struct ocf_cache *cache,
 
 	if (cleaning_active)
 		return -EBUSY;
-	else
-		return 0;
+
+	return 0;
 }
 
 void ocf_mngt_cache_put(ocf_cache_t cache)

@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
 	perform_workload(core1);
 
 	/* Remove core from cache */
-	if (ocf_mngt_cache_remove_core(cache1, ocf_core_get_id(core1), false))
+	if (ocf_mngt_cache_remove_core(core1))
 		error("Unable to remove core\n");
 
 	/* Stop cache */

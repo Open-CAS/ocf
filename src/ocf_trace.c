@@ -82,19 +82,13 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 
 	OCF_CHECK_NULL(cache);
 
-	if (!trace_callback) {
+	if (!trace_callback)
 		return -EINVAL;
-	}
-
-	result = ocf_mngt_cache_lock(cache);
-	if (result)
-		return result;
 
 	if (cache->trace.trace_callback) {
 		ocf_cache_log(cache, log_err,
 				"Tracing already started for cache %u\n",
 				ocf_cache_get_id(cache));
-		ocf_mngt_cache_unlock(cache);
 		return -EINVAL;
 	}
 
@@ -107,36 +101,28 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 
 	for (i = 0; i < cache->io_queues_no; i++) {
 		result = _ocf_trace_cache_info(cache, i);
-		if (result)
-			goto trace_deinit;
+		if (result) {
+			cache->trace.trace_callback = NULL;
+			return result;
+		}
 	}
 
 	ocf_cache_log(cache, log_info,
 			"Tracing started for cache %u\n", ocf_cache_get_id(cache));
-
-	ocf_mngt_cache_unlock(cache);
-	return result;
-
-trace_deinit:
-	cache->trace.trace_callback = NULL;
-	ocf_mngt_cache_unlock(cache);
 
 	return result;
 }
 
 int ocf_mngt_stop_trace(ocf_cache_t cache)
 {
-	int queue, result;
+	int queue;
 
-	result = ocf_mngt_cache_lock(cache);
-	if (result)
-		return result;
+	OCF_CHECK_NULL(cache);
 
 	if (!cache->trace.trace_callback) {
 		ocf_cache_log(cache, log_err,
 				"Tracing not started for cache %u\n",
 				ocf_cache_get_id(cache));
-		ocf_mngt_cache_unlock(cache);
 		return -EINVAL;
 	}
 
@@ -150,11 +136,8 @@ int ocf_mngt_stop_trace(ocf_cache_t cache)
 	cache->trace.trace_ctx = NULL;
 
 	// Poll for all ongoing traces completion
-	while (ocf_is_trace_ongoing(cache)) {
+	while (ocf_is_trace_ongoing(cache))
 		env_msleep(20);
-	}
 
-	ocf_mngt_cache_unlock(cache);
-
-	return result;
+	return 0;
 }

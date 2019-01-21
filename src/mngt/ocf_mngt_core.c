@@ -32,7 +32,7 @@ static int _ocf_mngt_cache_try_add_core(ocf_cache_t cache, ocf_core_t *core,
 	obj = &tmp_core->obj;
 
 	if (ocf_ctx_get_data_obj_type_id(cache->owner, obj->type) !=
-				cfg->data_obj_type) {
+			cfg->data_obj_type) {
 		result = -OCF_ERR_INVAL_DATA_OBJ_TYPE;
 		goto error_out;
 	}
@@ -116,7 +116,7 @@ static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 	if (ocf_cache_is_device_attached(cache) &&
 			cleaning_policy_ops[clean_type].add_core) {
 		result = cleaning_policy_ops[clean_type].add_core(cache,
-					cfg->core_id);
+				cfg->core_id);
 		if (result)
 			goto error_after_open;
 	}
@@ -129,7 +129,7 @@ static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 		goto error_after_clean_pol;
 	}
 	/* When adding new core to cache, reset all core/cache statistics */
-	ocf_stats_init(tmp_core);
+	ocf_core_stats_initialize(tmp_core);
 	env_atomic_set(&cache->core_runtime_meta[cfg->core_id].
 			cached_clines, 0);
 	env_atomic_set(&cache->core_runtime_meta[cfg->core_id].
@@ -144,9 +144,9 @@ static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 
 	/* Set default cache parameters for sequential */
 	cache->core_conf_meta[cfg->core_id].seq_cutoff_policy =
-			ocf_seq_cutoff_policy_default;
+		ocf_seq_cutoff_policy_default;
 	cache->core_conf_meta[cfg->core_id].seq_cutoff_threshold =
-			cfg->seq_cutoff_threshold;
+		cfg->seq_cutoff_threshold;
 
 	/* Add core sequence number for atomic metadata matching */
 	core_sequence_no = _ocf_mngt_get_core_seq_no(cache);
@@ -186,7 +186,7 @@ error_after_counters_allocation:
 	tmp_core->counters = NULL;
 
 error_after_clean_pol:
-	 if (cleaning_policy_ops[clean_type].remove_core)
+	if (cleaning_policy_ops[clean_type].remove_core)
 		cleaning_policy_ops[clean_type].remove_core(cache, cfg->core_id);
 
 error_after_open:
@@ -252,8 +252,8 @@ static int __ocf_mngt_lookup_core_uuid(ocf_cache_t cache,
 		}
 
 		if (!env_strncmp(core->obj.uuid.data, cfg->uuid.data,
-				OCF_MIN(core->obj.uuid.size,
-				cfg->uuid.size)))
+					OCF_MIN(core->obj.uuid.size,
+						cfg->uuid.size)))
 			return i;
 	}
 
@@ -306,7 +306,7 @@ static int __ocf_mngt_find_core_id(ocf_cache_t cache,
 	} else if (cfg->core_id < OCF_CORE_MAX) {
 		/* check if id is not used already */
 		if (env_bit_test(cfg->core_id,
-				cache->conf_meta->valid_object_bitmap)) {
+					cache->conf_meta->valid_object_bitmap)) {
 			ocf_cache_log(cache, log_debug,
 					"Core ID already allocated: %d.\n",
 					cfg->core_id);
@@ -362,7 +362,7 @@ int ocf_mngt_core_init_front_dobj(ocf_core_t core)
 	return ocf_dobj_open(&core->front_obj);
 }
 
-int ocf_mngt_cache_add_core_nolock(ocf_cache_t cache, ocf_core_t *core,
+int ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 		struct ocf_mngt_core_config *cfg)
 {
 	int result;
@@ -419,24 +419,6 @@ out:
 	return result;
 }
 
-int ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
-		struct ocf_mngt_core_config *cfg)
-{
-	int result;
-
-	OCF_CHECK_NULL(cache);
-
-	result = ocf_mngt_cache_lock(cache);
-	if (result)
-		return result;
-
-	result = ocf_mngt_cache_add_core_nolock(cache, core, cfg);
-
-	ocf_mngt_cache_unlock(cache);
-
-	return result;
-}
-
 static int _ocf_mngt_cache_remove_core(ocf_core_t core, bool detach)
 {
 	struct ocf_cache *cache = core->obj.cache;
@@ -470,24 +452,17 @@ static int _ocf_mngt_cache_remove_core(ocf_core_t core, bool detach)
 	return 0;
 }
 
-int ocf_mngt_cache_remove_core_nolock(ocf_cache_t cache, ocf_core_id_t core_id,
-		bool detach)
+int ocf_mngt_cache_remove_core(ocf_core_t core)
 {
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	const char *core_name = ocf_core_get_name(core);
 	int result;
-	ocf_core_t core;
-	const char *core_name;
-
-	OCF_CHECK_NULL(cache);
-
-	result = ocf_core_get(cache, core_id, &core);
-	if (result < 0)
-		return -OCF_ERR_CORE_NOT_AVAIL;
 
 	ocf_core_log(core, log_debug, "Removing core\n");
 
 	core_name = ocf_core_get_name(core);
 
-	result = _ocf_mngt_cache_remove_core(core, detach);
+	result = _ocf_mngt_cache_remove_core(core, false);
 	if (!result) {
 		ocf_cache_log(cache, log_info, "Core %s successfully removed\n",
 				core_name);
@@ -499,20 +474,152 @@ int ocf_mngt_cache_remove_core_nolock(ocf_cache_t cache, ocf_core_id_t core_id,
 	return result;
 }
 
-int ocf_mngt_cache_remove_core(ocf_cache_t cache, ocf_core_id_t core_id,
-		bool detach)
+int ocf_mngt_cache_detach_core(ocf_core_t core)
 {
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	const char *core_name = ocf_core_get_name(core);
 	int result;
 
-	OCF_CHECK_NULL(cache);
+	ocf_core_log(core, log_debug, "Detaching core\n");
 
-	result = ocf_mngt_cache_lock(cache);
-	if (result)
-		return result;
-
-	result = ocf_mngt_cache_remove_core_nolock(cache, core_id, detach);
-
-	ocf_mngt_cache_unlock(cache);
+	result = _ocf_mngt_cache_remove_core(core, true);
+	if (!result) {
+		ocf_cache_log(cache, log_info, "Core %s successfully detached\n",
+				core_name);
+	} else {
+		ocf_cache_log(cache, log_err, "Detaching core %s failed\n",
+				core_name);
+	}
 
 	return result;
+}
+
+static int _cache_mng_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx)
+{
+	uint32_t threshold = *(uint32_t*) cntx;
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	ocf_core_id_t core_id = ocf_core_get_id(core);
+	uint32_t threshold_old = cache->core_conf_meta[core_id].
+		seq_cutoff_threshold;
+
+	if (threshold_old == threshold) {
+		ocf_core_log(core, log_info,
+				"Sequential cutoff threshold %u bytes is "
+				"already set\n", threshold);
+		return 0;
+	}
+	cache->core_conf_meta[core_id].seq_cutoff_threshold = threshold;
+
+	if (ocf_metadata_flush_superblock(cache)) {
+		ocf_core_log(core, log_err, "Failed to store sequential "
+				"cutoff threshold change. Reverting\n");
+		cache->core_conf_meta[core_id].seq_cutoff_threshold =
+			threshold_old;
+		return -OCF_ERR_WRITE_CACHE;
+	}
+
+	ocf_core_log(core, log_info, "Changing sequential cutoff "
+			"threshold from %u to %u bytes successful\n",
+			threshold_old, threshold);
+
+	return 0;
+}
+
+int ocf_mngt_core_set_seq_cutoff_threshold(ocf_core_t core, uint32_t thresh)
+{
+	OCF_CHECK_NULL(core);
+
+	return _cache_mng_set_core_seq_cutoff_threshold(core, &thresh);
+}
+
+int ocf_mngt_core_set_seq_cutoff_threshold_all(ocf_cache_t cache,
+		uint32_t thresh)
+{
+	OCF_CHECK_NULL(cache);
+
+	return ocf_core_visit(cache, _cache_mng_set_core_seq_cutoff_threshold,
+			&thresh, true);
+}
+
+int ocf_mngt_core_get_seq_cutoff_threshold(ocf_core_t core, uint32_t *thresh)
+{
+	OCF_CHECK_NULL(core);
+	OCF_CHECK_NULL(thresh);
+
+	*thresh = ocf_core_get_seq_cutoff_threshold(core);
+
+	return 0;
+}
+
+static const char *_ocf_seq_cutoff_policy_names[ocf_seq_cutoff_policy_max] = {
+	[ocf_seq_cutoff_policy_always] = "always",
+	[ocf_seq_cutoff_policy_full] = "full",
+	[ocf_seq_cutoff_policy_never] = "never",
+};
+
+static const char *_cache_mng_seq_cutoff_policy_get_name(
+		ocf_seq_cutoff_policy policy)
+{
+	if (policy < 0 || policy >= ocf_seq_cutoff_policy_max)
+		return NULL;
+
+	return _ocf_seq_cutoff_policy_names[policy];
+}
+
+static int _cache_mng_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
+{
+	ocf_seq_cutoff_policy policy = *(ocf_seq_cutoff_policy*) cntx;
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	ocf_core_id_t core_id = ocf_core_get_id(core);
+	uint32_t policy_old = cache->core_conf_meta[core_id].seq_cutoff_policy;
+
+	if (policy_old == policy) {
+		ocf_core_log(core, log_info,
+				"Sequential cutoff policy %s is already set\n",
+				_cache_mng_seq_cutoff_policy_get_name(policy));
+		return 0;
+	}
+
+	cache->core_conf_meta[core_id].seq_cutoff_policy = policy;
+
+	if (ocf_metadata_flush_superblock(cache)) {
+		ocf_core_log(core, log_err, "Failed to store sequential "
+				"cutoff policy change. Reverting\n");
+		cache->core_conf_meta[core_id].seq_cutoff_policy = policy_old;
+		return -OCF_ERR_WRITE_CACHE;
+	}
+
+	ocf_core_log(core, log_info,
+			"Changing sequential cutoff policy from %s to %s\n",
+			_cache_mng_seq_cutoff_policy_get_name(policy_old),
+			_cache_mng_seq_cutoff_policy_get_name(policy));
+
+	return 0;
+}
+
+int ocf_mngt_core_set_seq_cutoff_policy(ocf_core_t core,
+		ocf_seq_cutoff_policy policy)
+{
+	OCF_CHECK_NULL(core);
+
+	return _cache_mng_set_core_seq_cutoff_policy(core, &policy);
+}
+int ocf_mngt_core_set_seq_cutoff_policy_all(ocf_cache_t cache,
+		ocf_seq_cutoff_policy policy)
+{
+	OCF_CHECK_NULL(cache);
+
+	return ocf_core_visit(cache, _cache_mng_set_core_seq_cutoff_policy,
+			&policy, true);
+}
+
+int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
+		ocf_seq_cutoff_policy *policy)
+{
+	OCF_CHECK_NULL(core);
+	OCF_CHECK_NULL(policy);
+
+	*policy = ocf_core_get_seq_cutoff_policy(core);
+
+	return 0;
 }

@@ -77,16 +77,11 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	uint64_t core_dirty_since;
 	uint32_t dirty_blocks_inactive = 0;
 	uint32_t cache_occupancy_inactive = 0;
-	int result;
 
 	OCF_CHECK_NULL(cache);
 
 	if (!info)
 		return -OCF_ERR_INVAL;
-
-	result = ocf_mngt_cache_read_lock(cache);
-	if (result)
-		return result;
 
 	ENV_BUG_ON(env_memset(info, sizeof(*info), 0));
 
@@ -171,8 +166,6 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	info->metadata_footprint = ocf_cache_is_device_attached(cache) ?
 			ocf_metadata_size_of(cache) : 0;
 	info->cache_line_size = ocf_line_size(cache);
-
-	ocf_mngt_cache_read_unlock(cache);
 
 	return 0;
 }

@@ -155,14 +155,22 @@ struct ocf_stats_core {
 };
 
 /**
- * @brief Initialize or reset statistics.
+ * @brief Initialize or reset core statistics
  *
  * Initialize or reset counters used for statistics.
  *
- * @param[in] cache OCF cache device handle
- * @param[in] core_id Id of core for which statistics should be initialized.
+ * @param[in] core Core handle
  */
-int ocf_stats_initialize(ocf_cache_t cache, ocf_core_id_t core_id);
+void ocf_core_stats_initialize(ocf_core_t core);
+
+/**
+ * @brief Initialize or reset statistics of all cores in cache
+ *
+ * Initialize or reset counters used for statistics.
+ *
+ * @param[in] cache Cache handle
+ */
+void ocf_core_stats_initialize_all(ocf_cache_t cache);
 
 /**
  * @brief ocf_io_class_get_stats retrieve cache statistics
