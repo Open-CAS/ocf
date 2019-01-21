@@ -56,6 +56,4 @@ struct ocf_counters_core {
 #endif
 };
 
-void ocf_stats_init(ocf_core_t core);
-
 #endif

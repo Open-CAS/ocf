@@ -35,6 +35,8 @@ bool ocf_mngt_cache_is_dirty(ocf_cache_t cache)
 {
 	uint32_t i;
 
+	OCF_CHECK_NULL(cache);
+
 	for (i = 0; i < OCF_CORE_MAX; ++i) {
 		if (!cache->core_conf_meta[i].added)
 			continue;
@@ -430,7 +432,7 @@ out:
  * @param allow_interruption whenever to allow interruption of flushing process.
  *		if set to 0, all requests to interrupt flushing will be ignored
  */
-static int _ocf_mng_cache_flush_nolock(ocf_cache_t cache, bool interruption)
+static int _ocf_mng_cache_flush(ocf_cache_t cache, bool interruption)
 {
 	int result = 0;
 	int i, j;
@@ -460,11 +462,17 @@ static int _ocf_mng_cache_flush_nolock(ocf_cache_t cache, bool interruption)
 	return result;
 }
 
-int ocf_mngt_cache_flush_nolock(ocf_cache_t cache, bool interruption)
+int ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption)
 {
 	int result = 0;
 
 	OCF_CHECK_NULL(cache);
+
+	if (!ocf_cache_is_device_attached(cache)) {
+		ocf_cache_log(cache, log_err, "Cannot flush cache - "
+				"cache device is detached\n");
+		return -OCF_ERR_INVAL;
+	}
 
 	if (ocf_cache_is_incomplete(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush cache - "
@@ -476,7 +484,7 @@ int ocf_mngt_cache_flush_nolock(ocf_cache_t cache, bool interruption)
 
 	_ocf_mngt_begin_flush(cache);
 
-	result = _ocf_mng_cache_flush_nolock(cache, interruption);
+	result = _ocf_mng_cache_flush(cache, interruption);
 
 	_ocf_mngt_end_flush(cache);
 
@@ -486,9 +494,9 @@ int ocf_mngt_cache_flush_nolock(ocf_cache_t cache, bool interruption)
 	return result;
 }
 
-static int _ocf_mng_core_flush_nolock(ocf_core_t core, bool interruption)
+static int _ocf_mng_core_flush(ocf_core_t core, bool interruption)
 {
-	struct ocf_cache *cache = core->obj.cache;
+	ocf_cache_t cache = ocf_core_get_cache(core);
 	ocf_core_id_t core_id = ocf_core_get_id(core);
 	int ret;
 
@@ -508,17 +516,20 @@ static int _ocf_mng_core_flush_nolock(ocf_core_t core, bool interruption)
 	return ret;
 }
 
-int ocf_mngt_core_flush_nolock(ocf_cache_t cache, ocf_core_id_t id,
-		bool interruption)
+int ocf_mngt_core_flush(ocf_core_t core, bool interruption)
 {
-	ocf_core_t core;
+	ocf_cache_t cache;
 	int ret = 0;
 
-	OCF_CHECK_NULL(cache);
+	OCF_CHECK_NULL(core);
 
-	ret = ocf_core_get(cache, id, &core);
-	if (ret < 0)
-		return -OCF_ERR_CORE_NOT_AVAIL;
+	cache = ocf_core_get_cache(core);
+
+	if (!ocf_cache_is_device_attached(cache)) {
+		ocf_cache_log(cache, log_err, "Cannot flush core - "
+				"cache device is detached\n");
+		return -OCF_ERR_INVAL;
+	}
 
 	if (!core->opened) {
 		ocf_core_log(core, log_err, "Cannot flush - core is in "
@@ -530,7 +541,7 @@ int ocf_mngt_core_flush_nolock(ocf_cache_t cache, ocf_core_id_t id,
 
 	_ocf_mngt_begin_flush(cache);
 
-	ret = _ocf_mng_core_flush_nolock(core, interruption);
+	ret = _ocf_mng_core_flush(core, interruption);
 
 	_ocf_mngt_end_flush(cache);
 
@@ -540,63 +551,17 @@ int ocf_mngt_core_flush_nolock(ocf_cache_t cache, ocf_core_id_t id,
 	return ret;
 }
 
-int ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption)
+int ocf_mngt_core_purge(ocf_core_t core, bool interruption)
 {
-	int result = ocf_mngt_cache_read_lock(cache);
-
-	if (result)
-		return result;
-
-	if (!ocf_cache_is_device_attached(cache)) {
-		result = -OCF_ERR_INVAL;
-		goto unlock;
-	}
-
-	result = ocf_mngt_cache_flush_nolock(cache, interruption);
-
-unlock:
-	ocf_mngt_cache_read_unlock(cache);
-	return result;
-}
-
-int ocf_mngt_core_flush(ocf_cache_t cache, ocf_core_id_t id, bool interruption)
-{
-	int result;
-
-	/* lock read only */
-	result = ocf_mngt_cache_read_lock(cache);
-	if (result)
-		return result;
-
-	if (!ocf_cache_is_device_attached(cache)) {
-		result = -OCF_ERR_INVAL;
-		goto unlock;
-	}
-
-	result = ocf_mngt_core_flush_nolock(cache, id, interruption);
-
-unlock:
-	ocf_mngt_cache_read_unlock(cache);
-	return result;
-}
-
-int ocf_mngt_core_purge(ocf_cache_t cache, ocf_core_id_t core_id, bool interruption)
-{
+	ocf_cache_t cache;
+	ocf_core_id_t core_id;
 	int result = 0;
 	uint64_t core_size = ~0ULL;
-	ocf_core_t core;
 
-	OCF_CHECK_NULL(cache);
+	OCF_CHECK_NULL(core);
 
-	result = ocf_mngt_cache_read_lock(cache);
-	if (result)
-		return result;
-
-	result = ocf_core_get(cache, core_id, &core);
-	if (result < 0) {
-		ocf_mngt_cache_unlock(cache);
-		return -OCF_ERR_CORE_NOT_AVAIL;
-	}
+	cache = ocf_core_get_cache(core);
+	core_id = ocf_core_get_id(core);
 
 	core_size = ocf_dobj_get_length(&cache->core[core_id].obj);
 	core_size = core_size ?: ~0ULL;
@@ -605,20 +570,18 @@ int ocf_mngt_core_purge(ocf_cache_t cache, ocf_core_id_t core_id, bool interrupt
 
 	ocf_core_log(core, log_info, "Purging\n");
 
-	result = _ocf_mng_core_flush_nolock(core, interruption);
+	result = _ocf_mng_core_flush(core, interruption);
 
 	if (result)
-		goto err;
+		goto out;
 
 	OCF_METADATA_LOCK_WR();
 	result = ocf_metadata_sparse_range(cache, core_id, 0,
 			core_size);
 	OCF_METADATA_UNLOCK_WR();
 
-err:
+out:
 	_ocf_mngt_end_flush(cache);
-
-	ocf_mngt_cache_read_unlock(cache);
 
 	return result;
 }
@@ -627,28 +590,24 @@ int ocf_mngt_cache_purge(ocf_cache_t cache, bool interruption)
 {
 	int result = 0;
 
-	result = ocf_mngt_cache_read_lock(cache);
-	if (result)
-		return result;
+	OCF_CHECK_NULL(cache);
 
 	_ocf_mngt_begin_flush(cache);
 
 	ocf_cache_log(cache, log_info, "Purging\n");
 
-	result = _ocf_mng_cache_flush_nolock(cache, interruption);
+	result = _ocf_mng_cache_flush(cache, interruption);
 
 	if (result)
-		goto err;
+		goto out;
 
 	OCF_METADATA_LOCK_WR();
 	result = ocf_metadata_sparse_range(cache, OCF_CORE_ID_INVALID, 0,
 			~0ULL);
 	OCF_METADATA_UNLOCK_WR();
 
-err:
+out:
 	_ocf_mngt_end_flush(cache);
-
-	ocf_mngt_cache_read_unlock(cache);
 
 	return result;
 }
@@ -656,6 +615,7 @@ err:
 int ocf_mngt_cache_flush_interrupt(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
+
 	ocf_cache_log(cache, log_alert, "Flushing interrupt\n");
 	cache->flushing_interrupted = 1;
 	return 0;
@@ -667,20 +627,17 @@ int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type)
 	ocf_cleaning_t old_type;
 	int ret;
 
+	OCF_CHECK_NULL(cache);
+
 	if (type < 0 || type >= ocf_cleaning_max)
 		return -OCF_ERR_INVAL;
-
-
-	ret = ocf_mngt_cache_lock(cache);
-	if (ret)
-		return ret;
 
 	old_type = cache->conf_meta->cleaning_policy_type;
 
 	if (type == old_type) {
 		ocf_cache_log(cache, log_info, "Cleaning policy %s is already "
 				"set\n", cleaning_policy_ops[old_type].name);
-		goto out;
+		return 0;
 	}
 
 	ocf_metadata_lock(cache, OCF_METADATA_WR);
@@ -719,23 +676,15 @@ int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type)
 
 	ocf_metadata_unlock(cache, OCF_METADATA_WR);
 
-out:
-	ocf_mngt_cache_unlock(cache);
-
 	return ret;
 }
 
 int ocf_mngt_cache_cleaning_get_policy(ocf_cache_t cache, ocf_cleaning_t *type)
 {
-	int ret;
-
-	ret = ocf_mngt_cache_read_lock(cache);
-	if (ret)
-		return ret;
+	OCF_CHECK_NULL(cache);
+	OCF_CHECK_NULL(type);
 
 	*type = cache->conf_meta->cleaning_policy_type;
-
-	ocf_mngt_cache_read_unlock(cache);
 
 	return 0;
 }
@@ -745,15 +694,13 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
 {
 	int ret;
 
+	OCF_CHECK_NULL(cache);
+
 	if (type < 0 || type >= ocf_cleaning_max)
 		return -OCF_ERR_INVAL;
 
 	if (!cleaning_policy_ops[type].set_cleaning_param)
 		return -OCF_ERR_INVAL;
-
-	ret = ocf_mngt_cache_lock(cache);
-	if (ret)
-		return ret;
 
 	ocf_metadata_lock(cache, OCF_METADATA_WR);
 
@@ -774,8 +721,6 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
 
 	ocf_metadata_unlock(cache, OCF_METADATA_WR);
 
-	ocf_mngt_cache_unlock(cache);
-
 	return ret;
 }
 
@@ -784,20 +729,17 @@ int ocf_mngt_cache_cleaning_get_param(ocf_cache_t cache, ocf_cleaning_t type,
 {
 	int ret;
 
+	OCF_CHECK_NULL(cache);
+	OCF_CHECK_NULL(param_value);
+
 	if (type < 0 || type >= ocf_cleaning_max)
 		return -OCF_ERR_INVAL;
 
 	if (!cleaning_policy_ops[type].get_cleaning_param)
 		return -OCF_ERR_INVAL;
 
-	ret = ocf_mngt_cache_read_lock(cache);
-	if (ret)
-		return ret;
-
 	ret = cleaning_policy_ops[type].get_cleaning_param(cache,
 			param_id, param_value);
-
-	ocf_mngt_cache_read_unlock(cache);
 
 	return ret;
 }

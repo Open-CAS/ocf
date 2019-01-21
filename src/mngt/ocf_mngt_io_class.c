@@ -261,14 +261,6 @@ int ocf_mngt_io_class_configure(ocf_cache_t cache,
 	if (result)
 		return result;
 
-	result = ocf_mngt_cache_lock(cache);
-	if (result)
-		return result;
-
-	result = _ocf_mngt_io_class_configure(cache, cfg);
-
-	ocf_mngt_cache_unlock(cache);
-
-	return result;
+	return _ocf_mngt_io_class_configure(cache, cfg);
 }
 

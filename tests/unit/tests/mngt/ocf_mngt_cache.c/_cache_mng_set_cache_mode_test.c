@@ -65,7 +65,7 @@ int __wrap_ocf_log_raw(const struct ocf_logger *logger, ocf_logger_lvl_t lvl,
 	return mock();
 }
 
-int __wrap_ocf_mngt_cache_flush_nolock(ocf_cache_t cache, bool interruption)
+int __wrap_ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption)
 {
 	function_called();
 	return mock();
@@ -186,8 +186,8 @@ static void _cache_mng_set_cache_mode_test03(void **state)
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
 
-	expect_function_call(__wrap_ocf_mngt_cache_flush_nolock);
-	will_return(__wrap_ocf_mngt_cache_flush_nolock, -OCF_ERR_NO_MEM);
+	expect_function_call(__wrap_ocf_mngt_cache_flush);
+	will_return(__wrap_ocf_mngt_cache_flush, -OCF_ERR_NO_MEM);
 
 	result = _cache_mng_set_cache_mode(&cache, mode_new, flush);
 
@@ -334,8 +334,8 @@ static void _cache_mng_set_cache_mode_test07(void **state)
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
 
-	expect_function_call(__wrap_ocf_mngt_cache_flush_nolock);
-	will_return(__wrap_ocf_mngt_cache_flush_nolock, 0);
+	expect_function_call(__wrap_ocf_mngt_cache_flush);
+	will_return(__wrap_ocf_mngt_cache_flush, 0);
 
 	expect_function_call(__wrap_ocf_metadata_flush_superblock);
 	will_return(__wrap_ocf_metadata_flush_superblock, 0);
