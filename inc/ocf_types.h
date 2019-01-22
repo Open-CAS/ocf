@@ -92,4 +92,9 @@ typedef struct ocf_cleaner *ocf_cleaner_t;
  */
 typedef struct ocf_metadata_updater *ocf_metadata_updater_t;
 
+/**
+ * @brief handle to logger
+ */
+typedef struct ocf_logger *ocf_logger_t;
+
 #endif

@@ -26,20 +26,9 @@ typedef enum {
 } ctx_data_seek_t;
 
 /**
- * @brief OCF context specific operation
+ * @brief Context data representation ops
  */
-struct ocf_ctx_ops {
-	/**
-	 * @brief The name of the environment which provides platform
-	 * interface for cache engine
-	 */
-	const char *name;
-
-	/**
-	 * @name Context data buffer operations
-	 * @{
-	 */
-
+struct ocf_data_ops {
 	/**
 	 * @brief Allocate contest data buffer
 	 *
@@ -47,14 +36,14 @@ struct ocf_ctx_ops {
 	 *
 	 * @return Context data buffer
 	 */
-	ctx_data_t *(*data_alloc)(uint32_t pages);
+	ctx_data_t *(*alloc)(uint32_t pages);
 
 	/**
 	 * @brief Free context data buffer
 	 *
 	 * @param[in] data Contex data buffer which shall be freed
 	 */
-	void (*data_free)(ctx_data_t *data);
+	void (*free)(ctx_data_t *data);
 
 	/**
 	 * @brief Lock context data buffer to disable swap-out
@@ -64,14 +53,14 @@ struct ocf_ctx_ops {
 	 * @retval 0 Memory locked successfully
 	 * @retval Non-zero Memory locking failure
 	 */
-	int (*data_mlock)(ctx_data_t *data);
+	int (*mlock)(ctx_data_t *data);
 
 	/**
 	 * @brief Unlock context data buffer
 	 *
 	 * @param[in] data Contex data buffer which shall be unlocked
 	 */
-	void (*data_munlock)(ctx_data_t *data);
+	void (*munlock)(ctx_data_t *data);
 
 	/**
 	 * @brief Read from environment data buffer into raw data buffer
@@ -82,7 +71,7 @@ struct ocf_ctx_ops {
 	 *
 	 * @return Number of read bytes
 	 */
-	uint32_t (*data_rd)(void *dst, ctx_data_t *src, uint32_t size);
+	uint32_t (*read)(void *dst, ctx_data_t *src, uint32_t size);
 
 	/**
 	 * @brief Write raw data buffer into context data buffer
@@ -93,7 +82,7 @@ struct ocf_ctx_ops {
 	 *
 	 * @return Number of written bytes
 	 */
-	uint32_t (*data_wr)(ctx_data_t *dst, const void *src, uint32_t size);
+	uint32_t (*write)(ctx_data_t *dst, const void *src, uint32_t size);
 
 	/**
 	 * @brief Zero context data buffer
@@ -103,7 +92,7 @@ struct ocf_ctx_ops {
 	 *
 	 * @return Number of zeroed bytes
 	 */
-	uint32_t (*data_zero)(ctx_data_t *dst, uint32_t size);
+	uint32_t (*zero)(ctx_data_t *dst, uint32_t size);
 
 	/**
 	 * @brief Seek read/write head in context data buffer for specified
@@ -115,8 +104,7 @@ struct ocf_ctx_ops {
 	 *
 	 * @return Number of seek bytes
 	 */
-	uint32_t (*data_seek)(ctx_data_t *dst,
-			ctx_data_seek_t seek, uint32_t size);
+	uint32_t (*seek)(ctx_data_t *dst, ctx_data_seek_t seek, uint32_t size);
 
 	/**
 	 * @brief Copy context data buffer content
@@ -129,7 +117,7 @@ struct ocf_ctx_ops {
 	 *
 	 * @return Number of bytes copied
 	 */
-	uint64_t (*data_cpy)(ctx_data_t *dst, ctx_data_t *src,
+	uint64_t (*copy)(ctx_data_t *dst, ctx_data_t *src,
 			uint64_t to, uint64_t from, uint64_t bytes);
 
 	/**
@@ -137,16 +125,13 @@ struct ocf_ctx_ops {
 	 *
 	 * @param[in] dst Contex data buffer which shall be erased
 	 */
-	void (*data_secure_erase)(ctx_data_t *dst);
+	void (*secure_erase)(ctx_data_t *dst);
+};
 
-	/**
-	 * @}
-	 */
-
-	/**
-	 * @name I/O queue operations
-	 * @{
-	 */
+/**
+ * @brief I/O queue operations
+ */
+struct ocf_queue_ops {
 	/**
 	 * @brief Initialize I/O queue.
 	 *
@@ -158,7 +143,7 @@ struct ocf_ctx_ops {
 	 * @retval 0 I/O queue has been initializaed successfully
 	 * @retval Non-zero I/O queue initialization failure
 	 */
-	int (*queue_init)(ocf_queue_t q);
+	int (*init)(ocf_queue_t q);
 
 	/**
 	 * @brief Kick I/O queue processing
@@ -169,7 +154,7 @@ struct ocf_ctx_ops {
 	 *
 	 * @param[in] q I/O queue to be kicked
 	 */
-	void (*queue_kick)(ocf_queue_t q);
+	void (*kick)(ocf_queue_t q);
 
 	/**
 	 * @brief Kick I/O queue processing
@@ -181,23 +166,20 @@ struct ocf_ctx_ops {
 	 *
 	 * @param[in] q I/O queue to be kicked
 	 */
-	void (*queue_kick_sync)(ocf_queue_t q);
+	void (*kick_sync)(ocf_queue_t q);
 
 	/**
 	 * @brief Stop I/O queue
 	 *
 	 * @param[in] q I/O queue beeing stopped
 	 */
-	void (*queue_stop)(ocf_queue_t q);
+	void (*stop)(ocf_queue_t q);
+};
 
-	/**
-	 * @}
-	 */
-
-	/**
-	 * @name Cleaner operations
-	 * @{
-	 */
+/**
+ * @brief Cleaner operations
+ */
+struct ocf_cleaner_ops {
 	/**
 	 * @brief Initialize cleaner.
 	 *
@@ -209,23 +191,20 @@ struct ocf_ctx_ops {
 	 * @retval 0 Cleaner has been initializaed successfully
 	 * @retval Non-zero Cleaner initialization failure
 	 */
-	int (*cleaner_init)(ocf_cleaner_t c);
+	int (*init)(ocf_cleaner_t c);
 
 	/**
 	 * @brief Stop cleaner
 	 *
 	 * @param[in] c Descriptor of cleaner beeing stopped
 	 */
-	void (*cleaner_stop)(ocf_cleaner_t c);
+	void (*stop)(ocf_cleaner_t c);
+};
 
-	/**
-	 * @}
-	 */
-
-	/**
-	 * @name Metadata updater operations
-	 * @{
-	 */
+/**
+ * @brief Metadata updater operations
+ */
+struct ocf_metadata_updater_ops {
 	/**
 	 * @brief Initialize metadata updater.
 	 *
@@ -237,7 +216,7 @@ struct ocf_ctx_ops {
 	 * @retval 0 Metadata updater has been initializaed successfully
 	 * @retval Non-zero I/O queue initialization failure
 	 */
-	int (*metadata_updater_init)(ocf_metadata_updater_t mu);
+	int (*init)(ocf_metadata_updater_t mu);
 
 	/**
 	 * @brief Kick metadata updater processing
@@ -247,18 +226,31 @@ struct ocf_ctx_ops {
 	 *
 	 * @param[in] mu Metadata updater to be kicked
 	 */
-	void (*metadata_updater_kick)(ocf_metadata_updater_t mu);
+	void (*kick)(ocf_metadata_updater_t mu);
 
 	/**
 	 * @brief Stop metadata updater
 	 *
 	 * @param[in] mu Metadata updater beeing stopped
 	 */
-	void (*metadata_updater_stop)(ocf_metadata_updater_t mu);
+	void (*stop)(ocf_metadata_updater_t mu);
+};
 
+/**
+ * @brief OCF context specific operation
+ */
+struct ocf_ctx_ops {
 	/**
-	 * @}
+	 * @brief The name of the environment which provides platform
+	 * interface for cache engine
 	 */
+	const char *name;
+
+	struct ocf_data_ops data;
+	struct ocf_queue_ops queue;
+	struct ocf_cleaner_ops cleaner;
+	struct ocf_metadata_updater_ops metadata_updater;
+	struct ocf_logger_ops logger;
 };
 
 /**
@@ -321,16 +313,6 @@ int ocf_ctx_get_data_obj_type_id(ocf_ctx_t ctx, ocf_data_obj_type_t type);
 
 int ocf_ctx_data_obj_create(ocf_ctx_t ctx, ocf_data_obj_t *obj,
 		struct ocf_data_obj_uuid *uuid, uint8_t type_id);
-
-/**
- * @brief Set OCF context logger
- *
- * @param[in] ctx OCF context
- * @param[in] logger Structure describing logger
- *
- * @return Zero when success, otherwise an error
- */
-int ocf_ctx_set_logger(ocf_ctx_t ctx, const struct ocf_logger *logger);
 
 /**
  * @brief Initialize OCF context

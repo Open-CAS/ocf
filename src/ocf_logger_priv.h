@@ -8,13 +8,21 @@
 
 #include "ocf/ocf_logger.h"
 
+struct ocf_logger {
+	const struct ocf_logger_ops *ops;
+	void *priv;
+};
+
 __attribute__((format(printf, 3, 4)))
-int ocf_log_raw(const struct ocf_logger *logger, ocf_logger_lvl_t lvl,
+int ocf_log_raw(ocf_logger_t logger, ocf_logger_lvl_t lvl,
 		const char *fmt, ...);
 
-int ocf_log_raw_rl(const struct ocf_logger *logger, const char *func_name);
+int ocf_log_raw_rl(ocf_logger_t logger, const char *func_name);
 
-int ocf_log_stack_trace_raw(const struct ocf_logger *logger);
+int ocf_log_stack_trace_raw(ocf_logger_t logger);
 
+int ocf_logger_open(ocf_logger_t logger);
+
+void ocf_logger_close(ocf_logger_t logger);
 
 #endif /* __OCF_LOGGER_PRIV_H__ */
