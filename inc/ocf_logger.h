@@ -11,6 +11,7 @@
  * @brief Logger API
  */
 
+#include <ocf/ocf_types.h>
 #include <stdarg.h>
 
 /**
@@ -27,15 +28,17 @@ typedef enum {
 	log_debug,
 } ocf_logger_lvl_t;
 
-struct ocf_logger {
-	int (*open)(const struct ocf_logger *logger);
-	void (*close)(const struct ocf_logger *logger);
-	int (*printf)(const struct ocf_logger *logger, ocf_logger_lvl_t lvl,
+struct ocf_logger_ops {
+	int (*open)(ocf_logger_t logger);
+	void (*close)(ocf_logger_t logger);
+	int (*printf)(ocf_logger_t logger, ocf_logger_lvl_t lvl,
 			const char *fmt, va_list args);
-	int (*printf_rl)(const char *func_name);
-	int (*dump_stack)(const struct ocf_logger *logger);
-
-	void *priv;
+	int (*printf_rl)(ocf_logger_t logger, const char *func_name);
+	int (*dump_stack)(ocf_logger_t logger);
 };
+
+void ocf_logger_set_priv(ocf_logger_t logger, void *priv);
+
+void *ocf_logger_get_priv(ocf_logger_t logger);
 
 #endif /* __OCF_LOGGER_H__ */

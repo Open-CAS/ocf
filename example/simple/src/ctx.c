@@ -59,7 +59,7 @@ static void ctx_data_munlock(ctx_data_t *ctx_data)
 /*
  * Read data into flat memory buffer.
  */
-static uint32_t ctx_data_rd(void *dst, ctx_data_t *src, uint32_t size)
+static uint32_t ctx_data_read(void *dst, ctx_data_t *src, uint32_t size)
 {
 	struct dobj_data *data = src;
 
@@ -71,7 +71,7 @@ static uint32_t ctx_data_rd(void *dst, ctx_data_t *src, uint32_t size)
 /*
  * Write data from flat memory buffer.
  */
-static uint32_t ctx_data_wr(ctx_data_t *dst, const void *src, uint32_t size)
+static uint32_t ctx_data_write(ctx_data_t *dst, const void *src, uint32_t size)
 {
 	struct dobj_data *data = dst;
 
@@ -115,7 +115,7 @@ static uint32_t ctx_data_seek(ctx_data_t *dst, ctx_data_seek_t seek,
 /*
  * Copy data from one structure to another.
  */
-static uint64_t ctx_data_cpy(ctx_data_t *dst, ctx_data_t *src,
+static uint64_t ctx_data_copy(ctx_data_t *dst, ctx_data_t *src,
 		uint64_t to, uint64_t from, uint64_t bytes)
 {
 	struct dobj_data *data_dst = dst;
@@ -213,47 +213,11 @@ static void ctx_metadata_updater_stop(ocf_metadata_updater_t mu)
 }
 
 /*
- * This structure describes context ops. They are splitted into few categories:
- * - data ops, providing context specific data handing interface,
- * - queue ops, providing interface for starting, stoping and kicking
- *   queue thread in both synchronous and asynchronous way,
- * - cleaner ops, providing interface to start and stop clener thread,
- * - metadata updater ops, providing interface for starting, stoping
- *   and kicking metadata updater thread.
- */
-static const struct ocf_ctx_ops ctx_ops = {
-	.name = "OCF Example",
-
-	.data_alloc = ctx_data_alloc,
-	.data_free = ctx_data_free,
-	.data_mlock = ctx_data_mlock,
-	.data_munlock = ctx_data_munlock,
-	.data_rd = ctx_data_rd,
-	.data_wr = ctx_data_wr,
-	.data_zero = ctx_data_zero,
-	.data_seek = ctx_data_seek,
-	.data_cpy = ctx_data_cpy,
-	.data_secure_erase = ctx_data_secure_erase,
-
-	.queue_init = ctx_queue_init,
-	.queue_kick_sync = ctx_queue_kick_sync,
-	.queue_kick = ctx_queue_kick_async,
-	.queue_stop = ctx_queue_stop,
-
-	.cleaner_init = ctx_cleaner_init,
-	.cleaner_stop = ctx_cleaner_stop,
-
-	.metadata_updater_init = ctx_metadata_updater_init,
-	.metadata_updater_kick = ctx_metadata_updater_kick,
-	.metadata_updater_stop = ctx_metadata_updater_stop,
-};
-
-/*
  * Function prividing interface for printing to log used by OCF internals.
  * It can handle differently messages at varous log levels.
  */
-static int ctx_log_printf(const struct ocf_logger *logger,
-		ocf_logger_lvl_t lvl, const char *fmt, va_list args)
+static int ctx_logger_printf(ocf_logger_t logger, ocf_logger_lvl_t lvl,
+		const char *fmt, va_list args)
 {
 	FILE *lfile = stdout;
 
@@ -272,7 +236,7 @@ static int ctx_log_printf(const struct ocf_logger *logger,
  * Function prividing interface for printing current stack. Used for debugging,
  * and for providing additional information in log in case of errors.
  */
-static int ctx_log_dump_stack(const struct ocf_logger *logger)
+static int ctx_logger_dump_stack(ocf_logger_t logger)
 {
 	void *trace[CTX_LOG_TRACE_DEPTH];
 	char **messages = NULL;
@@ -290,11 +254,52 @@ static int ctx_log_dump_stack(const struct ocf_logger *logger)
 }
 
 /*
- * Structure containng logger ops.
+ * This structure describes context ops. They are splitted into few categories:
+ * - data ops, providing context specific data handing interface,
+ * - queue ops, providing interface for starting, stoping and kicking
+ *   queue thread in both synchronous and asynchronous way,
+ * - cleaner ops, providing interface to start and stop clener thread,
+ * - metadata updater ops, providing interface for starting, stoping
+ *   and kicking metadata updater thread.
  */
-static const struct ocf_logger logger = {
-	.printf = ctx_log_printf,
-	.dump_stack = ctx_log_dump_stack,
+static const struct ocf_ctx_ops ctx_ops = {
+	.name = "OCF Example",
+
+	.data = {
+		.alloc = ctx_data_alloc,
+		.free = ctx_data_free,
+		.mlock = ctx_data_mlock,
+		.munlock = ctx_data_munlock,
+		.read = ctx_data_read,
+		.write = ctx_data_write,
+		.zero = ctx_data_zero,
+		.seek = ctx_data_seek,
+		.copy = ctx_data_copy,
+		.secure_erase = ctx_data_secure_erase,
+	},
+
+	.queue = {
+		.init = ctx_queue_init,
+		.kick_sync = ctx_queue_kick_sync,
+		.kick = ctx_queue_kick_async,
+		.stop = ctx_queue_stop,
+	},
+
+	.cleaner = {
+		.init = ctx_cleaner_init,
+		.stop = ctx_cleaner_stop,
+	},
+
+	.metadata_updater = {
+		.init = ctx_metadata_updater_init,
+		.kick = ctx_metadata_updater_kick,
+		.stop = ctx_metadata_updater_stop,
+	},
+
+	.logger = {
+		.printf = ctx_logger_printf,
+		.dump_stack = ctx_logger_dump_stack,
+	},
 };
 
 /*
@@ -308,8 +313,6 @@ int ctx_init(ocf_ctx_t *ctx)
 	ret = ocf_ctx_init(ctx, &ctx_ops);
 	if (ret)
 		return ret;
-
-	ocf_ctx_set_logger(*ctx, &logger);
 
 	ret = dobj_init(*ctx);
 	if (ret) {

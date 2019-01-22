@@ -58,8 +58,8 @@ ocf_ctx_t __wrap_ocf_cache_get_ctx(ocf_cache_t cache)
 {
 }
 
-int __wrap_ocf_log_raw(const struct ocf_logger *logger, ocf_logger_lvl_t lvl,
-		                const char *fmt, ...)
+int __wrap_ocf_log_raw(ocf_logger_t logger, ocf_logger_lvl_t lvl,
+		const char *fmt, ...)
 {
 }
 

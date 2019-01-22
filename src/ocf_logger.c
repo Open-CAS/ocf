@@ -6,40 +6,74 @@
 #include "ocf_env.h"
 #include "ocf/ocf_logger.h"
 #include "ocf_logger_priv.h"
+#include "ocf_priv.h"
 
 /*
  *
  */
 __attribute__((format(printf, 3, 4)))
-int ocf_log_raw(const struct ocf_logger *logger, ocf_logger_lvl_t lvl,
+int ocf_log_raw(ocf_logger_t logger, ocf_logger_lvl_t lvl,
 		const char *fmt, ...)
 {
 	va_list args;
 	int ret;
 
-	if (!logger->printf)
+	if (!logger->ops->printf)
 		return -ENOTSUP;
 
 	va_start(args, fmt);
-	ret = logger->printf(logger, lvl, fmt, args);
+	ret = logger->ops->printf(logger, lvl, fmt, args);
 	va_end(args);
 
 	return ret;
 }
 
-int ocf_log_raw_rl(const struct ocf_logger *logger, const char *func_name)
+int ocf_log_raw_rl(ocf_logger_t logger, const char *func_name)
 {
-	if (!logger->printf_rl)
+	if (!logger->ops->printf_rl)
 		return -ENOTSUP;
 
-	return logger->printf_rl(func_name);
+	return logger->ops->printf_rl(logger, func_name);
 }
 
 /*
  *
  */
-int ocf_log_stack_trace_raw(const struct ocf_logger *logger)
+int ocf_log_stack_trace_raw(ocf_logger_t logger)
 {
-	return !logger->dump_stack ? -ENOTSUP :
-			logger->dump_stack(logger);
+	if (!logger->ops->dump_stack)
+		return -ENOTSUP;
+
+	return logger->ops->dump_stack(logger);
 }
+
+int ocf_logger_open(ocf_logger_t logger)
+{
+	if (!logger->ops->open)
+		return 0;
+
+	return logger->ops->open(logger);
+}
+
+void ocf_logger_close(ocf_logger_t logger)
+{
+	if (!logger->ops->close)
+		return;
+
+	logger->ops->close(logger);
+}
+
+void ocf_logger_set_priv(ocf_logger_t logger, void *priv)
+{
+	OCF_CHECK_NULL(logger);
+
+	logger->priv = priv;
+}
+
+void *ocf_logger_get_priv(ocf_logger_t logger)
+{
+	OCF_CHECK_NULL(logger);
+
+	return logger->priv;
+}
+
