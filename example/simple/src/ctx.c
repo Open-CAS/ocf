@@ -313,7 +313,7 @@ int ctx_init(ocf_ctx_t *ctx)
 
 	ret = dobj_init(*ctx);
 	if (ret) {
-		dobj_cleanup(*ctx);
+		ocf_ctx_exit(*ctx);
 		return ret;
 	}
 
