@@ -254,53 +254,57 @@ static int ctx_logger_dump_stack(ocf_logger_t logger)
 }
 
 /*
- * This structure describes context ops. They are splitted into few categories:
+ * This structure describes context config, containing simple context info
+ * and pointers to ops callbacks. Ops are splitted into few categories:
  * - data ops, providing context specific data handing interface,
  * - queue ops, providing interface for starting, stoping and kicking
  *   queue thread in both synchronous and asynchronous way,
  * - cleaner ops, providing interface to start and stop clener thread,
  * - metadata updater ops, providing interface for starting, stoping
  *   and kicking metadata updater thread.
+ * - logger ops, providing interface for text message logging
  */
-static const struct ocf_ctx_ops ctx_ops = {
+static const struct ocf_ctx_config ctx_cfg = {
 	.name = "OCF Example",
+	.ops = {
+		.data = {
+			.alloc = ctx_data_alloc,
+			.free = ctx_data_free,
+			.mlock = ctx_data_mlock,
+			.munlock = ctx_data_munlock,
+			.read = ctx_data_read,
+			.write = ctx_data_write,
+			.zero = ctx_data_zero,
+			.seek = ctx_data_seek,
+			.copy = ctx_data_copy,
+			.secure_erase = ctx_data_secure_erase,
+		},
 
-	.data = {
-		.alloc = ctx_data_alloc,
-		.free = ctx_data_free,
-		.mlock = ctx_data_mlock,
-		.munlock = ctx_data_munlock,
-		.read = ctx_data_read,
-		.write = ctx_data_write,
-		.zero = ctx_data_zero,
-		.seek = ctx_data_seek,
-		.copy = ctx_data_copy,
-		.secure_erase = ctx_data_secure_erase,
-	},
+		.queue = {
+			.init = ctx_queue_init,
+			.kick_sync = ctx_queue_kick_sync,
+			.kick = ctx_queue_kick_async,
+			.stop = ctx_queue_stop,
+		},
 
-	.queue = {
-		.init = ctx_queue_init,
-		.kick_sync = ctx_queue_kick_sync,
-		.kick = ctx_queue_kick_async,
-		.stop = ctx_queue_stop,
-	},
+		.cleaner = {
+			.init = ctx_cleaner_init,
+			.stop = ctx_cleaner_stop,
+		},
 
-	.cleaner = {
-		.init = ctx_cleaner_init,
-		.stop = ctx_cleaner_stop,
-	},
+		.metadata_updater = {
+			.init = ctx_metadata_updater_init,
+			.kick = ctx_metadata_updater_kick,
+			.stop = ctx_metadata_updater_stop,
+		},
 
-	.metadata_updater = {
-		.init = ctx_metadata_updater_init,
-		.kick = ctx_metadata_updater_kick,
-		.stop = ctx_metadata_updater_stop,
-	},
-
-	.logger = {
-		.printf = ctx_logger_printf,
-		.dump_stack = ctx_logger_dump_stack,
+		.logger = {
+			.printf = ctx_logger_printf,
+			.dump_stack = ctx_logger_dump_stack,
+		},
 	},
 };
+
 
 /*
  * Function initializing context. Prepares context, sets logger and
@@ -310,7 +314,7 @@ int ctx_init(ocf_ctx_t *ctx)
 {
 	int ret;
 
-	ret = ocf_ctx_init(ctx, &ctx_ops);
+	ret = ocf_ctx_init(ctx, &ctx_cfg);
 	if (ret)
 		return ret;
 
