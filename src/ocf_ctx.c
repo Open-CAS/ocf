@@ -113,13 +113,13 @@ int ocf_ctx_data_obj_create(ocf_ctx_t ctx, ocf_data_obj_t *obj,
 /*
  *
  */
-int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_ops *ops)
+int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 {
 	ocf_ctx_t ocf_ctx;
 	int ret;
 
 	OCF_CHECK_NULL(ctx);
-	OCF_CHECK_NULL(ops);
+	OCF_CHECK_NULL(cfg);
 
 	ocf_ctx = env_zalloc(sizeof(*ocf_ctx), ENV_MEM_NORMAL);
 	if (!ocf_ctx)
@@ -130,8 +130,10 @@ int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_ops *ops)
 	if (ret)
 		goto err_ctx;
 
-	ocf_ctx->ctx_ops = ops;
-	ocf_ctx->logger.ops = &ops->logger;
+	ocf_ctx->ops = &cfg->ops;
+	ocf_ctx->cfg = cfg;
+
+	ocf_logger_init(&ocf_ctx->logger, &cfg->ops.logger, cfg->logger_priv);
 
 	ret = ocf_logger_open(&ocf_ctx->logger);
 	if (ret)

@@ -47,6 +47,13 @@ int ocf_log_stack_trace_raw(ocf_logger_t logger)
 	return logger->ops->dump_stack(logger);
 }
 
+void ocf_logger_init(ocf_logger_t logger,
+		const struct ocf_logger_ops *ops, void *priv)
+{
+	logger->ops = ops;
+	logger->priv = priv;
+}
+
 int ocf_logger_open(ocf_logger_t logger)
 {
 	if (!logger->ops->open)

@@ -240,17 +240,31 @@ struct ocf_metadata_updater_ops {
  * @brief OCF context specific operation
  */
 struct ocf_ctx_ops {
-	/**
-	 * @brief The name of the environment which provides platform
-	 * interface for cache engine
-	 */
+	/* Context data operations */
+	struct ocf_data_ops data;
+
+	/* Queue operations */
+	struct ocf_queue_ops queue;
+
+	/* Cleaner operations */
+	struct ocf_cleaner_ops cleaner;
+
+	/* Metadata updater operations */
+	struct ocf_metadata_updater_ops metadata_updater;
+
+	/* Logger operations */
+	struct ocf_logger_ops logger;
+};
+
+struct ocf_ctx_config {
+	/* Context name */
 	const char *name;
 
-	struct ocf_data_ops data;
-	struct ocf_queue_ops queue;
-	struct ocf_cleaner_ops cleaner;
-	struct ocf_metadata_updater_ops metadata_updater;
-	struct ocf_logger_ops logger;
+	/* Context operations */
+	const struct ocf_ctx_ops ops;
+
+	/* Context logger priv */
+	void *logger_priv;
 };
 
 /**
@@ -322,7 +336,7 @@ int ocf_ctx_data_obj_create(ocf_ctx_t ctx, ocf_data_obj_t *obj,
  *
  * @return Zero when success, otherwise an error
  */
-int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_ops *ops);
+int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg);
 
 /**
  * @brief De-Initialize OCF context

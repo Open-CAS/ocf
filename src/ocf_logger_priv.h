@@ -21,6 +21,9 @@ int ocf_log_raw_rl(ocf_logger_t logger, const char *func_name);
 
 int ocf_log_stack_trace_raw(ocf_logger_t logger);
 
+void ocf_logger_init(ocf_logger_t logger,
+		const struct ocf_logger_ops *ops, void *priv);
+
 int ocf_logger_open(ocf_logger_t logger);
 
 void ocf_logger_close(ocf_logger_t logger);

@@ -16,7 +16,8 @@
  * @brief OCF main control structure
  */
 struct ocf_ctx {
-	const struct ocf_ctx_ops *ctx_ops;
+	const struct ocf_ctx_ops *ops;
+	const struct ocf_ctx_config *cfg;
 	struct ocf_logger logger;
 	struct ocf_data_obj_type *data_obj_type[OCF_DATA_OBJ_TYPE_MAX];
 	env_mutex lock;
@@ -50,34 +51,34 @@ struct ocf_ctx {
  */
 static inline void *ctx_data_alloc(ocf_ctx_t ctx, uint32_t pages)
 {
-	return ctx->ctx_ops->data.alloc(pages);
+	return ctx->ops->data.alloc(pages);
 }
 
 static inline void ctx_data_free(ocf_ctx_t ctx, ctx_data_t *data)
 {
-	ctx->ctx_ops->data.free(data);
+	ctx->ops->data.free(data);
 }
 
 static inline int ctx_data_mlock(ocf_ctx_t ctx, ctx_data_t *data)
 {
-	return ctx->ctx_ops->data.mlock(data);
+	return ctx->ops->data.mlock(data);
 }
 
 static inline void ctx_data_munlock(ocf_ctx_t ctx, ctx_data_t *data)
 {
-	ctx->ctx_ops->data.munlock(data);
+	ctx->ops->data.munlock(data);
 }
 
 static inline uint32_t ctx_data_rd(ocf_ctx_t ctx, void *dst,
 		ctx_data_t *src, uint32_t size)
 {
-	return ctx->ctx_ops->data.read(dst, src, size);
+	return ctx->ops->data.read(dst, src, size);
 }
 
 static inline uint32_t ctx_data_wr(ocf_ctx_t ctx, ctx_data_t *dst,
 		const void *src, uint32_t size)
 {
-	return ctx->ctx_ops->data.write(dst, src, size);
+	return ctx->ops->data.write(dst, src, size);
 }
 
 static inline void ctx_data_rd_check(ocf_ctx_t ctx, void *dst,
@@ -99,7 +100,7 @@ static inline void ctx_data_wr_check(ocf_ctx_t ctx, ctx_data_t *dst,
 static inline uint32_t ctx_data_zero(ocf_ctx_t ctx, ctx_data_t *dst,
 		uint32_t size)
 {
-	return ctx->ctx_ops->data.zero(dst, size);
+	return ctx->ops->data.zero(dst, size);
 }
 
 static inline void ctx_data_zero_check(ocf_ctx_t ctx, ctx_data_t *dst,
@@ -113,7 +114,7 @@ static inline void ctx_data_zero_check(ocf_ctx_t ctx, ctx_data_t *dst,
 static inline uint32_t ctx_data_seek(ocf_ctx_t ctx, ctx_data_t *dst,
 		ctx_data_seek_t seek, uint32_t size)
 {
-	return ctx->ctx_ops->data.seek(dst, seek, size);
+	return ctx->ops->data.seek(dst, seek, size);
 }
 
 static inline void ctx_data_seek_check(ocf_ctx_t ctx, ctx_data_t *dst,
@@ -127,59 +128,59 @@ static inline void ctx_data_seek_check(ocf_ctx_t ctx, ctx_data_t *dst,
 static inline uint64_t ctx_data_cpy(ocf_ctx_t ctx, ctx_data_t *dst, ctx_data_t *src,
 		uint64_t to, uint64_t from, uint64_t bytes)
 {
-	return ctx->ctx_ops->data.copy(dst, src, to, from, bytes);
+	return ctx->ops->data.copy(dst, src, to, from, bytes);
 }
 
 static inline void ctx_data_secure_erase(ocf_ctx_t ctx, ctx_data_t *dst)
 {
-	return ctx->ctx_ops->data.secure_erase(dst);
+	return ctx->ops->data.secure_erase(dst);
 }
 
 static inline int ctx_queue_init(ocf_ctx_t ctx, ocf_queue_t queue)
 {
-	return ctx->ctx_ops->queue.init(queue);
+	return ctx->ops->queue.init(queue);
 }
 
 static inline void ctx_queue_kick(ocf_ctx_t ctx, ocf_queue_t queue,
 		bool allow_sync)
 {
-	if (allow_sync && ctx->ctx_ops->queue.kick_sync)
-		ctx->ctx_ops->queue.kick_sync(queue);
+	if (allow_sync && ctx->ops->queue.kick_sync)
+		ctx->ops->queue.kick_sync(queue);
 	else
-		ctx->ctx_ops->queue.kick(queue);
+		ctx->ops->queue.kick(queue);
 }
 
 static inline void ctx_queue_stop(ocf_ctx_t ctx, ocf_queue_t queue)
 {
-	ctx->ctx_ops->queue.stop(queue);
+	ctx->ops->queue.stop(queue);
 }
 
 static inline int ctx_cleaner_init(ocf_ctx_t ctx, ocf_cleaner_t cleaner)
 {
-	return ctx->ctx_ops->cleaner.init(cleaner);
+	return ctx->ops->cleaner.init(cleaner);
 }
 
 static inline void ctx_cleaner_stop(ocf_ctx_t ctx, ocf_cleaner_t cleaner)
 {
-	ctx->ctx_ops->cleaner.stop(cleaner);
+	ctx->ops->cleaner.stop(cleaner);
 }
 
 static inline int ctx_metadata_updater_init(ocf_ctx_t ctx,
 		ocf_metadata_updater_t mu)
 {
-	return ctx->ctx_ops->metadata_updater.init(mu);
+	return ctx->ops->metadata_updater.init(mu);
 }
 
 static inline void ctx_metadata_updater_kick(ocf_ctx_t ctx,
 		ocf_metadata_updater_t mu)
 {
-	ctx->ctx_ops->metadata_updater.kick(mu);
+	ctx->ops->metadata_updater.kick(mu);
 }
 
 static inline void ctx_metadata_updater_stop(ocf_ctx_t ctx,
 		ocf_metadata_updater_t mu)
 {
-	ctx->ctx_ops->metadata_updater.stop(mu);
+	ctx->ops->metadata_updater.stop(mu);
 }
 
 /**
