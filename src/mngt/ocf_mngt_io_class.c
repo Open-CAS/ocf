@@ -109,113 +109,118 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache->device);
 
-	OCF_METADATA_LOCK_WR();
-
 	dest_part = &cache->user_parts[part_id];
 
 	if (!ocf_part_is_added(dest_part)) {
 		ocf_cache_log(cache, log_info, "Setting IO class, id: %u, "
 			"name: '%s' [ ERROR ]\n", part_id, dest_part->config->name);
-		OCF_METADATA_UNLOCK_WR();
 		return -OCF_ERR_INVAL;
 	}
 
+	if (!name || !name[0])
+		return -OCF_ERR_IO_CLASS_NOT_EXIST;
+
 	if (part_id == PARTITION_DEFAULT) {
 		/* Special behavior for default partition */
-
-		if (!name[0]) {
-			/* Removing of default partition is not allowed */
-			ocf_cache_log(cache, log_info,
-					"Cannot remove unclassified IO class, "
-					"id: %u [ ERROR ]\n", part_id);
-
-			OCF_METADATA_UNLOCK_WR();
-
-			return 0;
-		}
 
 		/* Try set partition size */
 		if (_ocf_mngt_set_partition_size(cache, part_id, min, max)) {
 			ocf_cache_log(cache, log_info,
 				"Setting IO class size, id: %u, name: '%s' "
 				"[ ERROR ]\n", part_id, dest_part->config->name);
-			OCF_METADATA_UNLOCK_WR();
 			return -OCF_ERR_INVAL;
 		}
 		ocf_part_set_prio(cache, dest_part, prio);
-		ocf_part_sort(cache);
 		dest_part->config->cache_mode = cache_mode;
 
 		ocf_cache_log(cache, log_info,
 				"Updating Unclassified IO class, id: "
 				"%u [ OK ]\n", part_id);
 
-		OCF_METADATA_UNLOCK_WR();
-
 		return 0;
 	}
 
-	if (name[0]) {
-		/* Setting */
-		result = env_strncpy(dest_part->config->name, sizeof(dest_part->config->name), name,
-				sizeof(dest_part->config->name));
-		if (result) {
-			OCF_METADATA_UNLOCK_WR();
-			return result;
-		}
+	/* Setting */
+	result = env_strncpy(dest_part->config->name,
+			sizeof(dest_part->config->name), name,
+			sizeof(dest_part->config->name));
+	if (result)
+		return result;
 
-		/* Try set partition size */
-		if (_ocf_mngt_set_partition_size(cache, part_id, min, max)) {
-			ocf_cache_log(cache, log_info,
-				"Setting IO class size, id: %u, name: '%s' "
-				"[ ERROR ]\n", part_id, dest_part->config->name);
-			OCF_METADATA_UNLOCK_WR();
-			return -OCF_ERR_INVAL;
-		}
+	/* Try set partition size */
+	if (_ocf_mngt_set_partition_size(cache, part_id, min, max)) {
+		ocf_cache_log(cache, log_info,
+			"Setting IO class size, id: %u, name: '%s' "
+			"[ ERROR ]\n", part_id, dest_part->config->name);
+		return -OCF_ERR_INVAL;
+	}
 
-		if (ocf_part_is_valid(dest_part)) {
-			/* Updating existing */
-			ocf_cache_log(cache, log_info, "Updating existing IO "
-					"class, id: %u, name: '%s' [ OK ]\n",
-					part_id, dest_part->config->name);
+	if (ocf_part_is_valid(dest_part)) {
+		/* Updating existing */
+		ocf_cache_log(cache, log_info, "Updating existing IO "
+				"class, id: %u, name: '%s' [ OK ]\n",
+				part_id, dest_part->config->name);
+	} else {
+		/* Adding new */
+		ocf_part_set_valid(cache, part_id, true);
 
-		} else {
-			/* Adding new */
-			ocf_part_set_valid(cache, part_id, true);
+		ocf_cache_log(cache, log_info, "Adding new IO class, "
+				"id: %u, name: '%s' [ OK ]\n", part_id,
+				dest_part->config->name);
+	}
 
-			ocf_cache_log(cache, log_info, "Adding new IO class, "
-					"id: %u, name: '%s' [ OK ]\n", part_id,
-					dest_part->config->name);
-		}
+	ocf_part_set_prio(cache, dest_part, prio);
+	dest_part->config->cache_mode = cache_mode;
 
-		ocf_part_set_prio(cache, dest_part, prio);
-		dest_part->config->cache_mode =  cache_mode;
+	return result;
+}
+
+static int _ocf_mngt_io_class_remove(ocf_cache_t cache,
+		const struct ocf_mngt_io_class_config *cfg)
+{
+	struct ocf_user_part *dest_part;
+	ocf_part_id_t part_id = cfg->class_id;
+	int result;
+
+	dest_part = &cache->user_parts[part_id];
+
+	OCF_CHECK_NULL(cache->device);
+
+	if (part_id == PARTITION_DEFAULT) {
+		ocf_cache_log(cache, log_info,
+				"Cannot remove unclassified IO class, "
+				"id: %u [ ERROR ]\n", part_id);
+		return 0;
+	}
+
+	if (ocf_part_is_valid(dest_part)) {
 
 		result = 0;
 
+		ocf_part_set_valid(cache, part_id, false);
+
+		ocf_cache_log(cache, log_info,
+				"Removing IO class, id: %u [ %s ]\n",
+				part_id, result ? "ERROR" : "OK");
+
 	} else {
-		/* Clearing */
-
-		if (ocf_part_is_valid(dest_part)) {
-			/* Removing */
-
-			result = 0;
-
-			ocf_part_set_valid(cache, part_id, false);
-
-			ocf_cache_log(cache, log_info,
-					"Removing IO class, id: %u [ %s ]\n",
-					part_id, result ? "ERROR" : "OK");
-
-		} else {
-			/* Does not exist */
-			result = -OCF_ERR_IO_CLASS_NOT_EXIST;
-		}
+		/* Does not exist */
+		result = -OCF_ERR_IO_CLASS_NOT_EXIST;
 	}
 
-	ocf_part_sort(cache);
+	return result;
+}
 
-	OCF_METADATA_UNLOCK_WR();
+static int _ocf_mngt_io_class_edit(ocf_cache_t cache,
+		const struct ocf_mngt_io_class_config *cfg)
+{
+	int result;
+
+	if (cfg->name) {
+		result = _ocf_mngt_io_class_configure(cache, cfg);
+	} else {
+		result = _ocf_mngt_io_class_remove(cache, cfg);
+	}
 
 	return result;
 }
@@ -225,6 +230,10 @@ static int _ocf_mngt_io_class_validate_cfg(ocf_cache_t cache,
 {
 	if (cfg->class_id >= OCF_IO_CLASS_MAX)
 		return -OCF_ERR_INVAL;
+
+	/* Name set to null means particular io_class should be removed */
+	if (!cfg->name)
+		return 0;
 
 	/* TODO(r.baldyga): ocf_cache_mode_max is allowed for compatibility
 	 * with OCF 3.1 kernel adapter (upgrade in flight) and casadm.
@@ -250,17 +259,60 @@ static int _ocf_mngt_io_class_validate_cfg(ocf_cache_t cache,
 	return 0;
 }
 
-int ocf_mngt_io_class_configure(ocf_cache_t cache,
-		const struct ocf_mngt_io_class_config *cfg)
+int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
+		const struct ocf_mngt_io_classes_config *cfg)
 {
+	struct ocf_user_part *old_config;
 	int result;
+	int i;
 
 	OCF_CHECK_NULL(cache);
+	OCF_CHECK_NULL(cfg);
 
-	result = _ocf_mngt_io_class_validate_cfg(cache, cfg);
-	if (result)
+	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+		result = _ocf_mngt_io_class_validate_cfg(cache, &cfg->config[i]);
+		if (result)
+			return result;
+	}
+
+	old_config = env_malloc(sizeof(cache->user_parts), ENV_MEM_NORMAL);
+	if (!old_config)
+		return -OCF_ERR_NO_MEM;
+
+	OCF_METADATA_LOCK_WR();
+
+	result = env_memcpy(old_config, sizeof(&cache->user_parts),
+			cache->user_parts, sizeof(&cache->user_parts));
+	if (result) {
+		env_free(old_config);
 		return result;
+	}
 
-	return _ocf_mngt_io_class_configure(cache, cfg);
+	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+		result = _ocf_mngt_io_class_edit(cache, &cfg->config[i]);
+		if (result && result != -OCF_ERR_IO_CLASS_NOT_EXIST) {
+			ocf_cache_log(cache, log_err,
+					"Failed to set new io class config\n");
+			goto err;
+		}
+
+		result = 0;
+	}
+
+	ocf_part_sort(cache);
+
+	if (ocf_metadata_flush_superblock(cache)) {
+		ocf_cache_log(cache, log_err, "Failed to store new io class config\n");
+		result = -OCF_ERR_WRITE_CACHE;
+	}
+
+err:
+	if (result) {
+		ENV_BUG_ON(env_memcpy(cache->user_parts, sizeof(&cache->user_parts),
+					old_config, sizeof(&cache->user_parts)));
+	}
+
+	OCF_METADATA_UNLOCK_WR();
+
+	return result;
 }
-

@@ -653,14 +653,14 @@ static ctx_data_t *ocf_core_io_get_data(struct ocf_io *io)
 	return core_io->data;
 }
 
-const struct ocf_data_obj_properties ocf_core_data_obj_properties = { 
+const struct ocf_data_obj_properties ocf_core_data_obj_properties = {
 	.name = "OCF Core",
 	.io_priv_size = sizeof(struct ocf_core_io),
 	.dobj_priv_size = sizeof(struct ocf_core_dobj),
-	.caps = { 
+	.caps = {
 		.atomic_writes = 0,
 	},
-	.ops = { 
+	.ops = {
 		.submit_io = ocf_core_data_obj_submit_io,
 		.submit_flush = ocf_core_data_obj_submit_flush,
 		.submit_discard = ocf_core_data_obj_submit_discard,

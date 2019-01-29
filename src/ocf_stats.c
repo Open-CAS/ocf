@@ -9,6 +9,7 @@
 #include "engine/cache_engine.h"
 #include "utils/utils_part.h"
 #include "utils/utils_cache_line.h"
+#include "utils/utils_core.h"
 
 #ifdef OCF_DEBUG_STATS
 static void ocf_stats_debug_init(struct ocf_counters_debug *stats)
@@ -160,39 +161,30 @@ static void copy_debug_stats(struct ocf_stats_core_debug *dest,
 }
 #endif
 
-int ocf_io_class_get_stats(ocf_core_t core, uint32_t io_class,
+int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 		struct ocf_stats_io_class *stats)
 {
-	ocf_part_id_t part_id = io_class;
+	ocf_cache_t cache;
 	uint32_t i;
 	uint32_t cache_occupancy_total = 0;
 	struct ocf_counters_part *part_stat;
 	ocf_core_id_t core_id;
-	ocf_cache_t cache;
 
 	OCF_CHECK_NULL(core);
+	OCF_CHECK_NULL(stats);
+
+	if (part_id < OCF_IO_CLASS_ID_MIN || part_id > OCF_IO_CLASS_ID_MAX)
+		return -OCF_ERR_INVAL;
 
 	core_id = ocf_core_get_id(core);
 	cache = ocf_core_get_cache(core);
 
-	if (!stats)
-		return -OCF_ERR_INVAL;
-
-	if (io_class >= OCF_IO_CLASS_MAX)
-		return -OCF_ERR_INVAL;
-
-	if (!ocf_part_is_valid(&cache->user_parts[part_id])) {
-		/* Partition does not exist */
+	if (!ocf_part_is_valid(&cache->user_parts[part_id]))
 		return -OCF_ERR_IO_CLASS_NOT_EXIST;
-	}
 
-	for (i = 0; i != OCF_CORE_MAX; ++i) {
-		if (!env_bit_test(i, cache->conf_meta->
-				valid_object_bitmap)) {
-			continue;
-		}
-		cache_occupancy_total += env_atomic_read(&cache->
-				core_runtime_meta[i].cached_clines);
+	for_each_core(cache, i) {
+		cache_occupancy_total += env_atomic_read(
+				&cache->core_runtime_meta[i].cached_clines);
 	}
 
 	part_stat = &core->counters->part_counters[part_id];

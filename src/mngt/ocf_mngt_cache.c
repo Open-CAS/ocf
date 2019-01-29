@@ -1847,7 +1847,6 @@ int ocf_mngt_cache_detach(ocf_cache_t cache)
 {
 	int i, j, no;
 	int result;
-	ocf_cache_mode_t mode;
 
 	OCF_CHECK_NULL(cache);
 
@@ -1856,9 +1855,10 @@ int ocf_mngt_cache_detach(ocf_cache_t cache)
 	if (!env_atomic_read(&cache->attached))
 		return -EINVAL;
 
-	/* temporarily switch to PT */
-	mode = cache->conf_meta->cache_mode;
-	result = _cache_mng_set_cache_mode(cache, ocf_cache_mode_pt, true);
+	/* prevent dirty io */
+	env_atomic_inc(&cache->flush_started);
+
+	result = ocf_mngt_cache_flush(cache, true);
 	if (result)
 		return result;
 
@@ -1867,10 +1867,7 @@ int ocf_mngt_cache_detach(ocf_cache_t cache)
 	env_waitqueue_wait(cache->pending_cache_wq,
 			!env_atomic_read(&cache->pending_cache_requests));
 
-	/* Restore original mode in metadata - it will be used when new
-	   cache device is attached. By this tume all requests are served
-	   in direct-to-core mode. */
-	cache->conf_meta->cache_mode = mode;
+	ENV_BUG_ON(env_atomic_dec_return(&cache->flush_started) < 0);
 
 	/* remove cacheline metadata and cleaning policy meta for all cores */
 	for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {

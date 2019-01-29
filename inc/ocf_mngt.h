@@ -543,8 +543,12 @@ struct ocf_mngt_io_class_config {
 	uint32_t max_size;
 };
 
+struct ocf_mngt_io_classes_config {
+	struct ocf_mngt_io_class_config config[OCF_IO_CLASS_MAX];
+};
+
 /**
- * @brief Configure IO class in given cache
+ * @brief Configure IO classes in given cache
  *
  * @param[in] cache Cache handle
  * @param[in] cfg IO class configuration
@@ -552,8 +556,8 @@ struct ocf_mngt_io_class_config {
  * @retval 0 Configuration have been set successfully
  * @retval Non-zero Error occurred and configuration not been set
  */
-int ocf_mngt_io_class_configure(ocf_cache_t cache,
-		const struct ocf_mngt_io_class_config *cfg);
+int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
+		const struct ocf_mngt_io_classes_config *cfg);
 
 /**
  * @brief Set core sequential cutoff threshold

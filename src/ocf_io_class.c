@@ -9,7 +9,7 @@
 #include "engine/cache_engine.h"
 #include "utils/utils_part.h"
 
-int ocf_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
+int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 		struct ocf_io_class_info *info)
 {
 	ocf_part_id_t part_id = io_class;

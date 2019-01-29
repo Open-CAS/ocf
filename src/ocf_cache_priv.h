@@ -194,6 +194,8 @@ struct ocf_cache {
 	struct ocf_core_meta_runtime *core_runtime_meta;
 
 	env_atomic flush_in_progress;
+
+	/* Prevent dirty requests. May be incremented recursively */
 	env_atomic flush_started;
 
 	/* 1 if cache device attached, 0 otherwise */
