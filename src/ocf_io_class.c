@@ -8,6 +8,7 @@
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
 #include "utils/utils_part.h"
+#include "utils/utils_core.h"
 
 int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 		struct ocf_io_class_info *info)
@@ -64,6 +65,35 @@ int ocf_io_class_visit(ocf_cache_t cache, ocf_io_class_visitor_t visitor,
 			continue;
 
 		result = visitor(cache, part_id, cntx);
+		if (result)
+			break;
+	}
+
+	return result;
+}
+
+int ocf_io_class_core_visit(ocf_cache_t cache, ocf_part_id_t part_id,
+		ocf_io_class_core_visitor_t visitor, void *cntx)
+{
+	ocf_core_id_t core_id;
+	int result = 0;
+
+	OCF_CHECK_NULL(cache);
+
+	if (!visitor)
+		return -OCF_ERR_INVAL;
+
+	if (part_id < OCF_IO_CLASS_ID_MIN || part_id > OCF_IO_CLASS_ID_MAX)
+		return -OCF_ERR_INVAL;
+
+	for_each_core(cache, core_id) {
+		if (!env_bit_test(core_id, cache->conf_meta->valid_object_bitmap))
+			continue;
+
+		if (!cache->core[core_id].opened)
+			continue;
+
+		result = visitor(&cache->core[core_id], part_id, cntx);
 		if (result)
 			break;
 	}

@@ -152,6 +152,25 @@ struct ocf_stats_errors {
 };
 
 /**
+ * @brief Block statistics for IO class
+ *
+ * An example of presenting statistics:
+ * <pre>
+ * ╔══════════════════╤═══════╤═══════╤═════════════╗
+ * ║ Block statistics │ Count │   %   │   Units     ║
+ * ╠══════════════════╪═══════╪═══════╪═════════════╣
+ * ║ Blocks reads     │   260 │ 100.0 │ 4KiB blocks ║
+ * ╟──────────────────┼───────┼───────┼─────────────╢
+ * ║ Blocks writes    │     0 │   0.0 │ 4KiB blocks ║
+ * ╚══════════════════╧═══════╧═══════╧═════════════╝
+ * </pre>
+ */
+struct ocf_stats_blocks_io_class {
+	struct ocf_stat rd;
+	struct ocf_stat wr;
+};
+
+/**
  * @param Collect statistics for given cache
  *
  * @param cache Cache instance for each statistics will be collected
@@ -186,5 +205,41 @@ int ocf_stats_collect_core(ocf_core_t core,
 		struct ocf_stats_requests *req,
 		struct ocf_stats_blocks *blocks,
 		struct ocf_stats_errors *errors);
+
+/**
+ * @param Collect io class statistics for given core
+ *
+ * @param core Core for each statistics will be collected
+ * @param io_class id of io class to which request pertains
+ * @param usage Usage statistics
+ * @param req Request statistics
+ * @param blocks Blocks statistics
+ *
+ * @retval 0 Success
+ * @retval Non-zero Error
+ */
+int ocf_stats_collect_io_class_core(ocf_core_t core,
+		ocf_part_id_t io_class,
+		struct ocf_stats_usage *usage,
+		struct ocf_stats_requests *req,
+		struct ocf_stats_blocks_io_class *blocks);
+
+/**
+ * @param Collect io class statistics for all cores
+ *
+ * @param cache Cache for each statistics will be collected
+ * @param io_class id of io class to which request pertains
+ * @param usage Usage statistics
+ * @param req Request statistics
+ * @param blocks Blocks statistics
+ *
+ * @retval 0 Success
+ * @retval Non-zero Error
+ */
+int ocf_stats_collect_io_class_core_all(ocf_cache_t cache,
+		ocf_part_id_t io_class,
+		struct ocf_stats_usage *usage,
+		struct ocf_stats_requests *req,
+		struct ocf_stats_blocks_io_class *blocks);
 
 #endif /* __OCF_STATS_BUILDER_H__ */
