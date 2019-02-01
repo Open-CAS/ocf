@@ -12,7 +12,7 @@ utility.
 * [Source Code](#source)
 * [Deployment](#deployment)
 * [Unit Tests](#tests)
-* [Unit Tests](#Demo Build)
+* [Demo Build](#build)
 * [Contributing](#contributing)
 
 <a id="documentation"></a>
@@ -70,7 +70,7 @@ To run unit tests use following command:
 ./tests/unit/framework/run_unit_tests.py
 ~~~
 
-<a id="Build"></a>
+<a id="build"></a>
 ## Demo Build
 
 OCF is shipped with some simple demo to compile and use OCF.  
