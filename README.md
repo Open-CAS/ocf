@@ -70,7 +70,7 @@ To run unit tests use following command:
 ./tests/unit/framework/run_unit_tests.py
 ~~~
 
-<a id="Build"></a>
+<a id="Demo Build"></a>
 ## Demo Build
 
 OCF is shipped with some simple demo to compile and use OCF.  
