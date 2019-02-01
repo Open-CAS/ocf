@@ -133,9 +133,8 @@ void set_cache_line_clean(struct ocf_cache *cache, uint8_t start_bit,
 			evict_policy_ops[evp_type].clean_cline(cache, part_id, line);
 
 		ocf_purge_cleaning_policy(cache, line);
+		ocf_metadata_flush_mark(cache, req, map_idx, CLEAN, start_bit, end_bit);
 	}
-
-	ocf_metadata_flush_mark(cache, req, map_idx, CLEAN, start_bit, end_bit);
 }
 
 void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
@@ -169,9 +168,9 @@ void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
 
 		if (likely(evict_policy_ops[evp_type].dirty_cline))
 			evict_policy_ops[evp_type].dirty_cline(cache, part_id, line);
+	
+		ocf_metadata_flush_mark(cache, req, map_idx, DIRTY, start_bit, end_bit);
 	}
 
 	ocf_cleaning_set_hot_cache_line(cache, line);
-
-	ocf_metadata_flush_mark(cache, req, map_idx, DIRTY, start_bit, end_bit);
 }
