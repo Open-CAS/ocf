@@ -117,7 +117,7 @@ void ocf_engine_update_req_info(struct ocf_cache *cache,
 			req->info.dirty_any++;
 
 			/* Check if cache line is fully dirty */
-			if (metadata_test_dirty_all(cache, _entry->coll_idx))
+			if (metadata_test_dirty_sec(cache, _entry->coll_idx, start_sector, end_sector))
 				req->info.dirty_all++;
 		}
 
