@@ -12,6 +12,7 @@ utility.
 * [Source Code](#source)
 * [Deployment](#deployment)
 * [Unit Tests](#tests)
+* [Unit Tests](#Demo Build)
 * [Contributing](#contributing)
 
 <a id="documentation"></a>
@@ -66,7 +67,18 @@ To run unit test you need to install following packages:
 To run unit tests use following command:
 
 ~~~{.sh}
-./tests/ut-framework/run_unit_tests.py
+./tests/unit/framework/run_unit_tests.py
+~~~
+
+<a id="Demo Build"></a>
+## Demo Build
+
+OCF is shipped with some simple demo to compile and use OCF.  
+You can try to build this demo to verify that you change can pass the compile.
+
+~~~{.sh}
+cd ./example/simple/
+make
 ~~~
 
 <a id="contributing"></a>
