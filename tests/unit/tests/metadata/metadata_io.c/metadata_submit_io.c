@@ -73,7 +73,7 @@ int __wrap_ocf_io_set_data(struct ocf_io *io, ctx_data_t *data,
 	return mock();
 }
 
-void __wrap_ocf_dobj_submit_io(struct ocf_io *io)
+void __wrap_ocf_volume_submit_io(struct ocf_io *io)
 {
 	function_called();
 }
@@ -175,7 +175,7 @@ static void metadata_submit_io_test03(void **state)
 
         expect_function_call(__wrap_env_atomic_inc);
 
-        expect_function_call(__wrap_ocf_dobj_submit_io);
+        expect_function_call(__wrap_ocf_volume_submit_io);
 
         result = metadata_submit_io(&cache, &mio, count, written);
 

@@ -45,18 +45,18 @@ static inline int ocf_io_overlaps(uint32_t start1, uint32_t count1,
 
 int ocf_submit_io_wait(struct ocf_io *io);
 
-int ocf_submit_obj_flush_wait(ocf_data_obj_t obj);
+int ocf_submit_volume_flush_wait(ocf_volume_t volume);
 
-int ocf_submit_obj_discard_wait(ocf_data_obj_t obj, uint64_t addr,
+int ocf_submit_volume_discard_wait(ocf_volume_t volume, uint64_t addr,
 		uint64_t length);
 
-int ocf_submit_write_zeroes_wait(ocf_data_obj_t obj, uint64_t addr,
+int ocf_submit_write_zeroes_wait(ocf_volume_t volume, uint64_t addr,
 		uint64_t length);
 
 int ocf_submit_cache_page(struct ocf_cache *cache, uint64_t addr,
 		int dir, void *buffer);
 
-void ocf_submit_obj_req(ocf_data_obj_t obj, struct ocf_request *req,
+void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 		ocf_req_end_t callback);
 
 
@@ -66,7 +66,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 
 static inline struct ocf_io *ocf_new_cache_io(struct ocf_cache *cache)
 {
-	return ocf_dobj_new_io(&cache->device->obj);
+	return ocf_volume_new_io(&cache->device->volume);
 }
 
 static inline struct ocf_io *ocf_new_core_io(struct ocf_cache *cache,
@@ -74,7 +74,7 @@ static inline struct ocf_io *ocf_new_core_io(struct ocf_cache *cache,
 {
 	ENV_BUG_ON(core_id >= OCF_CORE_MAX);
 
-	return ocf_dobj_new_io(&cache->core[core_id].obj);
+	return ocf_volume_new_io(&cache->core[core_id].volume);
 }
 
 #endif /* UTILS_IO_H_ */

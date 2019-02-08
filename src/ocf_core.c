@@ -15,26 +15,26 @@
 #include "ocf_request.h"
 #include "ocf_trace_priv.h"
 
-struct ocf_core_dobj {
+struct ocf_core_volume {
 	ocf_core_t core;
 };
 
 ocf_cache_t ocf_core_get_cache(ocf_core_t core)
 {
 	OCF_CHECK_NULL(core);
-	return core->obj.cache;
+	return core->volume.cache;
 }
 
-ocf_data_obj_t ocf_core_get_data_object(ocf_core_t core)
+ocf_volume_t ocf_core_get_volume(ocf_core_t core)
 {
 	OCF_CHECK_NULL(core);
-	return &core->obj;
+	return &core->volume;
 }
 
-ocf_data_obj_t ocf_core_get_front_data_object(ocf_core_t core)
+ocf_volume_t ocf_core_get_front_volume(ocf_core_t core)
 {
 	OCF_CHECK_NULL(core);
-	return &core->front_obj;
+	return &core->front_volume;
 }
 
 ocf_core_id_t ocf_core_get_id(ocf_core_t core)
@@ -44,7 +44,7 @@ ocf_core_id_t ocf_core_get_id(ocf_core_t core)
 
 	OCF_CHECK_NULL(core);
 
-	cache = core->obj.cache;
+	cache = core->volume.cache;
 	core_id = core - cache->core;
 
 	return core_id;
@@ -80,7 +80,7 @@ bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id)
 	if (id > OCF_CORE_ID_MAX || id < OCF_CORE_ID_MIN)
 		return false;
 
-	if (!env_bit_test(id, cache->conf_meta->valid_object_bitmap))
+	if (!env_bit_test(id, cache->conf_meta->valid_core_bitmap))
 		return false;
 
 	return true;
@@ -97,10 +97,10 @@ int ocf_core_get(ocf_cache_t cache, ocf_core_id_t id, ocf_core_t *core)
 	return 0;
 }
 
-int ocf_core_set_uuid(ocf_core_t core, const struct ocf_data_obj_uuid *uuid)
+int ocf_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
 {
 	struct ocf_cache *cache;
-	struct ocf_data_obj_uuid *current_uuid;
+	struct ocf_volume_uuid *current_uuid;
 	int result;
 	int diff;
 
@@ -108,8 +108,8 @@ int ocf_core_set_uuid(ocf_core_t core, const struct ocf_data_obj_uuid *uuid)
 	OCF_CHECK_NULL(uuid);
 	OCF_CHECK_NULL(uuid->data);
 
-	cache = core->obj.cache;
-	current_uuid = &ocf_core_get_data_object(core)->uuid;
+	cache = core->volume.cache;
+	current_uuid = &ocf_core_get_volume(core)->uuid;
 
 	result = env_memcmp(current_uuid->data, current_uuid->size,
 			uuid->data, uuid->size, &diff);
@@ -125,7 +125,7 @@ int ocf_core_set_uuid(ocf_core_t core, const struct ocf_data_obj_uuid *uuid)
 	if (result)
 		return result;
 
-	ocf_dobj_set_uuid(&core->obj, uuid);
+	ocf_volume_set_uuid(&core->volume, uuid);
 
 	result = ocf_metadata_flush_superblock(cache);
 	if (result) {
@@ -217,7 +217,7 @@ int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
 		return -OCF_ERR_INVAL;
 
 	for (id = 0; id < OCF_CORE_MAX; id++) {
-		if (!env_bit_test(id, cache->conf_meta->valid_object_bitmap))
+		if (!env_bit_test(id, cache->conf_meta->valid_core_bitmap))
 			continue;
 
 		if (only_opened && !cache->core[id].opened)
@@ -238,11 +238,11 @@ static inline struct ocf_core_io *ocf_io_to_core_io(struct ocf_io *io)
 	return ocf_io_get_priv(io);
 }
 
-static inline ocf_core_t ocf_data_obj_to_core(ocf_data_obj_t obj)
+static inline ocf_core_t ocf_volume_to_core(ocf_volume_t volume)
 {
-	struct ocf_core_dobj *core_dobj = ocf_dobj_get_priv(obj);
+	struct ocf_core_volume *core_volume = ocf_volume_get_priv(volume);
 
-	return core_dobj->core;
+	return core_volume->core;
 }
 
 static inline void inc_dirty_req_counter(struct ocf_core_io *core_io,
@@ -273,19 +273,19 @@ static inline void dec_counter_if_req_was_dirty(struct ocf_core_io *core_io,
 
 static inline int ocf_core_validate_io(struct ocf_io *io)
 {
-	ocf_core_t core = ocf_data_obj_to_core(io->obj);
+	ocf_core_t core = ocf_volume_to_core(io->volume);
 	ocf_cache_t cache = ocf_core_get_cache(core);
 
-	if (!io->obj)
+	if (!io->volume)
 		return -EINVAL;
 
 	if (!io->ops)
 		return -EINVAL;
 
-	if (io->addr >= ocf_dobj_get_length(io->obj))
+	if (io->addr >= ocf_volume_get_length(io->volume))
 		return -EINVAL;
 
-	if (io->addr + io->bytes > ocf_dobj_get_length(io->obj))
+	if (io->addr + io->bytes > ocf_volume_get_length(io->volume))
 		return -EINVAL;
 
 	if (io->io_class >= OCF_IO_CLASS_MAX)
@@ -336,7 +336,7 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 
 	core_io = ocf_io_to_core_io(io);
 
-	core = ocf_data_obj_to_core(io->obj);
+	core = ocf_volume_to_core(io->volume);
 	cache = ocf_core_get_cache(core);
 
 	ocf_trace_init_io(core_io, cache);
@@ -418,7 +418,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 
 	core_io = ocf_io_to_core_io(io);
 
-	core = ocf_data_obj_to_core(io->obj);
+	core = ocf_volume_to_core(io->volume);
 	cache = ocf_core_get_cache(core);
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
@@ -502,12 +502,12 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 	return -EIO;
 }
 
-static void ocf_core_data_obj_submit_io(struct ocf_io *io)
+static void ocf_core_volume_submit_io(struct ocf_io *io)
 {
 	ocf_core_submit_io_mode(io, ocf_cache_mode_none);
 }
 
-static void ocf_core_data_obj_submit_flush(struct ocf_io *io)
+static void ocf_core_volume_submit_flush(struct ocf_io *io)
 {
 	struct ocf_core_io *core_io;
 	ocf_core_t core;
@@ -524,7 +524,7 @@ static void ocf_core_data_obj_submit_flush(struct ocf_io *io)
 
 	core_io = ocf_io_to_core_io(io);
 
-	core = ocf_data_obj_to_core(io->obj);
+	core = ocf_volume_to_core(io->volume);
 	cache = ocf_core_get_cache(core);
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
@@ -550,7 +550,7 @@ static void ocf_core_data_obj_submit_flush(struct ocf_io *io)
 	ocf_engine_hndl_ops_req(core_io->req);
 }
 
-static void ocf_core_data_obj_submit_discard(struct ocf_io *io)
+static void ocf_core_volume_submit_discard(struct ocf_io *io)
 {
 	struct ocf_core_io *core_io;
 	ocf_core_t core;
@@ -567,7 +567,7 @@ static void ocf_core_data_obj_submit_discard(struct ocf_io *io)
 
 	core_io = ocf_io_to_core_io(io);
 
-	core = ocf_data_obj_to_core(io->obj);
+	core = ocf_volume_to_core(io->volume);
 	cache = ocf_core_get_cache(core);
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
@@ -593,35 +593,35 @@ static void ocf_core_data_obj_submit_discard(struct ocf_io *io)
 	ocf_engine_hndl_discard_req(core_io->req);
 }
 
-/* *** DATA OBJECT OPS *** */
+/* *** VOLUME OPS *** */
 
-static int ocf_core_data_obj_open(ocf_data_obj_t obj)
+static int ocf_core_volume_open(ocf_volume_t volume)
 {
-	struct ocf_core_dobj *core_dobj = ocf_dobj_get_priv(obj);
-	const struct ocf_data_obj_uuid *uuid = ocf_dobj_get_uuid(obj);
+	struct ocf_core_volume *core_volume = ocf_volume_get_priv(volume);
+	const struct ocf_volume_uuid *uuid = ocf_volume_get_uuid(volume);
 	ocf_core_t core = (ocf_core_t)uuid->data;
 
-	core_dobj->core = core;
+	core_volume->core = core;
 
 	return 0;
 }
 
-static void ocf_core_data_obj_close(ocf_data_obj_t obj)
+static void ocf_core_volume_close(ocf_volume_t volume)
 {
 }
 
-static unsigned int ocf_core_data_obj_get_max_io_size(ocf_data_obj_t obj)
+static unsigned int ocf_core_volume_get_max_io_size(ocf_volume_t volume)
 {
-	ocf_core_t core = ocf_data_obj_to_core(obj);
+	ocf_core_t core = ocf_volume_to_core(volume);
 
-	return ocf_dobj_get_max_io_size(&core->obj);
+	return ocf_volume_get_max_io_size(&core->volume);
 }
 
-static uint64_t ocf_core_data_obj_get_byte_length(ocf_data_obj_t obj)
+static uint64_t ocf_core_volume_get_byte_length(ocf_volume_t volume)
 {
-	ocf_core_t core = ocf_data_obj_to_core(obj);
+	ocf_core_t core = ocf_volume_to_core(volume);
 
-	return ocf_dobj_get_length(&core->obj);
+	return ocf_volume_get_length(&core->volume);
 }
 
 
@@ -653,23 +653,23 @@ static ctx_data_t *ocf_core_io_get_data(struct ocf_io *io)
 	return core_io->data;
 }
 
-const struct ocf_data_obj_properties ocf_core_data_obj_properties = {
+const struct ocf_volume_properties ocf_core_volume_properties = { 
 	.name = "OCF Core",
 	.io_priv_size = sizeof(struct ocf_core_io),
-	.dobj_priv_size = sizeof(struct ocf_core_dobj),
+	.volume_priv_size = sizeof(struct ocf_core_volume),
 	.caps = {
 		.atomic_writes = 0,
 	},
 	.ops = {
-		.submit_io = ocf_core_data_obj_submit_io,
-		.submit_flush = ocf_core_data_obj_submit_flush,
-		.submit_discard = ocf_core_data_obj_submit_discard,
+		.submit_io = ocf_core_volume_submit_io,
+		.submit_flush = ocf_core_volume_submit_flush,
+		.submit_discard = ocf_core_volume_submit_discard,
 		.submit_metadata = NULL,
 
-		.open = ocf_core_data_obj_open,
-		.close = ocf_core_data_obj_close,
-		.get_max_io_size = ocf_core_data_obj_get_max_io_size,
-		.get_length = ocf_core_data_obj_get_byte_length,
+		.open = ocf_core_volume_open,
+		.close = ocf_core_volume_close,
+		.get_max_io_size = ocf_core_volume_get_max_io_size,
+		.get_length = ocf_core_volume_get_byte_length,
 	},
 	.io_ops = {
 		.set_data = ocf_core_io_set_data,
@@ -677,13 +677,13 @@ const struct ocf_data_obj_properties ocf_core_data_obj_properties = {
 	},
 };
 
-int ocf_core_data_obj_type_init(ocf_ctx_t ctx)
+int ocf_core_volume_type_init(ocf_ctx_t ctx)
 {
-	return ocf_ctx_register_data_obj_type(ctx, 0,
-			&ocf_core_data_obj_properties);
+	return ocf_ctx_register_volume_type(ctx, 0,
+			&ocf_core_volume_properties);
 }
 
-void ocf_core_data_obj_type_deinit(ocf_ctx_t ctx)
+void ocf_core_volume_type_deinit(ocf_ctx_t ctx)
 {
-	ocf_ctx_unregister_data_obj_type(ctx, 0);
+	ocf_ctx_unregister_volume_type(ctx, 0);
 }

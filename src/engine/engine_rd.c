@@ -128,7 +128,7 @@ static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
 		goto err_alloc;
 
 	/* Submit read request to core device. */
-	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
+	ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
 			_ocf_read_generic_miss_complete);
 
 	return;

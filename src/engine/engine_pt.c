@@ -50,7 +50,7 @@ static inline void _ocf_read_pt_submit(struct ocf_request *req)
 	OCF_DEBUG_RQ(req, "Submit");
 
 	/* Core read */
-	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
+	ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
 			_ocf_read_pt_complete);
 }
 

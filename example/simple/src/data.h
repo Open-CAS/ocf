@@ -6,7 +6,7 @@
 #ifndef __DATA_H__
 #define __DATA_H__
 
-struct dobj_data {
+struct volume_data {
 	void *ptr;
 	int offset;
 };

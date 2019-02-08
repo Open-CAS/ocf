@@ -5,7 +5,7 @@
 
 #include "ocf/ocf.h"
 #include "ocf_io_priv.h"
-#include "ocf_data_obj_priv.h"
+#include "ocf_volume_priv.h"
 
 /*
  * This is io allocator dedicated for bottom devices.
@@ -48,13 +48,13 @@ void *ocf_io_get_meta(struct ocf_io* io)
 	return (void *)io - sizeof(struct ocf_io_meta);
 }
 
-struct ocf_io *ocf_io_new(ocf_data_obj_t obj)
+struct ocf_io *ocf_io_new(ocf_volume_t volume)
 {
 	struct ocf_io *io;
 	struct ocf_io_meta *io_meta;
 	void *data;
 
-	data = env_allocator_new(obj->type->allocator);
+	data = env_allocator_new(volume->type->allocator);
 	if (!data)
 		return NULL;
 
@@ -62,8 +62,8 @@ struct ocf_io *ocf_io_new(ocf_data_obj_t obj)
 
 	io_meta = ocf_io_get_meta(io);
 
-	io->obj = obj;
-	io->ops = &obj->type->properties->io_ops;
+	io->volume = volume;
+	io->ops = &volume->type->properties->io_ops;
 	env_atomic_set(&io_meta->ref_count, 1);	
 
 	return io;
@@ -92,6 +92,6 @@ void ocf_io_put(struct ocf_io *io)
 	if (env_atomic_dec_return(&io_meta->ref_count))
 		return;
 
-	env_allocator_del(io->obj->type->allocator,
+	env_allocator_del(io->volume->type->allocator,
 			(void *)io - sizeof(struct ocf_io_meta));
 }

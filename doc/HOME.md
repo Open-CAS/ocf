@@ -19,7 +19,7 @@ For this usage model OCF comes with following adaptation layers:
 cache volume representing primary storage device. Application can
 read/write from/to the cache volume block device as to regular primary
 storage device.
-- <b>Block device data object (bottom adapter)</b> - is responsible for issuing
+- <b>Block device volume (bottom adapter)</b> - is responsible for issuing
 IO operations to underlying block device.
 
 A system administrator can manage cache instances via Intel CAS CLI management
@@ -31,7 +31,7 @@ Another example of OCF usage is user space block level cache for QEMU
 (see picture below). In this example following adaptation layers may exist:
 - <b>CAS virtIO-blk driver for QEMU (top adapter)</b> - it exposes
 primary storage device (another virtIO driver) to guest OS via OCF library
-- <b>virtIO-blk data object (bottom adapter)</b> - enables OCF to access
+- <b>virtIO-blk volume (bottom adapter)</b> - enables OCF to access
 data on primary storage device or cache device via original virtIO driver
 
 Please note that actual adapters depend on the environment where OCF is
@@ -55,7 +55,7 @@ For more details please see below examples:
 
 OCF enables possibility use it simultaneously from two independent libraries linked
 into the same executable by means of concept of contexts. Each context has its own
-set of operations which allow to handle specific data types used by data objects
+set of operations which allow to handle specific data types used by volumes
 within this context.
 
 ```c
@@ -69,21 +69,21 @@ const struct ocf_ctx_ops ctx_ops = {
 /* Fill your interface functions */
 };
 
-/* Your unique data object type IDs */
-enum my_data_obj_type {
-	my_data_obj_type_1,
-	my_data_obj_type_2
+/* Your unique volume type IDs */
+enum my_volume_type {
+	my_volume_type_1,
+	my_volume_type_2
 };
 
-/* Your data objects interface declaration */
-const struct ocf_data_obj_ops my_data_obj_ops1 = {
-	.name = "My data object 1",
-	/* Fill your data object interface functions */
+/* Your volumes interface declaration */
+const struct ocf_volume_ops my_volume_ops1 = {
+	.name = "My volume 1",
+	/* Fill your volume interface functions */
 };
 
-const struct ocf_data_obj_ops my_data_obj_ops2 = {
-	.name = "My data object 2"
-	/* Fill your data object interface functions */
+const struct ocf_volume_ops my_volume_ops2 = {
+	.name = "My volume 2"
+	/* Fill your volume interface functions */
 };
 
 int my_cache_init(void)
@@ -97,18 +97,18 @@ int my_cache_init(void)
 	}
 	/* Initialization successful */
 
-	/* Now we can register data objects */
-	result |= ocf_ctx_register_data_obj_ops(ctx, &my_data_obj_ops1,
-			my_data_obj_type_1);
+	/* Now we can register volumes */
+	result |= ocf_ctx_register_volume_ops(ctx, &my_volume_ops1,
+			my_volume_type_1);
 	if (result) {
-		/* Cannot register data object interface */
+		/* Cannot register volume interface */
 		goto err;
 	}
 
-	result |= ocf_ctx_register_data_obj_ops(ctx, &my_data_obj_ops2,
-			my_data_obj_type_2);
+	result |= ocf_ctx_register_volume_ops(ctx, &my_volume_ops2,
+			my_volume_type_2);
 	if (result) {
-		/* Cannot register data object interface */
+		/* Cannot register volume interface */
 		goto err;
 	}
 
@@ -141,8 +141,8 @@ cfg.init_mode = ocf_init_mode_init;
 
 cfg.uuid.data = "/path/to/your/cache/or/unique/id";
 
-/* Specify cache data object type */
-cfg.data_obj_type = my_data_obj_type_1;
+/* Specify cache volume type */
+cfg.volume_type = my_volume_type_1;
 
 /* Other cache configuration */
 ...
@@ -162,8 +162,8 @@ struct ocf_mngt_core_config cfg; /* Your core configuration */
 
 /* Prepare core configuration */
 
-/* Select core data object type */
-cfg.data_obj_type = my_data_obj_type_2;
+/* Select core volume type */
+cfg.volume_type = my_volume_type_2;
 /* Set UUID or path of your core */
 cfg.uuid.data = "/path/to/your/core/or/unique/id";
 

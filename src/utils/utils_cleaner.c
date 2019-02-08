@@ -277,7 +277,7 @@ static int _ocf_cleaner_fire_flush_cache(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	io = ocf_dobj_new_io(&req->cache->device->obj);
+	io = ocf_volume_new_io(&req->cache->device->volume);
 	if (!io) {
 		ocf_metadata_error(req->cache);
 		req->error = -ENOMEM;
@@ -287,7 +287,7 @@ static int _ocf_cleaner_fire_flush_cache(struct ocf_request *req)
 	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
 	ocf_io_set_cmpl(io, req, NULL, _ocf_cleaner_flush_cache_io_end);
 
-	ocf_dobj_submit_flush(io);
+	ocf_volume_submit_flush(io);
 
 	return 0;
 }
@@ -432,7 +432,7 @@ static int _ocf_cleaner_fire_flush_cores(struct ocf_request *req)
 		ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
 		ocf_io_set_cmpl(io, iter, req, _ocf_cleaner_flush_cores_io_cmpl);
 
-		ocf_dobj_submit_flush(io);
+		ocf_volume_submit_flush(io);
 	}
 
 	/* Protect IO completion race */
@@ -519,7 +519,7 @@ static void _ocf_cleaner_core_io_for_dirty_range(struct ocf_request *req,
 	env_atomic_inc(&req->req_remaining);
 
 	/* Send IO */
-	ocf_dobj_submit_io(io);
+	ocf_volume_submit_io(io);
 
 	return;
 error:
@@ -695,7 +695,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 
 		env_atomic64_add(ocf_line_size(cache), &cache_stats->read_bytes);
 
-		ocf_dobj_submit_io(io);
+		ocf_volume_submit_io(io);
 	}
 
 	/* Protect IO completion race */

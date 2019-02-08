@@ -13,7 +13,7 @@
  */
 
 #include "ocf_types.h"
-#include "ocf_data_obj.h"
+#include "ocf_volume.h"
 #include "ocf_ctx.h"
 #include "ocf_def.h"
 
@@ -24,8 +24,8 @@ struct ocf_cache_info {
 	bool attached;
 		/*!< True if caching cache is attached to cache */
 
-	uint8_t data_obj_type;
-		/*!< Cache data object type */
+	uint8_t volume_type;
+		/*!< Cache volume type */
 
 	uint32_t size;
 		/*!< Actual cache size (in cache lines) */
@@ -92,13 +92,13 @@ struct ocf_cache_info {
 };
 
 /**
- * @brief Obtain data object from cache
+ * @brief Obtain volume from cache
  *
  * @param[in] cache Cache object
  *
- * @retval Data object, NULL if dettached.
+ * @retval Volume, NULL if dettached.
  */
-ocf_data_obj_t ocf_cache_get_data_object(ocf_cache_t cache);
+ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache);
 
 /**
  * @brief Get ID of given cache object
@@ -221,13 +221,13 @@ uint32_t ocf_cache_get_core_count(ocf_cache_t cache);
 int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info);
 
 /**
- * @brief Get UUID of data object associated with cache
+ * @brief Get UUID of volume associated with cache
  *
  * @param[in] cache Cache object
  *
- * @retval Data object UUID, NULL if detached.
+ * @retval Volume UUID, NULL if detached.
  */
-const struct ocf_data_obj_uuid *ocf_cache_get_uuid(ocf_cache_t cache);
+const struct ocf_volume_uuid *ocf_cache_get_uuid(ocf_cache_t cache);
 
 /**
  * @brief Get OCF context of given cache object
@@ -239,12 +239,30 @@ const struct ocf_data_obj_uuid *ocf_cache_get_uuid(ocf_cache_t cache);
 ocf_ctx_t ocf_cache_get_ctx(ocf_cache_t cache);
 
 /**
- * @brief Get data object type id of given cache object
+ * @brief Get volume type id of given cache object
  *
  * @param[in] cache Cache object
  *
- * @retval data object type id, -1 if device detached
+ * @retval volume type id, -1 if device detached
  */
 uint8_t ocf_cache_get_type_id(ocf_cache_t cache);
+
+/**
+ * @brief Set cache private data
+ *
+ * @param[in] cache Cache object
+ * @param[in] priv Private data
+ */
+void ocf_cache_set_priv(ocf_cache_t cache, void *priv);
+
+/**
+ * @brief Get cache private data
+ *
+ * @param[in] cache Cache object
+ *
+ * @retval Private data
+ */
+void *ocf_cache_get_priv(ocf_cache_t cache);
+
 
 #endif /* __OCF_CACHE_H__ */

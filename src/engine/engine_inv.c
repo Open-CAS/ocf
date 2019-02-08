@@ -50,7 +50,7 @@ static int _ocf_invalidate_do(struct ocf_request *req)
 
 	env_atomic_inc(&req->req_remaining);
 
-	if (ocf_dobj_is_atomic(&cache->device->obj) &&
+	if (ocf_volume_is_atomic(&cache->device->volume) &&
 			req->info.flush_metadata) {
 		/* Metadata flush IO */
 		ocf_metadata_flush_do_asynch(cache, req, _ocf_invalidate_req);

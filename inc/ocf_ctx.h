@@ -12,7 +12,7 @@
  */
 
 #include "ocf_types.h"
-#include "ocf_data_obj.h"
+#include "ocf_volume.h"
 #include "ocf_logger.h"
 
 /**
@@ -268,65 +268,65 @@ struct ocf_ctx_config {
 };
 
 /**
- * @brief Register data object interface
+ * @brief Register volume interface
  *
- * @note Type of data object operations is unique and cannot be repeated.
+ * @note Type of volume operations is unique and cannot be repeated.
  *
  * @param[in] ctx OCF context
- * @param[in] properties Reference to data object properties
- * @param[in] type_id Type id of data object operations
+ * @param[in] properties Reference to volume properties
+ * @param[in] type_id Type id of volume operations
  *
- * @retval 0 Data object operations registered successfully
- * @retval Non-zero Data object registration failure
+ * @retval 0 Volume operations registered successfully
+ * @retval Non-zero Volume registration failure
  */
-int ocf_ctx_register_data_obj_type(ocf_ctx_t ctx, uint8_t type_id,
-		const struct ocf_data_obj_properties *properties);
+int ocf_ctx_register_volume_type(ocf_ctx_t ctx, uint8_t type_id,
+		const struct ocf_volume_properties *properties);
 
 /**
- * @brief Unregister data object interface
+ * @brief Unregister volume interface
  *
  * @param[in] ctx OCF context
- * @param[in] type_id Type id of data object operations
+ * @param[in] type_id Type id of volume operations
  */
-void ocf_ctx_unregister_data_obj_type(ocf_ctx_t ctx, uint8_t type_id);
+void ocf_ctx_unregister_volume_type(ocf_ctx_t ctx, uint8_t type_id);
 
 /**
- * @brief Get data object type operations by type id
+ * @brief Get volume type operations by type id
  *
  * @param[in] ctx OCF context
- * @param[in] type_id Type id of data object operations which were registered
+ * @param[in] type_id Type id of volume operations which were registered
  *
- * @return Data object type
- * @retval NULL When data object operations were not registered
+ * @return Volume type
+ * @retval NULL When volume operations were not registered
  * for requested type
  */
-ocf_data_obj_type_t ocf_ctx_get_data_obj_type(ocf_ctx_t ctx, uint8_t type_id);
+ocf_volume_type_t ocf_ctx_get_volume_type(ocf_ctx_t ctx, uint8_t type_id);
 
 /**
- * @brief Get data object type id by type
+ * @brief Get volume type id by type
  *
  * @param[in] ctx OCF context
- * @param[in] type Type of data object operations which were registered
+ * @param[in] type Type of volume operations which were registered
  *
- * @return Data object type id
- * @retval -1 When data object operations were not registered
+ * @return Volume type id
+ * @retval -1 When volume operations were not registered
  * for requested type
  */
-int ocf_ctx_get_data_obj_type_id(ocf_ctx_t ctx, ocf_data_obj_type_t type);
+int ocf_ctx_get_volume_type_id(ocf_ctx_t ctx, ocf_volume_type_t type);
 
 /**
- * @brief Create data object of given type
+ * @brief Create volume of given type
  *
  * @param[in] ctx handle to object designating ocf context
- * @param[out] obj data object handle
- * @param[in] uuid OCF data object UUID
- * @param[in] type_id cache/core object type id
+ * @param[out] volume volume handle
+ * @param[in] uuid OCF volume UUID
+ * @param[in] type_id cache/core volume type id
  *
  * @return Zero when success, othewise en error
  */
 
-int ocf_ctx_data_obj_create(ocf_ctx_t ctx, ocf_data_obj_t *obj,
-		struct ocf_data_obj_uuid *uuid, uint8_t type_id);
+int ocf_ctx_volume_create(ocf_ctx_t ctx, ocf_volume_t *volume,
+		struct ocf_volume_uuid *uuid, uint8_t type_id);
 
 /**
  * @brief Initialize OCF context

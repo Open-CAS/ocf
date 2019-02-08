@@ -111,7 +111,7 @@ static int _ocf_write_wi_do(struct ocf_request *req)
 	OCF_DEBUG_RQ(req, "Submit");
 
 	/* Submit write IO to the core */
-	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
+	ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
 			   _ocf_write_wi_core_complete);
 
 	/* Update statistics */

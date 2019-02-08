@@ -54,23 +54,23 @@ struct ocf_core;
  */
 typedef struct ocf_core *ocf_core_t;
 
-struct ocf_data_obj;
+struct ocf_volume;
 /**
- * @brief handle to object designating ocf data object
+ * @brief handle to object designating ocf volume
  */
-typedef struct ocf_data_obj *ocf_data_obj_t;
+typedef struct ocf_volume *ocf_volume_t;
 
 
-struct ocf_data_obj_type;
+struct ocf_volume_type;
 /**
- * @brief handle to data object type
+ * @brief handle to volume type
  */
-typedef const struct ocf_data_obj_type *ocf_data_obj_type_t;
+typedef const struct ocf_volume_type *ocf_volume_type_t;
 
 /**
- * @brief handle to data object uuid
+ * @brief handle to volume uuid
  */
-typedef struct ocf_data_obj_uuid *ocf_uuid_t;
+typedef struct ocf_volume_uuid *ocf_uuid_t;
 
 /**
  * @brief handle to object designating ocf context object

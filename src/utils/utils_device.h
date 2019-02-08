@@ -6,7 +6,7 @@
 #ifndef UTILS_DEVICE_H_
 #define UTILS_DEVICE_H_
 
-static inline int _ocf_uuid_set(const struct ocf_data_obj_uuid *uuid,
+static inline int _ocf_uuid_set(const struct ocf_volume_uuid *uuid,
 		struct ocf_metadata_uuid *muuid)
 {
 	int result;
@@ -36,8 +36,8 @@ static inline int _ocf_uuid_set(const struct ocf_data_obj_uuid *uuid,
 }
 
 static inline int ocf_metadata_set_core_uuid(ocf_core_t core,
-		const struct ocf_data_obj_uuid *uuid,
-		struct ocf_data_obj_uuid *new_uuid)
+		const struct ocf_volume_uuid *uuid,
+		struct ocf_volume_uuid *new_uuid)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	struct ocf_metadata_uuid *muuid = ocf_metadata_get_core_uuid(cache,
@@ -56,7 +56,7 @@ static inline int ocf_metadata_set_core_uuid(ocf_core_t core,
 
 static inline void ocf_metadata_clear_core_uuid(ocf_core_t core)
 {
-	struct ocf_data_obj_uuid uuid = { .size = 0, };
+	struct ocf_volume_uuid uuid = { .size = 0, };
 
 	ocf_metadata_set_core_uuid(core, &uuid, NULL);
 }

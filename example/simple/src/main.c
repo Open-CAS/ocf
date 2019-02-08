@@ -36,8 +36,8 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	cache_cfg.io_queues = 1;
 	cache_cfg.name = "cache1";
 
-	/* Cache deivce (data object) configuration */
-	device_cfg.data_obj_type = OBJ_TYPE;
+	/* Cache deivce (volume) configuration */
+	device_cfg.volume_type = VOL_TYPE;
 	device_cfg.cache_line_size = ocf_cache_line_size_4;
 	ret = ocf_uuid_set_str(&device_cfg.uuid, "cache");
 	if (ret)
@@ -48,7 +48,7 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	if (ret)
 		return ret;
 
-	/* Attach data object to cache */
+	/* Attach volume to cache */
 	ret = ocf_mngt_cache_attach(*cache, &device_cfg);
 	if (ret) {
 		ocf_mngt_cache_stop(*cache);
@@ -67,7 +67,7 @@ int initialize_core(ocf_cache_t cache, ocf_core_t *core)
 	int ret;
 
 	/* Core configuration */
-	core_cfg.data_obj_type = OBJ_TYPE;
+	core_cfg.volume_type = VOL_TYPE;
 	core_cfg.name = "core1";
 	ret = ocf_uuid_set_str(&core_cfg.uuid, "core");
 	if (ret)
@@ -82,7 +82,7 @@ int initialize_core(ocf_cache_t cache, ocf_core_t *core)
  */
 void complete_write(struct ocf_io *io, int error)
 {
-	struct dobj_data *data = ocf_io_get_data(io);
+	struct volume_data *data = ocf_io_get_data(io);
 
 	printf("WRITE COMPLETE: (error: %d)\n", error);
 
@@ -96,7 +96,7 @@ void complete_write(struct ocf_io *io, int error)
  */
 void complete_read(struct ocf_io *io, int error)
 {
-	struct dobj_data *data = ocf_io_get_data(io);
+	struct volume_data *data = ocf_io_get_data(io);
 
 	printf("WRITE COMPLETE (error: %d)\n", error);
 	printf("DATA: \"%s\"\n", (char *)data->ptr);
@@ -109,7 +109,7 @@ void complete_read(struct ocf_io *io, int error)
 /*
  * Wrapper function for io submition.
  */
-int submit_io(ocf_core_t core, struct dobj_data *data,
+int submit_io(ocf_core_t core, struct volume_data *data,
 		uint64_t addr, uint64_t len, int dir, ocf_end_io_t cmpl)
 {
 	struct ocf_io *io;
@@ -154,7 +154,7 @@ int submit_io(ocf_core_t core, struct dobj_data *data,
  */
 void perform_workload(ocf_core_t core)
 {
-	struct dobj_data *data1, *data2;
+	struct volume_data *data1, *data2;
 
 	/* Allocate data buffer and fill it with example data */
 	data1 = ctx_data_alloc(1);

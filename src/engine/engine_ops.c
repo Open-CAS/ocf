@@ -48,7 +48,7 @@ int ocf_engine_ops(struct ocf_request *req)
 	env_atomic_set(&req->req_remaining, 2);
 
 	/* Submit operation into core device */
-	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
+	ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
 			_ocf_engine_ops_complete);
 
 	ocf_submit_cache_reqs(cache, req->map, req, req->rw,

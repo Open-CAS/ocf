@@ -7,7 +7,7 @@
 #include <ocf/ocf.h>
 #include "ocf_env.h"
 #include "data.h"
-#include "dobj.h"
+#include "volume.h"
 #include "ctx.h"
 
 #define PAGE_SIZE 4096
@@ -17,7 +17,7 @@
  */
 ctx_data_t *ctx_data_alloc(uint32_t pages)
 {
-	struct dobj_data *data;
+	struct volume_data *data;
 
 	data = malloc(sizeof(*data));
 	data->ptr = malloc(pages * PAGE_SIZE);
@@ -31,7 +31,7 @@ ctx_data_t *ctx_data_alloc(uint32_t pages)
  */
 void ctx_data_free(ctx_data_t *ctx_data)
 {
-	struct dobj_data *data = ctx_data;
+	struct volume_data *data = ctx_data;
 
 	if (!data)
 		return;
@@ -61,7 +61,7 @@ static void ctx_data_munlock(ctx_data_t *ctx_data)
  */
 static uint32_t ctx_data_read(void *dst, ctx_data_t *src, uint32_t size)
 {
-	struct dobj_data *data = src;
+	struct volume_data *data = src;
 
 	memcpy(dst, data->ptr + data->offset, size);
 
@@ -73,7 +73,7 @@ static uint32_t ctx_data_read(void *dst, ctx_data_t *src, uint32_t size)
  */
 static uint32_t ctx_data_write(ctx_data_t *dst, const void *src, uint32_t size)
 {
-	struct dobj_data *data = dst;
+	struct volume_data *data = dst;
 
 	memcpy(data->ptr + data->offset, src, size);
 
@@ -85,7 +85,7 @@ static uint32_t ctx_data_write(ctx_data_t *dst, const void *src, uint32_t size)
  */
 static uint32_t ctx_data_zero(ctx_data_t *dst, uint32_t size)
 {
-	struct dobj_data *data = dst;
+	struct volume_data *data = dst;
 
 	memset(data->ptr + data->offset, 0, size);
 
@@ -98,7 +98,7 @@ static uint32_t ctx_data_zero(ctx_data_t *dst, uint32_t size)
 static uint32_t ctx_data_seek(ctx_data_t *dst, ctx_data_seek_t seek,
 		uint32_t offset)
 {
-	struct dobj_data *data = dst;
+	struct volume_data *data = dst;
 
 	switch (seek) {
 	case ctx_data_seek_begin:
@@ -118,8 +118,8 @@ static uint32_t ctx_data_seek(ctx_data_t *dst, ctx_data_seek_t seek,
 static uint64_t ctx_data_copy(ctx_data_t *dst, ctx_data_t *src,
 		uint64_t to, uint64_t from, uint64_t bytes)
 {
-	struct dobj_data *data_dst = dst;
-	struct dobj_data *data_src = src;
+	struct volume_data *data_dst = dst;
+	struct volume_data *data_src = src;
 
 	memcpy(data_dst->ptr + to, data_src->ptr + from, bytes);
 
@@ -308,7 +308,7 @@ static const struct ocf_ctx_config ctx_cfg = {
 
 /*
  * Function initializing context. Prepares context, sets logger and
- * registers data object type.
+ * registers volume type.
  */
 int ctx_init(ocf_ctx_t *ctx)
 {
@@ -318,7 +318,7 @@ int ctx_init(ocf_ctx_t *ctx)
 	if (ret)
 		return ret;
 
-	ret = dobj_init(*ctx);
+	ret = volume_init(*ctx);
 	if (ret) {
 		ocf_ctx_exit(*ctx);
 		return ret;
@@ -328,11 +328,11 @@ int ctx_init(ocf_ctx_t *ctx)
 }
 
 /*
- * Function cleaning up context. Unregisters data object type and
+ * Function cleaning up context. Unregisters volume type and
  * deinitializes context.
  */
 void ctx_cleanup(ocf_ctx_t ctx)
 {
-	dobj_cleanup(ctx);
+	volume_cleanup(ctx);
 	ocf_ctx_exit(ctx);
 }

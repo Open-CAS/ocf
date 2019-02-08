@@ -8,7 +8,7 @@
 
 #include "ocf/ocf.h"
 #include "ocf_env.h"
-#include "ocf_data_obj_priv.h"
+#include "ocf_volume_priv.h"
 #include "ocf_core_priv.h"
 #include "metadata/metadata_structs.h"
 #include "metadata/metadata_partition_structs.h"
@@ -37,7 +37,7 @@ struct ocf_trace {
 
 struct ocf_metadata_uuid {
 	uint32_t size;
-	uint8_t data[OCF_DATA_OBJ_UUID_MAX_SIZE];
+	uint8_t data[OCF_VOLUME_UUID_MAX_SIZE];
 } __packed;
 
 #define OCF_CORE_USER_DATA_SIZE 64
@@ -111,7 +111,7 @@ enum ocf_mngt_cache_init_mode {
 
 /* Cache device */
 struct ocf_cache_device {
-	struct ocf_data_obj obj;
+	struct ocf_volume volume;
 
 	ocf_cache_line_t metadata_offset_line;
 
@@ -226,6 +226,8 @@ struct ocf_cache {
 	void *cleaning_policy_context;
 
 	struct ocf_trace trace;
+
+	void *priv;
 };
 
 #define ocf_cache_log_prefix(cache, lvl, prefix, fmt, ...) \

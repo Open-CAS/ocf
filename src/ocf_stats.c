@@ -97,7 +97,7 @@ void ocf_core_stats_initialize_all(ocf_cache_t cache)
 	ocf_core_id_t id;
 
 	for (id = 0; id < OCF_CORE_MAX; id++) {
-		if (!env_bit_test(id, cache->conf_meta->valid_object_bitmap))
+		if (!env_bit_test(id, cache->conf_meta->valid_core_bitmap))
 			continue;
 
 		ocf_core_stats_initialize(&cache->core[id]);
@@ -234,8 +234,8 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 
 	ENV_BUG_ON(env_memset(stats, sizeof(*stats), 0));
 
-	stats->core_size_bytes = ocf_dobj_get_length(
-			&cache->core[core_id].obj);
+	stats->core_size_bytes = ocf_volume_get_length(
+			&cache->core[core_id].volume);
 	stats->core_size = ocf_bytes_2_lines_round_up(cache,
 			stats->core_size_bytes);
 	stats->seq_cutoff_threshold = ocf_core_get_seq_cutoff_threshold(core);
@@ -244,8 +244,8 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 
 	env_atomic_read(&cache->core_runtime_meta[core_id].cached_clines);
 
-	copy_block_stats(&stats->core_obj, &core_stats->core_blocks);
-	copy_block_stats(&stats->cache_obj, &core_stats->cache_blocks);
+	copy_block_stats(&stats->core_volume, &core_stats->core_blocks);
+	copy_block_stats(&stats->cache_volume, &core_stats->cache_blocks);
 
 	copy_error_stats(&stats->core_errors,
 			&core_stats->core_errors);

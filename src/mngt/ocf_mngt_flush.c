@@ -159,7 +159,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	}
 
 	for (i = 0, j = 0; i < OCF_CORE_MAX; i++) {
-		if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
+		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 			continue;
 
 		fc[j].core_id = i;
@@ -374,7 +374,7 @@ static int _ocf_mngt_flush_containers(ocf_cache_t cache,
 static int _ocf_mngt_flush_core(ocf_core_t core, bool allow_interruption)
 {
 	ocf_core_id_t core_id = ocf_core_get_id(core);
-	ocf_cache_t cache = core->obj.cache;
+	ocf_cache_t cache = core->volume.cache;
 	struct flush_container fc;
 	int ret;
 
@@ -450,7 +450,7 @@ static int _ocf_mng_cache_flush(ocf_cache_t cache, bool interruption)
 
 	env_atomic_set(&cache->flush_in_progress, 0);
 	for (i = 0, j = 0; i < OCF_CORE_MAX; i++) {
-		if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
+		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 			continue;
 
 		env_atomic_set(&cache->core[i].flushed, 0);
@@ -563,7 +563,7 @@ int ocf_mngt_core_purge(ocf_core_t core, bool interruption)
 	cache = ocf_core_get_cache(core);
 	core_id = ocf_core_get_id(core);
 
-	core_size = ocf_dobj_get_length(&cache->core[core_id].obj);
+	core_size = ocf_volume_get_length(&cache->core[core_id].volume);
 	core_size = core_size ?: ~0ULL;
 
 	_ocf_mngt_begin_flush(cache);

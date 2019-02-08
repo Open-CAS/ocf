@@ -48,7 +48,7 @@ int ocf_io_d2c(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	ocf_submit_obj_req(&core->obj, req, _ocf_d2c_completion);
+	ocf_submit_volume_req(&core->volume, req, _ocf_d2c_completion);
 
 	ocf_engine_update_block_stats(req);
 

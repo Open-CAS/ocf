@@ -28,8 +28,8 @@ static int _ocf_core_desc(ocf_core_t core, void  *ctx)
 			env_ticks_to_nsecs(env_get_tick_count()),
 			sizeof(core_desc));
 	core_desc.id = ocf_core_get_id(core);
-	core_desc.core_size = ocf_dobj_get_length(
-			ocf_core_get_data_object(core));
+	core_desc.core_size = ocf_volume_get_length(
+			ocf_core_get_volume(core));
 
 	ocf_trace_push(cache, visitor_ctx->io_queue,
 			&core_desc, sizeof(core_desc));
@@ -54,8 +54,8 @@ static int _ocf_trace_cache_info(ocf_cache_t cache, uint32_t io_queue)
 
 	if (ocf_cache_is_device_attached(cache)) {
 		/* Attached cache */
-		cache_desc.cache_size = ocf_dobj_get_length(
-				ocf_cache_get_data_object(cache));
+		cache_desc.cache_size = ocf_volume_get_length(
+				ocf_cache_get_volume(cache));
 	} else {
 		cache_desc.cache_size = 0;
 	}

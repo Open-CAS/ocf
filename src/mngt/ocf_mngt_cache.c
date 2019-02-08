@@ -102,11 +102,11 @@ struct ocf_cachemng_attach_params {
 	struct ocf_cache *cache;
 		/*!< cache that is being initialized */
 
-	struct ocf_data_obj_uuid uuid;
-		/*!< Caching device data object UUID */
+	struct ocf_volume_uuid uuid;
+		/*!< Caching device volume UUID */
 
 	uint8_t device_type;
-		/*!< data object (block device) type */
+		/*!< volume (block device) type */
 
 	uint64_t device_size;
 		/*!< size of the device in cache lines */
@@ -131,14 +131,14 @@ struct ocf_cachemng_attach_params {
 		bool device_alloc : 1;
 			/*!< data structure allocated */
 
-		bool data_obj_inited : 1;
+		bool volume_inited : 1;
 			/*!< uuid for cache device is allocated */
 
 		bool attached_metadata_inited : 1;
 			/*!< attached metadata sections initialized */
 
 		bool device_opened : 1;
-			/*!< underlying device object is open */
+			/*!< underlying device volume is open */
 
 		bool cleaner_started : 1;
 			/*!< Cleaner has been started */
@@ -275,8 +275,8 @@ static void __init_cores(struct ocf_cache *cache)
 {
 	/* No core devices yet */
 	cache->conf_meta->core_count = 0;
-	ENV_BUG_ON(env_memset(cache->conf_meta->valid_object_bitmap,
-			sizeof(cache->conf_meta->valid_object_bitmap), 0));
+	ENV_BUG_ON(env_memset(cache->conf_meta->valid_core_bitmap,
+			sizeof(cache->conf_meta->valid_core_bitmap), 0));
 }
 
 static void __init_metadata_version(struct ocf_cache *cache)
@@ -357,22 +357,22 @@ static void _init_partitions(ocf_cache_t cache)
 static void _ocf_mngt_close_all_uninitialized_cores(
 		struct ocf_cache *cache)
 {
-	ocf_data_obj_t obj;
+	ocf_volume_t volume;
 	int j, i;
 
 	for (j = cache->conf_meta->core_count, i = 0; j > 0; ++i) {
-		if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
+		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 			continue;
 
-		obj = &(cache->core[i].obj);
-		ocf_dobj_close(obj);
+		volume = &(cache->core[i].volume);
+		ocf_volume_close(volume);
 
 		--j;
 
 		env_free(cache->core[i].counters);
 		cache->core[i].counters = NULL;
 
-		env_bit_clear(i, cache->conf_meta->valid_object_bitmap);
+		env_bit_clear(i, cache->conf_meta->valid_core_bitmap);
 	}
 
 	cache->conf_meta->core_count = 0;
@@ -412,13 +412,13 @@ static int _ocf_mngt_init_instance_add_cores(
 
 	/* Check in metadata which cores were added into cache */
 	for (i = 0; i < OCF_CORE_MAX; i++) {
-		ocf_data_obj_t tobj = NULL;
+		ocf_volume_t tvolume = NULL;
 		ocf_core_t core = &cache->core[i];
 
 		if (!cache->core_conf_meta[i].added)
 			continue;
 
-		if (!cache->core[i].obj.type)
+		if (!cache->core[i].volume.type)
 			goto err;
 
 		ret = snprintf(core_name, sizeof(core_name), "core%d", i);
@@ -429,21 +429,21 @@ static int _ocf_mngt_init_instance_add_cores(
 		if (ret)
 			goto err;
 
-		tobj = ocf_mngt_core_pool_lookup(ocf_cache_get_ctx(cache),
-				&core->obj.uuid, core->obj.type);
-		if (tobj) {
+		tvolume = ocf_mngt_core_pool_lookup(ocf_cache_get_ctx(cache),
+				&core->volume.uuid, core->volume.type);
+		if (tvolume) {
 			/*
 			 * Attach bottom device to core structure
 			 * in cache
 			 */
-			ocf_dobj_move(&core->obj, tobj);
-			ocf_mngt_core_pool_remove(cache->owner, tobj);
+			ocf_volume_move(&core->volume, tvolume);
+			ocf_mngt_core_pool_remove(cache->owner, tvolume);
 
 			core->opened = true;
 			ocf_cache_log(cache, log_info,
 					"Attached core %u from pool\n", i);
 		} else {
-			ret = ocf_dobj_open(&core->obj);
+			ret = ocf_volume_open(&core->volume);
 			if (ret == -OCF_ERR_NOT_OPEN_EXC) {
 				ocf_cache_log(cache, log_warn,
 						"Cannot open core %u. "
@@ -456,11 +456,11 @@ static int _ocf_mngt_init_instance_add_cores(
 			}
 		}
 
-		env_bit_set(i, cache->conf_meta->valid_object_bitmap);
+		env_bit_set(i, cache->conf_meta->valid_core_bitmap);
 		cache->conf_meta->core_count++;
-		core->obj.cache = cache;
+		core->volume.cache = cache;
 
-		if (ocf_mngt_core_init_front_dobj(core))
+		if (ocf_mngt_core_init_front_volume(core))
 			goto err;
 
 		core->counters =
@@ -479,8 +479,8 @@ static int _ocf_mngt_init_instance_add_cores(
 		}
 
 		hd_lines = ocf_bytes_2_lines(cache,
-				ocf_dobj_get_length(
-				&cache->core[i].obj));
+				ocf_volume_get_length(
+				&cache->core[i].volume));
 
 		if (hd_lines) {
 			ocf_cache_log(cache, log_info,
@@ -621,7 +621,7 @@ static int _ocf_mngt_init_new_cache(struct ocf_cachemng_init_params *params)
 static int _ocf_mngt_attach_cache_device(struct ocf_cache *cache,
 		struct ocf_cachemng_attach_params *attach_params)
 {
-	ocf_data_obj_type_t type;
+	ocf_volume_type_t type;
 	int ret;
 
 	cache->device = env_vzalloc(sizeof(*cache->device));
@@ -629,35 +629,35 @@ static int _ocf_mngt_attach_cache_device(struct ocf_cache *cache,
 		return -OCF_ERR_NO_MEM;
 	attach_params->flags.device_alloc = true;
 
-	cache->device->obj.cache = cache;
+	cache->device->volume.cache = cache;
 
-	/* Prepare UUID of cache data object */
-	type = ocf_ctx_get_data_obj_type(cache->owner,
+	/* Prepare UUID of cache volume */
+	type = ocf_ctx_get_volume_type(cache->owner,
 			attach_params->device_type);
 	if (!type) {
-		ret = -OCF_ERR_INVAL_DATA_OBJ_TYPE;
+		ret = -OCF_ERR_INVAL_VOLUME_TYPE;
 		goto err;
 	}
 
-	ret = ocf_dobj_init(&cache->device->obj, type,
+	ret = ocf_volume_init(&cache->device->volume, type,
 			&attach_params->uuid, true);
 	if (ret)
 		goto err;
 
-	attach_params->flags.data_obj_inited = true;
+	attach_params->flags.volume_inited = true;
 
 	/*
 	 * Open cache device, It has to be done first because metadata service
 	 * need to know size of cache device.
 	 */
-	ret = ocf_dobj_open(&cache->device->obj);
+	ret = ocf_volume_open(&cache->device->volume);
 	if (ret) {
 		ocf_cache_log(cache, log_err, "ERROR: Cache not available\n");
 		goto err;
 	}
 	attach_params->flags.device_opened = true;
 
-	attach_params->device_size = ocf_dobj_get_length(&cache->device->obj);
+	attach_params->device_size = ocf_volume_get_length(&cache->device->volume);
 
 	/* Check minimum size of cache device */
 	if (attach_params->device_size < OCF_CACHE_SIZE_MIN) {
@@ -833,13 +833,13 @@ static int _ocf_mngt_init_test_device(struct ocf_cache *cache)
 		goto end;
 	}
 
-	if (!ocf_dobj_is_atomic(&cache->device->obj))
+	if (!ocf_volume_is_atomic(&cache->device->volume))
 		goto end;
 
 	/*
 	 * Submit discard request
 	 */
-	ret = ocf_submit_obj_discard_wait(&cache->device->obj,
+	ret = ocf_submit_volume_discard_wait(&cache->device->volume,
 			reserved_lba_addr, PAGE_SIZE);
 	if (ret)
 		goto end;
@@ -859,7 +859,7 @@ static int _ocf_mngt_init_test_device(struct ocf_cache *cache)
 	if (diff) {
 		/* discard does not cause target adresses to return 0 on
 		   subsequent read */
-		cache->device->obj.features.discard_zeroes = 0;
+		cache->device->volume.features.discard_zeroes = 0;
 	}
 
 end:
@@ -887,7 +887,7 @@ static int _ocf_mngt_init_prepare_metadata(
 	if (cache->device->init_mode != ocf_init_mode_metadata_volatile) {
 		if (cache->device->init_mode == ocf_init_mode_load) {
 			attach_params->metadata.status = ocf_metadata_load_properties(
-					&cache->device->obj,
+					&cache->device->volume,
 					&line_size,
 					&cache->conf_meta->metadata_layout,
 					&cache->conf_meta->cache_mode,
@@ -899,7 +899,7 @@ static int _ocf_mngt_init_prepare_metadata(
 			}
 		} else {
 			attach_params->metadata.status = ocf_metadata_load_properties(
-					&cache->device->obj,
+					&cache->device->volume,
 					NULL, NULL, NULL,
 					&attach_params->metadata.shutdown_status,
 					&attach_params->metadata.dirty_flushed);
@@ -1093,13 +1093,13 @@ static void _ocf_mngt_attach_handle_error(
 		ocf_metadata_deinit_variable_size(cache);
 
 	if (attach_params->flags.device_opened)
-		ocf_dobj_close(&cache->device->obj);
+		ocf_volume_close(&cache->device->volume);
 
 	if (attach_params->flags.concurrency_inited)
 		ocf_concurrency_deinit(cache);
 
-	if (attach_params->flags.data_obj_inited)
-		ocf_dobj_deinit(&cache->device->obj);
+	if (attach_params->flags.volume_inited)
+		ocf_volume_deinit(&cache->device->volume);
 
 	if (attach_params->flags.device_alloc)
 		env_vfree(cache->device);
@@ -1109,22 +1109,22 @@ static int _ocf_mngt_cache_discard_after_metadata(struct ocf_cache *cache)
 {
 	int result;
 	uint64_t addr = cache->device->metadata_offset;
-	uint64_t length = ocf_dobj_get_length(
-			&cache->device->obj) - addr;
-	bool discard = cache->device->obj.features.discard_zeroes;
+	uint64_t length = ocf_volume_get_length(
+			&cache->device->volume) - addr;
+	bool discard = cache->device->volume.features.discard_zeroes;
 
-	if (!discard &&	ocf_dobj_is_atomic(&cache->device->obj)) {
+	if (!discard &&	ocf_volume_is_atomic(&cache->device->volume)) {
 		/* discard does not zero data - need to explicitly write
 		    zeroes */
 		result = ocf_submit_write_zeroes_wait(
-				&cache->device->obj, addr, length);
+				&cache->device->volume, addr, length);
 		if (!result) {
-			result = ocf_submit_obj_flush_wait(
-					&cache->device->obj);
+			result = ocf_submit_volume_flush_wait(
+					&cache->device->volume);
 		}
 	} else {
-		/* Discard object after metadata */
-		result = ocf_submit_obj_discard_wait(&cache->device->obj, addr,
+		/* Discard volume after metadata */
+		result = ocf_submit_volume_discard_wait(&cache->device->volume, addr,
 				length);
 	}
 
@@ -1133,7 +1133,7 @@ static int _ocf_mngt_cache_discard_after_metadata(struct ocf_cache *cache)
 				discard ? "Discarding whole cache device" :
 					"Overwriting cache with zeroes");
 
-		if (ocf_dobj_is_atomic(&cache->device->obj)) {
+		if (ocf_volume_is_atomic(&cache->device->volume)) {
 			ocf_cache_log(cache, log_err, "This step is required"
 					" for atomic mode!\n");
 		} else {
@@ -1271,7 +1271,7 @@ static int _ocf_mngt_cache_add_cores_t_clean_pol(ocf_cache_t cache)
 	if (cleaning_policy_ops[clean_type].add_core) {
 		no = cache->conf_meta->core_count;
 		for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {
-			if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
+			if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 				continue;
 			result = cleaning_policy_ops[clean_type].add_core(cache, i);
 			if (result) {
@@ -1288,7 +1288,7 @@ err:
 		return result;
 
 	while (i--) {
-		if (env_bit_test(i, cache->conf_meta->valid_object_bitmap))
+		if (env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 			cleaning_policy_ops[clean_type].remove_core(cache, i);
 	};
 
@@ -1315,7 +1315,7 @@ static int _ocf_mngt_cache_attach(ocf_cache_t cache,
 
 	attach_params.force = device_cfg->force;
 	attach_params.uuid = device_cfg->uuid;
-	attach_params.device_type = device_cfg->data_obj_type;
+	attach_params.device_type = device_cfg->volume_type;
 	attach_params.perform_test = device_cfg->perform_test;
 	attach_params.metadata.shutdown_status = ocf_metadata_clean_shutdown;
 	attach_params.metadata.dirty_flushed = DIRTY_FLUSHED;
@@ -1341,7 +1341,7 @@ static int _ocf_mngt_cache_attach(ocf_cache_t cache,
 		goto _cache_mng_init_attach_ERROR;
 
 	/* Test device features */
-	cache->device->obj.features.discard_zeroes = 1;
+	cache->device->volume.features.discard_zeroes = 1;
 	if (attach_params.perform_test) {
 		result = _ocf_mngt_init_test_device(cache);
 		if (result)
@@ -1422,7 +1422,7 @@ static int _ocf_mngt_cache_validate_device_cfg(
 	if (!device_cfg->uuid.data)
 		return -OCF_ERR_INVAL;
 
-	if (device_cfg->uuid.size > OCF_DATA_OBJ_UUID_MAX_SIZE)
+	if (device_cfg->uuid.size > OCF_VOLUME_UUID_MAX_SIZE)
 		return -OCF_ERR_INVAL;
 
 	if (device_cfg->cache_line_size &&
@@ -1505,7 +1505,7 @@ int ocf_mngt_cache_attach(ocf_cache_t cache,
 /**
  * @brief Unplug caching device from cache instance. Variable size metadata
  *	  containers are deinitialiazed as well as other cacheline related
- *	  structures. Cache device object is closed.
+ *	  structures. Cache volume is closed.
  *
  * @param cache OCF cache instance
  * @param stop	- true if unplugging during stop - in this case we mark
@@ -1548,12 +1548,12 @@ static int _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop)
 		result = ocf_metadata_flush_all(cache);
 	}
 
-	ocf_dobj_close(&cache->device->obj);
+	ocf_volume_close(&cache->device->volume);
 
 	ocf_metadata_deinit_variable_size(cache);
 	ocf_concurrency_deinit(cache);
 
-	ocf_dobj_deinit(&cache->device->obj);
+	ocf_volume_deinit(&cache->device->volume);
 
 	env_vfree(cache->device);
 	cache->device = NULL;
@@ -1583,7 +1583,7 @@ static int _ocf_mngt_cache_stop(ocf_cache_t cache)
 
 	/* All exported objects removed, cleaning up rest. */
 	for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {
-		if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
+		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 			continue;
 		cache_mng_core_remove_from_cache(cache, i);
 		if (ocf_cache_is_device_attached(cache))
@@ -1742,7 +1742,7 @@ static int _cache_mng_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode,
 		int i;
 
 		for (i = 0; i != OCF_CORE_MAX; ++i) {
-			if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
+			if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 				continue;
 			env_atomic_set(&cache->core_runtime_meta[i].
 					initial_dirty_clines,
@@ -1871,7 +1871,7 @@ int ocf_mngt_cache_detach(ocf_cache_t cache)
 
 	/* remove cacheline metadata and cleaning policy meta for all cores */
 	for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {
-		if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
+		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 			continue;
 		cache_mng_core_deinit_attached_meta(cache, i);
 		cache_mng_core_remove_from_cleaning_pol(cache, i);
