@@ -6,7 +6,7 @@
 #include "ocf/ocf.h"
 #include "../ocf_priv.h"
 #include "../ocf_cache_priv.h"
-#include "../ocf_data_obj_priv.h"
+#include "../ocf_volume_priv.h"
 #include "../ocf_request.h"
 #include "utils_io.h"
 #include "utils_cache_line.h"
@@ -27,7 +27,7 @@ struct discard_io_request {
 	int error;
 };
 
-static void _ocf_obj_flush_end(struct ocf_io *io, int err)
+static void _ocf_volume_flush_end(struct ocf_io *io, int err)
 {
 	struct ocf_submit_io_wait_context *cntx = io->priv1;
 	cntx->error = err;
@@ -36,7 +36,7 @@ static void _ocf_obj_flush_end(struct ocf_io *io, int err)
 	ocf_io_put(io);
 }
 
-int ocf_submit_obj_flush_wait(ocf_data_obj_t obj)
+int ocf_submit_volume_flush_wait(ocf_volume_t volume)
 {
 	struct ocf_submit_io_wait_context cntx = { };
 	struct ocf_io *io;
@@ -44,14 +44,14 @@ int ocf_submit_obj_flush_wait(ocf_data_obj_t obj)
 	env_atomic_set(&cntx.req_remaining, 1);
 	env_completion_init(&cntx.complete);
 
-	io = ocf_dobj_new_io(obj);
+	io = ocf_volume_new_io(volume);
 	if (!io)
 		return -ENOMEM;
 
 	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
-	ocf_io_set_cmpl(io, &cntx, NULL, _ocf_obj_flush_end);
+	ocf_io_set_cmpl(io, &cntx, NULL, _ocf_volume_flush_end);
 
-	ocf_dobj_submit_flush(io);
+	ocf_volume_submit_flush(io);
 
 	env_completion_wait(&cntx.complete);
 
@@ -59,7 +59,7 @@ int ocf_submit_obj_flush_wait(ocf_data_obj_t obj)
 
 }
 
-static void ocf_submit_obj_discard_wait_io(struct ocf_io *io, int error)
+static void ocf_submit_volume_discard_wait_io(struct ocf_io *io, int error)
 {
 	struct ocf_submit_io_wait_context *cntx = io->priv1;
 
@@ -75,7 +75,7 @@ static void ocf_submit_obj_discard_wait_io(struct ocf_io *io, int error)
 	env_completion_complete(&cntx->complete);
 }
 
-int ocf_submit_obj_discard_wait(ocf_data_obj_t obj, uint64_t addr,
+int ocf_submit_volume_discard_wait(ocf_volume_t volume, uint64_t addr,
 		uint64_t length)
 {
 	struct ocf_submit_io_wait_context cntx = { };
@@ -87,7 +87,7 @@ int ocf_submit_obj_discard_wait(ocf_data_obj_t obj, uint64_t addr,
 	env_completion_init(&cntx.complete);
 
 	while (length) {
-		struct ocf_io *io = ocf_dobj_new_io(obj);
+		struct ocf_io *io = ocf_volume_new_io(volume);
 
 		if (!io) {
 			cntx.error = -ENOMEM;
@@ -100,8 +100,8 @@ int ocf_submit_obj_discard_wait(ocf_data_obj_t obj, uint64_t addr,
 
 		ocf_io_configure(io, addr, bytes, OCF_WRITE, 0, 0);
 		ocf_io_set_cmpl(io, &cntx, NULL,
-				ocf_submit_obj_discard_wait_io);
-		ocf_dobj_submit_discard(io);
+				ocf_submit_volume_discard_wait_io);
+		ocf_volume_submit_discard(io);
 
 		addr += bytes;
 		length -= bytes;
@@ -115,7 +115,7 @@ int ocf_submit_obj_discard_wait(ocf_data_obj_t obj, uint64_t addr,
 	return cntx.error;
 }
 
-static void ocf_submit_obj_zeroes_wait_io(struct ocf_io *io, int error)
+static void ocf_submit_volume_zeroes_wait_io(struct ocf_io *io, int error)
 {
 	struct ocf_submit_io_wait_context *cntx = io->priv1;
 
@@ -125,7 +125,7 @@ static void ocf_submit_obj_zeroes_wait_io(struct ocf_io *io, int error)
 	env_completion_complete(&cntx->complete);
 }
 
-int ocf_submit_write_zeroes_wait(ocf_data_obj_t obj, uint64_t addr,
+int ocf_submit_write_zeroes_wait(ocf_volume_t volume, uint64_t addr,
 		uint64_t length)
 {
 	struct ocf_submit_io_wait_context cntx = { };
@@ -134,7 +134,7 @@ int ocf_submit_write_zeroes_wait(ocf_data_obj_t obj, uint64_t addr,
 	uint32_t step = 0;
 	struct ocf_io *io;
 
-	io = ocf_dobj_new_io(obj);
+	io = ocf_volume_new_io(volume);
 	if (!io)
 		return -ENOMEM;
 
@@ -145,8 +145,8 @@ int ocf_submit_write_zeroes_wait(ocf_data_obj_t obj, uint64_t addr,
 
 		ocf_io_configure(io, addr, bytes, OCF_WRITE, 0, 0);
 		ocf_io_set_cmpl(io, &cntx, NULL,
-				ocf_submit_obj_zeroes_wait_io);
-		ocf_dobj_submit_write_zeroes(io);
+				ocf_submit_volume_zeroes_wait_io);
+		ocf_volume_submit_write_zeroes(io);
 
 		addr += bytes;
 		length -= bytes;
@@ -171,7 +171,7 @@ int ocf_submit_cache_page(struct ocf_cache *cache, uint64_t addr,
 	int result = 0;
 
 	/* Allocate resources for IO */
-	io = ocf_dobj_new_io(&cache->device->obj);
+	io = ocf_volume_new_io(&cache->device->volume);
 	data = ctx_data_alloc(cache->owner, 1);
 
 	if (!io || !data) {
@@ -201,7 +201,7 @@ end:
 	return result;
 }
 
-static void ocf_submit_obj_req_cmpl(struct ocf_io *io, int error)
+static void ocf_submit_volume_req_cmpl(struct ocf_io *io, int error)
 {
 	struct ocf_request *req = io->priv1;
 	ocf_req_end_t callback = io->priv2;
@@ -242,7 +242,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 
 		ocf_io_configure(io, addr, bytes, dir, class, flags);
 		ocf_io_set_queue(io, req->io_queue);
-		ocf_io_set_cmpl(io, req, callback, ocf_submit_obj_req_cmpl);
+		ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
 
 		err = ocf_io_set_data(io, req->data, 0);
 		if (err) {
@@ -251,7 +251,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 			goto update_stats;
 		}
 
-		ocf_dobj_submit_io(io);
+		ocf_volume_submit_io(io);
 		total_bytes = req->byte_length;
 
 		goto update_stats;
@@ -290,7 +290,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 
 		ocf_io_configure(io, addr, bytes, dir, class, flags);
 		ocf_io_set_queue(io, req->io_queue);
-		ocf_io_set_cmpl(io, req, callback, ocf_submit_obj_req_cmpl);
+		ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
 
 		err = ocf_io_set_data(io, req->data, total_bytes);
 		if (err) {
@@ -300,7 +300,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 				callback(req, err);
 			goto update_stats;
 		}
-		ocf_dobj_submit_io(io);
+		ocf_volume_submit_io(io);
 		total_bytes += bytes;
 	}
 
@@ -311,7 +311,7 @@ update_stats:
 		env_atomic64_add(total_bytes, &cache_stats->read_bytes);
 }
 
-void ocf_submit_obj_req(ocf_data_obj_t obj, struct ocf_request *req,
+void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 		ocf_req_end_t callback)
 {
 	struct ocf_cache *cache = req->cache;
@@ -329,7 +329,7 @@ void ocf_submit_obj_req(ocf_data_obj_t obj, struct ocf_request *req,
 	else if (dir == OCF_READ)
 		env_atomic64_add(req->byte_length, &core_stats->read_bytes);
 
-	io = ocf_dobj_new_io(obj);
+	io = ocf_volume_new_io(volume);
 	if (!io) {
 		callback(req, -ENOMEM);
 		return;
@@ -338,14 +338,14 @@ void ocf_submit_obj_req(ocf_data_obj_t obj, struct ocf_request *req,
 	ocf_io_configure(io, req->byte_position, req->byte_length, dir,
 			class, flags);
 	ocf_io_set_queue(io, req->io_queue);
-	ocf_io_set_cmpl(io, req, callback, ocf_submit_obj_req_cmpl);
+	ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
 	err = ocf_io_set_data(io, req->data, 0);
 	if (err) {
 		ocf_io_put(io);
 		callback(req, err);
 		return;
 	}
-	ocf_dobj_submit_io(io);
+	ocf_volume_submit_io(io);
 }
 
 static void ocf_submit_io_wait_end(struct ocf_io *io, int error)
@@ -365,7 +365,7 @@ int ocf_submit_io_wait(struct ocf_io *io)
 	context.error = 0;
 
 	ocf_io_set_cmpl(io, &context, NULL, ocf_submit_io_wait_end);
-	ocf_dobj_submit_io(io);
+	ocf_volume_submit_io(io);
 	env_completion_wait(&context.complete);
 	return context.error;
 }

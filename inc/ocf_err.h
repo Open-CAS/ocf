@@ -18,8 +18,8 @@ typedef enum {
 	/** Invalid input parameter value */
 	OCF_ERR_INVAL = 1000000,
 
-	/** Invalid data object type */
-	OCF_ERR_INVAL_DATA_OBJ_TYPE,
+	/** Invalid volume type */
+	OCF_ERR_INVAL_VOLUME_TYPE,
 
 	/** Operation interrupted */
 	OCF_ERR_INTR,

@@ -50,7 +50,7 @@ static uint64_t _get_cache_occupancy(ocf_cache_t cache)
 	uint32_t i;
 
 	for (i = 0; i != OCF_CORE_MAX; ++i) {
-		if (!env_bit_test(i, cache->conf_meta->valid_object_bitmap))
+		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 			continue;
 
 		result += env_atomic_read(
@@ -103,21 +103,21 @@ static void _fill_blocks(struct ocf_stats_blocks *blocks,
 {
 	uint64_t rd, wr, total;
 
-	/* Core data object */
-	rd = _bytes4k(s->core_obj.read);
-	wr = _bytes4k(s->core_obj.write);
+	/* Core volume */
+	rd = _bytes4k(s->core_volume.read);
+	wr = _bytes4k(s->core_volume.write);
 	total = rd + wr;
-	_set(&blocks->core_obj_rd, rd, total);
-	_set(&blocks->core_obj_wr, wr, total);
-	_set(&blocks->core_obj_total, total, total);
+	_set(&blocks->core_volume_rd, rd, total);
+	_set(&blocks->core_volume_wr, wr, total);
+	_set(&blocks->core_volume_total, total, total);
 
-	/* Cache data object */
-	rd = _bytes4k(s->cache_obj.read);
-	wr = _bytes4k(s->cache_obj.write);
+	/* Cache volume */
+	rd = _bytes4k(s->cache_volume.read);
+	wr = _bytes4k(s->cache_volume.write);
 	total = rd + wr;
-	_set(&blocks->cache_obj_rd, rd, total);
-	_set(&blocks->cache_obj_wr, wr, total);
-	_set(&blocks->cache_obj_total, total, total);
+	_set(&blocks->cache_volume_rd, rd, total);
+	_set(&blocks->cache_volume_wr, wr, total);
+	_set(&blocks->cache_volume_total, total, total);
 
 	/* Core (cache volume) */
 	rd = _bytes4k(s->core.read);
@@ -136,16 +136,16 @@ static void _fill_errors(struct ocf_stats_errors *errors,
 	rd = s->core_errors.read;
 	wr = s->core_errors.write;
 	total = rd + wr;
-	_set(&errors->core_obj_rd, rd, total);
-	_set(&errors->core_obj_wr, wr, total);
-	_set(&errors->core_obj_total, total, total);
+	_set(&errors->core_volume_rd, rd, total);
+	_set(&errors->core_volume_wr, wr, total);
+	_set(&errors->core_volume_total, total, total);
 
 	rd = s->cache_errors.read;
 	wr = s->cache_errors.write;
 	total = rd + wr;
-	_set(&errors->cache_obj_rd, rd, total);
-	_set(&errors->cache_obj_wr, wr, total);
-	_set(&errors->cache_obj_total, total, total);
+	_set(&errors->cache_volume_rd, rd, total);
+	_set(&errors->cache_volume_wr, wr, total);
+	_set(&errors->cache_volume_total, total, total);
 
 	total = s->core_errors.read + s->core_errors.write +
 		s->cache_errors.read + s->cache_errors.write;
@@ -242,8 +242,8 @@ static int _accumulate_stats(ocf_core_t core, void *cntx)
 	if (result)
 		return result;
 
-	_accumulate_block(&total->cache_obj, &stats.cache_obj);
-	_accumulate_block(&total->core_obj, &stats.core_obj);
+	_accumulate_block(&total->cache_volume, &stats.cache_volume);
+	_accumulate_block(&total->core_volume, &stats.core_volume);
 	_accumulate_block(&total->core, &stats.core);
 
 	_accumulate_reqs(&total->read_reqs, &stats.read_reqs);

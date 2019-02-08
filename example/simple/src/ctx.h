@@ -8,7 +8,7 @@
 
 #include <ocf/ocf.h>
 
-#define OBJ_TYPE 1
+#define VOL_TYPE 1
 
 ctx_data_t *ctx_data_alloc(uint32_t pages);
 void ctx_data_free(ctx_data_t *ctx_data);

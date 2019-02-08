@@ -72,7 +72,7 @@ int ocf_write_wa(struct ocf_request *req)
 
 		/* Submit write IO to the core */
 		env_atomic_set(&req->req_remaining, 1);
-		ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
+		ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
 				_ocf_read_wa_complete);
 
 		/* Update statistics */

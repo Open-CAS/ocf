@@ -49,9 +49,9 @@ typedef void (*ocf_end_io_t)(struct ocf_io *io, int error);
  */
 struct ocf_io {
 	/**
-	 * @brief OCF IO destination data object
+	 * @brief OCF IO destination volume
 	 */
-	ocf_data_obj_t obj;
+	ocf_volume_t volume;
 
 	/**
 	 * @brief Operations set for this OCF IO

@@ -10,7 +10,7 @@
 #include "ocf/ocf_ctx.h"
 #include "ocf_logger_priv.h"
 
-#define OCF_DATA_OBJ_TYPE_MAX 8
+#define OCF_VOLUME_TYPE_MAX 8
 
 /**
  * @brief OCF main control structure
@@ -19,7 +19,7 @@ struct ocf_ctx {
 	const struct ocf_ctx_ops *ops;
 	const struct ocf_ctx_config *cfg;
 	struct ocf_logger logger;
-	struct ocf_data_obj_type *data_obj_type[OCF_DATA_OBJ_TYPE_MAX];
+	struct ocf_volume_type *volume_type[OCF_VOLUME_TYPE_MAX];
 	env_mutex lock;
 	struct list_head caches;
 	struct {

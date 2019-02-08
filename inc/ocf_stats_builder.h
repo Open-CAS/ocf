@@ -95,13 +95,13 @@ struct ocf_stats_requests {
  * ╔════════════════════════════════════╤═══════╤═══════╤═════════════╗
  * ║ Block statistics                   │ Count │   %   │   Units     ║
  * ╠════════════════════════════════════╪═══════╪═══════╪═════════════╣
- * ║ Reads from core data object(s)     │   426 │ 100.0 │ 4KiB blocks ║
- * ║ Writes to core data object(s)      │     0 │   0.0 │ 4KiB blocks ║
- * ║ Total to/from core data object (s) │   426 │ 100.0 │ 4KiB blocks ║
+ * ║ Reads from core volume(s)     │   426 │ 100.0 │ 4KiB blocks ║
+ * ║ Writes to core volume(s)      │     0 │   0.0 │ 4KiB blocks ║
+ * ║ Total to/from core volume (s) │   426 │ 100.0 │ 4KiB blocks ║
  * ╟────────────────────────────────────┼───────┼───────┼─────────────╢
- * ║ Reads from cache data object       │    13 │   3.0 │ 4KiB blocks ║
- * ║ Writes to cache data object        │   426 │  97.0 │ 4KiB blocks ║
- * ║ Total to/from cache data object    │   439 │ 100.0 │ 4KiB blocks ║
+ * ║ Reads from cache volume       │    13 │   3.0 │ 4KiB blocks ║
+ * ║ Writes to cache volume        │   426 │  97.0 │ 4KiB blocks ║
+ * ║ Total to/from cache volume    │   439 │ 100.0 │ 4KiB blocks ║
  * ╟────────────────────────────────────┼───────┼───────┼─────────────╢
  * ║ Reads from core(s)                 │   439 │ 100.0 │ 4KiB blocks ║
  * ║ Writes to core(s)                  │     0 │   0.0 │ 4KiB blocks ║
@@ -110,12 +110,12 @@ struct ocf_stats_requests {
  * </pre>
  */
 struct ocf_stats_blocks {
-	struct ocf_stat core_obj_rd;
-	struct ocf_stat core_obj_wr;
-	struct ocf_stat core_obj_total;
-	struct ocf_stat cache_obj_rd;
-	struct ocf_stat cache_obj_wr;
-	struct ocf_stat cache_obj_total;
+	struct ocf_stat core_volume_rd;
+	struct ocf_stat core_volume_wr;
+	struct ocf_stat core_volume_total;
+	struct ocf_stat cache_volume_rd;
+	struct ocf_stat cache_volume_wr;
+	struct ocf_stat cache_volume_total;
 	struct ocf_stat volume_rd;
 	struct ocf_stat volume_wr;
 	struct ocf_stat volume_total;
@@ -142,12 +142,12 @@ struct ocf_stats_blocks {
  * </pre>
  */
 struct ocf_stats_errors {
-	struct ocf_stat core_obj_rd;
-	struct ocf_stat core_obj_wr;
-	struct ocf_stat core_obj_total;
-	struct ocf_stat cache_obj_rd;
-	struct ocf_stat cache_obj_wr;
-	struct ocf_stat cache_obj_total;
+	struct ocf_stat core_volume_rd;
+	struct ocf_stat core_volume_wr;
+	struct ocf_stat core_volume_total;
+	struct ocf_stat cache_volume_rd;
+	struct ocf_stat cache_volume_wr;
+	struct ocf_stat cache_volume_total;
 	struct ocf_stat total;
 };
 

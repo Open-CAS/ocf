@@ -576,7 +576,7 @@ static int ocf_metadata_hash_init_variable_size(struct ocf_cache *cache,
 		if (cache->device->init_mode == ocf_init_mode_metadata_volatile) {
 			raw->raw_type = metadata_raw_type_volatile;
 		} else if (i == metadata_segment_collision &&
-				ocf_dobj_is_atomic(&cache->device->obj)) {
+				ocf_volume_is_atomic(&cache->device->volume)) {
 			raw->raw_type = metadata_raw_type_atomic;
 		}
 
@@ -887,7 +887,7 @@ static int ocf_metadata_hash_load_superblock(struct ocf_cache *cache)
 	struct ocf_superblock_config *sb_config;
 	struct ocf_superblock_runtime *sb_runtime;
 	struct ocf_metadata_uuid *muuid;
-	struct ocf_data_obj_uuid uuid;
+	struct ocf_volume_uuid uuid;
 
 	OCF_DEBUG_TRACE(cache);
 
@@ -973,9 +973,9 @@ static int ocf_metadata_hash_load_superblock(struct ocf_cache *cache)
 		uuid.data = muuid->data;
 		uuid.size = muuid->size;
 
-		/* Initialize core data object */
-		ocf_dobj_init(&cache->core[i].obj,
-				ocf_ctx_get_data_obj_type(cache->owner,
+		/* Initialize core volume */
+		ocf_volume_init(&cache->core[i].volume,
+				ocf_ctx_get_volume_type(cache->owner,
 						cache->core_conf_meta[i].type),
 				&uuid, false);
 	}
@@ -1022,8 +1022,8 @@ static int ocf_metadata_hash_flush_superblock(struct ocf_cache *cache)
 
 	/* Synchronize core objects types */
 	for (i = 0; i < OCF_CORE_MAX; i++) {
-		cache->core_conf_meta[i].type = ocf_ctx_get_data_obj_type_id(
-				cache->owner, cache->core[i].obj.type);
+		cache->core_conf_meta[i].type = ocf_ctx_get_volume_type_id(
+				cache->owner, cache->core[i].volume.type);
 	}
 
 	/* Calculate checksum */
@@ -1543,7 +1543,7 @@ static int ocf_metadata_hash_load_recovery(struct ocf_cache *cache)
 	OCF_DEBUG_TRACE(cache);
 
 
-	if (ocf_dobj_is_atomic(&cache->device->obj)) {
+	if (ocf_volume_is_atomic(&cache->device->volume)) {
 		result = _ocf_metadata_hash_load_recovery_atomic(cache);
 		rebuild_dirty_only = false;
 	} else {

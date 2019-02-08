@@ -8,6 +8,6 @@
 
 #include "../ocf_core_priv.h"
 
-int ocf_mngt_core_init_front_dobj(ocf_core_t core);
+int ocf_mngt_core_init_front_volume(ocf_core_t core);
 
 #endif /* __OCF_CORE_MNGT_PRIV_H__ */

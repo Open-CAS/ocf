@@ -85,10 +85,10 @@ static int _raw_atomic_io_discard_do(struct ocf_cache *cache, void *context,
 	ocf_io_configure(io, start_addr, len, OCF_WRITE, 0, 0);
 	ocf_io_set_cmpl(io, ctx, NULL, _raw_atomic_io_discard_end);
 
-	if (cache->device->obj.features.discard_zeroes)
-		ocf_dobj_submit_discard(io);
+	if (cache->device->volume.features.discard_zeroes)
+		ocf_volume_submit_discard(io);
 	else
-		ocf_dobj_submit_write_zeroes(io);
+		ocf_volume_submit_write_zeroes(io);
 
 	return req->error;
 }

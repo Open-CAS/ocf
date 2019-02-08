@@ -20,14 +20,14 @@
  */
 struct ocf_mngt_core_config {
 	/**
-	 * @brief OCF core data object UUID
+	 * @brief OCF core volume UUID
 	 */
-	struct ocf_data_obj_uuid uuid;
+	struct ocf_volume_uuid uuid;
 
 	/**
-	 * @brief OCF core data object type
+	 * @brief OCF core volume type
 	 */
-	uint8_t data_obj_type;
+	uint8_t volume_type;
 
 	/**
 	 * @brief OCF core ID number
@@ -269,14 +269,14 @@ struct ocf_mngt_cache_config {
  */
 struct ocf_mngt_cache_device_config {
 	/**
-	 * @brief Cache data object UUID
+	 * @brief Cache volume UUID
 	 */
-	struct ocf_data_obj_uuid uuid;
+	struct ocf_volume_uuid uuid;
 
 	/**
-	 * @brief Cache data object type
+	 * @brief Cache volume type
 	 */
-	uint8_t data_obj_type;
+	uint8_t volume_type;
 
 	/**
 	 * @brief Cache line size
@@ -695,8 +695,8 @@ int ocf_mngt_core_pool_get_count(ocf_ctx_t ctx);
  * @brief Add core to pool
  *
  * @param[in] ctx OCF context
- * @param[in] uuid Cache data object UUID
- * @param[in] type OCF core data object type
+ * @param[in] uuid Cache volume UUID
+ * @param[in] type OCF core volume type
  *
  * @retval 0 Core added to pool successfully
  * @retval Non-zero Error occurred and adding core to poll failed
@@ -707,14 +707,14 @@ int ocf_mngt_core_pool_add(ocf_ctx_t ctx, ocf_uuid_t uuid, uint8_t type);
  * @brief Add core to pool
  *
  * @param[in] ctx OCF context
- * @param[in] uuid Cache data object UUID
- * @param[in] type OCF core data object type
+ * @param[in] uuid Cache volume UUID
+ * @param[in] type OCF core volume type
  *
  * @retval Handler to object with same UUID
  * @retval NULL Not found object with that id
  */
-ocf_data_obj_t ocf_mngt_core_pool_lookup(ocf_ctx_t ctx, ocf_uuid_t uuid,
-		ocf_data_obj_type_t type);
+ocf_volume_t ocf_mngt_core_pool_lookup(ocf_ctx_t ctx, ocf_uuid_t uuid,
+		ocf_volume_type_t type);
 /**
  * @brief Iterate over all object in pool and call visitor callback
  *
@@ -729,15 +729,15 @@ int ocf_mngt_core_pool_visit(ocf_ctx_t ctx,
 		int (*visitor)(ocf_uuid_t, void *), void *visitor_ctx);
 
 /**
- * @brief Remove data object from pool
+ * @brief Remove volume from pool
  *
- * Important: This function destroys data object instance but doesn't close it,
+ * Important: This function destroys volume instance but doesn't close it,
  * so it should be either moved or closed before calling this function.
  *
  * @param[in] ctx OCF context
- * @param[in] obj Core data object
+ * @param[in] volume Core volume
  */
-void ocf_mngt_core_pool_remove(ocf_ctx_t ctx, ocf_data_obj_t obj);
+void ocf_mngt_core_pool_remove(ocf_ctx_t ctx, ocf_volume_t volume);
 
 /**
  * @brief Deinit core pool

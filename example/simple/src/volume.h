@@ -3,25 +3,25 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#ifndef __DOBJ_H__
-#define __DOBJ_H__
+#ifndef __VOLUME_H__
+#define __VOLUME_H__
 
 #include <ocf/ocf.h>
 #include "ocf_env.h"
 #include "ctx.h"
 #include "data.h"
 
-struct dobj_io {
-	struct dobj_data *data;
+struct myvolume_io {
+	struct volume_data *data;
 	uint32_t offset;
 };
 
-struct dobj {
+struct myvolume {
 	uint8_t *mem;
 	const char *name;
 };
 
-int dobj_init(ocf_ctx_t ocf_ctx);
-void dobj_cleanup(ocf_ctx_t ocf_ctx);
+int volume_init(ocf_ctx_t ocf_ctx);
+void volume_cleanup(ocf_ctx_t ocf_ctx);
 
 #endif

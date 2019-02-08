@@ -129,19 +129,19 @@ struct ocf_stats_core {
 	/** Write requests statistics */
 	struct ocf_stats_req write_reqs;
 
-	/** Block requests for cache data object statistics */
-	struct ocf_stats_block cache_obj;
+	/** Block requests for cache volume statistics */
+	struct ocf_stats_block cache_volume;
 
-	/** Block requests for core data object statistics */
-	struct ocf_stats_block core_obj;
+	/** Block requests for core volume statistics */
+	struct ocf_stats_block core_volume;
 
 	/** Block requests submitted by user to this core */
 	struct ocf_stats_block core;
 
-	/** Cache data object error statistics */
+	/** Cache volume error statistics */
 	struct ocf_stats_error cache_errors;
 
-	/** Core data object error statistics */
+	/** Core volume error statistics */
 	struct ocf_stats_error core_errors;
 
 	/** Debug statistics */

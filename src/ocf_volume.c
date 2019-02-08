@@ -1,0 +1,310 @@
+/*
+ * Copyright(c) 2012-2018 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+#include "ocf/ocf.h"
+#include "ocf_priv.h"
+#include "ocf_volume_priv.h"
+#include "ocf_io_priv.h"
+#include "ocf_env.h"
+
+/* *** Bottom interface *** */
+
+/*
+ * Volume type
+ */
+
+int ocf_volume_type_init(struct ocf_volume_type **type,
+		const struct ocf_volume_properties *properties)
+{
+	const struct ocf_volume_ops *ops = &properties->ops;
+	struct ocf_volume_type *new_type;
+	int ret;
+
+	if (!ops->submit_io || !ops->open || !ops->close ||
+			!ops->get_max_io_size || !ops->get_length) {
+		return -EINVAL;
+	}
+
+	if (properties->caps.atomic_writes && !ops->submit_metadata)
+		return -EINVAL;
+
+	new_type = env_zalloc(sizeof(**type), ENV_MEM_NORMAL);
+	if (!new_type)
+		return -OCF_ERR_NO_MEM;
+
+	new_type->allocator = ocf_io_allocator_create(
+			properties->io_priv_size, properties->name);
+	if (!new_type->allocator) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	new_type->properties = properties;
+
+	*type = new_type;
+
+	return 0;
+
+err:
+	env_free(new_type);
+	return ret;
+}
+
+void ocf_volume_type_deinit(struct ocf_volume_type *type)
+{
+	ocf_io_allocator_destroy(type->allocator);
+	env_free(type);
+}
+
+/*
+ * Volume frontend API
+ */
+
+int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
+		struct ocf_volume_uuid *uuid, bool uuid_copy)
+{
+	uint32_t priv_size = type->properties->volume_priv_size;
+	void *data;
+	int ret;
+
+	if (!volume || !type)
+		return -OCF_ERR_INVAL;
+
+	volume->opened = false;
+	volume->type = type;
+
+	volume->priv = env_zalloc(priv_size, ENV_MEM_NORMAL);
+	if (!volume->priv)
+		return -OCF_ERR_NO_MEM;
+
+	if (!uuid) {
+		volume->uuid.size = 0;
+		volume->uuid.data = NULL;
+		volume->uuid_copy = false;
+		return 0;
+	}
+
+	volume->uuid_copy = uuid_copy;
+
+	if (uuid_copy) {
+		data = env_vmalloc(uuid->size);
+		if (!data)
+			goto err;
+
+		ret = env_memcpy(data, uuid->size, uuid->data, uuid->size);
+		if (ret) {
+			env_vfree(data);
+			goto err;
+		}
+
+		volume->uuid.data = data;
+	} else {
+		volume->uuid.data = uuid->data;
+	}
+
+	volume->uuid.size = uuid->size;
+
+	return 0;
+
+err:
+	env_free(volume->priv);
+	return -OCF_ERR_NO_MEM;
+}
+
+void ocf_volume_deinit(ocf_volume_t volume)
+{
+	OCF_CHECK_NULL(volume);
+
+	env_free(volume->priv);
+
+	if (volume->uuid_copy && volume->uuid.data)
+		env_vfree(volume->uuid.data);
+}
+
+void ocf_volume_move(ocf_volume_t volume, ocf_volume_t from)
+{
+	OCF_CHECK_NULL(volume);
+	OCF_CHECK_NULL(from);
+
+	ocf_volume_deinit(volume);
+
+	volume->opened = from->opened;
+	volume->type = from->type;
+	volume->uuid = from->uuid;
+	volume->uuid_copy = from->uuid_copy;
+	volume->priv = from->priv;
+	volume->cache = from->cache;
+	volume->features = from->features;
+
+	/*
+	 * Deinitialize original volume without freeing resources.
+	 */
+	from->opened = false;
+	from->priv = NULL;
+}
+
+int ocf_volume_create(ocf_volume_t *volume, ocf_volume_type_t type,
+		struct ocf_volume_uuid *uuid)
+{
+	ocf_volume_t tmp_volume;
+	int ret;
+
+	OCF_CHECK_NULL(volume);
+
+	tmp_volume = env_zalloc(sizeof(*tmp_volume), ENV_MEM_NORMAL);
+	if (!tmp_volume)
+		return -OCF_ERR_NO_MEM;
+
+	ret = ocf_volume_init(tmp_volume, type, uuid, true);
+	if (ret) {
+		env_free(tmp_volume);
+		return ret;
+	}
+
+	*volume = tmp_volume;
+
+	return 0;
+}
+
+void ocf_volume_destroy(ocf_volume_t volume)
+{
+	OCF_CHECK_NULL(volume);
+
+	ocf_volume_deinit(volume);
+	env_free(volume);
+}
+
+ocf_volume_type_t ocf_volume_get_type(ocf_volume_t volume)
+{
+	OCF_CHECK_NULL(volume);
+
+	return volume->type;
+}
+
+const struct ocf_volume_uuid *ocf_volume_get_uuid(ocf_volume_t volume)
+{
+	OCF_CHECK_NULL(volume);
+
+	return &volume->uuid;
+}
+
+void ocf_volume_set_uuid(ocf_volume_t volume, const struct ocf_volume_uuid *uuid)
+{
+	OCF_CHECK_NULL(volume);
+
+	if (volume->uuid_copy && volume->uuid.data)
+		env_vfree(volume->uuid.data);
+
+	volume->uuid.data = uuid->data;
+	volume->uuid.size = uuid->size;
+}
+
+void *ocf_volume_get_priv(ocf_volume_t volume)
+{
+	return volume->priv;
+}
+
+ocf_cache_t ocf_volume_get_cache(ocf_volume_t volume)
+{
+	OCF_CHECK_NULL(volume);
+
+	return volume->cache;
+}
+
+int ocf_volume_is_atomic(ocf_volume_t volume)
+{
+	return volume->type->properties->caps.atomic_writes;
+}
+
+struct ocf_io *ocf_volume_new_io(ocf_volume_t volume)
+{
+	if (!volume->opened)
+		return NULL;
+
+	return ocf_io_new(volume);
+}
+
+void ocf_volume_submit_io(struct ocf_io *io)
+{
+	ENV_BUG_ON(!io->volume->type->properties->ops.submit_io);
+
+	if (!io->volume->opened)
+		io->end(io, -EIO);
+
+	io->volume->type->properties->ops.submit_io(io);
+}
+
+void ocf_volume_submit_flush(struct ocf_io *io)
+{
+	ENV_BUG_ON(!io->volume->type->properties->ops.submit_flush);
+
+	if (!io->volume->opened)
+		io->end(io, -EIO);
+
+	if (!io->volume->type->properties->ops.submit_flush) {
+		ocf_io_end(io, 0); 
+		return;
+	}
+
+	io->volume->type->properties->ops.submit_flush(io);
+}
+
+void ocf_volume_submit_discard(struct ocf_io *io)
+{
+	if (!io->volume->opened)
+		io->end(io, -EIO);
+
+	if (!io->volume->type->properties->ops.submit_discard) {
+		ocf_io_end(io, 0); 
+		return;
+	}
+
+	io->volume->type->properties->ops.submit_discard(io);
+}
+
+int ocf_volume_open(ocf_volume_t volume)
+{
+	int ret;
+
+	ENV_BUG_ON(!volume->type->properties->ops.open);
+	ENV_BUG_ON(volume->opened);
+
+	ret = volume->type->properties->ops.open(volume);
+	if (ret)
+		return ret;
+
+	volume->opened = true;
+
+	return 0;
+}
+
+void ocf_volume_close(ocf_volume_t volume)
+{
+	ENV_BUG_ON(!volume->type->properties->ops.close);
+	ENV_BUG_ON(!volume->opened);
+
+	volume->type->properties->ops.close(volume);
+	volume->opened = false;
+}
+
+unsigned int ocf_volume_get_max_io_size(ocf_volume_t volume)
+{
+	ENV_BUG_ON(!volume->type->properties->ops.get_max_io_size);
+
+	if (!volume->opened)
+		return 0;
+
+	return volume->type->properties->ops.get_max_io_size(volume);
+}
+
+uint64_t ocf_volume_get_length(ocf_volume_t volume)
+{
+	ENV_BUG_ON(!volume->type->properties->ops.get_length);
+
+	if (!volume->opened)
+		return 0;
+
+	return volume->type->properties->ops.get_length(volume);
+}

@@ -10,7 +10,7 @@
  * @file
  * @brief OCF metadata helper function
  *
- * Those functions can be used by data object implementation.
+ * Those functions can be used by volume implementation.
  */
 
 /**
@@ -38,7 +38,7 @@ struct ocf_atomic_metadata {
  * @brief Get metadata entry (cache mapping) for specified sector of cache
  * device
  *
- * Metadata has sector granularity. It might be used by data object which
+ * Metadata has sector granularity. It might be used by volume which
  * supports atomic writes - (write of data and metadata in one buffer)
  *
  * @param[in] cache OCF cache instance
@@ -55,7 +55,7 @@ int ocf_metadata_get_atomic_entry(ocf_cache_t cache, uint64_t addr,
  * @brief Probe cache device
  *
  * @param[in] ctx handle to object designating ocf context
- * @param[in] cache_obj Cache data object
+ * @param[in] cache_volume Cache volume
  * @param[out] clean_shutdown Cache was graceful stopped
  * @param[out] cache_dirty Cache is dirty
  *
@@ -63,13 +63,13 @@ int ocf_metadata_get_atomic_entry(ocf_cache_t cache, uint64_t addr,
  * @retval -ENODATA Cache has not been detected
  * @retval Non-zero ERROR
  */
-int ocf_metadata_probe(ocf_ctx_t ctx, ocf_data_obj_t cache_obj,
+int ocf_metadata_probe(ocf_ctx_t ctx, ocf_volume_t cache_volume,
 		bool *clean_shutdown, bool *cache_dirty);
 
 /**
  * @brief Check if sectors in cache line before given address are invalid
  *
- * It might be used by data object which supports
+ * It might be used by volume which supports
  * atomic writes - (write of data and metadata in one buffer)
  *
  * @param[in] cache OCF cache instance
@@ -83,7 +83,7 @@ int ocf_metadata_check_invalid_before(ocf_cache_t cache, uint64_t addr);
 /**
  * @brief Check if sectors in cache line after given end address are invalid
  *
- * It might be used by data object which supports
+ * It might be used by volume which supports
  * atomic writes - (write of data and metadata in one buffer)
  *
  * @param[in] cache OCF cache instance

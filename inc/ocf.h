@@ -18,7 +18,7 @@
 #include "ocf_types.h"
 #include "ocf_utilities.h"
 #include "ocf_io.h"
-#include "ocf_data_obj.h"
+#include "ocf_volume.h"
 #include "ocf_cache.h"
 #include "ocf_core.h"
 #include "ocf_queue.h"

@@ -12,7 +12,7 @@
 #define __OCF_CORE_H__
 
 #include "ocf_types.h"
-#include "ocf_data_obj.h"
+#include "ocf_volume.h"
 #include "ocf_io.h"
 #include "ocf_mngt.h"
 
@@ -26,33 +26,33 @@
 ocf_cache_t ocf_core_get_cache(ocf_core_t core);
 
 /**
- * @brief Obtain data object associated with core
+ * @brief Obtain volume associated with core
  *
  * @param[in] core Core object
  *
- * @retval Data object
+ * @retval Volume
  */
-ocf_data_obj_t ocf_core_get_data_object(ocf_core_t core);
+ocf_volume_t ocf_core_get_volume(ocf_core_t core);
 
 /**
- * @brief Obtain data object of the core
+ * @brief Obtain volume of the core
  *
  * @param[in] core Core object
  *
- * @retval Front data object
+ * @retval Front volume
  */
-ocf_data_obj_t ocf_core_get_front_data_object(ocf_core_t core);
+ocf_volume_t ocf_core_get_front_volume(ocf_core_t core);
 
 /**
- * @brief Get UUID of data object associated with core
+ * @brief Get UUID of volume associated with core
  *
  * @param[in] core Core object
  *
- * @retval Data object UUID
+ * @retval Volume UUID
  */
-static inline const struct ocf_data_obj_uuid *ocf_core_get_uuid(ocf_core_t core)
+static inline const struct ocf_volume_uuid *ocf_core_get_uuid(ocf_core_t core)
 {
-	return ocf_dobj_get_uuid(ocf_core_get_data_object(core));
+	return ocf_volume_get_uuid(ocf_core_get_volume(core));
 }
 
 /**
@@ -61,9 +61,10 @@ static inline const struct ocf_data_obj_uuid *ocf_core_get_uuid(ocf_core_t core)
  * @param[in] core Core object
  * @param[in] uuid new core uuid
  *
- * @retval Data object UUID
+ * @retval 0 Success
+ * @retval Non-zero Fail
  */
-int ocf_core_set_uuid(ocf_core_t core, const struct ocf_data_obj_uuid *uuid);
+int ocf_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid);
 
 /**
  * @brief Get sequential cutoff threshold of given core object
@@ -167,9 +168,9 @@ int ocf_core_get_user_metadata(ocf_core_t core, void *data, size_t size);
  */
 static inline struct ocf_io *ocf_core_new_io(ocf_core_t core)
 {
-	ocf_data_obj_t obj = ocf_core_get_front_data_object(core);
+	ocf_volume_t volume = ocf_core_get_front_volume(core);
 
-	return ocf_dobj_new_io(obj);
+	return ocf_volume_new_io(volume);
 }
 
 /**
@@ -187,7 +188,7 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode);
  */
 static inline void ocf_core_submit_io(struct ocf_io *io)
 {
-	ocf_dobj_submit_io(io);
+	ocf_volume_submit_io(io);
 }
 
 /**
@@ -208,7 +209,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io);
  */
 static inline void ocf_core_submit_flush(struct ocf_io *io)
 {
-	ocf_dobj_submit_flush(io);
+	ocf_volume_submit_flush(io);
 }
 
 /**
@@ -218,7 +219,7 @@ static inline void ocf_core_submit_flush(struct ocf_io *io)
  */
 static inline void ocf_core_submit_discard(struct ocf_io *io)
 {
-	ocf_dobj_submit_discard(io);
+	ocf_volume_submit_discard(io);
 }
 
 /**

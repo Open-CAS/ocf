@@ -93,7 +93,7 @@ static inline void _ocf_write_wt_submit(struct ocf_request *req)
 			ocf_engine_io_count(req), _ocf_write_wt_cache_complete);
 
 	/* To core */
-	ocf_submit_obj_req(&cache->core[req->core_id].obj, req,
+	ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
 			_ocf_write_wt_core_complete);
 }
 

@@ -28,24 +28,24 @@ int ocf_mngt_core_pool_get_count(ocf_ctx_t ctx)
 
 int ocf_mngt_core_pool_add(ocf_ctx_t ctx, ocf_uuid_t uuid, uint8_t type)
 {
-	ocf_data_obj_t obj;
+	ocf_volume_t volume;
 
 	int result = 0;
 
 	OCF_CHECK_NULL(ctx);
 
-	result = ocf_ctx_data_obj_create(ctx, &obj, uuid, type);
+	result = ocf_ctx_volume_create(ctx, &volume, uuid, type);
 	if (result)
 		return result;
 
-	result = ocf_dobj_open(obj);
+	result = ocf_volume_open(volume);
 	if (result) {
-		ocf_dobj_deinit(obj);
+		ocf_volume_deinit(volume);
 		return result;
 	}
 
 	env_mutex_lock(&ctx->lock);
-	list_add(&obj->core_pool_item, &ctx->core_pool.core_pool_head);
+	list_add(&volume->core_pool_item, &ctx->core_pool.core_pool_head);
 	ctx->core_pool.core_pool_count++;
 	env_mutex_unlock(&ctx->lock);
 	return result;
@@ -55,15 +55,15 @@ int ocf_mngt_core_pool_visit(ocf_ctx_t ctx,
 		int (*visitor)(ocf_uuid_t, void *), void *visitor_ctx)
 {
 	int result = 0;
-	ocf_data_obj_t sobj;
+	ocf_volume_t svolume;
 
 	OCF_CHECK_NULL(ctx);
 	OCF_CHECK_NULL(visitor);
 
 	env_mutex_lock(&ctx->lock);
-	list_for_each_entry(sobj, &ctx->core_pool.core_pool_head,
+	list_for_each_entry(svolume, &ctx->core_pool.core_pool_head,
 			core_pool_item) {
-		result = visitor(&sobj->uuid, visitor_ctx);
+		result = visitor(&svolume->uuid, visitor_ctx);
 		if (result)
 			break;
 	}
@@ -71,46 +71,46 @@ int ocf_mngt_core_pool_visit(ocf_ctx_t ctx,
 	return result;
 }
 
-ocf_data_obj_t ocf_mngt_core_pool_lookup(ocf_ctx_t ctx, ocf_uuid_t uuid,
-		ocf_data_obj_type_t type)
+ocf_volume_t ocf_mngt_core_pool_lookup(ocf_ctx_t ctx, ocf_uuid_t uuid,
+		ocf_volume_type_t type)
 {
-	ocf_data_obj_t sobj;
+	ocf_volume_t svolume;
 
 	OCF_CHECK_NULL(ctx);
 	OCF_CHECK_NULL(uuid);
 	OCF_CHECK_NULL(uuid->data);
 
-	list_for_each_entry(sobj, &ctx->core_pool.core_pool_head,
+	list_for_each_entry(svolume, &ctx->core_pool.core_pool_head,
 			core_pool_item) {
-		if (sobj->type == type && !env_strncmp(sobj->uuid.data,
-			uuid->data, OCF_MIN(sobj->uuid.size, uuid->size))) {
-			return sobj;
+		if (svolume->type == type && !env_strncmp(svolume->uuid.data,
+			uuid->data, OCF_MIN(svolume->uuid.size, uuid->size))) {
+			return svolume;
 		}
 	}
 
 	return NULL;
 }
 
-void ocf_mngt_core_pool_remove(ocf_ctx_t ctx, ocf_data_obj_t obj)
+void ocf_mngt_core_pool_remove(ocf_ctx_t ctx, ocf_volume_t volume)
 {
 	OCF_CHECK_NULL(ctx);
-	OCF_CHECK_NULL(obj);
+	OCF_CHECK_NULL(volume);
 	env_mutex_lock(&ctx->lock);
 	ctx->core_pool.core_pool_count--;
-	list_del(&obj->core_pool_item);
+	list_del(&volume->core_pool_item);
 	env_mutex_unlock(&ctx->lock);
-	ocf_dobj_destroy(obj);
+	ocf_volume_destroy(volume);
 }
 
 void ocf_mngt_core_pool_deinit(ocf_ctx_t ctx)
 {
-	ocf_data_obj_t sobj, tobj;
+	ocf_volume_t svolume, tvolume;
 
 	OCF_CHECK_NULL(ctx);
 
-	list_for_each_entry_safe(sobj, tobj, &ctx->core_pool.core_pool_head,
+	list_for_each_entry_safe(svolume, tvolume, &ctx->core_pool.core_pool_head,
 			core_pool_item) {
-		ocf_dobj_close(sobj);
-		ocf_mngt_core_pool_remove(ctx, sobj);
+		ocf_volume_close(svolume);
+		ocf_mngt_core_pool_remove(ctx, svolume);
 	}
 }

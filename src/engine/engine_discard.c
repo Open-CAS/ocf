@@ -65,7 +65,7 @@ static int _ocf_discard_core(struct ocf_request *req)
 	struct ocf_cache *cache = req->cache;
 	struct ocf_io *io;
 
-	io = ocf_dobj_new_io(&cache->core[req->core_id].obj);
+	io = ocf_volume_new_io(&cache->core[req->core_id].volume);
 	if (!io) {
 		_ocf_discard_complete_req(req, -ENOMEM);
 		return -ENOMEM;
@@ -79,7 +79,7 @@ static int _ocf_discard_core(struct ocf_request *req)
 	ocf_io_set_data(io, req->data, 0);
 	ocf_io_set_queue(io, req->io_queue);
 
-	ocf_dobj_submit_discard(io);
+	ocf_volume_submit_discard(io);
 
 	return 0;
 }
@@ -105,7 +105,7 @@ static int _ocf_discard_flush_cache(struct ocf_request *req)
 {
 	struct ocf_io *io;
 
-	io = ocf_dobj_new_io(&req->cache->device->obj);
+	io = ocf_volume_new_io(&req->cache->device->volume);
 	if (!io) {
 		ocf_metadata_error(req->cache);
 		_ocf_discard_complete_req(req, -ENOMEM);
@@ -116,7 +116,7 @@ static int _ocf_discard_flush_cache(struct ocf_request *req)
 	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_cache_flush_complete);
 	ocf_io_set_queue(io, req->io_queue);
 
-	ocf_dobj_submit_flush(io);
+	ocf_volume_submit_flush(io);
 
 	return 0;
 }
