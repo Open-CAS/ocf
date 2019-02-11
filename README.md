@@ -1,6 +1,6 @@
 # Open CAS Framework
 
-Open CAS Framwework (OCF) is high performance block storage caching meta-library
+Open CAS Framework (OCF) is high performance block storage caching meta-library
 written in C. It's entirely platform and system independent, accessing system API
 through user provided environment wrappers layer. OCF tightly integrates with the
 rest of software stack, providing flawless, high performance, low latency caching
@@ -11,7 +11,9 @@ utility.
 * [Documentation](#documentation)
 * [Source Code](#source)
 * [Deployment](#deployment)
-* [Unit Tests](#tests)
+* [Examples](#examples)
+* [Unit Tests](#unit_tests)
+* [Build Test](#build_test)
 * [Contributing](#contributing)
 
 <a id="documentation"></a>
@@ -54,7 +56,18 @@ make -C $OCFDIF src O=$SRCDIR CMD=cp
 make -C $OCFDIF inc O=$INCDIR CMD=cp
 ~~~
 
-<a id="tests"></a>
+<a id="examples"></a>
+## Examples
+
+OCF is shipped with examples, which are complete, compillable and working
+programs, containing lot of comments that explain basics of caching. They
+are great starting point for everyone who wants to start working with OCF.
+
+Examples can be found in directory `example/`.
+
+Each example contains Makefile which can be used to compile it.
+
+<a id="unit_tests"></a>
 ## Unit Tests
 
 OCF is shipped with dedicated unit test framework based on Cmocka.  
@@ -66,7 +79,18 @@ To run unit test you need to install following packages:
 To run unit tests use following command:
 
 ~~~{.sh}
-./tests/ut-framework/run_unit_tests.py
+./tests/unit/framework/run_unit_tests.py
+~~~
+
+<a id="build_test"></a>
+## Build Test
+
+OCF repository contains basic build test. It uses default POSIX environment.
+To run this test, use following commands:
+
+~~~{.sh}
+cd tests/build/
+make
 ~~~
 
 <a id="contributing"></a>
