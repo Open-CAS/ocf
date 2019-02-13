@@ -89,30 +89,35 @@ void ocf_io_handle(struct ocf_io *io, void *opaque)
 		req->io_if->read(req);
 }
 
-void ocf_queue_run(ocf_queue_t q)
+void ocf_queue_run_single(ocf_queue_t q)
 {
 	struct ocf_request *io_req = NULL;
 	struct ocf_cache *cache;
-	unsigned char step = 0;
 
 	OCF_CHECK_NULL(q);
 
 	cache = q->cache;
 
+	io_req = ocf_engine_pop_req(cache, q);
+
+	if (!io_req)
+		return;
+
+	if (io_req->io && io_req->io->handle)
+		io_req->io->handle(io_req->io, io_req);
+	else
+		ocf_io_handle(io_req->io, io_req);
+}
+
+void ocf_queue_run(ocf_queue_t q)
+{
+	unsigned char step = 0;
+
+	OCF_CHECK_NULL(q);
+
 	while (env_atomic_read(&q->io_no) > 0) {
-		/* Make sure a request is dequeued. */
-		io_req = ocf_engine_pop_req(cache, q);
+		ocf_queue_run_single(q);
 
-		if (!io_req)
-			continue;
-
-		if (io_req->io && io_req->io->handle)
-			io_req->io->handle(io_req->io, io_req);
-		else
-			ocf_io_handle(io_req->io, io_req);
-
-		/* Voluntary preemption every few requests.
-		 * Prevents soft-lockups if preemption is disabled */
 		OCF_COND_RESCHED(step, 128);
 	}
 }
