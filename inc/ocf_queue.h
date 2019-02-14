@@ -12,6 +12,13 @@
  */
 
 /**
+ * @brief Process single request from queue
+ *
+ * @param[in] q Queue to run
+ */
+void ocf_queue_run_single(ocf_queue_t q);
+
+/**
  * @brief Run queue processing
  *
  * @param[in] q Queue to run
