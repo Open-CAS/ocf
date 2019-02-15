@@ -19,12 +19,51 @@ void error(char *msg)
 }
 
 /*
+ * Trigger queue asynchronously. Made synchronous for simplicity.
+ */
+static inline void queue_kick_async(ocf_queue_t q)
+{
+	ocf_queue_run(q);
+}
+
+/*
+ * Trigger queue synchronously. May be implemented as asynchronous as well,
+ * but in some environments kicking queue synchronously may reduce latency,
+ * so to take advantage of such situations OCF call synchronous variant of
+ * queue kick callback where possible.
+ */
+static void queue_kick_sync(ocf_queue_t q)
+{
+	ocf_queue_run(q);
+}
+
+/*
+ * Stop queue thread. To keep this example simple we handle queues
+ * synchronously, thus it's left non-implemented.
+ */
+static void queue_stop(ocf_queue_t q)
+{
+}
+
+/*
+ * Queue ops providing interface for running queue thread in both synchronous
+ * and asynchronous way. The stop() operation in called just before queue is
+ * being destroyed.
+ */
+const struct ocf_queue_ops queue_ops = {
+	.kick_sync = queue_kick_sync,
+	.kick = queue_kick_async,
+	.stop = queue_stop,
+};
+
+/*
  * Function starting cache and attaching cache device.
  */
 int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 {
 	struct ocf_mngt_cache_config cache_cfg = { };
 	struct ocf_mngt_cache_device_config device_cfg = { };
+	ocf_queue_t queue;
 	int ret;
 
 	/* Cache configuration */
@@ -33,7 +72,6 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	cache_cfg.cache_line_size = ocf_cache_line_size_4;
 	cache_cfg.cache_mode = ocf_cache_mode_wt;
 	cache_cfg.metadata_volatile = true;
-	cache_cfg.io_queues = 1;
 	cache_cfg.name = "cache1";
 
 	/* Cache deivce (volume) configuration */
@@ -47,6 +85,14 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	ret = ocf_mngt_cache_start(ctx, cache, &cache_cfg);
 	if (ret)
 		return ret;
+
+	ret = ocf_queue_create(*cache, &queue, &queue_ops);
+	if (!queue) {
+		ocf_mngt_cache_stop(*cache);
+		return -ENOMEM;
+	}
+
+	ocf_cache_set_priv(*cache, queue);
 
 	/* Attach volume to cache */
 	ret = ocf_mngt_cache_attach(*cache, &device_cfg);
@@ -113,6 +159,8 @@ int submit_io(ocf_core_t core, struct volume_data *data,
 		uint64_t addr, uint64_t len, int dir, ocf_end_io_t cmpl)
 {
 	struct ocf_io *io;
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	ocf_queue_t queue = (ocf_queue_t)ocf_cache_get_priv(cache);
 
 	/* Allocate new io */
 	io = ocf_core_new_io(core);
@@ -123,6 +171,8 @@ int submit_io(ocf_core_t core, struct volume_data *data,
 	ocf_io_configure(io, addr, len, dir, 0, 0);
 	/* Assign data to io */
 	ocf_io_set_data(io, data, 0);
+	/* Setup io queue to */
+	ocf_io_set_queue(io, queue);
 	/* Setup completion function */
 	ocf_io_set_cmpl(io, NULL, NULL, cmpl);
 	/* Submit io */

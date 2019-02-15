@@ -136,25 +136,6 @@ static inline void ctx_data_secure_erase(ocf_ctx_t ctx, ctx_data_t *dst)
 	return ctx->ops->data.secure_erase(dst);
 }
 
-static inline int ctx_queue_init(ocf_ctx_t ctx, ocf_queue_t queue)
-{
-	return ctx->ops->queue.init(queue);
-}
-
-static inline void ctx_queue_kick(ocf_ctx_t ctx, ocf_queue_t queue,
-		bool allow_sync)
-{
-	if (allow_sync && ctx->ops->queue.kick_sync)
-		ctx->ops->queue.kick_sync(queue);
-	else
-		ctx->ops->queue.kick(queue);
-}
-
-static inline void ctx_queue_stop(ocf_ctx_t ctx, ocf_queue_t queue)
-{
-	ctx->ops->queue.stop(queue);
-}
-
 static inline int ctx_cleaner_init(ocf_ctx_t ctx, ocf_cleaner_t cleaner)
 {
 	return ctx->ops->cleaner.init(cleaner);

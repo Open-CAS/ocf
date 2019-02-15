@@ -13,7 +13,7 @@
 
 struct core_trace_visitor_ctx {
 	ocf_cache_t cache;
-	uint32_t io_queue;
+	ocf_queue_t io_queue;
 };
 
 static int _ocf_core_desc(ocf_core_t core, void  *ctx)
@@ -31,13 +31,13 @@ static int _ocf_core_desc(ocf_core_t core, void  *ctx)
 	core_desc.core_size = ocf_volume_get_length(
 			ocf_core_get_volume(core));
 
-	ocf_trace_push(cache, visitor_ctx->io_queue,
+	ocf_trace_push(visitor_ctx->io_queue,
 			&core_desc, sizeof(core_desc));
 
 	return 0;
 }
 
-static int _ocf_trace_cache_info(ocf_cache_t cache, uint32_t io_queue)
+static int _ocf_trace_cache_info(ocf_cache_t cache, ocf_queue_t io_queue)
 {
 	struct ocf_event_cache_desc cache_desc;
 	int retval;
@@ -62,9 +62,8 @@ static int _ocf_trace_cache_info(ocf_cache_t cache, uint32_t io_queue)
 
 	cache_desc.cores_no = ocf_cache_get_core_count(cache);
 	cache_desc.version = OCF_EVENT_VERSION;
-	cache_desc.io_queues_no = cache->io_queues_no;
 
-	ocf_trace_push(cache, io_queue, &cache_desc, sizeof(cache_desc));
+	ocf_trace_push(io_queue, &cache_desc, sizeof(cache_desc));
 
 	visitor_ctx.cache = cache;
 	visitor_ctx.io_queue = io_queue;
@@ -77,8 +76,8 @@ static int _ocf_trace_cache_info(ocf_cache_t cache, uint32_t io_queue)
 int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 	ocf_trace_callback_t trace_callback)
 {
-	int queue, result;
-	uint32_t i;
+	ocf_queue_t queue;
+	int result;
 
 	OCF_CHECK_NULL(cache);
 
@@ -96,11 +95,12 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 	cache->trace.trace_ctx = trace_ctx;
 
 	// Reset trace stop flag
-	for (queue = 0; queue < cache->io_queues_no; queue++)
-		env_atomic_set(&cache->io_queues[queue].trace_stop, 0);
+	list_for_each_entry(queue, &cache->io_queues, list) {
+		env_atomic_set(&queue->trace_stop, 0);
+	}
 
-	for (i = 0; i < cache->io_queues_no; i++) {
-		result = _ocf_trace_cache_info(cache, i);
+	list_for_each_entry(queue, &cache->io_queues, list) {
+		result = _ocf_trace_cache_info(cache, queue);
 		if (result) {
 			cache->trace.trace_callback = NULL;
 			return result;
@@ -115,7 +115,7 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 
 int ocf_mngt_stop_trace(ocf_cache_t cache)
 {
-	int queue;
+	ocf_queue_t queue;
 
 	OCF_CHECK_NULL(cache);
 
@@ -127,9 +127,8 @@ int ocf_mngt_stop_trace(ocf_cache_t cache)
 	}
 
 	// Set trace stop flag
-	for (queue = 0; queue < cache->io_queues_no; queue++) {
-		env_atomic_set(&cache->io_queues[queue].trace_stop,
-				OCF_TRACING_STOP);
+	list_for_each_entry(queue, &cache->io_queues, list) {
+		env_atomic_set(&queue->trace_stop, OCF_TRACING_STOP);
 	}
 
 	cache->trace.trace_callback = NULL;

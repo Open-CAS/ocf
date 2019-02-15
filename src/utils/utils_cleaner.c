@@ -37,8 +37,8 @@
 static struct ocf_request *_ocf_cleaner_alloc_req(struct ocf_cache *cache,
 		uint32_t count, const struct ocf_cleaner_attribs *attribs)
 {
-	struct ocf_request *req = ocf_req_new_extended(cache, 0, 0,
-			count * ocf_line_size(cache), OCF_READ);
+	struct ocf_request *req = ocf_req_new_extended(attribs->io_queue, NULL,
+			0, count * ocf_line_size(cache), OCF_READ);
 	int ret;
 
 	if (!req)
@@ -61,8 +61,6 @@ static struct ocf_request *_ocf_cleaner_alloc_req(struct ocf_cache *cache,
 		ocf_req_put(req);
 		return NULL;
 	}
-
-	req->io_queue = attribs->io_queue;
 
 	return req;
 }

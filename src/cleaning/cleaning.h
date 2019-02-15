@@ -59,7 +59,7 @@ extern struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max];
 
 struct ocf_cleaner {
 	void *cleaning_policy_context;
-	uint32_t io_queue;
+	ocf_queue_t io_queue;
 	ocf_cleaner_end_t end;
 	void *priv;
 };

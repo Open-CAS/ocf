@@ -25,7 +25,7 @@
  * @retval 0 Success
  * @retval Non-zero Error which will bee finally returned to the caller
  */
-typedef int (*ocf_metadata_io_event_t)(struct ocf_cache *cache,
+typedef int (*ocf_metadata_io_event_t)(ocf_cache_t cache,
 		ctx_data_t *data, uint32_t page, void *context);
 
 /**
@@ -36,7 +36,7 @@ typedef int (*ocf_metadata_io_event_t)(struct ocf_cache *cache,
  * @param error - error
  * @param page - page that was written
  */
-typedef void (*ocf_metadata_io_hndl_on_write_t)(struct ocf_cache *cache,
+typedef void (*ocf_metadata_io_hndl_on_write_t)(ocf_cache_t cache,
 		void *context, int error);
 
 struct metadata_io_request_asynch;
@@ -45,7 +45,7 @@ struct metadata_io_request_asynch;
  * IO request context
  */
 struct metadata_io_request {
-	struct ocf_cache *cache;
+	ocf_cache_t cache;
 	void *context;
 	uint32_t page;
 	uint32_t count;
@@ -75,7 +75,7 @@ struct metadata_io_request_atomic {
 struct metadata_io {
 	int error;
 	int dir;
-	struct ocf_cache *cache;
+	ocf_cache_t cache;
 	uint32_t page;
 	uint32_t count;
 	env_completion completion;
@@ -88,7 +88,7 @@ struct metadata_io {
  * Asynchronous IO request context
  */
 struct metadata_io_request_asynch {
-	struct ocf_cache *cache;
+	ocf_cache_t cache;
 	struct metadata_io_request *reqs;
 	void *context;
 	int error;
@@ -111,7 +111,7 @@ struct metadata_io_request_asynch {
  * @retval Non-zero Error which will bee finally returned to the caller
  */
 typedef int (*ocf_metadata_atomic_io_event_t)(
-		struct ocf_cache *cache, uint64_t sector_addr,
+		ocf_cache_t cache, uint64_t sector_addr,
 		uint32_t sector_no, ctx_data_t *data);
 
 /**
@@ -122,10 +122,10 @@ typedef int (*ocf_metadata_atomic_io_event_t)(
  * @param page - Page of SSD (cache device) where data has to be placed
  * @return 0 - No errors, otherwise error occurred
  */
-int metadata_io_write(struct ocf_cache *cache,
+int metadata_io_write(ocf_cache_t cache,
 		void *data, uint32_t page);
 
-int metadata_io_read_i_atomic(struct ocf_cache *cache,
+int metadata_io_read_i_atomic(ocf_cache_t cache,
 		ocf_metadata_atomic_io_event_t hndl);
 
 /**
@@ -139,7 +139,7 @@ int metadata_io_read_i_atomic(struct ocf_cache *cache,
  *
  * @return 0 - No errors, otherwise error occurred
  */
-int metadata_io_write_i(struct ocf_cache *cache,
+int metadata_io_write_i(ocf_cache_t cache,
 		uint32_t page, uint32_t count,
 		ocf_metadata_io_event_t hndl_fn, void *hndl_cntx);
 
@@ -154,7 +154,7 @@ int metadata_io_write_i(struct ocf_cache *cache,
  *
  * @return 0 - No errors, otherwise error occurred
  */
-int metadata_io_read_i(struct ocf_cache *cache,
+int metadata_io_read_i(ocf_cache_t cache,
 		uint32_t page, uint32_t count,
 		ocf_metadata_io_event_t hndl_fn, void *hndl_cntx);
 
@@ -170,7 +170,7 @@ int metadata_io_read_i(struct ocf_cache *cache,
  *
  * @return 0 - No errors, otherwise error occurred
  */
-int metadata_io_write_i_asynch(struct ocf_cache *cache, uint32_t queue,
+int metadata_io_write_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 		void *context, uint32_t page, uint32_t count,
 		ocf_metadata_io_event_t fill_hndl,
 		ocf_metadata_io_hndl_on_write_t compl_hndl);

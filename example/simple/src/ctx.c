@@ -135,42 +135,6 @@ static void ctx_data_secure_erase(ctx_data_t *ctx_data)
 }
 
 /*
- * Initialize queue thread. To keep this example simple we handle queues
- * synchronously, thus it's left non-implemented.
- */
-static int ctx_queue_init(ocf_queue_t q)
-{
-	return 0;
-}
-
-/*
- * Trigger queue asynchronously. Made synchronous for simplicity.
- */
-static inline void ctx_queue_kick_async(ocf_queue_t q)
-{
-	ocf_queue_run(q);
-}
-
-/*
- * Trigger queue synchronously. May be implemented as asynchronous as well,
- * but in some environments kicking queue synchronously may reduce latency,
- * so to take advantage of such situations OCF call synchronous variant of
- * queue kick callback where possible.
- */
-static void ctx_queue_kick_sync(ocf_queue_t q)
-{
-	ocf_queue_run(q);
-}
-
-/*
- * Stop queue thread. To keep this example simple we handle queues
- * synchronously, thus it's left non-implemented.
- */
-static void ctx_queue_stop(ocf_queue_t q)
-{
-}
-
-/*
  * Initialize cleaner thread. Cleaner thread is left non-implemented,
  * to keep this example as simple as possible.
  */
@@ -257,8 +221,6 @@ static int ctx_logger_dump_stack(ocf_logger_t logger)
  * This structure describes context config, containing simple context info
  * and pointers to ops callbacks. Ops are splitted into few categories:
  * - data ops, providing context specific data handing interface,
- * - queue ops, providing interface for starting, stoping and kicking
- *   queue thread in both synchronous and asynchronous way,
  * - cleaner ops, providing interface to start and stop clener thread,
  * - metadata updater ops, providing interface for starting, stoping
  *   and kicking metadata updater thread.
@@ -278,13 +240,6 @@ static const struct ocf_ctx_config ctx_cfg = {
 			.seek = ctx_data_seek,
 			.copy = ctx_data_copy,
 			.secure_erase = ctx_data_secure_erase,
-		},
-
-		.queue = {
-			.init = ctx_queue_init,
-			.kick_sync = ctx_queue_kick_sync,
-			.kick = ctx_queue_kick_async,
-			.stop = ctx_queue_stop,
 		},
 
 		.cleaner = {

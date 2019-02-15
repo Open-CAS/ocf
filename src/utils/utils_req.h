@@ -33,16 +33,16 @@ void ocf_req_allocator_deinit(struct ocf_ctx *ocf_ctx);
 /**
  * @brief Allocate new OCF request
  *
- * @param cache - OCF cache instance
- * @param core_id - Core id
+ * @param queue - I/O queue handle
+ * @param core - OCF core instance
  * @param addr - LBA of request
  * @param bytes - number of bytes of request
  * @param rw - Read or Write
  *
  * @return new OCF request
  */
-struct ocf_request *ocf_req_new(struct ocf_cache *cache,
-		ocf_core_id_t core_id, uint64_t addr, uint32_t bytes, int rw);
+struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
+		uint64_t addr, uint32_t bytes, int rw);
 
 /**
  * @brief Allocate OCF request map
@@ -57,8 +57,8 @@ int ocf_req_alloc_map(struct ocf_request *req);
 /**
  * @brief Allocate new OCF request with NOIO map allocation for huge request
  *
- * @param cache - OCF cache instance
- * @param core_id - Core id
+ * @param queue - I/O queue handle
+ * @param core - OCF core instance
  * @param addr - LBA of request
  * @param bytes - number of bytes of request
  * @param rw - Read or Write
@@ -66,22 +66,22 @@ int ocf_req_alloc_map(struct ocf_request *req);
  * @return new OCF request
  */
 
-struct ocf_request *ocf_req_new_extended(struct ocf_cache *cache,
-		ocf_core_id_t core_id, uint64_t addr, uint32_t bytes, int rw);
+struct ocf_request *ocf_req_new_extended(ocf_queue_t queue, ocf_core_t core,
+		uint64_t addr, uint32_t bytes, int rw);
 
 /**
  * @brief Allocate new OCF request for DISCARD operation
  *
- * @param cache - OCF cache instance
- * @param core_id - Core id
+ * @param queue - I/O queue handle
+ * @param core - OCF core instance
  * @param addr - LBA of request
  * @param bytes - number of bytes of request
  * @param rw - Read or Write
  *
  * @return new OCF request
  */
-struct ocf_request *ocf_req_new_discard(struct ocf_cache *cache,
-		ocf_core_id_t core_id, uint64_t addr, uint32_t bytes, int rw);
+struct ocf_request *ocf_req_new_discard(ocf_queue_t queue, ocf_core_t core,
+		uint64_t addr, uint32_t bytes, int rw);
 
 /**
  * @brief Get number of allocated requests

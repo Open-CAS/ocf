@@ -449,7 +449,7 @@ void cleaning_policy_alru_setup(struct ocf_cache *cache)
 	config->activity_threshold = OCF_ALRU_DEFAULT_ACTIVITY_THRESHOLD;
 }
 
-int cleaning_policy_alru_initialize(struct ocf_cache *cache, int init_metadata)
+int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata)
 {
 	struct ocf_user_part *part;
 	ocf_part_id_t part_id;
