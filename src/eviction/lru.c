@@ -29,7 +29,7 @@
 #define is_lru_tail(x) (x == collision_table_entries)
 
 /* Sets the given collision_index as the new _head_ of the LRU list. */
-static inline void update_lru_head(struct ocf_cache *cache,
+static inline void update_lru_head(ocf_cache_t cache,
 		int partition_id, unsigned int collision_index,
 		int cline_dirty)
 {
@@ -43,7 +43,7 @@ static inline void update_lru_head(struct ocf_cache *cache,
 }
 
 /* Sets the given collision_index as the new _tail_ of the LRU list. */
-static inline void update_lru_tail(struct ocf_cache *cache,
+static inline void update_lru_tail(ocf_cache_t cache,
 		int partition_id, unsigned int collision_index,
 		int cline_dirty)
 {
@@ -58,7 +58,7 @@ static inline void update_lru_tail(struct ocf_cache *cache,
 /* Sets the given collision_index as the new _head_ and _tail_ of
  * the LRU list.
  */
-static inline void update_lru_head_tail(struct ocf_cache *cache,
+static inline void update_lru_head_tail(ocf_cache_t cache,
 		int partition_id, unsigned int collision_index, int cline_dirty)
 {
 	update_lru_head(cache, partition_id, collision_index, cline_dirty);
@@ -66,7 +66,7 @@ static inline void update_lru_head_tail(struct ocf_cache *cache,
 }
 
 /* Adds the given collision_index to the _head_ of the LRU list */
-static void add_lru_head(struct ocf_cache *cache, int partition_id,
+static void add_lru_head(ocf_cache_t cache, int partition_id,
 		unsigned int collision_index, int cline_dirty)
 {
 	unsigned int curr_head_index;
@@ -121,7 +121,7 @@ static void add_lru_head(struct ocf_cache *cache, int partition_id,
 }
 
 /* Deletes the node with the given collision_index from the lru list */
-static void remove_lru_list(struct ocf_cache *cache, int partition_id,
+static void remove_lru_list(ocf_cache_t cache, int partition_id,
 		unsigned int collision_index, int cline_dirty)
 {
 	int is_clean_head = 0, is_clean_tail = 0, is_dirty_head = 0, is_dirty_tail = 0;
@@ -250,7 +250,7 @@ static void remove_lru_list(struct ocf_cache *cache, int partition_id,
 
 /*-- End of LRU functions*/
 
-void evp_lru_init_cline(struct ocf_cache *cache, ocf_cache_line_t cline)
+void evp_lru_init_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
 	union eviction_policy_meta eviction;
 
@@ -264,7 +264,7 @@ void evp_lru_init_cline(struct ocf_cache *cache, ocf_cache_line_t cline)
 
 
 /* the caller must hold the metadata lock */
-void evp_lru_rm_cline(struct ocf_cache *cache, ocf_cache_line_t cline)
+void evp_lru_rm_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, cline);
 
@@ -278,7 +278,7 @@ static void evp_lru_clean_end(void *private_data, int error)
 	env_atomic_set(cleaning_in_progress, 0);
 }
 
-static int evp_lru_clean_getter(struct ocf_cache *cache,
+static int evp_lru_clean_getter(ocf_cache_t cache,
 		void *getter_context, uint32_t item, ocf_cache_line_t *line)
 {
 	union eviction_policy_meta eviction;
@@ -306,7 +306,7 @@ static int evp_lru_clean_getter(struct ocf_cache *cache,
 	return -1;
 }
 
-static void evp_lru_clean(struct ocf_cache *cache, uint32_t io_queue,
+static void evp_lru_clean(ocf_cache_t cache, ocf_queue_t io_queue,
 		ocf_part_id_t part_id, uint32_t count)
 {
 	env_atomic *progress = &cache->cleaning[part_id];
@@ -342,7 +342,7 @@ static void evp_lru_zero_line_complete(struct ocf_request *ocf_req, int error)
 	env_atomic_dec(&ocf_req->cache->pending_eviction_clines);
 }
 
-static void evp_lru_zero_line(struct ocf_cache *cache, uint32_t io_queue,
+static void evp_lru_zero_line(ocf_cache_t cache, ocf_queue_t io_queue,
 		ocf_cache_line_t line)
 {
 	struct ocf_request *req;
@@ -364,7 +364,7 @@ static void evp_lru_zero_line(struct ocf_cache *cache, uint32_t io_queue,
 	}
 }
 
-bool evp_lru_can_evict(struct ocf_cache *cache)
+bool evp_lru_can_evict(ocf_cache_t cache)
 {
 	if (env_atomic_read(&cache->pending_eviction_clines) >=
 			OCF_PENDING_EVICTION_LIMIT) {
@@ -375,7 +375,7 @@ bool evp_lru_can_evict(struct ocf_cache *cache)
 }
 
 /* the caller must hold the metadata lock */
-uint32_t evp_lru_req_clines(struct ocf_cache *cache, uint32_t io_queue,
+uint32_t evp_lru_req_clines(ocf_cache_t cache, ocf_queue_t io_queue,
 		ocf_part_id_t part_id, uint32_t cline_no, ocf_core_id_t core_id)
 {
 	uint32_t i;
@@ -438,7 +438,7 @@ uint32_t evp_lru_req_clines(struct ocf_cache *cache, uint32_t io_queue,
 }
 
 /* the caller must hold the metadata lock */
-void evp_lru_hot_cline(struct ocf_cache *cache, ocf_cache_line_t cline)
+void evp_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, cline);
 	struct ocf_user_part *part = &cache->user_parts[part_id];
@@ -469,7 +469,7 @@ void evp_lru_hot_cline(struct ocf_cache *cache, ocf_cache_line_t cline)
 	add_lru_head(cache, part_id, cline, cline_dirty);
 }
 
-void evp_lru_init_evp(struct ocf_cache *cache, ocf_part_id_t part_id)
+void evp_lru_init_evp(ocf_cache_t cache, ocf_part_id_t part_id)
 {
 	unsigned int collision_table_entries =
 			cache->device->collision_table_entries;
@@ -483,7 +483,7 @@ void evp_lru_init_evp(struct ocf_cache *cache, ocf_part_id_t part_id)
 	part->runtime->eviction.policy.lru.dirty_tail = collision_table_entries;
 }
 
-void evp_lru_clean_cline(struct ocf_cache *cache, ocf_part_id_t part_id,
+void evp_lru_clean_cline(ocf_cache_t cache, ocf_part_id_t part_id,
 		uint32_t cline)
 {
 	OCF_METADATA_EVICTION_LOCK();
@@ -492,7 +492,7 @@ void evp_lru_clean_cline(struct ocf_cache *cache, ocf_part_id_t part_id,
 	OCF_METADATA_EVICTION_UNLOCK();
 }
 
-void evp_lru_dirty_cline(struct ocf_cache *cache, ocf_part_id_t part_id,
+void evp_lru_dirty_cline(ocf_cache_t cache, ocf_part_id_t part_id,
 		uint32_t cline)
 {
 	OCF_METADATA_EVICTION_LOCK();

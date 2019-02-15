@@ -488,14 +488,14 @@ void ocf_engine_update_request_stats(struct ocf_request *req)
 
 void ocf_engine_push_req_back(struct ocf_request *req, bool allow_sync)
 {
-	struct ocf_cache *cache = req->cache;
-	struct ocf_queue *q = NULL;
+	ocf_cache_t cache = req->cache;
+	ocf_queue_t q = NULL;
 	unsigned long lock_flags = 0;
 
 	INIT_LIST_HEAD(&req->list);
 
-	ENV_BUG_ON(req->io_queue >= cache->io_queues_no);
-	q = &cache->io_queues[req->io_queue];
+	ENV_BUG_ON(!req->io_queue);
+	q = req->io_queue;
 
 	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
 
@@ -513,14 +513,14 @@ void ocf_engine_push_req_back(struct ocf_request *req, bool allow_sync)
 
 void ocf_engine_push_req_front(struct ocf_request *req, bool allow_sync)
 {
-	struct ocf_cache *cache = req->cache;
-	struct ocf_queue *q = NULL;
+	ocf_cache_t cache = req->cache;
+	ocf_queue_t q = NULL;
 	unsigned long lock_flags = 0;
 
 	INIT_LIST_HEAD(&req->list);
 
-	ENV_BUG_ON(req->io_queue >= cache->io_queues_no);
-	q = &cache->io_queues[req->io_queue];
+	ENV_BUG_ON(!req->io_queue);
+	q = req->io_queue;
 
 	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
 

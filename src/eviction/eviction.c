@@ -40,8 +40,8 @@ static uint32_t ocf_evict_calculate(struct ocf_user_part *part,
 	return to_evict;
 }
 
-static inline uint32_t ocf_evict_do(struct ocf_cache *cache,
-		uint32_t io_queue, const uint32_t evict_cline_no,
+static inline uint32_t ocf_evict_do(ocf_cache_t cache,
+		ocf_queue_t io_queue, const uint32_t evict_cline_no,
 		ocf_core_id_t core_id, ocf_part_id_t target_part_id)
 {
 	uint32_t to_evict = 0, evicted = 0;

@@ -12,6 +12,39 @@
  */
 
 /**
+ * @brief Allocate IO queue and add it to list in cache
+ *
+ * @param[in] cache Handle to cache instance
+ * @param[in] id Id assigned to newely created queue
+ *
+ */
+ocf_queue_t ocf_queue_alloc(ocf_cache_t cache, uint32_t id);
+
+/**
+ * @brief Run thread for given IO queue
+ *
+ * @param[in] queue Handle queue
+ *
+ */
+int ocf_queue_start(ocf_queue_t queue);
+
+/**
+ * @brief Stop thread for given IO queue
+ *
+ * @param[in] queue Handle queue
+ *
+ */
+void ocf_queue_stop(ocf_queue_t queue);
+
+/**
+ * @brief Remove queue from cache instance
+ *
+ * @param[in] queue Handle queue
+ *
+ */
+void ocf_queue_free(ocf_queue_t queue);
+
+/**
  * @brief Process single request from queue
  *
  * @param[in] q Queue to run
@@ -52,6 +85,15 @@ void *ocf_queue_get_priv(ocf_queue_t q);
 uint32_t ocf_queue_pending_io(ocf_queue_t q);
 
 /**
+ * @brief Get I/O queue id
+ *
+ * @param[in] q I/O queue
+ *
+ * @retval Id I/O queue
+ */
+uint32_t ocf_queue_get_id(ocf_queue_t q);
+
+/**
  * @brief Get cache instance to which I/O queue belongs
  *
  * @param[in] q I/O queue
@@ -59,14 +101,5 @@ uint32_t ocf_queue_pending_io(ocf_queue_t q);
  * @retval Cache instance
  */
 ocf_cache_t ocf_queue_get_cache(ocf_queue_t q);
-
-/**
- * @brief Get I/O queue id
- *
- * @param[in] q I/O queue
- *
- * @retval I/O queue id
- */
-uint32_t ocf_queue_get_id(ocf_queue_t q);
 
 #endif

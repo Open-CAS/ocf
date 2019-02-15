@@ -13,68 +13,65 @@
 #include "engine/cache_engine.h"
 #include "ocf_def_priv.h"
 
-int ocf_alloc_queues(struct ocf_cache *cache)
-{
-	ENV_BUG_ON(!cache->io_queues_no);
-
-	cache->io_queues = env_zalloc(
-		sizeof(*cache->io_queues) * cache->io_queues_no, ENV_MEM_NORMAL);
-	if (!cache->io_queues)
-		return -ENOMEM;
-
-	return 0;
-}
-
-void ocf_free_queues(struct ocf_cache *cache)
-{
-	env_free(cache->io_queues);
-	cache->io_queues_no = 0;
-	cache->io_queues = NULL;
-}
-
-static void ocf_init_queue(struct ocf_queue *q)
+static void ocf_init_queue(ocf_queue_t q)
 {
 	env_atomic_set(&q->io_no, 0);
 	env_spinlock_init(&q->io_list_lock);
 	INIT_LIST_HEAD(&q->io_list);
 }
 
-int ocf_start_queues(ocf_cache_t cache)
+ocf_queue_t ocf_queue_alloc(ocf_cache_t cache, uint32_t id)
 {
-	int id, result = 0;
-	struct ocf_queue *q;
+	ocf_queue_t queue;
 
-	for (id = 0; id < cache->io_queues_no; id++) {
-		q = &cache->io_queues[id];
-		q->cache = cache;
-		q->id = id;
-		ocf_init_queue(q);
-		result = ctx_queue_init(cache->owner, q);
-		if (result)
-			break;
-	}
-	if (result) {
-		while (id) {
-			ctx_queue_stop(cache->owner,
-					&cache->io_queues[--id]);
-		}
-	}
+	OCF_CHECK_NULL(cache);
 
-	return result;
+	queue = env_zalloc(sizeof(*queue), ENV_MEM_NORMAL);
+	if (!queue)
+		return NULL;
+
+	queue->cache = cache;
+	ocf_init_queue(queue);
+
+	queue->id = id;
+
+	list_add(&queue->list, &cache->io_queues);
+
+	return queue;
 }
 
-void ocf_stop_queues(ocf_cache_t cache)
+int ocf_queue_start(ocf_queue_t queue) {
+	ocf_cache_t cache;
+
+	OCF_CHECK_NULL(queue);
+
+	cache = ocf_queue_get_cache(queue);
+
+	return ctx_queue_init(cache->owner, queue);
+}
+
+void ocf_queue_free(ocf_queue_t queue)
 {
-	int i;
-	struct ocf_queue *curr;
+	OCF_CHECK_NULL(queue);
 
-	ocf_cache_wait_for_io_finish(cache);
+	list_del(&queue->list);
 
-	/* Stop IO threads. */
-	for (i = 0 ; i < cache->io_queues_no; i++) {
-		curr = &cache->io_queues[i];
-		ctx_queue_stop(cache->owner, curr);
-	}
+	env_free(queue);
+	queue = NULL;
+}
+
+void ocf_queue_stop(ocf_queue_t queue)
+{
+	ocf_cache_t cache;
+
+	OCF_CHECK_NULL(queue);
+
+	cache = ocf_queue_get_cache(queue);
+
+	if (env_atomic_read(&queue->io_no) > 0)
+		ocf_queue_run(queue);
+
+	ctx_queue_stop(cache->owner, queue);
 }
 
 void ocf_io_handle(struct ocf_io *io, void *opaque)
@@ -92,7 +89,7 @@ void ocf_io_handle(struct ocf_io *io, void *opaque)
 void ocf_queue_run_single(ocf_queue_t q)
 {
 	struct ocf_request *io_req = NULL;
-	struct ocf_cache *cache;
+	ocf_cache_t cache;
 
 	OCF_CHECK_NULL(q);
 
@@ -134,6 +131,12 @@ void *ocf_queue_get_priv(ocf_queue_t q)
 	return q->priv;
 }
 
+uint32_t ocf_queue_get_id(ocf_queue_t q)
+{
+	OCF_CHECK_NULL(q);
+	return q->id;
+}
+
 uint32_t ocf_queue_pending_io(ocf_queue_t q)
 {
 	OCF_CHECK_NULL(q);
@@ -144,21 +147,4 @@ ocf_cache_t ocf_queue_get_cache(ocf_queue_t q)
 {
 	OCF_CHECK_NULL(q);
 	return q->cache;
-}
-
-uint32_t ocf_queue_get_id(ocf_queue_t q)
-{
-	OCF_CHECK_NULL(q);
-	return q->id;
-}
-
-int ocf_cache_get_queue(ocf_cache_t cache, unsigned id, ocf_queue_t *q)
-{
-	OCF_CHECK_NULL(cache);
-
-	if (!q || id >= cache->io_queues_no)
-		return -OCF_ERR_INVAL;
-
-	*q = &cache->io_queues[id];
-	return 0;
 }

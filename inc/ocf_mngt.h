@@ -241,11 +241,6 @@ struct ocf_mngt_cache_config {
 	} backfill;
 
 	/**
-	 * @brief Number of I/O queues to be created
-	 */
-	uint32_t io_queues;
-
-	/**
 	 * @brief Start cache and keep it locked
 	 *
 	 * @note In this case caller is able to perform additional activities
@@ -360,14 +355,12 @@ int ocf_mngt_cache_detach(ocf_cache_t cache);
  *
  * @param[in] ctx OCF context
  * @param[out] cache Cache handle
- * @param[in] cfg Cache configuration
  * @param[in] device_cfg Caching device configuration
  *
  * @retval 0 Cache successfully loaded
  * @retval Non-zero Error occurred during loading cache
  */
 int ocf_mngt_cache_load(ocf_ctx_t ctx, ocf_cache_t *cache,
-		struct ocf_mngt_cache_config *cfg,
 		struct ocf_mngt_cache_device_config *device_cfg);
 
 /* Adding and removing cores */

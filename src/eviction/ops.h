@@ -53,7 +53,7 @@ static inline bool ocf_eviction_can_evict(struct ocf_cache *cache)
 }
 
 static inline uint32_t ocf_eviction_need_space(struct ocf_cache *cache,
-		uint32_t io_queue, ocf_part_id_t part_id, uint32_t clines,
+		ocf_queue_t io_queue, ocf_part_id_t part_id, uint32_t clines,
 		ocf_core_id_t core_id)
 {
 	uint8_t type;
