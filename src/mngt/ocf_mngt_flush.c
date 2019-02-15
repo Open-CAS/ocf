@@ -316,7 +316,6 @@ static int _ocf_mngt_flush_containers(ocf_cache_t cache,
 
 	for (i = 0; i < fcnum; i++) {
 		fctbl[i].attribs.cache_line_lock = true;
-		fctbl[i].attribs.metadata_locked = true;
 		fctbl[i].attribs.cmpl_context = &fctbl[i];
 		fctbl[i].attribs.cmpl_fn = _ocf_mngt_flush_end;
 		fctbl[i].attribs.io_queue = 0;

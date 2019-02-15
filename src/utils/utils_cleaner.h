@@ -27,8 +27,6 @@ typedef int (*ocf_cleaner_get_item)(struct ocf_cache *cache,
 struct ocf_cleaner_attribs {
 	uint8_t  cache_line_lock : 1;	/*!< Clean under cache line lock */
 
-	uint8_t metadata_locked : 1;  /*< true if caller holds metadata lock */
-
 	uint8_t  do_sort : 1;	/*!< Sort cache lines which will be cleaned */
 
 	uint32_t count; /*!< max number of cache lines to be cleaned */
@@ -86,20 +84,6 @@ struct flush_container {
  */
 void ocf_cleaner_fire(struct ocf_cache *cache,
 		const struct ocf_cleaner_attribs *attribs);
-
-/**
- * @brief Perform cleaning procedure for specified flush data synchronously.
- * Only dirty cache lines will be cleaned.
- *
- * @param cache - Cache instance
- * @param flush - flush data to be cleaned
- * @param count - Count of cache lines to be cleaned
- * @param attribs - Cleaning attributes
- * @return - Cleaning result. 0 - no errors, non zero errors occurred
- */
-int ocf_cleaner_do_flush_data(struct ocf_cache *cache,
-		struct flush_data *flush, uint32_t count,
-		struct ocf_cleaner_attribs *attribs);
 
 /**
  * @brief Perform cleaning procedure for specified flush data. Only dirty

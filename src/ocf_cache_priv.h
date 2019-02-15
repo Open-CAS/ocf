@@ -223,8 +223,6 @@ struct ocf_cache {
 
 	bool use_submit_io_fast;
 
-	void *cleaning_policy_context;
-
 	struct ocf_trace trace;
 
 	void *priv;

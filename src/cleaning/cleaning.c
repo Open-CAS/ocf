@@ -25,6 +25,7 @@ struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max] = {
 		.purge_range = cleaning_policy_alru_purge_range,
 		.set_hot_cache_line = cleaning_policy_alru_set_hot_cache_line,
 		.initialize = cleaning_policy_alru_initialize,
+		.deinitialize = cleaning_policy_alru_deinitialize,
 		.set_cleaning_param = cleaning_policy_alru_set_cleaning_param,
 		.get_cleaning_param = cleaning_policy_alru_get_cleaning_param,
 		.perform_cleaning = cleaning_alru_perform_cleaning,
@@ -47,14 +48,24 @@ struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max] = {
 	},
 };
 
-int ocf_start_cleaner(struct ocf_cache *cache)
+int ocf_start_cleaner(ocf_cache_t cache)
 {
 	return ctx_cleaner_init(cache->owner, &cache->cleaner);
 }
 
-void ocf_stop_cleaner(struct ocf_cache *cache)
+void ocf_stop_cleaner(ocf_cache_t cache)
 {
 	ctx_cleaner_stop(cache->owner, &cache->cleaner);
+}
+
+void ocf_cleaner_set_cmpl(ocf_cleaner_t cleaner, ocf_cleaner_end_t fn)
+{
+	cleaner->end = fn;
+}
+
+void ocf_cleaner_set_io_queue(ocf_cleaner_t cleaner, uint32_t io_queue)
+{
+	cleaner->io_queue = io_queue;
 }
 
 void ocf_cleaner_set_priv(ocf_cleaner_t c, void *priv)
@@ -75,7 +86,7 @@ ocf_cache_t ocf_cleaner_get_cache(ocf_cleaner_t c)
 	return container_of(c, struct ocf_cache, cleaner);
 }
 
-static int _ocf_cleaner_run_check_dirty_inactive(struct ocf_cache *cache)
+static int _ocf_cleaner_run_check_dirty_inactive(ocf_cache_t cache)
 {
 	int i;
 
@@ -95,29 +106,37 @@ static int _ocf_cleaner_run_check_dirty_inactive(struct ocf_cache *cache)
 	return 1;
 }
 
-uint32_t ocf_cleaner_run(ocf_cleaner_t c, uint32_t io_queue)
+static void ocf_cleaner_run_complete(ocf_cleaner_t cleaner, uint32_t interval)
 {
-	struct ocf_cache *cache;
-	ocf_cleaning_t clean_type;
-	int sleep = SLEEP_TIME_MS;
+	ocf_cache_t cache = ocf_cleaner_get_cache(cleaner);
 
-	cache = ocf_cleaner_get_cache(c);
+	env_rwsem_up_write(&cache->lock);
+	cleaner->end(cleaner, interval);
+}
+
+void ocf_cleaner_run(ocf_cleaner_t cleaner)
+{
+	ocf_cache_t cache = ocf_cleaner_get_cache(cleaner);
+	ocf_cleaning_t clean_type;
 
 	/* Do not involve cleaning when cache is not running
 	 * (error, etc.).
 	 */
 	if (!env_bit_test(ocf_cache_state_running, &cache->cache_state) ||
 			ocf_mngt_is_cache_locked(cache)) {
-		return SLEEP_TIME_MS;
+		cleaner->end(cleaner, SLEEP_TIME_MS);
+		return;
 	}
 
 	/* Sleep in case there is management operation in progress. */
-	if (env_rwsem_down_write_trylock(&cache->lock) == 0)
-		return SLEEP_TIME_MS;
+	if (env_rwsem_down_write_trylock(&cache->lock) == 0) {
+		cleaner->end(cleaner, SLEEP_TIME_MS);
+		return;
+	}
 
 	if (_ocf_cleaner_run_check_dirty_inactive(cache)) {
-		env_rwsem_up_write(&cache->lock);
-		return SLEEP_TIME_MS;
+		cleaner->end(cleaner, SLEEP_TIME_MS);
+		return;
 	}
 
 	clean_type = cache->conf_meta->cleaning_policy_type;
@@ -126,12 +145,7 @@ uint32_t ocf_cleaner_run(ocf_cleaner_t c, uint32_t io_queue)
 
 	/* Call cleaning. */
 	if (cleaning_policy_ops[clean_type].perform_cleaning) {
-		sleep = cleaning_policy_ops[clean_type].
-			perform_cleaning(cache, io_queue);
+		cleaning_policy_ops[clean_type].perform_cleaning(cache,
+				ocf_cleaner_run_complete);
 	}
-
-	env_rwsem_up_write(&cache->lock);
-
-	return sleep;
 }
-
