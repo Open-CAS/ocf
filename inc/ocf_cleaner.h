@@ -13,14 +13,37 @@
  */
 
 /**
+ * @brief OCF Cleaner completion
+ *
+ * @note Completion function for cleaner
+ *
+ * @param[in] cleaner Cleaner instance
+ * @param[in] interval Time to sleep before next cleaner iteration
+ */
+typedef void (*ocf_cleaner_end_t)(ocf_cleaner_t cleaner, uint32_t interval);
+
+/**
+ * @brief Set cleaner completion function
+ *
+ * @param[in] cleaner Cleaner instance
+ * @param[in] fn Completion function
+ */
+void ocf_cleaner_set_cmpl(ocf_cleaner_t cleaner, ocf_cleaner_end_t fn);
+
+/**
+ * @brief Set cleaner queue
+ *
+ * @param[in] cleaner Cleaner instance
+ * @param[in] io_queue Queue number
+ */
+void ocf_cleaner_set_io_queue(ocf_cleaner_t cleaner, uint32_t io_queue);
+
+/**
  * @brief Run cleaner
  *
  * @param[in] c Cleaner instance to run
- * @param[in] io_queue I/O queue to which cleaner requests should be submitted
- *
- * @retval Hint when to run cleaner next time. Value expressed in miliseconds.
  */
-uint32_t ocf_cleaner_run(ocf_cleaner_t c, uint32_t io_queue);
+void ocf_cleaner_run(ocf_cleaner_t c);
 
 /**
  * @brief Set cleaner private data

@@ -31,12 +31,6 @@
 #define OCF_DEBUG_PARAM(cache, format, ...)
 #endif
 
-
-struct ocf_cleaner_sync {
-	env_completion cmpl;
-	int error;
-};
-
 /*
  * Allocate cleaning request
  */
@@ -948,17 +942,6 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	ocf_req_put(master);
 }
 
-static void ocf_cleaner_sync_end(void *private_data, int error)
-{
-	struct ocf_cleaner_sync *sync = private_data;
-
-	OCF_DEBUG_TRACE(req->cache);
-	if (error)
-		sync->error = error;
-
-	env_completion_complete(&sync->cmpl);
-}
-
 static int _ocf_cleaner_do_flush_data_getter(struct ocf_cache *cache,
 		void *context, uint32_t item, ocf_cache_line_t *line)
 {
@@ -970,34 +953,6 @@ static int _ocf_cleaner_do_flush_data_getter(struct ocf_cache *cache,
 	} else {
 		return -1;
 	}
-}
-
-int ocf_cleaner_do_flush_data(struct ocf_cache *cache,
-		struct flush_data *flush, uint32_t count,
-		struct ocf_cleaner_attribs *attribs)
-{
-	struct ocf_cleaner_sync sync;
-
-	env_completion_init(&sync.cmpl);
-	sync.error = 0;
-	attribs->cmpl_context = &sync;
-	attribs->cmpl_fn = ocf_cleaner_sync_end;
-	attribs->getter = _ocf_cleaner_do_flush_data_getter;
-	attribs->getter_context = flush;
-	attribs->count = count;
-
-	ocf_cleaner_fire(cache, attribs);
-
-	if (attribs->metadata_locked)
-		OCF_METADATA_UNLOCK_WR();
-
-	env_completion_wait(&sync.cmpl);
-
-	if (attribs->metadata_locked)
-		OCF_METADATA_LOCK_WR();
-
-	attribs->cmpl_context = NULL;
-	return sync.error;
 }
 
 int ocf_cleaner_do_flush_data_async(struct ocf_cache *cache,

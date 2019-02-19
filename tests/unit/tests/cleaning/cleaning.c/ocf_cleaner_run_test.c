@@ -13,6 +13,9 @@
 
 //<tested_file_path>src/cleaning/cleaning.c</tested_file_path>
 //<tested_function>ocf_cleaner_run</tested_function>
+//<functions_to_leave>
+//ocf_cleaner_set_cmpl
+//</functions_to_leave>
 
 
 #include <stdarg.h>
@@ -133,6 +136,11 @@ int __wrap_cleaning_policy_alru_initialize(struct ocf_cache *cache, int partitio
 
 }
 
+void __wrap_cleaning_policy_alru_deinitialize(ocf_cache_t cache)
+{
+
+}
+
 int __wrap_cleaning_policy_alru_flush_block(struct ocf_cache *cache,
 		                 uint32_t io_queue, uint32_t count, uint32_t *cache_lines,
 				                                  int partition_id, int core_id, uint8_t do_lock)
@@ -152,7 +160,7 @@ void __wrap_cleaning_policy_alru_get_cleaning_parameters(ocf_cache_t cache,
 
 }
 
-int __wrap_cleaning_alru_perform_cleaning(struct ocf_cache *cache, uint32_t io_queue)
+int __wrap_cleaning_alru_perform_cleaning(struct ocf_cache *cache, ocf_cleaner_end_t cmpl)
 {
 	function_called();
 	return mock();
@@ -178,6 +186,11 @@ int __wrap__ocf_cleaner_run_check_dirty_inactive(struct ocf_cache *cache)
 	return mock();
 }
 
+void __wrap_ocf_cleaner_run_complete(ocf_cleaner_t cleaner, uint32_t interval)
+{
+	function_called();
+}
+
 int __wrap_env_bit_test(int nr, const void *addr)
 {
 	function_called();
@@ -195,6 +208,10 @@ void __wrap_env_rwsem_up_write(env_rwsem *s)
 	function_called();
 }
 
+static void cleaner_complete(ocf_cleaner_t cleaner, uint32_t interval)
+{
+	function_called();
+}
 
 /*
  * Tests of functions. Every test name must be written to tests array in main().
@@ -233,10 +250,9 @@ static void ocf_cleaner_run_test01(void **state)
 	expect_function_call(__wrap_cleaning_alru_perform_cleaning);
 	will_return(__wrap_cleaning_alru_perform_cleaning, 0);
 
-	expect_function_call(__wrap_env_rwsem_up_write);
+	ocf_cleaner_set_cmpl(&cache.cleaner, cleaner_complete);
 
-	result = ocf_cleaner_run(&cache.cleaner, io_queue);
-	assert_int_equal(result, 0);
+	ocf_cleaner_run(&cache.cleaner);
 
 	/* Release allocated memory if allocated with test_* functions */
 

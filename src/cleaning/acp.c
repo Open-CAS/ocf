@@ -123,6 +123,12 @@ struct acp_context {
 	 perform_cleaning */
 	struct acp_state state;
 
+	/* cache handle */
+	ocf_cache_t cache;
+
+	/* cleaner completion callback */
+	ocf_cleaner_end_t cmpl;
+
 #if 1 == OCF_ACP_DEBUG
 	/* debug only */
 	uint64_t checksum;
@@ -146,7 +152,7 @@ struct acp_core_line_info
 
 static struct acp_context *_acp_get_ctx_from_cache(struct ocf_cache *cache)
 {
-	return cache->cleaning_policy_context;
+	return cache->cleaner.cleaning_policy_context;
 }
 
 static struct acp_cleaning_policy_meta* _acp_meta_get(
@@ -227,8 +233,8 @@ void cleaning_policy_acp_deinitialize(struct ocf_cache *cache)
 {
 	_acp_remove_cores(cache);
 
-	env_vfree(cache->cleaning_policy_context);
-	cache->cleaning_policy_context = NULL;
+	env_vfree(cache->cleaner.cleaning_policy_context);
+	cache->cleaner.cleaning_policy_context = NULL;
 }
 
 static void _acp_rebuild(struct ocf_cache *cache)
@@ -282,14 +288,15 @@ int cleaning_policy_acp_initialize(struct ocf_cache *cache,
 			1U << (sizeof(acp->chunk_info[0][0].num_dirty) * 8));
 #endif
 
-	ENV_BUG_ON(cache->cleaning_policy_context);
+	ENV_BUG_ON(cache->cleaner.cleaning_policy_context);
 
-	cache->cleaning_policy_context = env_vzalloc(sizeof(struct acp_context));
-	if (!cache->cleaning_policy_context) {
+	acp = env_vzalloc(sizeof(*acp));
+	if (!acp) {
 		ocf_cache_log(cache, log_err, "acp context allocation error\n");
 		return -OCF_ERR_NO_MEM;
 	}
-	acp = cache->cleaning_policy_context;
+	cache->cleaner.cleaning_policy_context = acp;
+	acp->cache = cache;
 
 	env_rwsem_init(&acp->chunks_lock);
 
@@ -412,40 +419,6 @@ static void _acp_handle_flush_error(struct ocf_cache *cache,
 	}
 }
 
-/* called after flush request completed */
-static void _acp_flush_end(
-		struct ocf_cache *cache,
-		struct acp_context *acp)
-{
-	struct acp_flush_context *flush = &acp->flush;
-	int i;
-
-	for (i = 0; i < flush->size; i++) {
-		ocf_cache_line_unlock_rd(cache, flush->data[i].cache_line);
-		ACP_DEBUG_END(acp, flush->data[i].cache_line);
-	}
-
-	if (flush->error)
-		_acp_handle_flush_error(cache, acp);
-}
-
-/* flush data  */
-static void _acp_flush(struct ocf_cache *cache, struct acp_context *acp,
-		uint32_t io_queue, struct acp_flush_context *flush)
-{
-	struct ocf_cleaner_attribs attribs = {
-		.cache_line_lock = false,
-		.metadata_locked = false,
-		.do_sort = false,
-		.io_queue = io_queue,
-	};
-
-	flush->error = ocf_cleaner_do_flush_data(cache, flush->data,
-			flush->size, &attribs);
-
-	_acp_flush_end(cache, acp);
-}
-
 static inline bool _acp_can_clean_chunk(struct ocf_cache *cache,
 		struct acp_chunk_info *chunk)
 {
@@ -456,12 +429,11 @@ static inline bool _acp_can_clean_chunk(struct ocf_cache *cache,
 					!chunk->next_cleaning_timestamp));
 }
 
-static struct acp_chunk_info *_acp_get_cleaning_candidate(
-		struct ocf_cache *cache)
+static struct acp_chunk_info *_acp_get_cleaning_candidate(ocf_cache_t cache)
 {
 	int i;
 	struct acp_chunk_info *cur;
-	struct acp_context *acp = cache->cleaning_policy_context;
+	struct acp_context *acp = cache->cleaner.cleaning_policy_context;
 
 	ACP_LOCK_CHUNKS_RD();
 
@@ -480,64 +452,98 @@ static struct acp_chunk_info *_acp_get_cleaning_candidate(
 	return NULL;
 }
 
-#define CHUNK_FINISHED -1
+/* called after flush request completed */
+static void _acp_flush_end(void *priv, int error)
+{
+	struct acp_cleaning_policy_config *config;
+	struct acp_context *acp = priv;
+	struct acp_flush_context *flush = &acp->flush;
+	ocf_cache_t cache = acp->cache;
+	int i;
 
-/* clean at most 'flush_max_buffers' cache lines from given chunk, starting
- * at given cache line */
-static int _acp_clean(struct ocf_cache *cache, uint32_t io_queue,
-		struct acp_chunk_info *chunk, unsigned start,
+	config = (void *)&cache->conf_meta->cleaning[ocf_cleaning_acp].data;
+
+	for (i = 0; i < flush->size; i++) {
+		ocf_cache_line_unlock_rd(cache, flush->data[i].cache_line);
+		ACP_DEBUG_END(acp, flush->data[i].cache_line);
+	}
+
+	if (error) {
+		flush->error = error;
+		_acp_handle_flush_error(cache, acp);
+	}
+
+	ACP_DEBUG_CHECK(acp);
+
+	acp->cmpl(&cache->cleaner, config->thread_wakeup_time);
+}
+
+/* flush data  */
+static void _acp_flush(struct acp_context *acp)
+{
+	ocf_cache_t cache = acp->cache;
+	struct ocf_cleaner_attribs attribs = {
+		.cmpl_context = acp,
+		.cmpl_fn = _acp_flush_end,
+		.cache_line_lock = false,
+		.do_sort = false,
+		.io_queue = cache->cleaner.io_queue,
+	};
+
+	ocf_cleaner_do_flush_data_async(cache, acp->flush.data,
+				acp->flush.size, &attribs);
+}
+
+static bool _acp_prepare_flush_data(struct acp_context *acp,
 		uint32_t flush_max_buffers)
 {
-	struct acp_context *acp = _acp_get_ctx_from_cache(cache);
-	size_t lines_per_chunk = ACP_CHUNK_SIZE /
-			ocf_line_size(cache);
+	ocf_cache_t cache = acp->cache;
+	struct acp_state *state = &acp->state;
+	struct acp_chunk_info *chunk = state->chunk;
+	size_t lines_per_chunk = ACP_CHUNK_SIZE / ocf_line_size(cache);
 	uint64_t first_core_line = chunk->chunk_id * lines_per_chunk;
-	unsigned i;
 
 	OCF_DEBUG_PARAM(cache, "lines per chunk %llu chunk %llu "
-			"first_core_line %llu\n",
-			(uint64_t)lines_per_chunk,
-			chunk->chunk_id,
-			first_core_line);
-
-	ACP_DEBUG_INIT(acp);
+			"first_core_line %llu\n", (uint64_t)lines_per_chunk,
+			chunk->chunk_id, first_core_line);
 
 	acp->flush.size = 0;
 	acp->flush.chunk = chunk;
-	for (i = start; i < lines_per_chunk && acp->flush.size < flush_max_buffers ; i++) {
-		uint64_t core_line = first_core_line + i;
+	for (; state->iter < lines_per_chunk &&
+			acp->flush.size < flush_max_buffers; state->iter++) {
+		uint64_t core_line = first_core_line + state->iter;
 		ocf_cache_line_t cache_line;
 
 		cache_line = _acp_trylock_dirty(cache, chunk->core_id, core_line);
 		if (cache_line == cache->device->collision_table_entries)
 			continue;
 
-		acp->flush.data[acp->flush.size].core_id =  chunk->core_id;
-		acp->flush.data[acp->flush.size].core_line =  core_line;
+		ACP_DEBUG_BEGIN(acp, cache_line);
+
+		acp->flush.data[acp->flush.size].core_id = chunk->core_id;
+		acp->flush.data[acp->flush.size].core_line = core_line;
 		acp->flush.data[acp->flush.size].cache_line = cache_line;
 		acp->flush.size++;
-		ACP_DEBUG_BEGIN(acp, cache_line);
 	}
 
-	if (acp->flush.size > 0) {
-		_acp_flush(cache, acp, io_queue, &acp->flush);
+	if (state->iter == lines_per_chunk) {
+		/* reached end of chunk - reset state */
+		state->in_progress = false;
 	}
 
-	ACP_DEBUG_CHECK(acp);
-
-	return (i == lines_per_chunk) ? CHUNK_FINISHED : i;
+	return (acp->flush.size > 0);
 }
-
-#define NOTHING_TO_CLEAN 0
-#define MORE_TO_CLEAN 1
 
 /* Clean at most 'flush_max_buffers' cache lines from current or newly
  * selected chunk */
-static int _acp_clean_iteration(struct ocf_cache *cache, uint32_t io_queue,
-		uint32_t flush_max_buffers)
+void cleaning_policy_acp_perform_cleaning(struct ocf_cache *cache,
+		ocf_cleaner_end_t cmpl)
 {
+	struct acp_cleaning_policy_config *config;
 	struct acp_context *acp = _acp_get_ctx_from_cache(cache);
 	struct acp_state *state = &acp->state;
+
+	acp->cmpl = cmpl;
 
 	if (!state->in_progress) {
 		/* get next chunk to clean */
@@ -545,7 +551,8 @@ static int _acp_clean_iteration(struct ocf_cache *cache, uint32_t io_queue,
 
 		if (!state->chunk) {
 			/* nothing co clean */
-			return  NOTHING_TO_CLEAN;
+			cmpl(&cache->cleaner, ACP_BACKOFF_TIME_MS);
+			return;
 		}
 
 		/* new cleaning cycle - reset state */
@@ -553,34 +560,14 @@ static int _acp_clean_iteration(struct ocf_cache *cache, uint32_t io_queue,
 		state->in_progress = true;
 	}
 
-	state->iter = _acp_clean(cache, io_queue, state->chunk, state->iter,
-					flush_max_buffers);
-
-	if (state->iter == CHUNK_FINISHED) {
-		/* reached end of chunk - reset state */
-		state->in_progress = false;
-	}
-
-
-	return MORE_TO_CLEAN;
-}
-
-int cleaning_policy_acp_perform_cleaning(struct ocf_cache *cache,
-		uint32_t io_queue)
-{
-	struct acp_cleaning_policy_config *config;
-	int ret;
+	ACP_DEBUG_INIT(acp);
 
 	config = (void *)&cache->conf_meta->cleaning[ocf_cleaning_acp].data;
 
-	if (NOTHING_TO_CLEAN == _acp_clean_iteration(cache, io_queue,
-					config->flush_max_buffers)) {
-		ret = ACP_BACKOFF_TIME_MS;
-	} else {
-		ret = config->thread_wakeup_time;
-	}
-
-	return ret;
+	if (_acp_prepare_flush_data(acp, config->flush_max_buffers))
+		_acp_flush(acp);
+	else
+		_acp_flush_end(acp, 0);
 }
 
 static void _acp_update_bucket(struct acp_context *acp,
