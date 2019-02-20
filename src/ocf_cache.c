@@ -7,6 +7,7 @@
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
 #include "utils/utils_cache_line.h"
+#include "utils/utils_req.h"
 #include "ocf_priv.h"
 #include "ocf_cache_priv.h"
 
@@ -49,6 +50,17 @@ bool ocf_cache_is_device_attached(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
 	return env_atomic_read(&(cache)->attached);
+}
+
+void ocf_cache_wait_for_io_finish(ocf_cache_t cache)
+{
+	uint32_t req_active = 0;
+
+	do {
+		req_active = ocf_req_get_allocated(cache);
+		if (req_active)
+			env_msleep(500);
+	} while (req_active);
 }
 
 ocf_cache_mode_t ocf_cache_get_mode(ocf_cache_t cache)

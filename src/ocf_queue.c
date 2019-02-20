@@ -39,7 +39,7 @@ static void ocf_init_queue(struct ocf_queue *q)
 	INIT_LIST_HEAD(&q->io_list);
 }
 
-int ocf_start_queues(struct ocf_cache *cache)
+int ocf_start_queues(ocf_cache_t cache)
 {
 	int id, result = 0;
 	struct ocf_queue *q;
@@ -63,17 +63,17 @@ int ocf_start_queues(struct ocf_cache *cache)
 	return result;
 }
 
-void ocf_stop_queues(struct ocf_cache *dev)
+void ocf_stop_queues(ocf_cache_t cache)
 {
 	int i;
 	struct ocf_queue *curr;
 
-	ocf_mngt_wait_for_io_finish(dev);
+	ocf_cache_wait_for_io_finish(cache);
 
 	/* Stop IO threads. */
-	for (i = 0 ; i < dev->io_queues_no; i++) {
-		curr = &dev->io_queues[i];
-		ctx_queue_stop(dev->owner, curr);
+	for (i = 0 ; i < cache->io_queues_no; i++) {
+		curr = &cache->io_queues[i];
+		ctx_queue_stop(cache->owner, curr);
 	}
 }
 

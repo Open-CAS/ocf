@@ -173,6 +173,13 @@ bool ocf_cache_is_device_attached(ocf_cache_t cache);
 bool ocf_cache_is_running(ocf_cache_t cache);
 
 /**
+ * @brief Wait for all IO to finish
+ *
+ * @param[in] cache Cache object
+ */
+void ocf_cache_wait_for_io_finish(ocf_cache_t cache);
+
+/**
  * @brief Get cache mode of given cache object
  *
  * @param[in] cache Cache object
