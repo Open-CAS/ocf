@@ -1635,34 +1635,16 @@ static void _ocf_mngt_cache_load_log(ocf_cache_t cache)
 }
 
 int ocf_mngt_cache_load(ocf_ctx_t ctx, ocf_cache_t *cache,
-		struct ocf_mngt_cache_config *cfg,
 		struct ocf_mngt_cache_device_config *device_cfg)
 {
 	int result;
 
-	if (!ctx || !cache || !cfg || !device_cfg)
+	if (!ctx || !cache || !device_cfg)
 		return -OCF_ERR_INVAL;
-
-	result = _ocf_mngt_cache_validate_cfg(cfg);
-	if (result)
-		return result;
 
 	result = _ocf_mngt_cache_validate_device_cfg(device_cfg);
 	if (result)
 		return result;
-
-	result = _ocf_mngt_cache_start(ctx, cache, cfg);
-	if (!result) {
-		ocf_cache_log(*cache, log_info, "Successfully added\n");
-	} else {
-		if (cfg->name) {
-			ocf_log(ctx, log_err, "Inserting cache %s failed\n",
-					cfg->name);
-		} else {
-			ocf_log(ctx, log_err, "Inserting cache failed\n");
-		}
-		return result;
-	}
 
 	result =  _ocf_mngt_cache_attach(*cache, device_cfg, true);
 	if (result) {
