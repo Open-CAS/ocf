@@ -434,15 +434,3 @@ int ocf_mngt_cache_visit_reverse(ocf_ctx_t ocf_ctx,
 
 	return result;
 }
-
-void ocf_mngt_wait_for_io_finish(ocf_cache_t cache)
-{
-	uint32_t req_active = 0;
-
-	do {
-		req_active = ocf_req_get_allocated(cache);
-		if (req_active)
-			env_msleep(500);
-	} while (req_active);
-}
-

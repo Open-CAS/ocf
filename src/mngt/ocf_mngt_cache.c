@@ -1559,7 +1559,7 @@ static int _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop)
 	cache->device = NULL;
 	env_atomic_set(&cache->attached, 0);
 
-	/* TODO: this should  be removed from detach after 'attached' stats
+	/* TODO: this should be removed from detach after 'attached' stats
 		are better separated in statistics */
 	_ocf_mngt_init_attached_nonpersistent(cache);
 
@@ -1579,7 +1579,7 @@ static int _ocf_mngt_cache_stop(ocf_cache_t cache)
 	env_bit_set(ocf_cache_state_stopping, &cache->cache_state);
 	env_bit_clear(ocf_cache_state_running, &cache->cache_state);
 
-	ocf_mngt_wait_for_io_finish(cache);
+	ocf_cache_wait_for_io_finish(cache);
 
 	/* All exported objects removed, cleaning up rest. */
 	for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {
@@ -1681,7 +1681,7 @@ int ocf_mngt_cache_stop(ocf_cache_t cache)
 {
 	int result;
 	char cache_name[OCF_CACHE_NAME_SIZE];
-	ocf_ctx_t context;
+	ocf_ctx_t ctx;
 
 	OCF_CHECK_NULL(cache);
 
@@ -1690,21 +1690,21 @@ int ocf_mngt_cache_stop(ocf_cache_t cache)
 	if (result)
 		return result;
 
-	context = ocf_cache_get_ctx(cache);
+	ctx = ocf_cache_get_ctx(cache);
 
 	ocf_cache_log(cache, log_info, "Stopping cache\n");
 
 	result = _ocf_mngt_cache_stop(cache);
 
 	if (result == -OCF_ERR_WRITE_CACHE) {
-		ocf_log(context, log_warn, "Stopped cache %s with "
-				"errors\n", cache_name);
+		ocf_log(ctx, log_warn, "Stopped cache %s with errors\n",
+				cache_name);
 	} else if (result) {
-		ocf_log(context, log_err, "Stopping cache %s "
-				"failed\n", cache_name);
+		ocf_log(ctx, log_err, "Stopping cache %s failed\n",
+				cache_name);
 	} else {
-		ocf_log(context, log_info, "Cache %s successfully "
-				"stopped\n", cache_name);
+		ocf_log(ctx, log_info, "Cache %s successfully stopped\n",
+				cache_name);
 	}
 
 	return result;
