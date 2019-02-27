@@ -129,54 +129,6 @@ struct ocf_data_ops {
 };
 
 /**
- * @brief I/O queue operations
- */
-struct ocf_queue_ops {
-	/**
-	 * @brief Initialize I/O queue.
-	 *
-	 * This function should create worker, thread or any other queue
-	 * processing related stuff specific to given environment.
-	 *
-	 * @param[in] q I/O queue to be initialized
-	 *
-	 * @retval 0 I/O queue has been initializaed successfully
-	 * @retval Non-zero I/O queue initialization failure
-	 */
-	int (*init)(ocf_queue_t q);
-
-	/**
-	 * @brief Kick I/O queue processing
-	 *
-	 * This function should inform worker, thread or any other queue
-	 * processing mechanism, that there are new requests in queue to
-	 * be processed. Processing requests inside current call is not allowed.
-	 *
-	 * @param[in] q I/O queue to be kicked
-	 */
-	void (*kick)(ocf_queue_t q);
-
-	/**
-	 * @brief Kick I/O queue processing
-	 *
-	 * This function should inform worker, thread or any other queue
-	 * processing mechanism, that there are new requests in queue to
-	 * be processed. Kick function is allowed to process requests in current
-	 * call
-	 *
-	 * @param[in] q I/O queue to be kicked
-	 */
-	void (*kick_sync)(ocf_queue_t q);
-
-	/**
-	 * @brief Stop I/O queue
-	 *
-	 * @param[in] q I/O queue beeing stopped
-	 */
-	void (*stop)(ocf_queue_t q);
-};
-
-/**
  * @brief Cleaner operations
  */
 struct ocf_cleaner_ops {
@@ -242,9 +194,6 @@ struct ocf_metadata_updater_ops {
 struct ocf_ctx_ops {
 	/* Context data operations */
 	struct ocf_data_ops data;
-
-	/* Queue operations */
-	struct ocf_queue_ops queue;
 
 	/* Cleaner operations */
 	struct ocf_cleaner_ops cleaner;

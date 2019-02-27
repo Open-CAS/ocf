@@ -120,7 +120,7 @@ struct ocf_request {
 	env_atomic master_remaining;
 	/*!< Atomic counter for core device */
 
-	struct ocf_cache *cache;
+	ocf_cache_t cache;
 	/*!< Handle to cache instance */
 
 	const struct ocf_io_if *io_if;
@@ -165,8 +165,8 @@ struct ocf_request {
 	uint32_t alloc_core_line_count;
 	/*! Core line count for which request was initially allocated */
 
-	uint32_t io_queue;
-	/*!< I/O queue id for which request should be submitted */
+	ocf_queue_t io_queue;
+	/*!< I/O queue handle for which request should be submitted */
 
 	int error;
 	/*!< This filed indicates an error for OCF request */

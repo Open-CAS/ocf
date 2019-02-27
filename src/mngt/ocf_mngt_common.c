@@ -169,7 +169,6 @@ void ocf_mngt_cache_put(ocf_cache_t cache)
 	OCF_CHECK_NULL(cache);
 
 	if (env_atomic_dec_return(&cache->ref_count) == 0) {
-		ocf_free_queues(cache);
 		ocf_metadata_deinit(cache);
 		env_vfree(cache);
 	}

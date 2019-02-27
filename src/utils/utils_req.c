@@ -8,6 +8,7 @@
 #include "utils_cache_line.h"
 #include "../ocf_request.h"
 #include "../ocf_cache_priv.h"
+#include "../ocf_queue_priv.h"
 
 #define OCF_UTILS_RQ_DEBUG 0
 
@@ -165,10 +166,11 @@ static void start_cache_req(struct ocf_request *req)
 	}
 }
 
-struct ocf_request *ocf_req_new(struct ocf_cache *cache,
-		ocf_core_id_t core_id, uint64_t addr, uint32_t bytes, int rw)
+struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
+		uint64_t addr, uint32_t bytes, int rw)
 {
 	uint64_t core_line_first, core_line_last, core_line_count;
+	ocf_cache_t cache = queue->cache;
 	struct ocf_request *req;
 	env_allocator *allocator;
 
@@ -197,14 +199,17 @@ struct ocf_request *ocf_req_new(struct ocf_cache *cache,
 
 	OCF_DEBUG_TRACE(cache);
 
+	ocf_queue_get(queue);
+	req->io_queue = queue;
+
+	/* TODO: Store core pointer instead of id */
+	req->core_id = core ? ocf_core_get_id(core) : 0;
 	req->cache = cache;
 
 	env_atomic_inc(&cache->pending_requests);
 	start_cache_req(req);
 
-	req->io_queue = 0;
 	env_atomic_set(&req->ref_count, 1);
-	req->core_id = core_id;
 
 	req->byte_position = addr;
 	req->byte_length = bytes;
@@ -232,12 +237,12 @@ int ocf_req_alloc_map(struct ocf_request *req)
 	return 0;
 }
 
-struct ocf_request *ocf_req_new_extended(struct ocf_cache *cache,
-		ocf_core_id_t core_id, uint64_t addr, uint32_t bytes, int rw)
+struct ocf_request *ocf_req_new_extended(ocf_queue_t queue, ocf_core_t core,
+		uint64_t addr, uint32_t bytes, int rw)
 {
 	struct ocf_request *req;
 
-	req = ocf_req_new(cache, core_id, addr, bytes, rw);
+	req = ocf_req_new(queue, core, addr, bytes, rw);
 
 	if (likely(req) && ocf_req_alloc_map(req)) {
 		ocf_req_put(req);
@@ -247,14 +252,13 @@ struct ocf_request *ocf_req_new_extended(struct ocf_cache *cache,
 	return req;
 }
 
-struct ocf_request *ocf_req_new_discard(struct ocf_cache *cache,
-		ocf_core_id_t core_id, uint64_t addr, uint32_t bytes, int rw)
+struct ocf_request *ocf_req_new_discard(ocf_queue_t queue, ocf_core_t core,
+		uint64_t addr, uint32_t bytes, int rw)
 {
 	struct ocf_request *req;
 
-	req = ocf_req_new_extended(cache, core_id, addr,
-			OCF_MIN(bytes, MAX_TRIM_RQ_SIZE),rw);
-
+	req = ocf_req_new_extended(queue, core, addr,
+			OCF_MIN(bytes, MAX_TRIM_RQ_SIZE), rw);
 	if (!req)
 		return NULL;
 
@@ -278,6 +282,8 @@ void ocf_req_put(struct ocf_request *req)
 
 	if (env_atomic_dec_return(&req->ref_count))
 		return;
+
+	ocf_queue_put(req->io_queue);
 
 	OCF_DEBUG_TRACE(req->cache);
 

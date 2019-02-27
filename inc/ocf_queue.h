@@ -12,6 +12,72 @@
  */
 
 /**
+ * @brief I/O queue operations
+ */
+struct ocf_queue_ops {
+	/**
+	 * @brief Kick I/O queue processing
+	 *
+	 * This function should inform worker, thread or any other queue
+	 * processing mechanism, that there are new requests in queue to
+	 * be processed. Processing requests synchronously in this function
+	 * is not allowed.
+	 *
+	 * @param[in] q I/O queue to be kicked
+	 */
+	void (*kick)(ocf_queue_t q);
+
+	/**
+	 * @brief Kick I/O queue processing
+	 *
+	 * This function should inform worker, thread or any other queue
+	 * processing mechanism, that there are new requests in queue to
+	 * be processed. Function kick_sync is allowed to process requests
+	 * synchronously without delegating them to the worker.
+	 *
+	 * @param[in] q I/O queue to be kicked
+	 */
+	void (*kick_sync)(ocf_queue_t q);
+
+	/**
+	 * @brief Stop I/O queue
+	 *
+	 * @param[in] q I/O queue beeing stopped
+	 */
+	void (*stop)(ocf_queue_t q);
+};
+
+/**
+ * @brief Allocate IO queue and add it to list in cache
+ *
+ * @param[in] cache Handle to cache instance
+ * @param[out] queue Handle to created queue
+ * @param[in] ops Queue operations
+ *
+ * @return Zero on success, otherwise error code
+ */
+int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
+		const struct ocf_queue_ops *ops);
+
+/**
+ * @brief Increase reference counter in queue
+ *
+ * @param[in] queue Queue
+ *
+ */
+void ocf_queue_get(ocf_queue_t queue);
+
+/**
+ * @brief Decrease reference counter in queue
+ *
+ * @note If queue don't have any reference - deallocate it
+ *
+ * @param[in] queue Queue
+ *
+ */
+void ocf_queue_put(ocf_queue_t queue);
+
+/**
  * @brief Process single request from queue
  *
  * @param[in] q Queue to run
@@ -59,14 +125,5 @@ uint32_t ocf_queue_pending_io(ocf_queue_t q);
  * @retval Cache instance
  */
 ocf_cache_t ocf_queue_get_cache(ocf_queue_t q);
-
-/**
- * @brief Get I/O queue id
- *
- * @param[in] q I/O queue
- *
- * @retval I/O queue id
- */
-uint32_t ocf_queue_get_id(ocf_queue_t q);
 
 #endif

@@ -160,6 +160,11 @@ void __wrap_cleaning_policy_alru_get_cleaning_parameters(ocf_cache_t cache,
 
 }
 
+void __wrap_ocf_queue_get(ocf_queue_t queue)
+{
+
+}
+
 int __wrap_cleaning_alru_perform_cleaning(struct ocf_cache *cache, ocf_cleaner_end_t cmpl)
 {
 	function_called();
@@ -252,7 +257,7 @@ static void ocf_cleaner_run_test01(void **state)
 
 	ocf_cleaner_set_cmpl(&cache.cleaner, cleaner_complete);
 
-	ocf_cleaner_run(&cache.cleaner);
+	ocf_cleaner_run(&cache.cleaner, 0xdeadbeef);
 
 	/* Release allocated memory if allocated with test_* functions */
 

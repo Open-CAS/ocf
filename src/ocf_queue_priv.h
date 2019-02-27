@@ -9,10 +9,11 @@
 #include "ocf_env.h"
 
 struct ocf_queue {
-	struct ocf_cache *cache;
-	uint32_t id;
+	ocf_cache_t cache;
 
 	env_atomic io_no;
+
+	env_atomic ref_count;
 
 	struct list_head io_list;
 	env_spinlock io_list_lock;
@@ -23,15 +24,19 @@ struct ocf_queue {
 	/* Tracing stop request */
 	env_atomic trace_stop;
 
+	struct list_head list;
+
+	const struct ocf_queue_ops *ops;
+
 	void *priv;
 };
 
-int ocf_alloc_queues(struct ocf_cache *cache);
-
-int ocf_start_queues(struct ocf_cache *cache);
-
-void ocf_stop_queues(struct ocf_cache *cache);
-
-void ocf_free_queues(struct ocf_cache *cache);
+static inline void ocf_queue_kick(ocf_queue_t queue, bool allow_sync)
+{
+	if (allow_sync && queue->ops->kick_sync)
+		queue->ops->kick_sync(queue);
+	else
+		queue->ops->kick(queue);
+}
 
 #endif

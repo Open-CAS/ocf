@@ -16,10 +16,10 @@
 
 static inline bool ocf_is_trace_ongoing(ocf_cache_t cache)
 {
-	int i;
+	ocf_queue_t q;
 
-	for (i = 0; i < cache->io_queues_no; i++) {
-		if (env_atomic64_read(&cache->io_queues[i].trace_ref_cntr))
+	list_for_each_entry(q, &cache->io_queues, list) {
+		if (env_atomic64_read(&q->trace_ref_cntr))
 			return true;
 	}
 
@@ -66,20 +66,24 @@ static inline void ocf_trace_prep_io_event(struct ocf_event_io *ev,
 	ev->io_class = rq->io->io_class;
 }
 
-static inline void ocf_trace_push(ocf_cache_t cache, uint32_t io_queue,
-	void *trace, uint32_t size)
+static inline void ocf_trace_push(ocf_queue_t queue, void *trace, uint32_t size)
 {
+	ocf_cache_t cache;
 	ocf_trace_callback_t trace_callback;
 	void *trace_ctx;
+
+	OCF_CHECK_NULL(queue);
+
+	cache = ocf_queue_get_cache(queue);
 
 	if (cache->trace.trace_callback == NULL)
 		return;
 
-	env_atomic64_inc(&cache->io_queues[io_queue].trace_ref_cntr);
+	env_atomic64_inc(&queue->trace_ref_cntr);
 
-	if (env_atomic_read(&cache->io_queues[io_queue].trace_stop)) {
+	if (env_atomic_read(&queue->trace_stop)) {
 		// Tracing stop was requested
-		env_atomic64_dec(&cache->io_queues[io_queue].trace_ref_cntr);
+		env_atomic64_dec(&queue->trace_ref_cntr);
 		return;
 	}
 
@@ -93,10 +97,10 @@ static inline void ocf_trace_push(ocf_cache_t cache, uint32_t io_queue,
 	trace_ctx = cache->trace.trace_ctx;
 
 	if (trace_callback && trace_ctx) {
-		trace_callback(cache, trace_ctx, io_queue, trace, size);
+		trace_callback(cache, trace_ctx, queue, trace, size);
 	}
 
-	env_atomic64_dec(&cache->io_queues[io_queue].trace_ref_cntr);
+	env_atomic64_dec(&queue->trace_ref_cntr);
 }
 
 static inline void ocf_trace_io(struct ocf_core_io *io, ocf_event_operation_t dir, ocf_cache_t cache)
@@ -110,7 +114,7 @@ static inline void ocf_trace_io(struct ocf_core_io *io, ocf_event_operation_t di
 	rq  = io->req;
 	ocf_trace_prep_io_event(&ev, io, dir);
 
-	ocf_trace_push(cache, rq->io_queue, &ev, sizeof(ev));
+	ocf_trace_push(rq->io_queue, &ev, sizeof(ev));
 }
 
 static inline void ocf_trace_io_cmpl(struct ocf_core_io *io, ocf_cache_t cache)
@@ -129,7 +133,7 @@ static inline void ocf_trace_io_cmpl(struct ocf_core_io *io, ocf_cache_t cache)
 	ev.rsid = io->sid;
 	ev.is_hit = ocf_engine_is_hit(rq);
 
-	ocf_trace_push(cache, rq->io_queue, &ev, sizeof(ev));
+	ocf_trace_push(rq->io_queue, &ev, sizeof(ev));
 }
 
 #endif /* __OCF_TRACE_PRIV_H__ */

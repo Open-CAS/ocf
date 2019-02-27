@@ -44,7 +44,7 @@ static struct ocf_io_if meta_restart_if = {
 /*
  * Get max pages for IO
  */
-static uint32_t metadata_io_max_page(struct ocf_cache *cache)
+static uint32_t metadata_io_max_page(ocf_cache_t cache)
 {
 	return ocf_volume_get_max_io_size(&cache->device->volume) / PAGE_SIZE;
 }
@@ -65,7 +65,7 @@ static void metadata_io_read_i_atomic_end(struct ocf_io *io, int error)
 /*
  * Iterative read request
  */
-int metadata_io_read_i_atomic(struct ocf_cache *cache,
+int metadata_io_read_i_atomic(ocf_cache_t cache,
 		ocf_metadata_atomic_io_event_t hndl)
 {
 	uint64_t i;
@@ -159,7 +159,7 @@ static int ocf_restart_meta_io(struct ocf_request *req)
 {
 	struct ocf_io *io;
 	struct metadata_io_request *meta_io_req;
-	struct ocf_cache *cache;
+	ocf_cache_t cache;
 	int i;
 	int ret;
 
@@ -205,7 +205,7 @@ static void metadata_io_write_i_asynch_end(struct metadata_io_request *request,
 		int error)
 {
 	struct metadata_io_request_asynch *a_req;
-	struct ocf_cache *cache;
+	ocf_cache_t cache;
 
 	OCF_CHECK_NULL(request);
 
@@ -247,7 +247,7 @@ static void metadata_io_write_i_asynch_end(struct metadata_io_request *request,
 	ocf_metadata_updater_kick(cache);
 }
 
-static void metadata_io_req_error(struct ocf_cache *cache,
+static void metadata_io_req_error(ocf_cache_t cache,
 				  struct metadata_io_request_asynch *a_req,
 				  uint32_t i, int error)
 {
@@ -262,7 +262,7 @@ static void metadata_io_req_error(struct ocf_cache *cache,
 /*
  * Iterative write request asynchronously
  */
-int metadata_io_write_i_asynch(struct ocf_cache *cache, uint32_t queue,
+int metadata_io_write_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 		void *context, uint32_t page, uint32_t count,
 		ocf_metadata_io_event_t fill_hndl,
 		ocf_metadata_io_hndl_on_write_t compl_hndl)
@@ -439,7 +439,7 @@ static void metadata_io_end(struct ocf_io *io, int error)
 	ctx_data_t *data = ocf_io_get_data(io);
 	uint32_t page = BYTES_TO_PAGES(io->addr);
 	uint32_t count = BYTES_TO_PAGES(io->bytes);
-	struct ocf_cache *cache = mio->cache;
+	ocf_cache_t cache = mio->cache;
 	uint32_t i = 0;
 
 	if (error) {
@@ -463,7 +463,7 @@ out:
 }
 
 static int metadata_submit_io(
-		struct ocf_cache *cache,
+		ocf_cache_t cache,
 		struct metadata_io *mio,
 		uint32_t count,
 		uint32_t written)
@@ -532,7 +532,7 @@ static int metadata_io(struct metadata_io *mio)
 	unsigned char step = 0;
 	int err;
 
-	struct ocf_cache *cache = mio->cache;
+	ocf_cache_t cache = mio->cache;
 
 	/* Check direction value correctness */
 	switch (mio->dir) {
@@ -572,7 +572,7 @@ static int metadata_io(struct metadata_io *mio)
 /*
  *
  */
-int metadata_io_write_i(struct ocf_cache *cache,
+int metadata_io_write_i(ocf_cache_t cache,
 		uint32_t page, uint32_t count,
 		ocf_metadata_io_event_t hndl_fn, void *hndl_cntx)
 {
@@ -591,7 +591,7 @@ int metadata_io_write_i(struct ocf_cache *cache,
 /*
  *
  */
-int metadata_io_read_i(struct ocf_cache *cache,
+int metadata_io_read_i(ocf_cache_t cache,
 		uint32_t page, uint32_t count,
 		ocf_metadata_io_event_t hndl_fn, void *hndl_cntx)
 {
@@ -610,7 +610,7 @@ int metadata_io_read_i(struct ocf_cache *cache,
 /*
  *
  */
-static int metadata_io_write_fill(struct ocf_cache *cache,
+static int metadata_io_write_fill(ocf_cache_t cache,
 		ctx_data_t *data, uint32_t page, void *context)
 {
 	ctx_data_wr_check(cache->owner, data, context, PAGE_SIZE);
@@ -620,7 +620,7 @@ static int metadata_io_write_fill(struct ocf_cache *cache,
 /*
  * Write request
  */
-int metadata_io_write(struct ocf_cache *cache,
+int metadata_io_write(ocf_cache_t cache,
 		void *data, uint32_t page)
 {
 	struct metadata_io mio = {

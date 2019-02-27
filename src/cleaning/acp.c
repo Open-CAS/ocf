@@ -536,7 +536,7 @@ static bool _acp_prepare_flush_data(struct acp_context *acp,
 
 /* Clean at most 'flush_max_buffers' cache lines from current or newly
  * selected chunk */
-void cleaning_policy_acp_perform_cleaning(struct ocf_cache *cache,
+void cleaning_policy_acp_perform_cleaning(ocf_cache_t cache,
 		ocf_cleaner_end_t cmpl)
 {
 	struct acp_cleaning_policy_config *config;

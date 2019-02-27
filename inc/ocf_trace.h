@@ -74,9 +74,6 @@ struct ocf_event_cache_desc {
 	/** Number of cores */
 	uint32_t cores_no;
 
-	/** Number of IO queues */
-	uint32_t io_queues_no;
-
 	/** Trace version */
 	uint32_t version;
 };
@@ -152,7 +149,7 @@ struct ocf_event_io_cmpl {
  *
  * @param[in] cache OCF cache
  * @param[in] trace_ctx Tracing context
- * @param[in] qid Queue Id
+ * @param[in] queue Queue handle
  * @param[out] trace Event log
  * @param[out] size Size of event log
  *
@@ -160,7 +157,7 @@ struct ocf_event_io_cmpl {
  * @return Non-zero error
  */
 typedef void (*ocf_trace_callback_t)(ocf_cache_t cache, void *trace_ctx,
-		uint32_t qid, const void* trace, const uint32_t size);
+		ocf_queue_t queue, const void* trace, const uint32_t size);
 
 /**
  * @brief Start tracing

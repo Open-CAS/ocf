@@ -84,9 +84,9 @@ struct ocf_io {
 	uint32_t dir;
 
 	/**
-	 * @brief Queue id
+	 * @brief Queue handle
 	 */
-	uint32_t io_queue;
+	ocf_queue_t io_queue;
 
 	/**
 	 * @brief OCF IO start function
@@ -258,12 +258,12 @@ static inline ctx_data_t *ocf_io_get_data(struct ocf_io *io)
 }
 
 /**
- * @brief Set queue id to which IO should be submitted
+ * @brief Set queue to which IO should be submitted
  *
  * @param[in] io OCF IO to set up
- * @param[in] queue IO queue id
+ * @param[in] queue IO queue handle
  */
-static inline void ocf_io_set_queue(struct ocf_io *io, uint32_t queue)
+static inline void ocf_io_set_queue(struct ocf_io *io, ocf_queue_t queue)
 {
 	io->io_queue = queue;
 }

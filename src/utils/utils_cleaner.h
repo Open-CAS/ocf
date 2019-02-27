@@ -43,7 +43,7 @@ struct ocf_cleaner_attribs {
 		 * to iterate over items
 		 */
 
-	uint32_t io_queue;
+	ocf_queue_t io_queue;
 };
 
 /**

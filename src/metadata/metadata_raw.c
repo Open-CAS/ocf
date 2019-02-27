@@ -72,7 +72,7 @@ static bool _raw_ssd_page_is_valid(struct ocf_metadata_raw *raw, uint32_t page)
 /*
  * RAM Implementation - De-Initialize
  */
-static int _raw_ram_deinit(struct ocf_cache *cache,
+static int _raw_ram_deinit(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
 	OCF_DEBUG_TRACE(cache);
@@ -88,7 +88,7 @@ static int _raw_ram_deinit(struct ocf_cache *cache,
 /*
  * RAM Implementation - Initialize
  */
-static int _raw_ram_init(struct ocf_cache *cache,
+static int _raw_ram_init(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
 	size_t mem_pool_size;
@@ -109,7 +109,7 @@ static int _raw_ram_init(struct ocf_cache *cache,
 /*
  * RAM Implementation - Size of
  */
-static size_t _raw_ram_size_of(struct ocf_cache *cache,
+static size_t _raw_ram_size_of(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
 	size_t size;
@@ -123,7 +123,7 @@ static size_t _raw_ram_size_of(struct ocf_cache *cache,
 /*
  * RAM Implementation - Size on SSD
  */
-static uint32_t _raw_ram_size_on_ssd(struct ocf_cache *cache,
+static uint32_t _raw_ram_size_on_ssd(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
 	const size_t alignment = 128 * KiB / PAGE_SIZE;
@@ -134,7 +134,7 @@ static uint32_t _raw_ram_size_on_ssd(struct ocf_cache *cache,
 /*
  * RAM Implementation - Checksum
  */
-static uint32_t _raw_ram_checksum(struct ocf_cache *cache,
+static uint32_t _raw_ram_checksum(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
 	uint64_t i;
@@ -152,7 +152,7 @@ static uint32_t _raw_ram_checksum(struct ocf_cache *cache,
 /*
  * RAM Implementation - Get entry
  */
-static int _raw_ram_get(struct ocf_cache *cache,
+static int _raw_ram_get(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
 		void *data, uint32_t size)
 {
@@ -164,7 +164,7 @@ static int _raw_ram_get(struct ocf_cache *cache,
 /*
  * RAM Implementation - Read only entry access
  */
-static const void *_raw_ram_rd_access(struct ocf_cache *cache,
+static const void *_raw_ram_rd_access(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
 		uint32_t size)
 {
@@ -176,7 +176,7 @@ static const void *_raw_ram_rd_access(struct ocf_cache *cache,
 /*
  * RAM Implementation - Read only entry access
  */
-static void *_raw_ram_wr_access(struct ocf_cache *cache,
+static void *_raw_ram_wr_access(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
 		uint32_t size)
 {
@@ -188,7 +188,7 @@ static void *_raw_ram_wr_access(struct ocf_cache *cache,
 /*
  * RAM Implementation - Set Entry
  */
-static int _raw_ram_set(struct ocf_cache *cache,
+static int _raw_ram_set(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
 		void *data, uint32_t size)
 {
@@ -200,7 +200,7 @@ static int _raw_ram_set(struct ocf_cache *cache,
 /*
  * RAM Implementation - Flush specified element from SSD
  */
-static int _raw_ram_flush(struct ocf_cache *cache,
+static int _raw_ram_flush(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, ocf_cache_line_t line)
 {
 	OCF_DEBUG_PARAM(cache, "Line = %u", line);
@@ -215,7 +215,7 @@ static int _raw_ram_flush(struct ocf_cache *cache,
 /*
  * RAM Implementation - Load all IO callback
  */
-static int _raw_ram_load_all_io(struct ocf_cache *cache,
+static int _raw_ram_load_all_io(ocf_cache_t cache,
 		ctx_data_t *data, uint32_t page, void *context)
 {
 	ocf_cache_line_t line;
@@ -241,7 +241,7 @@ static int _raw_ram_load_all_io(struct ocf_cache *cache,
 /*
  * RAM Implementation - Load all metadata elements from SSD
  */
-static int _raw_ram_load_all(struct ocf_cache *cache,
+static int _raw_ram_load_all(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
 	OCF_DEBUG_TRACE(cache);
@@ -253,7 +253,7 @@ static int _raw_ram_load_all(struct ocf_cache *cache,
 /*
  * RAM Implementation - Flush IO callback - Fill page
  */
-static int _raw_ram_flush_all_fill(struct ocf_cache *cache,
+static int _raw_ram_flush_all_fill(ocf_cache_t cache,
 		ctx_data_t *data, uint32_t page, void *context)
 {
 	ocf_cache_line_t line;
@@ -278,7 +278,7 @@ static int _raw_ram_flush_all_fill(struct ocf_cache *cache,
 /*
  * RAM Implementation - Flush all elements
  */
-static int _raw_ram_flush_all(struct ocf_cache *cache,
+static int _raw_ram_flush_all(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
 	OCF_DEBUG_TRACE(cache);
@@ -290,7 +290,7 @@ static int _raw_ram_flush_all(struct ocf_cache *cache,
 /*
  * RAM RAM Implementation - Mark to Flush
  */
-static void _raw_ram_flush_mark(struct ocf_cache *cache,
+static void _raw_ram_flush_mark(ocf_cache_t cache,
 		struct ocf_request *req, uint32_t map_idx, int to_state,
 		uint8_t start, uint8_t stop)
 {
@@ -311,7 +311,7 @@ struct _raw_ram_flush_ctx {
 	int error;
 };
 
-static void _raw_ram_flush_do_asynch_io_complete(struct ocf_cache *cache,
+static void _raw_ram_flush_do_asynch_io_complete(ocf_cache_t cache,
 		void *context, int error)
 {
 	struct _raw_ram_flush_ctx *ctx = context;
@@ -336,7 +336,7 @@ static void _raw_ram_flush_do_asynch_io_complete(struct ocf_cache *cache,
 /*
  * RAM Implementation - Flush IO callback - Fill page
  */
-static int _raw_ram_flush_do_asynch_fill(struct ocf_cache *cache,
+static int _raw_ram_flush_do_asynch_fill(ocf_cache_t cache,
 		ctx_data_t *data, uint32_t page, void *context)
 {
 	ocf_cache_line_t line;
@@ -400,7 +400,7 @@ static void __raw_ram_flush_do_asynch_add_pages(struct ocf_request *req,
 	*pages_to_flush = j;
 }
 
-static int _raw_ram_flush_do_asynch(struct ocf_cache *cache,
+static int _raw_ram_flush_do_asynch(ocf_cache_t cache,
 		struct ocf_request *req, struct ocf_metadata_raw *raw,
 		ocf_req_end_t complete)
 {
@@ -575,7 +575,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
  * RAW Top interface implementation
  ******************************************************************************/
 
-int ocf_metadata_raw_init(struct ocf_cache *cache,
+int ocf_metadata_raw_init(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
 	ENV_BUG_ON(raw->raw_type < metadata_raw_type_min);
@@ -585,7 +585,7 @@ int ocf_metadata_raw_init(struct ocf_cache *cache,
 	return raw->iface->init(cache, raw);
 }
 
-int ocf_metadata_raw_deinit(struct ocf_cache *cache,
+int ocf_metadata_raw_deinit(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
 	int result;
@@ -599,7 +599,7 @@ int ocf_metadata_raw_deinit(struct ocf_cache *cache,
 	return result;
 }
 
-size_t ocf_metadata_raw_size_on_ssd(struct ocf_cache* cache,
+size_t ocf_metadata_raw_size_on_ssd(ocf_cache_t cache,
                 struct ocf_metadata_raw* raw)
 {
 	ENV_BUG_ON(raw->raw_type < metadata_raw_type_min);

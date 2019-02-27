@@ -110,18 +110,6 @@ ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache);
 ocf_cache_id_t ocf_cache_get_id(ocf_cache_t cache);
 
 /**
- * @brief Get queue object associated with cache
- *
- * @param[in] cache Cache object
- * @param[in] id Queue id
- * @param[out] q Queue object
- *
- * @retval 0 Success
- * @retval Non-zero Fail
- */
-int ocf_cache_get_queue(ocf_cache_t cache, unsigned id, ocf_queue_t *q);
-
-/**
  * @brief Set name of given cache object
  *
  * @param[in] cache Cache object

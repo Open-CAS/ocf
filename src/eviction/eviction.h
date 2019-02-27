@@ -32,22 +32,22 @@ union eviction_policy_meta {
  * set core_id to -2 to purge the whole cache partition
  */
 struct eviction_policy_ops {
-	void (*init_cline)(struct ocf_cache *cache,
+	void (*init_cline)(ocf_cache_t cache,
 			ocf_cache_line_t cline);
-	void (*rm_cline)(struct ocf_cache *cache,
+	void (*rm_cline)(ocf_cache_t cache,
 			ocf_cache_line_t cline);
-	bool (*can_evict)(struct ocf_cache *cache);
-	uint32_t (*req_clines)(struct ocf_cache *cache,
-			uint32_t io_queue, ocf_part_id_t part_id,
+	bool (*can_evict)(ocf_cache_t cache);
+	uint32_t (*req_clines)(ocf_cache_t cache,
+			ocf_queue_t io_queue, ocf_part_id_t part_id,
 			uint32_t cline_no, ocf_core_id_t core_id);
-	void (*hot_cline)(struct ocf_cache *cache,
+	void (*hot_cline)(ocf_cache_t cache,
 			ocf_cache_line_t cline);
-	void (*init_evp)(struct ocf_cache *cache,
+	void (*init_evp)(ocf_cache_t cache,
 			ocf_part_id_t part_id);
-	void (*dirty_cline)(struct ocf_cache *cache,
+	void (*dirty_cline)(ocf_cache_t cache,
 			ocf_part_id_t part_id,
 			uint32_t cline_no);
-	void (*clean_cline)(struct ocf_cache *cache,
+	void (*clean_cline)(ocf_cache_t cache,
 			ocf_part_id_t part_id,
 			uint32_t cline_no);
 	const char *name;
@@ -62,9 +62,9 @@ extern struct eviction_policy_ops evict_policy_ops[ocf_eviction_max];
  * or the destination partition ID for the free buffers
  * (it matches label and is part of the object (#core_id) IO group)
  */
-int space_managment_evict_do(struct ocf_cache *cache,
+int space_managment_evict_do(ocf_cache_t cache,
 		struct ocf_request *req, uint32_t evict_cline_no);
 
-int space_management_free(struct ocf_cache *cache, uint32_t count);
+int space_management_free(ocf_cache_t cache, uint32_t count);
 
 #endif

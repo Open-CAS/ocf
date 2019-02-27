@@ -77,13 +77,8 @@ struct ocf_cachemng_init_params {
 		bool metadata_inited : 1;
 			/*!< Metadata is inited to valid state */
 
-		bool queues_inited : 1;
-
 		bool cache_locked : 1;
 			/*!< Cache has been locked */
-
-		bool io_queues_started : 1;
-			/*!< queues are started */
 	} flags;
 
 	struct ocf_metadata_init_params {
@@ -743,7 +738,6 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cachemng_init_params *param,
 	env_rwsem_down_write(&cache->lock); /* Lock cache during setup */
 	param->flags.cache_locked = true;
 
-	cache->io_queues_no = cfg->io_queues;
 	cache->pt_unaligned_io = cfg->pt_unaligned_io;
 	cache->use_submit_io_fast = cfg->use_submit_io_fast;
 
@@ -1018,8 +1012,8 @@ static int check_ram_availability(ocf_ctx_t ctx,
  */
 static int _ocf_mngt_init_post_action(struct ocf_cachemng_attach_params *attach_params)
 {
-	int result = 0;
 	struct ocf_cache *cache = attach_params->cache;
+	int result;
 
 	/* clear clean shutdown status */
 	if (ocf_metadata_set_shutdown_status(cache,
@@ -1059,16 +1053,15 @@ static int _ocf_mngt_init_post_action(struct ocf_cachemng_attach_params *attach_
 static void _ocf_mngt_init_handle_error(ocf_cache_t cache,
 		ocf_ctx_t ctx, struct ocf_cachemng_init_params *params)
 {
-	if (!params || params->flags.io_queues_started)
-		ocf_stop_queues(cache);
-
-	if (!params || params->flags.queues_inited)
-		ocf_free_queues(cache);
+	ocf_queue_t queue, tmp_queue;
 
 	if (!params || params->flags.metadata_inited)
 		ocf_metadata_deinit(cache);
 
 	env_mutex_lock(&ctx->lock);
+
+	list_for_each_entry_safe(queue, tmp_queue, &cache->io_queues, list)
+		ocf_queue_put(queue);
 
 	if (!params || params->flags.cache_alloc) {
 		list_del(&cache->list);
@@ -1150,7 +1143,6 @@ static int _ocf_mngt_cache_init(ocf_cache_t cache,
 		struct ocf_cachemng_init_params *params)
 {
 	int i;
-	int result;
 
 	/*
 	 * Super block elements initialization
@@ -1163,10 +1155,7 @@ static int _ocf_mngt_cache_init(ocf_cache_t cache,
 				&cache->conf_meta->user_parts[i];
 	}
 
-	result = ocf_alloc_queues(cache);
-	if (result)
-		return result;
-	params->flags.queues_inited = 1;
+	INIT_LIST_HEAD(&cache->io_queues);
 
 	/* Init Partitions */
 	ocf_part_init(cache);
@@ -1218,16 +1207,6 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	ocf_log(ctx, log_debug, "Metadata initialized\n");
 	params.flags.metadata_inited = true;
-
-	if (!params.flags.io_queues_started) {
-		result = ocf_start_queues(*cache);
-		if (result) {
-			ocf_log(ctx, log_err,
-					"Error while creating I/O queues\n");
-			return result;
-		}
-		params.flags.io_queues_started = true;
-	}
 
 	if (params.locked) {
 		/* Increment reference counter to match cache_lock /
@@ -1405,9 +1384,6 @@ static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 	if (!ocf_cache_line_size_is_valid(cfg->cache_line_size))
 		return -OCF_ERR_INVALID_CACHE_LINE_SIZE;
 
-	if (!cfg->io_queues)
-		return -OCF_ERR_INVAL;
-
 	if (cfg->metadata_layout >= ocf_metadata_layout_max ||
 			cfg->metadata_layout < 0) {
 		return -OCF_ERR_INVAL;
@@ -1573,6 +1549,7 @@ static int _ocf_mngt_cache_stop(ocf_cache_t cache)
 {
 	int i, j, no, result = 0;
 	ocf_ctx_t owner = cache->owner;
+	ocf_queue_t queue, tmp_queue;
 
 	no = cache->conf_meta->core_count;
 
@@ -1596,7 +1573,8 @@ static int _ocf_mngt_cache_stop(ocf_cache_t cache)
 	if (env_atomic_read(&cache->attached))
 		result = _ocf_mngt_cache_unplug(cache, true);
 
-	ocf_stop_queues(cache);
+	list_for_each_entry_safe(queue, tmp_queue, &cache->io_queues, list)
+		ocf_queue_put(queue);
 
 	env_mutex_lock(&owner->lock);
 	/* Mark device uninitialized */
@@ -1635,34 +1613,16 @@ static void _ocf_mngt_cache_load_log(ocf_cache_t cache)
 }
 
 int ocf_mngt_cache_load(ocf_ctx_t ctx, ocf_cache_t *cache,
-		struct ocf_mngt_cache_config *cfg,
 		struct ocf_mngt_cache_device_config *device_cfg)
 {
 	int result;
 
-	if (!ctx || !cache || !cfg || !device_cfg)
+	if (!ctx || !cache || !device_cfg)
 		return -OCF_ERR_INVAL;
-
-	result = _ocf_mngt_cache_validate_cfg(cfg);
-	if (result)
-		return result;
 
 	result = _ocf_mngt_cache_validate_device_cfg(device_cfg);
 	if (result)
 		return result;
-
-	result = _ocf_mngt_cache_start(ctx, cache, cfg);
-	if (!result) {
-		ocf_cache_log(*cache, log_info, "Successfully added\n");
-	} else {
-		if (cfg->name) {
-			ocf_log(ctx, log_err, "Inserting cache %s failed\n",
-					cfg->name);
-		} else {
-			ocf_log(ctx, log_err, "Inserting cache failed\n");
-		}
-		return result;
-	}
 
 	result =  _ocf_mngt_cache_attach(*cache, device_cfg, true);
 	if (result) {
