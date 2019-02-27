@@ -168,6 +168,13 @@ bool ocf_cache_is_running(ocf_cache_t cache);
 void ocf_cache_wait_for_io_finish(ocf_cache_t cache);
 
 /**
+ * @brief Check if cache has any unfunished requests
+ *
+ * @param[in] cache Cache object
+ */
+bool ocf_cache_has_pending_requests(ocf_cache_t cache);
+
+/**
  * @brief Get cache mode of given cache object
  *
  * @param[in] cache Cache object
