@@ -186,6 +186,7 @@ struct ocf_cache {
 	env_atomic pending_eviction_clines;
 
 	struct list_head io_queues;
+	ocf_queue_t flush_queue;
 
 	uint16_t ocf_core_inactive_count;
 	struct ocf_core core[OCF_CORE_MAX];

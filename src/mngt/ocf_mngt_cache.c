@@ -1060,6 +1060,9 @@ static void _ocf_mngt_init_handle_error(ocf_cache_t cache,
 
 	env_mutex_lock(&ctx->lock);
 
+	if (cache->flush_queue)
+		ocf_queue_put(cache->flush_queue);
+
 	list_for_each_entry_safe(queue, tmp_queue, &cache->io_queues, list)
 		ocf_queue_put(queue);
 
@@ -1572,6 +1575,9 @@ static int _ocf_mngt_cache_stop(ocf_cache_t cache)
 
 	if (env_atomic_read(&cache->attached))
 		result = _ocf_mngt_cache_unplug(cache, true);
+
+	if (cache->flush_queue)
+		ocf_queue_put(cache->flush_queue);
 
 	list_for_each_entry_safe(queue, tmp_queue, &cache->io_queues, list)
 		ocf_queue_put(queue);

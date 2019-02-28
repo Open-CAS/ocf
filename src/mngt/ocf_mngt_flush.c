@@ -318,7 +318,7 @@ static int _ocf_mngt_flush_containers(ocf_cache_t cache,
 		fctbl[i].attribs.cache_line_lock = true;
 		fctbl[i].attribs.cmpl_context = &fctbl[i];
 		fctbl[i].attribs.cmpl_fn = _ocf_mngt_flush_end;
-		fctbl[i].attribs.io_queue = 0;
+		fctbl[i].attribs.io_queue = cache->flush_queue;
 		fctbl[i].cache = cache;
 		fctbl[i].progress = &progress;
 		fctbl[i].error = &error;
@@ -479,6 +479,12 @@ int ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption)
 		return -OCF_ERR_CACHE_IN_INCOMPLETE_STATE;
 	}
 
+	if (!cache->flush_queue) {
+		ocf_cache_log(cache, log_err,
+				"Cannot flush cache - no flush queue set\n");
+		return -OCF_ERR_INVAL;
+	}
+
 	ocf_cache_log(cache, log_info, "Flushing cache\n");
 
 	_ocf_mngt_begin_flush(cache);
@@ -536,6 +542,12 @@ int ocf_mngt_core_flush(ocf_core_t core, bool interruption)
 		return -OCF_ERR_CORE_IN_INACTIVE_STATE;
 	}
 
+	if (!cache->flush_queue) {
+		ocf_core_log(core, log_err,
+				"Cannot flush core - no flush queue set\n");
+		return -OCF_ERR_INVAL;
+	}
+
 	ocf_core_log(core, log_info, "Flushing\n");
 
 	_ocf_mngt_begin_flush(cache);
@@ -561,6 +573,12 @@ int ocf_mngt_core_purge(ocf_core_t core, bool interruption)
 
 	cache = ocf_core_get_cache(core);
 	core_id = ocf_core_get_id(core);
+
+	if (!cache->flush_queue) {
+		ocf_core_log(core, log_err,
+				"Cannot purge core - no flush queue set\n");
+		return -OCF_ERR_INVAL;
+	}
 
 	core_size = ocf_volume_get_length(&cache->core[core_id].volume);
 	core_size = core_size ?: ~0ULL;
@@ -590,6 +608,12 @@ int ocf_mngt_cache_purge(ocf_cache_t cache, bool interruption)
 	int result = 0;
 
 	OCF_CHECK_NULL(cache);
+
+	if (!cache->flush_queue) {
+		ocf_cache_log(cache, log_err,
+				"Cannot purge cache - no flush queue set\n");
+		return -OCF_ERR_INVAL;
+	}
 
 	_ocf_mngt_begin_flush(cache);
 
