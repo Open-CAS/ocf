@@ -863,57 +863,75 @@ end:
 	return ret;
 }
 
+struct _ocf_mngt_load_properties_context {
+	struct ocf_cachemng_attach_params *params;
+	env_completion complete;
+};
+
+static void _ocf_mngt_load_properties_end(void *priv, int error,
+		struct ocf_metadata_load_properties *properties)
+{
+	struct _ocf_mngt_load_properties_context *context = priv;
+	struct ocf_cachemng_attach_params *params = context->params;
+	ocf_cache_t cache = params->cache;
+
+	if (error)
+		goto out;
+
+	params->metadata.shutdown_status = properties->shutdown_status;
+	params->metadata.dirty_flushed = properties->shutdown_status;
+
+	if (cache->device->init_mode == ocf_init_mode_load) {
+		params->metadata.line_size = properties->line_size;
+		cache->conf_meta->metadata_layout = properties->layout;
+		cache->conf_meta->cache_mode = properties->cache_mode;
+	}
+
+out:
+	params->metadata.status = error;
+	env_completion_complete(&context->complete);
+}
+
 /**
  * Prepare metadata accordingly to mode (for load/recovery read from disk)
  */
 static int _ocf_mngt_init_prepare_metadata(
-		struct ocf_cachemng_attach_params *attach_params)
+		struct ocf_cachemng_attach_params *params)
 {
-	int ret;
-	int i;
-	ocf_cache_t cache = attach_params->cache;
-	ocf_cache_line_size_t line_size = attach_params->metadata.line_size ?
-						attach_params->metadata.line_size :
-						cache->metadata.settings.size;
+	struct _ocf_mngt_load_properties_context context;
+	ocf_cache_t cache = params->cache;
+	int ret, i;
+
+	context.params = params;
+	env_completion_init(&context.complete);
 
 	OCF_ASSERT_PLUGGED(cache);
 
 	if (cache->device->init_mode != ocf_init_mode_metadata_volatile) {
-		if (cache->device->init_mode == ocf_init_mode_load) {
-			attach_params->metadata.status = ocf_metadata_load_properties(
-					&cache->device->volume,
-					&line_size,
-					&cache->conf_meta->metadata_layout,
-					&cache->conf_meta->cache_mode,
-					&attach_params->metadata.shutdown_status,
-					&attach_params->metadata.dirty_flushed);
-			if (attach_params->metadata.status) {
-				ret = -OCF_ERR_START_CACHE_FAIL;
-				return ret;
-			}
-		} else {
-			attach_params->metadata.status = ocf_metadata_load_properties(
-					&cache->device->volume,
-					NULL, NULL, NULL,
-					&attach_params->metadata.shutdown_status,
-					&attach_params->metadata.dirty_flushed);
-			/* don't handle result; if no valid metadata is present
-			 * on caching device, we are about to use, it's not an issue
-			 */
+		ocf_metadata_load_properties(&cache->device->volume,
+				_ocf_mngt_load_properties_end, &context);
+
+		env_completion_wait(&context.complete);
+		if (params->load && params->metadata.status) {
+			ret = -OCF_ERR_START_CACHE_FAIL;
+			return ret;
 		}
 	}
+
+	params->metadata.line_size = params->metadata.line_size ?:
+			cache->metadata.settings.size;
 
 	/*
 	 * Initialize variable size metadata segments
 	 */
-	if (ocf_metadata_init_variable_size(cache, attach_params->device_size,
-			line_size,
+	if (ocf_metadata_init_variable_size(cache, params->device_size,
+			params->metadata.line_size,
 			cache->conf_meta->metadata_layout)) {
 		return -OCF_ERR_START_CACHE_FAIL;
 
 	}
 	ocf_cache_log(cache, log_debug, "Cache attached\n");
-	attach_params->flags.attached_metadata_inited = true;
+	params->flags.attached_metadata_inited = true;
 
 	for (i = 0; i < OCF_IO_CLASS_MAX + 1; ++i) {
 		cache->user_parts[i].runtime =
@@ -924,7 +942,7 @@ static int _ocf_mngt_init_prepare_metadata(
 
 	ret = ocf_concurrency_init(cache);
 	if (!ret)
-		attach_params->flags.concurrency_inited = 1;
+		params->flags.concurrency_inited = 1;
 
 	return ret;
 }

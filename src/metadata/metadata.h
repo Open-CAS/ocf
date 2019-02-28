@@ -306,12 +306,19 @@ static inline ocf_cache_line_t ocf_metadata_entries_hash(
 	return cache->metadata.iface.entries_hash(cache);
 }
 
-int ocf_metadata_load_properties(ocf_volume_t cache_volume,
-		ocf_cache_line_size_t *line_size,
-		ocf_metadata_layout_t *layout,
-		ocf_cache_mode_t *cache_mode,
-		enum ocf_metadata_shutdown_status *shutdown_status,
-		uint8_t *dirty_flushed);
+struct ocf_metadata_load_properties {
+	enum ocf_metadata_shutdown_status shutdown_status;
+	uint8_t dirty_flushed;
+	ocf_metadata_layout_t layout;
+	ocf_cache_line_size_t line_size;
+	ocf_cache_mode_t cache_mode;
+};
+
+typedef void (*ocf_metadata_load_properties_end_t)(void *priv, int error,
+		struct ocf_metadata_load_properties *properties);
+
+void ocf_metadata_load_properties(ocf_volume_t volume,
+		ocf_metadata_load_properties_end_t cmpl, void *priv);
 
 /**
  * @brief Validate cache line size
