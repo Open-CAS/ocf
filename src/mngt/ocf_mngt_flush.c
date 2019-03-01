@@ -461,7 +461,8 @@ static int _ocf_mng_cache_flush(ocf_cache_t cache, bool interruption)
 	return result;
 }
 
-int ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption)
+void ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption,
+		ocf_mngt_cache_flush_end_t cmpl, void *priv)
 {
 	int result = 0;
 
@@ -470,19 +471,22 @@ int ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption)
 	if (!ocf_cache_is_device_attached(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush cache - "
 				"cache device is detached\n");
-		return -OCF_ERR_INVAL;
+		cmpl(cache, priv, -OCF_ERR_INVAL);
+		return;
 	}
 
 	if (ocf_cache_is_incomplete(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush cache - "
 				"cache is in incomplete state\n");
-		return -OCF_ERR_CACHE_IN_INCOMPLETE_STATE;
+		cmpl(cache, priv, -OCF_ERR_CACHE_IN_INCOMPLETE_STATE);
+		return;
 	}
 
 	if (!cache->flush_queue) {
 		ocf_cache_log(cache, log_err,
 				"Cannot flush cache - no flush queue set\n");
-		return -OCF_ERR_INVAL;
+		cmpl(cache, priv, -OCF_ERR_INVAL);
+		return;
 	}
 
 	ocf_cache_log(cache, log_info, "Flushing cache\n");
@@ -496,7 +500,7 @@ int ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption)
 	if (!result)
 		ocf_cache_log(cache, log_info, "Flushing cache completed\n");
 
-	return result;
+	cmpl(cache, priv, result);
 }
 
 static int _ocf_mng_core_flush(ocf_core_t core, bool interruption)
@@ -521,7 +525,8 @@ static int _ocf_mng_core_flush(ocf_core_t core, bool interruption)
 	return ret;
 }
 
-int ocf_mngt_core_flush(ocf_core_t core, bool interruption)
+void ocf_mngt_core_flush(ocf_core_t core, bool interruption,
+		ocf_mngt_core_flush_end_t cmpl, void *priv)
 {
 	ocf_cache_t cache;
 	int ret = 0;
@@ -533,19 +538,22 @@ int ocf_mngt_core_flush(ocf_core_t core, bool interruption)
 	if (!ocf_cache_is_device_attached(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush core - "
 				"cache device is detached\n");
-		return -OCF_ERR_INVAL;
+		cmpl(core, priv, -OCF_ERR_INVAL);
+		return;
 	}
 
 	if (!core->opened) {
 		ocf_core_log(core, log_err, "Cannot flush - core is in "
 				"inactive state\n");
-		return -OCF_ERR_CORE_IN_INACTIVE_STATE;
+		cmpl(core, priv, -OCF_ERR_CORE_IN_INACTIVE_STATE);
+		return;
 	}
 
 	if (!cache->flush_queue) {
 		ocf_core_log(core, log_err,
 				"Cannot flush core - no flush queue set\n");
-		return -OCF_ERR_INVAL;
+		cmpl(core, priv, -OCF_ERR_INVAL);
+		return;
 	}
 
 	ocf_core_log(core, log_info, "Flushing\n");
@@ -559,10 +567,46 @@ int ocf_mngt_core_flush(ocf_core_t core, bool interruption)
 	if (!ret)
 		ocf_cache_log(cache, log_info, "Flushing completed\n");
 
-	return ret;
+	cmpl(core, priv, ret);
 }
 
-int ocf_mngt_core_purge(ocf_core_t core, bool interruption)
+void ocf_mngt_cache_purge(ocf_cache_t cache,
+		ocf_mngt_cache_purge_end_t cmpl, void *priv)
+{
+	int result = 0;
+
+	OCF_CHECK_NULL(cache);
+
+	if (!cache->flush_queue) {
+		ocf_cache_log(cache, log_err,
+				"Cannot purge cache - no flush queue set\n");
+		cmpl(cache, priv, -OCF_ERR_INVAL);
+		return;
+	}
+
+	_ocf_mngt_begin_flush(cache);
+
+	ocf_cache_log(cache, log_info, "Purging\n");
+
+	result = _ocf_mng_cache_flush(cache, true);
+
+	if (result)
+		goto out;
+
+	OCF_METADATA_LOCK_WR();
+	result = ocf_metadata_sparse_range(cache, OCF_CORE_ID_INVALID, 0,
+			~0ULL);
+	OCF_METADATA_UNLOCK_WR();
+
+out:
+	_ocf_mngt_end_flush(cache);
+
+	cmpl(cache, priv, result);
+}
+
+
+void ocf_mngt_core_purge(ocf_core_t core,
+		ocf_mngt_core_purge_end_t cmpl, void *priv)
 {
 	ocf_cache_t cache;
 	ocf_core_id_t core_id;
@@ -577,7 +621,8 @@ int ocf_mngt_core_purge(ocf_core_t core, bool interruption)
 	if (!cache->flush_queue) {
 		ocf_core_log(core, log_err,
 				"Cannot purge core - no flush queue set\n");
-		return -OCF_ERR_INVAL;
+		cmpl(core, priv, -OCF_ERR_INVAL);
+		return;
 	}
 
 	core_size = ocf_volume_get_length(&cache->core[core_id].volume);
@@ -587,7 +632,7 @@ int ocf_mngt_core_purge(ocf_core_t core, bool interruption)
 
 	ocf_core_log(core, log_info, "Purging\n");
 
-	result = _ocf_mng_core_flush(core, interruption);
+	result = _ocf_mng_core_flush(core, true);
 
 	if (result)
 		goto out;
@@ -600,48 +645,15 @@ int ocf_mngt_core_purge(ocf_core_t core, bool interruption)
 out:
 	_ocf_mngt_end_flush(cache);
 
-	return result;
+	cmpl(core, priv, result);
 }
 
-int ocf_mngt_cache_purge(ocf_cache_t cache, bool interruption)
-{
-	int result = 0;
-
-	OCF_CHECK_NULL(cache);
-
-	if (!cache->flush_queue) {
-		ocf_cache_log(cache, log_err,
-				"Cannot purge cache - no flush queue set\n");
-		return -OCF_ERR_INVAL;
-	}
-
-	_ocf_mngt_begin_flush(cache);
-
-	ocf_cache_log(cache, log_info, "Purging\n");
-
-	result = _ocf_mng_cache_flush(cache, interruption);
-
-	if (result)
-		goto out;
-
-	OCF_METADATA_LOCK_WR();
-	result = ocf_metadata_sparse_range(cache, OCF_CORE_ID_INVALID, 0,
-			~0ULL);
-	OCF_METADATA_UNLOCK_WR();
-
-out:
-	_ocf_mngt_end_flush(cache);
-
-	return result;
-}
-
-int ocf_mngt_cache_flush_interrupt(ocf_cache_t cache)
+void ocf_mngt_cache_flush_interrupt(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
 
 	ocf_cache_log(cache, log_alert, "Flushing interrupt\n");
 	cache->flushing_interrupted = 1;
-	return 0;
 }
 
 int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type)
@@ -681,23 +693,11 @@ int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type)
 
 	cache->conf_meta->cleaning_policy_type = type;
 
-	if (type != old_type) {
-		/*
-		 * If operation was successfull or cleaning policy changed,
-		 * we need to flush superblock.
-		 */
-		if (ocf_metadata_flush_superblock(cache)) {
-			ocf_cache_log(cache, log_err,
-				"Failed to flush superblock! Changes "
-				"in cache config are not persistent!\n");
-		}
-	}
+	ocf_metadata_unlock(cache, OCF_METADATA_WR);
 
 	ocf_cache_log(cache, log_info, "Changing cleaning policy from "
 			"%s to %s\n", cleaning_policy_ops[old_type].name,
 			cleaning_policy_ops[type].name);
-
-	ocf_metadata_unlock(cache, OCF_METADATA_WR);
 
 	return ret;
 }
@@ -729,18 +729,6 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
 
 	ret = cleaning_policy_ops[type].set_cleaning_param(cache,
 			param_id, param_value);
-
-	if (ret == 0) {
-		/*
-		 * If operation was successfull or cleaning policy changed,
-		 * we need to flush superblock.
-		 */
-		if (ocf_metadata_flush_superblock(cache)) {
-			ocf_cache_log(cache, log_err,
-				"Failed to flush superblock! Changes "
-				"in cache config are not persistent!\n");
-		}
-	}
 
 	ocf_metadata_unlock(cache, OCF_METADATA_WR);
 

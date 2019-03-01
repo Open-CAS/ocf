@@ -115,8 +115,6 @@ void __wrap_ocf_part_sort(struct ocf_cache *cache)
 
 int __wrap_ocf_metadata_flush_superblock(struct ocf_cache *cache)
 {
-	function_called();
-	return mock();
 }
 
 /* Helper function for test prepration */
@@ -168,9 +166,6 @@ static void ocf_mngt_io_classes_configure_test03(void **state)
 	}
 
 	expect_function_call(__wrap_ocf_part_sort);
-
-	expect_function_call(__wrap_ocf_metadata_flush_superblock);
-	will_return(__wrap_ocf_metadata_flush_superblock, 0);
 
 	result = ocf_mngt_cache_io_classes_configure(&cache, &cfg);
 
@@ -230,9 +225,6 @@ static void ocf_mngt_io_classes_configure_test02(void **state)
 	}
 
 	expect_function_call(__wrap_ocf_part_sort);
-
-	expect_function_call(__wrap_ocf_metadata_flush_superblock);
-	will_return(__wrap_ocf_metadata_flush_superblock, 0);
 
 	result = ocf_mngt_cache_io_classes_configure(&cache, &cfg);
 

@@ -97,44 +97,6 @@ int ocf_core_get(ocf_cache_t cache, ocf_core_id_t id, ocf_core_t *core)
 	return 0;
 }
 
-int ocf_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
-{
-	struct ocf_cache *cache;
-	struct ocf_volume_uuid *current_uuid;
-	int result;
-	int diff;
-
-	OCF_CHECK_NULL(core);
-	OCF_CHECK_NULL(uuid);
-	OCF_CHECK_NULL(uuid->data);
-
-	cache = core->volume.cache;
-	current_uuid = &ocf_core_get_volume(core)->uuid;
-
-	result = env_memcmp(current_uuid->data, current_uuid->size,
-			uuid->data, uuid->size, &diff);
-	if (result)
-		return result;
-
-	if (!diff) {
-		/* UUIDs are identical */
-		return 0;
-	}
-
-	result = ocf_metadata_set_core_uuid(core, uuid, NULL);
-	if (result)
-		return result;
-
-	ocf_volume_set_uuid(&core->volume, uuid);
-
-	result = ocf_metadata_flush_superblock(cache);
-	if (result) {
-		result = -OCF_ERR_WRITE_CACHE;
-	}
-
-	return result;
-}
-
 uint32_t ocf_core_get_seq_cutoff_threshold(ocf_core_t core)
 {
 	uint32_t core_id = ocf_core_get_id(core);
@@ -149,60 +111,6 @@ ocf_seq_cutoff_policy ocf_core_get_seq_cutoff_policy(ocf_core_t core)
 	ocf_cache_t cache = ocf_core_get_cache(core);
 
 	return cache->core_conf_meta[core_id].seq_cutoff_policy;
-}
-
-int ocf_core_set_user_metadata_raw(ocf_core_t core, void *data, size_t size)
-{
-	ocf_cache_t cache = ocf_core_get_cache(core);
-	uint32_t core_id = ocf_core_get_id(core);
-
-	if (size > OCF_CORE_USER_DATA_SIZE)
-		return -EINVAL;
-
-	env_memcpy(cache->core_conf_meta[core_id].user_data,
-			OCF_CORE_USER_DATA_SIZE, data, size);
-
-	return 0;
-}
-
-int ocf_core_set_user_metadata(ocf_core_t core, void *data, size_t size)
-{
-	ocf_cache_t cache;
-	int ret;
-
-	OCF_CHECK_NULL(core);
-	OCF_CHECK_NULL(data);
-
-	cache = ocf_core_get_cache(core);
-
-	ret = ocf_core_set_user_metadata_raw(core, data, size);
-	if (ret)
-		return ret;
-
-	ret = ocf_metadata_flush_superblock(cache);
-	if (ret)
-		return -OCF_ERR_WRITE_CACHE;
-
-	return 0;
-}
-
-int ocf_core_get_user_metadata(ocf_core_t core, void *data, size_t size)
-{
-	uint32_t core_id;
-	ocf_cache_t cache;
-
-	OCF_CHECK_NULL(core);
-
-	core_id = ocf_core_get_id(core);
-	cache = ocf_core_get_cache(core);
-
-	if (size > sizeof(cache->core_conf_meta[core_id].user_data))
-		return -EINVAL;
-
-	env_memcpy(data, size, cache->core_conf_meta[core_id].user_data,
-			OCF_CORE_USER_DATA_SIZE);
-
-	return 0;
 }
 
 int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
