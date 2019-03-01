@@ -232,21 +232,27 @@ bool ocf_mngt_is_cache_locked(ocf_cache_t cache)
 	return false;
 }
 
+static void _ocf_mngt_cache_unlock(ocf_cache_t cache,
+		void (*unlock_fn)(env_rwsem *s))
+{
+	unlock_fn(&cache->lock);
+	ocf_mngt_cache_put(cache);
+}
+
 void ocf_mngt_cache_unlock(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	env_rwsem_up_write(&cache->lock);
-	ocf_mngt_cache_put(cache);
+	_ocf_mngt_cache_unlock(cache, env_rwsem_up_write);
 }
 
 void ocf_mngt_cache_read_unlock(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	env_rwsem_up_read(&cache->lock);
-	ocf_mngt_cache_put(cache);
+	_ocf_mngt_cache_unlock(cache, env_rwsem_up_read);
 }
 
-int _ocf_mngt_cache_lock(ocf_cache_t cache, bool read)
+static int _ocf_mngt_cache_lock(ocf_cache_t cache, int (*lock_fn)(env_rwsem *s),
+		void (*unlock_fn)(env_rwsem *s))
 {
 	int ret;
 
@@ -254,10 +260,7 @@ int _ocf_mngt_cache_lock(ocf_cache_t cache, bool read)
 	env_atomic_inc(&cache->ref_count);
 
 	env_atomic_inc(&cache->lock_waiter);
-	if (read)
-		ret = env_rwsem_down_read_interruptible(&cache->lock);
-	else
-		ret = env_rwsem_down_write_interruptible(&cache->lock);
+	ret = lock_fn(&cache->lock);
 	env_atomic_dec(&cache->lock_waiter);
 
 	if (ret) {
@@ -283,10 +286,7 @@ int _ocf_mngt_cache_lock(ocf_cache_t cache, bool read)
 	return 0;
 
 unlock:
-	if (read)
-		ocf_mngt_cache_read_unlock(cache);
-	else
-		ocf_mngt_cache_unlock(cache);
+	_ocf_mngt_cache_unlock(cache, unlock_fn);
 
 	return ret;
 }
@@ -294,13 +294,29 @@ unlock:
 int ocf_mngt_cache_lock(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	return _ocf_mngt_cache_lock(cache, false);
+	return _ocf_mngt_cache_lock(cache, env_rwsem_down_write_interruptible,
+			env_rwsem_up_write);
 }
 
 int ocf_mngt_cache_read_lock(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	return _ocf_mngt_cache_lock(cache, true);
+	return _ocf_mngt_cache_lock(cache, env_rwsem_down_read_interruptible,
+			env_rwsem_up_read);
+}
+
+int ocf_mngt_cache_trylock(ocf_cache_t cache)
+{
+	OCF_CHECK_NULL(cache);
+	return _ocf_mngt_cache_lock(cache, env_rwsem_down_write_trylock,
+			env_rwsem_up_write);
+}
+
+int ocf_mngt_cache_read_trylock(ocf_cache_t cache)
+{
+	OCF_CHECK_NULL(cache);
+	return _ocf_mngt_cache_lock(cache, env_rwsem_down_read_trylock,
+			env_rwsem_up_read);
 }
 
 /* if cache is either fully initialized or during recovery */

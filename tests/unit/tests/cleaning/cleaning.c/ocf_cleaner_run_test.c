@@ -247,7 +247,7 @@ static void ocf_cleaner_run_test01(void **state)
 	will_return(__wrap_ocf_mngt_is_cache_locked, 0);
 
 	expect_function_call(__wrap_env_rwsem_down_write_trylock);
-	will_return(__wrap_env_rwsem_down_write_trylock, 1);
+	will_return(__wrap_env_rwsem_down_write_trylock, 0);
 
 	expect_function_call(__wrap__ocf_cleaner_run_check_dirty_inactive);
 	will_return(__wrap__ocf_cleaner_run_check_dirty_inactive, 0);
