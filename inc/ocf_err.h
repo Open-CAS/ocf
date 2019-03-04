@@ -18,20 +18,23 @@ typedef enum {
 	/** Invalid input parameter value */
 	OCF_ERR_INVAL = 1000000,
 
-	/** Invalid volume type */
-	OCF_ERR_INVAL_VOLUME_TYPE,
-
 	/** Operation interrupted */
 	OCF_ERR_INTR,
+
+	/** Out of memory */
+	OCF_ERR_NO_MEM,
+
+	/** Lock not acquired */
+	OCF_ERR_NO_LOCK,
+
+	/** Invalid volume type */
+	OCF_ERR_INVAL_VOLUME_TYPE,
 
 	/** Unknown error occurred */
 	OCF_ERR_UNKNOWN,
 
 	/*!< To many caches */
 	OCF_ERR_TOO_MANY_CACHES,
-
-	/** Out of memory */
-	OCF_ERR_NO_MEM,
 
 	/** Not enough RAM to start cache */
 	OCF_ERR_NO_FREE_RAM,

@@ -48,7 +48,7 @@ static inline void ocf_metadata_unlock(struct ocf_cache *cache, int rw)
 
 static inline int ocf_metadata_try_lock(struct ocf_cache *cache, int rw)
 {
-	int result = -1;
+	int result = 0;
 
 	if (rw == OCF_METADATA_WR) {
 		result = env_rwsem_down_write_trylock(
@@ -60,7 +60,7 @@ static inline int ocf_metadata_try_lock(struct ocf_cache *cache, int rw)
 		ENV_BUG();
 	}
 
-	if (!result)
+	if (result)
 		return -1;
 
 	return 0;

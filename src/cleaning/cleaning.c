@@ -133,7 +133,7 @@ void ocf_cleaner_run(ocf_cleaner_t cleaner, ocf_queue_t queue)
 	}
 
 	/* Sleep in case there is management operation in progress. */
-	if (env_rwsem_down_write_trylock(&cache->lock) == 0) {
+	if (env_rwsem_down_write_trylock(&cache->lock)) {
 		cleaner->end(cleaner, SLEEP_TIME_MS);
 		return;
 	}
