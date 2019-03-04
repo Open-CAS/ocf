@@ -266,12 +266,4 @@ void ocf_cache_set_priv(ocf_cache_t cache, void *priv);
  */
 void *ocf_cache_get_priv(ocf_cache_t cache);
 
-/**
- * @brief Set queue to be used during flush operation
- *
- * @param[in] cache Cache object
- * @param[in] queue Queue object
- */
-void ocf_cache_set_flush_queue(ocf_cache_t cache, ocf_queue_t queue);
-
 #endif /* __OCF_CACHE_H__ */

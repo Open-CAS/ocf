@@ -124,6 +124,8 @@ static inline void ocf_metadata_status_bits_unlock(
 #define OCF_METADATA_FLUSH_UNLOCK() \
 		ocf_metadata_flush_unlock(cache)
 
+typedef void (*ocf_metadata_end_t)(void *priv, int error);
+
 #include "metadata_cleaning_policy.h"
 #include "metadata_eviction_policy.h"
 #include "metadata_partition.h"
@@ -224,10 +226,12 @@ ocf_cache_line_t ocf_metadata_get_pages_count(struct ocf_cache *cache);
 /**
  * @brief Flush metadata
  *
- * @param cache
- * @return 0 - Operation success otherwise failure
+ * @param cache - Cache instance
+ * @param cmpl - Completion callback
+ * @param priv - Completion context
  */
-int ocf_metadata_flush_all(struct ocf_cache *cache);
+void ocf_metadata_flush_all(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv);
 
 
 /**
@@ -263,17 +267,21 @@ void ocf_metadata_flush_do_asynch(struct ocf_cache *cache,
  * @brief Load metadata
  *
  * @param cache - Cache instance
- * @return 0 - Operation success otherwise failure
+ * @param cmpl - Completion callback
+ * @param priv - Completion context
  */
-int ocf_metadata_load_all(struct ocf_cache *cache);
+void ocf_metadata_load_all(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv);
 
 /**
  * @brief Load metadata required for recovery procedure
  *
  * @param cache Cache instance
- * @return 0 - Operation success otherwise failure
+ * @param cmpl - Completion callback
+ * @param priv - Completion context
  */
-int ocf_metadata_load_recovery(struct ocf_cache *cache);
+void ocf_metadata_load_recovery(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv);
 
 /*
  * NOTE Hash table is specific for hash table metadata service implementation

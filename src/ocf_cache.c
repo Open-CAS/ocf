@@ -242,17 +242,3 @@ void *ocf_cache_get_priv(ocf_cache_t cache)
 	OCF_CHECK_NULL(cache);
 	return cache->priv;
 }
-
-void ocf_cache_set_flush_queue(ocf_cache_t cache, ocf_queue_t queue)
-{
-	OCF_CHECK_NULL(cache);
-	OCF_CHECK_NULL(queue);
-
-	if (cache->flush_queue)
-		ocf_queue_put(cache->flush_queue);
-
-	if (queue)
-		ocf_queue_get(queue);
-
-	cache->flush_queue = queue;
-}

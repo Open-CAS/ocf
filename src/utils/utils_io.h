@@ -43,18 +43,21 @@ static inline int ocf_io_overlaps(uint32_t start1, uint32_t count1,
 			start2 + count2 - 1);
 }
 
+typedef void (*ocf_submit_end_t)(void *priv, int error);
+
 int ocf_submit_io_wait(struct ocf_io *io);
 
-int ocf_submit_volume_flush_wait(ocf_volume_t volume);
+void ocf_submit_volume_flush(ocf_volume_t volume,
+		ocf_submit_end_t cmpl, void *priv);
 
-int ocf_submit_volume_discard_wait(ocf_volume_t volume, uint64_t addr,
-		uint64_t length);
+void ocf_submit_volume_discard(ocf_volume_t volume, uint64_t addr,
+		uint64_t length, ocf_submit_end_t cmpl, void *priv);
 
-int ocf_submit_write_zeroes_wait(ocf_volume_t volume, uint64_t addr,
-		uint64_t length);
+void ocf_submit_write_zeros(ocf_volume_t volume, uint64_t addr,
+		uint64_t length, ocf_submit_end_t cmpl, void *priv);
 
-int ocf_submit_cache_page(struct ocf_cache *cache, uint64_t addr,
-		int dir, void *buffer);
+void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
+		void *buffer, ocf_submit_end_t cmpl, void *priv);
 
 void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 		ocf_req_end_t callback);

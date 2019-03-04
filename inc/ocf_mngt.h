@@ -357,6 +357,17 @@ int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		struct ocf_mngt_cache_config *cfg);
 
 /**
+ * @brief Set queue to be used during management operations
+ *
+ * @param[in] cache Cache object
+ * @param[in] queue Queue object
+ *
+ * @retval 0 Success
+ * @retval Non-zero Error occurred
+ */
+int ocf_mngt_cache_set_mngt_queue(ocf_cache_t cache, ocf_queue_t queue);
+
+/**
  * @brief Completion callback of cache stop operation
  *
  * @param[in] cache Cache handle
@@ -375,6 +386,19 @@ typedef void (*ocf_mngt_cache_stop_end_t)(ocf_cache_t cache,
  */
 void ocf_mngt_cache_stop(ocf_cache_t cache,
 		ocf_mngt_cache_stop_end_t cmpl, void *priv);
+
+/**
+ * @brief Get amount of free RAM needed to attach cache volume
+ *
+ * @param[in] cache Cache handle
+ * @param[in] cfg Caching device configuration
+ * @param[out] ram_needed Amount of RAM needed in bytes
+ *
+ * @retval 0 Success
+ * @retval Non-zero Error occurred
+ */
+int ocf_mngt_get_ram_needed(ocf_cache_t cache,
+		struct ocf_mngt_cache_device_config *cfg, uint64_t *ram_needed);
 
 /**
  * @brief Completion callback of cache attach operation

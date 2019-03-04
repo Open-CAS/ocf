@@ -103,20 +103,20 @@ ocf_cache_line_t ocf_metadata_get_pages_count(struct ocf_cache *cache)
 	return cache->metadata.iface.pages(cache);
 }
 
-ocf_cache_line_t
-ocf_metadata_get_cachelines_count(struct ocf_cache *cache)
+ocf_cache_line_t ocf_metadata_get_cachelines_count(ocf_cache_t cache)
 {
 	return cache->metadata.iface.cachelines(cache);
 }
 
-int ocf_metadata_flush_all(struct ocf_cache *cache)
+void ocf_metadata_flush_all(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv)
 {
 	int result;
 
 	OCF_METADATA_LOCK_WR();
 	result = cache->metadata.iface.flush_all(cache);
 	OCF_METADATA_UNLOCK_WR();
-	return result;
+	cmpl(priv, result);
 }
 
 void ocf_metadata_flush(struct ocf_cache *cache, ocf_cache_line_t line)
@@ -124,19 +124,24 @@ void ocf_metadata_flush(struct ocf_cache *cache, ocf_cache_line_t line)
 	cache->metadata.iface.flush(cache, line);
 }
 
-int ocf_metadata_load_all(struct ocf_cache *cache)
+void ocf_metadata_load_all(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv)
 {
 	int result;
 
 	OCF_METADATA_LOCK_WR();
 	result = cache->metadata.iface.load_all(cache);
 	OCF_METADATA_UNLOCK_WR();
-	return result;
+	cmpl(priv, result);
 }
 
-int ocf_metadata_load_recovery(struct ocf_cache *cache)
+void ocf_metadata_load_recovery(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv)
 {
-	return cache->metadata.iface.load_recovery(cache);
+	int result;
+
+	result = cache->metadata.iface.load_recovery(cache);
+	cmpl(priv, result);
 }
 
 void ocf_metadata_flush_mark(struct ocf_cache *cache, struct ocf_request *req,
