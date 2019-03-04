@@ -152,58 +152,74 @@ void ocf_metadata_flush_do_asynch(struct ocf_cache *cache,
 	cache->metadata.iface.flush_do_asynch(cache, req, complete);
 }
 
-static inline int ocf_metadata_check_properties(void)
+struct ocf_metadata_read_sb_ctx;
+
+typedef void (*ocf_metadata_read_sb_end_t)(
+		struct ocf_metadata_read_sb_ctx *context);
+
+struct ocf_metadata_read_sb_ctx {
+	struct ocf_superblock_config superblock;
+	ocf_metadata_read_sb_end_t cmpl;
+	ocf_ctx_t ctx;
+	void *priv1;
+	void *priv2;
+	int error;
+};
+
+static void ocf_metadata_read_sb_complete(struct ocf_io *io, int error)
 {
-	uint32_t field_offset;
+	struct ocf_metadata_read_sb_ctx *context = io->priv1;
+	ctx_data_t *data = ocf_io_get_data(io);
 
-	/* Because metadata basic properties are on the beginning of super block
-	 * read/write only first page of supper block.
-	 *
-	 * For safety reason check if offset of metadata properties are in first
-	 * page of super block.
-	 *
-	 * Maybe in future super block fields order may be changed and metadata
-	 * variant may go out first page of super block
-	 */
+	if (!error) {
+		/* Read data from data into super block buffer */
+		ctx_data_rd_check(context->ctx, &context->superblock, data,
+				sizeof(context->superblock));
+	}
 
-	field_offset = offsetof(struct ocf_superblock_config, line_size);
-	ENV_BUG_ON(field_offset >= PAGE_SIZE);
 
-	/* The same checking for magic number */
-	field_offset = offsetof(struct ocf_superblock_config, magic_number);
-	ENV_BUG_ON(field_offset >= PAGE_SIZE);
+	context->error = error;
+	context->cmpl(context);
 
-	/* The same checking for IO interface type */
-	field_offset = offsetof(struct ocf_superblock_config, cache_mode);
-	ENV_BUG_ON(field_offset >= PAGE_SIZE);
-
-	/* And the same for version location within superblock structure */
-	field_offset = offsetof(struct ocf_superblock_config, metadata_version);
-	ENV_BUG_ON(field_offset >= PAGE_SIZE);
-
-	return 0;
+	ctx_data_free(context->ctx, data);
+	ocf_io_put(io);
+	env_free(context);
 }
 
-static int ocf_metadata_read_properties(ocf_ctx_t ctx,
-		ocf_volume_t cache_volume,
-		struct ocf_superblock_config *superblock)
+static int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
+		ocf_metadata_read_sb_end_t cmpl, void *priv1, void *priv2)
 {
+	struct ocf_metadata_read_sb_ctx *context;
+	size_t sb_pages = BYTES_TO_PAGES(sizeof(context->superblock));
 	ctx_data_t *data;
 	struct ocf_io *io;
 	int result = 0;
 
-	if (ocf_metadata_check_properties())
-		return -EINVAL;
+	/* Allocate memory for first page of super block */
+	context = env_zalloc(sizeof(*context), ENV_MEM_NORMAL);
+	if (!context) {
+		ocf_log(ctx, log_err, "Memory allocation error");
+		return -ENOMEM;
+	}
+
+	context->cmpl = cmpl;
+	context->ctx = ctx;
+	context->priv1 = priv1;
+	context->priv2 = priv2;
 
 	/* Allocate resources for IO */
-	io = ocf_volume_new_io(cache_volume);
-	data = ctx_data_alloc(ctx, 1);
-
-	/* Check allocation result */
-	if (!io || !data) {
+	io = ocf_volume_new_io(volume);
+	if (!io) {
 		ocf_log(ctx, log_err, "Memory allocation error");
 		result = -ENOMEM;
-		goto out;
+		goto err_io;
+	}
+
+	data = ctx_data_alloc(ctx, sb_pages);
+	if (!data) {
+		ocf_log(ctx, log_err, "Memory allocation error");
+		result = -ENOMEM;
+		goto err_data;
 	}
 
 	/*
@@ -214,176 +230,142 @@ static int ocf_metadata_read_properties(ocf_ctx_t ctx,
 	if (result) {
 		ocf_log(ctx, log_err, "Metadata IO configuration error\n");
 		result = -EIO;
-		goto out;
-	}
-	ocf_io_configure(io, 0, PAGE_SIZE, OCF_READ, 0, 0);
-	result = ocf_submit_io_wait(io);
-	if (result) {
-		ocf_log(ctx, log_err, "Metadata IO request submit error\n");
-		result = -EIO;
-		goto out;
+		goto err_set_data;
 	}
 
-	/* Read data from data into super block buffer */
-	ctx_data_rd_check(ctx, superblock, data,
-			PAGE_SIZE);
+	ocf_io_configure(io, 0, sb_pages * PAGE_SIZE, OCF_READ, 0, 0);
 
-out:
-	if (io)
-		ocf_io_put(io);
+	ocf_io_set_cmpl(io, context, NULL, ocf_metadata_read_sb_complete);
+	ocf_volume_submit_io(io);
+
+	return 0;
+
+err_set_data:
 	ctx_data_free(ctx, data);
-
+err_data:
+	ocf_io_put(io);
+err_io:
+	env_free(context);
 	return result;
 }
 
-/**
- * @brief function loads individual properties from metadata set
- * @param cache_volume volume from which to load metadata
- * @param variant - field to which save metadata variant; if NULL,
- *	metadata variant won't be read.
- * @param cache mode; if NULL is passed it won't be read
- * @param shutdown_status - dirty shutdown or clean shutdown
- * @param dirty_flushed - if all dirty data was flushed prior to closing
- *	the cache
- * @return 0 upon successful completion
- */
-int ocf_metadata_load_properties(ocf_volume_t cache_volume,
-		ocf_cache_line_size_t *line_size,
-		ocf_metadata_layout_t *layout,
-		ocf_cache_mode_t *cache_mode,
-		enum ocf_metadata_shutdown_status *shutdown_status,
-		uint8_t *dirty_flushed)
+static void ocf_metadata_load_properties_cmpl(
+		struct ocf_metadata_read_sb_ctx *context)
 {
-	struct ocf_superblock_config *superblock;
-	int err_value = 0;
-
-	/* Allocate first page of super block */
-	superblock = env_zalloc(PAGE_SIZE, ENV_MEM_NORMAL);
-	if (!superblock) {
-		ocf_cache_log(cache_volume->cache, log_err,
-				"Allocation memory error");
-		return -ENOMEM;
-	}
-
-	OCF_DEBUG_TRACE(cache);
-
-	err_value = ocf_metadata_read_properties(cache_volume->cache->owner,
-			cache_volume, superblock);
-	if (err_value)
-		goto ocf_metadata_load_variant_ERROR;
+	struct ocf_metadata_load_properties properties;
+	struct ocf_superblock_config *superblock = &context->superblock;
+	ocf_metadata_load_properties_end_t cmpl = context->priv1;
+	void *priv = context->priv2;
+	ocf_ctx_t ctx = context->ctx;
 
 	if (superblock->magic_number != CACHE_MAGIC_NUMBER) {
-		err_value = -ENODATA;
-		ocf_cache_log(cache_volume->cache, log_info,
-				"Can not detect pre-existing metadata\n");
-		goto ocf_metadata_load_variant_ERROR;
+		ocf_log(ctx, log_info, "Cannot detect pre-existing metadata\n");
+		cmpl(priv, -ENODATA, NULL);
+		return;
 	}
 
 	if (METADATA_VERSION() != superblock->metadata_version) {
-		err_value = -EBADF;
-		ocf_cache_log(cache_volume->cache, log_err,
-				"Metadata version mismatch!\n");
-		goto ocf_metadata_load_variant_ERROR;
+		ocf_log(ctx, log_err, "Metadata version mismatch!\n");
+		cmpl(priv, -EBADF, NULL);
+		return;
 	}
 
-	if (line_size) {
-		if (ocf_cache_line_size_is_valid(superblock->line_size)) {
-			*line_size = superblock->line_size;
-		} else {
-			err_value = -EINVAL;
-			ocf_cache_log(cache_volume->cache, log_err,
-					"ERROR: Invalid cache line size!\n");
-		}
+	if (!ocf_cache_line_size_is_valid(superblock->line_size)) {
+		ocf_log(ctx, log_err, "ERROR: Invalid cache line size!\n");
+		cmpl(priv, -EINVAL, NULL);
+		return;
 	}
 
-	if (layout) {
-		if (superblock->metadata_layout >= ocf_metadata_layout_max ||
-				superblock->metadata_layout < 0) {
-			err_value = -EINVAL;
-			ocf_cache_log(cache_volume->cache, log_err,
-					"ERROR: Invalid metadata layout!\n");
-		} else {
-			*layout = superblock->metadata_layout;
-		}
+	if ((unsigned)superblock->metadata_layout >= ocf_metadata_layout_max) {
+		ocf_log(ctx, log_err, "ERROR: Invalid metadata layout!\n");
+		cmpl(priv, -EINVAL, NULL);
+		return;
 	}
 
-	if (cache_mode) {
-		if (superblock->cache_mode < ocf_cache_mode_max) {
-			*cache_mode = superblock->cache_mode;
-		} else {
-			ocf_cache_log(cache_volume->cache, log_err,
-					"ERROR: Invalid cache mode!\n");
-			err_value = -EINVAL;
-		}
+	if (superblock->cache_mode >= ocf_cache_mode_max) {
+		ocf_log(ctx, log_err, "ERROR: Invalid cache mode!\n");
+		cmpl(priv, -EINVAL, NULL);
+		return;
 	}
 
-	if (shutdown_status != NULL) {
-		if (superblock->clean_shutdown <= ocf_metadata_clean_shutdown) {
-			*shutdown_status = superblock->clean_shutdown;
-		} else {
-			ocf_cache_log(cache_volume->cache, log_err,
-				"ERROR: Invalid shutdown status!\n");
-			err_value = -EINVAL;
-		}
+	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
+		ocf_log(ctx, log_err, "ERROR: Invalid shutdown status!\n");
+		cmpl(priv, -EINVAL, NULL);
+		return;
 	}
 
-	if (dirty_flushed != NULL) {
-		if (superblock->dirty_flushed <= DIRTY_FLUSHED) {
-			*dirty_flushed = superblock->dirty_flushed;
-		} else {
-			ocf_cache_log(cache_volume->cache, log_err,
-					"ERROR: Invalid flush status!\n");
-			err_value = -EINVAL;
-		}
+	if (superblock->dirty_flushed > DIRTY_FLUSHED) {
+		ocf_log(ctx, log_err, "ERROR: Invalid flush status!\n");
+		cmpl(priv, -EINVAL, NULL);
+		return;
 	}
 
-ocf_metadata_load_variant_ERROR:
+	properties.line_size = superblock->line_size;
+	properties.layout = superblock->metadata_layout;
+	properties.cache_mode = superblock->cache_mode;
+	properties.shutdown_status = superblock->clean_shutdown;
+	properties.dirty_flushed = superblock->dirty_flushed;
 
-	env_free(superblock);
-	return err_value;
+	cmpl(priv, 0, &properties);
 }
 
-int ocf_metadata_probe(ocf_ctx_t ctx, ocf_volume_t cache_volume,
-		bool *clean_shutdown, bool *cache_dirty)
+void ocf_metadata_load_properties(ocf_volume_t volume,
+		ocf_metadata_load_properties_end_t cmpl, void *priv)
 {
-	struct ocf_superblock_config *superblock;
-	int result = 0;
-
-	OCF_CHECK_NULL(ctx);
-	OCF_CHECK_NULL(cache_volume);
-
-	/* Allocate first page of super block */
-	superblock = env_zalloc(PAGE_SIZE, ENV_MEM_NORMAL);
-	if (!superblock) {
-		ocf_log(ctx, log_err, "Allocation memory error");
-		return -ENOMEM;
-	}
+	int result;
 
 	OCF_DEBUG_TRACE(cache);
 
-	result = ocf_metadata_read_properties(ctx, cache_volume, superblock);
+	result = ocf_metadata_read_sb(volume->cache->owner, volume,
+			ocf_metadata_load_properties_cmpl, cmpl, priv);
 	if (result)
-		goto ocf_metadata_probe_END;
-
-	if (superblock->magic_number != CACHE_MAGIC_NUMBER) {
-		result = -ENODATA;
-		goto ocf_metadata_probe_END;
-	}
-
-	if (clean_shutdown != NULL) {
-		*clean_shutdown = (superblock->clean_shutdown !=
-				ocf_metadata_dirty_shutdown);
-	}
-
-	if (cache_dirty != NULL)
-		*cache_dirty = (superblock->dirty_flushed == DIRTY_NOT_FLUSHED);
-
-	if (METADATA_VERSION() != superblock->metadata_version)
-		result = -EBADF;
-
-ocf_metadata_probe_END:
-
-	env_free(superblock);
-	return result;
+		cmpl(priv, result, NULL);
 }
 
+static void ocf_metadata_probe_cmpl(struct ocf_metadata_read_sb_ctx *context)
+{
+	struct ocf_metadata_probe_status status;
+	struct ocf_superblock_config *superblock = &context->superblock;
+	ocf_metadata_probe_end_t cmpl = context->priv1;
+	void *priv = context->priv2;
+
+	if (superblock->magic_number != CACHE_MAGIC_NUMBER) {
+		cmpl(priv, -ENODATA, NULL);
+		return;
+	}
+
+	if (METADATA_VERSION() != superblock->metadata_version) {
+		cmpl(priv, -EBADF, NULL);
+		return;
+	}
+
+	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
+		cmpl(priv, -EINVAL, NULL);
+		return;
+	}
+
+	if (superblock->dirty_flushed > DIRTY_FLUSHED) {
+		cmpl(priv, -EINVAL, NULL);
+		return;
+	}
+
+	status.clean_shutdown = (superblock->clean_shutdown !=
+			ocf_metadata_dirty_shutdown);
+	status.cache_dirty = (superblock->dirty_flushed == DIRTY_NOT_FLUSHED);
+
+	cmpl(priv, 0, &status);
+}
+
+void ocf_metadata_probe(ocf_ctx_t ctx, ocf_volume_t volume,
+		ocf_metadata_probe_end_t cmpl, void *priv)
+{
+	int result;
+
+	OCF_CHECK_NULL(ctx);
+	OCF_CHECK_NULL(volume);
+
+	result = ocf_metadata_read_sb(ctx, volume, ocf_metadata_probe_cmpl,
+			cmpl, priv);
+	if (result)
+		cmpl(priv, result, NULL);
+}

@@ -52,19 +52,36 @@ int ocf_metadata_get_atomic_entry(ocf_cache_t cache, uint64_t addr,
 		struct ocf_atomic_metadata *entry);
 
 /**
+ * @brief Metadata probe status
+ */
+struct ocf_metadata_probe_status {
+	/** Cache was graceful stopped */
+	bool clean_shutdown;
+
+	/** Cache contains dirty data */
+	bool cache_dirty;
+};
+
+/**
+ * @brief Metadata probe completion callback
+ *
+ * @param[in] priv Completion context
+ * @param[in] error Error code (zero on success)
+ * @param[in] status Structure describing metadata probe status
+ */
+typedef void (*ocf_metadata_probe_end_t)(void *priv, int error,
+		struct ocf_metadata_probe_status *status);
+
+/**
  * @brief Probe cache device
  *
  * @param[in] ctx handle to object designating ocf context
- * @param[in] cache_volume Cache volume
- * @param[out] clean_shutdown Cache was graceful stopped
- * @param[out] cache_dirty Cache is dirty
- *
- * @retval 0 Probe successfully performed
- * @retval -ENODATA Cache has not been detected
- * @retval Non-zero ERROR
+ * @param[in] volume Cache volume
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion context
  */
-int ocf_metadata_probe(ocf_ctx_t ctx, ocf_volume_t cache_volume,
-		bool *clean_shutdown, bool *cache_dirty);
+void ocf_metadata_probe(ocf_ctx_t ctx, ocf_volume_t volume,
+		ocf_metadata_probe_end_t cmpl, void *priv);
 
 /**
  * @brief Check if sectors in cache line before given address are invalid

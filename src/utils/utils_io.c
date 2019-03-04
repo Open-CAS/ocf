@@ -56,7 +56,6 @@ int ocf_submit_volume_flush_wait(ocf_volume_t volume)
 	env_completion_wait(&cntx.complete);
 
 	return cntx.error;
-
 }
 
 static void ocf_submit_volume_discard_wait_io(struct ocf_io *io, int error)
