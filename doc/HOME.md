@@ -25,7 +25,7 @@ IO operations to underlying block device.
 A system administrator can manage cache instances via Intel CAS CLI management
 utility called "casadm".
 
-![OCF Linux deployment view](deployment-1.png)
+![OCF Linux deployment view](img/deployment-1.png)
 
 Another example of OCF usage is user space block level cache for QEMU
 (see picture below). In this example following adaptation layers may exist:
@@ -40,7 +40,7 @@ and primary storage device. For example bottom adapter for caching device may
 be implemented using kernel bypass techniques, providing low-latency access to
 cache media.
 
-![OCF deployment in QEMU example](deployment-2.png)
+![OCF deployment in QEMU example](img/deployment-2.png)
 
 # Management interface
 Management interface delivered with Intel OCF enables system administrator to:
@@ -247,7 +247,7 @@ storage device
  - <b>IO completion</b> - is signalled by calling completion function specified
 in IO configuration phase
 
-![An example of IO flow](io-path.png)
+![An example of IO flow](img/io-path.png)
 
 ## IO submission example
 ```c
