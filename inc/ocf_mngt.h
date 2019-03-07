@@ -85,7 +85,17 @@ uint32_t ocf_mngt_cache_get_count(ocf_ctx_t ctx);
  * @retval -OCF_ERR_INV_CACHE_ID Cache ID out of range
  * @retval -OCF_ERR_CACHE_NOT_EXIST Cache with given ID is not exist
  */
-int ocf_mngt_cache_get(ocf_ctx_t ctx, ocf_cache_id_t id, ocf_cache_t *cache);
+int ocf_mngt_cache_get_by_id(ocf_ctx_t ctx, ocf_cache_id_t id, ocf_cache_t *cache);
+
+/**
+ * @brief Increment reference counter of cache
+ *
+ * @param[in] cache OCF cache handle
+ *
+ * @retval 0 Reference counter incremented
+ * @retval -OCF_ERR_CACHE_NOT_AVAIL cache isn't initialised yet
+ */
+int ocf_mngt_cache_get(ocf_cache_t cache);
 
 /**
  * @brief Decrease reference counter in cache

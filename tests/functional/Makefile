@@ -5,36 +5,45 @@
 
 PWD=$(shell pwd)
 OCFDIR=$(PWD)/../../
-ADAPTERDIR=$(PWD)/test_adapter
-SRCDIR=$(ADAPTERDIR)/src
-INCDIR=$(ADAPTERDIR)/include
+ADAPTERDIR=$(PWD)/pyocf
+SRCDIR=$(ADAPTERDIR)/ocf/src
+INCDIR=$(ADAPTERDIR)/ocf/include
+WRAPDIR=$(ADAPTERDIR)/wrappers
 
 CC=gcc
-CFLAGS=-g -Wall -I$(INCDIR) -I$(SRCDIR)
-LDFLAGS=-pthread
+CFLAGS=-g -Wall -I$(INCDIR) -I$(SRCDIR)/ocf/env
+LDFLAGS=-pthread -lz
 
-SRC=$(shell find $(SRCDIR) -name \*.c)
+SRC=$(shell find $(SRCDIR) $(WRAPDIR) -name \*.c)
 OBJS=$(patsubst %.c, %.o, $(SRC))
-OCFLIB=libocf.so
+OCFLIB=$(ADAPTERDIR)/libocf.so
 
-all: sync $(OBJS) $(OCFLIB)
+all: | sync
+	$(MAKE) $(OCFLIB)
 
 $(OCFLIB): $(OBJS)
-	$(CC) -shared -o $@ $(CFLAGS) $^ -fPIC $(LDFLAGS)
+	@echo "Building $@"
+	@$(CC) -shared -o $@ $(CFLAGS) $^ -fPIC $(LDFLAGS)
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) -o $@ -fPIC $^ $(LDFLAGS)
+	@echo "Compiling $@"
+	@$(CC) -c $(CFLAGS) -o $@ -fPIC $^ $(LDFLAGS)
 
 sync:
-	$(MAKE) -C $(OCFDIR) inc O=$(ADAPTERDIR)
-	$(MAKE) -C $(OCFDIR) src O=$(ADAPTERDIR)
+	@echo "Syncing OCF sources"
+	@mkdir -p $(ADAPTERDIR)/ocf
+	@$(MAKE) -C $(OCFDIR) inc O=$(ADAPTERDIR)/ocf
+	@$(MAKE) -C $(OCFDIR) src O=$(ADAPTERDIR)/ocf
+	@$(MAKE) -C $(OCFDIR) env O=$(ADAPTERDIR)/ocf ENV=posix
 
 clean:
-	rm -rf $(OCFLIB) $(OBJS)
+	@rm -rf $(OCFLIB) $(OBJS)
+	@echo "  CLEAN "
 
-distclean:
-	rm -rf $(OCFLIB) $(OBJS)
-	rm -rf $(SRCDIR)/ocf
-	rm -rf $(INCDIR)/ocf
+distclean: clean
+	@rm -rf $(OCFLIB) $(OBJS)
+	@rm -rf $(SRCDIR)/ocf
+	@rm -rf $(INCDIR)/ocf
+	@echo "  DISTCLEAN "
 
-.PHONY: all clean
+.PHONY: all clean sync distclean
