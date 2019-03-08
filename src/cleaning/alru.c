@@ -51,8 +51,7 @@ struct flush_merge_struct {
 
 struct alru_flush_ctx {
 	struct ocf_cleaner_attribs attribs;
-	struct ocf_user_part *parts[OCF_IO_CLASS_MAX];
-	int part_id;
+	bool flush_perfomed;
 	uint32_t clines_no;
 	ocf_cache_t cache;
 	ocf_cleaner_end_t cmpl;
@@ -704,111 +703,108 @@ static bool block_is_busy(struct ocf_cache *cache,
 	return false;
 }
 
-static int get_data_to_flush(struct flush_data *dst, uint32_t clines_no,
-		struct ocf_cache *cache, struct ocf_user_part *part)
+static int get_data_to_flush(struct alru_flush_ctx *fctx)
 {
+	ocf_cache_t cache = fctx->cache;
 	struct alru_cleaning_policy_config *config;
 	struct cleaning_policy_meta policy;
 	ocf_cache_line_t cache_line;
-	int to_flush = 0;
+	struct ocf_user_part *parts[OCF_IO_CLASS_MAX];
 	uint32_t last_access;
+	int to_flush = 0;
+	int part_id = OCF_IO_CLASS_ID_MAX;
 
 	config = (void *)&cache->conf_meta->cleaning[ocf_cleaning_alru].data;
 
-	cache_line = part->runtime->cleaning.policy.alru.lru_tail;
+	get_parts_sorted(parts, cache);
 
-	last_access = compute_timestamp(config);
+	while (part_id >= OCF_IO_CLASS_ID_MIN) {
+		cache_line =
+			parts[part_id]->runtime->cleaning.policy.alru.lru_tail;
 
-	OCF_DEBUG_PARAM(cache, "Last access=%u, timestamp=%u rel=%d",
-			last_access, policy.meta.alru.timestamp,
-			policy.meta.alru.timestamp < last_access);
+		last_access = compute_timestamp(config);
 
-	while (to_flush < clines_no &&
-			more_blocks_to_flush(cache, cache_line, last_access)) {
-		if (!block_is_busy(cache, cache_line)) {
-			get_block_to_flush(&dst[to_flush], cache_line, cache);
-			to_flush++;
+		OCF_DEBUG_PARAM(cache, "Last access=%u, timestamp=%u rel=%d",
+				last_access, policy.meta.alru.timestamp,
+				policy.meta.alru.timestamp < last_access);
+
+		while (more_blocks_to_flush(cache, cache_line, last_access)) {
+			if (to_flush >= fctx->clines_no)
+				goto end;
+
+			if (!block_is_busy(cache, cache_line)) {
+				get_block_to_flush(&fctx->flush_data[to_flush], cache_line,
+						cache);
+				to_flush++;
+			}
+
+			ocf_metadata_get_cleaning_policy(cache, cache_line, &policy);
+			cache_line = policy.meta.alru.lru_prev;
 		}
-
-		ocf_metadata_get_cleaning_policy(cache, cache_line, &policy);
-		cache_line = policy.meta.alru.lru_prev;
+		part_id--;
 	}
 
+end:
 	OCF_DEBUG_PARAM(cache, "Collected items_to_clean=%u", to_flush);
 
 	return to_flush;
 }
 
-static bool alru_do_clean(ocf_cache_t cache, struct alru_flush_ctx *fctx)
-{
-	struct ocf_user_part *part = fctx->parts[fctx->part_id];
-	int to_clean;
-
-	if (!is_cleanup_possible(cache))
-		return false;
-
-	if (OCF_METADATA_LOCK_WR_TRY())
-		return false;
-
-	OCF_REALLOC(&fctx->flush_data, sizeof(fctx->flush_data[0]),
-			fctx->clines_no, &fctx->flush_data_limit);
-	if (!fctx->flush_data) {
-		OCF_METADATA_UNLOCK_WR();
-		ocf_cache_log(cache, log_warn, "No memory to allocate flush "
-				"data for ALRU cleaning policy");
-		return false;
-	}
-
-	to_clean = get_data_to_flush(fctx->flush_data, fctx->clines_no,
-			cache, part);
-	if (to_clean > 0) {
-		fctx->clines_no -= to_clean;
-		ocf_cleaner_do_flush_data_async(cache, fctx->flush_data,
-				to_clean, &fctx->attribs);
-	} else {
-		/* Update timestamp only if there are no items to be cleaned */
-		cache->device->runtime_meta->cleaning_thread_access =
-				env_ticks_to_secs(env_get_tick_count());
-	}
-
-	OCF_METADATA_UNLOCK_WR();
-
-	return to_clean > 0;
-}
-
-static void alru_clean(void *priv, int error)
+static void alru_clean_complete(void *priv, int err)
 {
 	struct alru_cleaning_policy_config *config;
 	struct alru_flush_ctx *fctx = priv;
 	ocf_cache_t cache = fctx->cache;
 	int interval;
 
-	while (fctx->clines_no > 0 && --fctx->part_id >= 0) {
-		/*
-		 * The alru_do_clean() function returns true when submitting
-		 * flush request for the io class succeeded. In such case we
-		 * return and wait until flush finishes - then this function
-		 * will be called as completion callback and iteration over
-		 * io classes will continue.
-		 *
-		 * If the processed io class contains nothing to clean, the
-		 * alru_do_clean() function returns false, and then we try to
-		 * clean another io class until we reach last io class or until
-		 * requested number of cache lines will be flushed - then we
-		 * call the completion and finish.
-		 */
-		if (alru_do_clean(cache, fctx))
-			return;
-	}
-
 	OCF_REALLOC_DEINIT(&fctx->flush_data, &fctx->flush_data_limit);
 
 	config = (void *)&cache->conf_meta->cleaning[ocf_cleaning_alru].data;
 
-	interval = (fctx->clines_no > 0) ?
-			config->thread_wakeup_time * 1000 : 0;
+	interval = fctx->flush_perfomed ? 0 : config->thread_wakeup_time * 1000;
 
 	fctx->cmpl(&fctx->cache->cleaner, interval);
+}
+
+static void alru_clean(struct alru_flush_ctx *fctx)
+{
+	ocf_cache_t cache = fctx->cache;
+	int to_clean;
+
+	if (!is_cleanup_possible(cache)) {
+		alru_clean_complete(fctx, 0);
+		return;
+	}
+
+	if (OCF_METADATA_LOCK_WR_TRY()) {
+		alru_clean_complete(fctx, 0);
+		return;
+	}
+
+	OCF_REALLOC(&fctx->flush_data, sizeof(fctx->flush_data[0]),
+			fctx->clines_no, &fctx->flush_data_limit);
+	if (!fctx->flush_data) {
+		ocf_cache_log(cache, log_warn, "No memory to allocate flush "
+				"data for ALRU cleaning policy");
+		goto end;
+	}
+
+	to_clean = get_data_to_flush(fctx);
+	if (to_clean > 0) {
+		fctx->flush_perfomed = true;
+		ocf_cleaner_do_flush_data_async(cache, fctx->flush_data, to_clean,
+				&fctx->attribs);
+		OCF_METADATA_UNLOCK_WR();
+		return;
+	}
+
+	/* Update timestamp only if there are no items to be cleaned */
+	cache->device->runtime_meta->cleaning_thread_access =
+		env_ticks_to_secs(env_get_tick_count());
+
+end:
+	OCF_METADATA_UNLOCK_WR();
+	alru_clean_complete(fctx, 0);
 }
 
 void cleaning_alru_perform_cleaning(ocf_cache_t cache, ocf_cleaner_end_t cmpl)
@@ -821,7 +817,7 @@ void cleaning_alru_perform_cleaning(ocf_cache_t cache, ocf_cleaner_end_t cmpl)
 	OCF_REALLOC_INIT(&fctx->flush_data, &fctx->flush_data_limit);
 
 	fctx->attribs.cmpl_context = fctx;
-	fctx->attribs.cmpl_fn = alru_clean;
+	fctx->attribs.cmpl_fn = alru_clean_complete;
 	fctx->attribs.cache_line_lock = true;
 	fctx->attribs.do_sort = true;
 	fctx->attribs.io_queue = cache->cleaner.io_queue;
@@ -829,9 +825,7 @@ void cleaning_alru_perform_cleaning(ocf_cache_t cache, ocf_cleaner_end_t cmpl)
 	fctx->clines_no = config->flush_max_buffers;
 	fctx->cache = cache;
 	fctx->cmpl = cmpl;
+	fctx->flush_perfomed = false;
 
-	get_parts_sorted(fctx->parts, cache);
-	fctx->part_id = OCF_IO_CLASS_MAX;
-
-	alru_clean(fctx, 0);
+	alru_clean(fctx);
 }
