@@ -40,6 +40,11 @@
  * in tested source file.
  */
 
+int __wrap_cleaning_nop_perform_cleaning(struct ocf_cache *cache,
+		                ocf_cleaner_end_t cmpl)
+{
+}
+
 void __wrap_cleaning_policy_alru_setup(struct ocf_cache *cache)
 {}
 
@@ -59,7 +64,7 @@ int __wrap_cleaning_policy_acp_initialize(struct ocf_cache *cache,
 void __wrap_cleaning_policy_acp_deinitialize(struct ocf_cache *cache){}
 
 int __wrap_cleaning_policy_acp_perform_cleaning(struct ocf_cache *cache,
-		                uint32_t io_queue){}
+		                ocf_cleaner_end_t cmpl){}
 
 void __wrap_cleaning_policy_acp_init_cache_block(struct ocf_cache *cache,
 		                uint32_t cache_line){}

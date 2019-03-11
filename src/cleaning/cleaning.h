@@ -14,6 +14,8 @@
 #define CLEANING_POLICY_CONFIG_BYTES 256
 #define CLEANING_POLICY_TYPE_MAX 4
 
+#define SLEEP_TIME_MS (1000)
+
 struct ocf_request;
 
 struct cleaning_policy_config {
