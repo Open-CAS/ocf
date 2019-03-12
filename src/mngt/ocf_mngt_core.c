@@ -94,7 +94,7 @@ static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 		goto error_out;
 
 	if (cfg->user_metadata.data && cfg->user_metadata.size > 0) {
-		result = ocf_core_set_user_metadata_raw(tmp_core,
+		result = ocf_mngt_core_set_user_metadata(tmp_core,
 				cfg->user_metadata.data,
 				cfg->user_metadata.size);
 		if (result)
@@ -362,51 +362,60 @@ int ocf_mngt_core_init_front_volume(ocf_core_t core)
 	return ocf_volume_open(&core->front_volume);
 }
 
-int ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
-		struct ocf_mngt_core_config *cfg)
+void ocf_mngt_cache_add_core(ocf_cache_t cache,
+		struct ocf_mngt_core_config *cfg,
+		ocf_mngt_cache_add_core_end_t cmpl, void *priv)
 {
-	int result;
 	char core_name[OCF_CORE_NAME_SIZE];
+	ocf_core_t core = NULL;
+	int result;
 
 	OCF_CHECK_NULL(cache);
-	OCF_CHECK_NULL(core);
 
 	result = _ocf_mngt_find_core_id(cache, cfg);
-	if (result)
-		return result;
+	if (result) {
+		cmpl(cache, NULL, priv, result);
+		return;
+	}
 
 	if (cfg->name) {
 		result = env_strncpy(core_name, sizeof(core_name), cfg->name,
 				sizeof(core_name));
-		if (result)
-			return result;
+		if (result) {
+			cmpl(cache, NULL, priv, result);
+			return;
+		}
 	} else {
 		result = snprintf(core_name, sizeof(core_name), "core%hu",
 				cfg->core_id);
-		if (result < 0)
-			return result;
+		if (result < 0) {
+			cmpl(cache, NULL, priv, result);
+			return;
+		}
 	}
 
 	result = ocf_core_set_name(&cache->core[cfg->core_id], core_name,
 			sizeof(core_name));
-	if (result)
-		return result;
+	if (result) {
+		cmpl(cache, NULL, priv, result);
+		return;
+	}
 
 	ocf_cache_log(cache, log_debug, "Inserting core %s\n", core_name);
 
 	if (cfg->try_add)
-		result = _ocf_mngt_cache_try_add_core(cache, core, cfg);
+		result = _ocf_mngt_cache_try_add_core(cache, &core, cfg);
 	else
-		result = _ocf_mngt_cache_add_core(cache, core, cfg);
+		result = _ocf_mngt_cache_add_core(cache, &core, cfg);
 
 	if (result)
 		goto out;
 
-	result = ocf_mngt_core_init_front_volume(*core);
+	result = ocf_mngt_core_init_front_volume(core);
 
 out:
 	if (!result) {
-		ocf_core_log(*core, log_info, "Successfully added\n");
+		ocf_core_log(core, log_info, "Successfully added\n");
 	} else {
 		if (result == -OCF_ERR_CORE_NOT_AVAIL) {
 			ocf_cache_log(cache, log_err, "Core %s is zero size\n",
@@ -416,24 +425,13 @@ out:
 				core_name);
 	}
 
-	return result;
+	cmpl(cache, core, priv, result);
 }
 
-static int _ocf_mngt_cache_remove_core(ocf_core_t core, bool detach)
+static int _ocf_mngt_cache_remove_core(ocf_core_t core)
 {
 	struct ocf_cache *cache = core->volume.cache;
 	ocf_core_id_t core_id = ocf_core_get_id(core);
-	int status;
-
-	if (detach) {
-		status = cache_mng_core_close(cache, core_id);
-		if (!status) {
-			cache->ocf_core_inactive_count++;
-			env_bit_set(ocf_cache_state_incomplete,
-					&cache->cache_state);
-		}
-		return status;
-	}
 
 	ocf_volume_close(&core->front_volume);
 
@@ -452,7 +450,8 @@ static int _ocf_mngt_cache_remove_core(ocf_core_t core, bool detach)
 	return 0;
 }
 
-int ocf_mngt_cache_remove_core(ocf_core_t core)
+void ocf_mngt_cache_remove_core(ocf_core_t core,
+		ocf_mngt_cache_remove_core_end_t cmpl, void *priv)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	const char *core_name = ocf_core_get_name(core);
@@ -462,7 +461,7 @@ int ocf_mngt_cache_remove_core(ocf_core_t core)
 
 	core_name = ocf_core_get_name(core);
 
-	result = _ocf_mngt_cache_remove_core(core, false);
+	result = _ocf_mngt_cache_remove_core(core);
 	if (!result) {
 		ocf_cache_log(cache, log_info, "Core %s successfully removed\n",
 				core_name);
@@ -471,10 +470,27 @@ int ocf_mngt_cache_remove_core(ocf_core_t core)
 				core_name);
 	}
 
-	return result;
+	cmpl(priv, result);
 }
 
-int ocf_mngt_cache_detach_core(ocf_core_t core)
+static int _ocf_mngt_cache_detach_core(ocf_core_t core)
+{
+	struct ocf_cache *cache = core->volume.cache;
+	ocf_core_id_t core_id = ocf_core_get_id(core);
+	int status;
+
+	status = cache_mng_core_close(cache, core_id);
+	if (!status) {
+		cache->ocf_core_inactive_count++;
+		env_bit_set(ocf_cache_state_incomplete,
+				&cache->cache_state);
+	}
+
+	return status;
+}
+
+void ocf_mngt_cache_detach_core(ocf_core_t core,
+		ocf_mngt_cache_detach_core_end_t cmpl, void *priv)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	const char *core_name = ocf_core_get_name(core);
@@ -482,7 +498,7 @@ int ocf_mngt_cache_detach_core(ocf_core_t core)
 
 	ocf_core_log(core, log_debug, "Detaching core\n");
 
-	result = _ocf_mngt_cache_remove_core(core, true);
+	result = _ocf_mngt_cache_detach_core(core);
 	if (!result) {
 		ocf_cache_log(cache, log_info, "Core %s successfully detached\n",
 				core_name);
@@ -491,7 +507,77 @@ int ocf_mngt_cache_detach_core(ocf_core_t core)
 				core_name);
 	}
 
+	cmpl(priv, result);
+}
+
+int ocf_mngt_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
+{
+	struct ocf_volume_uuid *current_uuid;
+	int result;
+	int diff;
+
+	OCF_CHECK_NULL(core);
+	OCF_CHECK_NULL(uuid);
+	OCF_CHECK_NULL(uuid->data);
+
+	current_uuid = &ocf_core_get_volume(core)->uuid;
+
+	result = env_memcmp(current_uuid->data, current_uuid->size,
+			uuid->data, uuid->size, &diff);
+	if (result)
+		return result;
+
+	if (!diff) {
+		/* UUIDs are identical */
+		return 0;
+	}
+
+	result = ocf_metadata_set_core_uuid(core, uuid, NULL);
+	if (result)
+		return result;
+
+	ocf_volume_set_uuid(&core->volume, uuid);
+
 	return result;
+}
+
+int ocf_mngt_core_set_user_metadata(ocf_core_t core, void *data, size_t size)
+{
+	ocf_cache_t cache;
+	uint32_t core_id;
+
+	OCF_CHECK_NULL(core);
+	OCF_CHECK_NULL(data);
+
+	cache = ocf_core_get_cache(core);
+	core_id = ocf_core_get_id(core);
+
+	if (size > OCF_CORE_USER_DATA_SIZE)
+		return -EINVAL;
+
+	env_memcpy(cache->core_conf_meta[core_id].user_data,
+			OCF_CORE_USER_DATA_SIZE, data, size);
+
+	return 0;
+}
+
+int ocf_mngt_core_get_user_metadata(ocf_core_t core, void *data, size_t size)
+{
+	uint32_t core_id;
+	ocf_cache_t cache;
+
+	OCF_CHECK_NULL(core);
+
+	core_id = ocf_core_get_id(core);
+	cache = ocf_core_get_cache(core);
+
+	if (size > sizeof(cache->core_conf_meta[core_id].user_data))
+		return -EINVAL;
+
+	env_memcpy(data, size, cache->core_conf_meta[core_id].user_data,
+			OCF_CORE_USER_DATA_SIZE);
+
+	return 0;
 }
 
 static int _cache_mng_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx)
@@ -509,14 +595,6 @@ static int _cache_mng_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx)
 		return 0;
 	}
 	cache->core_conf_meta[core_id].seq_cutoff_threshold = threshold;
-
-	if (ocf_metadata_flush_superblock(cache)) {
-		ocf_core_log(core, log_err, "Failed to store sequential "
-				"cutoff threshold change. Reverting\n");
-		cache->core_conf_meta[core_id].seq_cutoff_threshold =
-			threshold_old;
-		return -OCF_ERR_WRITE_CACHE;
-	}
 
 	ocf_core_log(core, log_info, "Changing sequential cutoff "
 			"threshold from %u to %u bytes successful\n",
@@ -581,13 +659,6 @@ static int _cache_mng_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
 	}
 
 	cache->core_conf_meta[core_id].seq_cutoff_policy = policy;
-
-	if (ocf_metadata_flush_superblock(cache)) {
-		ocf_core_log(core, log_err, "Failed to store sequential "
-				"cutoff policy change. Reverting\n");
-		cache->core_conf_meta[core_id].seq_cutoff_policy = policy_old;
-		return -OCF_ERR_WRITE_CACHE;
-	}
 
 	ocf_core_log(core, log_info,
 			"Changing sequential cutoff policy from %s to %s\n",

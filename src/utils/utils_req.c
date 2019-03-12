@@ -157,7 +157,7 @@ static void start_cache_req(struct ocf_request *req)
 
 	req->d2c = 1;
 	if (env_atomic_read(&cache->attached)) {
-		req->d2c = 0		;
+		req->d2c = 0;
 		env_atomic_inc(&cache->pending_cache_requests);
 		if (!env_atomic_read(&cache->attached)) {
 			req->d2c = 1;

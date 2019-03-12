@@ -283,36 +283,29 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 
 	result = env_memcpy(old_config, sizeof(&cache->user_parts),
 			cache->user_parts, sizeof(&cache->user_parts));
-	if (result) {
-		env_free(old_config);
-		return result;
-	}
+	if (result)
+		goto out_cpy;
 
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
 		result = _ocf_mngt_io_class_edit(cache, &cfg->config[i]);
 		if (result && result != -OCF_ERR_IO_CLASS_NOT_EXIST) {
 			ocf_cache_log(cache, log_err,
 					"Failed to set new io class config\n");
-			goto err;
+			goto out_edit;
 		}
-
-		result = 0;
 	}
 
 	ocf_part_sort(cache);
 
-	if (ocf_metadata_flush_superblock(cache)) {
-		ocf_cache_log(cache, log_err, "Failed to store new io class config\n");
-		result = -OCF_ERR_WRITE_CACHE;
-	}
-
-err:
+out_edit:
 	if (result) {
 		ENV_BUG_ON(env_memcpy(cache->user_parts, sizeof(&cache->user_parts),
 					old_config, sizeof(&cache->user_parts)));
 	}
 
+out_cpy:
 	OCF_METADATA_UNLOCK_WR();
+	env_free(old_config);
 
 	return result;
 }

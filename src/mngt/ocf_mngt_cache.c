@@ -1476,19 +1476,22 @@ int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	return result;
 }
 
-int ocf_mngt_cache_attach(ocf_cache_t cache,
-		struct ocf_mngt_cache_device_config *device_cfg)
+void ocf_mngt_cache_attach(ocf_cache_t cache,
+		struct ocf_mngt_cache_device_config *cfg,
+		ocf_mngt_cache_attach_end_t cmpl, void *priv)
 {
 	int result;
 
-	if (!cache || !device_cfg)
-		return -OCF_ERR_INVAL;
+	OCF_CHECK_NULL(cache);
+	OCF_CHECK_NULL(cfg);
 
-	result = _ocf_mngt_cache_validate_device_cfg(device_cfg);
-	if (result)
-		return result;
+	result = _ocf_mngt_cache_validate_device_cfg(cfg);
+	if (result) {
+		cmpl(cache, priv, result);
+		return;
+	}
 
-	result = _ocf_mngt_cache_attach(cache, device_cfg, false);
+	result = _ocf_mngt_cache_attach(cache, cfg, false);
 	if (!result) {
 		ocf_cache_log(cache, log_info, "Successfully attached\n");
 	} else {
@@ -1496,7 +1499,7 @@ int ocf_mngt_cache_attach(ocf_cache_t cache,
 			       "failed\n");
 	}
 
-	return result;
+	cmpl(cache, priv, result);
 }
 
 /**
@@ -1636,32 +1639,36 @@ static void _ocf_mngt_cache_load_log(ocf_cache_t cache)
 			cache, false);
 }
 
-int ocf_mngt_cache_load(ocf_ctx_t ctx, ocf_cache_t *cache,
-		struct ocf_mngt_cache_device_config *device_cfg)
+void ocf_mngt_cache_load(ocf_cache_t cache,
+		struct ocf_mngt_cache_device_config *cfg,
+		ocf_mngt_cache_load_end_t cmpl, void *priv)
 {
 	int result;
 
-	if (!ctx || !cache || !device_cfg)
-		return -OCF_ERR_INVAL;
+	OCF_CHECK_NULL(cache);
+	OCF_CHECK_NULL(cfg);
 
-	result = _ocf_mngt_cache_validate_device_cfg(device_cfg);
-	if (result)
-		return result;
-
-	result =  _ocf_mngt_cache_attach(*cache, device_cfg, true);
+	result = _ocf_mngt_cache_validate_device_cfg(cfg);
 	if (result) {
-		_ocf_mngt_init_handle_error(*cache, ctx, NULL);
-		return result;
+		cmpl(cache, priv, result);
+		return;
 	}
 
-	_ocf_mng_cache_set_valid(*cache);
+	result =  _ocf_mngt_cache_attach(cache, cfg, true);
+	if (result) {
+		cmpl(cache, priv, result);
+		return;
+	}
 
-	_ocf_mngt_cache_load_log(*cache);
+	_ocf_mng_cache_set_valid(cache);
 
-	return 0;
+	_ocf_mngt_cache_load_log(cache);
+
+	cmpl(cache, priv, 0);
 }
 
-int ocf_mngt_cache_stop(ocf_cache_t cache)
+void ocf_mngt_cache_stop(ocf_cache_t cache,
+		ocf_mngt_cache_stop_end_t cmpl, void *priv)
 {
 	int result;
 	char cache_name[OCF_CACHE_NAME_SIZE];
@@ -1671,8 +1678,10 @@ int ocf_mngt_cache_stop(ocf_cache_t cache)
 
 	result = env_strncpy(cache_name, sizeof(cache_name),
 			ocf_cache_get_name(cache), sizeof(cache_name));
-	if (result)
-		return result;
+	if (result) {
+		cmpl(cache, priv, result);
+		return;
+	}
 
 	ctx = ocf_cache_get_ctx(cache);
 
@@ -1691,38 +1700,41 @@ int ocf_mngt_cache_stop(ocf_cache_t cache)
 				cache_name);
 	}
 
-	return result;
+	cmpl(cache, priv, result);
 }
 
-static int _cache_mng_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode,
-		uint8_t flush)
+void ocf_mngt_cache_save(ocf_cache_t cache,
+		ocf_mngt_cache_save_end_t cmpl, void *priv)
 {
-	ocf_cache_mode_t mode_new = mode;
+	int result;
+
+	result = ocf_metadata_flush_superblock(cache);
+	if (result) {
+		ocf_cache_log(cache, log_err,
+				"Failed to flush superblock! Changes "
+				"in cache config are not persistent!\n");
+	}
+
+	cmpl(cache, priv, result ? -OCF_ERR_WRITE_CACHE : 0);
+}
+
+static int _cache_mng_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
+{
 	ocf_cache_mode_t mode_old = cache->conf_meta->cache_mode;
-	int result = 0;
 
 	/* Check if IO interface type is valid */
 	if (!ocf_cache_mode_is_valid(mode))
 		return -OCF_ERR_INVAL;
 
-	if (mode_new == mode_old) {
+	if (mode == mode_old) {
 		ocf_cache_log(cache, log_info, "Cache mode '%s' is already set\n",
-				ocf_get_io_iface_name(mode_new));
+				ocf_get_io_iface_name(mode));
 		return 0;
 	}
 
-	cache->conf_meta->cache_mode = mode_new;
+	cache->conf_meta->cache_mode = mode;
 
-	if (flush) {
-		/* Flush required, do it, do it, do it... */
-		result = ocf_mngt_cache_flush(cache, true);
-
-		if (result) {
-			cache->conf_meta->cache_mode = mode_old;
-			return result;
-		}
-
-	} else if (ocf_cache_mode_wb == mode_old) {
+	if (ocf_cache_mode_wb == mode_old) {
 		int i;
 
 		for (i = 0; i != OCF_CORE_MAX; ++i) {
@@ -1735,33 +1747,26 @@ static int _cache_mng_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode,
 		}
 	}
 
-	if (ocf_metadata_flush_superblock(cache)) {
-		ocf_cache_log(cache, log_err, "Failed to store cache mode "
-				"change. Reverting\n");
-		cache->conf_meta->cache_mode = mode_old;
-		return -OCF_ERR_WRITE_CACHE;
-	}
-
 	ocf_cache_log(cache, log_info, "Changing cache mode from '%s' to '%s' "
 			"successful\n", ocf_get_io_iface_name(mode_old),
-			ocf_get_io_iface_name(mode_new));
+			ocf_get_io_iface_name(mode));
 
 	return 0;
 }
 
-int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode,
-		uint8_t flush)
+int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 {
 	int result;
 
 	OCF_CHECK_NULL(cache);
 
 	if (!ocf_cache_mode_is_valid(mode)) {
-	        ocf_cache_log(cache, log_err, "Cache mode %u is invalid\n", mode);
+	        ocf_cache_log(cache, log_err, "Cache mode %u is invalid\n",
+				mode);
 		return -OCF_ERR_INVAL;
 	}
 
-	result = _cache_mng_set_cache_mode(cache, mode, flush);
+	result = _cache_mng_set_cache_mode(cache, mode);
 
 	if (result) {
 		const char *name = ocf_get_io_iface_name(mode);
@@ -1827,31 +1832,35 @@ int ocf_mngt_cache_get_fallback_pt_error_threshold(ocf_cache_t cache,
 	return 0;
 }
 
-int ocf_mngt_cache_detach(ocf_cache_t cache)
+struct ocf_mngt_cache_detach_context {
+	ocf_mngt_cache_detach_end_t cmpl;
+	void *priv;
+};
+
+static void ocf_mngt_cache_detach_flush_cmpl(ocf_cache_t cache,
+		void *priv, int error)
 {
+	struct ocf_mngt_cache_detach_context *context = priv;
 	int i, j, no;
 	int result;
 
-	OCF_CHECK_NULL(cache);
-
-	no = cache->conf_meta->core_count;
-
-	if (!env_atomic_read(&cache->attached))
-		return -EINVAL;
-
-	/* prevent dirty io */
-	env_atomic_inc(&cache->flush_started);
-
-	result = ocf_mngt_cache_flush(cache, true);
-	if (result)
-		return result;
+	if (error) {
+		ENV_BUG_ON(env_atomic_dec_return(&cache->flush_started) < 0);
+		context->cmpl(cache, context->priv, error);
+		env_vfree(context);
+		return;
+	}
 
 	/* wait for all requests referencing cacheline metadata to finish */
 	env_atomic_set(&cache->attached, 0);
+
+	/* FIXME: This should be asynchronous! */
 	env_waitqueue_wait(cache->pending_cache_wq,
 			!env_atomic_read(&cache->pending_cache_requests));
 
 	ENV_BUG_ON(env_atomic_dec_return(&cache->flush_started) < 0);
+
+	no = cache->conf_meta->core_count;
 
 	/* remove cacheline metadata and cleaning policy meta for all cores */
 	for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {
@@ -1878,5 +1887,33 @@ int ocf_mngt_cache_detach(ocf_cache_t cache)
 		}
 	}
 
-	return result;
+	context->cmpl(cache, context->priv, result);
+	env_vfree(context);
+}
+
+void ocf_mngt_cache_detach(ocf_cache_t cache,
+		ocf_mngt_cache_detach_end_t cmpl, void *priv)
+{
+	struct ocf_mngt_cache_detach_context *context;
+	OCF_CHECK_NULL(cache);
+
+	if (!env_atomic_read(&cache->attached)) {
+		cmpl(cache, priv, -OCF_ERR_INVAL);
+		return;
+	}
+
+	context = env_vmalloc(sizeof(*context));
+	if (!context) {
+		cmpl(cache, priv, -OCF_ERR_NO_MEM);
+		return;
+	}
+
+	context->cmpl = cmpl;
+	context->priv = priv;
+
+	/* prevent dirty io */
+	env_atomic_inc(&cache->flush_started);
+
+	ocf_mngt_cache_flush(cache, true, ocf_mngt_cache_detach_flush_cmpl,
+			context);
 }

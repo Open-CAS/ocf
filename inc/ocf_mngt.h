@@ -357,142 +357,283 @@ int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		struct ocf_mngt_cache_config *cfg);
 
 /**
+ * @brief Completion callback of cache stop operation
+ *
+ * @param[in] cache Cache handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_stop_end_t)(ocf_cache_t cache,
+		void *priv, int error);
+
+/**
  * @brief Stop cache instance
  *
  * @param[in] cache Cache handle
- *
- * @retval 0 Cache successfully stopped
- * @retval Non-zero Error occurred during stopping cache
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
  */
-int ocf_mngt_cache_stop(ocf_cache_t cache);
+void ocf_mngt_cache_stop(ocf_cache_t cache,
+		ocf_mngt_cache_stop_end_t cmpl, void *priv);
+
+/**
+ * @brief Completion callback of cache attach operation
+ *
+ * @param[in] cache Cache handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_attach_end_t)(ocf_cache_t cache,
+		void *priv, int error);
 
 /**
  * @brief Attach caching device to cache instance
  *
  * @param[in] cache Cache handle
- * @param[in] device_cfg Caching device configuration
- *
- * @retval 0 Cache cache successfully attached
- * @retval Non-zero Error occurred during attaching cache
+ * @param[in] cfg Caching device configuration
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
  */
-int ocf_mngt_cache_attach(ocf_cache_t cache,
-		struct ocf_mngt_cache_device_config *device_cfg);
+void ocf_mngt_cache_attach(ocf_cache_t cache,
+		struct ocf_mngt_cache_device_config *cfg,
+		ocf_mngt_cache_attach_end_t cmpl, void *priv);
+
+/**
+ * @brief Completion callback of cache detach operation
+ *
+ * @param[in] cache Cache handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_detach_end_t)(ocf_cache_t cache,
+		void *priv, int error);
 
 /**
  * @brief Detach caching cache
  *
  * @param[in] cache Cache handle
- *
- * @retval 0 Cache cache successfully detached
- * @retval Non-zero Error occurred during stopping cache
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
  */
-int ocf_mngt_cache_detach(ocf_cache_t cache);
+void ocf_mngt_cache_detach(ocf_cache_t cache,
+		ocf_mngt_cache_detach_end_t cmpl, void *priv);
+
+/**
+ * @brief Completion callback of cache load operation
+ *
+ * @param[in] cache Cache handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_load_end_t)(ocf_cache_t cache,
+		void *priv, int error);
 
 /**
  * @brief Load cache instance
  *
- * @param[in] ctx OCF context
- * @param[out] cache Cache handle
- * @param[in] device_cfg Caching device configuration
- *
- * @retval 0 Cache successfully loaded
- * @retval Non-zero Error occurred during loading cache
+ * @param[in] cache Cache handle
+ * @param[in] cfg Caching device configuration
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
  */
-int ocf_mngt_cache_load(ocf_ctx_t ctx, ocf_cache_t *cache,
-		struct ocf_mngt_cache_device_config *device_cfg);
+void ocf_mngt_cache_load(ocf_cache_t cache,
+		struct ocf_mngt_cache_device_config *cfg,
+		ocf_mngt_cache_load_end_t cmpl, void *priv);
 
 /* Adding and removing cores */
+
+/**
+ * @brief Completion callback of add core operation
+ *
+ * @param[in] cache Cache handle
+ * @param[in] core Core handle on success or NULL on failure
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_add_core_end_t)(ocf_cache_t cache,
+		ocf_core_t core, void *priv, int error);
 
 /**
  * @brief Add core to cache instance
  *
  * @param[in] cache Cache handle
- * @param[out] core Core object handle
  * @param[in] cfg Core configuration
- *
- * @retval 0 Core successfully added core to cache
- * @retval Non-zero Error occurred and adding core failed
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
  */
-int ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
-		struct ocf_mngt_core_config *cfg);
+void ocf_mngt_cache_add_core(ocf_cache_t cache,
+		struct ocf_mngt_core_config *cfg,
+		ocf_mngt_cache_add_core_end_t cmpl, void *priv);
+
+/**
+ * @brief Completion callback of remove core operation
+ *
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_remove_core_end_t)(void *priv, int error);
 
 /**
  * @brief Remove core from cache instance
  *
- * @param[in] cache Core handle
- *
- * @retval 0 Core successfully removed from cache
- * @retval Non-zero Error occurred and removing core failed
+ * @param[in] core Core handle
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
  */
-int ocf_mngt_cache_remove_core(ocf_core_t core);
+void ocf_mngt_cache_remove_core(ocf_core_t core,
+		ocf_mngt_cache_remove_core_end_t cmpl, void *priv);
+
+/**
+ * @brief Completion callback of detach core operation
+ *
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_detach_core_end_t)(void *priv, int error);
 
 /**
  * @brief Detach core from cache instance
  *
  * @param[in] core Core handle
- *
- * @retval 0 Core successfully detached from cache
- * @retval Non-zero Error occurred and detaching core failed
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
  */
-int ocf_mngt_cache_detach_core(ocf_core_t core);
+void ocf_mngt_cache_detach_core(ocf_core_t core,
+		ocf_mngt_cache_detach_core_end_t cmpl, void *priv);
 
 /* Flush operations */
+
+/**
+ * @brief Completion callback of cache flush operation
+ *
+ * @param[in] cache Cache handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_flush_end_t)(ocf_cache_t cache,
+		void *priv, int error);
 
 /**
  * @brief Flush data from given cache
  *
  * @param[in] cache Cache handle
  * @param[in] interruption Allow for interruption
- *
- * @retval 0 Successfully flushed given cache
- * @retval Non-zero Error occurred and flushing cache failed
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
  */
-int ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption);
+void ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption,
+		ocf_mngt_cache_flush_end_t cmpl, void *priv);
+
+/**
+ * @brief Completion callback of core flush operation
+ *
+ * @param[in] core Core handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_core_flush_end_t)(ocf_core_t core,
+		void *priv, int error);
 
 /**
  * @brief Flush data to given core
  *
  * @param[in] core Core handle
  * @param[in] interruption Allow for interruption
- *
- * @retval 0 Successfully flushed data to given core
- * @retval Non-zero Error occurred and flushing data to core failed
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
  */
-int ocf_mngt_core_flush(ocf_core_t core, bool interruption);
+void ocf_mngt_core_flush(ocf_core_t core, bool interruption,
+		ocf_mngt_core_flush_end_t cmpl, void *priv);
 
 /**
- * @brief Interrupt existing flushing of cache or core
+ * @brief Completion callback of cache purge operation
  *
- * @param[in] cache Cache instance
- *
- * @retval 0 Operation success
- * @retval Non-zero Operation failure
+ * @param[in] cache Cache handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
  */
-int ocf_mngt_cache_flush_interrupt(ocf_cache_t cache);
+typedef void (*ocf_mngt_cache_purge_end_t)(ocf_cache_t cache,
+		void *priv, int error);
+
+/**
+ * @brief Purge data from given cache
+ *
+ * @param[in] cache Cache handle
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
+ */
+void ocf_mngt_cache_purge(ocf_cache_t cache,
+		ocf_mngt_cache_purge_end_t cmpl, void *priv);
+
+/**
+ * @brief Completion callback of core purge operation
+ *
+ * @param[in] core Core handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_core_purge_end_t)(ocf_core_t core,
+		void *priv, int error);
 
 /**
  * @brief Purge data to given core
  *
  * @param[in] core Core handle
- * @param[in] interruption Allow for interruption
- *
- * @retval 0 Successfully purged data to given core
- * @retval Non-zero Error occurred and purging data to core failed
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
  */
-int ocf_mngt_core_purge(ocf_core_t core, bool interruption);
+void ocf_mngt_core_purge(ocf_core_t core,
+		ocf_mngt_core_purge_end_t cmpl, void *priv);
+
 /**
- * @brief Purge data from given cache
+ * @brief Interrupt existing flushing of cache or core
+ *
+ * @param[in] cache Cache instance
+ */
+void ocf_mngt_cache_flush_interrupt(ocf_cache_t cache);
+
+/**
+ * @brief Completion callback of save operation
  *
  * @param[in] cache Cache handle
- * @param[in] interruption Allow for interruption
- *
- * @retval 0 Successfully purged given cache
- * @retval Non-zero Error occurred and purging cache failed
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
  */
-int ocf_mngt_cache_purge(ocf_cache_t cache, bool interruption);
+typedef void (*ocf_mngt_cache_save_end_t)(ocf_cache_t cache,
+		void *priv, int error);
+
+/**
+ * @brief Save cache configuration data on cache volume
+ *
+ * This function should be called after changing cache or core parameters
+ * in order to make changes persistent.
+ *
+ * @param[in] cache Cache handle
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
+ */
+void ocf_mngt_cache_save(ocf_cache_t cache,
+		ocf_mngt_cache_save_end_t cmpl, void *priv);
+
+/**
+ * @brief Set cache mode in given cache
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
+ * @param[in] cache Cache handle
+ * @param[in] mode Cache mode to set
+ *
+ * @retval 0 Cache mode have been set successfully
+ * @retval Non-zero Error occurred and cache mode not been set
+ */
+int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode);
 
 /**
  * @brief Set cleaning policy in given cache
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
  *
  * @param[in] cache Cache handle
  * @param[in] type Cleainig policy type
@@ -515,6 +656,9 @@ int ocf_mngt_cache_cleaning_get_policy(ocf_cache_t cache, ocf_cleaning_t *type);
 
 /**
  * @brief Set cleaning parameter in given cache
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
  *
  * @param[in] cache Cache handle
  * @param[in] param_id Cleaning policy parameter id
@@ -581,6 +725,9 @@ struct ocf_mngt_io_classes_config {
 /**
  * @brief Configure IO classes in given cache
  *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
  * @param[in] cache Cache handle
  * @param[in] cfg IO class configuration
  *
@@ -591,7 +738,51 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 		const struct ocf_mngt_io_classes_config *cfg);
 
 /**
+ * @brief Asociate new UUID value with given core
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
+ * @param[in] core Core object
+ * @param[in] uuid new core uuid
+ *
+ * @retval 0 Success
+ * @retval Non-zero Fail
+ */
+int ocf_mngt_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid);
+
+/**
+ * @brief Set persistent user metadata for given core
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
+ * @param[in] core Core object
+ * @param[in] data User data buffer
+ * @param[in] size Size of user data buffer
+ *
+ * @retval 0 Success
+ * @retval Non-zero Core getting failed
+ */
+int ocf_mngt_core_set_user_metadata(ocf_core_t core, void *data, size_t size);
+
+/**
+ * @brief Get persistent user metadata from given core
+ *
+ * @param[in] core Core object
+ * @param[out] data User data buffer
+ * @param[in] size Size of user data buffer
+ *
+ * @retval 0 Success
+ * @retval Non-zero Core getting failed
+ */
+int ocf_mngt_core_get_user_metadata(ocf_core_t core, void *data, size_t size);
+
+/**
  * @brief Set core sequential cutoff threshold
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
  *
  * @param[in] core Core handle
  * @param[in] thresh threshold in bytes for sequential cutoff
@@ -603,6 +794,9 @@ int ocf_mngt_core_set_seq_cutoff_threshold(ocf_core_t core, uint32_t thresh);
 
 /**
  * @brief Set sequential cutoff threshold for all cores in cache
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
  *
  * @param[in] cache Cache handle
  * @param[in] thresh threshold in bytes for sequential cutoff
@@ -627,6 +821,9 @@ int ocf_mngt_core_get_seq_cutoff_threshold(ocf_core_t core, uint32_t *thresh);
 /**
  * @brief Set core sequential cutoff policy
  *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
  * @param[in] core Core handle
  * @param[in] policy sequential cutoff policy
  *
@@ -638,6 +835,9 @@ int ocf_mngt_core_set_seq_cutoff_policy(ocf_core_t core,
 
 /**
  * @brief Set sequential cutoff policy for all cores in cache
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
  *
  * @param[in] cache Cache handle
  * @param[in] policy sequential cutoff policy
@@ -659,19 +859,6 @@ int ocf_mngt_core_set_seq_cutoff_policy_all(ocf_cache_t cache,
  */
 int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
 		ocf_seq_cutoff_policy *policy);
-
-/**
- * @brief Set cache mode in given cache
- *
- * @param[in] cache Cache handle
- * @param[in] mode Cache mode to set
- * @param[in] flush Perform flushing before switch cache mode
- *
- * @retval 0 Cache mode have been set successfully
- * @retval Non-zero Error occurred and cache mode not been set
- */
-int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode,
-		uint8_t flush);
 
 /**
  * @brief Set cache fallback Pass Through error threshold

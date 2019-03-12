@@ -56,17 +56,6 @@ static inline const struct ocf_volume_uuid *ocf_core_get_uuid(ocf_core_t core)
 }
 
 /**
- * @brief Asociate new UUID value with given core
- *
- * @param[in] core Core object
- * @param[in] uuid new core uuid
- *
- * @retval 0 Success
- * @retval Non-zero Fail
- */
-int ocf_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid);
-
-/**
  * @brief Get sequential cutoff threshold of given core object
  *
  * @param[in] core Core object
@@ -134,30 +123,6 @@ ocf_core_state_t ocf_core_get_state(ocf_core_t core);
  * @retval Non-zero Core getting failed
  */
 int ocf_core_get(ocf_cache_t cache, ocf_core_id_t id, ocf_core_t *core);
-
-/**
- * @brief Set persistent user metadata for given core
- *
- * @param[in] core Core object
- * @param[in] data User data buffer
- * @param[in] size Size of user data buffer
- *
- * @retval 0 Success
- * @retval Non-zero Core getting failed
- */
-int ocf_core_set_user_metadata(ocf_core_t core, void *data, size_t size);
-
-/**
- * @brief Get persistent user metadata from given core
- *
- * @param[in] core Core object
- * @param[out] data User data buffer
- * @param[in] size Size of user data buffer
- *
- * @retval 0 Success
- * @retval Non-zero Core getting failed
- */
-int ocf_core_get_user_metadata(ocf_core_t core, void *data, size_t size);
 
 /**
  * @brief Allocate new ocf_io
