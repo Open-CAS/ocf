@@ -1347,6 +1347,15 @@ static void _ocf_mngt_attach_init_instance(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
+	int result;
+
+	result = ocf_start_cleaner(cache);
+	if (result) {
+		ocf_cache_log(cache, log_err,
+				"Error while starting cleaner\n");
+		OCF_PL_FINISH_RET(context->pipeline, result);
+	}
+	context->flags.cleaner_started = true;
 
 	switch (cache->device->init_mode) {
 	case ocf_init_mode_init:
@@ -1503,17 +1512,6 @@ static void _ocf_mngt_attach_post_init(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	int result;
-
-	if (!context->flags.cleaner_started) {
-		result = ocf_start_cleaner(cache);
-		if (result) {
-			ocf_cache_log(cache, log_err,
-					"Error while starting cleaner\n");
-			OCF_PL_FINISH_RET(context->pipeline, result);
-		}
-		context->flags.cleaner_started = true;
-	}
 
 	ocf_cleaner_refcnt_unfreeze(cache);
 	ocf_refcnt_unfreeze(&cache->refcnt.metadata);
