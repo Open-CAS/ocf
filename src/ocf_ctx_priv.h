@@ -146,6 +146,11 @@ static inline void ctx_cleaner_stop(ocf_ctx_t ctx, ocf_cleaner_t cleaner)
 	ctx->ops->cleaner.stop(cleaner);
 }
 
+static inline void ctx_cleaner_kick(ocf_ctx_t ctx, ocf_cleaner_t cleaner)
+{
+	ctx->ops->cleaner.kick(cleaner);
+}
+
 static inline int ctx_metadata_updater_init(ocf_ctx_t ctx,
 		ocf_metadata_updater_t mu)
 {

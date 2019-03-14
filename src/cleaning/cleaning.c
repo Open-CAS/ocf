@@ -59,6 +59,11 @@ void ocf_stop_cleaner(ocf_cache_t cache)
 	ctx_cleaner_stop(cache->owner, &cache->cleaner);
 }
 
+void ocf_kick_cleaner(ocf_cache_t cache)
+{
+	ctx_cleaner_kick(cache->owner, &cache->cleaner);
+}
+
 void ocf_cleaner_set_cmpl(ocf_cleaner_t cleaner, ocf_cleaner_end_t fn)
 {
 	cleaner->end = fn;
