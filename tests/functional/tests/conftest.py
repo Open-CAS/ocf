@@ -27,7 +27,7 @@ def pyocf_ctx():
 
     yield c
     for cache in c.caches:
-        cache.stop()
+        cache.stop(flush=False)
     c.exit()
 
 
@@ -39,4 +39,4 @@ def pyocf_ctx_log_buffer():
     c.register_volume_type(ErrorDevice)
     yield logger
     for cache in c.caches:
-        cache.stop()
+        cache.stop(flush=False)

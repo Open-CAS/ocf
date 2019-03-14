@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-from ctypes import *
+from ctypes import c_void_p, c_int, Structure, CFUNCTYPE
 from .shared import SharedOcfObject
 
 

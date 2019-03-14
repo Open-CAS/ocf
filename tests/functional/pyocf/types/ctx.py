@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-from ctypes import *
+from ctypes import c_void_p, Structure, c_char_p, cast, pointer, byref
 from enum import IntEnum
 
 from .logger import LoggerOps, Logger

@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-from ctypes import *
+from ctypes import CFUNCTYPE, c_size_t, c_char_p, Structure, c_void_p
 from enum import IntEnum, auto
+from threading import Event
+import logging
 
 from ..utils import Size as S
 
@@ -39,6 +41,41 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_INVALID_CACHE_LINE_SIZE = auto()
 
 
+class OcfCompletion:
+    """
+    This class provides Completion mechanism for interacting with OCF async
+    management API.
+    """
+
+    def __init__(self, completion_args: list):
+        """
+        Provide ctypes arg list, and optionally index of status argument in
+        completion function which will be extracted (default - last argument).
+
+        :param completion_args: list of tuples (parameter name, parameter type)
+            for OCF completion function
+        """
+        self.e = Event()
+        self.completion_args = completion_args
+        self._as_parameter_ = self.callback
+
+    @property
+    def callback(self):
+        arg_types = list(list(zip(*self.completion_args))[1])
+
+        @CFUNCTYPE(c_void_p, *arg_types)
+        def complete(*args):
+            self.results = {}
+            for i, arg in enumerate(args):
+                self.results[self.completion_args[i][0]] = arg
+            self.e.set()
+
+        return complete
+
+    def wait(self):
+        self.e.wait()
+
+
 class OcfError(BaseException):
     def __init__(self, msg, error_code):
         super().__init__(self, msg)
@@ -61,7 +98,7 @@ class SharedOcfObject(Structure):
         try:
             return cls._instances_[ref]
         except:
-            print(
+            logging.get_logger("pyocf").error(
                 "OcfSharedObject corruption. wanted: {} instances: {}".format(
                     ref, cls._instances_
                 )

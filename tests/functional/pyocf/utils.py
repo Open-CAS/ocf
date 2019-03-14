@@ -2,7 +2,8 @@
 # Copyright(c) 2019 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
-from ctypes import *
+
+from ctypes import string_at
 
 
 def print_buffer(buf, length, offset=0, width=16, stop_after_zeros=0):
@@ -32,11 +33,11 @@ def print_buffer(buf, length, offset=0, width=16, stop_after_zeros=0):
             print("<{} zero bytes omitted>".format(zero_lines * width))
             zero_lines = 0
 
-        for x in cur_line:
-            x = int(x)
-            byteline += "{:02X} ".format(x)
-            if 31 < x < 126:
-                char = chr(x)
+        for byte in cur_line:
+            byte = int(byte)
+            byteline += "{:02X} ".format(byte)
+            if 31 < byte < 126:
+                char = chr(byte)
             else:
                 char = "."
             asciiline += char

@@ -3,8 +3,18 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-from ctypes import *
-from enum import IntEnum, IntFlag, auto
+from ctypes import (
+    c_void_p,
+    c_int,
+    c_uint32,
+    c_uint64,
+    CFUNCTYPE,
+    Structure,
+    POINTER,
+    byref,
+    cast,
+)
+from enum import IntEnum, auto
 
 from ..ocf import OcfLib
 from .data import Data
@@ -46,7 +56,9 @@ class Io(Structure):
     def from_pointer(cls, ref):
         c = cls.from_address(ref)
         cls._instances_[ref] = c
-        OcfLib.getInstance().ocf_io_set_cmpl_wrapper(byref(c), None, None, c.c_end)
+        OcfLib.getInstance().ocf_io_set_cmpl_wrapper(
+            byref(c), None, None, c.c_end
+        )
         return c
 
     @classmethod
@@ -78,8 +90,10 @@ class Io(Structure):
         Io.get_instance(io).handle(opaque)
 
     def end(self, err):
-        if err:
-            print("IO err {}".format(err))
+        try:
+            self.callback(err)
+        except:
+            pass
 
         self.put()
         self.del_object()

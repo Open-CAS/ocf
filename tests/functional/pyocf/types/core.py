@@ -3,19 +3,31 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-from ctypes import *
+from ctypes import (
+    c_size_t,
+    c_void_p,
+    Structure,
+    c_int,
+    c_uint8,
+    c_uint16,
+    c_char_p,
+    c_bool,
+    c_uint32,
+    cast,
+    byref,
+    create_string_buffer,
+)
 import logging
 from datetime import timedelta
 
 from ..ocf import OcfLib
-from .shared import Uuid
+from .shared import Uuid, OcfCompletion, OcfError
 from .volume import Volume
 from .data import Data
 from .io import Io, IoDir
-from .stats.shared import *
-from .stats.core import *
+from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
+from .stats.core import CoreStats
 from ..utils import Size, struct_to_dict
-from .queue import Queue
 
 
 class UserMetadata(Structure):
@@ -55,7 +67,8 @@ class Core:
         self.cfg = CoreConfig(
             _uuid=Uuid(
                 _data=cast(
-                    create_string_buffer(self.device_name.encode("ascii")), c_char_p
+                    create_string_buffer(self.device_name.encode("ascii")),
+                    c_char_p,
                 ),
                 _size=len(self.device_name) + 1,
             ),
@@ -108,7 +121,9 @@ class Core:
             self.cache.put_and_unlock(True)
             raise OcfError("Failed collecting core stats", status)
 
-        status = self.cache.owner.lib.ocf_core_get_stats(self.handle, byref(core_stats))
+        status = self.cache.owner.lib.ocf_core_get_stats(
+            self.handle, byref(core_stats)
+        )
         if status:
             self.cache.put_and_unlock(True)
             raise OcfError("Failed getting core stats", status)
@@ -135,7 +150,15 @@ class Core:
         io.configure(0, read_buffer.size, IoDir.READ, 0, 0)
         io.set_data(read_buffer)
         io.set_queue(self.cache.get_default_queue())
+
+        cmpl = OcfCompletion([("err", c_int)])
+        io.callback = cmpl.callback
         io.submit()
+        cmpl.wait()
+
+        if cmpl.results["err"]:
+            raise Exception("Error reading whole exported object")
+
         return read_buffer.md5()
 
 
