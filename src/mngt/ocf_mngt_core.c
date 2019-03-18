@@ -10,6 +10,7 @@
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
 #include "../utils/utils_device.h"
+#include "../utils/utils_pipeline.h"
 #include "../ocf_stats_priv.h"
 #include "../ocf_def_priv.h"
 
@@ -61,10 +62,85 @@ error_out:
 	return result;
 }
 
-static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
-		struct ocf_mngt_core_config *cfg)
+struct ocf_cache_add_core_context {
+	ocf_mngt_cache_add_core_end_t cmpl;
+	void *priv;
+	ocf_pipeline_t pipeline;
+	struct ocf_mngt_core_config cfg;
+	char core_name[OCF_CORE_NAME_SIZE];
+	ocf_cache_t cache;
+	ocf_core_t core;
+
+	struct {
+		bool uuid_set : 1;
+		bool volume_inited : 1;
+		bool volume_opened : 1;
+		bool clean_pol_added : 1;
+		bool counters_allocated : 1;
+	} flags;
+};
+
+static void _ocf_mngt_cache_add_core_handle_error(
+		struct ocf_cache_add_core_context *context)
 {
-	ocf_core_t tmp_core;
+	struct ocf_mngt_core_config *cfg = &context->cfg;
+	ocf_cache_t cache = context->cache;
+	ocf_core_t core = context->core;
+	ocf_volume_t volume;
+	ocf_cleaning_t clean_type;
+
+	if (!core)
+		return;
+
+	volume = &core->volume;
+	clean_type = cache->conf_meta->cleaning_policy_type;
+
+	if (context->flags.counters_allocated) {
+		env_bit_clear(cfg->core_id,
+				cache->conf_meta->valid_core_bitmap);
+		cache->core_conf_meta[cfg->core_id].added = false;
+		core->opened = false;
+
+		env_free(core->counters);
+		core->counters = NULL;
+	}
+
+	if (context->flags.clean_pol_added) {
+		if (cleaning_policy_ops[clean_type].remove_core)
+			cleaning_policy_ops[clean_type].remove_core(cache,
+					cfg->core_id);
+	}
+
+	if (context->flags.volume_opened)
+		ocf_volume_close(volume);
+
+	if (context->flags.volume_inited)
+		ocf_volume_deinit(volume);
+
+	if (context->flags.uuid_set)
+		ocf_metadata_clear_core_uuid(core);
+}
+
+static void _ocf_mngt_cache_add_core_flush_sb_complete(void *priv, int error)
+{
+	struct ocf_cache_add_core_context *context = priv;
+
+	if (error) {
+		ocf_pipeline_finish(context->pipeline, -OCF_ERR_WRITE_CACHE);
+		return;
+	}
+
+	/* Increase value of added cores */
+	context->cache->conf_meta->core_count++;
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+static void _ocf_mngt_cache_add_core(ocf_cache_t cache,
+		struct ocf_cache_add_core_context *context)
+{
+	struct ocf_mngt_core_config *cfg = &context->cfg;
+	ocf_core_t core;
 	struct ocf_volume_uuid new_uuid;
 	ocf_volume_t volume;
 	ocf_volume_type_t type;
@@ -73,42 +149,55 @@ static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 	uint64_t length;
 	int result = 0;
 
-	tmp_core = &cache->core[cfg->core_id];
-	volume = &tmp_core->volume;
+	core = &cache->core[cfg->core_id];
+	context->core = core;
 
-	tmp_core->volume.cache = cache;
+	volume = &core->volume;
+	volume->cache = cache;
 
 	/* Set uuid */
-	result = ocf_metadata_set_core_uuid(tmp_core, &cfg->uuid, &new_uuid);
-	if (result)
-		return -OCF_ERR_INVAL;
+	result = ocf_metadata_set_core_uuid(core, &cfg->uuid, &new_uuid);
+	if (result) {
+		ocf_pipeline_finish(context->pipeline, result);
+		return;
+	}
+	context->flags.uuid_set = true;
 
 	type = ocf_ctx_get_volume_type(cache->owner, cfg->volume_type);
 	if (!type) {
-		result = -OCF_ERR_INVAL_VOLUME_TYPE;
-		goto error_out;
+		ocf_pipeline_finish(context->pipeline,
+				-OCF_ERR_INVAL_VOLUME_TYPE);
+		return;
 	}
 
 	result = ocf_volume_init(volume, type, &new_uuid, false);
-	if (result)
-		goto error_out;
+	if (result) {
+		ocf_pipeline_finish(context->pipeline, result);
+		return;
+	}
+	context->flags.volume_inited = true;
 
 	if (cfg->user_metadata.data && cfg->user_metadata.size > 0) {
-		result = ocf_mngt_core_set_user_metadata(tmp_core,
+		result = ocf_mngt_core_set_user_metadata(core,
 				cfg->user_metadata.data,
 				cfg->user_metadata.size);
-		if (result)
-			goto error_out;
+		if (result) {
+			ocf_pipeline_finish(context->pipeline, result);
+			return;
+		}
 	}
 
 	result = ocf_volume_open(volume);
-	if (result)
-		goto error_out;
+	if (result) {
+		ocf_pipeline_finish(context->pipeline, result);
+		return;
+	}
+	context->flags.volume_opened = true;
 
 	length = ocf_volume_get_length(volume);
 	if (!length) {
-		result = -OCF_ERR_CORE_NOT_AVAIL;
-		goto error_after_open;
+		ocf_pipeline_finish(context->pipeline, -OCF_ERR_CORE_NOT_AVAIL);
+		return;
 	}
 	cache->core_conf_meta[cfg->core_id].length = length;
 
@@ -117,19 +206,24 @@ static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 			cleaning_policy_ops[clean_type].add_core) {
 		result = cleaning_policy_ops[clean_type].add_core(cache,
 				cfg->core_id);
-		if (result)
-			goto error_after_open;
+		if (result) {
+			ocf_pipeline_finish(context->pipeline, result);
+			return;
+		}
+		context->flags.clean_pol_added = true;
 	}
 
 	/* When adding new core to cache, allocate stat counters */
-	tmp_core->counters =
-		env_zalloc(sizeof(*tmp_core->counters), ENV_MEM_NORMAL);
-	if (!tmp_core->counters) {
-		result = -OCF_ERR_NO_MEM;
-		goto error_after_clean_pol;
+	core->counters =
+		env_zalloc(sizeof(*core->counters), ENV_MEM_NORMAL);
+	if (!core->counters) {
+		ocf_pipeline_finish(context->pipeline, -OCF_ERR_NO_MEM);
+		return;
 	}
+	context->flags.counters_allocated = true;
+
 	/* When adding new core to cache, reset all core/cache statistics */
-	ocf_core_stats_initialize(tmp_core);
+	ocf_core_stats_initialize(core);
 	env_atomic_set(&cache->core_runtime_meta[cfg->core_id].
 			cached_clines, 0);
 	env_atomic_set(&cache->core_runtime_meta[cfg->core_id].
@@ -140,7 +234,7 @@ static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 	/* In metadata mark data this core was added into cache */
 	env_bit_set(cfg->core_id, cache->conf_meta->valid_core_bitmap);
 	cache->core_conf_meta[cfg->core_id].added = true;
-	tmp_core->opened = true;
+	core->opened = true;
 
 	/* Set default cache parameters for sequential */
 	cache->core_conf_meta[cfg->core_id].seq_cutoff_policy =
@@ -151,50 +245,14 @@ static int _ocf_mngt_cache_add_core(ocf_cache_t cache, ocf_core_t *core,
 	/* Add core sequence number for atomic metadata matching */
 	core_sequence_no = _ocf_mngt_get_core_seq_no(cache);
 	if (core_sequence_no == OCF_SEQ_NO_INVALID) {
-		result = -OCF_ERR_TOO_MANY_CORES;
-		goto error_after_counters_allocation;
+		ocf_pipeline_finish(context->pipeline, -OCF_ERR_TOO_MANY_CORES);
+		return;
 	}
 	cache->core_conf_meta[cfg->core_id].seq_no = core_sequence_no;
 
 	/* Update super-block with core device addition */
-	if (ocf_metadata_flush_superblock(cache)) {
-		result = -OCF_ERR_WRITE_CACHE;
-		goto error_after_counters_allocation;
-	}
-
-	/* Increase value of added cores */
-	cache->conf_meta->core_count++;
-
-	*core = tmp_core;
-	return 0;
-
-error_after_counters_allocation:
-	env_bit_clear(cfg->core_id, cache->conf_meta->valid_core_bitmap);
-	cache->core_conf_meta[cfg->core_id].added = false;
-	tmp_core->opened = false;
-
-	/* An error when flushing metadata, try restore for safety reason
-	 * previous metadata sate on cache device.
-	 * But if that fails too, we are scr**ed... or maybe:
-	 * TODO: Handle situation when we can't flush metadata by
-	 * trying to flush all the dirty data and switching to non-wb
-	 * cache mode.
-	 */
-	ocf_metadata_flush_superblock(cache);
-
-	env_free(tmp_core->counters);
-	tmp_core->counters = NULL;
-
-error_after_clean_pol:
-	if (cleaning_policy_ops[clean_type].remove_core)
-		cleaning_policy_ops[clean_type].remove_core(cache, cfg->core_id);
-
-error_after_open:
-	ocf_volume_close(volume);
-error_out:
-	ocf_metadata_clear_core_uuid(tmp_core);
-	*core = NULL;
-	return result;
+	ocf_metadata_flush_superblock(cache,
+			_ocf_mngt_cache_add_core_flush_sb_complete, context);
 }
 
 static unsigned long _ffz(unsigned long word)
@@ -362,76 +420,251 @@ int ocf_mngt_core_init_front_volume(ocf_core_t core)
 	return ocf_volume_open(&core->front_volume);
 }
 
+static void ocf_mngt_cache_add_core_prepare(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_add_core_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	char *core_name = context->core_name;
+	int result;
+
+	result = _ocf_mngt_find_core_id(cache, &context->cfg);
+	if (result) {
+		ocf_pipeline_finish(context->pipeline, result);
+		return;
+	}
+
+	if (context->cfg.name) {
+		result = env_strncpy(core_name, sizeof(context->core_name),
+				context->cfg.name, sizeof(context->core_name));
+		if (result) {
+			ocf_pipeline_finish(context->pipeline, result);
+			return;
+		}
+	} else {
+		result = snprintf(core_name, sizeof(context->core_name),
+				"core%hu", context->cfg.core_id);
+		if (result < 0) {
+			ocf_pipeline_finish(context->pipeline, result);
+			return;
+		}
+	}
+
+	result = ocf_core_set_name(&cache->core[context->cfg.core_id],
+			core_name, sizeof(context->core_name));
+	if (result) {
+		ocf_pipeline_finish(context->pipeline, result);
+		return;
+	}
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_add_core_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	char *core_name = context->core_name;
+	int result;
+
+	ocf_cache_log(cache, log_debug, "Inserting core %s\n", core_name);
+
+	if (context->cfg.try_add) {
+		result = _ocf_mngt_cache_try_add_core(cache, &context->core,
+				&context->cfg);
+		if (result) {
+			ocf_pipeline_finish(context->pipeline, result);
+			return;
+		}
+
+		ocf_pipeline_next(context->pipeline);
+		return;
+	}
+
+	_ocf_mngt_cache_add_core(cache, context);
+}
+
+static void ocf_mngt_cache_add_core_init_front_volume(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_add_core_context *context = priv;
+	int result;
+
+	result = ocf_mngt_core_init_front_volume(context->core);
+	if (result) {
+		ocf_pipeline_finish(context->pipeline, result);
+		return;
+	}
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+static void ocf_mngt_cache_add_core_finish(ocf_pipeline_t pipeline,
+		void *priv, int error)
+{
+	struct ocf_cache_add_core_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_core_t core = context->core;
+
+	if (error) {
+		_ocf_mngt_cache_add_core_handle_error(context);
+
+		if (error == -OCF_ERR_CORE_NOT_AVAIL) {
+			ocf_cache_log(cache, log_err, "Core %s is zero size\n",
+					context->core_name);
+		}
+		ocf_cache_log(cache, log_err, "Adding core %s failed\n",
+				context->core_name);
+		goto out;
+	}
+
+	ocf_core_log(core, log_info, "Successfully added\n");
+
+out:
+	context->cmpl(cache, core, context->priv, error);
+	env_vfree(context->cfg.uuid.data);
+	ocf_pipeline_destroy(context->pipeline);
+}
+
+struct ocf_pipeline_properties ocf_mngt_cache_add_core_pipeline_properties = {
+	.finish = ocf_mngt_cache_add_core_finish,
+	.steps = {
+		OCF_PL_STEP(ocf_mngt_cache_add_core_prepare),
+		OCF_PL_STEP(ocf_mngt_cache_add_core_insert),
+		OCF_PL_STEP(ocf_mngt_cache_add_core_init_front_volume),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
 void ocf_mngt_cache_add_core(ocf_cache_t cache,
 		struct ocf_mngt_core_config *cfg,
 		ocf_mngt_cache_add_core_end_t cmpl, void *priv)
 {
-	char core_name[OCF_CORE_NAME_SIZE];
-	ocf_core_t core = NULL;
+	struct ocf_cache_add_core_context *context;
+	ocf_pipeline_t pipeline;
+	void *data;
 	int result;
 
 	OCF_CHECK_NULL(cache);
 
-	result = _ocf_mngt_find_core_id(cache, cfg);
+	result = ocf_pipeline_create(&pipeline, cache,
+			&ocf_mngt_cache_add_core_pipeline_properties);
 	if (result) {
-		cmpl(cache, NULL, priv, result);
+		cmpl(cache, NULL, priv, -OCF_ERR_NO_MEM);
 		return;
 	}
 
-	if (cfg->name) {
-		result = env_strncpy(core_name, sizeof(core_name), cfg->name,
-				sizeof(core_name));
-		if (result) {
-			cmpl(cache, NULL, priv, result);
-			return;
-		}
-	} else {
-		result = snprintf(core_name, sizeof(core_name), "core%hu",
-				cfg->core_id);
-		if (result < 0) {
-			cmpl(cache, NULL, priv, result);
-			return;
-		}
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->cmpl = cmpl;
+	context->priv = priv;
+	context->pipeline = pipeline;
+	context->cache = cache;
+	context->cfg = *cfg;
+
+	data = env_vmalloc(cfg->uuid.size);
+	if (!data) {
+		result = -OCF_ERR_NO_MEM;
+		goto err_pipeline;
 	}
 
-	result = ocf_core_set_name(&cache->core[cfg->core_id], core_name,
-			sizeof(core_name));
-	if (result) {
-		cmpl(cache, NULL, priv, result);
-		return;
-	}
-
-	ocf_cache_log(cache, log_debug, "Inserting core %s\n", core_name);
-
-	if (cfg->try_add)
-		result = _ocf_mngt_cache_try_add_core(cache, &core, cfg);
-	else
-		result = _ocf_mngt_cache_add_core(cache, &core, cfg);
-
+	result = env_memcpy(data, cfg->uuid.size, cfg->uuid.data,
+			cfg->uuid.size);
 	if (result)
-		goto out;
+		goto err_uuid;
 
-	result = ocf_mngt_core_init_front_volume(core);
+	context->cfg.uuid.data = data;
 
-out:
-	if (!result) {
-		ocf_core_log(core, log_info, "Successfully added\n");
-	} else {
-		if (result == -OCF_ERR_CORE_NOT_AVAIL) {
-			ocf_cache_log(cache, log_err, "Core %s is zero size\n",
-					core_name);
-		}
-		ocf_cache_log(cache, log_err, "Adding core %s failed\n",
-				core_name);
-	}
 
-	cmpl(cache, core, priv, result);
+	ocf_pipeline_next(pipeline);
+	return;
+
+err_uuid:
+	env_vfree(data);
+err_pipeline:
+	ocf_pipeline_destroy(context->pipeline);
+	cmpl(cache, NULL, priv, result);
 }
 
-static int _ocf_mngt_cache_remove_core(ocf_core_t core)
+struct ocf_mngt_cache_remove_core_context {
+	ocf_mngt_cache_remove_core_end_t cmpl;
+	void *priv;
+	ocf_pipeline_t pipeline;
+	ocf_cache_t cache;
+	const char *core_name;
+};
+
+static void ocf_mngt_cache_remove_core_finish(ocf_pipeline_t pipeline,
+		void *priv, int error)
 {
-	struct ocf_cache *cache = core->volume.cache;
-	ocf_core_id_t core_id = ocf_core_get_id(core);
+	struct ocf_mngt_cache_remove_core_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (!error) {
+		ocf_cache_log(cache, log_info, "Core %s successfully removed\n",
+				context->core_name);
+	} else {
+		ocf_cache_log(cache, log_err, "Removing core %s failed\n",
+				context->core_name);
+	}
+
+	context->cmpl(context->priv, error);
+
+	ocf_pipeline_destroy(context->pipeline);
+}
+
+struct ocf_pipeline_properties ocf_mngt_cache_remove_core_pipeline_props = {
+	.priv_size = sizeof(struct ocf_mngt_cache_remove_core_context),
+	.finish = ocf_mngt_cache_remove_core_finish,
+	.steps = {
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+static void ocf_mngt_cache_remove_core_flush_sb_complete(void *priv, int error)
+{
+	struct ocf_mngt_cache_remove_core_context *context = priv;
+
+	if (error) {
+		ocf_pipeline_finish(context->pipeline,
+				-OCF_ERR_WRITE_CACHE);
+		return;
+	}
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+void ocf_mngt_cache_remove_core(ocf_core_t core,
+		ocf_mngt_cache_remove_core_end_t cmpl, void *priv)
+{
+	struct ocf_mngt_cache_remove_core_context *context;
+	ocf_pipeline_t pipeline;
+	ocf_cache_t cache;
+	ocf_core_id_t core_id;
+	int result;
+
+	OCF_CHECK_NULL(core);
+
+	cache = ocf_core_get_cache(core);
+	core_id = ocf_core_get_id(core);
+
+	result = ocf_pipeline_create(&pipeline, cache,
+			&ocf_mngt_cache_remove_core_pipeline_props);
+	if (result) {
+		cmpl(priv, result);
+		return;
+	}
+
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->cmpl = cmpl;
+	context->priv = priv;
+	context->pipeline = pipeline;
+	context->cache = cache;
+	context->core_name = ocf_core_get_name(core);
+
+	ocf_core_log(core, log_debug, "Removing core\n");
 
 	ocf_volume_close(&core->front_volume);
 
@@ -445,32 +678,8 @@ static int _ocf_mngt_cache_remove_core(ocf_core_t core)
 	cache_mng_core_close(cache, core_id);
 
 	/* Update super-block with core device removal */
-	ocf_metadata_flush_superblock(cache);
-
-	return 0;
-}
-
-void ocf_mngt_cache_remove_core(ocf_core_t core,
-		ocf_mngt_cache_remove_core_end_t cmpl, void *priv)
-{
-	ocf_cache_t cache = ocf_core_get_cache(core);
-	const char *core_name = ocf_core_get_name(core);
-	int result;
-
-	ocf_core_log(core, log_debug, "Removing core\n");
-
-	core_name = ocf_core_get_name(core);
-
-	result = _ocf_mngt_cache_remove_core(core);
-	if (!result) {
-		ocf_cache_log(cache, log_info, "Core %s successfully removed\n",
-				core_name);
-	} else {
-		ocf_cache_log(cache, log_err, "Removing core %s failed\n",
-				core_name);
-	}
-
-	cmpl(priv, result);
+	ocf_metadata_flush_superblock(cache,
+			ocf_mngt_cache_remove_core_flush_sb_complete, context);
 }
 
 static int _ocf_mngt_cache_detach_core(ocf_core_t core)

@@ -82,17 +82,18 @@ static inline void ocf_metadata_load_superblock(ocf_cache_t cache,
 	cmpl(priv, result);
 }
 
-static inline
-int ocf_metadata_flush_superblock(struct ocf_cache *cache)
+static inline void ocf_metadata_flush_superblock(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv)
 {
-	if (cache->device)
-		return cache->metadata.iface.flush_superblock(cache);
+	int result = 0;
 
-	return 0;
+	if (cache->device)
+		result = cache->metadata.iface.flush_superblock(cache);
+
+	cmpl(priv, result);
 }
 
-static inline uint64_t ocf_metadata_get_reserved_lba(
-		struct ocf_cache *cache)
+static inline uint64_t ocf_metadata_get_reserved_lba(ocf_cache_t cache)
 {
 	return cache->metadata.iface.get_reserved_lba(cache);
 }

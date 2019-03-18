@@ -210,6 +210,11 @@ void __wrap_ocf_mngt_cache_detach_finish(
 {
 }
 
+void __wrap_ocf_mngt_cache_save_finish(
+		  ocf_pipeline_t pipeline, void *priv, int error)
+{
+}
+
 static void ocf_mngt_cache_set_fallback_pt_error_threshold_test01(void **state)
 {
 	struct ocf_cache cache;
