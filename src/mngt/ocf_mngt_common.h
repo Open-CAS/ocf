@@ -30,22 +30,4 @@ int ocf_mngt_add_partition_to_cache(struct ocf_cache *cache,
 
 bool ocf_mngt_is_cache_locked(ocf_cache_t cache);
 
-typedef struct ocf_mngt_pipeline *ocf_mngt_pipeline_t;
-
-typedef void (*ocf_mngt_pipeline_step_t)(ocf_mngt_pipeline_t pipeline,
-		void *priv);
-
-typedef void (*ocf_mngt_pipeline_end_t)(ocf_mngt_pipeline_t pipeline,
-		void *priv, int error);
-
-int ocf_mngt_pipeline_create(ocf_mngt_pipeline_t *pipeline, ocf_cache_t cache,
-		ocf_mngt_pipeline_step_t *steps, ocf_mngt_pipeline_end_t cmpl,
-		void *priv);
-
-void ocf_mngt_pipeline_destroy(ocf_mngt_pipeline_t pipeline);
-
-void ocf_mngt_pipeline_next(ocf_mngt_pipeline_t pipeline);
-
-void ocf_mngt_pipeline_finish(ocf_mngt_pipeline_t pipeline, int error);
-
 #endif /* __OCF_MNGT_COMMON_H__ */
