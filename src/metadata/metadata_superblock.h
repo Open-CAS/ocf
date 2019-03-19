@@ -62,17 +62,24 @@ struct ocf_superblock_runtime {
 	uint32_t cleaning_thread_access;
 };
 
-static inline int ocf_metadata_set_shutdown_status(
-		struct ocf_cache *cache,
-		enum ocf_metadata_shutdown_status shutdown_status)
+static inline void ocf_metadata_set_shutdown_status(ocf_cache_t cache,
+		enum ocf_metadata_shutdown_status shutdown_status,
+		ocf_metadata_end_t cmpl, void *priv)
 {
-	return cache->metadata.iface.set_shutdown_status(cache,
+	int result;
+
+	result = cache->metadata.iface.set_shutdown_status(cache,
 			shutdown_status);
+	cmpl(priv, result);
 }
 
-static inline int ocf_metadata_load_superblock(struct ocf_cache *cache)
+static inline void ocf_metadata_load_superblock(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv)
 {
-	return cache->metadata.iface.load_superblock(cache);
+	int result;
+
+	result = cache->metadata.iface.load_superblock(cache);
+	cmpl(priv, result);
 }
 
 static inline

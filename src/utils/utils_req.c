@@ -206,7 +206,9 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	req->core_id = core ? ocf_core_get_id(core) : 0;
 	req->cache = cache;
 
-	env_atomic_inc(&cache->pending_requests);
+	if (queue != cache->mngt_queue)
+		env_atomic_inc(&cache->pending_requests);
+
 	start_cache_req(req);
 
 	env_atomic_set(&req->ref_count, 1);
@@ -292,7 +294,8 @@ void ocf_req_put(struct ocf_request *req)
 		env_waitqueue_wake_up(&req->cache->pending_cache_wq);
 	}
 
-	env_atomic_dec(&req->cache->pending_requests);
+	if (req->io_queue != req->cache->mngt_queue)
+		env_atomic_dec(&req->cache->pending_requests);
 
 	allocator = _ocf_req_get_allocator(req->cache,
 			req->alloc_core_line_count);

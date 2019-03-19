@@ -504,9 +504,10 @@ void ocf_engine_push_req_back(struct ocf_request *req, bool allow_sync)
 
 	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
 
-	if (!req->info.internal)
+	if (!req->info.internal) {
 		env_atomic_set(&cache->last_access_ms,
 				env_ticks_to_msecs(env_get_tick_count()));
+	}
 
 	ocf_queue_kick(q, allow_sync);
 }
@@ -517,6 +518,7 @@ void ocf_engine_push_req_front(struct ocf_request *req, bool allow_sync)
 	ocf_queue_t q = NULL;
 	unsigned long lock_flags = 0;
 
+	ENV_BUG_ON(!req->io_queue);
 	INIT_LIST_HEAD(&req->list);
 
 	q = req->io_queue;
@@ -528,9 +530,10 @@ void ocf_engine_push_req_front(struct ocf_request *req, bool allow_sync)
 
 	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
 
-	if (!req->info.internal)
+	if (!req->info.internal) {
 		env_atomic_set(&cache->last_access_ms,
 				env_ticks_to_msecs(env_get_tick_count()));
+	}
 
 	ocf_queue_kick(q, allow_sync);
 }
