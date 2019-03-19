@@ -81,13 +81,13 @@ struct ocf_metadata_raw {
  * RAW container interface
  */
 struct raw_iface {
-	int (*init)(struct ocf_cache *cache,
+	int (*init)(ocf_cache_t cache,
 			struct ocf_metadata_raw *raw);
 
-	int (*deinit)(struct ocf_cache *cache,
+	int (*deinit)(ocf_cache_t cache,
 			struct ocf_metadata_raw *raw);
 
-	size_t (*size_of)(struct ocf_cache *cache,
+	size_t (*size_of)(ocf_cache_t cache,
 			struct ocf_metadata_raw *raw);
 
 	/**
@@ -98,43 +98,40 @@ struct raw_iface {
 	 *
 	 * @return Number of pages (4 kiB) on cache device
 	 */
-	uint32_t (*size_on_ssd)(struct ocf_cache *cache,
+	uint32_t (*size_on_ssd)(ocf_cache_t cache,
 			struct ocf_metadata_raw *raw);
 
-	uint32_t (*checksum)(struct ocf_cache *cache,
+	uint32_t (*checksum)(ocf_cache_t cache,
 			struct ocf_metadata_raw *raw);
 
 
-	int (*get)(struct ocf_cache *cache,
+	int (*get)(ocf_cache_t cache,
 			struct ocf_metadata_raw *raw, ocf_cache_line_t line,
 			void *data, uint32_t size);
 
-	int (*set)(struct ocf_cache *cache,
+	int (*set)(ocf_cache_t cache,
 			struct ocf_metadata_raw *raw, ocf_cache_line_t line,
 			void *data, uint32_t size);
 
-	const void* (*rd_access)(struct ocf_cache *cache,
+	const void* (*rd_access)(ocf_cache_t cache,
 			struct ocf_metadata_raw *raw, ocf_cache_line_t line,
 			uint32_t size);
 
-	void* (*wr_access)(struct ocf_cache *cache,
+	void* (*wr_access)(ocf_cache_t cache,
 			struct ocf_metadata_raw *raw,
 			ocf_cache_line_t line, uint32_t size);
 
-	int (*flush)(struct ocf_cache *cache,
-			struct ocf_metadata_raw *raw, ocf_cache_line_t line);
+	void (*load_all)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+			ocf_metadata_end_t cmpl, void *priv);
 
-	int (*load_all)(struct ocf_cache *cache,
-			struct ocf_metadata_raw *raw);
+	void (*flush_all)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+			ocf_metadata_end_t cmpl, void *priv);
 
-	int (*flush_all)(struct ocf_cache *cache,
-			struct ocf_metadata_raw *raw);
-
-	void (*flush_mark)(struct ocf_cache *cache, struct ocf_request *req,
+	void (*flush_mark)(ocf_cache_t cache, struct ocf_request *req,
 			uint32_t map_idx, int to_state, uint8_t start,
 			uint8_t stop);
 
-	int (*flush_do_asynch)(struct ocf_cache *cache, struct ocf_request *req,
+	int (*flush_do_asynch)(ocf_cache_t cache, struct ocf_request *req,
 			struct ocf_metadata_raw *raw,
 			ocf_req_end_t complete);
 };
@@ -146,7 +143,7 @@ struct raw_iface {
  * @param raw - RAW descriptor
  * @return 0 - Operation success, otherwise error
  */
-int ocf_metadata_raw_init(struct ocf_cache *cache,
+int ocf_metadata_raw_init(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw);
 
 /**
@@ -156,7 +153,7 @@ int ocf_metadata_raw_init(struct ocf_cache *cache,
  * @param raw - RAW descriptor
  * @return 0 - Operation success, otherwise error
  */
-int ocf_metadata_raw_deinit(struct ocf_cache *cache,
+int ocf_metadata_raw_deinit(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw);
 
 /**
@@ -166,7 +163,7 @@ int ocf_metadata_raw_deinit(struct ocf_cache *cache,
  * @param raw RAW descriptor
  * @return Memory footprint
  */
-static inline size_t ocf_metadata_raw_size_of(struct ocf_cache *cache,
+static inline size_t ocf_metadata_raw_size_of(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
 	if (!raw->iface)
@@ -208,7 +205,7 @@ static inline uint32_t ocf_metadata_raw_checksum(struct ocf_cache* cache,
  * @param size - Size of data
  * @return 0 - Operation success, otherwise error
  */
-static inline int ocf_metadata_raw_get(struct ocf_cache *cache,
+static inline int ocf_metadata_raw_get(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, ocf_cache_line_t line, void *data,
 		uint32_t size)
 {
@@ -225,7 +222,7 @@ static inline int ocf_metadata_raw_get(struct ocf_cache *cache,
  * @param size - Size of data
  * @return 0 - Point to accessed data, in case of error NULL
  */
-static inline void *ocf_metadata_raw_wr_access(struct ocf_cache *cache,
+static inline void *ocf_metadata_raw_wr_access(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
 		uint32_t size)
 {
@@ -243,7 +240,7 @@ static inline void *ocf_metadata_raw_wr_access(struct ocf_cache *cache,
  * @return 0 - Point to accessed data, in case of error NULL
  */
 static inline const void *ocf_metadata_raw_rd_access(
-		struct ocf_cache *cache, struct ocf_metadata_raw *raw,
+		ocf_cache_t cache, struct ocf_metadata_raw *raw,
 		ocf_cache_line_t line, uint32_t size)
 {
 	return raw->iface->rd_access(cache, raw, line, size);
@@ -259,7 +256,7 @@ static inline const void *ocf_metadata_raw_rd_access(
  * @param size - Size of data
  * @return 0 - Operation success, otherwise error
  */
-static inline int ocf_metadata_raw_set(struct ocf_cache *cache,
+static inline int ocf_metadata_raw_set(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, ocf_cache_line_t line, void *data,
 		uint32_t size)
 {
@@ -267,30 +264,18 @@ static inline int ocf_metadata_raw_set(struct ocf_cache *cache,
 }
 
 /**
- * @brief Flush specified element of metadata into SSD
- *
- * @param cache - Cache instance
- * @param raw - RAW descriptor
- * @param line - Cache line to be flushed
- * @return 0 - Operation success, otherwise error
- */
-static inline int ocf_metadata_raw_flush(struct ocf_cache *cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line)
-{
-	return raw->iface->flush(cache, raw, line);
-}
-
-/**
  * @brief Load all entries from SSD cache (cahce cache)
  *
  * @param cache - Cache instance
  * @param raw - RAW descriptor
- * @return 0 - Operation success, otherwise error
+ * @param cmpl - Completion callback
+ * @param priv - Completion callback context
  */
-static inline int ocf_metadata_raw_load_all(struct ocf_cache *cache,
-		struct ocf_metadata_raw *raw)
+static inline void ocf_metadata_raw_load_all(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw,
+		ocf_metadata_end_t cmpl, void *priv)
 {
-	return raw->iface->load_all(cache, raw);
+	raw->iface->load_all(cache, raw, cmpl, priv);
 }
 
 /**
@@ -298,23 +283,25 @@ static inline int ocf_metadata_raw_load_all(struct ocf_cache *cache,
  *
  * @param cache - Cache instance
  * @param raw - RAW descriptor
- * @return 0 - Operation success, otherwise error
+ * @param cmpl - Completion callback
+ * @param priv - Completion callback context
  */
-static inline int ocf_metadata_raw_flush_all(struct ocf_cache *cache,
-		struct ocf_metadata_raw *raw)
+static inline void ocf_metadata_raw_flush_all(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw,
+		ocf_metadata_end_t cmpl, void *priv)
 {
-	return raw->iface->flush_all(cache, raw);
+	raw->iface->flush_all(cache, raw, cmpl, priv);
 }
 
 
-static inline void ocf_metadata_raw_flush_mark(struct ocf_cache *cache,
+static inline void ocf_metadata_raw_flush_mark(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, struct ocf_request *req,
 		uint32_t map_idx, int to_state, uint8_t start, uint8_t stop)
 {
 	raw->iface->flush_mark(cache, req, map_idx, to_state, start, stop);
 }
 
-static inline int ocf_metadata_raw_flush_do_asynch(struct ocf_cache *cache,
+static inline int ocf_metadata_raw_flush_do_asynch(ocf_cache_t cache,
 		struct ocf_request *req, struct ocf_metadata_raw *raw,
 		ocf_req_end_t complete)
 {

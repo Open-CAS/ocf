@@ -111,37 +111,23 @@ ocf_cache_line_t ocf_metadata_get_cachelines_count(ocf_cache_t cache)
 void ocf_metadata_flush_all(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	int result;
-
 	OCF_METADATA_LOCK_WR();
-	result = cache->metadata.iface.flush_all(cache);
+	cache->metadata.iface.flush_all(cache, cmpl, priv);
 	OCF_METADATA_UNLOCK_WR();
-	cmpl(priv, result);
-}
-
-void ocf_metadata_flush(struct ocf_cache *cache, ocf_cache_line_t line)
-{
-	cache->metadata.iface.flush(cache, line);
 }
 
 void ocf_metadata_load_all(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	int result;
-
 	OCF_METADATA_LOCK_WR();
-	result = cache->metadata.iface.load_all(cache);
+	cache->metadata.iface.load_all(cache, cmpl, priv);
 	OCF_METADATA_UNLOCK_WR();
-	cmpl(priv, result);
 }
 
 void ocf_metadata_load_recovery(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	int result;
-
-	result = cache->metadata.iface.load_recovery(cache);
-	cmpl(priv, result);
+	cache->metadata.iface.load_recovery(cache, cmpl, priv);
 }
 
 void ocf_metadata_flush_mark(struct ocf_cache *cache, struct ocf_request *req,

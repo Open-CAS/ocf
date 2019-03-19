@@ -23,13 +23,4 @@ static inline void ocf_metadata_set_evicition_policy(
 	cache->metadata.iface.set_eviction_policy(cache, line, eviction);
 }
 
-/*
- * FLUSH
- */
-static inline void ocf_metadata_flush_evicition_policy(
-		struct ocf_cache *cache, ocf_cache_line_t line)
-{
-	cache->metadata.iface.flush_eviction_policy(cache, line);
-}
-
 #endif /* METADATA_EVICTION_H_ */

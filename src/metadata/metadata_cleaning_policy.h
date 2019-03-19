@@ -26,14 +26,4 @@ ocf_metadata_set_cleaning_policy(struct ocf_cache *cache,
 	cache->metadata.iface.set_cleaning_policy(cache, line, policy);
 }
 
-/*
- * FLUSH
- */
-static inline void
-ocf_metadata_flush_cleaning_policy(struct ocf_cache *cache,
-		ocf_cache_line_t line)
-{
-	cache->metadata.iface.flush_cleaning_policy(cache, line);
-}
-
 #endif /* METADATA_CLEANING_POLICY_H_ */

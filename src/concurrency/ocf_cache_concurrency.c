@@ -811,14 +811,6 @@ int ocf_req_trylock_rd(struct ocf_request *req)
 }
 
 /*
- * Lock wait request context
- */
-struct _req_wait_context {
-	struct ocf_request *req;
-	env_completion cmpl;
-};
-
-/*
  *
  */
 static int _ocf_req_lock_wr_common(struct ocf_request *req, void *context,

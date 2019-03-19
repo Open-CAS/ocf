@@ -45,8 +45,6 @@ static inline int ocf_io_overlaps(uint32_t start1, uint32_t count1,
 
 typedef void (*ocf_submit_end_t)(void *priv, int error);
 
-int ocf_submit_io_wait(struct ocf_io *io);
-
 void ocf_submit_volume_flush(ocf_volume_t volume,
 		ocf_submit_end_t cmpl, void *priv);
 

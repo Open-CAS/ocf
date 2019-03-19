@@ -6,6 +6,7 @@
 #ifndef __METADATA_STRUCTS_H__
 #define __METADATA_STRUCTS_H__
 
+#include "metadata_common.h"
 #include "../eviction/eviction.h"
 #include "../cleaning/cleaning.h"
 #include "../ocf_request.h"
@@ -161,33 +162,31 @@ struct ocf_metadata_iface {
 	 * @brief Load metadata from cache device
 	 *
 	 * @param[in] cache - Cache instance
-	 * @return 0 - Operation success otherwise failure
+	 * @param[in] cmpl - Completion callback
+	 * @param[in] priv - Completion callback context
 	 */
-	int (*load_all)(struct ocf_cache *cache);
+	void (*load_all)(ocf_cache_t cache,
+			ocf_metadata_end_t cmpl, void *priv);
 
 	/**
 	 * @brief Load metadata from recovery procedure
-	 * recovery
+	 *
 	 * @param[in] cache - Cache instance
-	 * @return 0 - Operation success otherwise failure
+	 * @param[in] cmpl - Completion callback
+	 * @param[in] priv - Completion callback context
 	 */
-	int (*load_recovery)(struct ocf_cache *cache);
+	void (*load_recovery)(ocf_cache_t cache,
+			ocf_metadata_end_t cmpl, void *priv);
 
 	/**
 	 * @brief Flush metadata into cahce cache
 	 *
 	 * @param[in] cache - Cache instance
-	 * @return 0 - Operation success otherwise failure
+	 * @param[in] cmpl - Completion callback
+	 * @param[in] priv - Completion callback context
 	 */
-	int (*flush_all)(struct ocf_cache *cache);
-
-	/**
-	 * @brief Flush metadata for specified cache line
-	 *
-	 * @param[in] cache - Cache instance
-	 * @param[in] line - cache line which to be flushed
-	 */
-	void (*flush)(struct ocf_cache *cache, ocf_cache_line_t line);
+	void (*flush_all)(ocf_cache_t cache,
+			ocf_metadata_end_t cmpl, void *priv);
 
 	/**
 	 * @brief Mark specified cache line to be flushed
@@ -217,12 +216,15 @@ struct ocf_metadata_iface {
 	enum ocf_metadata_shutdown_status (*get_shutdown_status)(
 			struct ocf_cache *cache);
 
-	int (*set_shutdown_status)(struct ocf_cache *cache,
-			enum ocf_metadata_shutdown_status shutdown_status);
+	void (*set_shutdown_status)(ocf_cache_t cache,
+			enum ocf_metadata_shutdown_status shutdown_status,
+			ocf_metadata_end_t cmpl, void *priv);
 
-	int (*load_superblock)(struct ocf_cache *cache);
+	void (*load_superblock)(ocf_cache_t cache,
+			ocf_metadata_end_t cmpl, void *priv);
 
-	int (*flush_superblock)(struct ocf_cache *cache);
+	void (*flush_superblock)(ocf_cache_t cache,
+			ocf_metadata_end_t cmpl, void *priv);
 
 	uint64_t (*get_reserved_lba)(struct ocf_cache *cache);
 
@@ -250,16 +252,6 @@ struct ocf_metadata_iface {
 			union eviction_policy_meta *eviction_policy);
 
 	/**
-	 * @brief Flush eviction policy for given cache line
-	 *
-	 * @param[in] cache - Cache instance
-	 * @param[in] line - Cache line for which flushing has to be performed
-	 */
-	void (*flush_eviction_policy)(struct ocf_cache *cache,
-			ocf_cache_line_t line);
-
-
-	/**
 	 * @brief Get cleaning policy
 	 *
 	 * @param[in] cache - Cache instance
@@ -283,15 +275,6 @@ struct ocf_metadata_iface {
 			struct cleaning_policy_meta *cleaning_policy);
 
 	/**
-	 * @brief Flush cleaning policy for given cache line
-	 *
-	 * @param[in] cache - Cache instance
-	 * @param[in] line - Cache line for which flushing has to be performed
-	 */
-	void (*flush_cleaning_policy)(struct ocf_cache *cache,
-			ocf_cache_line_t line);
-
-	/**
 	 * @brief Get hash table for specified index
 	 *
 	 * @param[in] cache - Cache instance
@@ -311,15 +294,6 @@ struct ocf_metadata_iface {
 	 */
 	void (*set_hash)(struct ocf_cache *cache,
 			ocf_cache_line_t index, ocf_cache_line_t line);
-
-	/**
-	 * @brief Flush has table for specified index
-	 *
-	 * @param[in] cache - Cache instance
-	 * @param[in] index - Hash table index
-	 */
-	void (*flush_hash)(struct ocf_cache *cache,
-			ocf_cache_line_t index);
 
 	/**
 	 * @brief Get hash table entries

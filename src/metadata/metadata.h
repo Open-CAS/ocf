@@ -6,6 +6,7 @@
 #ifndef __METADATA_H__
 #define __METADATA_H__
 
+#include "metadata_common.h"
 #include "../ocf_cache_priv.h"
 #include "../ocf_ctx_priv.h"
 
@@ -124,8 +125,6 @@ static inline void ocf_metadata_status_bits_unlock(
 #define OCF_METADATA_FLUSH_UNLOCK() \
 		ocf_metadata_flush_unlock(cache)
 
-typedef void (*ocf_metadata_end_t)(void *priv, int error);
-
 #include "metadata_cleaning_policy.h"
 #include "metadata_eviction_policy.h"
 #include "metadata_partition.h"
@@ -233,15 +232,6 @@ ocf_cache_line_t ocf_metadata_get_pages_count(struct ocf_cache *cache);
 void ocf_metadata_flush_all(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv);
 
-
-/**
- * @brief Flush metadata for specified cache line
- *
- * @param[in] cache - Cache instance
- * @param[in] line - cache line which to be flushed
- */
-void ocf_metadata_flush(struct ocf_cache *cache, ocf_cache_line_t line);
-
 /**
  * @brief Mark specified cache line to be flushed
  *
@@ -283,6 +273,17 @@ void ocf_metadata_load_all(ocf_cache_t cache,
 void ocf_metadata_load_recovery(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv);
 
+
+/**
+ * @brief Get reserved area lba
+ *
+ * @param cache Cache instance
+ */
+static inline uint64_t ocf_metadata_get_reserved_lba(ocf_cache_t cache)
+{
+	return cache->metadata.iface.get_reserved_lba(cache);
+}
+
 /*
  * NOTE Hash table is specific for hash table metadata service implementation
  * and should be used internally by metadata service.
@@ -300,12 +301,6 @@ static inline void ocf_metadata_set_hash(struct ocf_cache *cache,
 		ocf_cache_line_t index, ocf_cache_line_t line)
 {
 	cache->metadata.iface.set_hash(cache, index, line);
-}
-
-static inline void ocf_metadata_flush_hash(struct ocf_cache *cache,
-		ocf_cache_line_t index)
-{
-	cache->metadata.iface.flush_hash(cache, index);
 }
 
 static inline ocf_cache_line_t ocf_metadata_entries_hash(
