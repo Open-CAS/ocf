@@ -29,6 +29,7 @@
 #include "../utils/utils_device.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
+#include "../utils/utils_pipeline.h"
 #include "../ocf_utils.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../eviction/ops.h"
@@ -60,132 +61,152 @@ char *__wrap_ocf_cache_get_name(ocf_cache_t cache)
 }
 
 void __wrap__ocf_mngt_test_volume_initial_write(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap_ocf_mngt_test_volume_first_read(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_test_volume_discard(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_test_volume_second_read(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_cache_device(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_check_ram(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_load_properties(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_prepare_metadata(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_test_volume(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_load_superblock(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_init_instance(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_clean_pol(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_flush_metadata(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_discard(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_flush(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_shutdown_status(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_attach_post_init(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap_ocf_mngt_cache_stop_wait_io(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap_ocf_mngt_cache_stop_remove_cores(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap_ocf_mngt_cache_stop_unplug(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap_ocf_mngt_cache_stop_put_io_queues(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap_ocf_mngt_cache_detach_flush(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap_ocf_mngt_cache_detach_wait_pending(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap_ocf_mngt_cache_detach_update_metadata(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap_ocf_mngt_cache_detach_unplug(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
 void __wrap__ocf_mngt_test_volume_first_read(
-		  ocf_mngt_pipeline_t test_pipeline, void *priv)
+		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
+{
+}
+
+void __wrap__ocf_mngt_test_volume_finish(
+		  ocf_pipeline_t pipeline, void *priv, int error)
+{
+}
+
+void __wrap__ocf_mngt_cache_attach_finish(
+		  ocf_pipeline_t pipeline, void *priv, int error)
+{
+}
+
+void __wrap_ocf_mngt_cache_stop_finish(
+		  ocf_pipeline_t pipeline, void *priv, int error)
+{
+}
+
+void __wrap_ocf_mngt_cache_detach_finish(
+		  ocf_pipeline_t pipeline, void *priv, int error)
 {
 }
 
