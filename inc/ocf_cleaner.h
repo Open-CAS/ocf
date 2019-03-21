@@ -31,14 +31,6 @@ typedef void (*ocf_cleaner_end_t)(ocf_cleaner_t cleaner, uint32_t interval);
 void ocf_cleaner_set_cmpl(ocf_cleaner_t cleaner, ocf_cleaner_end_t fn);
 
 /**
- * @brief Set cleaner queue
- *
- * @param[in] cleaner Cleaner instance
- * @param[in] io_queue Queue handle
- */
-void ocf_cleaner_set_io_queue(ocf_cleaner_t cleaner, ocf_queue_t io_queue);
-
-/**
  * @brief Run cleaner
  *
  * @param[in] c Cleaner instance to run
