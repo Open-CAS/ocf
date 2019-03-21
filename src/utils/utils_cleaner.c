@@ -278,6 +278,7 @@ static int _ocf_cleaner_fire_flush_cache(struct ocf_request *req)
 
 	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
 	ocf_io_set_cmpl(io, req, NULL, _ocf_cleaner_flush_cache_io_end);
+	ocf_io_set_queue(io, req->io_queue);
 
 	ocf_volume_submit_flush(io);
 
@@ -423,6 +424,7 @@ static int _ocf_cleaner_fire_flush_cores(struct ocf_request *req)
 
 		ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
 		ocf_io_set_cmpl(io, iter, req, _ocf_cleaner_flush_cores_io_cmpl);
+		ocf_io_set_queue(io, req->io_queue);
 
 		ocf_volume_submit_flush(io);
 	}
@@ -493,6 +495,7 @@ static void _ocf_cleaner_core_io_for_dirty_range(struct ocf_request *req,
 
 	ocf_io_configure(io, addr, SECTORS_TO_BYTES(end - begin), OCF_WRITE,
 			part_id, 0);
+	ocf_io_set_queue(io, req->io_queue);
 	err = ocf_io_set_data(io, req->data, offset);
 	if (err) {
 		ocf_io_put(io);
@@ -677,6 +680,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 		ocf_io_set_cmpl(io, iter, req, _ocf_cleaner_cache_io_cmpl);
 		ocf_io_configure(io, addr, ocf_line_size(cache), OCF_READ,
 				part_id, 0);
+		ocf_io_set_queue(io, req->io_queue);
 		err = ocf_io_set_data(io, req->data, offset);
 		if (err) {
 			ocf_io_put(io);
