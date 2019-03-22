@@ -62,14 +62,6 @@ struct metadata_io_request {
 };
 
 /*
- * IO request context
- */
-struct metadata_io_request_atomic {
-	env_completion complete;
-	int error;
-};
-
-/*
  * Asynchronous IO request context
  */
 struct metadata_io_request_asynch {
