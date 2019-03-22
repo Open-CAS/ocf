@@ -2141,19 +2141,72 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 	ocf_pipeline_next(pipeline);
 }
 
-void ocf_mngt_cache_save(ocf_cache_t cache,
-		ocf_mngt_cache_save_end_t cmpl, void *priv)
-{
-	int result;
+struct ocf_mngt_cache_save_context {
+	ocf_mngt_cache_save_end_t cmpl;
+	void *priv;
+	ocf_pipeline_t pipeline;
+	ocf_cache_t cache;
+};
 
-	result = ocf_metadata_flush_superblock(cache);
-	if (result) {
+static void ocf_mngt_cache_save_finish(ocf_pipeline_t pipeline,
+		void *priv, int error)
+{
+	struct ocf_mngt_cache_save_context *context = priv;
+
+	context->cmpl(context->cache, context->priv, error);
+
+	ocf_pipeline_destroy(context->pipeline);
+}
+
+struct ocf_pipeline_properties ocf_mngt_cache_save_pipeline_properties = {
+	.priv_size = sizeof(struct ocf_mngt_cache_save_context),
+	.finish = ocf_mngt_cache_save_finish,
+	.steps = {
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+static void ocf_mngt_cache_save_flush_sb_complete(void *priv, int error)
+{
+	struct ocf_mngt_cache_save_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (error) {
 		ocf_cache_log(cache, log_err,
 				"Failed to flush superblock! Changes "
 				"in cache config are not persistent!\n");
+		ocf_pipeline_finish(context->pipeline, -OCF_ERR_WRITE_CACHE);
+		return;
 	}
 
-	cmpl(cache, priv, result ? -OCF_ERR_WRITE_CACHE : 0);
+	ocf_pipeline_next(context->pipeline);
+}
+
+void ocf_mngt_cache_save(ocf_cache_t cache,
+		ocf_mngt_cache_save_end_t cmpl, void *priv)
+{
+	struct ocf_mngt_cache_save_context *context;
+	ocf_pipeline_t pipeline;
+	int result;
+
+	OCF_CHECK_NULL(cache);
+
+	result = ocf_pipeline_create(&pipeline, cache,
+			&ocf_mngt_cache_save_pipeline_properties);
+	if (result) {
+		cmpl(cache, priv, result);
+		return;
+	}
+
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->cmpl = cmpl;
+	context->priv = priv;
+	context->pipeline = pipeline;
+	context->cache = cache;
+
+	ocf_metadata_flush_superblock(cache,
+			ocf_mngt_cache_save_flush_sb_complete, context);
 }
 
 static int _cache_mng_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode)

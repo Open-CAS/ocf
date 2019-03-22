@@ -253,6 +253,11 @@ void __wrap_ocf_mngt_cache_detach_finish(
 {
 }
 
+void __wrap_ocf_mngt_cache_save_finish(
+		  ocf_pipeline_t pipeline, void *priv, int error)
+{
+}
+
 static void _cache_mng_set_cache_mode_test01(void **state)
 {
 	ocf_cache_mode_t mode_old = -20;
