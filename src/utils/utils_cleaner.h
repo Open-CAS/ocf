@@ -55,6 +55,8 @@ struct flush_data {
 	ocf_core_id_t core_id;
 };
 
+typedef void (*ocf_flush_containter_coplete_t)(void *ctx);
+
 /**
  * @brief Flush table container
  */
@@ -66,14 +68,15 @@ struct flush_container {
 
 	struct ocf_cleaner_attribs attribs;
 	ocf_cache_t cache;
-	env_atomic *progress;
-	env_atomic *error;
-	env_waitqueue *wq;
-	env_atomic completed;
+
+	struct ocf_request *req;
 
 	uint64_t flush_portion;
 	uint64_t ticks1;
 	uint64_t ticks2;
+
+	ocf_flush_containter_coplete_t end;
+	struct ocf_mngt_cache_flush_context *context;
 };
 
 /**
