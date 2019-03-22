@@ -138,6 +138,7 @@ void ocf_cleaner_run(ocf_cleaner_t cleaner, ocf_queue_t queue)
 	}
 
 	if (_ocf_cleaner_run_check_dirty_inactive(cache)) {
+		env_rwsem_up_write(&cache->lock);
 		cleaner->end(cleaner, SLEEP_TIME_MS);
 		return;
 	}
