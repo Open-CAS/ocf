@@ -528,6 +528,7 @@ out:
 }
 
 struct ocf_pipeline_properties ocf_mngt_cache_add_core_pipeline_properties = {
+	.priv_size = sizeof(struct ocf_cache_add_core_context),
 	.finish = ocf_mngt_cache_add_core_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_mngt_cache_add_core_prepare),
