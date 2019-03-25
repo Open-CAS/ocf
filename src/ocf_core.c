@@ -153,30 +153,21 @@ static inline ocf_core_t ocf_volume_to_core(ocf_volume_t volume)
 	return core_volume->core;
 }
 
-static inline void inc_dirty_req_counter(struct ocf_core_io *core_io,
-		ocf_cache_t cache)
+static inline int ocf_io_set_dirty(ocf_cache_t cache,
+		struct ocf_core_io *core_io)
 {
-	core_io->dirty = 1;
-	env_atomic_inc(&cache->pending_dirty_requests);
+	core_io->dirty = ocf_refcnt_inc(&cache->dirty);
+	return core_io->dirty ? 0 : -EBUSY;
 }
 
 static inline void dec_counter_if_req_was_dirty(struct ocf_core_io *core_io,
 		ocf_cache_t cache)
 {
-	int pending_dirty_req_count;
-
 	if (!core_io->dirty)
 		return;
 
-	pending_dirty_req_count =
-		env_atomic_dec_return(&cache->pending_dirty_requests);
-
-	ENV_BUG_ON(pending_dirty_req_count < 0);
-
 	core_io->dirty = 0;
-
-	if (!pending_dirty_req_count)
-		env_waitqueue_wake_up(&cache->pending_dirty_wq);
+	ocf_refcnt_dec(&cache->dirty);
 }
 
 static inline int ocf_core_validate_io(struct ocf_io *io)
@@ -258,15 +249,9 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 
 	if (cache_mode == ocf_cache_mode_none)
 		req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
-
-	if (req_cache_mode == ocf_req_cache_mode_wb) {
-		inc_dirty_req_counter(core_io, cache);
-
-		//Double cache mode check prevents sending WB request
-		//while flushing is performed.
-		req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
-		if (req_cache_mode != ocf_req_cache_mode_wb)
-			dec_counter_if_req_was_dirty(core_io, cache);
+	if (req_cache_mode == ocf_req_cache_mode_wb &&
+			ocf_io_set_dirty(cache, core_io)) {
+		req_cache_mode = ocf_req_cache_mode_wt;
 	}
 
 	core_io->req = ocf_req_new(io->io_queue, core, io->addr, io->bytes,
@@ -332,14 +317,9 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 	}
 
 	req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
-	if (req_cache_mode == ocf_req_cache_mode_wb) {
-		inc_dirty_req_counter(core_io, cache);
-
-		//Double cache mode check prevents sending WB request
-		//while flushing is performed.
-		req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
-		if (req_cache_mode != ocf_req_cache_mode_wb)
-			dec_counter_if_req_was_dirty(core_io, cache);
+	if (req_cache_mode == ocf_req_cache_mode_wb &&
+			ocf_io_set_dirty(cache, core_io)) {
+		req_cache_mode = ocf_req_cache_mode_wt;
 	}
 
 	switch (req_cache_mode) {

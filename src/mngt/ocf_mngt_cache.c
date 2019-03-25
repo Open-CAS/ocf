@@ -17,6 +17,7 @@
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_pipeline.h"
+#include "../utils/utils_refcnt.h"
 #include "../ocf_utils.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../eviction/ops.h"
@@ -1584,7 +1585,6 @@ static void _ocf_mngt_attach_post_init(ocf_pipeline_t pipeline,
 		context->flags.cleaner_started = true;
 	}
 
-	env_waitqueue_init(&cache->pending_dirty_wq);
 	env_waitqueue_init(&cache->pending_cache_wq);
 
 	env_atomic_set(&cache->attached, 1);
@@ -2419,7 +2419,7 @@ static void ocf_mngt_cache_detach_finish(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_detach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ENV_BUG_ON(env_atomic_dec_return(&cache->flush_started) < 0);
+	ocf_refcnt_unfreeze(&cache->dirty);
 
 	if (!error) {
 		ocf_cache_log(cache, log_info, "Successfully detached\n");
@@ -2479,7 +2479,7 @@ void ocf_mngt_cache_detach(ocf_cache_t cache,
 	context->cache = cache;
 
 	/* prevent dirty io */
-	env_atomic_inc(&cache->flush_started);
+	ocf_refcnt_freeze(&cache->dirty);
 
 	ocf_pipeline_next(pipeline);
 }
