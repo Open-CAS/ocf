@@ -445,7 +445,7 @@ static void _ocf_mngt_flush_container(
 
 finish:
 	env_atomic_cmpxchg(&context->fcs.error, 0, error);
-	end(fc);
+	end(context);
 }
 
 void _ocf_flush_container_complete(void *ctx)
