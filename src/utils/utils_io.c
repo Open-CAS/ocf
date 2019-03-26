@@ -369,31 +369,3 @@ void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 	}
 	ocf_volume_submit_io(io);
 }
-
-struct ocf_submit_io_wait_context {
-	env_completion complete;
-	int error;
-	env_atomic req_remaining;
-};
-
-static void ocf_submit_io_wait_end(struct ocf_io *io, int error)
-{
-	struct ocf_submit_io_wait_context *context = io->priv1;
-
-	context->error |= error;
-	env_completion_complete(&context->complete);
-}
-
-int ocf_submit_io_wait(struct ocf_io *io)
-{
-	struct ocf_submit_io_wait_context context;
-
-	ENV_BUG_ON(env_memset(&context, sizeof(context), 0));
-	env_completion_init(&context.complete);
-	context.error = 0;
-
-	ocf_io_set_cmpl(io, &context, NULL, ocf_submit_io_wait_end);
-	ocf_volume_submit_io(io);
-	env_completion_wait(&context.complete);
-	return context.error;
-}

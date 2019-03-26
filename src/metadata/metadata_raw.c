@@ -197,31 +197,23 @@ static int _raw_ram_set(ocf_cache_t cache,
 	return _RAW_RAM_SET(raw, line, data);
 }
 
-/*
- * RAM Implementation - Flush specified element from SSD
- */
-static int _raw_ram_flush(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line)
-{
-	OCF_DEBUG_PARAM(cache, "Line = %u", line);
-	OCF_DEBUG_PARAM(cache, "Page = %llu", _RAW_RAM_PAGE(raw, line));
-
-	ENV_BUG_ON(!_raw_is_valid(raw, line, raw->entry_size));
-
-	return metadata_io_write(cache, _RAW_RAM_ADDR_PAGE(raw, line),
-			_RAW_RAM_PAGE_SSD(raw, line));
-}
+struct _raw_ram_load_all_context {
+	struct ocf_metadata_raw *raw;
+	ocf_metadata_end_t cmpl;
+	void *priv;
+};
 
 /*
  * RAM Implementation - Load all IO callback
  */
-static int _raw_ram_load_all_io(ocf_cache_t cache,
-		ctx_data_t *data, uint32_t page, void *context)
+static int _raw_ram_load_all_drain(ocf_cache_t cache,
+		ctx_data_t *data, uint32_t page, void *priv)
 {
+	struct _raw_ram_load_all_context *context = priv;
+	struct ocf_metadata_raw *raw = context->raw;
+	uint32_t size = raw->entry_size * raw->entries_in_page;
 	ocf_cache_line_t line;
 	uint32_t raw_page;
-	struct ocf_metadata_raw *raw = (struct ocf_metadata_raw *) context;
-	uint32_t size = raw->entry_size * raw->entries_in_page;
 
 	ENV_BUG_ON(!_raw_ssd_page_is_valid(raw, page));
 	ENV_BUG_ON(size > PAGE_SIZE);
@@ -238,28 +230,60 @@ static int _raw_ram_load_all_io(ocf_cache_t cache,
 	return 0;
 }
 
+static void _raw_ram_load_all_complete(ocf_cache_t cache,
+		void *priv, int error)
+{
+	struct _raw_ram_load_all_context *context = priv;
+
+	context->cmpl(context->priv, error);
+	env_vfree(context);
+}
+
 /*
  * RAM Implementation - Load all metadata elements from SSD
  */
-static int _raw_ram_load_all(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw)
+static void _raw_ram_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+		ocf_metadata_end_t cmpl, void *priv)
 {
+	struct _raw_ram_load_all_context *context;
+	int result;
+
 	OCF_DEBUG_TRACE(cache);
 
-	return metadata_io_read_i(cache, raw->ssd_pages_offset,
-			raw->ssd_pages, _raw_ram_load_all_io, raw);
+	context = env_vmalloc(sizeof(*context));
+	if (!context) {
+		cmpl(priv, -OCF_ERR_NO_MEM);
+		return;
+	}
+
+	context->raw = raw;
+	context->cmpl = cmpl;
+	context->priv = priv;
+
+	result = metadata_io_read_i_asynch(cache, cache->mngt_queue, context,
+			raw->ssd_pages_offset, raw->ssd_pages,
+			_raw_ram_load_all_drain, _raw_ram_load_all_complete);
+	if (result)
+		_raw_ram_load_all_complete(cache, context, result);
 }
+
+struct _raw_ram_flush_all_context {
+	struct ocf_metadata_raw *raw;
+	ocf_metadata_end_t cmpl;
+	void *priv;
+};
 
 /*
  * RAM Implementation - Flush IO callback - Fill page
  */
 static int _raw_ram_flush_all_fill(ocf_cache_t cache,
-		ctx_data_t *data, uint32_t page, void *context)
+		ctx_data_t *data, uint32_t page, void *priv)
 {
+	struct _raw_ram_flush_all_context *context = priv;
+	struct ocf_metadata_raw *raw = context->raw;
+	uint32_t size = raw->entry_size * raw->entries_in_page;
 	ocf_cache_line_t line;
 	uint32_t raw_page;
-	struct ocf_metadata_raw *raw = (struct ocf_metadata_raw *)context;
-	uint32_t size = raw->entry_size * raw->entries_in_page;
 
 	ENV_BUG_ON(!_raw_ssd_page_is_valid(raw, page));
 	ENV_BUG_ON(size > PAGE_SIZE);
@@ -275,16 +299,41 @@ static int _raw_ram_flush_all_fill(ocf_cache_t cache,
 	return 0;
 }
 
+static void _raw_ram_flush_all_complete(ocf_cache_t cache,
+		void *priv, int error)
+{
+	struct _raw_ram_flush_all_context *context = priv;
+
+	context->cmpl(context->priv, error);
+	env_vfree(context);
+}
+
 /*
  * RAM Implementation - Flush all elements
  */
-static int _raw_ram_flush_all(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw)
+static void _raw_ram_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+		ocf_metadata_end_t cmpl, void *priv)
 {
+	struct _raw_ram_flush_all_context *context;
+	int result;
+
 	OCF_DEBUG_TRACE(cache);
 
-	return metadata_io_write_i(cache, raw->ssd_pages_offset,
-			raw->ssd_pages, _raw_ram_flush_all_fill, raw);
+	context = env_vmalloc(sizeof(*context));
+	if (!context) {
+		cmpl(priv, -OCF_ERR_NO_MEM);
+		return;
+	}
+
+	context->raw = raw;
+	context->cmpl = cmpl;
+	context->priv = priv;
+
+	result = metadata_io_write_i_asynch(cache, cache->mngt_queue, context,
+			raw->ssd_pages_offset, raw->ssd_pages,
+			_raw_ram_flush_all_fill, _raw_ram_flush_all_complete);
+	if (result)
+		_raw_ram_flush_all_complete(cache, context, result);
 }
 
 /*
@@ -515,7 +564,6 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.set			= _raw_ram_set,
 		.rd_access		= _raw_ram_rd_access,
 		.wr_access		= _raw_ram_wr_access,
-		.flush			= _raw_ram_flush,
 		.load_all		= _raw_ram_load_all,
 		.flush_all		= _raw_ram_flush_all,
 		.flush_mark		= _raw_ram_flush_mark,
@@ -531,7 +579,6 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.set			= raw_dynamic_set,
 		.rd_access		= raw_dynamic_rd_access,
 		.wr_access		= raw_dynamic_wr_access,
-		.flush			= raw_dynamic_flush,
 		.load_all		= raw_dynamic_load_all,
 		.flush_all		= raw_dynamic_flush_all,
 		.flush_mark		= raw_dynamic_flush_mark,
@@ -547,7 +594,6 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.set			= _raw_ram_set,
 		.rd_access		= _raw_ram_rd_access,
 		.wr_access		= _raw_ram_wr_access,
-		.flush			= raw_volatile_flush,
 		.load_all		= raw_volatile_load_all,
 		.flush_all		= raw_volatile_flush_all,
 		.flush_mark		= raw_volatile_flush_mark,
@@ -563,7 +609,6 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.set			= _raw_ram_set,
 		.rd_access		= _raw_ram_rd_access,
 		.wr_access		= _raw_ram_wr_access,
-		.flush			= _raw_ram_flush,
 		.load_all		= _raw_ram_load_all,
 		.flush_all		= _raw_ram_flush_all,
 		.flush_mark		= raw_atomic_flush_mark,

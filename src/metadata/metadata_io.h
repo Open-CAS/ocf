@@ -36,7 +36,7 @@ typedef int (*ocf_metadata_io_event_t)(ocf_cache_t cache,
  * @param error - error
  * @param page - page that was written
  */
-typedef void (*ocf_metadata_io_hndl_on_write_t)(ocf_cache_t cache,
+typedef void (*ocf_metadata_io_end_t)(ocf_cache_t cache,
 		void *context, int error);
 
 struct metadata_io_request_asynch;
@@ -50,9 +50,9 @@ struct metadata_io_request {
 	uint32_t page;
 	uint32_t count;
 	ocf_metadata_io_event_t on_meta_fill;
+	ocf_metadata_io_event_t on_meta_drain;
 	env_atomic req_remaining;
 	ctx_data_t *data;
-	env_completion completion;
 	int error;
 	struct metadata_io_request_asynch *asynch;
 	env_atomic finished;
@@ -70,21 +70,6 @@ struct metadata_io_request_atomic {
 };
 
 /*
- *
- */
-struct metadata_io {
-	int error;
-	int dir;
-	ocf_cache_t cache;
-	uint32_t page;
-	uint32_t count;
-	env_completion completion;
-	env_atomic req_remaining;
-	ocf_metadata_io_event_t hndl_fn;
-	void *hndl_cntx;
-};
-
-/*
  * Asynchronous IO request context
  */
 struct metadata_io_request_asynch {
@@ -96,7 +81,7 @@ struct metadata_io_request_asynch {
 	env_atomic req_remaining;
 	env_atomic req_active;
 	uint32_t page;
-	ocf_metadata_io_hndl_on_write_t on_complete;
+	ocf_metadata_io_end_t on_complete;
 };
 
 /**
@@ -110,70 +95,59 @@ struct metadata_io_request_asynch {
  * @retval 0 Success
  * @retval Non-zero Error which will bee finally returned to the caller
  */
-typedef int (*ocf_metadata_atomic_io_event_t)(
-		ocf_cache_t cache, uint64_t sector_addr,
+typedef int (*ocf_metadata_atomic_io_event_t)(void *priv, uint64_t sector_addr,
 		uint32_t sector_no, ctx_data_t *data);
 
 /**
- * @brief Write page request
+ * @brief Iterative asynchronous read atomic metadata
  *
  * @param cache - Cache instance
- * @param data - Data to be written for specified page
- * @param page - Page of SSD (cache device) where data has to be placed
- * @return 0 - No errors, otherwise error occurred
- */
-int metadata_io_write(ocf_cache_t cache,
-		void *data, uint32_t page);
-
-int metadata_io_read_i_atomic(ocf_cache_t cache,
-		ocf_metadata_atomic_io_event_t hndl);
-
-/**
- * @brief Iterative pages write
- *
- * @param cache - Cache instance
- * @param page - Start page of SSD (cache device) where data will be written
- * @param count - Counts of page to be processed
- * @param hndl_fn - Fill callback is called to fill each pages with data
- * @param hndl_cntx - Caller context which is passed on fill callback request
+ * @param queue - Queue to be used for IO
+ * @param context - Read context
+ * @param drain_hndl - Drain callback
+ * @param compl_hndl - All IOs completed callback
  *
  * @return 0 - No errors, otherwise error occurred
  */
-int metadata_io_write_i(ocf_cache_t cache,
-		uint32_t page, uint32_t count,
-		ocf_metadata_io_event_t hndl_fn, void *hndl_cntx);
-
-/**
- * * @brief Iterative pages read
- *
- * @param cache - Cache instance
- * @param page - Start page of SSD (cache device) of data will be read
- * @param count - Counts of page to be processed
- * @param hndl_fn - Callback function is called on each page read completion
- * @param hndl_cntx - Caller context passed during handle function call
- *
- * @return 0 - No errors, otherwise error occurred
- */
-int metadata_io_read_i(ocf_cache_t cache,
-		uint32_t page, uint32_t count,
-		ocf_metadata_io_event_t hndl_fn, void *hndl_cntx);
+int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue,
+		void *context, ocf_metadata_atomic_io_event_t drain_hndl,
+		ocf_metadata_io_end_t compl_hndl);
 
 /**
  * @brief Iterative asynchronous pages write
  *
  * @param cache - Cache instance
+ * @param queue - Queue to be used for IO
  * @param context - Read context
  * @param page - Start page of SSD (cache device) where data will be written
  * @param count - Counts of page to be processed
- * @param fill - Fill callback
- * @param complete - All IOs completed callback
+ * @param fill_hndl - Fill callback
+ * @param compl_hndl - All IOs completed callback
  *
  * @return 0 - No errors, otherwise error occurred
  */
 int metadata_io_write_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 		void *context, uint32_t page, uint32_t count,
 		ocf_metadata_io_event_t fill_hndl,
-		ocf_metadata_io_hndl_on_write_t compl_hndl);
+		ocf_metadata_io_end_t compl_hndl);
+
+/**
+ * @brief Iterative asynchronous pages read
+ *
+ * @param cache - Cache instance
+ * @param queue - Queue to be used for IO
+ * @param context - Read context
+ * @param page - Start page of SSD (cache device) where data will be read
+ * @param count - Counts of page to be processed
+ * @param drain_hndl - Drain callback
+ * @param compl_hndl - All IOs completed callback
+ *
+ * @return 0 - No errors, otherwise error occurred
+ */
+int metadata_io_read_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
+		void *context, uint32_t page, uint32_t count,
+		ocf_metadata_io_event_t drain_hndl,
+		ocf_metadata_io_end_t compl_hndl);
 
 /**
  * Function for initializing metadata io.

@@ -66,36 +66,26 @@ static inline void ocf_metadata_set_shutdown_status(ocf_cache_t cache,
 		enum ocf_metadata_shutdown_status shutdown_status,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	int result;
-
-	result = cache->metadata.iface.set_shutdown_status(cache,
-			shutdown_status);
-	cmpl(priv, result);
+	cache->metadata.iface.set_shutdown_status(cache, shutdown_status,
+			cmpl, priv);
 }
 
 static inline void ocf_metadata_load_superblock(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	int result;
-
-	result = cache->metadata.iface.load_superblock(cache);
-	cmpl(priv, result);
+	cache->metadata.iface.load_superblock(cache, cmpl, priv);
 }
 
 static inline void ocf_metadata_flush_superblock(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	int result = 0;
+	/* TODO: Shouldn't it be checked by the caller? */
+	if (!cache->device) {
+		cmpl(priv, 0);
+		return;
+	}
 
-	if (cache->device)
-		result = cache->metadata.iface.flush_superblock(cache);
-
-	cmpl(priv, result);
-}
-
-static inline uint64_t ocf_metadata_get_reserved_lba(ocf_cache_t cache)
-{
-	return cache->metadata.iface.get_reserved_lba(cache);
+	cache->metadata.iface.flush_superblock(cache, cmpl, priv);
 }
 
 #endif /* METADATA_SUPERBLOCK_H_ */
