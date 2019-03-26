@@ -452,7 +452,7 @@ void _ocf_flush_container_complete(void *ctx)
 {
 	struct ocf_mngt_cache_flush_context *context = ctx;
 
-	if (atomic_dec_return(&context->fcs.count)) {
+	if (env_atomic_dec_return(&context->fcs.count)) {
 		return;
 	}
 
