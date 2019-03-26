@@ -2063,16 +2063,6 @@ static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
 	if (error)
 		context->error = error;
 
-	env_mutex_lock(&ctx->lock);
-	/* Mark device uninitialized */
-	cache->valid_ocf_cache_device_t = 0;
-	/* Remove cache from the list */
-	list_del(&cache->list);
-	/* Finally release cache instance */
-	ocf_mngt_cache_put(cache);
-	env_mutex_unlock(&ctx->lock);
-
-
 	if (context->error == -OCF_ERR_WRITE_CACHE) {
 		ocf_log(ctx, log_warn, "Stopped cache %s with errors\n",
 				context->cache_name);
@@ -2087,6 +2077,15 @@ static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
 	context->cmpl(cache, context->priv, context->error);
 
 	ocf_pipeline_destroy(context->pipeline);
+
+	env_mutex_lock(&ctx->lock);
+	/* Mark device uninitialized */
+	cache->valid_ocf_cache_device_t = 0;
+	/* Remove cache from the list */
+	list_del(&cache->list);
+	/* Finally release cache instance */
+	ocf_mngt_cache_put(cache);
+	env_mutex_unlock(&ctx->lock);
 }
 
 struct ocf_pipeline_properties ocf_mngt_cache_stop_pipeline_properties = {
