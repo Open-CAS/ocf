@@ -588,6 +588,26 @@ err_pipeline:
 	cmpl(cache, NULL, priv, result);
 }
 
+/*
+ * Synchronously wait until cleaning triggered by eviction finishes.
+ * TODO: Replace it with asynchronous mechanism.
+ */
+static int _ocf_cleaning_wait_for_finish(ocf_cache_t cache, int32_t timeout_ms)
+{
+	if (!ocf_cache_is_device_attached(cache))
+		return 0;
+
+	while (ocf_cache_has_pending_cleaning(cache)) {
+		env_msleep(20);
+
+		timeout_ms -= 20;
+		if (timeout_ms <= 0)
+			return -EBUSY;
+	}
+
+	return 0;
+}
+
 struct ocf_mngt_cache_remove_core_context {
 	ocf_mngt_cache_remove_core_end_t cmpl;
 	void *priv;
@@ -650,6 +670,12 @@ void ocf_mngt_cache_remove_core(ocf_core_t core,
 	cache = ocf_core_get_cache(core);
 	core_id = ocf_core_get_id(core);
 
+	/* TODO: Make this asynchronous */
+	if (_ocf_cleaning_wait_for_finish(cache, 60 * 1000)) {
+		cmpl(priv, -OCF_ERR_CACHE_IN_USE);
+		return;
+	}
+
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_remove_core_pipeline_props);
 	if (result) {
@@ -702,9 +728,20 @@ static int _ocf_mngt_cache_detach_core(ocf_core_t core)
 void ocf_mngt_cache_detach_core(ocf_core_t core,
 		ocf_mngt_cache_detach_core_end_t cmpl, void *priv)
 {
-	ocf_cache_t cache = ocf_core_get_cache(core);
-	const char *core_name = ocf_core_get_name(core);
+	ocf_cache_t cache;
+	const char *core_name;
 	int result;
+
+	OCF_CHECK_NULL(core);
+
+	cache = ocf_core_get_cache(core);
+	core_name = ocf_core_get_name(core);
+
+	/* TODO: Make this asynchronous */
+	if (_ocf_cleaning_wait_for_finish(cache, 60 * 1000)) {
+		cmpl(priv, -OCF_ERR_CACHE_IN_USE);
+		return;
+	}
 
 	ocf_core_log(core, log_debug, "Detaching core\n");
 
