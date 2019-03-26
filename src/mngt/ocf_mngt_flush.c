@@ -14,6 +14,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_part.h"
 #include "../utils/utils_pipeline.h"
+#include "../utils/utils_refcnt.h"
 #include "../utils/utils_req.h"
 #include "../ocf_def_priv.h"
 
@@ -77,30 +78,31 @@ struct ocf_mngt_cache_flush_context
 	struct flush_containers_context fcs;
 };
 
+static void _ocf_mngt_begin_flush_complete(void *priv)
+{
+	struct ocf_mngt_cache_flush_context *context = priv;
+	ocf_pipeline_next(context->pipeline);
+}
+
 static void _ocf_mngt_begin_flush(ocf_pipeline_t pipeline, void *priv,
 		ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_flush_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	/* FIXME: need mechanism for async waiting for outstanding flushed to
+	/* FIXME: need mechanism for async waiting for outstanding flushes to
 	 * finish */
 	env_mutex_lock(&cache->flush_mutex);
 
-	env_atomic_inc(&cache->flush_started);
+	ocf_refcnt_freeze(&cache->dirty);
 
-	/* FIXME: remove waitqueue from async begin */
-	env_waitqueue_wait(cache->pending_dirty_wq,
-			!env_atomic_read(&cache->pending_dirty_requests));
-
-	cache->flushing_interrupted = 0;
-
-	ocf_pipeline_next(context->pipeline);
+	ocf_refcnt_register_zero_cb(&cache->dirty,
+			_ocf_mngt_begin_flush_complete, context);
 }
 
 static void _ocf_mngt_end_flush(ocf_cache_t cache)
 {
-	ENV_BUG_ON(env_atomic_dec_return(&cache->flush_started) < 0);
+	ocf_refcnt_unfreeze(&cache->dirty);
 
 	env_mutex_unlock(&cache->flush_mutex);
 }
@@ -445,7 +447,7 @@ static void _ocf_mngt_flush_container(
 
 finish:
 	env_atomic_cmpxchg(&context->fcs.error, 0, error);
-	end(fc);
+	end(context);
 }
 
 void _ocf_flush_container_complete(void *ctx)
@@ -598,6 +600,7 @@ static void _ocf_mngt_cache_flush(ocf_pipeline_t pipeline, void *priv,
 		ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_flush_context *context = priv;
+	context->cache->flushing_interrupted = 0;
 	_ocf_mngt_flush_all_cores(context, _ocf_mngt_flush_all_cores_complete);
 }
 

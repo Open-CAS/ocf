@@ -20,6 +20,7 @@
 #include "engine_d2c.h"
 #include "engine_ops.h"
 #include "../utils/utils_part.h"
+#include "../utils/utils_refcnt.h"
 #include "../utils/utils_req.h"
 #include "../metadata/metadata.h"
 #include "../eviction/eviction.h"
@@ -230,10 +231,6 @@ ocf_cache_mode_t ocf_get_effective_cache_mode(ocf_cache_t cache,
 
 	if (ocf_fallback_pt_is_on(cache))
 		mode = ocf_cache_mode_pt;
-
-	if (mode == ocf_cache_mode_wb &&
-			env_atomic_read(&cache->flush_started))
-		mode = ocf_cache_mode_wt;
 
 	return mode;
 }

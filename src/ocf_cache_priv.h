@@ -14,6 +14,7 @@
 #include "metadata/metadata_partition_structs.h"
 #include "metadata/metadata_updater_priv.h"
 #include "utils/utils_list.h"
+#include "utils/utils_refcnt.h"
 #include "ocf_stats_priv.h"
 #include "cleaning/cleaning.h"
 #include "ocf_logger_priv.h"
@@ -172,8 +173,7 @@ struct ocf_cache {
 	env_atomic pending_cache_requests;
 	env_waitqueue pending_cache_wq;
 
-	env_atomic pending_dirty_requests;
-	env_waitqueue pending_dirty_wq;
+	struct ocf_refcnt dirty;
 
 	uint32_t fallback_pt_error_threshold;
 	env_atomic fallback_pt_error_counter;
@@ -194,9 +194,6 @@ struct ocf_cache {
 	struct ocf_core_meta_runtime *core_runtime_meta;
 
 	env_atomic flush_in_progress;
-
-	/* Prevent dirty requests. May be incremented recursively */
-	env_atomic flush_started;
 
 	/* 1 if cache device attached, 0 otherwise */
 	env_atomic attached;
