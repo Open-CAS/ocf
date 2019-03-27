@@ -9,7 +9,6 @@
 #include "../ocf_ctx_priv.h"
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
-#include "../utils/utils_part.h"
 #include "../utils/utils_req.h"
 #include "../utils/utils_device.h"
 #include "../eviction/ops.h"
@@ -116,53 +115,6 @@ void cache_mng_core_remove_from_cache(struct ocf_cache *cache, int core_id)
 	}
 
 	cache->conf_meta->core_count--;
-}
-
-/**
- * @brief Wait for the end of asynchronous cleaning
- *
- * @param cache OCF cache instance
- * @param timeout_ms Timeout for waiting in milliseconds
- * @note When timeout is less than zero it means wait forever
- *
- * @retval 0 cleaning finished
- * @retval non-zero timeout and cleaning still in progress
- */
-static int _ocf_cleaning_wait_for_finish(struct ocf_cache *cache,
-		const int32_t timeout_ms)
-{
-	struct ocf_user_part *curr_part;
-	ocf_part_id_t part_id;
-	bool cleaning_active = ocf_cache_is_device_attached(cache);
-	int64_t _timeout = timeout_ms;
-
-	while (cleaning_active) {
-		cleaning_active = false;
-
-		OCF_METADATA_LOCK_WR();
-		for_each_part(cache, curr_part, part_id) {
-			if (env_atomic_read(&cache->cleaning[part_id])) {
-				cleaning_active = true;
-				break;
-			}
-		}
-		OCF_METADATA_UNLOCK_WR();
-
-		if (cleaning_active) {
-			env_msleep(20);
-
-			if (timeout_ms >= 0) {
-				_timeout -= 20;
-				if (_timeout <= 0)
-					break;
-			}
-		}
-	};
-
-	if (cleaning_active)
-		return -EBUSY;
-
-	return 0;
 }
 
 void ocf_mngt_cache_put(ocf_cache_t cache)
@@ -275,15 +227,6 @@ static int _ocf_mngt_cache_lock(ocf_cache_t cache, int (*lock_fn)(env_rwsem *s),
 		goto unlock;
 	}
 
-	/* Return, when asynchronous cleaning is finished */
-	if (_ocf_cleaning_wait_for_finish(cache, 60 * 1000)) {
-		/* Because of some reasons, asynchronous cleaning still active,
-		 * cannot continue
-		 */
-		ret = -OCF_ERR_CACHE_IN_USE;
-		goto unlock;
-	}
-
 	return 0;
 
 unlock:
@@ -321,15 +264,15 @@ int ocf_mngt_cache_read_trylock(ocf_cache_t cache)
 }
 
 /* if cache is either fully initialized or during recovery */
-static ocf_cache_t _ocf_mngt_cache_try_get(ocf_cache_t cache)
+static bool _ocf_mngt_cache_try_get(ocf_cache_t cache)
 {
 	if (!!cache->valid_ocf_cache_device_t) {
 		/* Increase reference counter */
 		env_atomic_inc(&cache->ref_count);
-		return cache;
+		return true;
 	}
 
-	return NULL;
+	return false;
 }
 
 int ocf_mngt_cache_get(ocf_cache_t cache)
@@ -345,7 +288,7 @@ static int _ocf_mngt_cache_get_list_cpy(ocf_ctx_t ocf_ctx, ocf_cache_t **list,
 {
 	int result = 0;
 	uint32_t count = 0, i = 0;
-	struct ocf_cache *iter, *this;
+	ocf_cache_t iter;
 
 	*list = NULL;
 	*size = 0;
@@ -366,12 +309,9 @@ static int _ocf_mngt_cache_get_list_cpy(ocf_ctx_t ocf_ctx, ocf_cache_t **list,
 	}
 
 	list_for_each_entry(iter, &ocf_ctx->caches, list) {
-		this = _ocf_mngt_cache_try_get(iter);
 
-		if (this) {
-			(*list)[i] = this;
-			i++;
-		}
+		if (_ocf_mngt_cache_try_get(iter))
+			(*list)[i++] = iter;
 	}
 
 	if (i) {

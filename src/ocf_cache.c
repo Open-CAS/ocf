@@ -8,6 +8,7 @@
 #include "engine/cache_engine.h"
 #include "utils/utils_cache_line.h"
 #include "utils/utils_req.h"
+#include "utils/utils_part.h"
 #include "ocf_priv.h"
 #include "ocf_cache_priv.h"
 
@@ -68,12 +69,42 @@ void ocf_cache_wait_for_io_finish(ocf_cache_t cache)
 bool ocf_cache_has_pending_requests(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
+
 	return ocf_req_get_allocated(cache) > 0;
+}
+
+/*
+ * This is temporary workaround allowing to check if cleaning triggered
+ * by eviction policy is running on the cache. This information is needed
+ * to remove core from cache properly.
+ *
+ * TODO: Replace this with asynchronous notification to which remove/detach
+ * core pipelines can subscribe.
+ */
+bool ocf_cache_has_pending_cleaning(ocf_cache_t cache)
+{
+	struct ocf_user_part *curr_part;
+	ocf_part_id_t part_id;
+	bool cleaning_active = false;
+
+	OCF_CHECK_NULL(cache);
+
+	OCF_METADATA_LOCK_RD();
+	for_each_part(cache, curr_part, part_id) {
+		if (env_atomic_read(&cache->cleaning[part_id])) {
+			cleaning_active = true;
+			break;
+		}
+	}
+	OCF_METADATA_UNLOCK_RD();
+
+	return cleaning_active;
 }
 
 ocf_cache_mode_t ocf_cache_get_mode(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
+
 	return cache->conf_meta->cache_mode;
 }
 
