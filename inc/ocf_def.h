@@ -293,7 +293,7 @@ typedef enum {
 #define OCF_IO_CLASS_INVALID OCF_IO_CLASS_MAX
 
 /** Maximum size of the IO class name */
-#define OCF_IO_CLASS_NAME_MAX 33
+#define OCF_IO_CLASS_NAME_MAX 1024
 
 /** IO class priority which indicates pinning */
 #define OCF_IO_CLASS_PRIO_PINNED -1
