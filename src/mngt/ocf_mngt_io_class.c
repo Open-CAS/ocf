@@ -134,7 +134,7 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 		dest_part->config->cache_mode = cache_mode;
 
 		ocf_cache_log(cache, log_info,
-				"Updating Unclassified IO class, id: "
+				"Updating unclassified IO class, id: "
 				"%u [ OK ]\n", part_id);
 
 		return 0;
