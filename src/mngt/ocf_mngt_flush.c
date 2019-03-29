@@ -937,9 +937,8 @@ void ocf_mngt_cache_flush_interrupt(ocf_cache_t cache)
 
 int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type)
 {
-
 	ocf_cleaning_t old_type;
-	int ret;
+	int ret = 0;
 
 	OCF_CHECK_NULL(cache);
 
