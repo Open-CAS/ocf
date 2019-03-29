@@ -959,7 +959,7 @@ static void _ocf_mngt_attach_load_properties_end(void *priv, int error,
 	}
 
 	context->metadata.shutdown_status = properties->shutdown_status;
-	context->metadata.dirty_flushed = properties->shutdown_status;
+	context->metadata.dirty_flushed = properties->dirty_flushed;
 
 	if (cache->device->init_mode == ocf_init_mode_load) {
 		context->metadata.line_size = properties->line_size;
