@@ -412,7 +412,7 @@ static int _ocf_mngt_init_instance_add_cores(
 			ocf_cache_log(cache, log_info,
 					"Attached core %u from pool\n", i);
 		} else {
-			ret = ocf_volume_open(&core->volume);
+			ret = ocf_volume_open(&core->volume, NULL);
 			if (ret == -OCF_ERR_NOT_OPEN_EXC) {
 				ocf_cache_log(cache, log_warn,
 						"Cannot open core %u. "
@@ -616,7 +616,8 @@ static void _ocf_mngt_attach_cache_device(ocf_pipeline_t pipeline,
 	 * Open cache device, It has to be done first because metadata service
 	 * need to know size of cache device.
 	 */
-	ret = ocf_volume_open(&cache->device->volume);
+	ret = ocf_volume_open(&cache->device->volume,
+			context->cfg.volume_params);
 	if (ret) {
 		ocf_cache_log(cache, log_err, "ERROR: Cache not available\n");
 		goto err;
@@ -1123,7 +1124,7 @@ int ocf_mngt_get_ram_needed(ocf_cache_t cache,
 	if (result)
 		return result;
 
-	result = ocf_volume_open(&volume);
+	result = ocf_volume_open(&volume, cfg->volume_params);
 	if (result) {
 		ocf_volume_deinit(&volume);
 		return result;

@@ -38,7 +38,7 @@ int ocf_mngt_core_pool_add(ocf_ctx_t ctx, ocf_uuid_t uuid, uint8_t type)
 	if (result)
 		return result;
 
-	result = ocf_volume_open(volume);
+	result = ocf_volume_open(volume, NULL);
 	if (result) {
 		ocf_volume_deinit(volume);
 		return result;

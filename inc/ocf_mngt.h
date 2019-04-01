@@ -341,6 +341,12 @@ struct ocf_mngt_cache_device_config {
 	 * @brief If set, cache device will be discarded on cache start
 	 */
 	bool discard_on_start;
+
+	/**
+	 * @brief Optional opaque volume parameters, passed down to cache volume
+	 * open callback
+	 */
+	void *volume_params;
 };
 
 /**

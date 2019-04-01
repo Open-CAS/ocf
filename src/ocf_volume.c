@@ -264,14 +264,14 @@ void ocf_volume_submit_discard(struct ocf_io *io)
 	io->volume->type->properties->ops.submit_discard(io);
 }
 
-int ocf_volume_open(ocf_volume_t volume)
+int ocf_volume_open(ocf_volume_t volume, void *volume_params)
 {
 	int ret;
 
 	ENV_BUG_ON(!volume->type->properties->ops.open);
 	ENV_BUG_ON(volume->opened);
 
-	ret = volume->type->properties->ops.open(volume);
+	ret = volume->type->properties->ops.open(volume, volume_params);
 	if (ret)
 		return ret;
 
