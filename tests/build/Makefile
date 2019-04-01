@@ -17,7 +17,7 @@ INCDIR=include/
 
 SRC=$(shell find ${SRCDIR} -name \*.c)
 OBJS = $(patsubst %.c, %.o, $(SRC))
-CFLAGS = -Wall -I${INCDIR} -I${SRCDIR}/ocf/env/
+CFLAGS = -Wall -Werror -I${INCDIR} -I${SRCDIR}/ocf/env/
 
 all: sync
 	$(MAKE) build
