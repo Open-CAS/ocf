@@ -143,6 +143,7 @@ void ocf_volume_move(ocf_volume_t volume, ocf_volume_t from)
 	 */
 	from->opened = false;
 	from->priv = NULL;
+	from->uuid.data = NULL;
 }
 
 int ocf_volume_create(ocf_volume_t *volume, ocf_volume_type_t type,
