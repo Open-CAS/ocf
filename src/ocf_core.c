@@ -475,7 +475,7 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 
 /* *** VOLUME OPS *** */
 
-static int ocf_core_volume_open(ocf_volume_t volume)
+static int ocf_core_volume_open(ocf_volume_t volume, void *volume_params)
 {
 	struct ocf_core_volume *core_volume = ocf_volume_get_priv(volume);
 	const struct ocf_volume_uuid *uuid = ocf_volume_get_uuid(volume);

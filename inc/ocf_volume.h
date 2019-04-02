@@ -88,8 +88,9 @@ struct ocf_volume_ops {
 	 *	 be called before any other operation on volume
 	 *
 	 * @param[in] volume Volume
+	 * @param[in] volume_params optional volume parameters, opaque to OCF
 	 */
-	int (*open)(ocf_volume_t volume);
+	int (*open)(ocf_volume_t volume, void *volume_params);
 
 	/**
 	 * @brief Close volume
@@ -285,10 +286,11 @@ void ocf_volume_submit_discard(struct ocf_io *io);
  * @brief Open volume
  *
  * @param[in] volume Volume
+ * @param[in] volume_params Opaque volume params
  *
  * @return Zero when success, othewise en error
  */
-int ocf_volume_open(ocf_volume_t volume);
+int ocf_volume_open(ocf_volume_t volume, void *volume_params);
 
 /**
  * @brief Get volume max io size

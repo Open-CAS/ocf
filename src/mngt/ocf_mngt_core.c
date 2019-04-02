@@ -38,7 +38,7 @@ static int _ocf_mngt_cache_try_add_core(ocf_cache_t cache, ocf_core_t *core,
 		goto error_out;
 	}
 
-	result = ocf_volume_open(volume);
+	result = ocf_volume_open(volume, NULL);
 	if (result)
 		goto error_out;
 
@@ -187,7 +187,7 @@ static void _ocf_mngt_cache_add_core(ocf_cache_t cache,
 		}
 	}
 
-	result = ocf_volume_open(volume);
+	result = ocf_volume_open(volume, NULL);
 	if (result) {
 		ocf_pipeline_finish(context->pipeline, result);
 		return;
@@ -417,7 +417,7 @@ int ocf_mngt_core_init_front_volume(ocf_core_t core)
 	if (ret)
 		return ret;
 
-	return ocf_volume_open(&core->front_volume);
+	return ocf_volume_open(&core->front_volume, NULL);
 }
 
 static void ocf_mngt_cache_add_core_prepare(ocf_pipeline_t pipeline,
