@@ -4,15 +4,15 @@
 #
 
 import pytest
+from ctypes import c_int
 
 from pyocf.types.cache import Cache
 from pyocf.types.core import Core
 from pyocf.types.volume import Volume, ErrorDevice
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
-from pyocf.types.queue import Queue
 from pyocf.utils import Size as S
-from pyocf.types.shared import OcfError
+from pyocf.types.shared import OcfError, OcfCompletion
 
 
 def test_ctx_fixture(pyocf_ctx):
@@ -51,7 +51,6 @@ def test_simple_wt_write(pyocf_ctx):
     cache = Cache.start_on_device(cache_device)
     core = Core.using_device(core_device)
 
-    queue = Queue(cache)
     cache.add_core(core)
 
     cache_device.reset_stats()
@@ -61,9 +60,14 @@ def test_simple_wt_write(pyocf_ctx):
     io = core.new_io()
     io.set_data(write_data)
     io.configure(20, write_data.size, IoDir.WRITE, 0, 0)
-    io.set_queue(queue)
-    io.submit()
+    io.set_queue(cache.get_default_queue())
 
+    cmpl = OcfCompletion([("err", c_int)])
+    io.callback = cmpl.callback
+    io.submit()
+    cmpl.wait()
+
+    assert cmpl.results["err"] == 0
     assert cache_device.get_stats()[IoDir.WRITE] == 1
     stats = cache.get_stats()
     assert stats["req"]["wr_full_misses"]["value"] == 1
@@ -82,7 +86,7 @@ def test_start_corrupted_metadata_lba(pyocf_ctx):
 def test_load_cache_no_preexisting_data(pyocf_ctx):
     cache_device = Volume(S.from_MiB(100))
 
-    with pytest.raises(OcfError, match="OCF_ERR_INVAL"):
+    with pytest.raises(OcfError, match="OCF_ERR_START_CACHE_FAIL"):
         cache = Cache.load_from_device(cache_device)
 
 

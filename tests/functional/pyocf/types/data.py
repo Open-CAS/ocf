@@ -3,7 +3,20 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-from ctypes import *
+from ctypes import (
+    c_void_p,
+    c_uint32,
+    CFUNCTYPE,
+    c_uint64,
+    create_string_buffer,
+    cast,
+    memset,
+    c_char_p,
+    string_at,
+    Structure,
+    c_int,
+    memmove,
+)
 from enum import IntEnum
 from hashlib import md5
 
@@ -150,7 +163,9 @@ class Data(SharedOcfObject):
     @staticmethod
     @DataOps.COPY
     def _copy(dst, src, end, start, size):
-        return Data.get_instance(dst).copy(Data.get_instance(src), end, start, size)
+        return Data.get_instance(dst).copy(
+            Data.get_instance(src), end, start, size
+        )
 
     @staticmethod
     @DataOps.SECURE_ERASE

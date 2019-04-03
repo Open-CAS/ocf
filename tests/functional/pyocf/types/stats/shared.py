@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-from ctypes import *
+from ctypes import c_uint64, c_uint32, Structure
 
 
 class _Stat(Structure):
