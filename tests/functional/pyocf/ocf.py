@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 from ctypes import c_void_p, cdll
+import inspect
+import os
 
 lib = None
 
@@ -13,7 +15,12 @@ class OcfLib:
     @classmethod
     def getInstance(cls):
         if cls.__lib__ is None:
-            lib = cdll.LoadLibrary("./pyocf/libocf.so")
+            lib = cdll.LoadLibrary(
+                os.path.join(
+                    os.path.dirname(inspect.getfile(inspect.currentframe())),
+                    "libocf.so",
+                )
+            )
             lib.ocf_volume_get_uuid.restype = c_void_p
             lib.ocf_volume_get_uuid.argtypes = [c_void_p]
 
