@@ -166,3 +166,5 @@ lib = OcfLib.getInstance()
 lib.ocf_core_get_volume.restype = c_void_p
 lib.ocf_volume_new_io.argtypes = [c_void_p]
 lib.ocf_volume_new_io.restype = c_void_p
+lib.ocf_core_get_volume.argtypes = [c_void_p]
+lib.ocf_core_get_volume.restype = c_void_p
