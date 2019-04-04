@@ -20,6 +20,7 @@ from ctypes import (
 from enum import IntEnum
 from datetime import timedelta
 
+from ..ocf import OcfLib
 from .shared import Uuid, OcfError, CacheLineSize, CacheLines, OcfCompletion
 from ..utils import Size, struct_to_dict
 from .core import Core
@@ -289,6 +290,27 @@ class Cache:
 
         self.put_and_write_unlock()
 
+    def remove_core(self, core: Core):
+        self.get_and_write_lock()
+
+        c = OcfCompletion(
+            [
+                ("priv", c_void_p),
+                ("error", c_int),
+            ]
+        )
+
+        self.owner.lib.ocf_mngt_cache_remove_core(
+            core.handle, c, None
+        )
+
+        c.wait()
+        if c.results["error"]:
+            self.put_and_write_unlock()
+            raise OcfError("Failed removing core", c.results["error"])
+
+        self.put_and_write_unlock()
+
     def get_stats(self):
         cache_info = CacheInfo()
         usage = UsageStats()
@@ -389,3 +411,7 @@ class Cache:
 
         self.put_and_write_unlock()
         self.owner.caches.remove(self)
+
+lib = OcfLib.getInstance()
+lib.ocf_mngt_cache_remove_core.argtypes = [c_void_p, c_void_p, c_void_p]
+lib.ocf_mngt_cache_add_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p]
