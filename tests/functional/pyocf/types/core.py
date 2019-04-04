@@ -173,6 +173,10 @@ class Core:
 
         return read_buffer.md5()
 
+    def flush(self):
+        # TODO: implement flush method for core
+        pass
+
 
 lib = OcfLib.getInstance()
 lib.ocf_core_get_volume.restype = c_void_p

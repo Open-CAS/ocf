@@ -3,12 +3,14 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-import os
+
 import sys
+import os
 import pytest
 import gc
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.path.pardir))
+
 from pyocf.types.logger import LogLevel, DefaultLogger, BufferLogger
 from pyocf.types.volume import Volume, ErrorDevice
 from pyocf.types.ctx import get_default_ctx
@@ -37,3 +39,4 @@ def pyocf_ctx_log_buffer():
     yield logger
     c.exit()
     gc.collect()
+

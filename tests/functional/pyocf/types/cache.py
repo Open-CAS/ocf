@@ -154,6 +154,7 @@ class Cache:
         self.cache_handle = c_void_p()
         self._as_parameter_ = self.cache_handle
         self.io_queues = []
+        self.device = None
         self.cores = []
 
     def start_cache(
@@ -303,7 +304,6 @@ class Cache:
     @classmethod
     def start_on_device(cls, device, **kwargs):
         c = cls(owner=device.owner, **kwargs)
-
         c.start_cache()
         try:
             c.attach_device(device, force=True)
