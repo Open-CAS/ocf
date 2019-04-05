@@ -196,6 +196,12 @@ static inline int ocf_core_validate_io(struct ocf_io *io)
 	if (!io->end)
 		return -EINVAL;
 
+	/* Core volume I/O must not be queued on management queue - this would
+	 * break I/O accounting code, resulting in use-after-free type of errors
+	 * after cache detach, core remove etc. */
+	if (io->io_queue == io->volume->cache->mngt_queue)
+		return -EINVAL;
+
 	return 0;
 }
 
@@ -226,7 +232,7 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 
 	ret = ocf_core_validate_io(io);
 	if (ret < 0) {
-		io->end(io, -EINVAL);
+		io->end(io, ret);
 		return;
 	}
 
@@ -400,7 +406,7 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 
 	ret = ocf_core_validate_io(io);
 	if (ret < 0) {
-		ocf_io_end(io, -EINVAL);
+		ocf_io_end(io, ret);
 		return;
 	}
 
@@ -442,7 +448,7 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 
 	ret = ocf_core_validate_io(io);
 	if (ret < 0) {
-		ocf_io_end(io, -EINVAL);
+		ocf_io_end(io, ret);
 		return;
 	}
 
