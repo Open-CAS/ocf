@@ -1978,15 +1978,22 @@ struct ocf_mngt_cache_stop_context {
 	int cache_write_error;
 };
 
+static void ocf_mngt_cache_stop_wait_io_finish(void *priv)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+
+	ocf_pipeline_next(context->pipeline);
+}
+
 static void ocf_mngt_cache_stop_wait_io(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_stop_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	/* TODO: Make this asynchronous! */
-	ocf_cache_wait_for_io_finish(cache);
-	ocf_pipeline_next(pipeline);
+	ocf_refcnt_freeze(&cache->refcnt.io_req);
+	ocf_refcnt_register_zero_cb(&cache->refcnt.io_req,
+			ocf_mngt_cache_stop_wait_io_finish, context);
 }
 
 static void ocf_mngt_cache_stop_remove_cores(ocf_pipeline_t pipeline,
