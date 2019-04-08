@@ -170,12 +170,11 @@ struct ocf_cache {
 
 	struct {
 		struct ocf_refcnt io_req;
+		struct ocf_refcnt dirty;
 	} refcnt;
 
 	env_atomic pending_cache_requests;
 	env_waitqueue pending_cache_wq;
-
-	struct ocf_refcnt dirty;
 
 	uint32_t fallback_pt_error_threshold;
 	env_atomic fallback_pt_error_counter;
