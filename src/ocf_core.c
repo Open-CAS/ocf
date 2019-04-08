@@ -172,6 +172,8 @@ static inline void dec_counter_if_req_was_dirty(struct ocf_core_io *core_io,
 
 static inline int ocf_core_validate_io(struct ocf_io *io)
 {
+	ocf_core_t core;
+
 	if (!io->volume)
 		return -EINVAL;
 
@@ -199,7 +201,8 @@ static inline int ocf_core_validate_io(struct ocf_io *io)
 	/* Core volume I/O must not be queued on management queue - this would
 	 * break I/O accounting code, resulting in use-after-free type of errors
 	 * after cache detach, core remove etc. */
-	if (io->io_queue == io->volume->cache->mngt_queue)
+	core = ocf_volume_to_core(io->volume);
+	if (io->io_queue == ocf_core_get_cache(core)->mngt_queue)
 		return -EINVAL;
 
 	return 0;
