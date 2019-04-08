@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-from ctypes import c_void_p, Structure, c_char_p, cast, pointer, byref
+from ctypes import c_void_p, Structure, c_char_p, cast, pointer, byref, c_int
 
 from .logger import LoggerOps, Logger
 from .data import DataOps, Data
@@ -119,3 +119,8 @@ def get_default_ctx(logger):
         MetadataUpdater,
         Cleaner,
     )
+
+
+lib = OcfLib.getInstance()
+lib.ocf_mngt_cache_get_by_id.argtypes = [c_void_p, c_void_p, c_void_p]
+lib.ocf_mngt_cache_get_by_id.restype = c_int
