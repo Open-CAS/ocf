@@ -35,7 +35,6 @@ bool ocf_refcnt_inc(struct ocf_refcnt  *rc)
 	return false;
 }
 
-
 void ocf_refcnt_freeze(struct ocf_refcnt *rc)
 {
 	env_atomic_inc(&rc->freeze);

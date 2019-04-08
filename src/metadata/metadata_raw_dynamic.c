@@ -455,9 +455,9 @@ void raw_dynamic_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 		goto err_zpage;
 	}
 
-	context->req = ocf_req_new(cache->mngt_queue, NULL, 0, 0, 0);
-	if (!context->req) {
-		result = -OCF_ERR_NO_MEM;
+	result = ocf_req_new(&context->req, cache->mngt_queue, NULL, 0, 0, 0);
+	if (result) {
+		result = ocf_err_linux_to_ocf(result);
 		goto err_req;
 	}
 

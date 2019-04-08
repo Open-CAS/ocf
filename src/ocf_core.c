@@ -263,11 +263,11 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 		req_cache_mode = ocf_req_cache_mode_wt;
 	}
 
-	core_io->req = ocf_req_new(io->io_queue, core, io->addr, io->bytes,
-			io->dir);
-	if (!core_io->req) {
+	ret = ocf_req_new(&core_io->req, io->io_queue, core, io->addr,
+			io->bytes, io->dir);
+	if (ret) {
 		dec_counter_if_req_was_dirty(core_io, cache);
-		io->end(io, -ENOMEM);
+		io->end(io, ret);
 		return;
 	}
 
@@ -346,17 +346,18 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 		req_cache_mode = ocf_req_cache_mode_fast;
 	}
 
-	core_io->req = ocf_req_new_extended(io->io_queue, core,
+	ret = ocf_req_new_extended(&core_io->req, io->io_queue, core,
 			io->addr, io->bytes, io->dir);
+	if (ret) {
+		dec_counter_if_req_was_dirty(core_io, cache);
+		io->end(io, ret);
+		return 0;
+	}
+
 	// We need additional pointer to req in case completion arrives before
 	// we leave this function and core_io is freed
 	req = core_io->req;
 
-	if (!req) {
-		dec_counter_if_req_was_dirty(core_io, cache);
-		io->end(io, -ENOMEM);
-		return 0;
-	}
 	if (req->d2c) {
 		dec_counter_if_req_was_dirty(core_io, cache);
 		ocf_req_put(req);
@@ -424,10 +425,10 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 		return;
 	}
 
-	core_io->req = ocf_req_new(io->io_queue, core, io->addr, io->bytes,
-			io->dir);
-	if (!core_io->req) {
-		ocf_io_end(io, -ENOMEM);
+	ret = ocf_req_new(&core_io->req, io->io_queue, core, io->addr,
+			io->bytes, io->dir);
+	if (ret) {
+		ocf_io_end(io, ret);
 		return;
 	}
 
@@ -466,10 +467,10 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 		return;
 	}
 
-	core_io->req = ocf_req_new_discard(io->io_queue, core,
+	ret = ocf_req_new_discard(&core_io->req, io->io_queue, core,
 			io->addr, io->bytes, OCF_WRITE);
-	if (!core_io->req) {
-		ocf_io_end(io, -ENOMEM);
+	if (ret) {
+		ocf_io_end(io, ret);
 		return;
 	}
 

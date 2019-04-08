@@ -168,7 +168,9 @@ struct ocf_cache {
 
 	char name[OCF_CACHE_NAME_SIZE];
 
-	env_atomic pending_requests;
+	struct {
+		struct ocf_refcnt io_req;
+	} refcnt;
 
 	env_atomic pending_cache_requests;
 	env_waitqueue pending_cache_wq;

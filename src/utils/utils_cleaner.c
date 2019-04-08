@@ -34,15 +34,17 @@
 /*
  * Allocate cleaning request
  */
-static struct ocf_request *_ocf_cleaner_alloc_req(struct ocf_cache *cache,
-		uint32_t count, const struct ocf_cleaner_attribs *attribs)
+static int _ocf_cleaner_alloc_req(struct ocf_request **out_req,
+		struct ocf_cache *cache, uint32_t count,
+		const struct ocf_cleaner_attribs *attribs)
 {
-	struct ocf_request *req = ocf_req_new_extended(attribs->io_queue, NULL,
-			0, count * ocf_line_size(cache), OCF_READ);
+	struct ocf_request *req;
 	int ret;
 
-	if (!req)
-		return NULL;
+	ret = ocf_req_new_extended(&req, attribs->io_queue, NULL, 0,
+			count * ocf_line_size(cache), OCF_READ);
+	if (ret)
+		return ret;
 
 	req->info.internal = true;
 	req->info.cleaner_cache_line_lock = attribs->cache_line_lock;
@@ -52,17 +54,18 @@ static struct ocf_request *_ocf_cleaner_alloc_req(struct ocf_cache *cache,
 			ocf_line_size(cache) / PAGE_SIZE * count);
 	if (!req->data) {
 		ocf_req_put(req);
-		return NULL;
+		return -ENOMEM;
 	}
 
 	ret = ctx_data_mlock(cache->owner, req->data);
 	if (ret) {
 		ctx_data_free(cache->owner, req->data);
 		ocf_req_put(req);
-		return NULL;
+		return -ENOMEM;
 	}
 
-	return req;
+	*out_req = req;
+	return 0;
 }
 
 enum {
@@ -70,13 +73,14 @@ enum {
 	ocf_cleaner_req_type_slave = 2
 };
 
-static struct ocf_request *_ocf_cleaner_alloc_master_req(
-	struct ocf_cache *cache, uint32_t count,
-	const struct ocf_cleaner_attribs *attribs)
+static int _ocf_cleaner_alloc_master_req(struct ocf_request **out_req,
+		struct ocf_cache *cache, uint32_t count,
+		const struct ocf_cleaner_attribs *attribs)
 {
-	struct ocf_request *req = _ocf_cleaner_alloc_req(cache, count, attribs);
+	struct ocf_request *req;
+	int err = _ocf_cleaner_alloc_req(&req, cache, count, attribs);
 
-	if (req) {
+	if (!err) {
 		/* Set type of cleaning request */
 		req->master_io_req_type = ocf_cleaner_req_type_master;
 
@@ -87,20 +91,21 @@ static struct ocf_request *_ocf_cleaner_alloc_master_req(
 		/* The count of all requests */
 		env_atomic_set(&req->master_remaining, 1);
 
+		*out_req = req;
 		OCF_DEBUG_PARAM(cache, "New master request, count = %u",
 				count);
 	}
-	return req;
+	return err;
 }
 
-static struct ocf_request *_ocf_cleaner_alloc_slave_req(
-		struct ocf_request *master,
-		uint32_t count, const struct ocf_cleaner_attribs *attribs)
+static int _ocf_cleaner_alloc_slave_req(struct ocf_request **slave,
+		struct ocf_request *master, uint32_t count,
+		const struct ocf_cleaner_attribs *attribs)
 {
-	struct ocf_request *req = _ocf_cleaner_alloc_req(
-			master->cache, count, attribs);
+	struct ocf_request *req;
+	int err = _ocf_cleaner_alloc_req(&req, master->cache, count, attribs);
 
-	if (req) {
+	if (!err) {
 		/* Set type of cleaning request */
 		req->master_io_req_type = ocf_cleaner_req_type_slave;
 
@@ -115,11 +120,13 @@ static struct ocf_request *_ocf_cleaner_alloc_slave_req(
 		 */
 		env_atomic_inc(&master->master_remaining);
 
+		*slave = req;
+
 		OCF_DEBUG_PARAM(req->cache,
 			"New slave request, count = %u,all requests count = %d",
 			count, env_atomic_read(&master->master_remaining));
 	}
-	return req;
+	return err;
 }
 
 static void _ocf_cleaner_dealloc_req(struct ocf_request *req)
@@ -834,16 +841,17 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	uint64_t core_sector;
 
 	/* Allocate master request */
-	master = _ocf_cleaner_alloc_master_req(cache, max, attribs);
+	err = _ocf_cleaner_alloc_master_req(&master, cache, max, attribs);
 
-	if (!master) {
+	if (err) {
 		/* Some memory allocation error, try re-allocate request */
 		max = _ocf_cleaner_get_req_max_count(count, true);
-		master = _ocf_cleaner_alloc_master_req(cache, max, attribs);
+		err = _ocf_cleaner_alloc_master_req(&master, cache, max,
+				attribs);
 	}
 
-	if (!master) {
-		attribs->cmpl_fn(attribs->cmpl_context, -ENOMEM);
+	if (err) {
+		attribs->cmpl_fn(attribs->cmpl_context, err);
 		return;
 	}
 
@@ -862,20 +870,22 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 				max = count - i;
 			}
 
-			req = _ocf_cleaner_alloc_slave_req(master, max, attribs);
+			err = _ocf_cleaner_alloc_slave_req(&req, master, max,
+					attribs);
 		}
 
-		if (!req) {
+		if (err) {
 			/* Some memory allocation error,
 			 * try re-allocate request
 			 */
 			max = _ocf_cleaner_get_req_max_count(max, true);
-			req = _ocf_cleaner_alloc_slave_req(master, max, attribs);
+			err = _ocf_cleaner_alloc_slave_req(&req, master, max,
+					attribs);
 		}
 
 		/* when request allocation failed stop processing */
-		if (!req) {
-			master->error = -ENOMEM;
+		if (err) {
+			master->error = err;
 			break;
 		}
 

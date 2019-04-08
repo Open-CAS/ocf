@@ -95,6 +95,25 @@ typedef enum {
 
 	/** Invalid cache line size */
 	OCF_ERR_INVALID_CACHE_LINE_SIZE,
+
+	/** Unable to perform operation due to concurrent management request */
+	OCF_ERR_MNGMT_OP_IN_PROGRESS,
+
 } ocf_error_t;
+
+/* TODO: get rid of linux error codes from OCF entirely */
+static inline int ocf_err_linux_to_ocf(int err)
+{
+	switch(err) {
+	case 0:
+		return 0;
+	case -ENOMEM:
+		return -OCF_ERR_NO_MEM;
+	case -EBUSY:
+		return -OCF_ERR_MNGMT_OP_IN_PROGRESS;
+	default:
+		return -OCF_ERR_INVAL;
+	}
+}
 
 #endif /* __OCF_ERR_H__ */

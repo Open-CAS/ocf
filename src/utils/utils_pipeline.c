@@ -65,6 +65,7 @@ int ocf_pipeline_create(ocf_pipeline_t *pipeline, ocf_cache_t cache,
 {
 	ocf_pipeline_t tmp_pipeline;
 	struct ocf_request *req;
+	int ret;
 
 	tmp_pipeline = env_vzalloc(sizeof(*tmp_pipeline) +
 			properties->priv_size);
@@ -76,10 +77,10 @@ int ocf_pipeline_create(ocf_pipeline_t *pipeline, ocf_cache_t cache,
 				sizeof(*tmp_pipeline);
 	}
 
-	req = ocf_req_new(cache->mngt_queue, NULL, 0, 0, 0);
-	if (!req) {
+	ret = ocf_req_new(&req, cache->mngt_queue, NULL, 0, 0, 0);
+	if (ret) {
 		env_vfree(tmp_pipeline);
-		return -OCF_ERR_NO_MEM;
+		return ocf_err_linux_to_ocf(ret);
 	}
 
 	tmp_pipeline->properties = properties;

@@ -33,16 +33,19 @@ void ocf_req_allocator_deinit(struct ocf_ctx *ocf_ctx);
 /**
  * @brief Allocate new OCF request
  *
+ * @param out_req - new OCF request
  * @param queue - I/O queue handle
  * @param core - OCF core instance
  * @param addr - LBA of request
  * @param bytes - number of bytes of request
  * @param rw - Read or Write
  *
- * @return new OCF request
+ * @retval 0 Allocation succeeded
+ * @retval -EBUSY Unable to create request due to in-progress mngmt operation
+ * @retval -ENOMEM Memory allocation failure
  */
-struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
-		uint64_t addr, uint32_t bytes, int rw);
+int ocf_req_new(struct ocf_request **out_req, ocf_queue_t queue,
+		ocf_core_t core, uint64_t addr, uint32_t bytes, int rw);
 
 /**
  * @brief Allocate OCF request map
@@ -57,31 +60,37 @@ int ocf_req_alloc_map(struct ocf_request *req);
 /**
  * @brief Allocate new OCF request with NOIO map allocation for huge request
  *
+ * @param out_req - new OCF request
  * @param queue - I/O queue handle
  * @param core - OCF core instance
  * @param addr - LBA of request
  * @param bytes - number of bytes of request
  * @param rw - Read or Write
  *
- * @return new OCF request
+ * @retval 0 Allocation succeeded
+ * @retval -EBUSY Unable to create request due to in-progress mngmt operation
+ * @retval -ENOMEM Memory allocation failure
  */
 
-struct ocf_request *ocf_req_new_extended(ocf_queue_t queue, ocf_core_t core,
-		uint64_t addr, uint32_t bytes, int rw);
+int ocf_req_new_extended(struct ocf_request **out_req, ocf_queue_t queue,
+		ocf_core_t core, uint64_t addr, uint32_t bytes, int rw);
 
 /**
  * @brief Allocate new OCF request for DISCARD operation
  *
+ * @param out_req - new OCF request
  * @param queue - I/O queue handle
  * @param core - OCF core instance
  * @param addr - LBA of request
  * @param bytes - number of bytes of request
  * @param rw - Read or Write
  *
- * @return new OCF request
+ * @retval 0 Allocation succeeded
+ * @retval -EBUSY Unable to create request due to in-progress mngmt operation
+ * @retval -ENOMEM Memory allocation failure
  */
-struct ocf_request *ocf_req_new_discard(ocf_queue_t queue, ocf_core_t core,
-		uint64_t addr, uint32_t bytes, int rw);
+int ocf_req_new_discard(struct ocf_request **out_req, ocf_queue_t queue,
+		ocf_core_t core, uint64_t addr, uint32_t bytes, int rw);
 
 /**
  * @brief Get number of allocated requests
