@@ -16,8 +16,10 @@ from pyocf.types.shared import CacheLineSize
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_change_cache_mode(pyocf_ctx, from_cm, to_cm, cls):
     # Start cache device
-    cache_device = Volume(S.from_MiB(100))
-    cache = Cache.start_on_device(cache_device, cache_mode=from_cm, cache_line_size=cls)
+    cache_device = Volume(S.from_MiB(30))
+    cache = Cache.start_on_device(
+        cache_device, cache_mode=from_cm, cache_line_size=cls
+    )
 
     # Check if started with correct cache mode
     stats = cache.get_stats()

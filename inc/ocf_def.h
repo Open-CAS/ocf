@@ -31,7 +31,7 @@
 /**
  * Minimum cache size in bytes
  */
-#define OCF_CACHE_SIZE_MIN	(100 * MiB)
+#define OCF_CACHE_SIZE_MIN	(20 * MiB)
 /**
  * Size of cache name
  */

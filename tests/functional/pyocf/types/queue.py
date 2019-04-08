@@ -4,7 +4,8 @@
 #
 
 from ctypes import c_void_p, CFUNCTYPE, Structure, byref
-from threading import Thread, Condition, Lock
+from threading import Thread, Condition, Event
+import weakref
 
 from ..ocf import OcfLib
 from .shared import OcfError
@@ -13,7 +14,6 @@ from .shared import OcfError
 class QueueOps(Structure):
     KICK = CFUNCTYPE(None, c_void_p)
     KICK_SYNC = CFUNCTYPE(None, c_void_p)
-    KICK = CFUNCTYPE(None, c_void_p)
     STOP = CFUNCTYPE(None, c_void_p)
 
     _fields_ = [("kick", KICK), ("kick_sync", KICK_SYNC), ("stop", STOP)]
@@ -23,54 +23,55 @@ class Queue:
     pass
 
 
+def io_queue_run(*, queue: Queue, kick: Condition, stop: Event):
+    def wait_predicate():
+        return stop.is_set() or OcfLib.getInstance().ocf_queue_pending_io(queue)
+
+    while True:
+        with kick:
+            kick.wait_for(wait_predicate)
+
+        OcfLib.getInstance().ocf_queue_run(queue)
+
+        if stop.is_set() and not OcfLib.getInstance().ocf_queue_pending_io(queue):
+            break
+
+
 class Queue:
     _instances_ = {}
 
-    @staticmethod
-    def io_queue_run(*, queue: Queue, kick: Condition):
-        def wait_predicate():
-            return queue.stop or OcfLib.getInstance().ocf_queue_pending_io(queue)
-
-        while True:
-            with kick:
-                kick.wait_for(wait_predicate)
-
-            queue.owner.lib.ocf_queue_run(queue)
-
-            if queue.stop and not queue.owner.lib.ocf_queue_pending_io(queue):
-                break
-
     def __init__(self, cache, name, mngt_queue: bool = False):
-        self.owner = cache.owner
 
         self.ops = QueueOps(kick=type(self)._kick, stop=type(self)._stop)
 
         self.handle = c_void_p()
-        status = self.owner.lib.ocf_queue_create(
+        status = OcfLib.getInstance().ocf_queue_create(
             cache.cache_handle, byref(self.handle), byref(self.ops)
         )
         if status:
             raise OcfError("Couldn't create queue object", status)
 
-        Queue._instances_[self.handle.value] = self
+        Queue._instances_[self.handle.value] = weakref.ref(self)
         self._as_parameter_ = self.handle
 
-        self.stop_lock = Lock()
-        self.stop = False
-        self.kick_condition = Condition(self.stop_lock)
+        self.stop_event = Event()
+        self.kick_condition = Condition()
         self.thread = Thread(
             group=None,
-            target=Queue.io_queue_run,
+            target=io_queue_run,
             name=name,
-            kwargs={"queue": self, "kick": self.kick_condition},
-            daemon=True,
+            kwargs={
+                "queue": self,
+                "kick": self.kick_condition,
+                "stop": self.stop_event,
+            },
         )
         self.thread.start()
         self.mngt_queue = mngt_queue
 
     @classmethod
     def get_instance(cls, ref):
-        return cls._instances_[ref]
+        return cls._instances_[ref]()
 
     @staticmethod
     @QueueOps.KICK_SYNC
@@ -88,7 +89,7 @@ class Queue:
         Queue.get_instance(ref).stop()
 
     def kick_sync(self):
-        self.owner.lib.ocf_queue_run(self.handle)
+        OcfLib.getInstance().ocf_queue_run(self.handle)
 
     def kick(self):
         with self.kick_condition:
@@ -96,9 +97,12 @@ class Queue:
 
     def stop(self):
         with self.kick_condition:
-            self.stop = True
+            self.stop_event.set()
             self.kick_condition.notify_all()
 
         self.thread.join()
         if self.mngt_queue:
-            self.owner.lib.ocf_queue_put(self)
+            OcfLib.getInstance().ocf_queue_put(self)
+
+        self.thread = None
+        self.ops = None

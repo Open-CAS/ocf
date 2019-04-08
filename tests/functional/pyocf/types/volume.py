@@ -10,6 +10,7 @@ from ctypes import (
     c_char_p,
     create_string_buffer,
     memmove,
+    memset,
     Structure,
     CFUNCTYPE,
     c_int,
@@ -20,6 +21,7 @@ from ctypes import (
     string_at,
 )
 from hashlib import md5
+import weakref
 
 from .io import Io, IoOps, IoDir
 from .shared import OcfErrorCode, Uuid
@@ -76,6 +78,8 @@ class Volume(Structure):
     _instances_ = {}
     _uuid_ = {}
 
+    props = None
+
     def __init__(self, size: S, uuid=None):
         super().__init__()
         self.size = size
@@ -88,41 +92,50 @@ class Volume(Structure):
         else:
             self.uuid = str(id(self))
 
-        type(self)._uuid_[self.uuid] = self
+        type(self)._uuid_[self.uuid] = weakref.ref(self)
 
         self.data = create_string_buffer(int(self.size))
         self._storage = cast(self.data, c_void_p)
+
         self.reset_stats()
         self.opened = False
 
     @classmethod
     def get_props(cls):
-        return VolumeProperties(
-            _name=str(cls.__name__).encode("ascii"),
-            _io_priv_size=sizeof(VolumeIoPriv),
-            _volume_priv_size=0,
-            _caps=VolumeCaps(_atomic_writes=0),
-            _ops=VolumeOps(
-                _submit_io=cls._submit_io,
-                _submit_flush=cls._submit_flush,
-                _submit_metadata=cls._submit_metadata,
-                _submit_discard=cls._submit_discard,
-                _submit_write_zeroes=cls._submit_write_zeroes,
-                _open=cls._open,
-                _close=cls._close,
-                _get_max_io_size=cls._get_max_io_size,
-                _get_length=cls._get_length,
-            ),
-            _io_ops=IoOps(_set_data=cls._io_set_data, _get_data=cls._io_get_data),
-        )
+        if not cls.props:
+            cls.props = VolumeProperties(
+                _name=str(cls.__name__).encode("ascii"),
+                _io_priv_size=sizeof(VolumeIoPriv),
+                _volume_priv_size=0,
+                _caps=VolumeCaps(_atomic_writes=0),
+                _ops=VolumeOps(
+                    _submit_io=cls._submit_io,
+                    _submit_flush=cls._submit_flush,
+                    _submit_metadata=cls._submit_metadata,
+                    _submit_discard=cls._submit_discard,
+                    _submit_write_zeroes=cls._submit_write_zeroes,
+                    _open=cls._open,
+                    _close=cls._close,
+                    _get_max_io_size=cls._get_max_io_size,
+                    _get_length=cls._get_length,
+                ),
+                _io_ops=IoOps(
+                    _set_data=cls._io_set_data, _get_data=cls._io_get_data
+                ),
+            )
+
+        return cls.props
 
     @classmethod
     def get_instance(cls, ref):
-        return cls._instances_[ref]
+        instance = cls._instances_[ref]()
+        if instance is None:
+            print("tried to access {} but it's gone".format(ref))
+        return instance
 
     @classmethod
     def get_by_uuid(cls, uuid):
-        return cls._uuid_[uuid]
+        return cls._uuid_[uuid]()
 
     @staticmethod
     @VolumeOps.SUBMIT_IO
@@ -172,15 +185,19 @@ class Volume(Structure):
             print("{}".format(Volume._uuid_))
             return -1
 
-        type(volume)._instances_[ref] = volume
+        if volume.opened:
+            return OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
+
+        Volume._instances_[ref] = weakref.ref(volume)
 
         return volume.open()
 
     @staticmethod
     @VolumeOps.CLOSE
     def _close(ref):
-        Volume.get_instance(ref).close()
-        del Volume._instances_[ref]
+        volume = Volume.get_instance(ref)
+        volume.close()
+        volume.opened = False
 
     @staticmethod
     @VolumeOps.GET_MAX_IO_SIZE
@@ -200,7 +217,8 @@ class Volume(Structure):
         )
         data = Data.get_instance(data)
         data.position = offset
-        io_priv.contents._data = data.data
+        io_priv.contents._data = data.handle
+
         return 0
 
     @staticmethod
@@ -212,14 +230,11 @@ class Volume(Structure):
         return io_priv.contents._data
 
     def open(self):
-        if self.opened:
-            return OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
-
         self.opened = True
         return 0
 
     def close(self):
-        self.opened = False
+        pass
 
     def get_length(self):
         return self.size
@@ -231,7 +246,13 @@ class Volume(Structure):
         flush.contents._end(flush, 0)
 
     def submit_discard(self, discard):
-        discard.contents._end(discard, 0)
+        try:
+            dst = self._storage + discard.contents._addr
+            memset(dst, discard.contents._bytes)
+
+            discard.contents._end(discard, 0)
+        except:
+            discard.contents._end(discard, -5)
 
     def get_stats(self):
         return self.stats
@@ -242,6 +263,7 @@ class Volume(Structure):
     def submit_io(self, io):
         try:
             self.stats[IoDir(io.contents._dir)] += 1
+
             if io.contents._dir == IoDir.WRITE:
                 src_ptr = cast(io.contents._ops.contents._get_data(io), c_void_p)
                 src = Data.get_instance(src_ptr.value)
@@ -259,9 +281,12 @@ class Volume(Structure):
 
     def dump_contents(self, stop_after_zeros=0, offset=0, size=0):
         if size == 0:
-            size = self.size
+            size = int(self.size) - int(offset)
         print_buffer(
-            self._storage + offset, size, stop_after_zeros=stop_after_zeros
+            self._storage,
+            int(size),
+            offset=int(offset),
+            stop_after_zeros=int(stop_after_zeros),
         )
 
     def md5(self):

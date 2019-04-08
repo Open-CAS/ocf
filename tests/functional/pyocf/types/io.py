@@ -14,7 +14,7 @@ from ctypes import (
     byref,
     cast,
 )
-from enum import IntEnum, auto
+from enum import IntEnum
 
 from ..ocf import OcfLib
 from .data import Data
@@ -113,7 +113,6 @@ class Io(Structure):
         OcfLib.getInstance().ocf_io_set_data_wrapper(byref(self), data, 0)
 
     def set_queue(self, queue: Queue):
-        self.queue = queue
         OcfLib.getInstance().ocf_io_set_queue_wrapper(byref(self), queue.handle)
 
 

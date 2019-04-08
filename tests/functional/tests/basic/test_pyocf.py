@@ -20,8 +20,8 @@ def test_ctx_fixture(pyocf_ctx):
 
 
 def test_simple_wt_write(pyocf_ctx):
-    cache_device = Volume(S.from_MiB(100))
-    core_device = Volume(S.from_MiB(200))
+    cache_device = Volume(S.from_MiB(30))
+    core_device = Volume(S.from_MiB(30))
 
     cache = Cache.start_on_device(cache_device)
     core = Core.using_device(core_device)
@@ -49,17 +49,18 @@ def test_simple_wt_write(pyocf_ctx):
     assert stats["usage"]["occupancy"]["value"] == 1
 
     assert core.exp_obj_md5() == core_device.md5()
+    cache.stop()
 
 
 def test_start_corrupted_metadata_lba(pyocf_ctx):
-    cache_device = ErrorDevice(S.from_MiB(100), error_sectors=set([0]))
+    cache_device = ErrorDevice(S.from_MiB(30), error_sectors=set([0]))
 
     with pytest.raises(OcfError, match="OCF_ERR_WRITE_CACHE"):
         cache = Cache.start_on_device(cache_device)
 
 
 def test_load_cache_no_preexisting_data(pyocf_ctx):
-    cache_device = Volume(S.from_MiB(100))
+    cache_device = Volume(S.from_MiB(30))
 
     with pytest.raises(OcfError, match="OCF_ERR_START_CACHE_FAIL"):
         cache = Cache.load_from_device(cache_device)
@@ -68,7 +69,7 @@ def test_load_cache_no_preexisting_data(pyocf_ctx):
 # TODO: Find out why this fails and fix
 @pytest.mark.xfail
 def test_load_cache(pyocf_ctx):
-    cache_device = Volume(S.from_MiB(100))
+    cache_device = Volume(S.from_MiB(30))
 
     cache = Cache.start_on_device(cache_device)
     cache.stop()

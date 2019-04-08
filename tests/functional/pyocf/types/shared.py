@@ -98,7 +98,7 @@ class SharedOcfObject(Structure):
         try:
             return cls._instances_[ref]
         except:
-            logging.get_logger("pyocf").error(
+            logging.getLogger("pyocf").error(
                 "OcfSharedObject corruption. wanted: {} instances: {}".format(
                     ref, cls._instances_
                 )
@@ -130,8 +130,3 @@ class CacheLines(S):
 
     def __int__(self):
         return int(self.bytes / self.line_size)
-
-    def __str__(self):
-        return "{} ({})".format(int(self), super().__str__())
-
-    __repr__ = __str__
