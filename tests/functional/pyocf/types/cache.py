@@ -386,17 +386,10 @@ class Cache:
         return self.io_queues[0]
 
     def stop(self, flush: bool = True):
-        self.get_and_write_lock()
-
         if flush:
-            c = OcfCompletion(
-                [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
-            )
-            self.owner.lib.ocf_mngt_cache_flush(self.cache_handle, False, c, None)
-            c.wait()
-            if c.results["error"]:
-                self.put_and_write_unlock()
-                raise OcfError("Couldn't flush cache", c.results["error"])
+            self.flush()
+
+        self.get_and_write_lock()
 
         c = OcfCompletion(
             [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
@@ -411,6 +404,21 @@ class Cache:
 
         self.put_and_write_unlock()
         self.owner.caches.remove(self)
+
+    def flush(self):
+        self.get_and_write_lock()
+
+        c = OcfCompletion(
+            [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
+        )
+        self.owner.lib.ocf_mngt_cache_flush(self.cache_handle, False, c, None)
+        c.wait()
+        if c.results["error"]:
+            self.put_and_write_unlock()
+            raise OcfError("Couldn't flush cache", c.results["error"])
+
+        self.put_and_write_unlock()
+
 
 lib = OcfLib.getInstance()
 lib.ocf_mngt_cache_remove_core.argtypes = [c_void_p, c_void_p, c_void_p]
