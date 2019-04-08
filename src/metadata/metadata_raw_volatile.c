@@ -42,7 +42,7 @@ void raw_volatile_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 void raw_volatile_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	cmpl(priv, -ENOTSUP);
+	cmpl(priv, 0);
 }
 
 /*
