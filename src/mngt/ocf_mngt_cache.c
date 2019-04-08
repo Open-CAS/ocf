@@ -2361,7 +2361,7 @@ static void ocf_mngt_cache_detach_finish(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_detach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_refcnt_unfreeze(&cache->dirty);
+	ocf_refcnt_unfreeze(&cache->refcnt.dirty);
 
 	if (!error) {
 		if (!context->cache_write_error) {
@@ -2422,7 +2422,7 @@ void ocf_mngt_cache_detach(ocf_cache_t cache,
 	context->cache = cache;
 
 	/* prevent dirty io */
-	ocf_refcnt_freeze(&cache->dirty);
+	ocf_refcnt_freeze(&cache->refcnt.dirty);
 
 	ocf_pipeline_next(pipeline);
 }
