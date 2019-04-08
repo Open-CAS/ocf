@@ -20,12 +20,14 @@ from ctypes import (
     string_at,
 )
 from hashlib import md5
+import weakref
 
 from .io import Io, IoOps, IoDir
 from .shared import OcfErrorCode, Uuid
 from ..ocf import OcfLib
 from ..utils import print_buffer, Size as S
 from .data import Data
+from ..utils import print_structure
 
 
 class VolumeCaps(Structure):
@@ -88,10 +90,8 @@ class Volume(Structure):
         else:
             self.uuid = str(id(self))
 
-        type(self)._uuid_[self.uuid] = self
+        type(self)._uuid_[self.uuid] = weakref.ref(self)
 
-        self.data = create_string_buffer(int(self.size))
-        self._storage = cast(self.data, c_void_p)
         self.reset_stats()
         self.opened = False
 
@@ -122,7 +122,7 @@ class Volume(Structure):
 
     @classmethod
     def get_by_uuid(cls, uuid):
-        return cls._uuid_[uuid]
+        return cls._uuid_[uuid]()
 
     @staticmethod
     @VolumeOps.SUBMIT_IO
@@ -172,15 +172,20 @@ class Volume(Structure):
             print("{}".format(Volume._uuid_))
             return -1
 
-        type(volume)._instances_[ref] = volume
+        if volume.opened:
+            return OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
+
+        Volume._instances_[ref] = volume
+        volume.ref = ref
 
         return volume.open()
 
     @staticmethod
     @VolumeOps.CLOSE
     def _close(ref):
-        Volume.get_instance(ref).close()
-        del Volume._instances_[ref]
+        volume = Volume.get_instance(ref)
+        volume.close()
+        volume.opened = False
 
     @staticmethod
     @VolumeOps.GET_MAX_IO_SIZE
@@ -212,14 +217,15 @@ class Volume(Structure):
         return io_priv.contents._data
 
     def open(self):
-        if self.opened:
-            return OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
-
+        self.data = create_string_buffer(int(self.size))
+        self._storage = cast(self.data, c_void_p)
         self.opened = True
         return 0
 
     def close(self):
-        self.opened = False
+        del self.data
+        self._storage = None
+        del Volume._instances_[self.ref]
 
     def get_length(self):
         return self.size
@@ -231,7 +237,13 @@ class Volume(Structure):
         flush.contents._end(flush, 0)
 
     def submit_discard(self, discard):
-        discard.contents._end(discard, 0)
+        try:
+            dst = self._storage + discard.contents._addr
+            memset(dst, io.contents._bytes)
+
+            discard.contents._end(io, 0)
+        except:
+            discard.contents._end(io, -5)
 
     def get_stats(self):
         return self.stats
@@ -242,6 +254,7 @@ class Volume(Structure):
     def submit_io(self, io):
         try:
             self.stats[IoDir(io.contents._dir)] += 1
+
             if io.contents._dir == IoDir.WRITE:
                 src_ptr = cast(io.contents._ops.contents._get_data(io), c_void_p)
                 src = Data.get_instance(src_ptr.value)
@@ -259,9 +272,12 @@ class Volume(Structure):
 
     def dump_contents(self, stop_after_zeros=0, offset=0, size=0):
         if size == 0:
-            size = self.size
+            size = int(self.size) - int(offset)
         print_buffer(
-            self._storage + offset, size, stop_after_zeros=stop_after_zeros
+            self._storage,
+            int(size),
+            offset=int(offset),
+            stop_after_zeros=int(stop_after_zeros),
         )
 
     def md5(self):

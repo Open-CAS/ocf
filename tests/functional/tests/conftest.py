@@ -5,12 +5,12 @@
 
 import os
 import sys
-
 import pytest
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.path.pardir))
 from pyocf.types.logger import LogLevel, DefaultLogger, BufferLogger
 from pyocf.types.volume import Volume, ErrorDevice
+from pyocf.types.io import Io
 from pyocf.types.ctx import get_default_ctx
 from pyocf.ocf import OcfLib
 
@@ -24,7 +24,6 @@ def pyocf_ctx():
     c = get_default_ctx(DefaultLogger(LogLevel.WARN))
     c.register_volume_type(Volume)
     c.register_volume_type(ErrorDevice)
-
     yield c
     for cache in c.caches:
         cache.stop(flush=False)

@@ -63,7 +63,7 @@ class Data(SharedOcfObject):
     _fields_ = [("data", c_void_p)]
 
     def __init__(self, byte_count: int):
-        self.size = byte_count
+        self.size = int(byte_count)
         self.position = 0
         self.buffer = create_string_buffer(int(self.size))
         self.data = cast(self.buffer, c_void_p)
@@ -204,7 +204,10 @@ class Data(SharedOcfObject):
         return to_move
 
     def copy(self, src, end, start, size):
-        return size
+        to_write = min(self.size, size, src.size)
+
+        memmove(self.data, src.data, to_write)
+        return to_write
 
     def secure_erase(self):
         pass

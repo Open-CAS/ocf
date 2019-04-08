@@ -136,7 +136,7 @@ class Cache:
         self.io_queues = []
 
     def start_cache(
-        self, mngt_queue: Queue = None, use_mngt_queue_for_io: bool = True
+        self, default_io_queue: Queue = None, mngt_queue: Queue = None
     ):
         status = self.owner.lib.ocf_mngt_cache_start(
             self.owner.ctx_handle, byref(self.cache_handle), byref(self.cfg)
@@ -149,8 +149,11 @@ class Cache:
         self.mngt_queue = mngt_queue or Queue(
             self, "mgmt-{}".format(self.name), mngt_queue=True
         )
-        if use_mngt_queue_for_io:
-            self.io_queues += [self.mngt_queue]
+
+        if default_io_queue:
+            self.io_queues += [default_io_queue]
+        else:
+            self.io_queues += [Queue(self, "default-io-{}".format(self.name))]
 
         status = self.owner.lib.ocf_mngt_cache_set_mngt_queue(
             self, self.mngt_queue
@@ -293,16 +296,9 @@ class Cache:
     def remove_core(self, core: Core):
         self.get_and_write_lock()
 
-        c = OcfCompletion(
-            [
-                ("priv", c_void_p),
-                ("error", c_int),
-            ]
-        )
+        c = OcfCompletion([("priv", c_void_p), ("error", c_int)])
 
-        self.owner.lib.ocf_mngt_cache_remove_core(
-            core.handle, c, None
-        )
+        self.owner.lib.ocf_mngt_cache_remove_core(core.handle, c, None)
 
         c.wait()
         if c.results["error"]:

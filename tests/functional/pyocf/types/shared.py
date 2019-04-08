@@ -98,7 +98,7 @@ class SharedOcfObject(Structure):
         try:
             return cls._instances_[ref]
         except:
-            logging.get_logger("pyocf").error(
+            logging.getLogger("pyocf").error(
                 "OcfSharedObject corruption. wanted: {} instances: {}".format(
                     ref, cls._instances_
                 )
