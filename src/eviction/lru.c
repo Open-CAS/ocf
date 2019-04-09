@@ -362,14 +362,21 @@ static void evp_lru_zero_line(ocf_cache_t cache, ocf_queue_t io_queue,
 
 	req = ocf_req_new(io_queue, &cache->core[id], addr,
 			ocf_line_size(cache), OCF_WRITE);
-	if (req) {
-		req->info.internal = true;
-		req->complete = evp_lru_zero_line_complete;
+	if (!req)
+		return;
 
-		env_atomic_inc(&cache->pending_eviction_clines);
-
-		ocf_engine_zero_line(req);
+	if (req->d2c) {
+		/* cache device is being detached */
+		ocf_req_put(req);
+		return;
 	}
+
+	req->info.internal = true;
+	req->complete = evp_lru_zero_line_complete;
+
+	env_atomic_inc(&cache->pending_eviction_clines);
+
+	ocf_engine_zero_line(req);
 }
 
 bool evp_lru_can_evict(ocf_cache_t cache)
