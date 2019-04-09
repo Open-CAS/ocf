@@ -352,6 +352,7 @@ static void evp_lru_clean(ocf_cache_t cache, ocf_queue_t io_queue,
 static void evp_lru_zero_line_complete(struct ocf_request *ocf_req, int error)
 {
 	env_atomic_dec(&ocf_req->cache->pending_eviction_clines);
+	ocf_refcnt_dec(&ocf_req->cache->refcnt.cache);
 }
 
 static void evp_lru_zero_line(ocf_cache_t cache, ocf_queue_t io_queue,
@@ -367,14 +368,21 @@ static void evp_lru_zero_line(ocf_cache_t cache, ocf_queue_t io_queue,
 
 	ret = ocf_req_new(&req, io_queue, &cache->core[id], addr,
 			ocf_line_size(cache), OCF_WRITE);
-	if (!ret) {
-		req->info.internal = true;
-		req->complete = evp_lru_zero_line_complete;
+	if (ret)
+		return;
 
-		env_atomic_inc(&cache->pending_eviction_clines);
-
-		ocf_engine_zero_line(req);
+	if (!ocf_refcnt_inc(&cache->refcnt.cache)) {
+		/* cache device is being detached */
+		ocf_req_put(req);
+		return;
 	}
+
+	req->info.internal = true;
+	req->complete = evp_lru_zero_line_complete;
+
+	env_atomic_inc(&cache->pending_eviction_clines);
+
+	ocf_engine_zero_line(req);
 }
 
 bool evp_lru_can_evict(ocf_cache_t cache)
