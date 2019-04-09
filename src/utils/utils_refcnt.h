@@ -37,6 +37,8 @@ void ocf_refcnt_freeze(struct ocf_refcnt *rc);
 /* Cancel the effect of single ocf_refcnt_freeze call */
 void ocf_refcnt_unfreeze(struct ocf_refcnt *rc);
 
+bool ocf_refcnt_frozen(struct ocf_refcnt *rc);
+
 /* Register callback to be called when reference counter drops to 0.
  * Must be called after counter is freezed.
  * Cannot be called until previously regsitered callback had fired. */

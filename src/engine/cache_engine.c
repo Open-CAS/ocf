@@ -158,7 +158,7 @@ bool ocf_fallback_pt_is_on(ocf_cache_t cache)
 
 static inline bool ocf_seq_cutoff_is_on(ocf_cache_t cache)
 {
-	if (!env_atomic_read(&cache->attached))
+	if (!ocf_cache_is_device_attached(cache))
 		return false;
 
 	return (cache->device->freelist_part->curr_size <= SEQ_CUTOFF_FULL_MARGIN);

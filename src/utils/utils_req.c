@@ -151,24 +151,6 @@ static env_allocator *_ocf_req_get_allocator(
 	return ocf_ctx->resources.req->allocator[idx];
 }
 
-static void start_cache_req(struct ocf_request *req)
-{
-	ocf_cache_t cache = req->cache;
-
-	if (req->queue == req->cache->mngt_queue)
-		return;
-
-	req->d2c = 1;
-	if (env_atomic_read(&cache->attached)) {
-		req->d2c = 0;
-		env_atomic_inc(&cache->pending_cache_requests);
-		if (!env_atomic_read(&cache->attached)) {
-			req->d2c = 1;
-			env_atomic_dec(&cache->pending_cache_requests);
-		}
-	}
-}
-
 struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 		uint64_t addr, uint32_t bytes, int rw)
 {
@@ -212,7 +194,8 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	if (queue != cache->mngt_queue)
 		env_atomic_inc(&cache->pending_requests);
 
-	start_cache_req(req);
+	req->d2c = (queue != cache->mngt_queue) && !ocf_refcnt_inc(
+			&cache->refcnt.metadata);
 
 	env_atomic_set(&req->ref_count, 1);
 
@@ -292,10 +275,8 @@ void ocf_req_put(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	if (!req->d2c && !env_atomic_dec_return(
-			&req->cache->pending_cache_requests)) {
-		env_waitqueue_wake_up(&req->cache->pending_cache_wq);
-	}
+	if (!req->d2c && req->io_queue != req->cache->mngt_queue)
+		ocf_refcnt_dec(&req->cache->refcnt.metadata);
 
 	if (req->io_queue != req->cache->mngt_queue)
 		env_atomic_dec(&req->cache->pending_requests);
