@@ -156,7 +156,7 @@ static inline ocf_core_t ocf_volume_to_core(ocf_volume_t volume)
 static inline int ocf_io_set_dirty(ocf_cache_t cache,
 		struct ocf_core_io *core_io)
 {
-	core_io->dirty = ocf_refcnt_inc(&cache->refcnt.dirty);
+	core_io->dirty = !!ocf_refcnt_inc(&cache->refcnt.dirty);
 	return core_io->dirty ? 0 : -EBUSY;
 }
 

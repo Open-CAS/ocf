@@ -13,26 +13,30 @@ void ocf_refcnt_init(struct ocf_refcnt *rc)
 	rc->cb = NULL;
 }
 
-void ocf_refcnt_dec(struct ocf_refcnt *rc)
+int ocf_refcnt_dec(struct ocf_refcnt *rc)
 {
 	int val = env_atomic_dec_return(&rc->counter);
 	ENV_BUG_ON(val < 0);
 
 	if (!val && env_atomic_cmpxchg(&rc->callback, 1, 0))
 		rc->cb(rc->priv);
+
+	return val;
 }
 
-bool ocf_refcnt_inc(struct ocf_refcnt  *rc)
+int ocf_refcnt_inc(struct ocf_refcnt  *rc)
 {
+	int val;
+
 	if (!env_atomic_read(&rc->freeze)) {
-		env_atomic_inc(&rc->counter);
+		val = env_atomic_inc_return(&rc->counter);
 		if (!env_atomic_read(&rc->freeze))
-			return  true;
+			return  val;
 		else
 			ocf_refcnt_dec(rc);
 	}
 
-	return false;
+	return 0;
 }
 
 void ocf_refcnt_freeze(struct ocf_refcnt *rc)
