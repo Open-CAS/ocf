@@ -171,10 +171,8 @@ struct ocf_cache {
 	struct {
 		struct ocf_refcnt io_req;
 		struct ocf_refcnt dirty;
+		struct ocf_refcnt metadata;
 	} refcnt;
-
-	env_atomic pending_cache_requests;
-	env_waitqueue pending_cache_wq;
 
 	uint32_t fallback_pt_error_threshold;
 	env_atomic fallback_pt_error_counter;
@@ -195,9 +193,6 @@ struct ocf_cache {
 	struct ocf_core_meta_runtime *core_runtime_meta;
 
 	env_atomic flush_in_progress;
-
-	/* 1 if cache device attached, 0 otherwise */
-	env_atomic attached;
 
 	env_atomic cleaning[OCF_IO_CLASS_MAX];
 

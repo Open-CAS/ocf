@@ -566,6 +566,9 @@ static int _ocf_mngt_init_new_cache(struct ocf_cachemng_init_params *params)
 	env_atomic_set(&cache->ref_count, 1);
 	cache->owner = params->ctx;
 
+	/* start with freezed metadata ref counter to indicate detached device*/
+	ocf_refcnt_freeze(&cache->refcnt.metadata);
+
 	/* Copy all required initialization parameters */
 	cache->cache_id = params->id;
 
@@ -1578,9 +1581,7 @@ static void _ocf_mngt_attach_post_init(ocf_pipeline_t pipeline,
 		context->flags.cleaner_started = true;
 	}
 
-	env_waitqueue_init(&cache->pending_cache_wq);
-
-	env_atomic_set(&cache->attached, 1);
+	ocf_refcnt_unfreeze(&cache->refcnt.metadata);
 
 	ocf_pipeline_next(context->pipeline);
 }
@@ -1838,7 +1839,6 @@ static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
 
 	env_vfree(cache->device);
 	cache->device = NULL;
-	env_atomic_set(&cache->attached, 0);
 
 	/* TODO: this should be removed from detach after 'attached' stats
 		are better separated in statistics */
@@ -2043,7 +2043,7 @@ static void ocf_mngt_cache_stop_unplug(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_stop_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	if (!env_atomic_read(&cache->attached)) {
+	if (!ocf_cache_is_device_attached(cache)) {
 		ocf_pipeline_next(pipeline);
 		return;
 	}
@@ -2373,19 +2373,21 @@ static void ocf_mngt_cache_detach_flush(ocf_pipeline_t pipeline,
 			context);
 }
 
+static void ocf_mngt_cache_detach_wait_pending_finish(void *priv)
+{
+	struct ocf_mngt_cache_detach_context *context = priv;
+	ocf_pipeline_next(context->pipeline);
+}
+
 static void ocf_mngt_cache_detach_wait_pending(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_detach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	env_atomic_set(&cache->attached, 0);
-
-	/* FIXME: This should be asynchronous! */
-	env_waitqueue_wait(cache->pending_cache_wq,
-			!env_atomic_read(&cache->pending_cache_requests));
-
-	ocf_pipeline_next(context->pipeline);
+	ocf_refcnt_freeze(&cache->refcnt.metadata);
+	ocf_refcnt_register_zero_cb(&cache->refcnt.metadata,
+			ocf_mngt_cache_detach_wait_pending_finish, context);
 }
 
 static void ocf_mngt_cache_detach_update_metadata(ocf_pipeline_t pipeline,
@@ -2479,7 +2481,7 @@ void ocf_mngt_cache_detach(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 
-	if (!env_atomic_read(&cache->attached)) {
+	if (!ocf_cache_is_device_attached(cache)) {
 		cmpl(cache, priv, -OCF_ERR_INVAL);
 		return;
 	}

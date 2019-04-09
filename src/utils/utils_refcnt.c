@@ -58,3 +58,8 @@ void ocf_refcnt_unfreeze(struct ocf_refcnt *rc)
 	int val = env_atomic_dec_return(&rc->freeze);
 	ENV_BUG_ON(val < 0);
 }
+
+bool ocf_refcnt_frozen(struct ocf_refcnt *rc)
+{
+	return !!env_atomic_read(&rc->freeze);
+}
