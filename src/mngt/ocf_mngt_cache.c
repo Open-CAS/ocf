@@ -652,28 +652,6 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cachemng_init_params *param,
 	char cache_name[OCF_CACHE_NAME_SIZE];
 	int ret = 0;
 
-	ret = env_mutex_lock_interruptible(&param->ctx->lock);
-	if (ret)
-		return ret;
-
-	if (param->id == OCF_CACHE_ID_INVALID) {
-		/* ID was not specified, take first free id */
-		param->id = _ocf_mngt_cache_find_free_id(param->ctx);
-		if (param->id == OCF_CACHE_ID_INVALID) {
-			ret = -OCF_ERR_TOO_MANY_CACHES;
-			goto out;
-		}
-		cfg->id = param->id;
-	} else {
-		/* ID was set, check if cache exist with specified ID */
-		cache = _ocf_mngt_get_cache(param->ctx, param->id);
-		if (cache) {
-			/* Cache already exist */
-			ret = -OCF_ERR_CACHE_EXIST;
-			goto out;
-		}
-	}
-
 	if (cfg->name) {
 		ret = env_strncpy(cache_name, sizeof(cache_name),
 				cfg->name, sizeof(cache_name));
@@ -711,7 +689,6 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cachemng_init_params *param,
 	cache->metadata.is_volatile = cfg->metadata_volatile;
 
 out:
-	env_mutex_unlock(&param->ctx->lock);
 	return ret;
 }
 
@@ -1227,6 +1204,34 @@ static int _ocf_mngt_cache_init(ocf_cache_t cache,
 	return 0;
 }
 
+static int _ocf_mngt_check_cache_id(struct ocf_cachemng_init_params *param,
+		struct ocf_mngt_cache_config *cfg)
+{
+	ocf_cache_t cache;
+	int ret = 0;
+
+	if (param->id == OCF_CACHE_ID_INVALID) {
+		/* ID was not specified, take first free id */
+		param->id = _ocf_mngt_cache_find_free_id(param->ctx);
+		if (param->id == OCF_CACHE_ID_INVALID) {
+			ret = -OCF_ERR_TOO_MANY_CACHES;
+			goto out;
+		}
+		cfg->id = param->id;
+	} else {
+		/* ID was set, check if cache exist with specified ID */
+		cache = _ocf_mngt_get_cache(param->ctx, param->id);
+		if (cache) {
+			/* Cache already exist */
+			ret = -OCF_ERR_CACHE_EXIST;
+			goto out;
+		}
+	}
+
+out:
+	return ret;
+}
+
 static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		struct ocf_mngt_cache_config *cfg)
 {
@@ -1244,8 +1249,18 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	params.metadata_volatile = cfg->metadata_volatile;
 	params.locked = cfg->locked;
 
-	/* Prepare cache */
+	result = env_mutex_lock_interruptible(&params.ctx->lock);
+	if (result)
+		return result;
+
+	result = _ocf_mngt_check_cache_id(&params, cfg);
+	if (result) {
+		env_mutex_unlock(&params.ctx->lock);
+		return result;
+	}
+
 	result = _ocf_mngt_init_prepare_cache(&params, cfg);
+	env_mutex_unlock(&params.ctx->lock);
 	if (result)
 		goto _cache_mng_init_instance_ERROR;
 
@@ -1258,7 +1273,6 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	if (result) {
 		result =  -OCF_ERR_START_CACHE_FAIL;
 		goto _cache_mng_init_instance_ERROR;
-
 	}
 
 	result = _ocf_mngt_cache_init(*cache, &params);
