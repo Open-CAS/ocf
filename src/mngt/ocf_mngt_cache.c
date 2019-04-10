@@ -563,7 +563,7 @@ static int _ocf_mngt_init_new_cache(struct ocf_cachemng_init_params *params)
 
 	INIT_LIST_HEAD(&cache->list);
 	list_add_tail(&cache->list, &params->ctx->caches);
-	env_atomic_set(&cache->ref_count, 1);
+	ocf_refcnt_inc(&cache->refcnt.cache);
 	cache->owner = params->ctx;
 
 	/* start with freezed metadata ref counter to indicate detached device*/
@@ -1268,7 +1268,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		   cache_unlock convention. User is expected to call
 		   ocf_mngt_cache_unlock in future which would up the
 		   semaphore as well as decrement ref_count. */
-		env_atomic_inc(&(*cache)->ref_count);
+		ocf_refcnt_inc(&(*cache)->refcnt.cache);
 	} else {
 		/* User did not request to lock cache instance after creation -
 		   up the semaphore here since we have acquired the lock to
@@ -1291,7 +1291,6 @@ static void _ocf_mng_cache_set_valid(ocf_cache_t cache)
 	 * Clear initialization state and set the valid bit so we know
 	 * its in use.
 	 */
-	cache->valid_ocf_cache_device_t = 1;
 	env_bit_clear(ocf_cache_state_initializing, &cache->cache_state);
 	env_bit_set(ocf_cache_state_running, &cache->cache_state);
 }
@@ -2075,7 +2074,7 @@ static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
 	if (!error) {
 		env_mutex_lock(&ctx->lock);
 		/* Mark device uninitialized */
-		cache->valid_ocf_cache_device_t = 0;
+		ocf_refcnt_freeze(&cache->refcnt.cache);
 		/* Remove cache from the list */
 		list_del(&cache->list);
 		env_mutex_unlock(&ctx->lock);
