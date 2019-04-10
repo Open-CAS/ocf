@@ -93,15 +93,6 @@ int ocf_req_new_discard(struct ocf_request **out_req, ocf_queue_t queue,
 		ocf_core_t core, uint64_t addr, uint32_t bytes, int rw);
 
 /**
- * @brief Get number of allocated requests
- *
- * @param cache OCF cache instance
- *
- * @return Number of allocated requests
- */
-uint32_t ocf_req_get_allocated(struct ocf_cache *cache);
-
-/**
  * @brief Increment OCF request reference count
  *
  * @param req - OCF request

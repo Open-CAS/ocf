@@ -323,9 +323,3 @@ void ocf_req_clear_map(struct ocf_request *req)
 		ENV_BUG_ON(env_memset(req->map,
 			   sizeof(req->map[0]) * req->core_line_count, 0));
 }
-
-/* TODO: get rid of this and use async wait on counter  */
-uint32_t ocf_req_get_allocated(struct ocf_cache *cache)
-{
-	return env_atomic_read(&cache->refcnt.io_req.counter);
-}
