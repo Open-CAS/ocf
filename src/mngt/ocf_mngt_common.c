@@ -121,7 +121,7 @@ void ocf_mngt_cache_put(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
 
-	if (env_atomic_dec_return(&cache->ref_count) == 0) {
+	if (ocf_refcnt_dec(&cache->refcnt.cache) == 0) {
 		ocf_metadata_deinit(cache);
 		env_vfree(cache);
 	}
@@ -155,10 +155,7 @@ int ocf_mngt_cache_get_by_id(ocf_ctx_t ocf_ctx, ocf_cache_id_t id, ocf_cache_t *
 
 	if (instance) {
 		/* if cache is either fully initialized or during recovery */
-		if (instance->valid_ocf_cache_device_t) {
-			/* Increase reference counter */
-			env_atomic_inc(&instance->ref_count);
-		} else {
+		if (!ocf_refcnt_inc(&instance->refcnt.cache)) {
 			/* Cache not initialized yet */
 			instance = NULL;
 		}
@@ -210,7 +207,8 @@ static int _ocf_mngt_cache_lock(ocf_cache_t cache, int (*lock_fn)(env_rwsem *s),
 	int ret;
 
 	/* Increment reference counter */
-	env_atomic_inc(&cache->ref_count);
+	if (!ocf_refcnt_inc(&cache->refcnt.cache))
+		return -OCF_ERR_CACHE_NOT_EXIST;
 
 	env_atomic_inc(&cache->lock_waiter);
 	ret = lock_fn(&cache->lock);
@@ -266,13 +264,7 @@ int ocf_mngt_cache_read_trylock(ocf_cache_t cache)
 /* if cache is either fully initialized or during recovery */
 static bool _ocf_mngt_cache_try_get(ocf_cache_t cache)
 {
-	if (!!cache->valid_ocf_cache_device_t) {
-		/* Increase reference counter */
-		env_atomic_inc(&cache->ref_count);
-		return true;
-	}
-
-	return false;
+	return !!ocf_refcnt_inc(&cache->refcnt.cache);
 }
 
 int ocf_mngt_cache_get(ocf_cache_t cache)

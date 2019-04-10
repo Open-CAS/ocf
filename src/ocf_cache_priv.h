@@ -146,12 +146,9 @@ struct ocf_cache {
 	ocf_ctx_t owner;
 
 	struct list_head list;
-	/* set to make valid */
-	uint8_t valid_ocf_cache_device_t;
+
 	/* unset running to not serve any more I/O requests */
 	unsigned long cache_state;
-
-	env_atomic ref_count;
 
 	struct ocf_superblock_config *conf_meta;
 
@@ -169,8 +166,14 @@ struct ocf_cache {
 	char name[OCF_CACHE_NAME_SIZE];
 
 	struct {
+		/* cache get/put counter */
+		struct ocf_refcnt cache;
+		/* # of requests potentially dirtying cachelines */
 		struct ocf_refcnt dirty;
+		/* # of requests accessing attached metadata, excluding
+		 * management reqs */
 		struct ocf_refcnt metadata;
+		/* # of forced cleaning requests (eviction path) */
 		struct ocf_refcnt cleaning[OCF_IO_CLASS_MAX];
 	} refcnt;
 
