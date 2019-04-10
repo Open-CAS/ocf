@@ -136,7 +136,7 @@ class Cache:
         self.io_queues = []
 
     def start_cache(
-        self, mngt_queue: Queue = None, use_mngt_queue_for_io: bool = True
+        self, default_io_queue: Queue = None, mngt_queue: Queue = None,
     ):
         status = self.owner.lib.ocf_mngt_cache_start(
             self.owner.ctx_handle, byref(self.cache_handle), byref(self.cfg)
@@ -144,13 +144,15 @@ class Cache:
         if status:
             raise OcfError("Creating cache instance failed", status)
         self.owner.caches += [self]
-        self.name = self.owner.lib.ocf_cache_get_name(self)
 
         self.mngt_queue = mngt_queue or Queue(
-            self, "mgmt-{}".format(self.name), mngt_queue=True
+            self, "mgmt-{}".format(self.get_name()), mngt_queue=True
         )
-        if use_mngt_queue_for_io:
-            self.io_queues += [self.mngt_queue]
+
+        if default_io_queue:
+            self.io_queues += [default_io_queue]
+        else:
+            self.io_queues += [Queue(self, "default-io-{}".format(self.get_name()))]
 
         status = self.owner.lib.ocf_mngt_cache_set_mngt_queue(
             self, self.mngt_queue
@@ -213,6 +215,7 @@ class Cache:
     @classmethod
     def load_from_device(cls, device, name=""):
         c = cls(name=name, owner=device.owner)
+
         c.start_cache()
         c.load_cache(device)
         return c
@@ -419,7 +422,18 @@ class Cache:
 
         self.put_and_write_unlock()
 
+    def get_name(self):
+        self.get_and_read_lock()
+
+        try:
+            return str(self.owner.lib.ocf_cache_get_name(self), encoding="ascii")
+        except:
+            raise OcfError("Couldn't get cache name")
+        finally:
+            self.put_and_read_unlock()
 
 lib = OcfLib.getInstance()
 lib.ocf_mngt_cache_remove_core.argtypes = [c_void_p, c_void_p, c_void_p]
 lib.ocf_mngt_cache_add_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p]
+lib.ocf_cache_get_name.argtypes = [c_void_p]
+lib.ocf_cache_get_name.restype = c_char_p
