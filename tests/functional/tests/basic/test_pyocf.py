@@ -19,31 +19,6 @@ def test_ctx_fixture(pyocf_ctx):
     pass
 
 
-def test_adding_cores(pyocf_ctx):
-    cache_device = Volume(S.from_MiB(200))
-    core1_device = Volume(S.from_MiB(400))
-    core2_device = Volume(S.from_MiB(400))
-
-    cache = Cache.start_on_device(cache_device)
-    core1 = Core.using_device(core1_device)
-    core2 = Core.using_device(core2_device)
-
-    cache.add_core(core1)
-    cache.add_core(core2)
-
-
-def test_adding_core_twice(pyocf_ctx):
-    cache_device = Volume(S.from_MiB(200))
-    core_device = Volume(S.from_MiB(400))
-
-    cache = Cache.start_on_device(cache_device)
-    core = Core.using_device(core_device)
-
-    cache.add_core(core)
-    with pytest.raises(OcfError):
-        cache.add_core(core)
-
-
 def test_simple_wt_write(pyocf_ctx):
     cache_device = Volume(S.from_MiB(100))
     core_device = Volume(S.from_MiB(200))
