@@ -1142,32 +1142,25 @@ int ocf_mngt_get_ram_needed(ocf_cache_t cache,
  * @brief for error handling do partial cleanup of datastructures upon
  * premature function exit.
  *
- * @param cache cache instance
  * @param ctx OCF context
  * @param params - startup params containing initialization status flags.
- *		Value of NULL indicates cache is fully initialized but not
- *		handling any I/O (cache->valid_ocf_cache_device_t is 0).
+ *
  */
-static void _ocf_mngt_init_handle_error(ocf_cache_t cache,
-		ocf_ctx_t ctx, struct ocf_cachemng_init_params *params)
+static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
+		struct ocf_cachemng_init_params *params)
 {
-	ocf_queue_t queue, tmp_queue;
+	ocf_cache_t cache = params->cache;
 
-	if (!params || params->flags.metadata_inited)
+	if (!params->flags.cache_alloc)
+		return;
+
+	if (params->flags.metadata_inited)
 		ocf_metadata_deinit(cache);
 
 	env_mutex_lock(&ctx->lock);
 
-	if (cache->mngt_queue)
-		ocf_queue_put(cache->mngt_queue);
-
-	list_for_each_entry_safe(queue, tmp_queue, &cache->io_queues, list)
-		ocf_queue_put(queue);
-
-	if (!params || params->flags.cache_alloc) {
-		list_del(&cache->list);
-		env_vfree(cache);
-	}
+	list_del(&cache->list);
+	env_vfree(cache);
 
 	env_mutex_unlock(&ctx->lock);
 }
@@ -1258,15 +1251,14 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	if (result) {
 		result =  -OCF_ERR_START_CACHE_FAIL;
 		goto _cache_mng_init_instance_ERROR;
-
 	}
+
+	ocf_log(ctx, log_debug, "Metadata initialized\n");
+	params.flags.metadata_inited = true;
 
 	result = _ocf_mngt_cache_init(*cache, &params);
 	if (result)
 		goto _cache_mng_init_instance_ERROR;
-
-	ocf_log(ctx, log_debug, "Metadata initialized\n");
-	params.flags.metadata_inited = true;
 
 	if (params.locked) {
 		/* Increment reference counter to match cache_lock /
@@ -1285,7 +1277,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	return 0;
 
 _cache_mng_init_instance_ERROR:
-	_ocf_mngt_init_handle_error(params.cache, ctx, &params);
+	_ocf_mngt_init_handle_error(ctx, &params);
 	*cache = NULL;
 	return result;
 }
