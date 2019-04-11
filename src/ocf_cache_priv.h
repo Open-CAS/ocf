@@ -171,6 +171,7 @@ struct ocf_cache {
 	struct {
 		struct ocf_refcnt dirty;
 		struct ocf_refcnt metadata;
+		struct ocf_refcnt cleaning[OCF_IO_CLASS_MAX];
 	} refcnt;
 
 	uint32_t fallback_pt_error_threshold;
@@ -192,8 +193,6 @@ struct ocf_cache {
 	struct ocf_core_meta_runtime *core_runtime_meta;
 
 	env_atomic flush_in_progress;
-
-	env_atomic cleaning[OCF_IO_CLASS_MAX];
 
 	struct ocf_cleaner cleaner;
 	struct ocf_metadata_updater metadata_updater;

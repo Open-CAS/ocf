@@ -273,9 +273,9 @@ void evp_lru_rm_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 
 static void evp_lru_clean_end(void *private_data, int error)
 {
-	env_atomic *cleaning_in_progress = private_data;
+	struct ocf_refcnt *counter = private_data;
 
-	env_atomic_set(cleaning_in_progress, 0);
+	ocf_refcnt_dec(counter);
 }
 
 static int evp_lru_clean_getter(ocf_cache_t cache,
@@ -309,32 +309,40 @@ static int evp_lru_clean_getter(ocf_cache_t cache,
 static void evp_lru_clean(ocf_cache_t cache, ocf_queue_t io_queue,
 		ocf_part_id_t part_id, uint32_t count)
 {
-	env_atomic *progress = &cache->cleaning[part_id];
+	struct ocf_refcnt *counter = &cache->refcnt.cleaning[part_id];
 	struct ocf_user_part *part = &cache->user_parts[part_id];
+	struct ocf_cleaner_attribs attribs = {
+		.cache_line_lock = true,
+		.do_sort = true,
+
+		.cmpl_context = counter,
+		.cmpl_fn = evp_lru_clean_end,
+
+		.getter = evp_lru_clean_getter,
+		.getter_context = &attribs,
+		.getter_item = part->runtime->eviction.policy.lru.dirty_tail,
+
+		.count = count > 32 ? 32 : count,
+
+		.io_queue = io_queue
+	};
+	int cnt;
 
 	if (ocf_mngt_is_cache_locked(cache))
 		return;
 
-	if (env_atomic_cmpxchg(progress, 0, 1) == 0) {
-		/* Initialize attributes for cleaner */
-		struct ocf_cleaner_attribs attribs = {
-			.cache_line_lock = true,
-			.do_sort = true,
-
-			.cmpl_context = progress,
-			.cmpl_fn = evp_lru_clean_end,
-
-			.getter = evp_lru_clean_getter,
-			.getter_context = &attribs,
-			.getter_item = part->runtime->eviction.policy.lru.dirty_tail,
-
-			.count = count > 32 ? 32 : count,
-
-			.io_queue = io_queue
-		};
-
-		ocf_cleaner_fire(cache, &attribs);
+	cnt = ocf_refcnt_inc(counter);
+	if (!cnt) {
+		/* cleaner disabled by mngmt operation */
+		return;
 	}
+	if (cnt > 1) {
+		/* cleaning already running for this partition */
+		ocf_refcnt_dec(counter);
+		return;
+	}
+
+	ocf_cleaner_fire(cache, &attribs);
 }
 
 static void evp_lru_zero_line_complete(struct ocf_request *ocf_req, int error)

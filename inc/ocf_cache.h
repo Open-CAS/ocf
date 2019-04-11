@@ -161,13 +161,6 @@ bool ocf_cache_is_device_attached(ocf_cache_t cache);
 bool ocf_cache_is_running(ocf_cache_t cache);
 
 /**
- * @brief Check if cleaning triggered by eviction runs on the cache
- *
- * @param[in] cache Cache object
- */
-bool ocf_cache_has_pending_cleaning(ocf_cache_t cache);
-
-/**
  * @brief Get cache mode of given cache object
  *
  * @param[in] cache Cache object
