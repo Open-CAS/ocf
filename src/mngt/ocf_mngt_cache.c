@@ -1980,7 +1980,7 @@ struct ocf_mngt_cache_stop_context {
 	ocf_cache_t cache;
 	ocf_ctx_t ctx;
 	char cache_name[OCF_CACHE_NAME_SIZE];
-	int error;
+	int cache_write_error;
 };
 
 static void ocf_mngt_cache_stop_wait_io(ocf_pipeline_t pipeline,
@@ -2022,7 +2022,16 @@ static void ocf_mngt_cache_stop_unplug_complete(void *priv, int error)
 {
 	struct ocf_mngt_cache_stop_context *context = priv;
 
-	context->error = error;
+	/* short-circut execution in case of critical error */
+	if (error && error != -OCF_ERR_WRITE_CACHE) {
+		ocf_pipeline_finish(context->pipeline, error);
+		return;
+	}
+
+	/* in case of non-critical (disk write) error just remember its value */
+	if (error)
+		context->cache_write_error = error;
+
 	ocf_pipeline_next(context->pipeline);
 }
 
@@ -2061,20 +2070,22 @@ static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 	ocf_ctx_t ctx = context->ctx;
 
-	if (error)
-		context->error = error;
+	if (!error) {
+		env_mutex_lock(&ctx->lock);
+		/* Mark device uninitialized */
+		cache->valid_ocf_cache_device_t = 0;
+		/* Remove cache from the list */
+		list_del(&cache->list);
+		env_mutex_unlock(&ctx->lock);
+	} else {
+		env_bit_clear(ocf_cache_state_stopping, &cache->cache_state);
+		env_bit_set(ocf_cache_state_running, &cache->cache_state);
+	}
 
-	env_mutex_lock(&ctx->lock);
-	/* Mark device uninitialized */
-	cache->valid_ocf_cache_device_t = 0;
-	/* Remove cache from the list */
-	list_del(&cache->list);
-	env_mutex_unlock(&ctx->lock);
-
-	if (context->error == -OCF_ERR_WRITE_CACHE) {
+	if (context->cache_write_error) {
 		ocf_log(ctx, log_warn, "Stopped cache %s with errors\n",
 				context->cache_name);
-	} else if (context->error) {
+	} else if (error) {
 		ocf_log(ctx, log_err, "Stopping cache %s failed\n",
 				context->cache_name);
 	} else {
@@ -2082,12 +2093,15 @@ static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
 				context->cache_name);
 	}
 
-	context->cmpl(cache, context->priv, context->error);
+	context->cmpl(cache, context->priv,
+			error ?: context->cache_write_error);
 
 	ocf_pipeline_destroy(context->pipeline);
 
-	/* Finally release cache instance */
-	ocf_mngt_cache_put(cache);
+	if (!error) {
+		/* Finally release cache instance */
+		ocf_mngt_cache_put(cache);
+	}
 }
 
 struct ocf_pipeline_properties ocf_mngt_cache_stop_pipeline_properties = {
