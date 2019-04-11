@@ -2348,6 +2348,7 @@ struct ocf_mngt_cache_detach_context {
 	void *priv;
 	ocf_pipeline_t pipeline;
 	ocf_cache_t cache;
+	struct ocf_cleaner_wait_context cleaner_wait;
 };
 
 static void ocf_mngt_cache_detach_flush_cmpl(ocf_cache_t cache,
@@ -2373,13 +2374,13 @@ static void ocf_mngt_cache_detach_flush(ocf_pipeline_t pipeline,
 			context);
 }
 
-static void ocf_mngt_cache_detach_wait_pending_finish(void *priv)
+static void ocf_mngt_cache_detach_stop_cache_io_finish(void *priv)
 {
 	struct ocf_mngt_cache_detach_context *context = priv;
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void ocf_mngt_cache_detach_wait_pending(ocf_pipeline_t pipeline,
+static void ocf_mngt_cache_detach_stop_cache_io(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_detach_context *context = priv;
@@ -2387,7 +2388,23 @@ static void ocf_mngt_cache_detach_wait_pending(ocf_pipeline_t pipeline,
 
 	ocf_refcnt_freeze(&cache->refcnt.metadata);
 	ocf_refcnt_register_zero_cb(&cache->refcnt.metadata,
-			ocf_mngt_cache_detach_wait_pending_finish, context);
+			ocf_mngt_cache_detach_stop_cache_io_finish, context);
+}
+
+void ocf_mngt_cache_detach_stop_cleaner_io_finish(void *priv)
+{
+	ocf_pipeline_t pipeline = priv;
+	ocf_pipeline_next(pipeline);
+}
+
+void ocf_mngt_cache_detach_stop_cleaner_io(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_detach_context *context = priv;
+
+	ocf_cleaner_wait_pending_io(context->cache, &context->cleaner_wait,
+			ocf_mngt_cache_detach_stop_cleaner_io_finish,
+			pipeline);
 }
 
 static void ocf_mngt_cache_detach_update_metadata(ocf_pipeline_t pipeline,
@@ -2465,7 +2482,8 @@ struct ocf_pipeline_properties ocf_mngt_cache_detach_pipeline_properties = {
 	.finish = ocf_mngt_cache_detach_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_mngt_cache_detach_flush),
-		OCF_PL_STEP(ocf_mngt_cache_detach_wait_pending),
+		OCF_PL_STEP(ocf_mngt_cache_detach_stop_cache_io),
+		OCF_PL_STEP(ocf_mngt_cache_detach_stop_cleaner_io),
 		OCF_PL_STEP(ocf_mngt_cache_detach_update_metadata),
 		OCF_PL_STEP(ocf_mngt_cache_detach_unplug),
 		OCF_PL_STEP_TERMINATOR(),
