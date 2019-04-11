@@ -8,6 +8,7 @@
 #include "../engine/engine_common.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "utils_cleaner.h"
+#include "utils_part.h"
 #include "utils_req.h"
 #include "utils_io.h"
 #include "utils_cache_line.h"
@@ -1023,4 +1024,34 @@ void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,
 				sizeof(*fctbl[i].flush_data), _ocf_cleaner_cmp,
 				_ocf_cleaner_swap);
 	}
+}
+
+static void ocf_cleaner_wait_pending_io_finish(void *priv)
+{
+	struct ocf_cleaner_wait_context *ctx = priv;
+
+	if (!env_atomic_dec_return(&ctx->waiting))
+		ctx->cmpl(ctx->priv);
+}
+
+void ocf_cleaner_wait_pending_io(ocf_cache_t cache,
+		struct ocf_cleaner_wait_context *ctx,
+		void (*cmpl)(void*),
+		void *priv)
+{
+	struct ocf_user_part *curr_part;
+	ocf_part_id_t part_id;
+
+	env_atomic_set(&ctx->waiting, 1);
+	ctx->cmpl = cmpl;
+	ctx->priv = priv;
+
+	for_each_part(cache, curr_part, part_id) {
+		env_atomic_inc(&ctx->waiting);
+		ocf_refcnt_freeze(&cache->refcnt.cleaning[part_id]);
+		ocf_refcnt_register_zero_cb(&cache->refcnt.cleaning[part_id],
+				ocf_cleaner_wait_pending_io_finish, ctx);
+	}
+
+	ocf_cleaner_wait_pending_io_finish(ctx);
 }

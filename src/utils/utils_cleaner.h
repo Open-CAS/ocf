@@ -79,6 +79,18 @@ struct flush_container {
 	struct ocf_mngt_cache_flush_context *context;
 };
 
+typedef void (*ocf_cleaner_wait_pending_io_complete_t)(void *priv);
+
+/**
+ * @brief Context for ocf_cleaner_wait_pending_io
+ */
+struct ocf_cleaner_wait_context
+{
+	env_atomic waiting;
+	ocf_cleaner_wait_pending_io_complete_t cmpl;
+	void *priv;
+};
+
 /**
  * @brief Run cleaning procedure
  *
@@ -118,5 +130,10 @@ void ocf_cleaner_sort_sectors(struct flush_data *tbl, uint32_t num);
  */
 void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,
 		uint32_t num);
+
+void ocf_cleaner_wait_pending_io(ocf_cache_t cache,
+		struct ocf_cleaner_wait_context *ctx,
+		void (*cmpl)(void*),
+		void *priv);
 
 #endif /* UTILS_CLEANER_H_ */
