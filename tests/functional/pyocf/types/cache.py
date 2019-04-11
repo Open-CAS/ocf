@@ -160,6 +160,11 @@ class Cache:
         if status:
             raise OcfError("Error setting management queue", status)
 
+    def change_cache_mode(self, cache_mode: CacheMode):
+        self.get_and_write_lock()
+        self.owner.lib.ocf_mngt_cache_set_mode(self.cache_handle, cache_mode)
+        self.put_and_write_unlock()
+
     def configure_device(
         self, device, force=False, perform_test=False, cache_line_size=None
     ):
