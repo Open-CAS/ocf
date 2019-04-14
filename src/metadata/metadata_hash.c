@@ -251,8 +251,7 @@ static int ocf_metadata_hash_calculate_metadata_size(
 					raw->entries_in_page);
 
 			/* Update offset for next container */
-			count_pages += ocf_metadata_raw_size_on_ssd(
-					cache, raw);
+			count_pages += ocf_metadata_raw_size_on_ssd(raw);
 		}
 
 		/*
@@ -446,27 +445,16 @@ static void ocf_metadata_hash_deinit(struct ocf_cache *cache)
 		ENV_BUG();
 }
 
-static int ocf_metadata_hash_init(struct ocf_cache *cache,
-	ocf_cache_line_size_t cache_line_size)
+static struct ocf_metadata_hash_ctrl *ocf_metadata_hash_ctrl_init(
+		bool metadata_volatile)
 {
 	struct ocf_metadata_hash_ctrl *ctrl = NULL;
-	struct ocf_cache_line_settings *settings =
-		(struct ocf_cache_line_settings *)&cache->metadata.settings;
-	uint32_t i = 0;
 	uint32_t page = 0;
-	int result = 0;
-
-	OCF_DEBUG_TRACE(cache);
-
-	ENV_WARN_ON(cache->metadata.iface_priv);
+	uint32_t i = 0;
 
 	ctrl = env_vzalloc(sizeof(*ctrl));
 	if (!ctrl)
-		return -ENOMEM;
-
-	cache->metadata.iface_priv = ctrl;
-
-	ocf_metadata_config_init(cache, settings, cache_line_size);
+		return NULL;
 
 	/* Initial setup of RAW containers */
 	for (i = 0; i < metadata_segment_fixed_size_max; i++) {
@@ -477,7 +465,7 @@ static int ocf_metadata_hash_init(struct ocf_cache *cache,
 		/* Default type for metadata RAW container */
 		raw->raw_type = metadata_raw_type_ram;
 
-		if (cache->metadata.is_volatile) {
+		if (metadata_volatile) {
 			raw->raw_type = metadata_raw_type_volatile;
 		} else if (i == metadata_segment_core_uuid) {
 			raw->raw_type = metadata_raw_type_dynamic;
@@ -499,10 +487,34 @@ static int ocf_metadata_hash_init(struct ocf_cache *cache,
 				raw->entries_in_page);
 
 		/* Update offset for next container */
-		page += ocf_metadata_raw_size_on_ssd(cache, raw);
+		page += ocf_metadata_raw_size_on_ssd(raw);
 	}
 
 	ctrl->count_pages = page;
+
+	return ctrl;
+}
+
+int ocf_metadata_hash_init(struct ocf_cache *cache,
+		ocf_cache_line_size_t cache_line_size)
+{
+	struct ocf_metadata_hash_ctrl *ctrl = NULL;
+	struct ocf_metadata *metadata = &cache->metadata;
+	struct ocf_cache_line_settings *settings =
+		(struct ocf_cache_line_settings *)&metadata->settings;
+	uint32_t i = 0;
+	int result = 0;
+
+	OCF_DEBUG_TRACE(cache);
+
+	ENV_WARN_ON(metadata->iface_priv);
+
+	ocf_metadata_config_init(cache, settings, cache_line_size);
+
+	ctrl = ocf_metadata_hash_ctrl_init(metadata->is_volatile);
+	if (!ctrl)
+		return -ENOMEM;
+	metadata->iface_priv = ctrl;
 
 	for (i = 0; i < metadata_segment_fixed_size_max; i++) {
 		result |= ocf_metadata_raw_init(cache, &(ctrl->raw_desc[i]));
@@ -531,7 +543,305 @@ static int ocf_metadata_hash_init(struct ocf_cache *cache,
 	return result;
 }
 
+/* metadata segment data + iterators */
+struct query_cores_data
+{
+	/* array of data */
+	ctx_data_t *data;
+	/* current metadata entry counter */
+	uint32_t entry;
+	/* number of entries per page */
+	uint32_t entries_in_page;
+};
 
+/* query cores context */
+struct query_cores_context
+{
+	ocf_ctx_t ctx;
+
+	struct ocf_superblock_config superblock;
+	struct ocf_metadata_uuid muuid;
+
+	struct {
+		struct query_cores_data core_uuids;
+		struct query_cores_data core_config;
+		struct query_cores_data superblock;
+	} data;
+
+	env_atomic count;
+	env_atomic error;
+
+	/* OCF entry point parameters */
+	struct {
+		struct ocf_volume_uuid *uuids;
+		uint32_t uuids_count;
+		void *priv;
+		ocf_metadata_query_cores_end_t cmpl;
+	} params;
+};
+
+/* copy next metadata entry from data to memory buffer */
+static void ocf_metadata_hash_query_cores_data_read(ocf_ctx_t ctx,
+		struct query_cores_data *data,
+		void *buf, uint32_t size)
+{
+	if (data->entry > 0 && data->entry % data->entries_in_page == 0) {
+		ctx_data_seek_check(ctx, data->data,
+				ctx_data_seek_current,
+				PAGE_SIZE - data->entries_in_page * size);
+	}
+
+	ctx_data_rd_check(ctx, buf, data->data, size);
+
+	++data->entry;
+}
+
+static void ocf_metadata_query_cores_end(struct query_cores_context *context,
+		int error)
+{
+	ocf_ctx_t ctx = context->ctx;
+	unsigned i, core_idx;
+	struct ocf_metadata_uuid *muuid = &context->muuid;
+	struct ocf_core_meta_config core_config;
+	unsigned core_count = 0;
+	unsigned long valid_core_bitmap[(OCF_CORE_MAX /
+			(sizeof(unsigned long) * 8)) + 1];
+	unsigned out_cores;
+
+	if (error)
+		env_atomic_cmpxchg(&context->error, 0, error);
+
+	if (env_atomic_dec_return(&context->count))
+		return;
+
+	error = env_atomic_read(&context->error);
+	if (error)
+		goto exit;
+
+	/* read superblock */
+	ctx_data_rd_check(ctx, &context->superblock,
+			context->data.superblock.data,
+			sizeof(context->superblock));
+
+	if (context->superblock.magic_number != CACHE_MAGIC_NUMBER) {
+		error = -ENODATA;
+		goto exit;
+	}
+
+	env_memset(&valid_core_bitmap, sizeof(valid_core_bitmap), 0);
+
+	/* read valid cores from core config segment */
+	for (i = 0; i < OCF_CORE_MAX; i++) {
+		ocf_metadata_hash_query_cores_data_read(ctx,
+				&context->data.core_config,
+				&core_config, sizeof(core_config));
+		if (core_config.added) {
+			env_bit_set(i, valid_core_bitmap);
+			++core_count;
+		}
+	}
+
+	/* read core uuids */
+	out_cores = OCF_MIN(core_count, context->params.uuids_count);
+	for (i = 0, core_idx = 0; i < OCF_CORE_MAX && core_idx < out_cores;
+			i++) {
+		ocf_metadata_hash_query_cores_data_read(ctx,
+				&context->data.core_uuids,
+				muuid, sizeof(*muuid));
+
+		if (!env_bit_test(i, valid_core_bitmap))
+			continue;
+
+		if (muuid->size > OCF_VOLUME_UUID_MAX_SIZE) {
+			error = -EINVAL;
+			goto exit;
+		}
+		if (muuid->size > context->params.uuids[core_idx].size) {
+			error = -ENOSPC;
+			goto exit;
+		}
+
+		error = env_memcpy(context->params.uuids[core_idx].data,
+				context->params.uuids[core_idx].size,
+				muuid->data, muuid->size);
+		if (error)
+			goto exit;
+		context->params.uuids[core_idx].size = muuid->size;
+
+		++core_idx;
+	}
+
+exit:
+	/* provide actual core count to completion */
+	context->params.cmpl(context->params.priv, error, core_count);
+
+	/* free data */
+	ctx_data_free(ctx, context->data.core_uuids.data);
+	ctx_data_free(ctx, context->data.core_config.data);
+	ctx_data_free(ctx, context->data.superblock.data);
+
+	env_vfree(context);
+}
+
+static void ocf_metadata_query_cores_end_io(struct ocf_io *io, int error)
+{
+	struct query_cores_context *context = io->priv1;
+
+	ocf_io_put(io);
+	ocf_metadata_query_cores_end(context, error);
+}
+
+static int ocf_metadata_query_cores_io(ocf_volume_t volume,
+		struct query_cores_context *context, ctx_data_t *data,
+		uint32_t offset, uint64_t page, uint32_t num_pages)
+{
+	struct ocf_io *io;
+	int err;
+
+	env_atomic_inc(&context->count);
+
+	/* Allocate new IO */
+	io = ocf_volume_new_io(volume);
+	if (!io) {
+		err = -OCF_ERR_NO_MEM;
+		goto exit_error;
+	}
+
+	/* Setup IO */
+	ocf_io_configure(io,
+			PAGES_TO_BYTES(page),
+			PAGES_TO_BYTES(num_pages),
+			OCF_READ, 0, 0);
+
+	ocf_io_set_cmpl(io, context, NULL,
+			ocf_metadata_query_cores_end_io);
+	err = ocf_io_set_data(io, data, PAGES_TO_BYTES(offset));
+	if (err) {
+		ocf_io_put(io);
+		goto exit_error;
+	}
+
+	ocf_volume_submit_io(io);
+
+	return 0;
+
+exit_error:
+	env_atomic_dec(&context->count);
+	return err;
+}
+
+int ocf_metadata_query_cores_segment_io(
+		 struct query_cores_context *context,
+		ocf_ctx_t owner,
+		ocf_volume_t volume,
+		enum ocf_metadata_segment segment,
+		struct ocf_metadata_hash_ctrl *ctrl,
+		struct query_cores_data *segment_data)
+{
+	uint32_t pages_left;
+	uint32_t pages;
+	uint32_t addr;
+	uint32_t offset;
+	uint32_t io_count;
+	uint32_t i;
+	uint32_t max_pages_per_io = ocf_volume_get_max_io_size(volume) /
+						PAGE_SIZE;
+	int err = 0;
+
+	/* Allocate data */
+	segment_data->data = ctx_data_alloc(owner,
+			ctrl->raw_desc[segment].ssd_pages);
+	if (!segment_data->data) {
+		err = -ENOMEM;
+		goto exit;
+	}
+
+	segment_data->entries_in_page = ctrl->raw_desc[segment].entries_in_page;
+
+	io_count = OCF_DIV_ROUND_UP(ctrl->raw_desc[segment].ssd_pages,
+			max_pages_per_io);
+
+	/* submit segment data I/O */
+	pages_left = ctrl->raw_desc[segment].ssd_pages;
+	addr = ctrl->raw_desc[segment].ssd_pages_offset;
+	offset = 0;
+	i = 0;
+	while (pages_left) {
+		ENV_BUG_ON(i >= io_count);
+
+		pages = OCF_MIN(pages_left, max_pages_per_io);
+
+		err = ocf_metadata_query_cores_io(volume, context,
+				segment_data->data, offset, addr, pages);
+		if (err)
+			goto exit;
+
+		addr += pages;
+		offset += pages;
+		pages_left -= pages;
+		++i;
+	}
+
+exit:
+	return err;
+}
+
+void ocf_metadata_hash_query_cores(ocf_ctx_t owner, ocf_volume_t volume,
+		struct ocf_volume_uuid *uuid, uint32_t count,
+		ocf_metadata_query_cores_end_t cmpl, void *priv)
+{
+	struct ocf_metadata_hash_ctrl *ctrl = NULL;
+	struct query_cores_context *context;
+	int err;
+
+	if (count > OCF_CORE_MAX) {
+		cmpl(priv, -EINVAL, 0);
+		return;
+	}
+
+	/* intialize query context */
+	context = env_vzalloc(sizeof(*context));
+	if (!context) {
+		cmpl(priv, -ENOMEM, 0);
+		return;
+	}
+	context->ctx = owner;
+	context->params.cmpl = cmpl;
+	context->params.priv = priv;
+	context->params.uuids = uuid;
+	context->params.uuids_count = count;
+	env_atomic_set(&context->count, 1);
+
+	ctrl = ocf_metadata_hash_ctrl_init(false);
+	if (!ctrl) {
+		err = -ENOMEM;
+		goto exit;
+	}
+
+	/* superblock I/O */
+	err = ocf_metadata_query_cores_segment_io(context, owner,
+			volume, metadata_segment_sb_config, ctrl,
+			&context->data.superblock);
+	if (err)
+		goto exit;
+
+	/* core config I/O */
+	err = ocf_metadata_query_cores_segment_io(context, owner,
+			volume, metadata_segment_core_uuid, ctrl,
+			&context->data.core_uuids);
+	if (err)
+		goto exit;
+
+	/* core uuid I/O */
+	err = ocf_metadata_query_cores_segment_io(context, owner,
+			volume, metadata_segment_core_config, ctrl,
+			&context->data.core_config);
+	if (err)
+		goto exit;
+exit:
+	env_vfree(ctrl);
+	ocf_metadata_query_cores_end(context, err);
+}
 
 /*
  * Initialize hash metadata interface
@@ -2456,6 +2766,7 @@ static void ocf_metadata_hash_set_partition_info(
 static const struct ocf_metadata_iface metadata_hash_iface = {
 	.init = ocf_metadata_hash_init,
 	.deinit = ocf_metadata_hash_deinit,
+	.query_cores = ocf_metadata_hash_query_cores,
 	.init_variable_size = ocf_metadata_hash_init_variable_size,
 	.deinit_variable_size = ocf_metadata_hash_deinit_variable_size,
 	.init_hash_table = ocf_metadata_hash_init_hash_table,

@@ -93,13 +93,11 @@ struct raw_iface {
 	/**
 	 * @brief Return size which metadata take on cache device
 	 *
-	 * @param cache Cache instance
 	 * @param raw RAW container of metadata
 	 *
 	 * @return Number of pages (4 kiB) on cache device
 	 */
-	uint32_t (*size_on_ssd)(ocf_cache_t cache,
-			struct ocf_metadata_raw *raw);
+	uint32_t (*size_on_ssd)(struct ocf_metadata_raw *raw);
 
 	uint32_t (*checksum)(ocf_cache_t cache,
 			struct ocf_metadata_raw *raw);
@@ -175,12 +173,10 @@ static inline size_t ocf_metadata_raw_size_of(ocf_cache_t cache,
 /**
  * @brief Get SSD footprint
  *
- * @param cache - Cache instance
  * @param raw - RAW descriptor
  * @return Size on SSD
  */
-size_t ocf_metadata_raw_size_on_ssd(struct ocf_cache* cache,
-		struct ocf_metadata_raw* raw);
+size_t ocf_metadata_raw_size_on_ssd(struct ocf_metadata_raw* raw);
 
 /**
  * @brief Calculate metadata checksum
