@@ -42,7 +42,7 @@ def print_buffer(buf, length, offset=0, width=16, stop_after_zeros=0):
                 char = "."
             asciiline += char
 
-        print("{:#08X}\t{}\t{}".format(addr, byteline, asciiline))
+        print("0x{:08X}\t{}\t{}".format(addr, byteline, asciiline))
         whole_buffer_empty = False
 
     if whole_buffer_empty:

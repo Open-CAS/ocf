@@ -6,7 +6,6 @@
 from ctypes import (
     c_void_p,
     Structure,
-    c_void_p,
     c_char_p,
     c_uint,
     c_int,
@@ -17,6 +16,7 @@ from ctypes import (
 from enum import IntEnum
 import logging
 from io import StringIO
+import weakref
 
 from ..ocf import OcfLib
 
@@ -81,7 +81,7 @@ class Logger(Structure):
         )
         self.priv = LoggerPriv(_log=self._log)
         self._as_parameter_ = cast(pointer(self.priv), c_void_p).value
-        self._instances_[self._as_parameter_] = self
+        self._instances_[self._as_parameter_] = weakref.ref(self)
 
     def get_ops(self):
         return self.ops
@@ -92,7 +92,7 @@ class Logger(Structure):
     @classmethod
     def get_instance(cls, ctx: int):
         priv = OcfLib.getInstance().ocf_logger_get_priv(ctx)
-        return cls._instances_[priv]
+        return cls._instances_[priv]()
 
     @staticmethod
     @LoggerOps.LOG

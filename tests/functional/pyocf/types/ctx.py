@@ -4,15 +4,15 @@
 #
 
 from ctypes import c_void_p, Structure, c_char_p, cast, pointer, byref
-from enum import IntEnum
 
 from .logger import LoggerOps, Logger
 from .data import DataOps, Data
-from .queue import Queue
 from .cleaner import CleanerOps, Cleaner
 from .metadata_updater import MetadataUpdaterOps, MetadataUpdater
 from .shared import OcfError
 from ..ocf import OcfLib
+from .queue import Queue
+from .volume import Volume
 
 
 class OcfCtxOps(Structure):
@@ -56,22 +56,53 @@ class OcfCtx:
             raise OcfError("Context initialization failed", result)
 
     def register_volume_type(self, volume_type):
-        self.volume_types[self.volume_types_count] = volume_type.get_props()
+        self.volume_types[self.volume_types_count] = volume_type
         volume_type.type_id = self.volume_types_count
         volume_type.owner = self
 
         result = self.lib.ocf_ctx_register_volume_type(
             self.ctx_handle,
             self.volume_types_count,
-            byref(self.volume_types[self.volume_types_count]),
+            byref(self.volume_types[self.volume_types_count].get_props()),
         )
         if result != 0:
-            raise OcfError("Data object registration failed", result)
+            raise OcfError("Volume type registration failed", result)
 
         self.volume_types_count += 1
 
+    def unregister_volume_type(self, vol_type):
+        if not vol_type.type_id:
+            raise Exception("Already unregistered")
+
+        result = self.lib.ocf_ctx_unregister_volume_type(
+            self.ctx_handle, vol_type.type_id
+        )
+        if result != 0:
+            raise OcfError("Volume type unregistration failed", result)
+
+        del self.volume_types[vol_type.type_id]
+
+    def cleanup_volume_types(self):
+        for k, vol_type in list(self.volume_types.items()):
+            if vol_type:
+                self.unregister_volume_type(vol_type)
+
     def exit(self):
-        self.lib.ocf_ctx_exit(self.ctx_handle)
+        self.cleanup_volume_types()
+
+        result = self.lib.ocf_ctx_exit(self.ctx_handle)
+        if result != 0:
+            raise OcfError("Failed quitting OcfCtx", result)
+
+        self.cfg = None
+        self.logger = None
+        self.data = None
+        self.mu = None
+        self.cleaner = None
+        Queue._instances_ = {}
+        Volume._instances_ = {}
+        Data._instances_ = {}
+        Logger._instances_ = {}
 
 
 def get_default_ctx(logger):
