@@ -87,7 +87,12 @@ class OcfCtx:
             if vol_type:
                 self.unregister_volume_type(vol_type)
 
+    def stop_caches(self):
+        for cache in self.caches[:]:
+            cache.stop()
+
     def exit(self):
+        self.stop_caches()
         self.cleanup_volume_types()
 
         result = self.lib.ocf_ctx_exit(self.ctx_handle)

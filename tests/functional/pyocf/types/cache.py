@@ -119,7 +119,7 @@ class Cache:
         metadata_volatile: bool = False,
         max_queue_size: int = DEFAULT_BACKFILL_QUEUE_SIZE,
         queue_unblock_size: int = DEFAULT_BACKFILL_UNBLOCK,
-        locked: bool = True,
+        locked: bool = False,
         pt_unaligned_io: bool = DEFAULT_PT_UNALIGNED_IO,
         use_submit_fast: bool = DEFAULT_USE_SUBMIT_FAST,
     ):
@@ -181,19 +181,26 @@ class Cache:
     def change_cache_mode(self, cache_mode: CacheMode):
         self.get_and_write_lock()
         status = self.owner.lib.ocf_mngt_cache_set_mode(self.cache_handle, cache_mode)
+
         if status:
+            self.put_and_write_unlock()
             raise OcfError("Error changing cache mode", status)
+
         self.put_and_write_unlock()
 
     def set_cleaning_policy(self, cleaning_policy: CleaningPolicy):
         self.get_and_write_lock()
+
         status = self.owner.lib.ocf_mngt_cache_cleaning_set_policy(self.cache_handle, cleaning_policy)
         if status:
+            self.put_and_write_unlock()
             raise OcfError("Error changing cleaning policy", status)
+
         self.put_and_write_unlock()
 
     def set_cleaning_policy_param(self, cleaning_policy: CleaningPolicy, param_id, param_value):
         self.get_and_write_lock()
+
         status = self.owner.lib.ocf_mngt_cache_cleaning_set_param(
             self.cache_handle,
             cleaning_policy,
@@ -201,14 +208,19 @@ class Cache:
             param_value
         )
         if status:
+            self.put_and_write_unlock()
             raise OcfError("Error setting cleaning policy param", status)
+
         self.put_and_write_unlock()
 
     def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
         self.get_and_write_lock()
+
         status = self.owner.lib.ocf_mngt_core_set_seq_cutoff_policy_all(self.cache_handle, policy)
         if status:
+            self.put_and_write_unlock()
             raise OcfError("Error setting cache seq cut off policy", status)
+
         self.put_and_write_unlock()
 
     def configure_device(
@@ -238,6 +250,7 @@ class Cache:
         self, device, force=False, perform_test=False, cache_line_size=None
     ):
         self.configure_device(device, force, perform_test, cache_line_size)
+        self.get_and_write_lock()
 
         c = OcfCompletion(
             [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
@@ -249,7 +262,10 @@ class Cache:
 
         c.wait()
         if c.results["error"]:
+            self.put_and_write_unlock()
             raise OcfError("Attaching cache device failed", c.results["error"])
+
+        self.put_and_write_unlock()
 
     def load_cache(self, device):
         self.configure_device(device)
