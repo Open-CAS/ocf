@@ -14,7 +14,7 @@ from ctypes import (
 )
 
 
-def generate_random_numbers(c_type):
+def generate_random_numbers(c_type, count=1000):
     type_dict = {
         c_uint16: [0, c_uint16(-1).value],
         c_uint32: [0, c_uint32(-1).value],
@@ -23,7 +23,7 @@ def generate_random_numbers(c_type):
     }
 
     values = []
-    for i in range(0, 1000):
+    for i in range(0, count):
         values.append(random.randint(type_dict[c_type][0], type_dict[c_type][1]))
     return values
 
