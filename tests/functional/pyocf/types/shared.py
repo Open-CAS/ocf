@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
+import logging
 from ctypes import CFUNCTYPE, c_size_t, c_char_p, Structure, c_void_p
 from enum import IntEnum, auto
 from threading import Event
-import logging
 
 from ..utils import Size as S
 
@@ -58,6 +58,7 @@ class OcfCompletion:
         self.e = Event()
         self.completion_args = completion_args
         self._as_parameter_ = self.callback
+        self.results = None
 
     @property
     def callback(self):
