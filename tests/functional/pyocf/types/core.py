@@ -21,7 +21,7 @@ import logging
 from datetime import timedelta
 
 from ..ocf import OcfLib
-from .shared import Uuid, OcfCompletion, OcfError
+from .shared import Uuid, OcfCompletion, OcfError, SeqCutOffPolicy
 from .volume import Volume
 from .data import Data
 from .io import Io, IoDir
@@ -138,6 +138,13 @@ class Core:
             "errors": struct_to_dict(errors),
         }
 
+    def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
+        self.cache.get_and_write_lock()
+        status = self.cache.owner.lib.ocf_mngt_core_set_seq_cutoff_policy(self.handle, policy)
+        if status:
+            raise OcfError("Error setting core seq cut off policy", status)
+        self.cache.put_and_write_unlock()
+
     def reset_stats(self):
         self.cache.owner.lib.ocf_core_stats_initialize(self.handle)
 
@@ -168,3 +175,5 @@ lib.ocf_volume_new_io.argtypes = [c_void_p]
 lib.ocf_volume_new_io.restype = c_void_p
 lib.ocf_core_get_volume.argtypes = [c_void_p]
 lib.ocf_core_get_volume.restype = c_void_p
+lib.ocf_mngt_core_set_seq_cutoff_policy.argtypes = [c_void_p, c_uint32]
+lib.ocf_mngt_core_set_seq_cutoff_policy.restype = c_int

@@ -21,7 +21,7 @@ from enum import IntEnum
 from datetime import timedelta
 
 from ..ocf import OcfLib
-from .shared import Uuid, OcfError, CacheLineSize, CacheLines, OcfCompletion
+from .shared import Uuid, OcfError, CacheLineSize, CacheLines, OcfCompletion, SeqCutOffPolicy
 from ..utils import Size, struct_to_dict
 from .core import Core
 from .queue import Queue
@@ -80,6 +80,18 @@ class CleaningPolicy(IntEnum):
     ALRU = 1
     ACP = 2
     DEFAULT = ALRU
+
+
+class AlruParams(IntEnum):
+    WAKE_UP_TIME = 0,
+    STALE_BUFFER_TIME = 1,
+    FLUSH_MAX_BUFFERS = 2,
+    ACTIVITY_THRESHOLD = 3
+
+
+class AcpParams(IntEnum):
+    WAKE_UP_TIME = 0,
+    FLUSH_MAX_BUFFERS = 1
 
 
 class MetadataLayout(IntEnum):
@@ -168,7 +180,35 @@ class Cache:
 
     def change_cache_mode(self, cache_mode: CacheMode):
         self.get_and_write_lock()
-        self.owner.lib.ocf_mngt_cache_set_mode(self.cache_handle, cache_mode)
+        status = self.owner.lib.ocf_mngt_cache_set_mode(self.cache_handle, cache_mode)
+        if status:
+            raise OcfError("Error changing cache mode", status)
+        self.put_and_write_unlock()
+
+    def set_cleaning_policy(self, cleaning_policy: CleaningPolicy):
+        self.get_and_write_lock()
+        status = self.owner.lib.ocf_mngt_cache_cleaning_set_policy(self.cache_handle, cleaning_policy)
+        if status:
+            raise OcfError("Error changing cleaning policy", status)
+        self.put_and_write_unlock()
+
+    def set_cleaning_policy_param(self, cleaning_policy: CleaningPolicy, param_id, param_value):
+        self.get_and_write_lock()
+        status = self.owner.lib.ocf_mngt_cache_cleaning_set_param(
+            self.cache_handle,
+            cleaning_policy,
+            param_id,
+            param_value
+        )
+        if status:
+            raise OcfError("Error setting cleaning policy param", status)
+        self.put_and_write_unlock()
+
+    def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
+        self.get_and_write_lock()
+        status = self.owner.lib.ocf_mngt_core_set_seq_cutoff_policy_all(self.cache_handle, policy)
+        if status:
+            raise OcfError("Error setting cache seq cut off policy", status)
         self.put_and_write_unlock()
 
     def configure_device(
@@ -457,3 +497,10 @@ lib.ocf_mngt_cache_remove_core.argtypes = [c_void_p, c_void_p, c_void_p]
 lib.ocf_mngt_cache_add_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p]
 lib.ocf_cache_get_name.argtypes = [c_void_p]
 lib.ocf_cache_get_name.restype = c_char_p
+lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [c_void_p, c_uint32]
+lib.ocf_mngt_cache_cleaning_set_policy.restype = c_int
+lib.ocf_mngt_core_set_seq_cutoff_policy_all.argtypes = [c_void_p, c_uint32]
+lib.ocf_mngt_core_set_seq_cutoff_policy_all.restype = c_int
+lib.ocf_mngt_cache_cleaning_set_param.argtypes = [c_void_p, c_uint32, c_uint32, c_uint32]
+lib.ocf_mngt_cache_cleaning_set_param.restype = c_int
+

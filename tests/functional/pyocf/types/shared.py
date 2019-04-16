@@ -123,6 +123,13 @@ class CacheLineSize(IntEnum):
     DEFAULT = LINE_4KiB
 
 
+class SeqCutOffPolicy(IntEnum):
+    ALWAYS = 0
+    FULL = 1
+    NEVER = 2
+    DEFAULT = FULL
+
+
 class CacheLines(S):
     def __init__(self, count: int, line_size: CacheLineSize):
         self.bytes = count * line_size
