@@ -1699,6 +1699,9 @@ static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 		return -OCF_ERR_INVAL;
 	}
 
+	if (cfg->backfill.queue_unblock_size > cfg->backfill.max_queue_size )
+		return -OCF_ERR_INVAL;
+
 	return 0;
 }
 

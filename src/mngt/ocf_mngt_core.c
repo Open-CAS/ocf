@@ -905,6 +905,12 @@ static int _cache_mng_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
 		return 0;
 	}
 
+	if (policy < 0 || policy >= ocf_seq_cutoff_policy_max) {
+		ocf_core_log(core, log_info,
+				"Wrong sequential cutoff policy!\n");
+		return -OCF_ERR_INVAL;
+	}
+
 	cache->core_conf_meta[core_id].seq_cutoff_policy = policy;
 
 	ocf_core_log(core, log_info,
