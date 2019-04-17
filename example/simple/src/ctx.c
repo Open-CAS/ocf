@@ -180,7 +180,7 @@ static void ctx_metadata_updater_stop(ocf_metadata_updater_t mu)
  * Function prividing interface for printing to log used by OCF internals.
  * It can handle differently messages at varous log levels.
  */
-static int ctx_logger_printf(ocf_logger_t logger, ocf_logger_lvl_t lvl,
+static int ctx_logger_print(ocf_logger_t logger, ocf_logger_lvl_t lvl,
 		const char *fmt, va_list args)
 {
 	FILE *lfile = stdout;
@@ -254,7 +254,7 @@ static const struct ocf_ctx_config ctx_cfg = {
 		},
 
 		.logger = {
-			.printf = ctx_logger_printf,
+			.print = ctx_logger_print,
 			.dump_stack = ctx_logger_dump_stack,
 		},
 	},

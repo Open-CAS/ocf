@@ -77,7 +77,7 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 	ocf_trace_callback_t trace_callback)
 {
 	ocf_queue_t queue;
-	int result;
+	int result = 0;
 
 	OCF_CHECK_NULL(cache);
 

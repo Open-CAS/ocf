@@ -18,11 +18,11 @@ int ocf_log_raw(ocf_logger_t logger, ocf_logger_lvl_t lvl,
 	va_list args;
 	int ret = 0;
 
-	if (!logger->ops->printf)
+	if (!logger->ops->print)
 		return -ENOTSUP;
 
 	va_start(args, fmt);
-	ret = logger->ops->printf(logger, lvl, fmt, args);
+	ret = logger->ops->print(logger, lvl, fmt, args);
 	va_end(args);
 
 	return ret;
@@ -30,10 +30,10 @@ int ocf_log_raw(ocf_logger_t logger, ocf_logger_lvl_t lvl,
 
 int ocf_log_raw_rl(ocf_logger_t logger, const char *func_name)
 {
-	if (!logger->ops->printf_rl)
+	if (!logger->ops->print_rl)
 		return -ENOTSUP;
 
-	return logger->ops->printf_rl(logger, func_name);
+	return logger->ops->print_rl(logger, func_name);
 }
 
 /*
