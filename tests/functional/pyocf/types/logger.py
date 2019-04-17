@@ -52,14 +52,14 @@ class LoggerOps(Structure):
     CLOSE = CFUNCTYPE(None, c_void_p)
     # PRINTF ommited - we cannot make variadic function call in ctypes
     LOG = CFUNCTYPE(c_int, c_void_p, c_uint, c_char_p)
-    PRINTF_RL = CFUNCTYPE(c_int, c_void_p, c_char_p)
+    PRINT_RL = CFUNCTYPE(c_int, c_void_p, c_char_p)
     DUMP_STACK = CFUNCTYPE(c_int, c_void_p)
 
     _fields_ = [
         ("_open", OPEN),
         ("_close", CLOSE),
-        ("_printf", c_void_p),
-        ("_printf_rl", PRINTF_RL),
+        ("_print", c_void_p),
+        ("_print_rl", PRINT_RL),
         ("_dump_stack", DUMP_STACK),
     ]
 
