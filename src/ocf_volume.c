@@ -79,6 +79,9 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 	if (!volume->priv)
 		return -OCF_ERR_NO_MEM;
 
+	ocf_refcnt_init(&volume->refcnt);
+	ocf_refcnt_freeze(&volume->refcnt);
+
 	if (!uuid) {
 		volume->uuid.size = 0;
 		volume->uuid.data = NULL;
@@ -109,6 +112,7 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 	return 0;
 
 err:
+	ocf_refcnt_unfreeze(&volume->refcnt);
 	env_free(volume->priv);
 	return -OCF_ERR_NO_MEM;
 }
@@ -137,6 +141,7 @@ void ocf_volume_move(ocf_volume_t volume, ocf_volume_t from)
 	volume->priv = from->priv;
 	volume->cache = from->cache;
 	volume->features = from->features;
+	volume->refcnt = from->refcnt;
 
 	/*
 	 * Deinitialize original volume without freeing resources.
@@ -221,9 +226,6 @@ int ocf_volume_is_atomic(ocf_volume_t volume)
 
 struct ocf_io *ocf_volume_new_io(ocf_volume_t volume)
 {
-	if (!volume->opened)
-		return NULL;
-
 	return ocf_io_new(volume);
 }
 
@@ -276,15 +278,31 @@ int ocf_volume_open(ocf_volume_t volume, void *volume_params)
 	if (ret)
 		return ret;
 
+	ocf_refcnt_unfreeze(&volume->refcnt);
 	volume->opened = true;
 
 	return 0;
 }
 
+static void ocf_volume_close_end(void *ctx)
+{
+	env_completion *cmpl = ctx;
+
+	env_completion_complete(cmpl);
+}
+
 void ocf_volume_close(ocf_volume_t volume)
 {
+	env_completion cmpl;
+
 	ENV_BUG_ON(!volume->type->properties->ops.close);
 	ENV_BUG_ON(!volume->opened);
+
+	env_completion_init(&cmpl);
+	ocf_refcnt_freeze(&volume->refcnt);
+	ocf_refcnt_register_zero_cb(&volume->refcnt, ocf_volume_close_end,
+			&cmpl);
+	env_completion_wait(&cmpl);
 
 	volume->type->properties->ops.close(volume);
 	volume->opened = false;
