@@ -12,8 +12,7 @@
 /*
  * RAW volatile Implementation - Size on SSD
  */
-uint32_t raw_volatile_size_on_ssd(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw)
+uint32_t raw_volatile_size_on_ssd(struct ocf_metadata_raw *raw)
 {
 	return 0;
 }

@@ -188,8 +188,7 @@ size_t raw_dynamic_size_of(ocf_cache_t cache,
 /*
  * RAW DYNAMIC Implementation - Size on SSD
  */
-uint32_t raw_dynamic_size_on_ssd(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw)
+uint32_t raw_dynamic_size_on_ssd(struct ocf_metadata_raw *raw)
 {
 	const size_t alignment = 128 * KiB / PAGE_SIZE;
 

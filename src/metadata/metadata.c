@@ -360,3 +360,39 @@ void ocf_metadata_probe(ocf_ctx_t ctx, ocf_volume_t volume,
 	if (result)
 		cmpl(priv, result, NULL);
 }
+
+/* completion context for query_cores */
+struct ocf_metadata_query_cores_context
+{
+	ocf_metadata_probe_cores_end_t cmpl;
+	void *priv;
+};
+
+static void ocf_metadata_query_cores_end(void *_context, int error,
+		unsigned num_cores)
+{
+	struct ocf_metadata_query_cores_context *context = _context;
+
+	context->cmpl(context->priv, error, num_cores);
+	env_vfree(context);
+}
+
+void ocf_metadata_probe_cores(ocf_ctx_t ctx, ocf_volume_t volume,
+		struct ocf_volume_uuid *uuids, uint32_t uuids_count,
+		ocf_metadata_probe_cores_end_t cmpl, void *priv)
+{
+	struct ocf_metadata_query_cores_context *context;
+	const struct ocf_metadata_iface *iface;
+
+	context = env_vzalloc(sizeof(*context));
+	if (!context)
+		cmpl(priv, -OCF_ERR_NO_MEM, 0);
+	context->cmpl = cmpl;
+	context->priv = priv;
+
+	iface = metadata_hash_get_iface();
+	iface->query_cores(ctx, volume, uuids, uuids_count,
+			ocf_metadata_query_cores_end, context);
+}
+
+

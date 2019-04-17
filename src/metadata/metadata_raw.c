@@ -109,8 +109,7 @@ static int _raw_ram_init(ocf_cache_t cache,
 /*
  * RAM Implementation - Size of
  */
-static size_t _raw_ram_size_of(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw)
+static size_t _raw_ram_size_of(ocf_cache_t cache, struct ocf_metadata_raw *raw)
 {
 	size_t size;
 
@@ -123,8 +122,7 @@ static size_t _raw_ram_size_of(ocf_cache_t cache,
 /*
  * RAM Implementation - Size on SSD
  */
-static uint32_t _raw_ram_size_on_ssd(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw)
+static uint32_t _raw_ram_size_on_ssd(struct ocf_metadata_raw *raw)
 {
 	const size_t alignment = 128 * KiB / PAGE_SIZE;
 
@@ -644,11 +642,10 @@ int ocf_metadata_raw_deinit(ocf_cache_t cache,
 	return result;
 }
 
-size_t ocf_metadata_raw_size_on_ssd(ocf_cache_t cache,
-                struct ocf_metadata_raw* raw)
+size_t ocf_metadata_raw_size_on_ssd(struct ocf_metadata_raw* raw)
 {
 	ENV_BUG_ON(raw->raw_type < metadata_raw_type_min);
 	ENV_BUG_ON(raw->raw_type >= metadata_raw_type_max);
 
-	return IRAW[raw->raw_type].size_on_ssd(cache, raw);
+	return IRAW[raw->raw_type].size_on_ssd(raw);
 }

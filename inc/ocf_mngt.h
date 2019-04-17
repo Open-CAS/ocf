@@ -218,21 +218,6 @@ int ocf_mngt_cache_visit_reverse(ocf_ctx_t ctx, ocf_mngt_cache_visitor_t visitor
 		void *cntx);
 
 /**
- * @brief Cache probe status
- */
-struct ocf_mngt_cache_probe_status {
-	/**
-	 * @brief Gracefully shutdown for cache detected
-	 */
-	bool clean_shutdown;
-
-	/**
-	 * @brief Cache is dirty and requires flushing
-	 */
-	bool cache_dirty;
-};
-
-/**
  * @brief Cache start configuration
  */
 struct ocf_mngt_cache_config {

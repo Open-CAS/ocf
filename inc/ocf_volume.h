@@ -29,7 +29,7 @@ struct ocf_volume_uuid {
 	size_t size;
 		/*!< UUID data size */
 
-	const void *data;
+	void *data;
 		/*!< UUID data content */
 };
 
