@@ -76,7 +76,7 @@ class Logger(Structure):
     def __init__(self):
         self.ops = LoggerOps(
             _open=self._open,
-            _printf=cast(OcfLib.getInstance().pyocf_printf_helper, c_void_p),
+            _print=cast(OcfLib.getInstance().pyocf_printf_helper, c_void_p),
             _close=self._close,
         )
         self.priv = LoggerPriv(_log=self._log)

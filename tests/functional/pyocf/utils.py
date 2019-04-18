@@ -62,6 +62,9 @@ class Size:
     def __int__(self):
         return self.bytes
 
+    def __index__(self):
+        return self.bytes
+
     @classmethod
     def from_B(cls, value):
         return cls(value)
