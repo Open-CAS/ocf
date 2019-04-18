@@ -19,6 +19,9 @@ struct ocf_refcnt
 	void *priv;
 };
 
+/* Initialize reference counter */
+void ocf_refcnt_init(struct ocf_refcnt *rc);
+
 /* Try to increment counter. Returns true if successfull, false if freezed */
 bool ocf_refcnt_inc(struct ocf_refcnt  *rc);
 
