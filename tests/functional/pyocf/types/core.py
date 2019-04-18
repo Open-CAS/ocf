@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
+import logging
 from ctypes import (
     c_size_t,
     c_void_p,
@@ -17,16 +18,15 @@ from ctypes import (
     byref,
     create_string_buffer,
 )
-import logging
 from datetime import timedelta
 
-from ..ocf import OcfLib
-from .shared import Uuid, OcfCompletion, OcfError, SeqCutOffPolicy
-from .volume import Volume
 from .data import Data
 from .io import Io, IoDir
-from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
+from .shared import Uuid, OcfCompletion, OcfError, SeqCutOffPolicy
 from .stats.core import CoreStats
+from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
+from .volume import Volume
+from ..ocf import OcfLib
 from ..utils import Size, struct_to_dict
 
 
@@ -59,7 +59,7 @@ class Core:
         core_id: int = DEFAULT_ID,
         seq_cutoff_threshold: int = DEFAULT_SEQ_CUTOFF_THRESHOLD,
     ):
-
+        self.cache = None
         self.device = device
         self.device_name = device.uuid
         self.core_id = core_id
