@@ -125,7 +125,7 @@ int raw_dynamic_deinit(ocf_cache_t cache,
 	OCF_DEBUG_TRACE(cache);
 
 	for (i = 0; i < raw->ssd_pages; i++)
-		env_free(ctrl->pages[i]);
+		env_secure_free(ctrl->pages[i], PAGE_SIZE);
 
 	env_vfree(ctrl);
 	raw->priv = NULL;
@@ -296,7 +296,7 @@ static void raw_dynamic_load_all_complete(
 	context->cmpl(context->priv, error);
 
 	ocf_req_put(context->req);
-	env_free(context->page);
+	env_secure_free(context->page, PAGE_SIZE);
 	env_free(context->zpage);
 	ctx_data_free(context->cache->owner, context->data);
 	env_vfree(context);
@@ -383,7 +383,7 @@ static int raw_dynamic_load_all_update(struct ocf_request *req)
 
 	for (i_page = 0; i_page < count; i_page++, context->i++) {
 		if (!context->page) {
-			context->page = env_malloc(PAGE_SIZE, ENV_MEM_NORMAL);
+			context->page = env_secure_alloc(PAGE_SIZE);
 			if (!context->page) {
 				/* Allocation error */
 				result = -OCF_ERR_NO_MEM;
