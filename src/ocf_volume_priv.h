@@ -8,6 +8,7 @@
 
 #include "ocf_env.h"
 #include "ocf_io_priv.h"
+#include "utils/utils_refcnt.h"
 
 struct ocf_volume_type {
 	const struct ocf_volume_properties *properties;
@@ -26,6 +27,7 @@ struct ocf_volume {
 		unsigned discard_zeroes:1;
 			/* true if reading discarded pages returns 0 */
 	} features;
+	struct ocf_refcnt refcnt;
 };
 
 int ocf_volume_type_init(struct ocf_volume_type **type,

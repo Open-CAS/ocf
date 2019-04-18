@@ -5,6 +5,14 @@
 
 #include "../utils/utils_refcnt.h"
 
+void ocf_refcnt_init(struct ocf_refcnt *rc)
+{
+	env_atomic_set(&rc->counter, 0);
+	env_atomic_set(&rc->freeze, 0);
+	env_atomic_set(&rc->callback, 0);
+	rc->cb = NULL;
+}
+
 void ocf_refcnt_dec(struct ocf_refcnt *rc)
 {
 	int val = env_atomic_dec_return(&rc->counter);

@@ -54,9 +54,14 @@ struct ocf_io *ocf_io_new(ocf_volume_t volume)
 	struct ocf_io_meta *io_meta;
 	void *data;
 
-	data = env_allocator_new(volume->type->allocator);
-	if (!data)
+	if (!ocf_refcnt_inc(&volume->refcnt))
 		return NULL;
+
+	data = env_allocator_new(volume->type->allocator);
+	if (!data) {
+		ocf_refcnt_dec(&volume->refcnt);
+		return NULL;
+	}
 
 	io = data + sizeof(struct ocf_io_meta);
 
@@ -91,6 +96,8 @@ void ocf_io_put(struct ocf_io *io)
 
 	if (env_atomic_dec_return(&io_meta->ref_count))
 		return;
+
+	ocf_refcnt_dec(&io->volume->refcnt);
 
 	env_allocator_del(io->volume->type->allocator,
 			(void *)io - sizeof(struct ocf_io_meta));
