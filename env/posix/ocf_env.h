@@ -31,6 +31,7 @@
 #include <inttypes.h>
 #include <sys/time.h>
 #include <sys/param.h>
+#include <sys/mman.h>
 #include <zlib.h>
 
 #include "ocf_env_list.h"
@@ -58,6 +59,15 @@ typedef uint64_t sector_t;
 #define OCF_ALLOCATOR_NAME_MAX 128
 
 #define PAGE_SIZE 4096
+
+/* *** DEBUGING *** */
+
+#define ENV_WARN(cond, fmt...)		printf(fmt)
+#define ENV_WARN_ON(cond)		;
+#define ENV_WARN_ONCE(cond, fmt...)	ENV_WARN(cond, fmt)
+
+#define ENV_BUG()			assert(0)
+#define ENV_BUG_ON(cond)		assert(!(cond))
 
 /* *** MEMORY MANAGEMENT *** */
 #define ENV_MEM_NORMAL	0
@@ -97,6 +107,49 @@ static inline void *env_vzalloc(size_t size)
 static inline void env_vfree(const void *ptr)
 {
 	free((void *)ptr);
+}
+
+
+/* *** SECURE MEMORY MANAGEMENT *** */
+
+/*
+ * OCF adapter can opt to take additional steps to securely allocate and free
+ * memory used by OCF to store cache metadata. This is to prevent other
+ * entities in the system from acquiring parts of OCF cache metadata via
+ * memory allocations. If this is not a concern in given product, secure
+ * alloc/free should default to vmalloc/vfree.
+ *
+ * Memory returned from secure alloc is not expected to be physically continous
+ * nor zeroed.
+ */
+
+/* default to standard memory allocations for secure allocations */
+#define SECURE_MEMORY_HANDLING 0
+
+static inline void *env_secure_alloc(size_t size)
+{
+	void *ptr = malloc(size);
+
+#if SECURE_MEMORY_HANDLING
+	if (ptr && mlock(ptr, size)) {
+		free(ptr);
+		ptr = NULL;
+	}
+#endif
+
+	return ptr;
+}
+
+static inline void env_secure_free(const void *ptr, size_t size)
+{
+	if (ptr) {
+#if SECURE_MEMORY_HANDLING
+		memset(ptr, size, 0);
+		/* TODO: flush CPU caches ? */
+		ENV_BUG_ON(munlock(ptr));
+#endif
+		free((void*)ptr);
+	}
 }
 
 static inline uint64_t env_get_free_memory(void)
@@ -613,21 +666,15 @@ static inline void env_sort(void *base, size_t num, size_t size,
 		strncpy(dest, src, min(dmax, slen)); \
 		0; \
 	})
-/* *** DEBUGING *** */
 
-#define ENV_WARN(cond, fmt...)		printf(fmt)
-#define ENV_WARN_ON(cond)		;
-#define ENV_WARN_ONCE(cond, fmt...)	ENV_WARN(cond, fmt)
-
-#define ENV_BUG()			assert(0)
-#define ENV_BUG_ON(cond)		assert(!(cond))
-
+/* *** MISC UTILITIES *** */
 #define container_of(ptr, type, member) ({          \
 	const typeof(((type *)0)->member)*__mptr = (ptr);    \
 	(type *)((char *)__mptr - offsetof(type, member)); })
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
 
+/* *** TIME *** */
 static inline void env_msleep(uint64_t n)
 {
 	usleep(n * 1000);
