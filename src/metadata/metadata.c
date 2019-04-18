@@ -385,8 +385,11 @@ void ocf_metadata_probe_cores(ocf_ctx_t ctx, ocf_volume_t volume,
 	const struct ocf_metadata_iface *iface;
 
 	context = env_vzalloc(sizeof(*context));
-	if (!context)
+	if (!context) {
 		cmpl(priv, -OCF_ERR_NO_MEM, 0);
+		return;
+	}
+
 	context->cmpl = cmpl;
 	context->priv = priv;
 
