@@ -651,7 +651,7 @@ int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode);
  *            use function ocf_mngt_cache_save().
  *
  * @param[in] cache Cache handle
- * @param[in] type Cleainig policy type
+ * @param[in] type Cleaning policy type
  *
  * @retval 0 Policy has been set successfully
  * @retval Non-zero Error occurred and policy has not been set
@@ -676,6 +676,7 @@ int ocf_mngt_cache_cleaning_get_policy(ocf_cache_t cache, ocf_cleaning_t *type);
  *            use function ocf_mngt_cache_save().
  *
  * @param[in] cache Cache handle
+ * @param[in] type Cleaning policy type
  * @param[in] param_id Cleaning policy parameter id
  * @param[in] param_value Cleaning policy parameter value
  *
@@ -689,6 +690,7 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
  * @brief Get cleaning parameter from given cache
  *
  * @param[in] cache Cache handle
+ * @param[in] type Cleaning policy type
  * @param[in] param_id Cleaning policy parameter id
  * @param[in] param_value Variable to store parameter value
  *
