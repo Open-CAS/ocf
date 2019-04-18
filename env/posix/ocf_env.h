@@ -67,7 +67,7 @@ typedef uint64_t sector_t;
 #define ENV_WARN_ONCE(cond, fmt...)	ENV_WARN(cond, fmt)
 
 #define ENV_BUG()			assert(0)
-#define ENV_BUG_ON(cond)		assert(!(cond))
+#define ENV_BUG_ON(cond)		do { if (cond) ENV_BUG(); } while (0)
 
 /* *** MEMORY MANAGEMENT *** */
 #define ENV_MEM_NORMAL	0
