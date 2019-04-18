@@ -141,7 +141,9 @@ class Core:
     def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
         self.cache.get_and_write_lock()
 
-        status = self.cache.owner.lib.ocf_mngt_core_set_seq_cutoff_policy(self.handle, policy)
+        status = self.cache.owner.lib.ocf_mngt_core_set_seq_cutoff_policy(
+            self.handle, policy
+        )
         if status:
             self.cache.put_and_write_unlock()
             raise OcfError("Error setting core seq cut off policy", status)

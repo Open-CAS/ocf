@@ -104,5 +104,3 @@ class Queue:
         if self.mngt_queue:
             OcfLib.getInstance().ocf_queue_put(self)
 
-        self.thread = None
-        self.ops = None
