@@ -78,7 +78,7 @@ static int _raw_ram_deinit(ocf_cache_t cache,
 	OCF_DEBUG_TRACE(cache);
 
 	if (raw->mem_pool) {
-		env_vfree(raw->mem_pool);
+		env_secure_free(raw->mem_pool, raw->mem_pool_limit);
 		raw->mem_pool = NULL;
 	}
 
@@ -99,9 +99,10 @@ static int _raw_ram_init(ocf_cache_t cache,
 	mem_pool_size = raw->ssd_pages;
 	mem_pool_size *= PAGE_SIZE;
 	raw->mem_pool_limit = mem_pool_size;
-	raw->mem_pool = env_vzalloc(mem_pool_size);
+	raw->mem_pool = env_secure_alloc(mem_pool_size);
 	if (!raw->mem_pool)
 		return -ENOMEM;
+	ENV_BUG_ON(env_memset(raw->mem_pool, mem_pool_size, 0));
 
 	return 0;
 }

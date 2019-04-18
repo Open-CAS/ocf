@@ -680,7 +680,7 @@ exit:
 	ctx_data_free(ctx, context->data.core_config.data);
 	ctx_data_free(ctx, context->data.superblock.data);
 
-	env_vfree(context);
+	env_secure_free(context, sizeof(*context));
 }
 
 static void ocf_metadata_query_cores_end_io(struct ocf_io *io, int error)
@@ -800,11 +800,12 @@ void ocf_metadata_hash_query_cores(ocf_ctx_t owner, ocf_volume_t volume,
 	}
 
 	/* intialize query context */
-	context = env_vzalloc(sizeof(*context));
+	context = env_secure_alloc(sizeof(*context));
 	if (!context) {
 		cmpl(priv, -ENOMEM, 0);
 		return;
 	}
+	ENV_BUG_ON(env_memset(context, sizeof(*context), 0));
 	context->ctx = owner;
 	context->params.cmpl = cmpl;
 	context->params.priv = priv;
