@@ -131,6 +131,7 @@ class Volume(Structure):
         instance = cls._instances_[ref]()
         if instance is None:
             print("tried to access {} but it's gone".format(ref))
+
         return instance
 
     @classmethod
