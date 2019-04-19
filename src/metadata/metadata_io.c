@@ -189,8 +189,6 @@ static int ocf_restart_meta_io(struct ocf_request *req)
 	struct ocf_io *io;
 	int ret;
 
-	cache = req->cache;
-
 	/* Fill with the latest metadata. */
 	OCF_METADATA_LOCK_RD();
 	metadata_io_req_fill(meta_io_req);
