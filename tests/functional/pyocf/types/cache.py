@@ -302,7 +302,7 @@ class Cache:
 
     @classmethod
     def start_on_device(cls, device, **kwargs):
-        c = cls(locked=True, owner=device.owner, **kwargs)
+        c = cls(owner=device.owner, **kwargs)
 
         c.start_cache()
         try:
@@ -494,7 +494,6 @@ class Cache:
         self.started = False
 
         self.put_and_write_unlock()
-        self.put()
 
         self.owner.caches.remove(self)
 
