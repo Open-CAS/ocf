@@ -168,8 +168,6 @@ struct ocf_cache {
 
 	char name[OCF_CACHE_NAME_SIZE];
 
-	env_atomic pending_requests;
-
 	struct {
 		struct ocf_refcnt dirty;
 		struct ocf_refcnt metadata;

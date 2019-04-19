@@ -191,9 +191,6 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	req->core_id = core ? ocf_core_get_id(core) : 0;
 	req->cache = cache;
 
-	if (queue != cache->mngt_queue)
-		env_atomic_inc(&cache->pending_requests);
-
 	req->d2c = (queue != cache->mngt_queue) && !ocf_refcnt_inc(
 			&cache->refcnt.metadata);
 
@@ -278,9 +275,6 @@ void ocf_req_put(struct ocf_request *req)
 	if (!req->d2c && req->io_queue != req->cache->mngt_queue)
 		ocf_refcnt_dec(&req->cache->refcnt.metadata);
 
-	if (req->io_queue != req->cache->mngt_queue)
-		env_atomic_dec(&req->cache->pending_requests);
-
 	allocator = _ocf_req_get_allocator(req->cache,
 			req->alloc_core_line_count);
 	if (allocator) {
@@ -301,9 +295,4 @@ void ocf_req_clear_map(struct ocf_request *req)
 	if (likely(req->map))
 		ENV_BUG_ON(env_memset(req->map,
 			   sizeof(req->map[0]) * req->core_line_count, 0));
-}
-
-uint32_t ocf_req_get_allocated(struct ocf_cache *cache)
-{
-	return env_atomic_read(&cache->pending_requests);
 }

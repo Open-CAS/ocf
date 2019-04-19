@@ -53,26 +53,6 @@ bool ocf_cache_is_device_attached(ocf_cache_t cache)
 	return !ocf_refcnt_frozen(&cache->refcnt.metadata);
 }
 
-void ocf_cache_wait_for_io_finish(ocf_cache_t cache)
-{
-	uint32_t req_active = 0;
-
-	OCF_CHECK_NULL(cache);
-
-	do {
-		req_active = ocf_req_get_allocated(cache);
-		if (req_active)
-			env_msleep(500);
-	} while (req_active);
-}
-
-bool ocf_cache_has_pending_requests(ocf_cache_t cache)
-{
-	OCF_CHECK_NULL(cache);
-
-	return ocf_req_get_allocated(cache) > 0;
-}
-
 /*
  * This is temporary workaround allowing to check if cleaning triggered
  * by eviction policy is running on the cache. This information is needed
