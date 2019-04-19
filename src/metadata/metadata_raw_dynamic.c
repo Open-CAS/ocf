@@ -93,8 +93,9 @@ static void *_raw_dynamic_get_item(ocf_cache_t cache,
 
 		OCF_DEBUG_PARAM(cache, "New page allocation - %u", page);
 
-		new = env_zalloc(PAGE_SIZE, ENV_MEM_NORMAL);
+		new = env_secure_alloc(PAGE_SIZE);
 		if (new) {
+			ENV_BUG_ON(env_memset(new, PAGE_SIZE, 0));
 			ctrl->pages[page] = new;
 			env_atomic_inc(&ctrl->count);
 		}
