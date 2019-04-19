@@ -145,7 +145,7 @@ void __wrap__ocf_mngt_attach_post_init(
 {
 }
 
-void __wrap_ocf_mngt_cache_stop_wait_io(
+void __wrap_ocf_mngt_cache_stop_wait_metadata_io(
 		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 }
@@ -167,6 +167,16 @@ void __wrap_ocf_mngt_cache_stop_put_io_queues(
 
 void __wrap_ocf_mngt_cache_detach_flush(
 		  ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
+{
+}
+
+void __wrap_ocf_mngt_cache_detach_stop_cache_io(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+}
+
+void ocf_mngt_cache_detach_stop_cleaner_io(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
 {
 }
 
