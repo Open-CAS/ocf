@@ -24,9 +24,9 @@ else
 $(error Not allowed program command)
 endif
 
-ifneq ($(strip $(ENV)),)
-ifeq ($(strip $(ENV)),posix)
-ENVDIR=$(PWD)/env/posix
+ifneq ($(strip $(OCF_ENV)),)
+ifeq ($(strip $(OCF_ENV)),posix)
+OCF_ENV_DIR=$(PWD)/env/posix
 else
 $(error Invalid environment selected)
 endif
@@ -79,30 +79,30 @@ $(SRC_RM): validate
 #
 # Installing environment
 #
-ENV_IN=$(shell find $(ENVDIR) -name '*.[c|h]' -type f)
-ENV_OUT=$(patsubst $(ENVDIR)%,$(OUTDIR)/src/ocf/env/%,$(ENV_IN))
-ENV_RM=$(shell find $(OUTDIR)/src/ocf/env -name '*.[c|h]' -xtype l 2>/dev/null)
+OCF_ENV_IN=$(shell find $(OCF_ENV_DIR) -name '*.[c|h]' -type f)
+OCF_ENV_OUT=$(patsubst $(OCF_ENV_DIR)%,$(OUTDIR)/src/ocf/env/%,$(OCF_ENV_IN))
+OCF_ENV_RM=$(shell find $(OUTDIR)/src/ocf/env -name '*.[c|h]' -xtype l 2>/dev/null)
 
 env: | env_check env_dep
 	@$(MAKE) distcleandir
 
 env_check:
-ifeq ($(ENVDIR),)
+ifeq ($(OCF_ENV_DIR),)
 	$(error No environment selected)
 endif
 
-env_dep: $(ENV_OUT) $(ENV_RM)
+env_dep: $(OCF_ENV_OUT) $(OCF_ENV_RM)
 
-$(ENV_OUT):
+$(OCF_ENV_OUT):
 ifeq ($(strip $(OUTDIR)),)
 	$(error No output specified for installing sources)
 endif
 	@echo " INSTALL  $@"
 	@mkdir -p $(dir $@)
-	@$(INSTALL) $(subst $(OUTDIR)/src/ocf/env,$(ENVDIR),$@) $@
+	@$(INSTALL) $(subst $(OUTDIR)/src/ocf/env,$(OCF_ENV_DIR),$@) $@
 
-$(ENV_RM): validate
-	$(if $(shell readlink $@ | grep $(ENVDIR)), \
+$(OCF_ENV_RM): validate
+	$(if $(shell readlink $@ | grep $(OCF_ENV_DIR)), \
 		@echo "  RM      $@"; rm $@,)
 
 #
@@ -134,4 +134,4 @@ doc: validate
 	@cd doc && mv html $(OUTDIR)/doc/ocf
 
 .PHONY: inc src env env_check env_dep validate help distclean distcleandir doc \
-    $(INC_RM) $(SRC_RM) $(ENV_RM) $(DIST_DIR)
+    $(INC_RM) $(SRC_RM) $(OCF_ENV_RM) $(DIST_DIR)
