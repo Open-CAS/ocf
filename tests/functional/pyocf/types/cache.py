@@ -154,7 +154,6 @@ class Cache:
         self.cache_handle = c_void_p()
         self._as_parameter_ = self.cache_handle
         self.io_queues = []
-        self.device = None
         self.cores = []
 
     def start_cache(
@@ -425,6 +424,7 @@ class Cache:
             raise OcfError("Failed getting stats", status)
 
         line_size = CacheLineSize(cache_info.cache_line_size)
+        cache_id = self.owner.lib.ocf_cache_get_id(self)
 
         self.put_and_read_unlock()
         return {
@@ -455,6 +455,7 @@ class Cache:
                 "core_count": cache_info.core_count,
                 "metadata_footprint": Size(cache_info.metadata_footprint),
                 "metadata_end_offset": Size(cache_info.metadata_end_offset),
+                "cache_id": cache_id,
             },
             "block": struct_to_dict(block),
             "req": struct_to_dict(req),
