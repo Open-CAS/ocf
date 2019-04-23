@@ -1845,7 +1845,6 @@ static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
 	_ocf_mngt_init_attached_nonpersistent(cache);
 
 	context->cmpl(context->priv, error ? -OCF_ERR_WRITE_CACHE : 0);
-	env_vfree(context);
 }
 
 /**
@@ -1858,21 +1857,15 @@ static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
  *		    clean shutdown in metadata and flush all containers.
  *		- false if the device is to be detached from cache - loading
  *		    metadata from this device will not be possible.
+ * @param context - context for this call, must be zeroed
  * @param cmpl Completion callback
  * @param priv Completion context
  */
 static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
+		struct _ocf_mngt_cache_unplug_context *context,
 		_ocf_mngt_cache_unplug_end_t cmpl, void *priv)
 {
-	struct _ocf_mngt_cache_unplug_context *context;
-
 	ENV_BUG_ON(stop && cache->conf_meta->core_count != 0);
-
-	context = env_vzalloc(sizeof(*context));
-	if (!context) {
-		cmpl(priv, -OCF_ERR_NO_MEM);
-		return;
-	}
 
 	context->cmpl = cmpl;
 	context->priv = priv;
@@ -1969,6 +1962,12 @@ void ocf_mngt_cache_load(ocf_cache_t cache,
 }
 
 struct ocf_mngt_cache_stop_context {
+	/* unplug context - this is private structure of _ocf_mngt_cache_unplug,
+	 * it is member of stop context only to reserve memory in advance for
+	 * _ocf_mngt_cache_unplug, eliminating the possibility of ENOMEM error
+	 * at the point where we are effectively unable to handle it */
+	struct _ocf_mngt_cache_unplug_context unplug_context;
+
 	ocf_mngt_cache_stop_end_t cmpl;
 	void *priv;
 	ocf_pipeline_t pipeline;
@@ -2017,15 +2016,10 @@ static void ocf_mngt_cache_stop_unplug_complete(void *priv, int error)
 {
 	struct ocf_mngt_cache_stop_context *context = priv;
 
-	/* short-circut execution in case of critical error */
-	if (error && error != -OCF_ERR_WRITE_CACHE) {
-		ocf_pipeline_finish(context->pipeline, error);
-		return;
-	}
-
-	/* in case of non-critical (disk write) error just remember its value */
-	if (error)
+	if (error) {
+		ENV_BUG_ON(error != -OCF_ERR_WRITE_CACHE);
 		context->cache_write_error = error;
+	}
 
 	ocf_pipeline_next(context->pipeline);
 }
@@ -2041,7 +2035,7 @@ static void ocf_mngt_cache_stop_unplug(ocf_pipeline_t pipeline,
 		return;
 	}
 
-	_ocf_mngt_cache_unplug(cache, true,
+	_ocf_mngt_cache_unplug(cache, true, &context->unplug_context,
 			ocf_mngt_cache_stop_unplug_complete, context);
 }
 
@@ -2077,14 +2071,17 @@ static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
 		env_bit_set(ocf_cache_state_running, &cache->cache_state);
 	}
 
-	if (context->cache_write_error) {
-		ocf_log(ctx, log_warn, "Stopped cache %s with errors\n",
-				context->cache_name);
-	} else if (error) {
-		ocf_log(ctx, log_err, "Stopping cache %s failed\n",
-				context->cache_name);
+	if (!error) {
+		if (!context->cache_write_error) {
+			ocf_log(ctx, log_info,
+					"Cache %s successfully stopped\n",
+					context->cache_name);
+		} else {
+			ocf_log(ctx, log_warn, "Stopped cache %s with errors\n",
+					context->cache_name);
+		}
 	} else {
-		ocf_log(ctx, log_info, "Cache %s successfully stopped\n",
+		ocf_log(ctx, log_err, "Stopping cache %s failed\n",
 				context->cache_name);
 	}
 
@@ -2334,10 +2331,17 @@ int ocf_mngt_cache_get_fallback_pt_error_threshold(ocf_cache_t cache,
 }
 
 struct ocf_mngt_cache_detach_context {
+	/* unplug context - this is private structure of _ocf_mngt_cache_unplug,
+	 * it is member of detach context only to reserve memory in advance for
+	 * _ocf_mngt_cache_unplug, eliminating the possibility of ENOMEM error
+	 * at the point where we are effectively unable to handle it */
+	struct _ocf_mngt_cache_unplug_context unplug_context;
+
 	ocf_mngt_cache_detach_end_t cmpl;
 	void *priv;
 	ocf_pipeline_t pipeline;
 	ocf_cache_t cache;
+	int cache_write_error;
 };
 
 static void ocf_mngt_cache_detach_flush_cmpl(ocf_cache_t cache,
@@ -2404,8 +2408,8 @@ static void ocf_mngt_cache_detach_unplug_complete(void *priv, int error)
 	struct ocf_mngt_cache_detach_context *context = priv;
 
 	if (error) {
-		ocf_pipeline_finish(context->pipeline, error);
-		return;
+		ENV_BUG_ON(error != -OCF_ERR_WRITE_CACHE);
+		context->cache_write_error = error;
 	}
 
 	ocf_pipeline_next(context->pipeline);
@@ -2419,7 +2423,7 @@ static void ocf_mngt_cache_detach_unplug(ocf_pipeline_t pipeline,
 
 	/* Do the actual detach - deinit cacheline metadata,
 	 * stop cleaner thread and close cache bottom device */
-	_ocf_mngt_cache_unplug(cache, false,
+	_ocf_mngt_cache_unplug(cache, false,  &context->unplug_context,
 			ocf_mngt_cache_detach_unplug_complete, context);
 }
 
@@ -2432,18 +2436,20 @@ static void ocf_mngt_cache_detach_finish(ocf_pipeline_t pipeline,
 	ocf_refcnt_unfreeze(&cache->dirty);
 
 	if (!error) {
-		ocf_cache_log(cache, log_info, "Successfully detached\n");
-	} else {
-		if (error == -OCF_ERR_WRITE_CACHE) {
-			ocf_cache_log(cache, log_warn,
-					"Detached cache with errors\n");
+		if (!context->cache_write_error) {
+			ocf_cache_log(cache, log_info,
+				"Device successfully detached\n");
 		} else {
-			ocf_cache_log(cache, log_err,
-					"Detaching cache failed\n");
+			ocf_cache_log(cache, log_warn,
+				"Device detached with errors\n");
 		}
+	} else {
+		ocf_cache_log(cache, log_err,
+				"Detaching device failed\n");
 	}
 
-	context->cmpl(cache, context->priv, error);
+	context->cmpl(cache, context->priv,
+			error ?: context->cache_write_error);
 
 	ocf_pipeline_destroy(context->pipeline);
 }
