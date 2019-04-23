@@ -34,7 +34,7 @@ sync:
 	@mkdir -p $(ADAPTERDIR)/ocf
 	@$(MAKE) -C $(OCFDIR) inc O=$(ADAPTERDIR)/ocf
 	@$(MAKE) -C $(OCFDIR) src O=$(ADAPTERDIR)/ocf
-	@$(MAKE) -C $(OCFDIR) env O=$(ADAPTERDIR)/ocf ENV=posix
+	@$(MAKE) -C $(OCFDIR) env O=$(ADAPTERDIR)/ocf OCF_ENV=posix
 
 clean:
 	@rm -rf $(OCFLIB) $(OBJS)
