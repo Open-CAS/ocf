@@ -31,7 +31,9 @@ def io_queue_run(*, queue: Queue, kick: Condition, stop: Event):
         with kick:
             kick.wait_for(wait_predicate)
 
-        OcfLib.getInstance().ocf_queue_run(queue)
+        OcfLib.getInstance().ocf_queue_run_single(queue)
+        if not OcfLib.getInstance().ocf_queue_pending_io(queue):
+            queue.idle_event.set()
 
         if stop.is_set() and not OcfLib.getInstance().ocf_queue_pending_io(queue):
             break
@@ -54,6 +56,7 @@ class Queue:
         Queue._instances_[self.handle.value] = weakref.ref(self)
         self._as_parameter_ = self.handle
 
+        self.idle_event = Event()
         self.stop_event = Event()
         self.kick_condition = Condition()
         self.thread = Thread(
@@ -88,11 +91,15 @@ class Queue:
     def _stop(ref):
         Queue.get_instance(ref).stop()
 
+    def wait_idle(self):
+        self.idle_event.wait()
+
     def kick_sync(self):
         OcfLib.getInstance().ocf_queue_run(self.handle)
 
     def kick(self):
         with self.kick_condition:
+            self.idle_event.clear()
             self.kick_condition.notify_all()
 
     def stop(self):
