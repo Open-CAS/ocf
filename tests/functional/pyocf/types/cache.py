@@ -106,8 +106,7 @@ class MetadataLayout(IntEnum):
     SEQUENTIAL = 1
     DEFAULT = STRIPING
 
-
-class Cache:
+class RawCache:
     DEFAULT_ID = 0
     DEFAULT_BACKFILL_QUEUE_SIZE = 65536
     DEFAULT_BACKFILL_UNBLOCK = 60000
@@ -130,10 +129,9 @@ class Cache:
         pt_unaligned_io: bool = DEFAULT_PT_UNALIGNED_IO,
         use_submit_fast: bool = DEFAULT_USE_SUBMIT_FAST,
     ):
-        self.device = None
-        self.started = False
+        self.cache_handle = c_void_p()
         self.owner = owner
-        self.cache_line_size = cache_line_size
+        self.started = False
 
         self.cfg = CacheConfig(
             _id=cache_id,
@@ -151,7 +149,143 @@ class Cache:
             _pt_unaligned_io=pt_unaligned_io,
             _use_submit_fast=use_submit_fast,
         )
-        self.cache_handle = c_void_p()
+
+    def put(self):
+        self.owner.lib.ocf_mngt_cache_put(self.cache_handle)
+
+    def get(self):
+        status = self.owner.lib.ocf_mngt_cache_get(self.cache_handle)
+        if status:
+            raise OcfError("Couldn't get cache instance", status)
+
+
+    def start(self):
+        status = self.owner.lib.ocf_mngt_cache_start(
+            self.owner.ctx_handle, byref(self.cache_handle), byref(self.cfg)
+        )
+        if status:
+            raise OcfError("Creating cache instance failed", status)
+
+    def configure_device(
+        self, device, force=False, perform_test=False, cache_line_size=None
+    ):
+        self.device = device
+        self.device_name = device.uuid
+        self.dev_cfg = CacheDeviceConfig(
+            _uuid=Uuid(
+                _data=cast(
+                    create_string_buffer(self.device_name.encode("ascii")),
+                    c_char_p,
+                ),
+                _size=len(self.device_name) + 1,
+            ),
+            _volume_type=device.type_id,
+            _cache_line_size=cache_line_size
+            if cache_line_size
+            else 0,
+            _force=force,
+            _min_free_ram=0,
+            _perform_test=perform_test,
+            _discard_on_start=False,
+        )
+
+    @classmethod
+    def create_attach_completion(cls):
+        return OcfCompletion(
+            [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
+        )
+
+    def attach_device(self, completion):
+        self.owner.lib.ocf_mngt_cache_attach(
+            self.cache_handle, byref(self.dev_cfg), completion, None
+        )
+
+    @classmethod
+    def create_stop_completion(cls):
+        return OcfCompletion(
+            [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
+        )
+
+    def stop(self, completion):
+        self.owner.lib.ocf_mngt_cache_stop(self.cache_handle, completion, None)
+
+    def detach_device(self, completion):
+        self.owner.lib.ocf_mngt_cache_detach(
+            self.cache_handle, completion, None
+        )
+
+    @classmethod
+    def create_detach_completion(cls):
+        return OcfCompletion(
+            [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
+        )
+
+    @classmethod
+    def create_remove_core_completion(cls):
+        return OcfCompletion([("priv", c_void_p), ("error", c_int)])
+
+    def remove_core(self, core: Core, completion):
+        self.owner.lib.ocf_mngt_cache_remove_core(core.handle, completion, None)
+
+    @classmethod
+    def create_add_core_completion(cls):
+        return OcfCompletion(
+            [
+                ("cache", c_void_p),
+                ("core", c_void_p),
+                ("priv", c_void_p),
+                ("error", c_int),
+            ]
+        )
+
+    def add_core(self, core, completion):
+        self.owner.lib.ocf_mngt_cache_add_core(
+            self.cache_handle, byref(core.get_cfg()), completion, None
+        )
+
+    def set_mngt_queue(self, queue):
+        status = self.owner.lib.ocf_mngt_cache_set_mngt_queue(
+            self.cache_handle, queue
+        )
+        if status:
+            raise OcfError("Error setting management queue", status)
+
+class Cache(RawCache):
+    def __init__(
+        self,
+        owner,
+        cache_id: int = RawCache.DEFAULT_ID,
+        name: str = "",
+        cache_mode: CacheMode = CacheMode.DEFAULT,
+        eviction_policy: EvictionPolicy = EvictionPolicy.DEFAULT,
+        cache_line_size: CacheLineSize = CacheLineSize.DEFAULT,
+        metadata_layout: MetadataLayout = MetadataLayout.DEFAULT,
+        metadata_volatile: bool = False,
+        max_queue_size: int = RawCache.DEFAULT_BACKFILL_QUEUE_SIZE,
+        queue_unblock_size: int = RawCache.DEFAULT_BACKFILL_UNBLOCK,
+        locked: bool = False,
+        pt_unaligned_io: bool = RawCache.DEFAULT_PT_UNALIGNED_IO,
+        use_submit_fast: bool = RawCache.DEFAULT_USE_SUBMIT_FAST,
+    ):
+        super(Cache, self).__init__(
+            owner = owner,
+            cache_id = cache_id,
+            name = name,
+            cache_mode = cache_mode,
+            eviction_policy = eviction_policy,
+            cache_line_size = cache_line_size,
+            metadata_layout = metadata_layout,
+            metadata_volatile = metadata_volatile,
+            max_queue_size = max_queue_size,
+            queue_unblock_size = queue_unblock_size ,
+            locked = locked,
+            pt_unaligned_io = pt_unaligned_io,
+            use_submit_fast = use_submit_fast
+        )
+
+        self.device = None
+        self.cache_line_size = cache_line_size
+
         self._as_parameter_ = self.cache_handle
         self.io_queues = []
         self.cores = []
@@ -159,11 +293,7 @@ class Cache:
     def start_cache(
         self, default_io_queue: Queue = None, mngt_queue: Queue = None
     ):
-        status = self.owner.lib.ocf_mngt_cache_start(
-            self.owner.ctx_handle, byref(self.cache_handle), byref(self.cfg)
-        )
-        if status:
-            raise OcfError("Creating cache instance failed", status)
+        super(Cache, self).start()
         self.owner.caches.append(self)
 
         self.mngt_queue = mngt_queue or Queue(
@@ -177,11 +307,7 @@ class Cache:
                 Queue(self, "default-io-{}".format(self.get_name()))
             ]
 
-        status = self.owner.lib.ocf_mngt_cache_set_mngt_queue(
-            self, self.mngt_queue
-        )
-        if status:
-            raise OcfError("Error setting management queue", status)
+        super(Cache, self).set_mngt_queue(self.mngt_queue)
 
         self.started = True
 
@@ -235,28 +361,20 @@ class Cache:
 
         self.put_and_write_unlock()
 
-    def configure_device(
-        self, device, force=False, perform_test=False, cache_line_size=None
-    ):
-        self.device = device
-        self.device_name = device.uuid
-        self.dev_cfg = CacheDeviceConfig(
-            _uuid=Uuid(
-                _data=cast(
-                    create_string_buffer(self.device_name.encode("ascii")),
-                    c_char_p,
-                ),
-                _size=len(self.device_name) + 1,
-            ),
-            _volume_type=device.type_id,
-            _cache_line_size=cache_line_size
-            if cache_line_size
-            else self.cache_line_size,
-            _force=force,
-            _min_free_ram=0,
-            _perform_test=perform_test,
-            _discard_on_start=False,
-        )
+    def detach_device():
+        self.get_and_write_lock()
+
+        c = RawCache.create_detach_completion()
+
+        super(Cache, self).detach_device(c)
+
+        c.wait()
+
+        if c.results["error"]:
+            self.put_and_write_unlock()
+            raise OcfError("Detaching cache device failed", c.results["error"])
+
+        self.put_and_write_unlock()
 
     def attach_device(
         self, device, force=False, perform_test=False, cache_line_size=None
@@ -264,13 +382,8 @@ class Cache:
         self.configure_device(device, force, perform_test, cache_line_size)
         self.get_and_write_lock()
 
-        c = OcfCompletion(
-            [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
-        )
-
-        device.owner.lib.ocf_mngt_cache_attach(
-            self.cache_handle, byref(self.dev_cfg), c, None
-        )
+        c = super(Cache, self).create_attach_completion()
+        super(Cache, self).attach_device(c)
 
         c.wait()
         if c.results["error"]:
@@ -333,14 +446,6 @@ class Cache:
 
         self.put()
 
-    def put(self):
-        self.owner.lib.ocf_mngt_cache_put(self.cache_handle)
-
-    def get(self):
-        status = self.owner.lib.ocf_mngt_cache_get(self.cache_handle)
-        if status:
-            raise OcfError("Couldn't get cache instance", status)
-
     def get_and_read_lock(self):
         self._get_and_lock(True)
 
@@ -356,18 +461,9 @@ class Cache:
     def add_core(self, core: Core):
         self.get_and_write_lock()
 
-        c = OcfCompletion(
-            [
-                ("cache", c_void_p),
-                ("core", c_void_p),
-                ("priv", c_void_p),
-                ("error", c_int),
-            ]
-        )
+        c = RawCache.create_add_core_completion()
 
-        self.owner.lib.ocf_mngt_cache_add_core(
-            self.cache_handle, byref(core.get_cfg()), c, None
-        )
+        super(Cache, self).add_core(core, c)
 
         c.wait()
         if c.results["error"]:
@@ -383,9 +479,9 @@ class Cache:
     def remove_core(self, core: Core):
         self.get_and_write_lock()
 
-        c = OcfCompletion([("priv", c_void_p), ("error", c_int)])
+        c = RawCache.create_remove_core_completion()
 
-        self.owner.lib.ocf_mngt_cache_remove_core(core.handle, c, None)
+        super(Cache, self).remove_core(core, c)
 
         c.wait()
         if c.results["error"]:
@@ -478,12 +574,9 @@ class Cache:
 
         self.get_and_write_lock()
 
-        c = OcfCompletion(
-            [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
-        )
-
         self.owner.lib.ocf_cache_wait_for_io_finish(self.cache_handle)
-        self.owner.lib.ocf_mngt_cache_stop(self.cache_handle, c, None)
+        c = RawCache.create_stop_completion()
+        super(Cache, self).stop(c)
 
         c.wait()
         if c.results["error"]:
