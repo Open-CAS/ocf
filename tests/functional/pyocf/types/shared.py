@@ -76,6 +76,8 @@ class OcfCompletion:
     def wait(self):
         self.e.wait()
 
+    def finished(self):
+        return self.e.isSet()
 
 class OcfError(BaseException):
     def __init__(self, msg, error_code):
