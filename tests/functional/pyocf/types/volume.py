@@ -99,6 +99,8 @@ class Volume(Structure):
 
         self.reset_stats()
         self.opened = False
+        self.armed = False
+        self.pending_io = []
 
     @classmethod
     def get_props(cls):
@@ -261,6 +263,18 @@ class Volume(Structure):
     def reset_stats(self):
         self.stats = {IoDir.WRITE: 0, IoDir.READ: 0}
 
+    def arm(self):
+        self.armed = True
+
+    def fire(self):
+        if self.armed:
+            for pio in self.pending_io:
+                io = pio[0]
+                ret = pio[1]
+                io.contents._end(io, ret)
+            self.pending_io = []
+            self.armed = False
+
     def submit_io(self, io):
         try:
             self.stats[IoDir(io.contents._dir)] += 1
@@ -276,9 +290,14 @@ class Volume(Structure):
 
             memmove(dst, src, io.contents._bytes)
 
-            io.contents._end(io, 0)
+            ret = 0
         except:
-            io.contents._end(io, -5)
+            ret = -5
+        finally:
+            if not self.armed:
+                io.contents._end(io, ret)
+            else:
+                self.pending_io.append((io, ret))
 
     def dump_contents(self, stop_after_zeros=0, offset=0, size=0):
         if size == 0:
