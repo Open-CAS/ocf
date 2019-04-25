@@ -167,7 +167,7 @@ class Cache:
         self.owner.caches.append(self)
 
         self.mngt_queue = mngt_queue or Queue(
-            self, "mgmt-{}".format(self.get_name()), mngt_queue=True
+            self, "mgmt-{}".format(self.get_name())
         )
 
         if default_io_queue:
@@ -490,7 +490,7 @@ class Cache:
             self.put_and_write_unlock()
             raise OcfError("Failed stopping cache", c.results["error"])
 
-        self.mngt_queue.stop()
+        self.mngt_queue.put()
         del self.io_queues[:]
         self.started = False
 
