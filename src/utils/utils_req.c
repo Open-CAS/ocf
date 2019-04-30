@@ -155,6 +155,9 @@ static void start_cache_req(struct ocf_request *req)
 {
 	ocf_cache_t cache = req->cache;
 
+	if (req->queue == req->cache->mngt_queue)
+		return;
+
 	req->d2c = 1;
 	if (env_atomic_read(&cache->attached)) {
 		req->d2c = 0;
