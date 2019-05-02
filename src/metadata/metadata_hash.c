@@ -12,6 +12,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_pipeline.h"
 #include "../ocf_def_priv.h"
+#include "../ocf_priv.h"
 
 #define OCF_METADATA_HASH_DEBUG 0
 
@@ -794,17 +795,14 @@ void ocf_metadata_hash_query_cores(ocf_ctx_t owner, ocf_volume_t volume,
 	struct query_cores_context *context;
 	int err;
 
-	if (count > OCF_CORE_MAX) {
-		cmpl(priv, -EINVAL, 0);
-		return;
-	}
+	if (count > OCF_CORE_MAX)
+		OCF_CMPL_RET(priv, -EINVAL, 0);
 
 	/* intialize query context */
 	context = env_secure_alloc(sizeof(*context));
-	if (!context) {
-		cmpl(priv, -ENOMEM, 0);
-		return;
-	}
+	if (!context)
+		OCF_CMPL_RET(priv, -ENOMEM, 0);
+
 	ENV_BUG_ON(env_memset(context, sizeof(*context), 0));
 	context->ctx = owner;
 	context->params.cmpl = cmpl;
@@ -1392,10 +1390,8 @@ static void ocf_metadata_hash_load_superblock(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_load_sb_pipeline_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -1527,10 +1523,8 @@ static void ocf_metadata_hash_flush_superblock(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_flush_sb_pipeline_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -1683,10 +1677,8 @@ static void ocf_metadata_hash_flush_all(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_flush_all_pipeline_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -1807,10 +1799,8 @@ static void ocf_metadata_hash_load_all(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_load_all_pipeline_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -1968,10 +1958,8 @@ static void _ocf_metadata_hash_load_recovery_legacy(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_load_recovery_legacy_pl_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -2117,10 +2105,8 @@ static void _ocf_metadata_hash_load_recovery_atomic(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_load_recovery_atomic_pl_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 

@@ -10,4 +10,9 @@
 
 #define OCF_CHECK_NULL(p) ENV_BUG_ON(!(p))
 
+#define OCF_CMPL_RET(args...) ({ \
+	cmpl(args); \
+	return; \
+})
+
 #endif /* __OCF_PRIV_H__ */

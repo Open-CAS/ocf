@@ -1631,10 +1631,8 @@ static void _ocf_mngt_cache_attach(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&_ocf_mngt_cache_attach_pipeline_properties);
-	if (result) {
-		cmpl(cache, priv1, priv2, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_NO_MEM);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -1675,7 +1673,7 @@ err_uuid:
 	env_vfree(data);
 err_pipeline:
 	ocf_pipeline_destroy(pipeline);
-	cmpl(cache, priv1, priv2, result);
+	OCF_CMPL_RET(cache, priv1, priv2, result);
 }
 
 static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
@@ -1794,7 +1792,7 @@ static void _ocf_mngt_cache_attach_complete(ocf_cache_t cache, void *priv1,
 			       "failed\n");
 	}
 
-	cmpl(cache, priv2, error);
+	OCF_CMPL_RET(cache, priv2, error);
 }
 
 void ocf_mngt_cache_attach(ocf_cache_t cache,
@@ -1807,10 +1805,8 @@ void ocf_mngt_cache_attach(ocf_cache_t cache,
 	OCF_CHECK_NULL(cfg);
 
 	result = _ocf_mngt_cache_validate_device_cfg(cfg);
-	if (result) {
-		cmpl(cache, priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(cache, priv, result);
 
 	_ocf_mngt_cache_attach(cache, cfg, false,
 			_ocf_mngt_cache_attach_complete, cmpl, priv);
@@ -1927,15 +1923,13 @@ static void _ocf_mngt_cache_load_complete(ocf_cache_t cache, void *priv1,
 {
 	ocf_mngt_cache_load_end_t cmpl = priv1;
 
-	if (error) {
-		cmpl(cache, priv2, error);
-		return;
-	}
+	if (error)
+		OCF_CMPL_RET(cache, priv2, error);
 
 	_ocf_mng_cache_set_valid(cache);
 	_ocf_mngt_cache_load_log(cache);
 
-	cmpl(cache, priv2, 0);
+	OCF_CMPL_RET(cache, priv2, 0);
 }
 
 void ocf_mngt_cache_load(ocf_cache_t cache,
@@ -1949,13 +1943,11 @@ void ocf_mngt_cache_load(ocf_cache_t cache,
 
 	/* Load is not allowed in volatile metadata mode */
 	if (cache->metadata.is_volatile)
-		cmpl(cache, priv, -EINVAL);
+		OCF_CMPL_RET(cache, priv, -EINVAL);
 
 	result = _ocf_mngt_cache_validate_device_cfg(cfg);
-	if (result) {
-		cmpl(cache, priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(cache, priv, result);
 
 	_ocf_mngt_cache_attach(cache, cfg, true,
 			_ocf_mngt_cache_load_complete, cmpl, priv);
@@ -2119,10 +2111,8 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_stop_pipeline_properties);
-	if (result) {
-		cmpl(cache, priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -2136,8 +2126,7 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 			ocf_cache_get_name(cache), sizeof(context->cache_name));
 	if (result) {
 		ocf_pipeline_destroy(pipeline);
-		cmpl(cache, priv, -OCF_ERR_NO_MEM);
-		return;
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
 	}
 
 	ocf_cache_log(cache, log_info, "Stopping cache\n");
@@ -2200,10 +2189,8 @@ void ocf_mngt_cache_save(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_save_pipeline_properties);
-	if (result) {
-		cmpl(cache, priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(cache, priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -2475,17 +2462,13 @@ void ocf_mngt_cache_detach(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 
-	if (!env_atomic_read(&cache->attached)) {
-		cmpl(cache, priv, -OCF_ERR_INVAL);
-		return;
-	}
+	if (!env_atomic_read(&cache->attached))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_detach_pipeline_properties);
-	if (result) {
-		cmpl(cache, priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
 
 	context = ocf_pipeline_get_priv(pipeline);
 

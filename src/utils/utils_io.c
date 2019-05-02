@@ -32,10 +32,8 @@ void ocf_submit_volume_flush(ocf_volume_t volume,
 	struct ocf_io *io;
 
 	io = ocf_volume_new_io(volume);
-	if (!io) {
-		cmpl(priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (!io)
+		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
 	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
 	ocf_io_set_cmpl(io, cmpl, priv, _ocf_volume_flush_end);
@@ -68,10 +66,8 @@ void ocf_submit_volume_discard(ocf_volume_t volume, uint64_t addr,
 	struct ocf_io *io;
 
 	context = env_vzalloc(sizeof(*context));
-	if (!context) {
-		cmpl(priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (!context)
+		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
 	env_atomic_set(&context->req_remaining, 1);
 	context->cmpl = cmpl;
@@ -112,10 +108,8 @@ void ocf_submit_write_zeros(ocf_volume_t volume, uint64_t addr,
 	struct ocf_io *io;
 
 	context = env_vzalloc(sizeof(*context));
-	if (!context) {
-		cmpl(priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (!context)
+		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
 	env_atomic_set(&context->req_remaining, 1);
 	context->cmpl = cmpl;
@@ -179,10 +173,8 @@ void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
 	int result = 0;
 
 	context = env_vmalloc(sizeof(*context));
-	if (!context) {
-		cmpl(priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (!context)
+		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
 	context->cache = cache;
 	context->buffer = buffer;

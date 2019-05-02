@@ -551,10 +551,8 @@ void ocf_mngt_cache_add_core(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_add_core_pipeline_properties);
-	if (result) {
-		cmpl(cache, NULL, priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(cache, NULL, priv, -OCF_ERR_NO_MEM);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -585,7 +583,7 @@ err_uuid:
 	env_vfree(data);
 err_pipeline:
 	ocf_pipeline_destroy(context->pipeline);
-	cmpl(cache, NULL, priv, result);
+	OCF_CMPL_RET(cache, NULL, priv, result);
 }
 
 /*
@@ -671,17 +669,13 @@ void ocf_mngt_cache_remove_core(ocf_core_t core,
 	core_id = ocf_core_get_id(core);
 
 	/* TODO: Make this asynchronous */
-	if (_ocf_cleaning_wait_for_finish(cache, 60 * 1000)) {
-		cmpl(priv, -OCF_ERR_CACHE_IN_USE);
-		return;
-	}
+	if (_ocf_cleaning_wait_for_finish(cache, 60 * 1000))
+		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_IN_USE);
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_remove_core_pipeline_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -738,10 +732,8 @@ void ocf_mngt_cache_detach_core(ocf_core_t core,
 	core_name = ocf_core_get_name(core);
 
 	/* TODO: Make this asynchronous */
-	if (_ocf_cleaning_wait_for_finish(cache, 60 * 1000)) {
-		cmpl(priv, -OCF_ERR_CACHE_IN_USE);
-		return;
-	}
+	if (_ocf_cleaning_wait_for_finish(cache, 60 * 1000))
+		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_IN_USE);
 
 	ocf_core_log(core, log_debug, "Detaching core\n");
 
@@ -754,7 +746,7 @@ void ocf_mngt_cache_detach_core(ocf_core_t core,
 				core_name);
 	}
 
-	cmpl(priv, result);
+	OCF_CMPL_RET(priv, result);
 }
 
 int ocf_mngt_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
