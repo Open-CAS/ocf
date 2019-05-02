@@ -1736,6 +1736,9 @@ void ocf_mngt_cache_attach(ocf_cache_t cache,
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(cfg);
 
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
 	result = _ocf_mngt_cache_validate_device_cfg(cfg);
 	if (result)
 		OCF_CMPL_RET(cache, priv, result);
@@ -1872,6 +1875,9 @@ void ocf_mngt_cache_load(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(cfg);
+
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
 	/* Load is not allowed in volatile metadata mode */
 	if (cache->metadata.is_volatile)
@@ -2039,6 +2045,14 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 
+	/*
+	 * FIXME: What if creating/setting management queue failed?
+	 * In such case we will be unable to use pipeline, and thus
+	 * perform cache stop procedure.
+	 */
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_stop_pipeline_properties);
 	if (result)
@@ -2115,6 +2129,9 @@ void ocf_mngt_cache_save(ocf_cache_t cache,
 	int result;
 
 	OCF_CHECK_NULL(cache);
+
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_save_pipeline_properties);
@@ -2385,6 +2402,9 @@ void ocf_mngt_cache_detach(ocf_cache_t cache,
 	int result;
 
 	OCF_CHECK_NULL(cache);
+
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
 	if (!env_atomic_read(&cache->attached))
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);

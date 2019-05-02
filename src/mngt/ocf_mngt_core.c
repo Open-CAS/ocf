@@ -522,6 +522,9 @@ void ocf_mngt_cache_add_core(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, NULL, priv, -OCF_ERR_INVAL);
+
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_add_core_pipeline_properties);
 	if (result)
@@ -634,6 +637,9 @@ void ocf_mngt_cache_remove_core(ocf_core_t core,
 	cache = ocf_core_get_cache(core);
 	core_id = ocf_core_get_id(core);
 
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, -OCF_ERR_INVAL);
+
 	/* TODO: Make this asynchronous */
 	if (_ocf_cleaning_wait_for_finish(cache, 60 * 1000))
 		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_IN_USE);
@@ -696,6 +702,9 @@ void ocf_mngt_cache_detach_core(ocf_core_t core,
 
 	cache = ocf_core_get_cache(core);
 	core_name = ocf_core_get_name(core);
+
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, -OCF_ERR_INVAL);
 
 	/* TODO: Make this asynchronous */
 	if (_ocf_cleaning_wait_for_finish(cache, 60 * 1000))
