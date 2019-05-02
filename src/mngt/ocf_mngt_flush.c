@@ -582,10 +582,8 @@ static void _ocf_mngt_flush_all_cores_complete(
 			break;
 	}
 
-	if (error) {
-		ocf_pipeline_finish(context->pipeline, error);
-		return;
-	}
+	if (error)
+		OCF_PL_FINISH_RET(context->pipeline, error);
 
 	if (context->op == flush_cache)
 		ocf_cache_log(cache, log_info, "Flushing cache completed\n");
@@ -711,10 +709,8 @@ static void _ocf_mngt_flush_core_complete(
 
 	env_atomic_set(&core->flushed, 0);
 
-	if (error) {
-		ocf_pipeline_finish(context->pipeline, error);
-		return;
-	}
+	if (error)
+		OCF_PL_FINISH_RET(context->pipeline, error);
 
 	if (context->op == flush_core)
 		ocf_cache_log(cache, log_info, "Flushing completed\n");
@@ -808,10 +804,7 @@ static void _ocf_mngt_cache_invalidate(ocf_pipeline_t pipeline, void *priv,
 			context->purge.end_byte);
 	OCF_METADATA_UNLOCK_WR();
 
-	if (result)
-		ocf_pipeline_finish(context->pipeline, result);
-	else
-		ocf_pipeline_next(context->pipeline);
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
 
 static

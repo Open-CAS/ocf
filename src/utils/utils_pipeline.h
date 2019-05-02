@@ -131,4 +131,23 @@ void ocf_pipeline_next(ocf_pipeline_t pipeline);
 
 void ocf_pipeline_finish(ocf_pipeline_t pipeline, int error);
 
+#define OCF_PL_NEXT_RET(pipeline) ({ \
+	ocf_pipeline_next(pipeline); \
+	return; \
+})
+
+#define OCF_PL_FINISH_RET(pipeline, error) ({ \
+	ocf_pipeline_finish(pipeline, error); \
+	return; \
+})
+
+#define OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, error) ({ \
+	if (error) \
+		ocf_pipeline_finish(pipeline, error); \
+	else \
+		ocf_pipeline_next(pipeline); \
+	return; \
+})
+
+
 #endif /* __UTILS_PIPELINE_H__ */
