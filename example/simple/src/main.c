@@ -141,12 +141,14 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	 * or adding core object.
 	 */
 	ret = ocf_queue_create(*cache, &cache_priv->mngt_queue, &queue_ops);
-	if (ret)
-		goto err_cache;
+	if (ret) {
+		ocf_mngt_cache_stop(*cache, simple_complete, &context);
+		goto err_priv;
+	}
 
 	/*
 	 * Assign management queue to cache. This has to be done before any
-	 * other management operation. Management queue it treated specially,
+	 * other management operation. Management queue is treated specially,
 	 * and it may not be used for submitting IO requests. It also will not
 	 * be put on the cache stop - we have to put it manually at the end.
 	 */
@@ -154,9 +156,8 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 
 	/* Create queue which will be used for IO submission. */
 	ret = ocf_queue_create(*cache, &cache_priv->io_queue, &queue_ops);
-	if (ret) {
-		goto err_queue;
-	}
+	if (ret)
+		goto err_cache;
 
 	/* Attach volume to cache */
 	ocf_mngt_cache_attach(*cache, &device_cfg, simple_complete, &context);
@@ -167,7 +168,6 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 
 err_cache:
 	ocf_mngt_cache_stop(*cache, simple_complete, &context);
-err_queue:
 	ocf_queue_put(cache_priv->mngt_queue);
 err_priv:
 	free(cache_priv);
