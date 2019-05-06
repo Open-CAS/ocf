@@ -56,6 +56,7 @@ class DataOps(Structure):
 
 
 class Data:
+    DATA_POISON=0xA5
     PAGE_SIZE = 4096
 
     _instances_ = {}
@@ -66,7 +67,8 @@ class Data:
         self.position = 0
         self.buffer = create_string_buffer(int(self.size))
         self.handle = cast(byref(self.buffer), c_void_p)
-        memset(self.handle, 0, self.size)
+
+        memset(self.handle, self.DATA_POISON, self.size)
         type(self)._instances_[self.handle.value] = weakref.ref(self)
         self._as_parameter_ = self.handle
 
@@ -104,13 +106,6 @@ class Data:
     @classmethod
     def from_string(cls, source: str, encoding: str = "ascii"):
         return cls.from_bytes(bytes(source, encoding))
-
-    def set_data(self, contents):
-        if len(contents) > self.size:
-            raise Exception("Data too big to fit into allocated buffer")
-
-        memmove(self.handle, cast(contents, c_void_p), len(contents))
-        self.position = 0
 
     @staticmethod
     @DataOps.ALLOC
@@ -170,11 +165,15 @@ class Data:
     def read(self, dst, size):
         to_read = min(self.size - self.position, size)
         memmove(dst, self.handle.value + self.position, to_read)
+
+        self.position += to_read
         return to_read
 
     def write(self, src, size):
         to_write = min(self.size - self.position, size)
         memmove(self.handle.value + self.position, src, to_write)
+
+        self.position += to_write
         return to_write
 
     def mlock(self):
@@ -186,6 +185,8 @@ class Data:
     def zero(self, size):
         to_zero = min(self.size - self.position, size)
         memset(self.handle.value + self.position, 0, to_zero)
+
+        self.position += to_zero
         return to_zero
 
     def seek(self, seek, size):
@@ -207,8 +208,8 @@ class Data:
     def secure_erase(self):
         pass
 
-    def dump(self):
-        print_buffer(self.buffer, self.size)
+    def dump(self, ignore=DATA_POISON, **kwargs):
+        print_buffer(self.buffer, self.size, ignore=ignore, **kwargs)
 
     def md5(self):
         m = md5()

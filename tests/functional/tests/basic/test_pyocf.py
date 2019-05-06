@@ -66,8 +66,6 @@ def test_load_cache_no_preexisting_data(pyocf_ctx):
         cache = Cache.load_from_device(cache_device)
 
 
-# TODO: Find out why this fails and fix
-@pytest.mark.xfail
 def test_load_cache(pyocf_ctx):
     cache_device = Volume(S.from_MiB(30))
 
