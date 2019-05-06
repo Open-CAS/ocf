@@ -36,11 +36,10 @@ def io_queue_run(*, queue: Queue, kick: Condition, stop: Event):
         if stop.is_set() and not OcfLib.getInstance().ocf_queue_pending_io(queue):
             break
 
-
 class Queue:
     _instances_ = {}
 
-    def __init__(self, cache, name, mngt_queue: bool = False):
+    def __init__(self, cache, name):
 
         self.ops = QueueOps(kick=type(self)._kick, stop=type(self)._stop)
 
@@ -67,7 +66,6 @@ class Queue:
             },
         )
         self.thread.start()
-        self.mngt_queue = mngt_queue
 
     @classmethod
     def get_instance(cls, ref):
@@ -95,12 +93,13 @@ class Queue:
         with self.kick_condition:
             self.kick_condition.notify_all()
 
+    def put(self):
+        OcfLib.getInstance().ocf_queue_put(self)
+
     def stop(self):
         with self.kick_condition:
             self.stop_event.set()
             self.kick_condition.notify_all()
 
         self.thread.join()
-        if self.mngt_queue:
-            OcfLib.getInstance().ocf_queue_put(self)
 
