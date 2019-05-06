@@ -251,44 +251,37 @@ static void ocf_metadata_load_properties_cmpl(
 
 	if (superblock->magic_number != CACHE_MAGIC_NUMBER) {
 		ocf_log(ctx, log_info, "Cannot detect pre-existing metadata\n");
-		cmpl(priv, -ENODATA, NULL);
-		return;
+		OCF_CMPL_RET(priv, -ENODATA, NULL);
 	}
 
 	if (METADATA_VERSION() != superblock->metadata_version) {
 		ocf_log(ctx, log_err, "Metadata version mismatch!\n");
-		cmpl(priv, -EBADF, NULL);
-		return;
+		OCF_CMPL_RET(priv, -EBADF, NULL);
 	}
 
 	if (!ocf_cache_line_size_is_valid(superblock->line_size)) {
 		ocf_log(ctx, log_err, "ERROR: Invalid cache line size!\n");
-		cmpl(priv, -EINVAL, NULL);
-		return;
+		OCF_CMPL_RET(priv, -EINVAL, NULL);
 	}
 
 	if ((unsigned)superblock->metadata_layout >= ocf_metadata_layout_max) {
 		ocf_log(ctx, log_err, "ERROR: Invalid metadata layout!\n");
-		cmpl(priv, -EINVAL, NULL);
-		return;
+		OCF_CMPL_RET(priv, -EINVAL, NULL);
 	}
 
 	if (superblock->cache_mode >= ocf_cache_mode_max) {
 		ocf_log(ctx, log_err, "ERROR: Invalid cache mode!\n");
-		cmpl(priv, -EINVAL, NULL);
-		return;
+		OCF_CMPL_RET(priv, -EINVAL, NULL);
 	}
 
 	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
 		ocf_log(ctx, log_err, "ERROR: Invalid shutdown status!\n");
-		cmpl(priv, -EINVAL, NULL);
-		return;
+		OCF_CMPL_RET(priv, -EINVAL, NULL);
 	}
 
 	if (superblock->dirty_flushed > DIRTY_FLUSHED) {
 		ocf_log(ctx, log_err, "ERROR: Invalid flush status!\n");
-		cmpl(priv, -EINVAL, NULL);
-		return;
+		OCF_CMPL_RET(priv, -EINVAL, NULL);
 	}
 
 	properties.line_size = superblock->line_size;
@@ -297,7 +290,7 @@ static void ocf_metadata_load_properties_cmpl(
 	properties.shutdown_status = superblock->clean_shutdown;
 	properties.dirty_flushed = superblock->dirty_flushed;
 
-	cmpl(priv, 0, &properties);
+	OCF_CMPL_RET(priv, 0, &properties);
 }
 
 void ocf_metadata_load_properties(ocf_volume_t volume,
@@ -310,7 +303,7 @@ void ocf_metadata_load_properties(ocf_volume_t volume,
 	result = ocf_metadata_read_sb(volume->cache->owner, volume,
 			ocf_metadata_load_properties_cmpl, cmpl, priv);
 	if (result)
-		cmpl(priv, result, NULL);
+		OCF_CMPL_RET(priv, result, NULL);
 }
 
 static void ocf_metadata_probe_cmpl(struct ocf_metadata_read_sb_ctx *context)
@@ -320,31 +313,23 @@ static void ocf_metadata_probe_cmpl(struct ocf_metadata_read_sb_ctx *context)
 	ocf_metadata_probe_end_t cmpl = context->priv1;
 	void *priv = context->priv2;
 
-	if (superblock->magic_number != CACHE_MAGIC_NUMBER) {
-		cmpl(priv, -ENODATA, NULL);
-		return;
-	}
+	if (superblock->magic_number != CACHE_MAGIC_NUMBER)
+		OCF_CMPL_RET(priv, -ENODATA, NULL);
 
-	if (METADATA_VERSION() != superblock->metadata_version) {
-		cmpl(priv, -EBADF, NULL);
-		return;
-	}
+	if (METADATA_VERSION() != superblock->metadata_version)
+		OCF_CMPL_RET(priv, -EBADF, NULL);
 
-	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
-		cmpl(priv, -EINVAL, NULL);
-		return;
-	}
+	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown)
+		OCF_CMPL_RET(priv, -EINVAL, NULL);
 
-	if (superblock->dirty_flushed > DIRTY_FLUSHED) {
-		cmpl(priv, -EINVAL, NULL);
-		return;
-	}
+	if (superblock->dirty_flushed > DIRTY_FLUSHED)
+		OCF_CMPL_RET(priv, -EINVAL, NULL);
 
 	status.clean_shutdown = (superblock->clean_shutdown !=
 			ocf_metadata_dirty_shutdown);
 	status.cache_dirty = (superblock->dirty_flushed == DIRTY_NOT_FLUSHED);
 
-	cmpl(priv, 0, &status);
+	OCF_CMPL_RET(priv, 0, &status);
 }
 
 void ocf_metadata_probe(ocf_ctx_t ctx, ocf_volume_t volume,
@@ -358,7 +343,7 @@ void ocf_metadata_probe(ocf_ctx_t ctx, ocf_volume_t volume,
 	result = ocf_metadata_read_sb(ctx, volume, ocf_metadata_probe_cmpl,
 			cmpl, priv);
 	if (result)
-		cmpl(priv, result, NULL);
+		OCF_CMPL_RET(priv, result, NULL);
 }
 
 /* completion context for query_cores */
@@ -385,10 +370,8 @@ void ocf_metadata_probe_cores(ocf_ctx_t ctx, ocf_volume_t volume,
 	const struct ocf_metadata_iface *iface;
 
 	context = env_vzalloc(sizeof(*context));
-	if (!context) {
-		cmpl(priv, -OCF_ERR_NO_MEM, 0);
-		return;
-	}
+	if (!context)
+		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM, 0);
 
 	context->cmpl = cmpl;
 	context->priv = priv;

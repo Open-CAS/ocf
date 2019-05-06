@@ -79,12 +79,6 @@ static inline void ocf_metadata_load_superblock(ocf_cache_t cache,
 static inline void ocf_metadata_flush_superblock(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	/* TODO: Shouldn't it be checked by the caller? */
-	if (!cache->device) {
-		cmpl(priv, 0);
-		return;
-	}
-
 	cache->metadata.iface.flush_superblock(cache, cmpl, priv);
 }
 

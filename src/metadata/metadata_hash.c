@@ -12,6 +12,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_pipeline.h"
 #include "../ocf_def_priv.h"
+#include "../ocf_priv.h"
 
 #define OCF_METADATA_HASH_DEBUG 0
 
@@ -794,17 +795,14 @@ void ocf_metadata_hash_query_cores(ocf_ctx_t owner, ocf_volume_t volume,
 	struct query_cores_context *context;
 	int err;
 
-	if (count > OCF_CORE_MAX) {
-		cmpl(priv, -EINVAL, 0);
-		return;
-	}
+	if (count > OCF_CORE_MAX)
+		OCF_CMPL_RET(priv, -EINVAL, 0);
 
 	/* intialize query context */
 	context = env_secure_alloc(sizeof(*context));
-	if (!context) {
-		cmpl(priv, -ENOMEM, 0);
-		return;
-	}
+	if (!context)
+		OCF_CMPL_RET(priv, -ENOMEM, 0);
+
 	ENV_BUG_ON(env_memset(context, sizeof(*context), 0));
 	context->ctx = owner;
 	context->params.cmpl = cmpl;
@@ -1199,10 +1197,7 @@ static void ocf_metadata_hash_generic_complete(void *priv, int error)
 {
 	struct ocf_metadata_hash_context *context = priv;
 
-	if (error)
-		ocf_pipeline_finish(context->pipeline, error);
-	else
-		ocf_pipeline_next(context->pipeline);
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
 }
 
 static void ocf_medatata_hash_load_segment(ocf_pipeline_t pipeline,
@@ -1240,8 +1235,7 @@ static void ocf_medatata_hash_check_crc_sb_config(ocf_pipeline_t pipeline,
 		ocf_cache_log(cache, log_err,
 				"Loading %s ERROR, invalid checksum",
 				ocf_metadata_hash_raw_names[segment]);
-		ocf_pipeline_finish(pipeline, -OCF_ERR_INVAL);
-		return;
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
 	}
 
 	ocf_pipeline_next(pipeline);
@@ -1267,8 +1261,7 @@ static void ocf_medatata_hash_check_crc(ocf_pipeline_t pipeline,
 		ocf_cache_log(cache, log_err,
 				"Loading %s ERROR, invalid checksum",
 				ocf_metadata_hash_raw_names[segment]);
-		ocf_pipeline_finish(pipeline, -OCF_ERR_INVAL);
-		return;
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
 	}
 
 	ocf_pipeline_next(pipeline);
@@ -1308,15 +1301,13 @@ static void ocf_medatata_hash_load_superblock_post(ocf_pipeline_t pipeline,
 	if (sb_config->core_count > OCF_CORE_MAX) {
 		ocf_cache_log(cache, log_err,
 			"Loading cache state ERROR, invalid cores count\n");
-		ocf_pipeline_finish(pipeline, -OCF_ERR_INVAL);
-		return;
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
 	}
 
 	if (sb_config->valid_parts_no > OCF_IO_CLASS_MAX) {
 		ocf_cache_log(cache, log_err,
 			"Loading cache state ERROR, invalid partition count\n");
-		ocf_pipeline_finish(pipeline, -OCF_ERR_INVAL);
-		return;
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
 	}
 
 	ocf_pipeline_next(pipeline);
@@ -1392,10 +1383,8 @@ static void ocf_metadata_hash_load_superblock(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_load_sb_pipeline_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -1527,10 +1516,8 @@ static void ocf_metadata_hash_flush_superblock(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_flush_sb_pipeline_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -1602,12 +1589,7 @@ static void ocf_medatata_hash_flush_all_set_status_complete(
 {
 	struct ocf_metadata_hash_context *context = priv;
 
-	if (error) {
-		ocf_pipeline_finish(context->pipeline, error);
-		return;
-	}
-
-	ocf_pipeline_next(context->pipeline);
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
 }
 
 static void ocf_medatata_hash_flush_all_set_status(ocf_pipeline_t pipeline,
@@ -1683,10 +1665,8 @@ static void ocf_metadata_hash_flush_all(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_flush_all_pipeline_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -1807,10 +1787,8 @@ static void ocf_metadata_hash_load_all(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_load_all_pipeline_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -1968,10 +1946,8 @@ static void _ocf_metadata_hash_load_recovery_legacy(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_load_recovery_legacy_pl_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -2003,12 +1979,7 @@ static void ocf_metadata_hash_load_atomic_metadata_complete(
 {
 	struct ocf_metadata_hash_context *context = priv;
 
-	if (error) {
-		ocf_pipeline_finish(context->pipeline, error);
-		return;
-	}
-
-	ocf_pipeline_next(context->pipeline);
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
 }
 
 static int ocf_metadata_hash_load_atomic_metadata_drain(void *priv,
@@ -2072,7 +2043,7 @@ static void ocf_medatata_hash_load_atomic_metadata(
 		ocf_metadata_error(cache);
 		ocf_cache_log(cache, log_err,
 				"Metadata read for recovery FAILURE\n");
-		ocf_pipeline_finish(pipeline, result);
+		OCF_PL_FINISH_RET(pipeline, result);
 	}
 }
 
@@ -2117,10 +2088,8 @@ static void _ocf_metadata_hash_load_recovery_atomic(ocf_cache_t cache,
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_hash_load_recovery_atomic_pl_props);
-	if (result) {
-		cmpl(priv, result);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 

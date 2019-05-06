@@ -582,10 +582,8 @@ static void _ocf_mngt_flush_all_cores_complete(
 			break;
 	}
 
-	if (error) {
-		ocf_pipeline_finish(context->pipeline, error);
-		return;
-	}
+	if (error)
+		OCF_PL_FINISH_RET(context->pipeline, error);
 
 	if (context->op == flush_cache)
 		ocf_cache_log(cache, log_info, "Flushing cache completed\n");
@@ -671,30 +669,26 @@ void ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption,
 	if (!ocf_cache_is_device_attached(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush cache - "
 				"cache device is detached\n");
-		cmpl(cache, priv, -OCF_ERR_INVAL);
-		return;
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 	}
 
 	if (ocf_cache_is_incomplete(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush cache - "
 				"cache is in incomplete state\n");
-		cmpl(cache, priv, -OCF_ERR_CACHE_IN_INCOMPLETE_STATE);
-		return;
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_IN_INCOMPLETE_STATE);
 	}
 
 	if (!cache->mngt_queue) {
 		ocf_cache_log(cache, log_err,
 				"Cannot flush cache - no flush queue set\n");
-		cmpl(cache, priv, -OCF_ERR_INVAL);
-		return;
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 	}
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&_ocf_mngt_cache_flush_pipeline_properties);
-	if (result) {
-		cmpl(cache, priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
+
 	context = ocf_pipeline_get_priv(pipeline);
 
 	context->pipeline = pipeline;
@@ -715,10 +709,8 @@ static void _ocf_mngt_flush_core_complete(
 
 	env_atomic_set(&core->flushed, 0);
 
-	if (error) {
-		ocf_pipeline_finish(context->pipeline, error);
-		return;
-	}
+	if (error)
+		OCF_PL_FINISH_RET(context->pipeline, error);
 
 	if (context->op == flush_core)
 		ocf_cache_log(cache, log_info, "Flushing completed\n");
@@ -767,30 +759,26 @@ void ocf_mngt_core_flush(ocf_core_t core, bool interruption,
 	if (!ocf_cache_is_device_attached(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush core - "
 				"cache device is detached\n");
-		cmpl(core, priv, -OCF_ERR_INVAL);
-		return;
+		OCF_CMPL_RET(core, priv, -OCF_ERR_INVAL);
 	}
 
 	if (!core->opened) {
 		ocf_core_log(core, log_err, "Cannot flush - core is in "
 				"inactive state\n");
-		cmpl(core, priv, -OCF_ERR_CORE_IN_INACTIVE_STATE);
-		return;
+		OCF_CMPL_RET(core, priv, -OCF_ERR_CORE_IN_INACTIVE_STATE);
 	}
 
 	if (!cache->mngt_queue) {
 		ocf_core_log(core, log_err,
 				"Cannot flush core - no flush queue set\n");
-		cmpl(core, priv, -OCF_ERR_INVAL);
-		return;
+		OCF_CMPL_RET(core, priv, -OCF_ERR_INVAL);
 	}
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&_ocf_mngt_core_flush_pipeline_properties);
-	if (result) {
-		cmpl(core, priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(core, priv, -OCF_ERR_NO_MEM);
+
 	context = ocf_pipeline_get_priv(pipeline);
 
 	context->pipeline = pipeline;
@@ -816,10 +804,7 @@ static void _ocf_mngt_cache_invalidate(ocf_pipeline_t pipeline, void *priv,
 			context->purge.end_byte);
 	OCF_METADATA_UNLOCK_WR();
 
-	if (result)
-		ocf_pipeline_finish(context->pipeline, result);
-	else
-		ocf_pipeline_next(context->pipeline);
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
 
 static
@@ -846,16 +831,14 @@ void ocf_mngt_cache_purge(ocf_cache_t cache,
 	if (!cache->mngt_queue) {
 		ocf_cache_log(cache, log_err,
 				"Cannot purge cache - no flush queue set\n");
-		cmpl(cache, priv, -OCF_ERR_INVAL);
-		return;
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 	}
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&_ocf_mngt_cache_purge_pipeline_properties);
-	if (result) {
-		cmpl(cache, priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
+
 	context = ocf_pipeline_get_priv(pipeline);
 
 	context->pipeline = pipeline;
@@ -900,18 +883,15 @@ void ocf_mngt_core_purge(ocf_core_t core,
 	if (!cache->mngt_queue) {
 		ocf_core_log(core, log_err,
 				"Cannot purge core - no flush queue set\n");
-		cmpl(core, priv, -OCF_ERR_INVAL);
-		return;
+		OCF_CMPL_RET(core, priv, -OCF_ERR_INVAL);
 	}
 
 	core_size = ocf_volume_get_length(&cache->core[core_id].volume);
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&_ocf_mngt_core_purge_pipeline_properties);
-	if (result) {
-		cmpl(core, priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (result)
+		OCF_CMPL_RET(core, priv, -OCF_ERR_NO_MEM);
 
 	context = ocf_pipeline_get_priv(pipeline);
 

@@ -9,6 +9,7 @@
 #include "metadata_io.h"
 #include "metadata_raw_atomic.h"
 #include "../ocf_def_priv.h"
+#include "../ocf_priv.h"
 
 #define OCF_METADATA_RAW_DEBUG 0
 
@@ -250,10 +251,8 @@ static void _raw_ram_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	OCF_DEBUG_TRACE(cache);
 
 	context = env_vmalloc(sizeof(*context));
-	if (!context) {
-		cmpl(priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (!context)
+		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
 	context->raw = raw;
 	context->cmpl = cmpl;
@@ -319,10 +318,8 @@ static void _raw_ram_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	OCF_DEBUG_TRACE(cache);
 
 	context = env_vmalloc(sizeof(*context));
-	if (!context) {
-		cmpl(priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (!context)
+		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
 	context->raw = raw;
 	context->cmpl = cmpl;

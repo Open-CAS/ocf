@@ -13,6 +13,7 @@
 #include "../utils/utils_io.h"
 #include "../utils/utils_req.h"
 #include "../ocf_def_priv.h"
+#include "../ocf_priv.h"
 
 #define OCF_METADATA_RAW_DEBUG  0
 
@@ -434,10 +435,8 @@ void raw_dynamic_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	OCF_DEBUG_TRACE(cache);
 
 	context = env_vzalloc(sizeof(*context));
-	if (!context) {
-		cmpl(priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (!context)
+		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
 	context->raw = raw;
 	context->cache = cache;
@@ -475,7 +474,7 @@ err_zpage:
 	ctx_data_free(cache->owner, context->data);
 err_data:
 	env_vfree(context);
-	cmpl(priv, result);
+	OCF_CMPL_RET(priv, result);
 }
 
 /*
@@ -534,10 +533,8 @@ void raw_dynamic_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	OCF_DEBUG_TRACE(cache);
 
 	context = env_vmalloc(sizeof(*context));
-	if (!context) {
-		cmpl(priv, -OCF_ERR_NO_MEM);
-		return;
-	}
+	if (!context)
+		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
 	context->raw = raw;
 	context->cmpl = cmpl;
@@ -548,7 +545,7 @@ void raw_dynamic_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 			raw_dynamic_flush_all_fill,
 			raw_dynamic_flush_all_complete);
 	if (result)
-		cmpl(priv, result);
+		OCF_CMPL_RET(priv, result);
 }
 
 /*
