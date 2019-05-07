@@ -505,7 +505,7 @@ class Cache:
         c = OcfCompletion(
             [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
         )
-        self.owner.lib.ocf_mngt_cache_flush(self.cache_handle, False, c, None)
+        self.owner.lib.ocf_mngt_cache_flush(self.cache_handle, c, None)
         c.wait()
         if c.results["error"]:
             self.put_and_write_unlock()
