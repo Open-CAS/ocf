@@ -302,7 +302,7 @@ class Cache:
 
     @classmethod
     def start_on_device(cls, device, **kwargs):
-        c = cls(locked=True, owner=device.owner, **kwargs)
+        c = cls(owner=device.owner, **kwargs)
 
         c.start_cache()
         try:
@@ -482,7 +482,6 @@ class Cache:
             [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
         )
 
-        self.owner.lib.ocf_cache_wait_for_io_finish(self.cache_handle)
         self.owner.lib.ocf_mngt_cache_stop(self.cache_handle, c, None)
 
         c.wait()
@@ -495,7 +494,6 @@ class Cache:
         self.started = False
 
         self.put_and_write_unlock()
-        self.put()
 
         self.owner.caches.remove(self)
 

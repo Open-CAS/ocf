@@ -151,21 +151,6 @@ static env_allocator *_ocf_req_get_allocator(
 	return ocf_ctx->resources.req->allocator[idx];
 }
 
-static void start_cache_req(struct ocf_request *req)
-{
-	ocf_cache_t cache = req->cache;
-
-	req->d2c = 1;
-	if (env_atomic_read(&cache->attached)) {
-		req->d2c = 0;
-		env_atomic_inc(&cache->pending_cache_requests);
-		if (!env_atomic_read(&cache->attached)) {
-			req->d2c = 1;
-			env_atomic_dec(&cache->pending_cache_requests);
-		}
-	}
-}
-
 struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 		uint64_t addr, uint32_t bytes, int rw)
 {
@@ -206,10 +191,8 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	req->core_id = core ? ocf_core_get_id(core) : 0;
 	req->cache = cache;
 
-	if (queue != cache->mngt_queue)
-		env_atomic_inc(&cache->pending_requests);
-
-	start_cache_req(req);
+	req->d2c = (queue != cache->mngt_queue) && !ocf_refcnt_inc(
+			&cache->refcnt.metadata);
 
 	env_atomic_set(&req->ref_count, 1);
 
@@ -289,13 +272,8 @@ void ocf_req_put(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	if (!req->d2c && !env_atomic_dec_return(
-			&req->cache->pending_cache_requests)) {
-		env_waitqueue_wake_up(&req->cache->pending_cache_wq);
-	}
-
-	if (req->io_queue != req->cache->mngt_queue)
-		env_atomic_dec(&req->cache->pending_requests);
+	if (!req->d2c && req->io_queue != req->cache->mngt_queue)
+		ocf_refcnt_dec(&req->cache->refcnt.metadata);
 
 	allocator = _ocf_req_get_allocator(req->cache,
 			req->alloc_core_line_count);
@@ -317,9 +295,4 @@ void ocf_req_clear_map(struct ocf_request *req)
 	if (likely(req->map))
 		ENV_BUG_ON(env_memset(req->map,
 			   sizeof(req->map[0]) * req->core_line_count, 0));
-}
-
-uint32_t ocf_req_get_allocated(struct ocf_cache *cache)
-{
-	return env_atomic_read(&cache->pending_requests);
 }

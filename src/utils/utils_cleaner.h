@@ -79,6 +79,18 @@ struct flush_container {
 	struct ocf_mngt_cache_flush_context *context;
 };
 
+typedef void (*ocf_cleaner_refcnt_zero_cb_t)(void *priv);
+
+/**
+ * @brief Context for ocf_cleaner_refcnt_register_zero_cb
+ */
+struct ocf_cleaner_wait_context
+{
+	env_atomic waiting;
+	ocf_cleaner_refcnt_zero_cb_t cb;
+	void *priv;
+};
+
 /**
  * @brief Run cleaning procedure
  *
@@ -118,5 +130,31 @@ void ocf_cleaner_sort_sectors(struct flush_data *tbl, uint32_t num);
  */
 void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,
 		uint32_t num);
+
+/**
+ * @brief Disable incrementing of cleaner reference counters
+ *
+ * @param cache - Cache instance
+ */
+void ocf_cleaner_refcnt_freeze(ocf_cache_t cache);
+
+/**
+ * @brief Enable incrementing of cleaner reference counters
+ *
+ * @param cache - Cache instance
+ */
+void ocf_cleaner_refcnt_unfreeze(ocf_cache_t cache);
+
+/**
+ * @brief Register callback for cleaner reference counters dropping to 0
+ *
+ * @param cache - Cache instance
+ * @param ctx - Routine private context, allocated by caller to avoid ENOMEM
+ * @param cb - Caller callback
+ * @param priv - Caller callback private data
+ */
+void ocf_cleaner_refcnt_register_zero_cb(ocf_cache_t cache,
+		struct ocf_cleaner_wait_context *ctx,
+		ocf_cleaner_refcnt_zero_cb_t cb, void *priv);
 
 #endif /* UTILS_CLEANER_H_ */

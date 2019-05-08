@@ -92,15 +92,15 @@ static void _ocf_mngt_begin_flush(ocf_pipeline_t pipeline, void *priv,
 	 * finish */
 	env_mutex_lock(&cache->flush_mutex);
 
-	ocf_refcnt_freeze(&cache->dirty);
+	ocf_refcnt_freeze(&cache->refcnt.dirty);
 
-	ocf_refcnt_register_zero_cb(&cache->dirty,
+	ocf_refcnt_register_zero_cb(&cache->refcnt.dirty,
 			_ocf_mngt_begin_flush_complete, context);
 }
 
 static void _ocf_mngt_end_flush(ocf_cache_t cache)
 {
-	ocf_refcnt_unfreeze(&cache->dirty);
+	ocf_refcnt_unfreeze(&cache->refcnt.dirty);
 
 	env_mutex_unlock(&cache->flush_mutex);
 }

@@ -146,12 +146,9 @@ struct ocf_cache {
 	ocf_ctx_t owner;
 
 	struct list_head list;
-	/* set to make valid */
-	uint8_t valid_ocf_cache_device_t;
+
 	/* unset running to not serve any more I/O requests */
 	unsigned long cache_state;
-
-	env_atomic ref_count;
 
 	struct ocf_superblock_config *conf_meta;
 
@@ -168,12 +165,17 @@ struct ocf_cache {
 
 	char name[OCF_CACHE_NAME_SIZE];
 
-	env_atomic pending_requests;
-
-	env_atomic pending_cache_requests;
-	env_waitqueue pending_cache_wq;
-
-	struct ocf_refcnt dirty;
+	struct {
+		/* cache get/put counter */
+		struct ocf_refcnt cache;
+		/* # of requests potentially dirtying cachelines */
+		struct ocf_refcnt dirty;
+		/* # of requests accessing attached metadata, excluding
+		 * management reqs */
+		struct ocf_refcnt metadata;
+		/* # of forced cleaning requests (eviction path) */
+		struct ocf_refcnt cleaning[OCF_IO_CLASS_MAX];
+	} refcnt;
 
 	uint32_t fallback_pt_error_threshold;
 	env_atomic fallback_pt_error_counter;
@@ -194,11 +196,6 @@ struct ocf_cache {
 	struct ocf_core_meta_runtime *core_runtime_meta;
 
 	env_atomic flush_in_progress;
-
-	/* 1 if cache device attached, 0 otherwise */
-	env_atomic attached;
-
-	env_atomic cleaning[OCF_IO_CLASS_MAX];
 
 	struct ocf_cleaner cleaner;
 	struct ocf_metadata_updater metadata_updater;
