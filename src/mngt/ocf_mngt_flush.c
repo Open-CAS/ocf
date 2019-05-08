@@ -46,8 +46,6 @@ struct ocf_mngt_cache_flush_context
 	ocf_cache_t cache;
 	/* target core */
 	ocf_core_t core;
-	/* true if flush interrupt respected */
-	bool allow_interruption;
 
 	/* management operation identifier */
 	enum {
@@ -364,18 +362,11 @@ static void _ocf_mngt_flush_portion_end(void *private_data, int error)
 	env_atomic_cmpxchg(&fsc->error, 0, error);
 
 	if (cache->flushing_interrupted) {
-		first_interrupt = !env_atomic_cmpxchg(&fsc->interrupt_seen, 0, 1);
+		first_interrupt = !env_atomic_cmpxchg(
+				&fsc->interrupt_seen, 0, 1);
 		if (first_interrupt) {
-			if (context->allow_interruption) {
-				ocf_cache_log(cache, log_info,
-					"Flushing interrupted by "
-					"user\n");
-			} else {
-				ocf_cache_log(cache, log_err,
-					"Cannot interrupt flushing\n");
-			}
-		}
-		if (context->allow_interruption) {
+			ocf_cache_log(cache, log_info,
+					"Flushing interrupted by user\n");
 			env_atomic_cmpxchg(&fsc->error, 0,
 					-OCF_ERR_FLUSHING_INTERRUPTED);
 		}
@@ -598,6 +589,7 @@ static void _ocf_mngt_cache_flush(ocf_pipeline_t pipeline, void *priv,
 		ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_flush_context *context = priv;
+
 	context->cache->flushing_interrupted = 0;
 	_ocf_mngt_flush_all_cores(context, _ocf_mngt_flush_all_cores_complete);
 }
@@ -657,7 +649,7 @@ static struct ocf_pipeline_properties _ocf_mngt_cache_flush_pipeline_properties 
 	},
 };
 
-void ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption,
+void ocf_mngt_cache_flush(ocf_cache_t cache,
 		ocf_mngt_cache_flush_end_t cmpl, void *priv)
 {
 	ocf_pipeline_t pipeline;
@@ -695,7 +687,6 @@ void ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption,
 	context->cmpl.flush_cache = cmpl;
 	context->priv = priv;
 	context->cache = cache;
-	context->allow_interruption = interruption;
 	context->op = flush_cache;
 
 	ocf_pipeline_next(context->pipeline);
@@ -744,7 +735,7 @@ struct ocf_pipeline_properties _ocf_mngt_core_flush_pipeline_properties = {
 	},
 };
 
-void ocf_mngt_core_flush(ocf_core_t core, bool interruption,
+void ocf_mngt_core_flush(ocf_core_t core,
 		ocf_mngt_core_flush_end_t cmpl, void *priv)
 {
 	ocf_pipeline_t pipeline;
@@ -785,7 +776,6 @@ void ocf_mngt_core_flush(ocf_core_t core, bool interruption,
 	context->cmpl.flush_core = cmpl;
 	context->priv = priv;
 	context->cache = cache;
-	context->allow_interruption = interruption;
 	context->op = flush_core;
 	context->core = core;
 
@@ -845,7 +835,6 @@ void ocf_mngt_cache_purge(ocf_cache_t cache,
 	context->cmpl.purge_cache = cmpl;
 	context->priv = priv;
 	context->cache = cache;
-	context->allow_interruption = true;
 	context->op = purge_cache;
 	context->purge.core_id = OCF_CORE_ID_INVALID;
 	context->purge.end_byte = ~0ULL;
@@ -899,7 +888,6 @@ void ocf_mngt_core_purge(ocf_core_t core,
 	context->cmpl.purge_core = cmpl;
 	context->priv = priv;
 	context->cache = cache;
-	context->allow_interruption = true;
 	context->op = purge_core;
 	context->purge.core_id = core_id;
 	context->purge.end_byte = core_size ?: ~0ULL;

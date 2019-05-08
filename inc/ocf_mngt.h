@@ -532,11 +532,10 @@ typedef void (*ocf_mngt_cache_flush_end_t)(ocf_cache_t cache,
  * @brief Flush data from given cache
  *
  * @param[in] cache Cache handle
- * @param[in] interruption Allow for interruption
  * @param[in] cmpl Completion callback
  * @param[in] priv Completion callback context
  */
-void ocf_mngt_cache_flush(ocf_cache_t cache, bool interruption,
+void ocf_mngt_cache_flush(ocf_cache_t cache,
 		ocf_mngt_cache_flush_end_t cmpl, void *priv);
 
 /**
@@ -553,11 +552,10 @@ typedef void (*ocf_mngt_core_flush_end_t)(ocf_core_t core,
  * @brief Flush data to given core
  *
  * @param[in] core Core handle
- * @param[in] interruption Allow for interruption
  * @param[in] cmpl Completion callback
  * @param[in] priv Completion callback context
  */
-void ocf_mngt_core_flush(ocf_core_t core, bool interruption,
+void ocf_mngt_core_flush(ocf_core_t core,
 		ocf_mngt_core_flush_end_t cmpl, void *priv);
 
 /**

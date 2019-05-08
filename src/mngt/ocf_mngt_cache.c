@@ -2291,8 +2291,7 @@ static void ocf_mngt_cache_detach_flush(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_detach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_mngt_cache_flush(cache, true, ocf_mngt_cache_detach_flush_cmpl,
-			context);
+	ocf_mngt_cache_flush(cache, ocf_mngt_cache_detach_flush_cmpl, context);
 }
 
 static void ocf_mngt_cache_detach_wait_pending(ocf_pipeline_t pipeline,
