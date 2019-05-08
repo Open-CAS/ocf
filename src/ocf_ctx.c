@@ -10,6 +10,7 @@
 #include "ocf_utils.h"
 #include "ocf_logger_priv.h"
 #include "ocf_core_priv.h"
+#include "mngt/ocf_mngt_core_pool_priv.h"
 
 /*
  *
@@ -147,6 +148,8 @@ int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 	if (ret)
 		goto err_utils;
 
+	ocf_mngt_core_pool_init(ocf_ctx);
+
 	*ctx = ocf_ctx;
 
 	return 0;
@@ -177,8 +180,8 @@ int ocf_ctx_exit(ocf_ctx_t ctx)
 	if (result)
 		return result;
 
+	ocf_mngt_core_pool_deinit(ctx);
 	ocf_core_volume_type_deinit(ctx);
-
 	ocf_utils_deinit(ctx);
 	ocf_logger_close(&ctx->logger);
 	env_free(ctx);
