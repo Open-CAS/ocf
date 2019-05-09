@@ -909,13 +909,6 @@ int ocf_mngt_cache_get_fallback_pt_error_threshold(ocf_cache_t cache,
 int ocf_mngt_cache_reset_fallback_pt_error_counter(ocf_cache_t cache);
 
 /**
- * @brief Initialize core pool
- *
- * @param[in] ctx OCF context
- */
-void ocf_mngt_core_pool_init(ocf_ctx_t ctx);
-
-/**
  * @brief Get core pool count
  *
  * @param[in] ctx OCF context
@@ -971,12 +964,5 @@ int ocf_mngt_core_pool_visit(ocf_ctx_t ctx,
  * @param[in] volume Core volume
  */
 void ocf_mngt_core_pool_remove(ocf_ctx_t ctx, ocf_volume_t volume);
-
-/**
- * @brief Deinit core pool
- *
- * @param[in] ctx OCF context
- */
-void ocf_mngt_core_pool_deinit(ocf_ctx_t ctx);
 
 #endif /* __OCF_CACHE_H__ */

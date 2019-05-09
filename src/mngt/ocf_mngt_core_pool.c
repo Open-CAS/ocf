@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-
 #include "ocf/ocf.h"
 #include "ocf_mngt_common.h"
 #include "../ocf_priv.h"
