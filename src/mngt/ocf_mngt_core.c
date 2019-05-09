@@ -328,6 +328,11 @@ static int __ocf_mngt_try_find_core_id(ocf_cache_t cache,
 		return -OCF_ERR_CORE_NOT_AVAIL;
 	}
 
+	if (cfg->core_id == OCF_CORE_MAX) {
+		cfg->core_id = tmp_core_id;
+		return 0;
+	}
+
 	if (cfg->core_id != tmp_core_id) {
 		ocf_cache_log(cache, log_err,
 				"Given core id doesn't match with metadata\n");
