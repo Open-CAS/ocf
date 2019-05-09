@@ -14,7 +14,7 @@
  * In open() function we store uuid data as volume name (for debug messages)
  * and allocate 200 MiB of memory to simulate backend storage device.
  */
-static int volume_open(ocf_volume_t volume)
+static int volume_open(ocf_volume_t volume, void *volume_params)
 {
 	const struct ocf_volume_uuid *uuid = ocf_volume_get_uuid(volume);
 	struct myvolume *myvolume = ocf_volume_get_priv(volume);
