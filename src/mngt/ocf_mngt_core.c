@@ -595,8 +595,8 @@ static void ocf_mngt_cache_remove_core_flush_sb_complete(void *priv, int error)
 {
 	struct ocf_mngt_cache_remove_core_context *context = priv;
 
-	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline,
-			error ? -OCF_ERR_WRITE_CACHE : 0);
+	error = error ? -OCF_ERR_WRITE_CACHE : 0;
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
 }
 
 static void _ocf_mngt_cache_remove_core(ocf_pipeline_t pipeline, void *priv,
