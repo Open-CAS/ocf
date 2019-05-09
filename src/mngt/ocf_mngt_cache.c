@@ -1907,6 +1907,7 @@ struct ocf_mngt_cache_stop_context {
 	ocf_ctx_t ctx;
 	char cache_name[OCF_CACHE_NAME_SIZE];
 	int cache_write_error;
+	bool cache_attached;
 };
 
 static void ocf_mngt_cache_stop_wait_metadata_io_finish(void *priv)
@@ -1921,6 +1922,9 @@ static void ocf_mngt_cache_stop_wait_metadata_io(ocf_pipeline_t pipeline,
 {
 	struct ocf_mngt_cache_stop_context *context = priv;
 	ocf_cache_t cache = context->cache;
+
+	if (!context->cache_attached)
+		OCF_PL_NEXT_RET(pipeline);
 
 	ocf_refcnt_freeze(&cache->refcnt.metadata);
 	ocf_refcnt_register_zero_cb(&cache->refcnt.metadata,
@@ -1941,7 +1945,7 @@ static void ocf_mngt_cache_stop_remove_cores(ocf_pipeline_t pipeline,
 		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 			continue;
 		cache_mng_core_remove_from_cache(cache, i);
-		if (ocf_cache_is_device_attached(cache))
+		if (context->cache_attached)
 			cache_mng_core_remove_from_cleaning_pol(cache, i);
 		cache_mng_core_close(cache, i);
 		j++;
@@ -1969,7 +1973,7 @@ static void ocf_mngt_cache_stop_unplug(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_stop_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	if (!ocf_cache_is_device_attached(cache))
+	if (!context->cache_attached)
 		OCF_PL_NEXT_RET(pipeline);
 
 	_ocf_mngt_cache_unplug(cache, true, &context->unplug_context,
@@ -2077,6 +2081,7 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 	context->pipeline = pipeline;
 	context->cache = cache;
 	context->ctx = cache->owner;
+	context->cache_attached = ocf_cache_is_device_attached(cache);
 
 	result = env_strncpy(context->cache_name, sizeof(context->cache_name),
 			ocf_cache_get_name(cache), sizeof(context->cache_name));
