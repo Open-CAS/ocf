@@ -146,6 +146,13 @@ struct ocf_cleaner_ops {
 	int (*init)(ocf_cleaner_t c);
 
 	/**
+	 * @brief Kick cleaner thread.
+	 *
+	 * @param[in] c Descriptor of cleaner to be kicked.
+	 */
+	void (*kick)(ocf_cleaner_t c);
+
+	/**
 	 * @brief Stop cleaner
 	 *
 	 * @param[in] c Descriptor of cleaner beeing stopped

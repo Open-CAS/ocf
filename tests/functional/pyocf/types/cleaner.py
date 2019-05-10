@@ -9,9 +9,10 @@ from .shared import SharedOcfObject
 
 class CleanerOps(Structure):
     INIT = CFUNCTYPE(c_int, c_void_p)
+    KICK = CFUNCTYPE(None, c_void_p)
     STOP = CFUNCTYPE(None, c_void_p)
 
-    _fields_ = [("init", INIT), ("stop", STOP)]
+    _fields_ = [("init", INIT), ("kick", KICK), ("stop", STOP)]
 
 
 class Cleaner(SharedOcfObject):
@@ -24,12 +25,17 @@ class Cleaner(SharedOcfObject):
 
     @classmethod
     def get_ops(cls):
-        return CleanerOps(init=cls._init, stop=cls._stop)
+        return CleanerOps(init=cls._init, kick=cls._kick, stop=cls._stop)
 
     @staticmethod
     @CleanerOps.INIT
     def _init(cleaner):
         return 0
+
+    @staticmethod
+    @CleanerOps.KICK
+    def _kick(cleaner):
+        pass
 
     @staticmethod
     @CleanerOps.STOP

@@ -320,6 +320,15 @@ typedef enum {
  * @}
  */
 
+/**
+ * @name OCF cleaner definitions
+ * @{
+ */
+#define OCF_CLEANER_DISABLE ~0U
+/**
+ * @}
+ */
+
 #define MAX_TRIM_RQ_SIZE	(1 * MiB)
 
 #endif /* __OCF_DEF_H__ */
