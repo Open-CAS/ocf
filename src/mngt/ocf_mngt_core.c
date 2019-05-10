@@ -310,9 +310,8 @@ static int __ocf_mngt_try_find_core_id(ocf_cache_t cache,
 		struct ocf_mngt_core_config *cfg, ocf_core_id_t tmp_core_id)
 {
 	if (tmp_core_id == OCF_CORE_MAX) {
-		/* FIXME: uuid.data could be not NULL-terminated ANSI string */
-		ocf_cache_log(cache, log_err, "Core with uuid %s not found in "
-				"cache metadata\n", (char*) cfg->uuid.data);
+		ocf_cache_log(cache, log_err, "Core with given uuid not found "
+				"in cache metadata\n");
 		return -OCF_ERR_CORE_NOT_AVAIL;
 	}
 
