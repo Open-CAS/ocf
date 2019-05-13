@@ -168,12 +168,12 @@ static void ocf_metadata_read_sb_complete(struct ocf_io *io, int error)
 				sizeof(context->superblock));
 	}
 
+	ctx_data_free(context->ctx, data);
+	ocf_io_put(io);
 
 	context->error = error;
 	context->cmpl(context);
 
-	ctx_data_free(context->ctx, data);
-	ocf_io_put(io);
 	env_free(context);
 }
 
