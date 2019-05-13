@@ -122,16 +122,26 @@ void ocf_mngt_cache_put(ocf_cache_t cache);
 
 /**
  * @brief Lock cache for management oparations (write lock, exclusive)
+
+ * @param[in] cache Handle to cache
+ * @param[in] error Status error code. Can be one of the following:
+ *	0 Cache successfully locked
+ *	-OCF_ERR_CACHE_NOT_EXIST Can not lock cache - cache is already stopping
+ *	-OCF_ERR_NO_MEM Cannot allocate needed memory
+ *	-OCF_ERR_INTR Wait operation interrupted
+ */
+typedef void (*ocf_mngt_cache_lock_end_t)(ocf_cache_t cache,
+		void *priv, int error);
+
+/**
+ * @brief Lock cache for management oparations (write lock, exclusive)
  *
  * @param[in] cache Handle to cache
- *
- * @retval 0 Cache successfully locked
- * @retval -OCF_ERR_CACHE_NOT_EXIST Can not lock cache - cache is already
- *					stopping
- * @retval -OCF_ERR_CACHE_IN_USE Can not lock cache - cache is in use
- * @retval -OCF_ERR_INTR Wait operation interrupted
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Private context of completion callback
  */
-int ocf_mngt_cache_lock(ocf_cache_t cache);
+void ocf_mngt_cache_lock(ocf_cache_t cache,
+		ocf_mngt_cache_lock_end_t cmpl, void *priv);
 
 /**
  * @brief Lock cache for read - assures cache config does not change while
@@ -139,14 +149,11 @@ int ocf_mngt_cache_lock(ocf_cache_t cache);
  *		read lock in parallel.
  *
  * @param[in] cache Handle to cache
- *
- * @retval 0 Cache successfully locked
- * @retval -OCF_ERR_CACHE_NOT_EXIST Can not lock cache - cache is already
- *					stopping
- * @retval -OCF_ERR_CACHE_IN_USE Can not lock cache - cache is in use
- * @retval -OCF_ERR_INTR Wait operation interrupted
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Private context of completion callback
  */
-int ocf_mngt_cache_read_lock(ocf_cache_t cache);
+void ocf_mngt_cache_read_lock(ocf_cache_t cache,
+		ocf_mngt_cache_lock_end_t cmpl, void *priv);
 
 /**
  * @brief Lock cache for management oparations (write lock, exclusive)

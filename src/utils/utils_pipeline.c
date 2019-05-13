@@ -1,3 +1,8 @@
+/*
+ * Copyright(c) 2019 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "ocf/ocf.h"
 #include "../engine/cache_engine.h"
 #include "../engine/engine_common.h"

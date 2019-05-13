@@ -111,7 +111,7 @@ static void ocf_cleaner_run_complete(ocf_cleaner_t cleaner, uint32_t interval)
 {
 	ocf_cache_t cache = ocf_cleaner_get_cache(cleaner);
 
-	env_rwsem_up_write(&cache->lock);
+	ocf_async_unlock(&cache->lock);
 	cleaner->end(cleaner, interval);
 
 	ocf_queue_put(cleaner->io_queue);
@@ -131,19 +131,19 @@ void ocf_cleaner_run(ocf_cleaner_t cleaner, ocf_queue_t queue)
 	 * (error, etc.).
 	 */
 	if (!env_bit_test(ocf_cache_state_running, &cache->cache_state) ||
-			ocf_mngt_is_cache_locked(cache)) {
+			ocf_mngt_cache_is_locked(cache)) {
 		cleaner->end(cleaner, SLEEP_TIME_MS);
 		return;
 	}
 
 	/* Sleep in case there is management operation in progress. */
-	if (env_rwsem_down_write_trylock(&cache->lock)) {
+	if (ocf_mngt_cache_trylock(cache)) {
 		cleaner->end(cleaner, SLEEP_TIME_MS);
 		return;
 	}
 
 	if (_ocf_cleaner_run_check_dirty_inactive(cache)) {
-		env_rwsem_up_write(&cache->lock);
+		ocf_mngt_cache_unlock(cache);
 		cleaner->end(cleaner, SLEEP_TIME_MS);
 		return;
 	}

@@ -15,6 +15,7 @@
 #include "metadata/metadata_updater_priv.h"
 #include "utils/utils_list.h"
 #include "utils/utils_refcnt.h"
+#include "utils/utils_async_lock.h"
 #include "ocf_stats_priv.h"
 #include "cleaning/cleaning.h"
 #include "ocf_logger_priv.h"
@@ -200,10 +201,11 @@ struct ocf_cache {
 	struct ocf_cleaner cleaner;
 	struct ocf_metadata_updater metadata_updater;
 
-	env_rwsem lock;
-	env_atomic lock_waiter;
-	/*!< most of the time this variable is set to 0, unless user requested
-	 *!< interruption of flushing process via ioctl/
+	struct ocf_async_lock lock;
+
+	/*
+	 * Most of the time this variable is set to 0, unless user requested
+	 * interruption of flushing process.
 	 */
 	int flushing_interrupted;
 	env_mutex flush_mutex;
