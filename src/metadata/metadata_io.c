@@ -113,6 +113,8 @@ int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue,
 					SECTORS_TO_BYTES(i),
 				SECTORS_TO_BYTES(curr_count),
 				OCF_READ, 0, 0);
+
+		ocf_io_set_queue(io, queue);
 		ocf_io_set_cmpl(io, &meta_atom_req, NULL,
 				metadata_io_read_i_atomic_end);
 		result = ocf_io_set_data(io, data, 0);
@@ -206,6 +208,7 @@ static int ocf_restart_meta_io(struct ocf_request *req)
 			PAGES_TO_BYTES(meta_io_req->count),
 			OCF_WRITE, 0, 0);
 
+	ocf_io_set_queue(io, req->io_queue);
 	ocf_io_set_cmpl(io, meta_io_req, NULL, metadata_io_i_asynch_cmpl);
 	ret = ocf_io_set_data(io, meta_io_req->data, 0);
 	if (ret) {
@@ -388,6 +391,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 					PAGES_TO_BYTES(a_req->reqs[i].count),
 					dir, 0, 0);
 
+			ocf_io_set_queue(io, queue);
 			ocf_io_set_cmpl(io, &a_req->reqs[i], NULL,
 					metadata_io_i_asynch_cmpl);
 			error = ocf_io_set_data(io, a_req->reqs[i].data, 0);
