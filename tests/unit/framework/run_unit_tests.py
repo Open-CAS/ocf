@@ -8,6 +8,7 @@
 import tests_config
 import os
 import commands
+import sys
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -22,7 +23,7 @@ if not os.path.isdir(main_UT_dir + "ocf_env" + os.sep + "ocf"):
 	try:
 		os.makedirs(main_UT_dir + "ocf_env" + os.sep + "ocf")
 	except Exception:
-		print "Cannot crate ocf_env/ocf directory!"
+		print "Cannot create ocf_env/ocf directory!"
 
 status, output = commands.getstatusoutput("cp " + main_tested_dir +\
 	"inc" + os.sep + "*" + " " + main_UT_dir + "ocf_env" + os.sep + "ocf")
@@ -39,8 +40,29 @@ if not os.path.isdir(build_dir):
 	try:
 		os.makedirs(build_dir)
 	except Exception:
-		print "Cannot crate build directory!"
+		print "Cannot create build directory!"
 
-status, output = commands.getstatusoutput("cd " + build_dir + " && cmake .. && make && make test")
+cmake_status, cmake_output = commands.getstatusoutput("cd " + build_dir + " && cmake ..")
+print cmake_output
+with open('cmake.output', 'w') as f:
+	f.write(cmake_output)
 
-print output
+if cmake_status != 0:
+	with open('tests.output', 'w') as f:
+		f.write("Cmake step failed! More details in cmake.output.")
+	sys.exit(1)
+
+make_status, make_output = commands.getstatusoutput("cd " + build_dir + " && make")
+print make_output
+with open('make.output', 'w') as f:
+	f.write(make_output)
+
+if make_status != 0:
+	with open('tests.output', 'w') as f:
+		f.write("Make step failed! More details in make.output.")
+	sys.exit(1)
+
+test_status, test_output = commands.getstatusoutput("cd " + build_dir + " && make test")
+print test_output
+with open('tests.output', 'w') as f:
+	f.write(test_output)
