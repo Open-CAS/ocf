@@ -6,31 +6,32 @@
 from ctypes import string_at
 
 
-def print_buffer(buf, length, offset=0, width=16, stop_after_zeros=0):
-    end = offset + length
-    zero_lines = 0
+def print_buffer(buf, length, offset=0, width=16, ignore=0, stop_after_count_ignored=0, print_fcn=print):
+    end = int(offset) + int(length)
+    offset = int(offset)
+    ignored_lines = 0
     buf = string_at(buf, length)
-    whole_buffer_empty = True
-    stop_after_zeros = int(stop_after_zeros / width)
+    whole_buffer_ignored = True
+    stop_after_count_ignored = int(stop_after_count_ignored / width)
 
     for addr in range(offset, end, width):
         cur_line = buf[addr : min(end, addr + width)]
         byteline = ""
         asciiline = ""
-        if not any(cur_line):
-            if stop_after_zeros and zero_lines > stop_after_zeros:
-                print(
-                    "<{} bytes of empty space encountered, stopping>".format(
-                        stop_after_zeros * width
+        if not any(x != ignore for x in cur_line):
+            if stop_after_count_ignored and ignored_lines > stop_after_count_ignored:
+                print_fcn(
+                        "<{} bytes of '0x{:02X}' encountered, stopping>".format(
+                        stop_after_count_ignored * width, ignore
                     )
                 )
                 return
-            zero_lines += 1
+            ignored_lines += 1
             continue
 
-        if zero_lines:
-            print("<{} zero bytes omitted>".format(zero_lines * width))
-            zero_lines = 0
+        if ignored_lines:
+            print_fcn("<{} of '0x{:02X}' bytes omitted>".format(ignored_lines * width, ignore))
+            ignored_lines = 0
 
         for byte in cur_line:
             byte = int(byte)
@@ -41,13 +42,13 @@ def print_buffer(buf, length, offset=0, width=16, stop_after_zeros=0):
                 char = "."
             asciiline += char
 
-        print("0x{:08X}\t{}\t{}".format(addr, byteline, asciiline))
-        whole_buffer_empty = False
+        print_fcn("0x{:08X}\t{}\t{}".format(addr, byteline, asciiline))
+        whole_buffer_ignored = False
 
-    if whole_buffer_empty:
-        print("<whole buffer empty>")
-    elif zero_lines:
-        print("<zero until end>")
+    if whole_buffer_ignored:
+        print_fcn("<whole buffer ignored>")
+    elif ignored_lines:
+        print_fcn("<'0x{:02X}' until end>".format(ignore))
 
 
 class Size:

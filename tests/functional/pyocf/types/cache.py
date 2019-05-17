@@ -191,11 +191,10 @@ class Cache:
             self.cache_handle, cache_mode
         )
 
-        if status:
-            self.put_and_write_unlock()
-            raise OcfError("Error changing cache mode", status)
-
         self.put_and_write_unlock()
+
+        if status:
+            raise OcfError("Error changing cache mode", status)
 
     def set_cleaning_policy(self, cleaning_policy: CleaningPolicy):
         self.get_and_write_lock()
@@ -203,11 +202,11 @@ class Cache:
         status = self.owner.lib.ocf_mngt_cache_cleaning_set_policy(
             self.cache_handle, cleaning_policy
         )
-        if status:
-            self.put_and_write_unlock()
-            raise OcfError("Error changing cleaning policy", status)
 
         self.put_and_write_unlock()
+
+        if status:
+            raise OcfError("Error changing cleaning policy", status)
 
     def set_cleaning_policy_param(
         self, cleaning_policy: CleaningPolicy, param_id, param_value
@@ -217,11 +216,11 @@ class Cache:
         status = self.owner.lib.ocf_mngt_cache_cleaning_set_param(
             self.cache_handle, cleaning_policy, param_id, param_value
         )
-        if status:
-            self.put_and_write_unlock()
-            raise OcfError("Error setting cleaning policy param", status)
 
         self.put_and_write_unlock()
+
+        if status:
+            raise OcfError("Error setting cleaning policy param", status)
 
     def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
         self.get_and_write_lock()
@@ -229,14 +228,14 @@ class Cache:
         status = self.owner.lib.ocf_mngt_core_set_seq_cutoff_policy_all(
             self.cache_handle, policy
         )
-        if status:
-            self.put_and_write_unlock()
-            raise OcfError("Error setting cache seq cut off policy", status)
 
         self.put_and_write_unlock()
 
+        if status:
+            raise OcfError("Error setting cache seq cut off policy", status)
+
     def configure_device(
-        self, device, force=False, perform_test=False, cache_line_size=None
+        self, device, force=False, perform_test=True, cache_line_size=None
     ):
         self.device = device
         self.device_name = device.uuid
@@ -273,11 +272,10 @@ class Cache:
         )
 
         c.wait()
-        if c.results["error"]:
-            self.put_and_write_unlock()
-            raise OcfError("Attaching cache device failed", c.results["error"])
-
         self.put_and_write_unlock()
+
+        if c.results["error"]:
+            raise OcfError("Attaching cache device failed", c.results["error"])
 
     def load_cache(self, device):
         self.configure_device(device)
@@ -297,7 +295,12 @@ class Cache:
         c = cls(name=name, owner=device.owner)
 
         c.start_cache()
-        c.load_cache(device)
+        try:
+            c.load_cache(device)
+        except:
+            c.stop()
+            raise
+
         return c
 
     @classmethod
@@ -388,13 +391,12 @@ class Cache:
         self.owner.lib.ocf_mngt_cache_remove_core(core.handle, c, None)
 
         c.wait()
+        self.put_and_write_unlock()
+
         if c.results["error"]:
-            self.put_and_write_unlock()
             raise OcfError("Failed removing core", c.results["error"])
 
         self.cores.remove(core)
-
-        self.put_and_write_unlock()
 
     def get_stats(self):
         cache_info = CacheInfo()
@@ -472,6 +474,22 @@ class Cache:
 
         return self.io_queues[0]
 
+    def save(self):
+        if not self.started:
+            raise Exception("Not started!")
+
+        self.get_and_write_lock()
+        c = OcfCompletion(
+            [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
+        )
+        self.owner.lib.ocf_mngt_cache_save(self.cache_handle, c, None)
+
+        c.wait()
+        self.put_and_write_unlock()
+
+        if c.results["error"]:
+            raise OcfError("Failed saving cache", c.results["error"])
+
     def stop(self):
         if not self.started:
             raise Exception("Already stopped!")
@@ -505,11 +523,11 @@ class Cache:
         )
         self.owner.lib.ocf_mngt_cache_flush(self.cache_handle, c, None)
         c.wait()
+        self.put_and_write_unlock()
+
         if c.results["error"]:
-            self.put_and_write_unlock()
             raise OcfError("Couldn't flush cache", c.results["error"])
 
-        self.put_and_write_unlock()
 
     def get_name(self):
         self.get_and_read_lock()
