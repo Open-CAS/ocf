@@ -35,34 +35,40 @@ if os.system(script_path + os.sep + "prepare_sources_for_testing.py") != 0:
 
 
 build_dir = main_UT_dir + "build" + os.sep
+logs_dir = main_UT_dir + "logs" + os.sep
 
 if not os.path.isdir(build_dir):
 	try:
 		os.makedirs(build_dir)
 	except Exception:
 		print "Cannot create build directory!"
+if not os.path.isdir(logs_dir):
+	try:
+		os.makedirs(logs_dir)
+	except Exception:
+		print "Cannot create logs directory!"
 
 cmake_status, cmake_output = commands.getstatusoutput("cd " + build_dir + " && cmake ..")
 print cmake_output
-with open('cmake.output', 'w') as f:
+with open(logs_dir + 'cmake.output', 'w') as f:
 	f.write(cmake_output)
 
 if cmake_status != 0:
-	with open('tests.output', 'w') as f:
+	with open(logs_dir + 'tests.output', 'w') as f:
 		f.write("Cmake step failed! More details in cmake.output.")
 	sys.exit(1)
 
 make_status, make_output = commands.getstatusoutput("cd " + build_dir + " && make")
 print make_output
-with open('make.output', 'w') as f:
+with open(logs_dir + 'make.output', 'w') as f:
 	f.write(make_output)
 
 if make_status != 0:
-	with open('tests.output', 'w') as f:
+	with open(logs_dir + 'tests.output', 'w') as f:
 		f.write("Make step failed! More details in make.output.")
 	sys.exit(1)
 
 test_status, test_output = commands.getstatusoutput("cd " + build_dir + " && make test")
 print test_output
-with open('tests.output', 'w') as f:
+with open(logs_dir + 'tests.output', 'w') as f:
 	f.write(test_output)
