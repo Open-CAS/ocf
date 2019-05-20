@@ -187,8 +187,7 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	ocf_queue_get(queue);
 	req->io_queue = queue;
 
-	/* TODO: Store core pointer instead of id */
-	req->core_id = core ? ocf_core_get_id(core) : 0;
+	req->core = core;
 	req->cache = cache;
 
 	req->d2c = (queue != cache->mngt_queue) && !ocf_refcnt_inc(

@@ -61,7 +61,7 @@ static inline void ocf_trace_prep_io_event(struct ocf_event_io *ev,
 		ev->len = rq->byte_length;
 
 	ev->operation = op;
-	ev->core_id = rq->core_id;
+	ev->core_id = ocf_core_get_id(rq->core);
 
 	ev->io_class = rq->io->io_class;
 }

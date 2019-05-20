@@ -312,6 +312,7 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 	const struct ocf_map_info *iter = req->map;
 	uint32_t i;
 	ocf_cache_line_t cache_line;
+	ocf_core_id_t core_id;
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -332,7 +333,8 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 			continue;
 
 		ocf_metadata_get_core_and_part_id(cache, cache_line,
-				&req->core_id, &req->part_id);
+				&core_id, &req->part_id);
+		req->core = &cache->core[core_id];
 
 		set_cache_line_clean(cache, 0, ocf_line_end_sector(cache), req,
 				i);

@@ -123,14 +123,14 @@ struct ocf_request {
 	ocf_cache_t cache;
 	/*!< Handle to cache instance */
 
+	ocf_core_t core;
+	/*!< Handle to core instance */
+
 	const struct ocf_io_if *io_if;
 	/*!< IO interface */
 
 	void (*resume)(struct ocf_request *req);
 	/*!< OCF request resume callback */
-
-	ocf_core_id_t core_id;
-	/*!< This file indicates core id of request */
 
 	ocf_part_id_t part_id;
 	/*!< Targeted partition of requests */
