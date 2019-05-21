@@ -264,11 +264,10 @@ void ocf_req_get(struct ocf_request *req)
 void ocf_req_put(struct ocf_request *req)
 {
 	env_allocator *allocator;
+	ocf_queue_t queue = req->io_queue;
 
 	if (env_atomic_dec_return(&req->ref_count))
 		return;
-
-	ocf_queue_put(req->io_queue);
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -283,6 +282,8 @@ void ocf_req_put(struct ocf_request *req)
 		env_free(req->map);
 		env_allocator_del(_ocf_req_get_allocator_1(req->cache), req);
 	}
+
+	ocf_queue_put(queue);
 }
 
 void ocf_req_clear_info(struct ocf_request *req)
