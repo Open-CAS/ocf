@@ -311,12 +311,6 @@ struct ocf_mngt_cache_device_config {
 	bool force;
 
 	/**
-	 * @brief Minimum free RAM required to start cache. Set during
-	 *		cache start procedure
-	 */
-	uint64_t min_free_ram;
-
-	/**
 	 * @brief If set, cache features (like discard) are tested
 	 *		before starting cache
 	 */
