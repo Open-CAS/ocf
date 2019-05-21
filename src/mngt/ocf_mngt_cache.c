@@ -1976,10 +1976,10 @@ static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
 				context->cache_name);
 	}
 
+	ocf_pipeline_destroy(context->pipeline);
+
 	context->cmpl(cache, context->priv,
 			error ?: context->cache_write_error);
-
-	ocf_pipeline_destroy(context->pipeline);
 
 	if (!error) {
 		/* Finally release cache instance */
