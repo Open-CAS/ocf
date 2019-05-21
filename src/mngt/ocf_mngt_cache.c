@@ -411,7 +411,7 @@ static int _ocf_mngt_init_instance_add_cores(
 			core->opened = true;
 			ocf_cache_log(cache, log_info,
 					"Attached core %u from pool\n", i);
-		} else {
+		} else if (context->cfg.open_cores) {
 			ret = ocf_volume_open(&core->volume, NULL);
 			if (ret == -OCF_ERR_NOT_OPEN_EXC) {
 				ocf_cache_log(cache, log_warn,
