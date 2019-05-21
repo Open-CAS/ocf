@@ -1248,39 +1248,6 @@ static void _ocf_mng_cache_set_valid(ocf_cache_t cache)
 	env_bit_set(ocf_cache_state_running, &cache->cache_state);
 }
 
-static int _ocf_mngt_cache_add_cores_t_clean_pol(ocf_cache_t cache)
-{
-	int clean_type = cache->conf_meta->cleaning_policy_type;
-	int i, j, no;
-	int result;
-
-	if (cleaning_policy_ops[clean_type].add_core) {
-		no = cache->conf_meta->core_count;
-		for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {
-			if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
-				continue;
-			result = cleaning_policy_ops[clean_type].add_core(cache, i);
-			if (result) {
-				goto err;
-			}
-			j++;
-		}
-	}
-
-	return 0;
-
-err:
-	if (!cleaning_policy_ops[clean_type].remove_core)
-		return result;
-
-	while (i--) {
-		if (env_bit_test(i, cache->conf_meta->valid_core_bitmap))
-			cleaning_policy_ops[clean_type].remove_core(cache, i);
-	};
-
-	return result;
-}
-
 static void _ocf_mngt_init_attached_nonpersistent(ocf_cache_t cache)
 {
 	env_atomic_set(&cache->fallback_pt_error_counter, 0);
@@ -1368,23 +1335,6 @@ static void _ocf_mngt_attach_init_instance(ocf_pipeline_t pipeline,
 	default:
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_INVAL);
 	}
-}
-
-static void _ocf_mngt_attach_clean_pol(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_cache_attach_context *context = priv;
-	ocf_cache_t cache = context->cache;
-	int result;
-
-	/* TODO: Should this even be here? */
-	if (cache->device->init_mode != ocf_init_mode_load) {
-		result = _ocf_mngt_cache_add_cores_t_clean_pol(cache);
-		if (result)
-			OCF_PL_FINISH_RET(context->pipeline, result);
-	}
-
-	ocf_pipeline_next(context->pipeline);
 }
 
 static void _ocf_mngt_attach_flush_metadata_complete(void *priv, int error)
@@ -1544,7 +1494,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_test_volume),
 		OCF_PL_STEP(_ocf_mngt_attach_load_superblock),
 		OCF_PL_STEP(_ocf_mngt_attach_init_instance),
-		OCF_PL_STEP(_ocf_mngt_attach_clean_pol),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_discard),
 		OCF_PL_STEP(_ocf_mngt_attach_flush),
