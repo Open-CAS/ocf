@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 #
 # Copyright(c) 2012-2018 Intel Corporation
@@ -125,8 +125,8 @@ class TestGenerator(object):
 			self.tested_file_path = path
 			return
 
-		print self.get_main_tested_dir() + path
-		print "Given path not exists!"
+		print(os.path.join(self.get_main_tested_dir(), path))
+		prin("Given path not exists!")
 		exit(1)
 
 

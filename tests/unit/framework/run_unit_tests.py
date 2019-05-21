@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 #
 # Copyright(c) 2012-2018 Intel Corporation
@@ -7,68 +7,72 @@
 
 import tests_config
 import os
-import commands
 import sys
+import subprocess
+
+def run_command(args):
+    result = subprocess.run(" ".join(args), shell=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result.stdout = result.stdout.decode("ASCII")
+    result.stderr = result.stderr.decode("ASCII")
+    return result
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 
-main_UT_dir = os.path.normpath(script_path + os.sep\
-	+ tests_config.MAIN_DIRECTORY_OF_UNIT_TESTS) + os.sep
+main_UT_dir = os.path.join(script_path, tests_config.MAIN_DIRECTORY_OF_UNIT_TESTS)
 
-main_tested_dir = os.path.normpath(script_path + os.sep\
-	+ tests_config.MAIN_DIRECTORY_OF_TESTED_PROJECT) + os.sep
+main_tested_dir = os.path.join(script_path, tests_config.MAIN_DIRECTORY_OF_TESTED_PROJECT)
 
+if not os.path.isdir(os.path.join(main_UT_dir, "ocf_env", "ocf")):
+    try:
+        os.makedirs(os.path.join(main_UT_dir, "ocf_env", "ocf"))
+    except Exception:
+        raise "Cannot create ocf_env/ocf directory!"
 
-if not os.path.isdir(main_UT_dir + "ocf_env" + os.sep + "ocf"):
-	try:
-		os.makedirs(main_UT_dir + "ocf_env" + os.sep + "ocf")
-	except Exception:
-		print "Cannot create ocf_env/ocf directory!"
+result = run_command([ "cp", "-r",
+        os.path.join(main_tested_dir, "inc", "*"),
+        os.path.join(main_UT_dir, "ocf_env", "ocf") ])
+if result.returncode != 0:
+    raise "Preparing sources for testing failed!"
 
-status, output = commands.getstatusoutput("cp " + main_tested_dir +\
-	"inc" + os.sep + "*" + " " + main_UT_dir + "ocf_env" + os.sep + "ocf")
+result = run_command([ os.path.join(script_path, "prepare_sources_for_testing.py") ])
+if result.returncode != 0:
+    raise "Preparing sources for testing failed!"
 
+build_dir = os.path.join(main_UT_dir, "build")
+logs_dir = os.path.join(main_UT_dir, "logs")
 
-if os.system(script_path + os.sep + "prepare_sources_for_testing.py") != 0:
-	print "Preparing sources for testing failed!"
-	exit()
+try:
+    if not os.path.isdir(build_dir):
+        os.makedirs(build_dir)
+    if not os.path.isdir(logs_dir):
+        os.makedirs(logs_dir)
+except Exception:
+    raise "Cannot create logs directory!"
 
+os.chdir(build_dir)
+cmake_result = run_command([ "cmake", ".." ])
+print(cmake_result.stdout)
 
-build_dir = main_UT_dir + "build" + os.sep
-logs_dir = main_UT_dir + "logs" + os.sep
+with open(os.path.join(logs_dir, "cmake.output"), "w") as f:
+    f.write(cmake_result.stdout)
 
-if not os.path.isdir(build_dir):
-	try:
-		os.makedirs(build_dir)
-	except Exception:
-		print "Cannot create build directory!"
-if not os.path.isdir(logs_dir):
-	try:
-		os.makedirs(logs_dir)
-	except Exception:
-		print "Cannot create logs directory!"
+if cmake_result.returncode != 0:
+    with open(os.path.join(logs_dir, "tests.output"), "w") as f:
+        f.write("Cmake step failed! More details in cmake.output.")
+    sys.exit(1)
 
-cmake_status, cmake_output = commands.getstatusoutput("cd " + build_dir + " && cmake ..")
-print cmake_output
-with open(logs_dir + 'cmake.output', 'w') as f:
-	f.write(cmake_output)
+make_result = run_command([ "make", "-j" ])
+print(make_result.stdout)
+with open(os.path.join(logs_dir, "make.output"), "w") as f:
+	f.write(make_result.stdout)
 
-if cmake_status != 0:
-	with open(logs_dir + 'tests.output', 'w') as f:
-		f.write("Cmake step failed! More details in cmake.output.")
-	sys.exit(1)
-
-make_status, make_output = commands.getstatusoutput("cd " + build_dir + " && make")
-print make_output
-with open(logs_dir + 'make.output', 'w') as f:
-	f.write(make_output)
-
-if make_status != 0:
-	with open(logs_dir + 'tests.output', 'w') as f:
+if make_result.returncode != 0:
+	with open(os.path.join(logs_dir, "tests.output"), "w") as f:
 		f.write("Make step failed! More details in make.output.")
 	sys.exit(1)
 
-test_status, test_output = commands.getstatusoutput("cd " + build_dir + " && make test")
-print test_output
-with open(logs_dir + 'tests.output', 'w') as f:
-	f.write(test_output)
+test_result = run_command([ "make", "test" ])
+print(test_result.stdout)
+with open(os.path.join(logs_dir , "tests.output"), "w") as f:
+	f.write(test_result.stdout)

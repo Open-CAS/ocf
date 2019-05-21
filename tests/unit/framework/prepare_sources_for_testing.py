@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 #
 # Copyright(c) 2012-2018 Intel Corporation
@@ -100,15 +100,14 @@ class UnitTestsSourcesGenerator(object):
 			status, output = commands.getstatusoutput(gcc_command)
 
 			if status != 0:
-				print "Generating preprocessing for " + self.get_main_tested_dir() + path \
-					+ " failed!"
-				print output
+				print(f"Generating preprocessing for {self.get_main_tested_dir() + path} failed!")
+				print(output)
 				commands.getoutput("rm -f " + preprocessing_dst)
 				continue
 
 			self.remove_hashes(preprocessing_dst)
 
-			print "Preprocessed file " + path + " saved to " + preprocessing_dst
+			print(f"Preprocessed file {path} saved to {preprocessing_dst}")
 
 	def copy_includes(self):
 		includes_dict = self.get_includes_to_copy_dict()
@@ -116,7 +115,7 @@ class UnitTestsSourcesGenerator(object):
 		for dst, src in includes_dict.iteritems():
 			src_path = os.path.normpath(self.get_main_tested_dir() + src)
 			if not os.path.isdir(src_path):
-				print "Directory " + src_path + " given to include does not exists!"
+				print(f"Directory {src_path} given to include does not exists!")
 				continue
 			dst_path = os.path.normpath(self.get_main_UT_dir() + dst)
 
@@ -131,7 +130,7 @@ class UnitTestsSourcesGenerator(object):
 
 			preprocessed_tested_path = self.get_preprocessing_repo() + path
 			if not os.path.isfile(preprocessed_tested_path):
-				print "No preprocessed path for " + test_path + " test file."
+				print(f"No preprocessed path for {test_path} test file.")
 				continue
 
 			tested_src = self.get_src_to_test(test_path, preprocessed_tested_path)
@@ -140,8 +139,7 @@ class UnitTestsSourcesGenerator(object):
 
 			with open(self.get_sources_to_test_repo() + test_path, "w") as f:
 				f.writelines(tested_src)
-				print "Sources for " + test_path + " saved in " +\
-					self.get_sources_to_test_repo() + test_path
+				print(f"Sources for {test_path} saved in {self.get_sources_to_test_repo() + test_path}")
 
 	def create_main_cmake_lists(self):
 		buf = "cmake_minimum_required(VERSION 2.6.0)\n\n"
@@ -173,7 +171,7 @@ class UnitTestsSourcesGenerator(object):
 		with open(self.get_main_UT_dir() + "CMakeLists.txt", "w") as f:
 			f.writelines(buf)
 
-		print "Main CMakeLists.txt generated written to " + self.get_main_UT_dir() + "CMakeLists.txt"
+		print(f"Main CMakeLists.txt generated written to {self.get_main_UT_dir()} CMakeLists.txt")
 
 	def generate_cmakes_for_tests(self):
 		test_files_paths = self.get_files_with_tests_list()
@@ -181,7 +179,7 @@ class UnitTestsSourcesGenerator(object):
 		for test_path in test_files_paths:
 			tested_file_path = self.get_sources_to_test_repo() + test_path
 			if not os.path.isfile(tested_file_path):
-				print "No source to test for " + test_path + " test"
+				print(f"No source to test for {test_path} test")
 				continue
 
 			test_file_path = self.get_main_UT_dir() + test_path
@@ -192,7 +190,7 @@ class UnitTestsSourcesGenerator(object):
 			cmake_path = os.path.splitext(cmake_path)[0] + ".cmake"
 			with open(cmake_path, "w") as f:
 				f.writelines(cmake_buf)
-				print "cmake file for " + test_path + " written to " + cmake_path
+				print(f"cmake file for {test_path} written to {cmake_path}")
 
 			cmake_lists_path = os.path.dirname(cmake_path) + os.sep
 			self.update_cmakelists(cmake_lists_path, cmake_path)
@@ -332,14 +330,14 @@ class UnitTestsSourcesGenerator(object):
 		function_name = self.get_tested_function_name(path)
 
 		if file_path is None:
-			print path + " file has no tested_file tag!"
+			print(f"{path} file has no tested_file tag!")
 			return None
 		elif not os.path.isfile(self.get_main_tested_dir() + file_path):
-			print "Tested file given in " + path + " not exist!"
+			print(f"Tested file given in {path} does not exist!")
 			return None
 
 		if function_name is None:
-			print path + " file has no tested_function_name tag!"
+			print(f"{path} file has no tested_function_name tag!")
 			return None
 
 		return True
@@ -488,7 +486,7 @@ class UnitTestsSourcesGenerator(object):
 					self.ctags_path = path
 					return
 
-			print "ERROR: Current ctags version don't support \"--c-types=f\" parameter!"
+			print("ERROR: Current ctags version don't support \"--c-types=f\" parameter!")
 			exit(1)
 
 	def get_ctags_path(self):
@@ -556,7 +554,7 @@ class UnitTestsSourcesGenerator(object):
 		main_UT_dir = os.path.normpath(os.path.normpath(self.get_script_dir_path()\
 			+ os.sep + tests_config.MAIN_DIRECTORY_OF_UNIT_TESTS))
 		if not os.path.isdir(main_UT_dir):
-			print "Given path to main UT directory is wrong!"
+			print("Given path to main UT directory is wrong!")
 			sys.exit(1)
 
 		self.main_UT_dir = main_UT_dir
@@ -565,7 +563,7 @@ class UnitTestsSourcesGenerator(object):
 		main_tested_dir = os.path.normpath(os.path.normpath(self.get_script_dir_path()\
 			 + os.sep + tests_config.MAIN_DIRECTORY_OF_TESTED_PROJECT))
 		if not os.path.isdir(main_tested_dir):
-			print "Given path to main tested directory is wrong!"
+			print("Given path to main tested directory is wrong!")
 			sys.exit(1)
 
 		self.main_tested_dir = main_tested_dir
@@ -579,7 +577,7 @@ def __main__():
 	generator.create_main_cmake_lists()
 	generator.generate_cmakes_for_tests()
 
-	print "Files for testing generated!"
+	print("Files for testing generated!")
 
 if __name__ == "__main__":
 	__main__()
