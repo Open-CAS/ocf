@@ -26,8 +26,7 @@ static const struct ocf_io_if _io_if_wi_flush_metadata = {
 static void _ocf_write_wi_io_flush_metadata(struct ocf_request *req, int error)
 {
 	if (error) {
-		env_atomic_inc(&req->cache->core[req->core_id].counters->
-				cache_errors.write);
+		env_atomic_inc(&req->core->counters->cache_errors.write);
 		req->error |= error;
 	}
 
@@ -78,8 +77,7 @@ static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 	if (error) {
 		req->error = error;
 		req->info.core_error = 1;
-		env_atomic_inc(&req->cache->core[req->core_id].counters->
-				core_errors.write);
+		env_atomic_inc(&req->core->counters->core_errors.write);
 	}
 
 	if (env_atomic_dec_return(&req->req_remaining))
@@ -101,8 +99,6 @@ static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 
 static int _ocf_write_wi_do(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
@@ -111,12 +107,12 @@ static int _ocf_write_wi_do(struct ocf_request *req)
 	OCF_DEBUG_RQ(req, "Submit");
 
 	/* Submit write IO to the core */
-	ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
+	ocf_submit_volume_req(&req->core->volume, req,
 			   _ocf_write_wi_core_complete);
 
 	/* Update statistics */
 	ocf_engine_update_block_stats(req);
-	env_atomic64_inc(&cache->core[req->core_id].counters->
+	env_atomic64_inc(&req->core->counters->
 			part_counters[req->part_id].write_reqs.pass_through);
 
 	/* Put OCF request - decrease reference counter */

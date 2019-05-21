@@ -53,13 +53,10 @@ static inline bool ocf_eviction_can_evict(struct ocf_cache *cache)
 }
 
 static inline uint32_t ocf_eviction_need_space(struct ocf_cache *cache,
-		ocf_queue_t io_queue, ocf_part_id_t part_id, uint32_t clines,
-		ocf_core_id_t core_id)
+		ocf_queue_t io_queue, ocf_part_id_t part_id, uint32_t clines)
 {
 	uint8_t type;
 	uint32_t result = 0;
-
-	ENV_BUG_ON(core_id >= OCF_CORE_MAX);
 
 	type = cache->conf_meta->eviction_policy_type;
 
@@ -71,7 +68,7 @@ static inline uint32_t ocf_eviction_need_space(struct ocf_cache *cache,
 		 * eviction lock.
 		 */
 		result = evict_policy_ops[type].req_clines(cache, io_queue,
-				part_id, clines, core_id);
+				part_id, clines);
 	}
 
 	return result;

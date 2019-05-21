@@ -49,21 +49,21 @@ static inline void ocf_trace_init_io(struct ocf_core_io *io, ocf_cache_t cache)
 static inline void ocf_trace_prep_io_event(struct ocf_event_io *ev,
 		struct ocf_core_io *io, ocf_event_operation_t op)
 {
-	struct ocf_request *rq = io->req;
+	struct ocf_request *req = io->req;
 
 	ocf_event_init_hdr(&ev->hdr, ocf_event_type_io, io->sid,
 		io->timestamp, sizeof(*ev));
 
-	ev->addr = rq->byte_position;
+	ev->addr = req->byte_position;
 	if (op == ocf_event_operation_discard)
-		ev->len = rq->discard.nr_sects << ENV_SECTOR_SHIFT;
+		ev->len = req->discard.nr_sects << ENV_SECTOR_SHIFT;
 	else
-		ev->len = rq->byte_length;
+		ev->len = req->byte_length;
 
 	ev->operation = op;
-	ev->core_id = rq->core_id;
+	ev->core_id = ocf_core_get_id(req->core);
 
-	ev->io_class = rq->io->io_class;
+	ev->io_class = req->io->io_class;
 }
 
 static inline void ocf_trace_push(ocf_queue_t queue, void *trace, uint32_t size)
@@ -106,34 +106,34 @@ static inline void ocf_trace_push(ocf_queue_t queue, void *trace, uint32_t size)
 static inline void ocf_trace_io(struct ocf_core_io *io, ocf_event_operation_t dir, ocf_cache_t cache)
 {
 	struct ocf_event_io ev;
-	struct ocf_request *rq;
+	struct ocf_request *req;
 
 	if (!cache->trace.trace_callback)
 		return;
 
-	rq  = io->req;
+	req  = io->req;
 	ocf_trace_prep_io_event(&ev, io, dir);
 
-	ocf_trace_push(rq->io_queue, &ev, sizeof(ev));
+	ocf_trace_push(req->io_queue, &ev, sizeof(ev));
 }
 
 static inline void ocf_trace_io_cmpl(struct ocf_core_io *io, ocf_cache_t cache)
 {
 	struct ocf_event_io_cmpl ev;
-	struct ocf_request *rq;
+	struct ocf_request *req;
 
 	if (!cache->trace.trace_callback)
 		return;
 
-	rq = io->req;
+	req = io->req;
 	ocf_event_init_hdr(&ev.hdr, ocf_event_type_io_cmpl,
 			ocf_trace_seq_id(cache),
 			env_ticks_to_nsecs(env_get_tick_count()),
 			sizeof(ev));
 	ev.rsid = io->sid;
-	ev.is_hit = ocf_engine_is_hit(rq);
+	ev.is_hit = ocf_engine_is_hit(req);
 
-	ocf_trace_push(rq->io_queue, &ev, sizeof(ev));
+	ocf_trace_push(req->io_queue, &ev, sizeof(ev));
 }
 
 #endif /* __OCF_TRACE_PRIV_H__ */

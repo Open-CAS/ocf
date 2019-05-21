@@ -48,8 +48,7 @@ static void _ocf_write_wt_cache_complete(struct ocf_request *req, int error)
 {
 	if (error) {
 		req->error = req->error ?: error;
-		env_atomic_inc(&req->cache->core[req->core_id].counters->
-				cache_errors.write);
+		env_atomic_inc(&req->core->counters->cache_errors.write);
 
 		if (req->error)
 			inc_fallback_pt_error_counter(req->cache);
@@ -63,8 +62,7 @@ static void _ocf_write_wt_core_complete(struct ocf_request *req, int error)
 	if (error) {
 		req->error = error;
 		req->info.core_error = 1;
-		env_atomic_inc(&req->cache->core[req->core_id].counters->
-				core_errors.write);
+		env_atomic_inc(&req->core->counters->core_errors.write);
 	}
 
 	_ocf_write_wt_req_complete(req);
@@ -93,7 +91,7 @@ static inline void _ocf_write_wt_submit(struct ocf_request *req)
 			ocf_engine_io_count(req), _ocf_write_wt_cache_complete);
 
 	/* To core */
-	ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
+	ocf_submit_volume_req(&req->core->volume, req,
 			_ocf_write_wt_core_complete);
 }
 
