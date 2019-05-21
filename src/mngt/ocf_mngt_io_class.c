@@ -235,12 +235,8 @@ static int _ocf_mngt_io_class_validate_cfg(ocf_cache_t cache,
 	if (!cfg->name)
 		return 0;
 
-	/* TODO(r.baldyga): ocf_cache_mode_max is allowed for compatibility
-	 * with OCF 3.1 kernel adapter (upgrade in flight) and casadm.
-	 * Forbid ocf_cache_mode_max after fixing these problems.
-	 */
 	if (cfg->cache_mode < ocf_cache_mode_none ||
-			cfg->cache_mode > ocf_cache_mode_max) {
+			cfg->cache_mode >= ocf_cache_mode_max) {
 		return -OCF_ERR_INVAL;
 	}
 
