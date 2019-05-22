@@ -10,15 +10,37 @@ from random import randrange
 import pytest
 
 from pyocf.ocf import OcfLib
-from pyocf.types.cache import Cache, CacheMode, MetadataLayout, EvictionPolicy
+from pyocf.types.cache import Cache, CacheMode, MetadataLayout, EvictionPolicy, CleaningPolicy
 from pyocf.types.core import Core
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
-from pyocf.types.shared import OcfError, OcfCompletion, CacheLineSize
+from pyocf.types.shared import OcfError, OcfCompletion, CacheLineSize, SeqCutOffPolicy
 from pyocf.types.volume import Volume
 from pyocf.utils import Size
 
 logger = logging.getLogger(__name__)
+
+
+def test_start_check_default(pyocf_ctx):
+    """Test if default values are correct after start.
+    """
+
+    cache_device = Volume(Size.from_MiB(40))
+    core_device = Volume(Size.from_MiB(10))
+    cache = Cache.start_on_device(cache_device)
+
+    core = Core.using_device(core_device)
+    cache.add_core(core)
+
+    # Check if values are default
+    stats = cache.get_stats()
+    assert stats["conf"]["cleaning_policy"] == CleaningPolicy.DEFAULT
+    assert stats["conf"]["cache_mode"] == CacheMode.DEFAULT
+    assert stats["conf"]["cache_line_size"] == CacheLineSize.DEFAULT
+    assert stats["conf"]["eviction_policy"] == EvictionPolicy.DEFAULT
+
+    core_stats = core.get_stats()
+    assert core_stats["seq_cutoff_policy"] == SeqCutOffPolicy.DEFAULT
 
 
 @pytest.mark.parametrize("cls", CacheLineSize)

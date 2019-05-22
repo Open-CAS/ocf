@@ -549,6 +549,10 @@ lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_cache_cleaning_set_policy.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.restype = c_int
+lib.ocf_stats_collect_cache.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c_void_p]
+lib.ocf_stats_collect_cache.restype = c_int
+lib.ocf_cache_get_info.argtypes = [c_void_p, c_void_p]
+lib.ocf_cache_get_info.restype = c_int
 lib.ocf_mngt_cache_cleaning_set_param.argtypes = [
     c_void_p,
     c_uint32,
