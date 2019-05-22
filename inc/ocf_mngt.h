@@ -163,7 +163,6 @@ void ocf_mngt_cache_read_lock(ocf_cache_t cache,
  * @retval 0 Cache successfully locked
  * @retval -OCF_ERR_CACHE_NOT_EXIST Can not lock cache - cache is already
  *					stopping
- * @retval -OCF_ERR_CACHE_IN_USE Can not lock cache - cache is in use
  * @retval -OCF_ERR_NO_LOCK Lock not acquired
  */
 int ocf_mngt_cache_trylock(ocf_cache_t cache);
@@ -178,7 +177,6 @@ int ocf_mngt_cache_trylock(ocf_cache_t cache);
  * @retval 0 Cache successfully locked
  * @retval -OCF_ERR_CACHE_NOT_EXIST Can not lock cache - cache is already
  *					stopping
- * @retval -OCF_ERR_CACHE_IN_USE Can not lock cache - cache is in use
  * @retval -OCF_ERR_NO_LOCK Lock not acquired
  */
 int ocf_mngt_cache_read_trylock(ocf_cache_t cache);

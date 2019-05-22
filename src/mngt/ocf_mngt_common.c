@@ -270,14 +270,8 @@ static void _ocf_mngt_cache_unlock(ocf_cache_t cache,
 
 int ocf_mngt_cache_lock_init(ocf_cache_t cache)
 {
-	int result;
-
-	result = ocf_async_lock_init(&cache->lock,
+	return ocf_async_lock_init(&cache->lock,
 			sizeof(struct ocf_mngt_cache_lock_context));
-	if (result)
-		return result;
-
-	return 0;
 }
 
 void ocf_mngt_cache_lock_deinit(ocf_cache_t cache)
