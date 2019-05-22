@@ -39,13 +39,13 @@ def test_change_cleaning_policy(pyocf_ctx, cm, cls):
 
     # Check all possible cleaning policy switches
     for cp_from in CleaningPolicy:
-        cache.set_cleaning_policy(cp_from.value)
-
-        # Check if cleaning policy is correct
-        stats = cache.get_stats()
-        assert stats["conf"]["cleaning_policy"] == cp_from.value
-
         for cp_to in CleaningPolicy:
+            cache.set_cleaning_policy(cp_from.value)
+
+            # Check if cleaning policy is correct
+            stats = cache.get_stats()
+            assert stats["conf"]["cleaning_policy"] == cp_from.value
+
             cache.set_cleaning_policy(cp_to.value)
 
             # Check if cleaning policy is correct
@@ -74,15 +74,15 @@ def test_cache_change_seq_cut_off_policy(pyocf_ctx, cm, cls):
 
     # Check all possible seq cut off policy switches
     for seq_from in SeqCutOffPolicy:
-        cache.set_seq_cut_off_policy(seq_from.value)
-
-        # Check if seq cut off policy is correct
-        stats = core1.get_stats()
-        assert stats["seq_cutoff_policy"] == seq_from.value
-        stats = core2.get_stats()
-        assert stats["seq_cutoff_policy"] == seq_from.value
-
         for seq_to in SeqCutOffPolicy:
+            cache.set_seq_cut_off_policy(seq_from.value)
+
+            # Check if seq cut off policy is correct
+            stats = core1.get_stats()
+            assert stats["seq_cutoff_policy"] == seq_from.value
+            stats = core2.get_stats()
+            assert stats["seq_cutoff_policy"] == seq_from.value
+
             cache.set_seq_cut_off_policy(seq_to.value)
 
             # Check if seq cut off policy is correct
@@ -113,17 +113,17 @@ def test_core_change_seq_cut_off_policy(pyocf_ctx, cm, cls):
 
     # Check all possible seq cut off policy switches for first core
     for seq_from in SeqCutOffPolicy:
-        core1.set_seq_cut_off_policy(seq_from.value)
-
-        # Check if seq cut off policy of the first core is correct
-        stats = core1.get_stats()
-        assert stats["seq_cutoff_policy"] == seq_from.value
-
-        # Check if seq cut off policy of the second core did not change
-        stats = core2.get_stats()
-        assert stats["seq_cutoff_policy"] == SeqCutOffPolicy.DEFAULT
-
         for seq_to in SeqCutOffPolicy:
+            core1.set_seq_cut_off_policy(seq_from.value)
+
+            # Check if seq cut off policy of the first core is correct
+            stats = core1.get_stats()
+            assert stats["seq_cutoff_policy"] == seq_from.value
+
+            # Check if seq cut off policy of the second core did not change
+            stats = core2.get_stats()
+            assert stats["seq_cutoff_policy"] == SeqCutOffPolicy.DEFAULT
+
             core1.set_seq_cut_off_policy(seq_to.value)
 
             # Check if seq cut off policy of the first core is correct
