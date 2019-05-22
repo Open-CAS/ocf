@@ -90,7 +90,7 @@ int my_cache_init(void)
 {
 	int result;
 
-	result ocf_ctx_init(&ctx, &ctx_ops)
+	result = ocf_ctx_create(&ctx, &ctx_ops)
 	if (result) {
 		/* Cannot initialze context of OCF library */
 		return result;
@@ -116,7 +116,7 @@ int my_cache_init(void)
 
 err:
 	/* In case of failure we destroy context and propagate error code */
-	ocf_ctx_exit(ctx);
+	ocf_ctx_put(ctx);
 	return result;
 }
 

@@ -285,24 +285,27 @@ int ocf_ctx_volume_create(ocf_ctx_t ctx, ocf_volume_t *volume,
 		struct ocf_volume_uuid *uuid, uint8_t type_id);
 
 /**
- * @brief Initialize OCF context
+ * @brief Create and initialize OCF context
  *
  * @param[out] ctx OCF context
  * @param[in] ops OCF context operations
  *
  * @return Zero when success, otherwise an error
  */
-int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg);
+int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg);
 
 /**
- * @brief De-Initialize OCF context
+ * @brief Increase reference counter of ctx
  *
  * @param[in] ctx OCF context
- *
- * @note Precondition is stopping all cache instances
- *
- * @return Zero when success, otherwise an error
  */
-int ocf_ctx_exit(ocf_ctx_t ctx);
+void ocf_ctx_get(ocf_ctx_t ctx);
+
+/**
+ * @brief Decrease reference counter of ctx
+ *
+ * @param[in] ctx OCF context
+ */
+void ocf_ctx_put(ocf_ctx_t ctx);
 
 #endif /* __OCF_CTX_H__ */

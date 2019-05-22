@@ -114,7 +114,7 @@ int ocf_ctx_volume_create(ocf_ctx_t ctx, ocf_volume_t *volume,
 /*
  *
  */
-int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
+int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 {
 	ocf_ctx_t ocf_ctx;
 	int ret;
@@ -127,6 +127,7 @@ int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 		return -ENOMEM;
 
 	INIT_LIST_HEAD(&ocf_ctx->caches);
+	env_atomic_set(&ocf_ctx->ref_count, 1);
 	ret = env_mutex_init(&ocf_ctx->lock);
 	if (ret)
 		goto err_ctx;
@@ -166,25 +167,30 @@ err_ctx:
 /*
  *
  */
-int ocf_ctx_exit(ocf_ctx_t ctx)
+void ocf_ctx_get(ocf_ctx_t ctx)
 {
-	int result = 0;
-
 	OCF_CHECK_NULL(ctx);
 
-	/* Check if caches are setup */
+	env_atomic_inc(&ctx->ref_count);
+}
+
+/*
+ *
+ */
+void ocf_ctx_put(ocf_ctx_t ctx)
+{
+	OCF_CHECK_NULL(ctx);
+
+	if (env_atomic_dec_return(&ctx->ref_count))
+		return;
+
 	env_mutex_lock(&ctx->lock);
-	if (!list_empty(&ctx->caches))
-		result = -EEXIST;
+	ENV_BUG_ON(!list_empty(&ctx->caches));
 	env_mutex_unlock(&ctx->lock);
-	if (result)
-		return result;
 
 	ocf_mngt_core_pool_deinit(ctx);
 	ocf_core_volume_type_deinit(ctx);
 	ocf_utils_deinit(ctx);
 	ocf_logger_close(&ctx->logger);
 	env_free(ctx);
-
-	return 0;
 }

@@ -119,11 +119,15 @@ void cache_mng_core_remove_from_cache(struct ocf_cache *cache, int core_id)
 
 void ocf_mngt_cache_put(ocf_cache_t cache)
 {
+	ocf_ctx_t ctx;
+
 	OCF_CHECK_NULL(cache);
 
 	if (ocf_refcnt_dec(&cache->refcnt.cache) == 0) {
+		ctx = cache->owner;
 		ocf_metadata_deinit(cache);
 		env_vfree(cache);
+		ocf_ctx_put(ctx);
 	}
 }
 
