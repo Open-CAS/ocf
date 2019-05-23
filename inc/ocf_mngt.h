@@ -41,11 +41,6 @@ struct ocf_mngt_core_config {
 	const char *name;
 
 	/**
-	 * @brief OCF cache ID number
-	 */
-	ocf_cache_id_t cache_id;
-
-	/**
 	 * @brief Add core to pool if cache isn't present or add core to
 	 *	earlier loaded cache
 	 */
