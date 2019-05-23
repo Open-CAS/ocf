@@ -56,6 +56,25 @@ struct ocf_mngt_core_config {
 };
 
 /**
+ * @brief Initialize core config to default values
+ *
+ * @note This function doesn't initiialize uuid and volume_type fields
+ *       which have no default values and are required to be set by user.
+ *
+ * @param[in] cfg Core config stucture
+ */
+static inline void ocf_mngt_core_config_set_default(
+		struct ocf_mngt_core_config *cfg)
+{
+	cfg->core_id = OCF_CORE_ID_INVALID;
+	cfg->name = NULL;
+	cfg->try_add = false;
+	cfg->seq_cutoff_threshold = 1024;
+	cfg->user_metadata.data = NULL;
+	cfg->user_metadata.size = 0;
+}
+
+/**
  * @brief Get number of OCF caches
  *
  * @param[in] ctx OCF context
@@ -69,8 +88,8 @@ uint32_t ocf_mngt_cache_get_count(ocf_ctx_t ctx);
 /**
  * @brief Get OCF cache
  *
- * @note This function on success also increasing reference counter in given
- *		cache
+ * @note This function on success also increasing reference counter
+ *       in given cache
  *
  * @param[in] ctx OCF context
  * @param[in] id OCF cache ID
@@ -278,6 +297,72 @@ struct ocf_mngt_cache_config {
 };
 
 /**
+ * @brief Initialize core config to default values
+ *
+ * @param[in] cfg Cache config stucture
+ */
+static inline void ocf_mngt_cache_config_set_default(
+		struct ocf_mngt_cache_config *cfg)
+{
+	cfg->id = OCF_CACHE_ID_INVALID;
+	cfg->name = NULL;
+	cfg->cache_mode = ocf_cache_mode_default;
+	cfg->eviction_policy = ocf_eviction_default;
+	cfg->cache_line_size = ocf_cache_line_size_4;
+	cfg->metadata_layout = ocf_metadata_layout_default;
+	cfg->metadata_volatile = false;
+	cfg->backfill.max_queue_size = 65536;
+	cfg->backfill.queue_unblock_size = 60000;
+	cfg->locked = false;
+	cfg->pt_unaligned_io = false;
+	cfg->use_submit_io_fast = false;
+}
+
+/**
+ * @brief Start cache instance
+ *
+ * @param[in] ctx OCF context
+ * @param[out] cache Cache handle
+ * @param[in] cfg Starting cache configuration
+ *
+ * @retval 0 Cache started successfully
+ * @retval Non-zero Error occurred and starting cache failed
+ */
+int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
+		struct ocf_mngt_cache_config *cfg);
+
+/**
+ * @brief Set queue to be used during management operations
+ *
+ * @param[in] cache Cache object
+ * @param[in] queue Queue object
+ *
+ * @retval 0 Success
+ * @retval Non-zero Error occurred
+ */
+int ocf_mngt_cache_set_mngt_queue(ocf_cache_t cache, ocf_queue_t queue);
+
+/**
+ * @brief Completion callback of cache stop operation
+ *
+ * @param[in] cache Cache handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_stop_end_t)(ocf_cache_t cache,
+		void *priv, int error);
+
+/**
+ * @brief Stop cache instance
+ *
+ * @param[in] cache Cache handle
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
+ */
+void ocf_mngt_cache_stop(ocf_cache_t cache,
+		ocf_mngt_cache_stop_end_t cmpl, void *priv);
+
+/**
  * @brief Cache attach configuration
  */
 struct ocf_mngt_cache_device_config {
@@ -337,48 +422,23 @@ struct ocf_mngt_cache_device_config {
 };
 
 /**
- * @brief Start cache instance
+ * @brief Initialize core config to default values
  *
- * @param[in] ctx OCF context
- * @param[out] cache Cache handle
- * @param[in] cfg Starting cache configuration
+ * @note This function doesn't initiialize uuid and volume_type fields
+ *       which have no default values and are required to be set by user.
  *
- * @retval 0 Cache started successfully
- * @retval Non-zero Error occurred and starting cache failed
+ * @param[in] cfg Cache device config stucture
  */
-int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
-		struct ocf_mngt_cache_config *cfg);
-
-/**
- * @brief Set queue to be used during management operations
- *
- * @param[in] cache Cache object
- * @param[in] queue Queue object
- *
- * @retval 0 Success
- * @retval Non-zero Error occurred
- */
-int ocf_mngt_cache_set_mngt_queue(ocf_cache_t cache, ocf_queue_t queue);
-
-/**
- * @brief Completion callback of cache stop operation
- *
- * @param[in] cache Cache handle
- * @param[in] priv Callback context
- * @param[in] error Error code (zero on success)
- */
-typedef void (*ocf_mngt_cache_stop_end_t)(ocf_cache_t cache,
-		void *priv, int error);
-
-/**
- * @brief Stop cache instance
- *
- * @param[in] cache Cache handle
- * @param[in] cmpl Completion callback
- * @param[in] priv Completion callback context
- */
-void ocf_mngt_cache_stop(ocf_cache_t cache,
-		ocf_mngt_cache_stop_end_t cmpl, void *priv);
+static inline void ocf_mngt_cache_device_config_set_default(
+		struct ocf_mngt_cache_device_config *cfg)
+{
+	cfg->cache_line_size = ocf_cache_line_size_none;
+	cfg->open_cores = true;
+	cfg->force = false;
+	cfg->perform_test = true;
+	cfg->discard_on_start = true;
+	cfg->volume_params = NULL;
+}
 
 /**
  * @brief Get amount of free RAM needed to attach cache volume
