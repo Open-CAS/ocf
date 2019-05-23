@@ -104,16 +104,13 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	context.error = &ret;
 
 	/* Cache configuration */
-	cache_cfg.backfill.max_queue_size = 65536;
-	cache_cfg.backfill.queue_unblock_size = 60000;
-	cache_cfg.cache_line_size = ocf_cache_line_size_4;
-	cache_cfg.cache_mode = ocf_cache_mode_wt;
+	ocf_mngt_cache_config_set_default(&cache_cfg);
 	cache_cfg.metadata_volatile = true;
 	cache_cfg.name = "cache1";
 
 	/* Cache deivce (volume) configuration */
+	ocf_mngt_cache_device_config_set_default(&device_cfg);
 	device_cfg.volume_type = VOL_TYPE;
-	device_cfg.cache_line_size = ocf_cache_line_size_4;
 	ret = ocf_uuid_set_str(&device_cfg.uuid, "cache");
 	if (ret)
 		return ret;
@@ -210,8 +207,9 @@ int initialize_core(ocf_cache_t cache, ocf_core_t *core)
 	context.error = &ret;
 
 	/* Core configuration */
-	core_cfg.volume_type = VOL_TYPE;
+	ocf_mngt_core_config_set_default(&core_cfg);
 	core_cfg.name = "core1";
+	core_cfg.volume_type = VOL_TYPE;
 	ret = ocf_uuid_set_str(&core_cfg.uuid, "core");
 	if (ret)
 		return ret;
