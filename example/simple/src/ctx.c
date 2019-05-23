@@ -144,6 +144,14 @@ static int ctx_cleaner_init(ocf_cleaner_t c)
 }
 
 /*
+ * Kick cleaner thread. Cleaner thread is left non-implemented,
+ * to keep this example as simple as possible.
+ */
+static void ctx_cleaner_kick(ocf_cleaner_t c)
+{
+}
+
+/*
  * Stop cleaner thread. Cleaner thread is left non-implemented, to keep
  * this example as simple as possible.
  */
@@ -244,6 +252,7 @@ static const struct ocf_ctx_config ctx_cfg = {
 
 		.cleaner = {
 			.init = ctx_cleaner_init,
+			.kick = ctx_cleaner_kick,
 			.stop = ctx_cleaner_stop,
 		},
 
