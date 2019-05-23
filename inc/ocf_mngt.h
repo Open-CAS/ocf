@@ -302,6 +302,19 @@ struct ocf_mngt_cache_device_config {
 	ocf_cache_line_size_t cache_line_size;
 
 	/**
+	 * @brief Automatically open core volumes when loading cache
+	 *
+	 * If set to false, cache load will not attempt to open core volumes,
+	 * and so cores will be marked "inactive" unless their volumes were
+	 * earlier added to the core pool. In such case user will be expected
+	 * to add cores later using function ocf_mngt_cache_add_core().
+	 *
+	 * @note This option is meaningful only with ocf_mngt_cache_load().
+	 *       When used with ocf_mngt_cache_attach() it's ignored.
+	 */
+	bool open_cores;
+
+	/**
 	 * @brief Ignore warnings and start cache
 	 *
 	 * @note It will force starting cache despite the:
@@ -309,12 +322,6 @@ struct ocf_mngt_cache_device_config {
 	 *	- ignore cache with dirty shutdown and reinitialize cache
 	 */
 	bool force;
-
-	/**
-	 * @brief Minimum free RAM required to start cache. Set during
-	 *		cache start procedure
-	 */
-	uint64_t min_free_ram;
 
 	/**
 	 * @brief If set, cache features (like discard) are tested
