@@ -107,18 +107,14 @@ static void _ocf_mngt_end_flush(ocf_cache_t cache)
 
 bool ocf_mngt_cache_is_dirty(ocf_cache_t cache)
 {
-	uint32_t i;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 
 	OCF_CHECK_NULL(cache);
 
-	for (i = 0; i < OCF_CORE_MAX; ++i) {
-		if (!cache->core_conf_meta[i].added)
-			continue;
-
-		if (env_atomic_read(&(cache->core_runtime_meta[i].
-				dirty_clines))) {
+	for_each_core(cache, core, core_id) {
+		if (env_atomic_read(&core->runtime_meta->dirty_clines))
 			return true;
-		}
 	}
 
 	return false;
@@ -133,16 +129,16 @@ bool ocf_mngt_cache_is_dirty(ocf_cache_t cache)
  * NOTE:
  * Table is not sorted.
  */
-static int _ocf_mngt_get_sectors(struct ocf_cache *cache, int core_id,
+static int _ocf_mngt_get_sectors(ocf_cache_t cache, ocf_core_id_t core_id,
 		struct flush_data **tbl, uint32_t *num)
 {
+	ocf_core_t core = ocf_cache_get_core(cache, core_id);
 	uint64_t core_line;
 	ocf_core_id_t i_core_id;
 	struct flush_data *p;
 	uint32_t i, j, dirty = 0;
 
-	dirty = env_atomic_read(&cache->core_runtime_meta[core_id].
-			dirty_clines);
+	dirty = env_atomic_read(&core->runtime_meta->dirty_clines);
 	if (!dirty) {
 		*num = 0;
 		*tbl = NULL;
@@ -202,7 +198,8 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	uint32_t num;
 	uint64_t core_line;
 	ocf_core_id_t core_id;
-	uint32_t i, j, dirty = 0;
+	ocf_core_t core;
+	uint32_t i, j = 0, dirty = 0;
 	int step = 0;
 
 	/*
@@ -226,16 +223,13 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 		return -OCF_ERR_NO_MEM;
 	}
 
-	for (i = 0, j = 0; i < OCF_CORE_MAX; i++) {
-		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
-			continue;
-
-		fc[j].core_id = i;
-		core_revmap[i] = j;
+	for_each_core(cache, core, core_id) {
+		fc[j].core_id = core_id;
+		core_revmap[core_id] = j;
 
 		/* Check for dirty blocks */
-		fc[j].count = env_atomic_read(&cache->
-				core_runtime_meta[i].dirty_clines);
+		fc[j].count = env_atomic_read(
+				&core->runtime_meta->dirty_clines);
 		dirty += fc[j].count;
 
 		if (fc[j].count) {
@@ -600,7 +594,7 @@ static void _ocf_mngt_flush_finish(ocf_pipeline_t pipeline, void *priv,
 {
 	struct ocf_mngt_cache_flush_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	int64_t core_id;
+	ocf_core_t core = context->core;
 
 	if (!error) {
 		switch(context->op) {
@@ -610,33 +604,32 @@ static void _ocf_mngt_flush_finish(ocf_pipeline_t pipeline, void *priv,
 			break;
 		case flush_core:
 		case purge_core:
-			core_id = ocf_core_get_id(context->core);
-			ENV_BUG_ON(env_atomic_read(&cache->core_runtime_meta
-					[core_id].dirty_clines));
+			ENV_BUG_ON(env_atomic_read(
+					&core->runtime_meta->dirty_clines));
 			break;
 		}
 	}
 
-	_ocf_mngt_end_flush(context->cache);
+	_ocf_mngt_end_flush(cache);
 
 	switch (context->op) {
 	case flush_cache:
-		context->cmpl.flush_cache(context->cache, context->priv, error);
+		context->cmpl.flush_cache(cache, context->priv, error);
 		break;
 	case flush_core:
-		context->cmpl.flush_core(context->core, context->priv, error);
+		context->cmpl.flush_core(core, context->priv, error);
 		break;
 	case purge_cache:
-		context->cmpl.purge_cache(context->cache, context->priv, error);
+		context->cmpl.purge_cache(cache, context->priv, error);
 		break;
 	case purge_core:
-		context->cmpl.purge_core(context->core, context->priv, error);
+		context->cmpl.purge_core(core, context->priv, error);
 		break;
 	default:
 		ENV_BUG();
 	}
 
-	ocf_pipeline_destroy(context->pipeline);
+	ocf_pipeline_destroy(pipeline);
 }
 
 static struct ocf_pipeline_properties _ocf_mngt_cache_flush_pipeline_properties = {

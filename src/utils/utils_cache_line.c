@@ -22,6 +22,7 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 		uint8_t end_bit, ocf_cache_line_t line,
 		ocf_core_id_t core_id, ocf_part_id_t part_id)
 {
+	ocf_core_t core = ocf_cache_get_core(cache, core_id);
 	bool is_valid;
 
 	ENV_BUG_ON(core_id >= OCF_CORE_MAX);
@@ -31,9 +32,8 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 		/*
 		 * Update the number of cached data for that core object
 		 */
-		env_atomic_dec(&cache->core_runtime_meta[core_id].
-				cached_clines);
-		env_atomic_dec(&cache->core_runtime_meta[core_id].
+		env_atomic_dec(&core->runtime_meta->cached_clines);
+		env_atomic_dec(&core->runtime_meta->
 				part_counters[part_id].cached_clines);
 	}
 
@@ -81,19 +81,15 @@ void set_cache_line_invalid_no_flush(struct ocf_cache *cache, uint8_t start_bit,
 void set_cache_line_valid(struct ocf_cache *cache, uint8_t start_bit,
 		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx)
 {
-	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 	ocf_cache_line_t line = req->map[map_idx].coll_idx;
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, line);
-
-	ENV_BUG_ON(!(core_id < OCF_CORE_MAX));
 
 	if (metadata_set_valid_sec_changed(cache, line, start_bit, end_bit)) {
 		/*
 		 * Update the number of cached data for that core object
 		 */
-		env_atomic_inc(&cache->core_runtime_meta[core_id].
-				cached_clines);
-		env_atomic_inc(&cache->core_runtime_meta[core_id].
+		env_atomic_inc(&req->core->runtime_meta->cached_clines);
+		env_atomic_inc(&req->core->runtime_meta->
 				part_counters[part_id].cached_clines);
 	}
 }
@@ -101,32 +97,29 @@ void set_cache_line_valid(struct ocf_cache *cache, uint8_t start_bit,
 void set_cache_line_clean(struct ocf_cache *cache, uint8_t start_bit,
 		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx)
 {
-	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 	ocf_cache_line_t line = req->map[map_idx].coll_idx;
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, line);
 	uint8_t evp_type = cache->conf_meta->eviction_policy_type;
-
-	ENV_BUG_ON(!(core_id < OCF_CORE_MAX));
 
 	if (metadata_clear_dirty_sec_changed(cache, line, start_bit, end_bit)) {
 		/*
 		 * Update the number of dirty cached data for that
 		 * core object
 		 */
-		if (env_atomic_dec_and_test(&cache->core_runtime_meta[core_id].
+		if (env_atomic_dec_and_test(&req->core->runtime_meta->
 				dirty_clines)) {
 			/*
 			 * If this is last dirty cline reset dirty
 			 * timestamp
 			 */
-			env_atomic64_set(&cache->core_runtime_meta[core_id].
+			env_atomic64_set(&req->core->runtime_meta->
 					dirty_since, 0);
 		}
 
 		/*
 		 * decrement dirty clines statistic for given cline
 		 */
-		env_atomic_dec(&cache->core_runtime_meta[core_id].
+		env_atomic_dec(&req->core->runtime_meta->
 				part_counters[part_id].dirty_clines);
 
 		if (likely(evict_policy_ops[evp_type].clean_cline))
@@ -141,30 +134,27 @@ void set_cache_line_clean(struct ocf_cache *cache, uint8_t start_bit,
 void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
 		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx)
 {
-	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 	ocf_cache_line_t line = req->map[map_idx].coll_idx;
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, line);
 	uint8_t evp_type = cache->conf_meta->eviction_policy_type;
-
-	ENV_BUG_ON(!(core_id < OCF_CORE_MAX));
 
 	if (metadata_set_dirty_sec_changed(cache, line, start_bit, end_bit)) {
 		/*
 		 * If this is first dirty cline set dirty timestamp
 		 */
-		env_atomic64_cmpxchg(&cache->core_runtime_meta[core_id].
-				dirty_since, 0,	env_get_tick_count());
+		env_atomic64_cmpxchg(&req->core->runtime_meta->dirty_since,
+				0, env_get_tick_count());
 
 		/*
 		 * Update the number of dirty cached data for that
 		 * core object
 		 */
-		env_atomic_inc(&cache->core_runtime_meta[core_id].dirty_clines);
+		env_atomic_inc(&req->core->runtime_meta->dirty_clines);
 
 		/*
 		 * increment dirty clines statistic for given cline
 		 */
-		env_atomic_inc(&cache->core_runtime_meta[core_id].
+		env_atomic_inc(&req->core->runtime_meta->
 				part_counters[part_id].dirty_clines);
 
 		if (likely(evict_policy_ops[evp_type].dirty_cline))

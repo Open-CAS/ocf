@@ -69,7 +69,6 @@ static uint32_t _calc_dirty_for(uint64_t dirty_since)
 
 int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 {
-	uint32_t i;
 	uint32_t cache_occupancy_total = 0;
 	uint32_t dirty_blocks_total = 0;
 	uint32_t initial_dirty_blocks_total = 0;
@@ -80,6 +79,8 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	uint64_t core_dirty_since;
 	uint32_t dirty_blocks_inactive = 0;
 	uint32_t cache_occupancy_inactive = 0;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 
 	OCF_CHECK_NULL(cache);
 
@@ -101,50 +102,44 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	/* iterate through all possibly valid core objcts, as list of
 	 * valid objects may be not continuous
 	 */
-	for (i = 0; i != OCF_CORE_MAX; ++i) {
-		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
-			continue;
-
+	for_each_core(cache, core, core_id) {
 		/* If current dirty blocks exceeds saved initial dirty
 		 * blocks then update the latter
 		 */
-		curr_dirty_cnt = env_atomic_read(&cache->
-				core_runtime_meta[i].dirty_clines);
-		init_dirty_cnt = env_atomic_read(&cache->
-				core_runtime_meta[i].initial_dirty_clines);
-		if (init_dirty_cnt &&
-				(curr_dirty_cnt > init_dirty_cnt)) {
+		curr_dirty_cnt = env_atomic_read(
+				&core->runtime_meta->dirty_clines);
+		init_dirty_cnt = env_atomic_read(
+				&core->runtime_meta->initial_dirty_clines);
+		if (init_dirty_cnt && (curr_dirty_cnt > init_dirty_cnt)) {
 			env_atomic_set(
-				&cache->core_runtime_meta[i].
-					initial_dirty_clines,
-				env_atomic_read(&cache->
-					core_runtime_meta[i].dirty_clines));
+				&core->runtime_meta->initial_dirty_clines,
+				env_atomic_read(
+					&core->runtime_meta->dirty_clines));
 		}
-		cache_occupancy_total += env_atomic_read(&cache->
-				core_runtime_meta[i].cached_clines);
+		cache_occupancy_total += env_atomic_read(
+				&core->runtime_meta->cached_clines);
 
-		dirty_blocks_total += env_atomic_read(&(cache->
-				core_runtime_meta[i].dirty_clines));
-		initial_dirty_blocks_total += env_atomic_read(&(cache->
-				core_runtime_meta[i].initial_dirty_clines));
+		dirty_blocks_total += env_atomic_read(
+				&core->runtime_meta->dirty_clines);
+		initial_dirty_blocks_total += env_atomic_read(
+				&core->runtime_meta->initial_dirty_clines);
 
-		if (!cache->core[i].opened) {
-			cache_occupancy_inactive += env_atomic_read(&cache->
-				core_runtime_meta[i].cached_clines);
+		if (!core->opened) {
+			cache_occupancy_inactive += env_atomic_read(
+				&core->runtime_meta->cached_clines);
 
-			dirty_blocks_inactive += env_atomic_read(&(cache->
-				core_runtime_meta[i].dirty_clines));
+			dirty_blocks_inactive += env_atomic_read(
+				&core->runtime_meta->dirty_clines);
 		}
-		core_dirty_since = env_atomic64_read(&cache->
-				core_runtime_meta[i].dirty_since);
+		core_dirty_since = env_atomic64_read(
+				&core->runtime_meta->dirty_since);
 		if (core_dirty_since) {
 			dirty_since = (dirty_since ?
 				OCF_MIN(dirty_since, core_dirty_since) :
 				core_dirty_since);
 		}
 
-		flushed_total += env_atomic_read(
-				&cache->core[i].flushed);
+		flushed_total += env_atomic_read(&core->flushed);
 	}
 
 	info->dirty = dirty_blocks_total;

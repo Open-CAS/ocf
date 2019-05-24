@@ -40,11 +40,13 @@ int ocf_metadata_get_atomic_entry(ocf_cache_t cache,
 		ocf_cache_line_t line = ocf_atomic_addr2line(cache, addr);
 		uint8_t pos = ocf_atomic_addr2pos(cache, addr);
 		ocf_core_id_t core_id = OCF_CORE_MAX;
+		ocf_core_t core;
 		uint64_t core_line = 0;
 
 		ocf_metadata_get_core_info(cache, line, &core_id, &core_line);
+		core = ocf_cache_get_core(cache, core_id);
 
-		entry->core_seq_no = cache->core_conf_meta[core_id].seq_no;
+		entry->core_seq_no = core->conf_meta->seq_no;
 		entry->core_line = core_line;
 
 		entry->valid = metadata_test_valid_one(cache, line, pos);

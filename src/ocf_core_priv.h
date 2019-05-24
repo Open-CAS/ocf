@@ -32,11 +32,64 @@ struct ocf_core_io {
 	/*!< Timestamp */
 };
 
+struct ocf_metadata_uuid {
+	uint32_t size;
+	uint8_t data[OCF_VOLUME_UUID_MAX_SIZE];
+} __packed;
+
+#define OCF_CORE_USER_DATA_SIZE 64
+
+struct ocf_core_meta_config {
+	uint8_t type;
+
+	/* This bit means that object was added into cache */
+	uint32_t added : 1;
+
+	/* Core sequence number used to correlate cache lines with cores
+	 * when recovering from atomic device */
+	ocf_seq_no_t seq_no;
+
+	/* Sequential cutoff threshold (in bytes) */
+	uint32_t seq_cutoff_threshold;
+
+	/* Sequential cutoff policy */
+	ocf_seq_cutoff_policy seq_cutoff_policy;
+
+	/* core object size in bytes */
+	uint64_t length;
+
+	uint8_t user_data[OCF_CORE_USER_DATA_SIZE];
+};
+
+struct ocf_core_meta_runtime {
+	/* Number of blocks from that objects that currently are cached
+	 * on the caching device.
+	 */
+	env_atomic cached_clines;
+	env_atomic dirty_clines;
+	env_atomic initial_dirty_clines;
+
+	env_atomic64 dirty_since;
+
+	struct {
+		/* clines within lru list (?) */
+		env_atomic cached_clines;
+		/* dirty clines assigned to this specific partition within
+		 * cache device
+		 */
+		env_atomic dirty_clines;
+	} part_counters[OCF_IO_CLASS_MAX];
+};
+
+
 struct ocf_core {
 	char name[OCF_CORE_NAME_SIZE];
 
 	struct ocf_volume front_volume;
 	struct ocf_volume volume;
+
+	struct ocf_core_meta_config *conf_meta;
+	struct ocf_core_meta_runtime *runtime_meta;
 
 	struct {
 		uint64_t last;
@@ -57,5 +110,12 @@ bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id);
 int ocf_core_volume_type_init(ocf_ctx_t ctx);
 
 void ocf_core_volume_type_deinit(ocf_ctx_t ctx);
+
+#define for_each_core_all(_cache, _core, _id) \
+	for (_id = 0; _core = &cache->core[_id], _id < OCF_CORE_MAX; _id++)
+
+#define for_each_core(_cache, _core, _id) \
+	for_each_core_all(_cache, _core, _id) \
+		if (core->conf_meta->added)
 
 #endif /* __OCF_CORE_PRIV_H__ */
