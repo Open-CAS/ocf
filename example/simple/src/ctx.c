@@ -278,13 +278,13 @@ int ctx_init(ocf_ctx_t *ctx)
 {
 	int ret;
 
-	ret = ocf_ctx_init(ctx, &ctx_cfg);
+	ret = ocf_ctx_create(ctx, &ctx_cfg);
 	if (ret)
 		return ret;
 
 	ret = volume_init(*ctx);
 	if (ret) {
-		ocf_ctx_exit(*ctx);
+		ocf_ctx_put(*ctx);
 		return ret;
 	}
 
@@ -298,5 +298,5 @@ int ctx_init(ocf_ctx_t *ctx)
 void ctx_cleanup(ocf_ctx_t ctx)
 {
 	volume_cleanup(ctx);
-	ocf_ctx_exit(ctx);
+	ocf_ctx_put(ctx);
 }

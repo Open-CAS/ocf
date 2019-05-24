@@ -1216,6 +1216,8 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	if (result)
 		goto _cache_mng_init_instance_ERROR;
 
+	ocf_ctx_get(ctx);
+
 	if (params.locked) {
 		/* Increment reference counter to match cache_lock /
 		   cache_unlock convention. User is expected to call

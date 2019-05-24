@@ -20,6 +20,7 @@ struct ocf_ctx {
 	const struct ocf_ctx_config *cfg;
 	struct ocf_logger logger;
 	struct ocf_volume_type *volume_type[OCF_VOLUME_TYPE_MAX];
+	env_atomic ref_count;
 	env_mutex lock;
 	struct list_head caches;
 	struct {

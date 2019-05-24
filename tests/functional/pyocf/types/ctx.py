@@ -51,7 +51,7 @@ class OcfCtx:
             logger_priv=cast(pointer(logger.get_priv()), c_void_p),
         )
 
-        result = self.lib.ocf_ctx_init(byref(self.ctx_handle), byref(self.cfg))
+        result = self.lib.ocf_ctx_create(byref(self.ctx_handle), byref(self.cfg))
         if result != 0:
             raise OcfError("Context initialization failed", result)
 
@@ -95,9 +95,7 @@ class OcfCtx:
         self.stop_caches()
         self.cleanup_volume_types()
 
-        result = self.lib.ocf_ctx_exit(self.ctx_handle)
-        if result != 0:
-            raise OcfError("Failed quitting OcfCtx", result)
+        self.lib.ocf_ctx_put(self.ctx_handle)
 
         self.cfg = None
         self.logger = None
