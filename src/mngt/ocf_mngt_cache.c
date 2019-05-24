@@ -1594,7 +1594,7 @@ static int _ocf_mngt_cache_validate_device_cfg(
 	if (device_cfg->uuid.size > OCF_VOLUME_UUID_MAX_SIZE)
 		return -OCF_ERR_INVAL;
 
-	if (device_cfg->cache_line_size &&
+	if (device_cfg->cache_line_size != ocf_cache_line_size_none &&
 		!ocf_cache_line_size_is_valid(device_cfg->cache_line_size))
 		return -OCF_ERR_INVALID_CACHE_LINE_SIZE;
 

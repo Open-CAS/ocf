@@ -234,6 +234,9 @@ typedef enum {
  * OCF supported cache line sizes in bytes
  */
 typedef enum {
+	ocf_cache_line_size_none = 0,
+		/*!< None */
+
 	ocf_cache_line_size_4 = 4 * KiB,
 		/*!< 4 kiB */
 
