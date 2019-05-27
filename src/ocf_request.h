@@ -144,7 +144,7 @@ struct ocf_request {
 	/*!< Copy of request data */
 
 	uint64_t byte_position;
-	/*!< LBA byte position of request in code domain */
+	/*!< LBA byte position of request in core domain */
 
 	uint64_t core_line_first;
 	/*! First core line */

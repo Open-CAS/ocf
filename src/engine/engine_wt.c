@@ -87,7 +87,7 @@ static inline void _ocf_write_wt_submit(struct ocf_request *req)
 	}
 
 	/* To cache */
-	ocf_submit_cache_reqs(cache, req->map, req, OCF_WRITE,
+	ocf_submit_cache_reqs(cache, req, OCF_WRITE, 0, req->byte_length,
 			ocf_engine_io_count(req), _ocf_write_wt_cache_complete);
 
 	/* To core */
@@ -145,7 +145,7 @@ static int _ocf_write_wt_do(struct ocf_request *req)
 	/* Submit IO */
 	_ocf_write_wt_submit(req);
 
-	/* Updata statistics */
+	/* Update statistics */
 	ocf_engine_update_request_stats(req);
 	ocf_engine_update_block_stats(req);
 

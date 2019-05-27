@@ -51,7 +51,7 @@ int ocf_engine_ops(struct ocf_request *req)
 	ocf_submit_volume_req(&req->core->volume, req,
 			_ocf_engine_ops_complete);
 
-	ocf_submit_cache_reqs(cache, req->map, req, req->rw,
+	ocf_submit_cache_reqs(cache, req, req->rw, 0, req->byte_length,
 			1, _ocf_engine_ops_complete);
 
 	/* Put OCF request - decrease reference counter */

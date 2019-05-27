@@ -87,7 +87,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 	/* Submit IO */
 	OCF_DEBUG_RQ(req, "Submit");
 	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req));
-	ocf_submit_cache_reqs(req->cache, req->map, req, OCF_READ,
+	ocf_submit_cache_reqs(req->cache, req, OCF_READ, 0, req->byte_length,
 		ocf_engine_io_count(req), _ocf_read_fast_complete);
 
 

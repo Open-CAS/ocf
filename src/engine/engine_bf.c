@@ -84,8 +84,8 @@ static int _ocf_backfill_do(struct ocf_request *req)
 
 	req->data = req->cp_data;
 
-	ocf_submit_cache_reqs(req->cache, req->map, req, OCF_WRITE, reqs_to_issue,
-			      _ocf_backfill_complete);
+	ocf_submit_cache_reqs(req->cache, req, OCF_WRITE, 0, req->byte_length,
+				reqs_to_issue, _ocf_backfill_complete);
 
 	return 0;
 }

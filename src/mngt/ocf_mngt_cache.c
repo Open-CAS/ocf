@@ -1600,6 +1600,7 @@ static const char *_ocf_cache_mode_names[ocf_cache_mode_max] = {
 	[ocf_cache_mode_wa] = "wa",
 	[ocf_cache_mode_pt] = "pt",
 	[ocf_cache_mode_wi] = "wi",
+	[ocf_cache_mode_wo] = "wo",
 };
 
 static const char *_ocf_cache_mode_get_name(ocf_cache_mode_t cache_mode)

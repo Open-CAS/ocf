@@ -8,4 +8,6 @@
 
 int ocf_read_generic(struct ocf_request *req);
 
+int ocf_read_generic_do(struct ocf_request *req);
+
 #endif /* ENGINE_RD_H_ */
