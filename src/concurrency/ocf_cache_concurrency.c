@@ -7,7 +7,7 @@
 #include "../ocf_priv.h"
 #include "../ocf_request.h"
 #include "../utils/utils_cache_line.h"
-#include "../utils/utils_allocator.h"
+#include "../utils/utils_realloc.h"
 
 #define OCF_CACHE_CONCURRENCY_DEBUG 0
 

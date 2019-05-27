@@ -11,7 +11,7 @@
 #include "../ocf_cache_priv.h"
 #include "../ocf_ctx_priv.h"
 #include "../utils/utils_io.h"
-#include "../utils/utils_allocator.h"
+#include "../utils/utils_realloc.h"
 
 int ocf_metadata_updater_init(ocf_cache_t cache)
 {

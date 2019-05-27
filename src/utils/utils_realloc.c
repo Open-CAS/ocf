@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include "ocf/ocf.h"
-#include "utils_allocator.h"
+#include "utils_realloc.h"
 #include "ocf_env.h"
 
-#define OCF_ALLOCATOR_K_MAX	(128 * KiB)
+#define OCF_REALLOC_K_MAX	(128 * KiB)
 
 static int _ocf_realloc_with_cp(void **mem, size_t size, size_t count,
 		size_t *limit, bool cp)
@@ -24,7 +24,7 @@ static int _ocf_realloc_with_cp(void **mem, size_t size, size_t count,
 
 			void *new_mem;
 
-			if (alloc_size > OCF_ALLOCATOR_K_MAX)
+			if (alloc_size > OCF_REALLOC_K_MAX)
 				new_mem = env_vzalloc(alloc_size);
 			else
 				new_mem = env_zalloc(alloc_size, ENV_MEM_NOIO);
@@ -44,7 +44,7 @@ static int _ocf_realloc_with_cp(void **mem, size_t size, size_t count,
 
 				}
 
-				if (*limit > OCF_ALLOCATOR_K_MAX)
+				if (*limit > OCF_REALLOC_K_MAX)
 					env_vfree(*mem);
 				else
 					env_free(*mem);
@@ -74,7 +74,7 @@ static int _ocf_realloc_with_cp(void **mem, size_t size, size_t count,
 
 		if ((*mem) && (*limit)) {
 			/* Need to free memory */
-			if (*limit > OCF_ALLOCATOR_K_MAX)
+			if (*limit > OCF_REALLOC_K_MAX)
 				env_vfree(*mem);
 			else
 				env_free(*mem);
