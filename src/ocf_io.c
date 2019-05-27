@@ -69,7 +69,7 @@ struct ocf_io *ocf_io_new(ocf_volume_t volume)
 
 	io->volume = volume;
 	io->ops = &volume->type->properties->io_ops;
-	env_atomic_set(&io_meta->ref_count, 1);	
+	env_atomic_set(&io_meta->ref_count, 1);
 
 	return io;
 }

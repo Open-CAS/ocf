@@ -1457,7 +1457,7 @@ static void ocf_medatata_hash_flush_segment(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 
 	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.iface_priv;
-	
+
 	ocf_metadata_raw_flush_all(cache, &ctrl->raw_desc[segment],
 			ocf_metadata_hash_generic_complete, context);
 }
