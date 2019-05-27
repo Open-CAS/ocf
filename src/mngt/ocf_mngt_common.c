@@ -5,12 +5,12 @@
 
 #include "ocf/ocf.h"
 #include "ocf_mngt_common.h"
+#include "ocf_mngt_core_priv.h"
 #include "../ocf_priv.h"
 #include "../ocf_ctx_priv.h"
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
 #include "../ocf_request.h"
-#include "../utils/utils_device.h"
 #include "../eviction/ops.h"
 #include "../ocf_logger_priv.h"
 #include "../ocf_queue_priv.h"
@@ -96,7 +96,7 @@ void cache_mng_core_remove_from_meta(struct ocf_cache *cache, int core_id)
 	cache->core_conf_meta[core_id].added = false;
 
 	/* Clear UUID of core */
-	ocf_metadata_clear_core_uuid(&cache->core[core_id]);
+	ocf_mngt_core_clear_uuid_metadata(&cache->core[core_id]);
 	cache->core_conf_meta[core_id].seq_no = OCF_SEQ_NO_INVALID;
 
 	OCF_METADATA_UNLOCK_WR();

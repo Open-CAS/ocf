@@ -9,7 +9,6 @@
 #include "../ocf_priv.h"
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
-#include "../utils/utils_device.h"
 #include "../utils/utils_pipeline.h"
 #include "../ocf_stats_priv.h"
 #include "../ocf_def_priv.h"
@@ -21,6 +20,59 @@ static ocf_seq_no_t _ocf_mngt_get_core_seq_no(ocf_cache_t cache)
 
 	return ++cache->conf_meta->curr_core_seq_no;
 }
+
+static int _ocf_uuid_set(const struct ocf_volume_uuid *uuid,
+		struct ocf_metadata_uuid *muuid)
+{
+	int result;
+
+	if (!uuid->data || !muuid->data)
+		return -EINVAL;
+
+	if (uuid->size > sizeof(muuid->data))
+		return -ENOBUFS;
+
+	result = env_memcpy(muuid->data, sizeof(muuid->data),
+			uuid->data, uuid->size);
+	if (result)
+		return result;
+
+	result = env_memset(muuid->data + uuid->size,
+			sizeof(muuid->data) - uuid->size, 0);
+	if (result)
+		return result;
+
+	muuid->size = uuid->size;
+
+	return 0;
+}
+
+static int ocf_mngt_core_set_uuid_metadata(ocf_core_t core,
+		const struct ocf_volume_uuid *uuid,
+		struct ocf_volume_uuid *new_uuid)
+{
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	struct ocf_metadata_uuid *muuid = ocf_metadata_get_core_uuid(cache,
+						ocf_core_get_id(core));
+
+	if (_ocf_uuid_set(uuid, muuid))
+		return -ENOBUFS;
+
+	if (new_uuid) {
+		new_uuid->data = muuid->data;
+		new_uuid->size = muuid->size;
+	}
+
+	return 0;
+}
+
+void ocf_mngt_core_clear_uuid_metadata(ocf_core_t core)
+{
+	struct ocf_volume_uuid uuid = { .size = 0, };
+
+	ocf_mngt_core_set_uuid_metadata(core, &uuid, NULL);
+}
+
 
 static int _ocf_mngt_cache_try_add_core(ocf_cache_t cache, ocf_core_t *core,
 		struct ocf_mngt_core_config *cfg)
@@ -118,7 +170,7 @@ static void _ocf_mngt_cache_add_core_handle_error(
 		ocf_volume_deinit(volume);
 
 	if (context->flags.uuid_set)
-		ocf_metadata_clear_core_uuid(core);
+		ocf_mngt_core_clear_uuid_metadata(core);
 }
 
 static void _ocf_mngt_cache_add_core_flush_sb_complete(void *priv, int error)
@@ -154,7 +206,7 @@ static void _ocf_mngt_cache_add_core(ocf_cache_t cache,
 	volume->cache = cache;
 
 	/* Set uuid */
-	result = ocf_metadata_set_core_uuid(core, &cfg->uuid, &new_uuid);
+	result = ocf_mngt_core_set_uuid_metadata(core, &cfg->uuid, &new_uuid);
 	if (result)
 		OCF_PL_FINISH_RET(context->pipeline, result);
 
@@ -830,7 +882,7 @@ int ocf_mngt_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
 		return 0;
 	}
 
-	result = ocf_metadata_set_core_uuid(core, uuid, NULL);
+	result = ocf_mngt_core_set_uuid_metadata(core, uuid, NULL);
 	if (result)
 		return result;
 

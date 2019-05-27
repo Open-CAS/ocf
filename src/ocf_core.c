@@ -11,7 +11,6 @@
 #include "engine/cache_engine.h"
 #include "ocf_request.h"
 #include "utils/utils_part.h"
-#include "utils/utils_device.h"
 #include "ocf_request.h"
 #include "ocf_trace_priv.h"
 

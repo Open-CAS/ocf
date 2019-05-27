@@ -26,7 +26,6 @@
 #include "../engine/cache_engine.h"
 #include "../utils/utils_part.h"
 #include "../utils/utils_cache_line.h"
-#include "../utils/utils_device.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_pipeline.h"
