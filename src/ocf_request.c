@@ -4,11 +4,10 @@
  */
 
 #include "ocf/ocf.h"
-#include "utils_req.h"
-#include "utils_cache_line.h"
-#include "../ocf_request.h"
-#include "../ocf_cache_priv.h"
-#include "../ocf_queue_priv.h"
+#include "ocf_request.h"
+#include "ocf_cache_priv.h"
+#include "ocf_queue_priv.h"
+#include "utils/utils_cache_line.h"
 
 #define OCF_UTILS_RQ_DEBUG 0
 
@@ -76,20 +75,20 @@ int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
 	req = ocf_ctx->resources.req;
 
 	if (!req)
-		goto ocf_utils_req_init_ERROR;
+		goto err;
 
 	for (i = 0; i < ARRAY_SIZE(req->allocator); i++) {
 		req->size[i] = ocf_req_sizeof(1 << i);
 
 		if (snprintf(name, sizeof(name), ALLOCATOR_NAME_FMT,
 				(1 << i)) < 0) {
-			goto ocf_utils_req_init_ERROR;
+			goto err;
 		}
 
 		req->allocator[i] = env_allocator_create(req->size[i], name);
 
 		if (!req->allocator[i])
-			goto ocf_utils_req_init_ERROR;
+			goto err;
 
 		OCF_DEBUG_PARAM(cache, "New request allocator, lines = %u, "
 				"size = %lu", 1 << i, req->size[i]);
@@ -97,10 +96,8 @@ int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
 
 	return 0;
 
-ocf_utils_req_init_ERROR:
-
+err:
 	ocf_req_allocator_deinit(ocf_ctx);
-
 	return -1;
 }
 

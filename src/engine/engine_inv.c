@@ -8,7 +8,7 @@
 #include "engine_inv.h"
 #include "engine_common.h"
 #include "cache_engine.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_cache_line.h"
 #include "../metadata/metadata.h"
 #include "../concurrency/ocf_concurrency.h"

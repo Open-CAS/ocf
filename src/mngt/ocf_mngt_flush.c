@@ -15,7 +15,7 @@
 #include "../utils/utils_part.h"
 #include "../utils/utils_pipeline.h"
 #include "../utils/utils_refcnt.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../ocf_def_priv.h"
 
 struct ocf_mngt_cache_flush_context;

@@ -9,7 +9,7 @@
 #include "../metadata/metadata.h"
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_cache_line.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../cleaning/acp.h"
 #include "../engine/engine_common.h"
 #include "../concurrency/ocf_cache_concurrency.h"

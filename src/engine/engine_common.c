@@ -11,7 +11,7 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "common"
 #include "engine_debug.h"
 #include "../utils/utils_cache_line.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_cleaner.h"
 #include "../metadata/metadata.h"
 #include "../eviction/eviction.h"

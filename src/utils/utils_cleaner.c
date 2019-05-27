@@ -7,9 +7,9 @@
 #include "../engine/cache_engine.h"
 #include "../engine/engine_common.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../ocf_request.h"
 #include "utils_cleaner.h"
 #include "utils_part.h"
-#include "utils_req.h"
 #include "utils_io.h"
 #include "utils_cache_line.h"
 

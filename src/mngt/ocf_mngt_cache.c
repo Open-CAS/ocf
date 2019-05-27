@@ -18,7 +18,6 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_pipeline.h"
 #include "../utils/utils_refcnt.h"
-#include "../ocf_utils.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../eviction/ops.h"
 #include "../ocf_ctx_priv.h"

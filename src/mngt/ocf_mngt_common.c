@@ -9,7 +9,7 @@
 #include "../ocf_ctx_priv.h"
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_device.h"
 #include "../eviction/ops.h"
 #include "../ocf_logger_priv.h"
