@@ -234,7 +234,7 @@ void ocf_volume_submit_io(struct ocf_io *io)
 	ENV_BUG_ON(!io->volume->type->properties->ops.submit_io);
 
 	if (!io->volume->opened)
-		io->end(io, -EIO);
+		io->end(io, -OCF_ERR_IO);
 
 	io->volume->type->properties->ops.submit_io(io);
 }
@@ -244,7 +244,7 @@ void ocf_volume_submit_flush(struct ocf_io *io)
 	ENV_BUG_ON(!io->volume->type->properties->ops.submit_flush);
 
 	if (!io->volume->opened)
-		io->end(io, -EIO);
+		io->end(io, -OCF_ERR_IO);
 
 	if (!io->volume->type->properties->ops.submit_flush) {
 		ocf_io_end(io, 0);
@@ -257,7 +257,7 @@ void ocf_volume_submit_flush(struct ocf_io *io)
 void ocf_volume_submit_discard(struct ocf_io *io)
 {
 	if (!io->volume->opened)
-		io->end(io, -EIO);
+		io->end(io, -OCF_ERR_IO);
 
 	if (!io->volume->type->properties->ops.submit_discard) {
 		ocf_io_end(io, 0);

@@ -33,7 +33,7 @@ typedef enum {
 	/** Unknown error occurred */
 	OCF_ERR_UNKNOWN,
 
-	/*!< To many caches */
+	/** To many caches */
 	OCF_ERR_TOO_MANY_CACHES,
 
 	/** Not enough RAM to start cache */
@@ -62,6 +62,9 @@ typedef enum {
 
 	/** IO Class does not exist */
 	OCF_ERR_IO_CLASS_NOT_EXIST,
+
+	/** IO Error */
+	OCF_ERR_IO,
 
 	/** Error while writing to cache device */
 	OCF_ERR_WRITE_CACHE,

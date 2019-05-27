@@ -132,7 +132,7 @@ static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
 	return;
 
 err_alloc:
-	_ocf_read_generic_miss_complete(req, -ENOMEM);
+	_ocf_read_generic_miss_complete(req, -OCF_ERR_NO_MEM);
 }
 
 static int _ocf_read_generic_do(struct ocf_request *req)

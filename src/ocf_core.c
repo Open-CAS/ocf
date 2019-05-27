@@ -168,35 +168,35 @@ static inline int ocf_core_validate_io(struct ocf_io *io)
 	ocf_core_t core;
 
 	if (!io->volume)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	if (!io->ops)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	if (io->addr >= ocf_volume_get_length(io->volume))
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	if (io->addr + io->bytes > ocf_volume_get_length(io->volume))
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	if (io->io_class >= OCF_IO_CLASS_MAX)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	if (io->dir != OCF_READ && io->dir != OCF_WRITE)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	if (!io->io_queue)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	if (!io->end)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	/* Core volume I/O must not be queued on management queue - this would
 	 * break I/O accounting code, resulting in use-after-free type of errors
 	 * after cache detach, core remove etc. */
 	core = ocf_volume_to_core(io->volume);
 	if (io->io_queue == ocf_core_get_cache(core)->mngt_queue)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	return 0;
 }
@@ -241,7 +241,7 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
 					&cache->cache_state))) {
-		ocf_io_end(io, -EIO);
+		ocf_io_end(io, -OCF_ERR_CACHE_NOT_AVAIL);
 		return;
 	}
 
@@ -260,7 +260,7 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 			io->dir);
 	if (!core_io->req) {
 		dec_counter_if_req_was_dirty(core_io, cache);
-		io->end(io, -ENOMEM);
+		io->end(io, -OCF_ERR_NO_MEM);
 		return;
 	}
 
@@ -314,7 +314,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
 			&cache->cache_state))) {
-		ocf_io_end(io, -EIO);
+		ocf_io_end(io, -OCF_ERR_CACHE_NOT_AVAIL);
 		return 0;
 	}
 
@@ -326,7 +326,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 
 	switch (req_cache_mode) {
 	case ocf_req_cache_mode_pt:
-		return -EIO;
+		return -OCF_ERR_IO;
 	case ocf_req_cache_mode_wb:
 		req_cache_mode = ocf_req_cache_mode_fast;
 		break;
@@ -334,7 +334,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 		if (cache->use_submit_io_fast)
 			break;
 		if (io->dir == OCF_WRITE)
-			return -EIO;
+			return -OCF_ERR_IO;
 
 		req_cache_mode = ocf_req_cache_mode_fast;
 	}
@@ -347,13 +347,13 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 
 	if (!req) {
 		dec_counter_if_req_was_dirty(core_io, cache);
-		io->end(io, -ENOMEM);
+		io->end(io, -OCF_ERR_NO_MEM);
 		return 0;
 	}
 	if (req->d2c) {
 		dec_counter_if_req_was_dirty(core_io, cache);
 		ocf_req_put(req);
-		return -EIO;
+		return -OCF_ERR_IO;
 	}
 
 	req->part_id = ocf_part_class2id(cache, io->io_class);
@@ -383,7 +383,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 
 	ocf_io_put(io);
 	ocf_req_put(req);
-	return -EIO;
+	return -OCF_ERR_IO;
 }
 
 static void ocf_core_volume_submit_io(struct ocf_io *io)
@@ -413,14 +413,14 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
 			&cache->cache_state))) {
-		ocf_io_end(io, -EIO);
+		ocf_io_end(io, -OCF_ERR_CACHE_NOT_AVAIL);
 		return;
 	}
 
 	core_io->req = ocf_req_new(io->io_queue, core, io->addr, io->bytes,
 			io->dir);
 	if (!core_io->req) {
-		ocf_io_end(io, -ENOMEM);
+		ocf_io_end(io, -OCF_ERR_NO_MEM);
 		return;
 	}
 
@@ -455,14 +455,14 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
 			&cache->cache_state))) {
-		ocf_io_end(io, -EIO);
+		ocf_io_end(io, -OCF_ERR_CACHE_NOT_AVAIL);
 		return;
 	}
 
 	core_io->req = ocf_req_new_discard(io->io_queue, core,
 			io->addr, io->bytes, OCF_WRITE);
 	if (!core_io->req) {
-		ocf_io_end(io, -ENOMEM);
+		ocf_io_end(io, -OCF_ERR_NO_MEM);
 		return;
 	}
 
@@ -517,7 +517,7 @@ static int ocf_core_io_set_data(struct ocf_io *io,
 	OCF_CHECK_NULL(io);
 
 	if (!data || offset)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	core_io = ocf_io_to_core_io(io);
 	core_io->data = data;

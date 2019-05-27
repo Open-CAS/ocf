@@ -190,7 +190,7 @@ static int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
 	context = env_zalloc(sizeof(*context), ENV_MEM_NORMAL);
 	if (!context) {
 		ocf_log(ctx, log_err, "Memory allocation error");
-		return -ENOMEM;
+		return -OCF_ERR_NO_MEM;
 	}
 
 	context->cmpl = cmpl;
@@ -202,14 +202,14 @@ static int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
 	io = ocf_volume_new_io(volume);
 	if (!io) {
 		ocf_log(ctx, log_err, "Memory allocation error");
-		result = -ENOMEM;
+		result = -OCF_ERR_NO_MEM;
 		goto err_io;
 	}
 
 	data = ctx_data_alloc(ctx, sb_pages);
 	if (!data) {
 		ocf_log(ctx, log_err, "Memory allocation error");
-		result = -ENOMEM;
+		result = -OCF_ERR_NO_MEM;
 		goto err_data;
 	}
 
@@ -220,7 +220,7 @@ static int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
 	result = ocf_io_set_data(io, data, 0);
 	if (result) {
 		ocf_log(ctx, log_err, "Metadata IO configuration error\n");
-		result = -EIO;
+		result = -OCF_ERR_IO;
 		goto err_set_data;
 	}
 

@@ -28,6 +28,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_NOT_OPEN_EXC = auto()
     OCF_ERR_CACHE_NOT_AVAIL = auto()
     OCF_ERR_IO_CLASS_NOT_EXIST = auto()
+    OCF_ERR_IO = auto()
     OCF_ERR_WRITE_CACHE = auto()
     OCF_ERR_WRITE_CORE = auto()
     OCF_ERR_DIRTY_SHUTDOWN = auto()
