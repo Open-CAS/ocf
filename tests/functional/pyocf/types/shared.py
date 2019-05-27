@@ -13,9 +13,13 @@ from ..utils import Size as S
 
 class OcfErrorCode(IntEnum):
     OCF_ERR_INVAL = 1000000
+    OCF_ERR_AGAIN = auto()
     OCF_ERR_INTR = auto()
+    OCF_ERR_NOT_SUPP = auto()
     OCF_ERR_NO_MEM = auto()
     OCF_ERR_NO_LOCK = auto()
+    OCF_ERR_METADATA_VER = auto()
+    OCF_ERR_NO_METADATA = auto()
     OCF_ERR_INVAL_VOLUME_TYPE = auto()
     OCF_ERR_UNKNOWN = auto()
     OCF_ERR_TOO_MANY_CACHES = auto()
@@ -28,6 +32,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_NOT_OPEN_EXC = auto()
     OCF_ERR_CACHE_NOT_AVAIL = auto()
     OCF_ERR_IO_CLASS_NOT_EXIST = auto()
+    OCF_ERR_IO = auto()
     OCF_ERR_WRITE_CACHE = auto()
     OCF_ERR_WRITE_CORE = auto()
     OCF_ERR_DIRTY_SHUTDOWN = auto()

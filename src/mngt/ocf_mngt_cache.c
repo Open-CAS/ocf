@@ -752,7 +752,7 @@ static void _ocf_mngt_test_volume_first_read_complete(void *priv, int error)
 	if (diff) {
 		/* we read back different data than what we had just
 		   written - this is fatal error */
-		OCF_PL_FINISH_RET(context->test.pipeline, -EIO);
+		OCF_PL_FINISH_RET(context->test.pipeline, -OCF_ERR_IO);
 	}
 
 	if (!ocf_volume_is_atomic(&cache->device->volume)) {

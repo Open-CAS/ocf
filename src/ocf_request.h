@@ -189,7 +189,7 @@ struct ocf_request {
 	/*!< Detailed request info */
 
 	void (*complete)(struct ocf_request *ocf_req, int error);
-	/*!< Request completion funstion */
+	/*!< Request completion function */
 
 	struct ocf_io *io;
 	/*!< OCF IO associated with request */

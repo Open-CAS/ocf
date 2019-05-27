@@ -18,8 +18,14 @@ typedef enum {
 	/** Invalid input parameter value */
 	OCF_ERR_INVAL = 1000000,
 
+	/** Try again */
+	OCF_ERR_AGAIN,
+
 	/** Operation interrupted */
 	OCF_ERR_INTR,
+
+	/** Operation not supported */
+	OCF_ERR_NOT_SUPP,
 
 	/** Out of memory */
 	OCF_ERR_NO_MEM,
@@ -27,13 +33,19 @@ typedef enum {
 	/** Lock not acquired */
 	OCF_ERR_NO_LOCK,
 
+	/** Metadata version mismatch */
+	OCF_ERR_METADATA_VER,
+
+	/** No metadata found on device */
+	OCF_ERR_NO_METADATA,
+
 	/** Invalid volume type */
 	OCF_ERR_INVAL_VOLUME_TYPE,
 
 	/** Unknown error occurred */
 	OCF_ERR_UNKNOWN,
 
-	/*!< To many caches */
+	/** To many caches */
 	OCF_ERR_TOO_MANY_CACHES,
 
 	/** Not enough RAM to start cache */
@@ -62,6 +74,9 @@ typedef enum {
 
 	/** IO Class does not exist */
 	OCF_ERR_IO_CLASS_NOT_EXIST,
+
+	/** IO Error */
+	OCF_ERR_IO,
 
 	/** Error while writing to cache device */
 	OCF_ERR_WRITE_CACHE,

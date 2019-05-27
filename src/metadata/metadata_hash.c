@@ -518,7 +518,7 @@ int ocf_metadata_hash_init(struct ocf_cache *cache,
 
 	ctrl = ocf_metadata_hash_ctrl_init(metadata->is_volatile);
 	if (!ctrl)
-		return -ENOMEM;
+		return -OCF_ERR_NO_MEM;
 	metadata->iface_priv = ctrl;
 
 	for (i = 0; i < metadata_segment_fixed_size_max; i++) {
@@ -634,7 +634,7 @@ static void ocf_metadata_query_cores_end(struct query_cores_context *context,
 			sizeof(context->superblock));
 
 	if (context->superblock.magic_number != CACHE_MAGIC_NUMBER) {
-		error = -ENODATA;
+		error = -OCF_ERR_NO_METADATA;
 		goto exit;
 	}
 
@@ -663,11 +663,11 @@ static void ocf_metadata_query_cores_end(struct query_cores_context *context,
 			continue;
 
 		if (muuid->size > OCF_VOLUME_UUID_MAX_SIZE) {
-			error = -EINVAL;
+			error = -OCF_ERR_INVAL;
 			goto exit;
 		}
 		if (muuid->size > context->params.uuids[core_idx].size) {
-			error = -ENOSPC;
+			error = -OCF_ERR_INVAL;
 			goto exit;
 		}
 
@@ -762,7 +762,7 @@ int ocf_metadata_query_cores_segment_io(
 	segment_data->data = ctx_data_alloc(owner,
 			ctrl->raw_desc[segment].ssd_pages);
 	if (!segment_data->data) {
-		err = -ENOMEM;
+		err = -OCF_ERR_NO_MEM;
 		goto exit;
 	}
 
@@ -805,12 +805,12 @@ void ocf_metadata_hash_query_cores(ocf_ctx_t owner, ocf_volume_t volume,
 	int err;
 
 	if (count > OCF_CORE_MAX)
-		OCF_CMPL_RET(priv, -EINVAL, 0);
+		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, 0);
 
 	/* intialize query context */
 	context = env_secure_alloc(sizeof(*context));
 	if (!context)
-		OCF_CMPL_RET(priv, -ENOMEM, 0);
+		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM, 0);
 
 	ENV_BUG_ON(env_memset(context, sizeof(*context), 0));
 	context->ctx = owner;
@@ -822,7 +822,7 @@ void ocf_metadata_hash_query_cores(ocf_ctx_t owner, ocf_volume_t volume,
 
 	ctrl = ocf_metadata_hash_ctrl_init(false);
 	if (!ctrl) {
-		err = -ENOMEM;
+		err = -OCF_ERR_NO_MEM;
 		goto exit;
 	}
 
@@ -989,7 +989,7 @@ finalize:
 		lg = ocf_metadata_map_phy2lg(cache, phy);
 
 		if (line != lg) {
-			result = -EINVAL;
+			result = -OCF_ERR_INVAL;
 			break;
 		}
 		env_cond_resched();

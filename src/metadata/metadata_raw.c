@@ -102,7 +102,7 @@ static int _raw_ram_init(ocf_cache_t cache,
 	raw->mem_pool_limit = mem_pool_size;
 	raw->mem_pool = env_secure_alloc(mem_pool_size);
 	if (!raw->mem_pool)
-		return -ENOMEM;
+		return -OCF_ERR_NO_MEM;
 	ENV_BUG_ON(env_memset(raw->mem_pool, mem_pool_size, 0));
 
 	return 0;
@@ -470,8 +470,8 @@ static int _raw_ram_flush_do_asynch(ocf_cache_t cache,
 
 	ctx = env_zalloc(sizeof(*ctx), ENV_MEM_NOIO);
 	if (!ctx) {
-		complete(req, -ENOMEM);
-		return -ENOMEM;
+		complete(req, -OCF_ERR_NO_MEM);
+		return -OCF_ERR_NO_MEM;
 	}
 
 	ctx->req = req;
@@ -485,8 +485,8 @@ static int _raw_ram_flush_do_asynch(ocf_cache_t cache,
 		pages_tab = env_zalloc(sizeof(*pages_tab) * line_no, ENV_MEM_NOIO);
 		if (!pages_tab) {
 			env_free(ctx);
-			complete(req, -ENOMEM);
-			return -ENOMEM;
+			complete(req, -OCF_ERR_NO_MEM);
+			return -OCF_ERR_NO_MEM;
 		}
 	}
 

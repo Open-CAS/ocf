@@ -564,5 +564,5 @@ int raw_dynamic_flush_do_asynch(ocf_cache_t cache, struct ocf_request *req,
 		struct ocf_metadata_raw *raw, ocf_req_end_t complete)
 {
 	ENV_BUG();
-	return -ENOSYS;
+	return -OCF_ERR_NOT_SUPP;
 }

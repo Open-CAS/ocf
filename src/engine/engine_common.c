@@ -584,7 +584,7 @@ static int _ocf_engine_refresh(struct ocf_request *req)
 			ENV_BUG();
 	} else {
 		ENV_WARN(true, "Inconsistent request");
-		req->error = -EINVAL;
+		req->error = -OCF_ERR_INVAL;
 
 		/* Complete request */
 		req->complete(req, req->error);

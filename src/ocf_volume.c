@@ -24,11 +24,11 @@ int ocf_volume_type_init(struct ocf_volume_type **type,
 
 	if (!ops->submit_io || !ops->open || !ops->close ||
 			!ops->get_max_io_size || !ops->get_length) {
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 	}
 
 	if (properties->caps.atomic_writes && !ops->submit_metadata)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	new_type = env_zalloc(sizeof(**type), ENV_MEM_NORMAL);
 	if (!new_type)
@@ -37,7 +37,7 @@ int ocf_volume_type_init(struct ocf_volume_type **type,
 	new_type->allocator = ocf_io_allocator_create(
 			properties->io_priv_size, properties->name);
 	if (!new_type->allocator) {
-		ret = -ENOMEM;
+		ret = -OCF_ERR_NO_MEM;
 		goto err;
 	}
 
@@ -234,7 +234,7 @@ void ocf_volume_submit_io(struct ocf_io *io)
 	ENV_BUG_ON(!io->volume->type->properties->ops.submit_io);
 
 	if (!io->volume->opened)
-		io->end(io, -EIO);
+		io->end(io, -OCF_ERR_IO);
 
 	io->volume->type->properties->ops.submit_io(io);
 }
@@ -244,7 +244,7 @@ void ocf_volume_submit_flush(struct ocf_io *io)
 	ENV_BUG_ON(!io->volume->type->properties->ops.submit_flush);
 
 	if (!io->volume->opened)
-		io->end(io, -EIO);
+		io->end(io, -OCF_ERR_IO);
 
 	if (!io->volume->type->properties->ops.submit_flush) {
 		ocf_io_end(io, 0);
@@ -257,7 +257,7 @@ void ocf_volume_submit_flush(struct ocf_io *io)
 void ocf_volume_submit_discard(struct ocf_io *io)
 {
 	if (!io->volume->opened)
-		io->end(io, -EIO);
+		io->end(io, -OCF_ERR_IO);
 
 	if (!io->volume->type->properties->ops.submit_discard) {
 		ocf_io_end(io, 0);

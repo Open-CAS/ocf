@@ -31,7 +31,7 @@ int ocf_metadata_get_atomic_entry(ocf_cache_t cache,
 	OCF_CHECK_NULL(entry);
 
 	if (addr > ocf_volume_get_length(&cache->device->volume))
-		return -EFAULT;
+		return -OCF_ERR_INVAL;
 
 	if (addr < cache->device->metadata_offset) {
 		/* Metadata IO of OCF */
