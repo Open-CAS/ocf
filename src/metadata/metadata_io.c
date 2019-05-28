@@ -11,6 +11,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_realloc.h"
 #include "../utils/utils_io.h"
+#include "../ocf_request.h"
 #include "../ocf_def_priv.h"
 
 #define OCF_METADATA_IO_DEBUG 0
@@ -32,126 +33,160 @@
 #define OCF_DEBUG_PARAM(cache, format, ...)
 #endif
 
+struct metadata_io_read_i_atomic_context {
+	struct ocf_request *req;
+	ctx_data_t *data;
+	ocf_cache_t cache;
+	uint64_t count;
+	uint64_t curr_offset;
+	uint64_t curr_count;
+
+	ocf_metadata_atomic_io_event_t drain_hndl;
+	ocf_metadata_io_end_t compl_hndl;
+	void *priv;
+};
+
+static void metadata_io_read_i_atomic_complete(
+		struct metadata_io_read_i_atomic_context *context, int error)
+{
+	context->compl_hndl(context->cache, context->priv, error);
+
+	ctx_data_free(context->cache->owner, context->data);
+	ocf_req_put(context->req);
+	env_vfree(context);
+}
+
+/*
+ * Iterative read end callback
+ */
+static void metadata_io_read_i_atomic_step_end(struct ocf_io *io, int error)
+{
+	struct metadata_io_read_i_atomic_context *context = io->priv1;
+
+	OCF_DEBUG_TRACE(ocf_volume_get_cache(io->volume));
+
+	ocf_io_put(io);
+
+	if (error) {
+		metadata_io_read_i_atomic_complete(context, error);
+		return;
+	}
+
+	context->drain_hndl(context->priv, context->curr_offset,
+			context->curr_count, context->data);
+
+	context->count -= context->curr_count;
+	context->curr_offset += context->curr_count;
+
+	if (context->count > 0)
+		ocf_engine_push_req_front(context->req, true);
+	else
+		metadata_io_read_i_atomic_complete(context, 0);
+}
+
+int metadata_io_read_i_atomic_step(struct ocf_request *req)
+{
+	struct metadata_io_read_i_atomic_context *context = req->priv;
+	ocf_cache_t cache = context->cache;
+	uint64_t max_sectors_count = PAGE_SIZE / OCF_ATOMIC_METADATA_SIZE;
+	struct ocf_io *io;
+	int result = 0;
+
+	/* Get sectors count of this IO iteration */
+	context->curr_count = OCF_MIN(max_sectors_count, context->count);
+
+	/* Reset position in data buffer */
+	ctx_data_seek(cache->owner, context->data, ctx_data_seek_begin, 0);
+
+	/* Allocate new IO */
+	io = ocf_new_cache_io(cache);
+	if (!io) {
+		metadata_io_read_i_atomic_complete(context, -OCF_ERR_NO_MEM);
+		return 0;
+	}
+
+	/* Setup IO */
+	ocf_io_configure(io, cache->device->metadata_offset +
+			SECTORS_TO_BYTES(context->curr_offset),
+			SECTORS_TO_BYTES(context->curr_count), OCF_READ, 0, 0);
+
+	ocf_io_set_queue(io, req->io_queue);
+	ocf_io_set_cmpl(io, context, NULL, metadata_io_read_i_atomic_step_end);
+	result = ocf_io_set_data(io, context->data, 0);
+	if (result) {
+		ocf_io_put(io);
+		metadata_io_read_i_atomic_complete(context, result);
+		return 0;
+	}
+
+	/* Submit IO */
+	ocf_volume_submit_metadata(io);
+
+	return 0;
+}
+
+static const struct ocf_io_if _io_if_metadata_io_read_i_atomic_step = {
+	.read = metadata_io_read_i_atomic_step,
+	.write = metadata_io_read_i_atomic_step,
+};
+
+/*
+ * Iterative read request
+ */
+int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue, void *priv,
+		ocf_metadata_atomic_io_event_t drain_hndl,
+		ocf_metadata_io_end_t compl_hndl)
+{
+	struct metadata_io_read_i_atomic_context *context;
+	uint64_t io_sectors_count = cache->device->collision_table_entries *
+					ocf_line_sectors(cache);
+
+	OCF_DEBUG_TRACE(cache);
+
+	context = env_vzalloc(sizeof(*context));
+	if (!context)
+		return -OCF_ERR_NO_MEM;
+
+	context->req = ocf_req_new(queue, NULL, 0, 0, 0);
+	if (!context->req) {
+		env_vfree(context);
+		return -OCF_ERR_NO_MEM;
+	}
+
+	context->req->info.internal = true;
+	context->req->io_if = &_io_if_metadata_io_read_i_atomic_step;
+	context->req->priv = context;
+
+	/* Allocate one 4k page for metadata*/
+	context->data = ctx_data_alloc(cache->owner, 1);
+	if (!context->data) {
+		ocf_req_put(context->req);
+		env_vfree(context);
+		return -OCF_ERR_NO_MEM;
+	}
+
+	context->cache = cache;
+	context->count = io_sectors_count;
+	context->curr_offset = 0;
+	context->curr_count = 0;
+	context->drain_hndl = drain_hndl;
+	context->compl_hndl = compl_hndl;
+	context->priv = priv;
+
+	ocf_engine_push_req_front(context->req, true);
+
+	return 0;
+}
+
 static void metadata_io_i_asynch_end(struct metadata_io_request *request,
 		int error);
+
 static int ocf_restart_meta_io(struct ocf_request *req);
 
 static struct ocf_io_if meta_restart_if = {
 		.read = ocf_restart_meta_io,
 		.write = ocf_restart_meta_io
 };
-
-/*
- * Get max pages for IO
- */
-static uint32_t metadata_io_max_page(ocf_cache_t cache)
-{
-	return ocf_volume_get_max_io_size(&cache->device->volume) / PAGE_SIZE;
-}
-
-/*
- * Iterative read end callback
- */
-static void metadata_io_read_i_atomic_end(struct ocf_io *io, int error)
-{
-	struct metadata_io_request_atomic *meta_atom_req = io->priv1;
-
-	OCF_DEBUG_TRACE(ocf_volume_get_cache(io->volume));
-
-	meta_atom_req->error |= error;
-	env_completion_complete(&meta_atom_req->complete);
-}
-
-/*
- * Iterative read request
- * TODO: Make this function asynchronous to enable async recovery
- *       in atomic mode.
- */
-int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue,
-		void *context, ocf_metadata_atomic_io_event_t drain_hndl,
-		ocf_metadata_io_end_t compl_hndl)
-{
-	uint64_t i;
-	uint64_t max_sectors_count = PAGE_SIZE / OCF_ATOMIC_METADATA_SIZE;
-	uint64_t io_sectors_count = cache->device->collision_table_entries *
-					ocf_line_sectors(cache);
-	uint64_t count, curr_count;
-	int result = 0;
-	struct ocf_io *io;
-	ctx_data_t *data;
-	struct metadata_io_request_atomic meta_atom_req;
-	unsigned char step = 0;
-
-	OCF_DEBUG_TRACE(cache);
-
-	/* Allocate one 4k page for metadata*/
-	data = ctx_data_alloc(cache->owner, 1);
-	if (!data)
-		return -OCF_ERR_NO_MEM;
-
-	count = io_sectors_count;
-	for (i = 0; i < io_sectors_count; i += curr_count) {
-		/* Get sectors count of this IO iteration */
-		curr_count = OCF_MIN(max_sectors_count, count);
-
-		env_completion_init(&meta_atom_req.complete);
-		meta_atom_req.error = 0;
-
-		/* Reset position in data buffer */
-		ctx_data_seek(cache->owner, data, ctx_data_seek_begin, 0);
-
-		/* Allocate new IO */
-		io = ocf_new_cache_io(cache);
-		if (!io) {
-			result = -OCF_ERR_NO_MEM;
-			break;
-		}
-
-		/* Setup IO */
-		ocf_io_configure(io,
-				cache->device->metadata_offset +
-					SECTORS_TO_BYTES(i),
-				SECTORS_TO_BYTES(curr_count),
-				OCF_READ, 0, 0);
-
-		ocf_io_set_queue(io, queue);
-		ocf_io_set_cmpl(io, &meta_atom_req, NULL,
-				metadata_io_read_i_atomic_end);
-		result = ocf_io_set_data(io, data, 0);
-		if (result) {
-			ocf_io_put(io);
-			break;
-		}
-
-		/* Submit IO */
-		ocf_volume_submit_metadata(io);
-		ocf_io_put(io);
-
-		/* Wait for completion of IO */
-		env_completion_wait(&meta_atom_req.complete);
-
-		/* Check for error */
-		if (meta_atom_req.error) {
-			result = meta_atom_req.error;
-			break;
-		}
-
-		result |= drain_hndl(cache, i, curr_count, data);
-		if (result)
-			break;
-
-		count -= curr_count;
-
-		OCF_COND_RESCHED(step, 128);
-	}
-
-	/* Memory free */
-	ctx_data_free(cache->owner, data);
-
-	compl_hndl(cache, context, result);
-
-	return 0;
-}
 
 static void metadata_io_i_asynch_cmpl(struct ocf_io *io, int error)
 {
@@ -270,6 +305,11 @@ static void metadata_io_i_asynch_end(struct metadata_io_request *request,
 	 */
 	env_atomic_set(&request->finished, 1);
 	ocf_metadata_updater_kick(cache);
+}
+
+static uint32_t metadata_io_max_page(ocf_cache_t cache)
+{
+	return ocf_volume_get_max_io_size(&cache->device->volume) / PAGE_SIZE;
 }
 
 static void metadata_io_req_error(ocf_cache_t cache,
