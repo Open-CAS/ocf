@@ -9,9 +9,8 @@
 #include "ocf_io_priv.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
-#include "utils/utils_req.h"
+#include "ocf_request.h"
 #include "utils/utils_part.h"
-#include "utils/utils_device.h"
 #include "ocf_request.h"
 #include "ocf_trace_priv.h"
 

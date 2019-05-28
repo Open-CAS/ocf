@@ -11,7 +11,7 @@
 #include "../concurrency/ocf_concurrency.h"
 #include "../mngt/ocf_mngt_common.h"
 #include "../engine/engine_zero.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 
 #define OCF_EVICTION_MAX_SCAN 1024
 

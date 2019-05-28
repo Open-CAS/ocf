@@ -30,7 +30,6 @@ struct ocf_ctx {
 
 	struct {
 		struct ocf_req_allocator *req;
-		env_allocator *core_io_allocator;
 	} resources;
 };
 

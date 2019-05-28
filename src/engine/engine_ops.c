@@ -7,7 +7,7 @@
 #include "engine_common.h"
 #include "cache_engine.h"
 #include "engine_ops.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_io.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "ops"

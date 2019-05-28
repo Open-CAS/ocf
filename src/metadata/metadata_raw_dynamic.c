@@ -11,7 +11,7 @@
 #include "../engine/cache_engine.h"
 #include "../engine/engine_common.h"
 #include "../utils/utils_io.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../ocf_def_priv.h"
 #include "../ocf_priv.h"
 

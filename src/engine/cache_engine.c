@@ -21,7 +21,7 @@
 #include "engine_ops.h"
 #include "../utils/utils_part.h"
 #include "../utils/utils_refcnt.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../metadata/metadata.h"
 #include "../eviction/eviction.h"
 

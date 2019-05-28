@@ -7,7 +7,7 @@
 #include "ocf_ctx_priv.h"
 #include "ocf_priv.h"
 #include "ocf_volume_priv.h"
-#include "ocf_utils.h"
+#include "ocf_request.h"
 #include "ocf_logger_priv.h"
 #include "ocf_core_priv.h"
 #include "mngt/ocf_mngt_core_pool_priv.h"
@@ -141,7 +141,7 @@ int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 	if (ret)
 		goto err_ctx;
 
-	ret = ocf_utils_init(ocf_ctx);
+	ret = ocf_req_allocator_init(ocf_ctx);
 	if (ret)
 		goto err_logger;
 
@@ -156,7 +156,7 @@ int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 	return 0;
 
 err_utils:
-	ocf_utils_deinit(ocf_ctx);
+	ocf_req_allocator_deinit(ocf_ctx);
 err_logger:
 	ocf_logger_close(&ocf_ctx->logger);
 err_ctx:
@@ -190,7 +190,7 @@ void ocf_ctx_put(ocf_ctx_t ctx)
 
 	ocf_mngt_core_pool_deinit(ctx);
 	ocf_core_volume_type_deinit(ctx);
-	ocf_utils_deinit(ctx);
+	ocf_req_allocator_deinit(ctx);
 	ocf_logger_close(&ctx->logger);
 	env_free(ctx);
 }

@@ -247,7 +247,7 @@ void ocf_volume_submit_flush(struct ocf_io *io)
 		io->end(io, -EIO);
 
 	if (!io->volume->type->properties->ops.submit_flush) {
-		ocf_io_end(io, 0); 
+		ocf_io_end(io, 0);
 		return;
 	}
 
@@ -260,7 +260,7 @@ void ocf_volume_submit_discard(struct ocf_io *io)
 		io->end(io, -EIO);
 
 	if (!io->volume->type->properties->ops.submit_discard) {
-		ocf_io_end(io, 0); 
+		ocf_io_end(io, 0);
 		return;
 	}
 

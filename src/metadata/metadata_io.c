@@ -9,7 +9,7 @@
 #include "../engine/engine_common.h"
 #include "../engine/engine_bf.h"
 #include "../utils/utils_cache_line.h"
-#include "../utils/utils_allocator.h"
+#include "../utils/utils_realloc.h"
 #include "../utils/utils_io.h"
 #include "../ocf_def_priv.h"
 

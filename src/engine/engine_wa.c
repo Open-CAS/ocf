@@ -7,7 +7,7 @@
 #include "engine_wa.h"
 #include "engine_common.h"
 #include "cache_engine.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_io.h"
 #include "../metadata/metadata.h"
 

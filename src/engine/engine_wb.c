@@ -9,7 +9,7 @@
 #include "engine_common.h"
 #include "engine_wb.h"
 #include "../metadata/metadata.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_part.h"
