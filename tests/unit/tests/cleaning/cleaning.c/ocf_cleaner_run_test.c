@@ -183,7 +183,7 @@ ocf_cache_t __wrap_ocf_cleaner_get_cache(ocf_cleaner_t c)
 	return mock_ptr_type(struct ocf_cache*);
 }
 
-bool __wrap_ocf_mngt_is_cache_locked(ocf_cache_t cache)
+bool __wrap_ocf_mngt_cache_is_locked(ocf_cache_t cache)
 {
 	function_called();
 	return mock();
@@ -207,13 +207,13 @@ int __wrap_env_bit_test(int nr, const void *addr)
 	return mock();
 }
 
-int __wrap_env_rwsem_down_write_trylock(env_rwsem *s)
+int __wrap_ocf_mngt_cache_trylock(env_rwsem *s)
 {
 	function_called();
 	return mock();
 }
 
-void __wrap_env_rwsem_up_write(env_rwsem *s)
+void __wrap_ocf_mngt_cache_unlock(env_rwsem *s)
 {
 	function_called();
 }
@@ -248,11 +248,11 @@ static void ocf_cleaner_run_test01(void **state)
 	expect_function_call(__wrap_env_bit_test);
 	will_return(__wrap_env_bit_test, 1);
 
-	expect_function_call(__wrap_ocf_mngt_is_cache_locked);
-	will_return(__wrap_ocf_mngt_is_cache_locked, 0);
+	expect_function_call(__wrap_ocf_mngt_cache_is_locked);
+	will_return(__wrap_ocf_mngt_cache_is_locked, 0);
 
-	expect_function_call(__wrap_env_rwsem_down_write_trylock);
-	will_return(__wrap_env_rwsem_down_write_trylock, 0);
+	expect_function_call(__wrap_ocf_mngt_cache_trylock);
+	will_return(__wrap_ocf_mngt_cache_trylock, 0);
 
 	expect_function_call(__wrap__ocf_cleaner_run_check_dirty_inactive);
 	will_return(__wrap__ocf_cleaner_run_check_dirty_inactive, 0);

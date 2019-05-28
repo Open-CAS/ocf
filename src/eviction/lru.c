@@ -328,7 +328,7 @@ static void evp_lru_clean(ocf_cache_t cache, ocf_queue_t io_queue,
 	};
 	int cnt;
 
-	if (ocf_mngt_is_cache_locked(cache))
+	if (ocf_mngt_cache_is_locked(cache))
 		return;
 
 	cnt = ocf_refcnt_inc(counter);

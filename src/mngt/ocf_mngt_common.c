@@ -126,6 +126,7 @@ void ocf_mngt_cache_put(ocf_cache_t cache)
 	if (ocf_refcnt_dec(&cache->refcnt.cache) == 0) {
 		ctx = cache->owner;
 		ocf_metadata_deinit(cache);
+		ocf_mngt_cache_lock_deinit(cache);
 		env_vfree(cache);
 		ocf_ctx_put(ctx);
 	}
@@ -175,94 +176,160 @@ int ocf_mngt_cache_get_by_id(ocf_ctx_t ocf_ctx, ocf_cache_id_t id, ocf_cache_t *
 	return error;
 }
 
-bool ocf_mngt_is_cache_locked(ocf_cache_t cache)
+typedef void (*ocf_lock_fn_t)(ocf_async_lock_waiter_t waiter);
+
+typedef int (*ocf_trylock_fn_t)(ocf_async_lock_t lock);
+
+typedef void (*ocf_unlock_fn_t)(ocf_async_lock_t lock);
+
+struct ocf_mngt_cache_lock_context {
+	ocf_cache_t cache;
+	ocf_unlock_fn_t unlock_fn;
+	ocf_mngt_cache_lock_end_t cmpl;
+	void *priv;
+};
+
+static void _ocf_mngt_cache_lock_complete(
+		ocf_async_lock_waiter_t waiter, int error)
 {
-	if (env_rwsem_is_locked(&cache->lock))
-		return true;
+	struct ocf_mngt_cache_lock_context *context;
+	ocf_cache_t cache;
 
-	if (env_atomic_read(&cache->lock_waiter))
-		return true;
+	context = ocf_async_lock_waiter_get_priv(waiter);
+	cache = context->cache;
 
-	return false;
+	if (error) {
+		ocf_mngt_cache_put(cache);
+		goto out;
+	}
+
+	if (env_bit_test(ocf_cache_state_stopping, &cache->cache_state)) {
+		/* Cache already stopping, do not allow any operation */
+		context->unlock_fn(ocf_async_lock_waiter_get_lock(waiter));
+		ocf_mngt_cache_put(cache);
+		error = -OCF_ERR_CACHE_NOT_EXIST;
+	}
+
+out:
+	context->cmpl(context->cache, context->priv, error);
+}
+
+static void _ocf_mngt_cache_lock(ocf_cache_t cache,
+		ocf_mngt_cache_lock_end_t cmpl, void *priv,
+		ocf_lock_fn_t lock_fn, ocf_unlock_fn_t unlock_fn)
+{
+	ocf_async_lock_waiter_t waiter;
+	struct ocf_mngt_cache_lock_context *context;
+
+	if (ocf_mngt_cache_get(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_NOT_EXIST);
+
+	waiter = ocf_async_lock_new_waiter(&cache->lock,
+			_ocf_mngt_cache_lock_complete);
+	if (!waiter) {
+		ocf_mngt_cache_put(cache);
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
+	}
+
+	context = ocf_async_lock_waiter_get_priv(waiter);
+	context->cache = cache;
+	context->unlock_fn = unlock_fn;
+	context->cmpl = cmpl;
+	context->priv = priv;
+
+	lock_fn(waiter);
+}
+
+static int _ocf_mngt_cache_trylock(ocf_cache_t cache,
+		ocf_trylock_fn_t trylock_fn, ocf_unlock_fn_t unlock_fn)
+{
+	int result;
+
+	if (ocf_mngt_cache_get(cache))
+		return -OCF_ERR_CACHE_NOT_EXIST;
+
+	result = trylock_fn(&cache->lock);
+	if (result)
+		return result;
+
+	if (env_bit_test(ocf_cache_state_stopping, &cache->cache_state)) {
+		/* Cache already stopping, do not allow any operation */
+		unlock_fn(&cache->lock);
+		return -OCF_ERR_CACHE_NOT_EXIST;
+	}
+
+	return 0;
 }
 
 static void _ocf_mngt_cache_unlock(ocf_cache_t cache,
-		void (*unlock_fn)(env_rwsem *s))
+		ocf_unlock_fn_t unlock_fn)
 {
 	unlock_fn(&cache->lock);
 	ocf_mngt_cache_put(cache);
 }
 
-void ocf_mngt_cache_unlock(ocf_cache_t cache)
+int ocf_mngt_cache_lock_init(ocf_cache_t cache)
 {
-	OCF_CHECK_NULL(cache);
-	_ocf_mngt_cache_unlock(cache, env_rwsem_up_write);
+	return ocf_async_lock_init(&cache->lock,
+			sizeof(struct ocf_mngt_cache_lock_context));
 }
 
-void ocf_mngt_cache_read_unlock(ocf_cache_t cache)
+void ocf_mngt_cache_lock_deinit(ocf_cache_t cache)
 {
-	OCF_CHECK_NULL(cache);
-	_ocf_mngt_cache_unlock(cache, env_rwsem_up_read);
+	ocf_async_lock_deinit(&cache->lock);
 }
 
-static int _ocf_mngt_cache_lock(ocf_cache_t cache, int (*lock_fn)(env_rwsem *s),
-		void (*unlock_fn)(env_rwsem *s))
-{
-	int ret;
-
-	/* Increment reference counter */
-	if (!ocf_refcnt_inc(&cache->refcnt.cache))
-		return -OCF_ERR_CACHE_NOT_EXIST;
-
-	env_atomic_inc(&cache->lock_waiter);
-	ret = lock_fn(&cache->lock);
-	env_atomic_dec(&cache->lock_waiter);
-
-	if (ret) {
-		ocf_mngt_cache_put(cache);
-		return ret;
-	}
-
-	if (env_bit_test(ocf_cache_state_stopping, &cache->cache_state)) {
-		/* Cache already stooping, do not allow any operation */
-		ret = -OCF_ERR_CACHE_NOT_EXIST;
-		goto unlock;
-	}
-
-	return 0;
-
-unlock:
-	_ocf_mngt_cache_unlock(cache, unlock_fn);
-
-	return ret;
-}
-
-int ocf_mngt_cache_lock(ocf_cache_t cache)
+void ocf_mngt_cache_lock(ocf_cache_t cache,
+		ocf_mngt_cache_lock_end_t cmpl, void *priv)
 {
 	OCF_CHECK_NULL(cache);
-	return _ocf_mngt_cache_lock(cache, env_rwsem_down_write_interruptible,
-			env_rwsem_up_write);
-}
 
-int ocf_mngt_cache_read_lock(ocf_cache_t cache)
-{
-	OCF_CHECK_NULL(cache);
-	return _ocf_mngt_cache_lock(cache, env_rwsem_down_read_interruptible,
-			env_rwsem_up_read);
+	_ocf_mngt_cache_lock(cache, cmpl, priv,
+			ocf_async_lock, ocf_async_unlock);
 }
 
 int ocf_mngt_cache_trylock(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	return _ocf_mngt_cache_lock(cache, env_rwsem_down_write_trylock,
-			env_rwsem_up_write);
+
+	return _ocf_mngt_cache_trylock(cache,
+			ocf_async_trylock, ocf_async_unlock);
+}
+
+void ocf_mngt_cache_unlock(ocf_cache_t cache)
+{
+	OCF_CHECK_NULL(cache);
+
+	_ocf_mngt_cache_unlock(cache, ocf_async_unlock);
+}
+
+void ocf_mngt_cache_read_lock(ocf_cache_t cache,
+		ocf_mngt_cache_lock_end_t cmpl, void *priv)
+{
+	OCF_CHECK_NULL(cache);
+
+	_ocf_mngt_cache_lock(cache, cmpl, priv,
+			ocf_async_read_lock, ocf_async_read_unlock);
 }
 
 int ocf_mngt_cache_read_trylock(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	return _ocf_mngt_cache_lock(cache, env_rwsem_down_read_trylock,
-			env_rwsem_up_read);
+
+	return _ocf_mngt_cache_trylock(cache,
+			ocf_async_read_trylock, ocf_async_read_unlock);
+}
+
+void ocf_mngt_cache_read_unlock(ocf_cache_t cache)
+{
+	OCF_CHECK_NULL(cache);
+
+	_ocf_mngt_cache_unlock(cache, ocf_async_read_unlock);
+}
+
+bool ocf_mngt_cache_is_locked(ocf_cache_t cache)
+{
+	return ocf_async_is_locked(&cache->lock);
 }
 
 /* if cache is either fully initialized or during recovery */
@@ -305,7 +372,6 @@ static int _ocf_mngt_cache_get_list_cpy(ocf_ctx_t ocf_ctx, ocf_cache_t **list,
 	}
 
 	list_for_each_entry(iter, &ocf_ctx->caches, list) {
-
 		if (_ocf_mngt_cache_try_get(iter))
 			(*list)[i++] = iter;
 	}

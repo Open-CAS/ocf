@@ -28,6 +28,9 @@ int ocf_mngt_add_partition_to_cache(struct ocf_cache *cache,
 		ocf_part_id_t part_id, const char *name, uint32_t min_size,
 		uint32_t max_size, uint8_t priority, bool valid);
 
-bool ocf_mngt_is_cache_locked(ocf_cache_t cache);
+int ocf_mngt_cache_lock_init(ocf_cache_t cache);
+void ocf_mngt_cache_lock_deinit(ocf_cache_t cache);
+
+bool ocf_mngt_cache_is_locked(ocf_cache_t cache);
 
 #endif /* __OCF_MNGT_COMMON_H__ */

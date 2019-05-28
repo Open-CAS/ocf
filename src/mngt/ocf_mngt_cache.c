@@ -17,6 +17,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_pipeline.h"
 #include "../utils/utils_refcnt.h"
+#include "../utils/utils_async_lock.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../eviction/ops.h"
 #include "../ocf_ctx_priv.h"
@@ -551,8 +552,15 @@ static int _ocf_mngt_init_new_cache(struct ocf_cachemng_init_params *params)
 	if (!cache)
 		return -OCF_ERR_NO_MEM;
 
-	if (env_rwsem_init(&cache->lock) ||
-			env_mutex_init(&cache->flush_mutex)) {
+	if (ocf_mngt_cache_lock_init(cache)) {
+		env_vfree(cache);
+		return -OCF_ERR_NO_MEM;
+	}
+
+	/* Lock cache during setup - this trylock should always succeed */
+	ENV_BUG_ON(ocf_mngt_cache_trylock(cache));
+
+	if (env_mutex_init(&cache->flush_mutex)) {
 		env_vfree(cache);
 		return -OCF_ERR_NO_MEM;
 	}
@@ -694,7 +702,6 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cachemng_init_params *param,
 	cache->backfill.max_queue_size = cfg->backfill.max_queue_size;
 	cache->backfill.queue_unblock_size = cfg->backfill.queue_unblock_size;
 
-	env_rwsem_down_write(&cache->lock); /* Lock cache during setup */
 	param->flags.cache_locked = true;
 
 	cache->pt_unaligned_io = cfg->pt_unaligned_io;
@@ -1216,17 +1223,11 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	ocf_ctx_get(ctx);
 
-	if (params.locked) {
-		/* Increment reference counter to match cache_lock /
-		   cache_unlock convention. User is expected to call
-		   ocf_mngt_cache_unlock in future which would up the
-		   semaphore as well as decrement ref_count. */
-		ocf_refcnt_inc(&(*cache)->refcnt.cache);
-	} else {
+	if (!params.locked) {
 		/* User did not request to lock cache instance after creation -
-		   up the semaphore here since we have acquired the lock to
+		   unlock it here since we have acquired the lock to
 		   perform management operations. */
-		env_rwsem_up_write(&(*cache)->lock);
+		ocf_mngt_cache_unlock(*cache);
 		params.flags.cache_locked = false;
 	}
 
