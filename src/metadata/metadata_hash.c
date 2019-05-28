@@ -503,6 +503,10 @@ int ocf_metadata_hash_init(struct ocf_cache *cache,
 	struct ocf_metadata *metadata = &cache->metadata;
 	struct ocf_cache_line_settings *settings =
 		(struct ocf_cache_line_settings *)&metadata->settings;
+	struct ocf_core_meta_config *core_meta_config;
+	struct ocf_core_meta_runtime *core_meta_runtime;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 	uint32_t i = 0;
 	int result = 0;
 
@@ -525,23 +529,28 @@ int ocf_metadata_hash_init(struct ocf_cache *cache,
 
 	if (result) {
 		ocf_metadata_hash_deinit(cache);
-	} else {
-		cache->conf_meta = METADATA_MEM_POOL(ctrl,
-				metadata_segment_sb_config);
-
-		/* Set core metadata */
-		cache->core_conf_meta = METADATA_MEM_POOL(ctrl,
-				metadata_segment_core_config);
-
-		cache->core_runtime_meta = METADATA_MEM_POOL(ctrl,
-				metadata_segment_core_runtime);
-
-		env_spinlock_init(&cache->metadata.lock.eviction);
-		env_rwlock_init(&cache->metadata.lock.status);
-		env_rwsem_init(&cache->metadata.lock.collision);
+		return result;
 	}
 
-	return result;
+	cache->conf_meta = METADATA_MEM_POOL(ctrl,
+			metadata_segment_sb_config);
+
+	/* Set core metadata */
+	core_meta_config = METADATA_MEM_POOL(ctrl,
+			metadata_segment_core_config);
+	core_meta_runtime = METADATA_MEM_POOL(ctrl,
+			metadata_segment_core_runtime);
+
+	for_each_core_all(cache, core, core_id) {
+		core->conf_meta = &core_meta_config[core_id];
+		core->runtime_meta = &core_meta_runtime[core_id];
+	}
+
+	env_spinlock_init(&cache->metadata.lock.eviction);
+	env_rwlock_init(&cache->metadata.lock.status);
+	env_rwsem_init(&cache->metadata.lock.collision);
+
+	return 0;
 }
 
 /* metadata segment data + iterators */
@@ -1276,24 +1285,23 @@ static void ocf_medatata_hash_load_superblock_post(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 	struct ocf_metadata_uuid *muuid;
 	struct ocf_volume_uuid uuid;
-	uint32_t i;
+	ocf_volume_type_t volume_type;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 
 	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.iface_priv;
 	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 
-	for (i = 0; i < OCF_CORE_MAX; i++) {
-		if (!cache->core_conf_meta[i].added)
-			continue;
-
-		muuid = ocf_metadata_get_core_uuid(cache, i);
+	for_each_core(cache, core, core_id) {
+		muuid = ocf_metadata_get_core_uuid(cache, core_id);
 		uuid.data = muuid->data;
 		uuid.size = muuid->size;
 
+		volume_type = ocf_ctx_get_volume_type(cache->owner,
+				core->conf_meta->type);
+
 		/* Initialize core volume */
-		ocf_volume_init(&cache->core[i].volume,
-				ocf_ctx_get_volume_type(cache->owner,
-						cache->core_conf_meta[i].type),
-				&uuid, false);
+		ocf_volume_init(&core->volume, volume_type, &uuid, false);
 	}
 
 	/* Restore all dynamics items */
@@ -1401,12 +1409,13 @@ static void ocf_medatata_hash_flush_superblock_prepare(ocf_pipeline_t pipeline,
 {
 	struct ocf_metadata_hash_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	uint32_t i;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 
 	/* Synchronize core objects types */
-	for (i = 0; i < OCF_CORE_MAX; i++) {
-		cache->core_conf_meta[i].type = ocf_ctx_get_volume_type_id(
-				cache->owner, cache->core[i].volume.type);
+	for_each_core(cache, core, core_id) {
+		core->conf_meta->type = ocf_ctx_get_volume_type_id(
+				cache->owner, core->volume.type);
 	}
 
 	ocf_pipeline_next(pipeline);
@@ -1800,10 +1809,11 @@ static void ocf_metadata_hash_load_all(ocf_cache_t cache,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _recovery_rebuild_cline_metadata(struct ocf_cache *cache,
+static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
 		ocf_core_id_t core_id, uint64_t core_line,
 		ocf_cache_line_t cache_line)
 {
+	ocf_core_t core = ocf_cache_get_core(cache, core_id);
 	ocf_part_id_t part_id;
 	ocf_cache_line_t hash_index;
 
@@ -1821,17 +1831,16 @@ static void _recovery_rebuild_cline_metadata(struct ocf_cache *cache,
 
 	ocf_eviction_set_hot_cache_line(cache, cache_line);
 
-	env_atomic_inc(&cache->core_runtime_meta[core_id].cached_clines);
-	env_atomic_inc(&cache->core_runtime_meta[core_id].
+	env_atomic_inc(&core->runtime_meta->cached_clines);
+	env_atomic_inc(&core->runtime_meta->
 			part_counters[part_id].cached_clines);
 
 	if (metadata_test_dirty(cache, cache_line)) {
-		env_atomic_inc(&cache->core_runtime_meta[core_id].
-				dirty_clines);
-		env_atomic_inc(&cache->core_runtime_meta[core_id].
+		env_atomic_inc(&core->runtime_meta->dirty_clines);
+		env_atomic_inc(&core->runtime_meta->
 				part_counters[part_id].dirty_clines);
-		env_atomic64_cmpxchg(&cache->core_runtime_meta[core_id].
-				dirty_since, 0, env_get_tick_count());
+		env_atomic64_cmpxchg(&core->runtime_meta->dirty_since,
+				0, env_get_tick_count());
 	}
 }
 
@@ -1962,16 +1971,18 @@ static void _ocf_metadata_hash_load_recovery_legacy(ocf_cache_t cache,
 static ocf_core_id_t _ocf_metadata_hash_find_core_by_seq(
 		struct ocf_cache *cache, ocf_seq_no_t seq_no)
 {
-	ocf_core_id_t i;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 
 	if (seq_no == OCF_SEQ_NO_INVALID)
 		return OCF_CORE_ID_INVALID;
 
-	for (i = OCF_CORE_ID_MIN; i <= OCF_CORE_ID_MAX; i++)
-		if (cache->core_conf_meta[i].seq_no == seq_no)
+	for_each_core_all(cache, core, core_id) {
+		if (core->conf_meta->seq_no == seq_no)
 			break;
+	}
 
-	return i;
+	return core_id;
 }
 
 static void ocf_metadata_hash_load_atomic_metadata_complete(

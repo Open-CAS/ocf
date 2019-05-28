@@ -7,16 +7,15 @@
 #ifndef __OCF_MNGT_COMMON_H__
 #define __OCF_MNGT_COMMON_H__
 
-int cache_mng_core_close(ocf_cache_t cache, ocf_core_id_t core_id);
+int cache_mng_core_close(ocf_core_t core);
 
-void cache_mng_core_remove_from_meta(struct ocf_cache *cache, int core_id);
+void cache_mng_core_remove_from_meta(ocf_core_t core);
 
-void cache_mng_core_remove_from_cache(struct ocf_cache *cache, int core_id);
+void cache_mng_core_remove_from_cache(ocf_core_t core);
 
-void cache_mng_core_deinit_attached_meta(struct ocf_cache *cache, int core_id);
+void cache_mng_core_deinit_attached_meta(ocf_core_t core);
 
-void cache_mng_core_remove_from_cleaning_pol(struct ocf_cache *cache,
-		int core_id);
+void cache_mng_core_remove_from_cleaning_pol(ocf_core_t core);
 
 int _ocf_cleaning_thread(void *priv);
 

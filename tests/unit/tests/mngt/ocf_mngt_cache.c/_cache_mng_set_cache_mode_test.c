@@ -76,8 +76,6 @@ int __wrap_ocf_metadata_flush_superblock(struct ocf_cache *cache)
 
 bool __wrap_env_bit_test(int nr, const volatile unsigned long *addr)
 {
-	function_called();
-	return mock();
 }
 
 void __wrap_env_atomic_set(env_atomic *a, int i)
@@ -267,6 +265,11 @@ void __wrap_ocf_mngt_cache_save_finish(
 {
 }
 
+void _cache_mng_update_initial_dirty_clines(ocf_cache_t cache)
+{
+	function_called();
+}
+
 static void _cache_mng_set_cache_mode_test01(void **state)
 {
 	ocf_cache_mode_t mode_old = -20;
@@ -348,14 +351,7 @@ static void _cache_mng_set_cache_mode_test03(void **state)
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
 
-	for(i = 0; i != OCF_CORE_MAX; ++i) {
-		expect_function_call(__wrap_env_bit_test);
-		will_return(__wrap_env_bit_test, 1);
-
-		expect_function_call(__wrap_env_atomic_read);
-		will_return(__wrap_env_atomic_read, 1);
-		expect_function_call(__wrap_env_atomic_set);
-	}
+	expect_function_call(_cache_mng_update_initial_dirty_clines);
 
 	expect_function_call(__wrap_ocf_log_raw);
 	will_return(__wrap_ocf_log_raw, 0);

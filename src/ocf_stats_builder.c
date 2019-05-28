@@ -47,15 +47,11 @@ static uint64_t _bytes4k(uint64_t bytes)
 static uint64_t _get_cache_occupancy(ocf_cache_t cache)
 {
 	uint64_t result = 0;
-	uint32_t i;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 
-	for (i = 0; i != OCF_CORE_MAX; ++i) {
-		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
-			continue;
-
-		result += env_atomic_read(
-				&cache->core_runtime_meta[i].cached_clines);
-	}
+	for_each_core(cache, core, core_id)
+		result += env_atomic_read(&core->runtime_meta->cached_clines);
 
 	return result;
 }

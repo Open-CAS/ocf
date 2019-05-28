@@ -37,55 +37,6 @@ struct ocf_trace {
 	env_atomic64 trace_seq_ref;
 };
 
-struct ocf_metadata_uuid {
-	uint32_t size;
-	uint8_t data[OCF_VOLUME_UUID_MAX_SIZE];
-} __packed;
-
-#define OCF_CORE_USER_DATA_SIZE 64
-
-struct ocf_core_meta_config {
-	uint8_t type;
-
-	/* This bit means that object was added into cache */
-	uint32_t added : 1;
-
-	/* Core sequence number used to correlate cache lines with cores
-	 * when recovering from atomic device */
-	ocf_seq_no_t seq_no;
-
-	/* Sequential cutoff threshold (in bytes) */
-	uint32_t seq_cutoff_threshold;
-
-	/* Sequential cutoff policy */
-	ocf_seq_cutoff_policy seq_cutoff_policy;
-
-	/* core object size in bytes */
-	uint64_t length;
-
-	uint8_t user_data[OCF_CORE_USER_DATA_SIZE];
-};
-
-struct ocf_core_meta_runtime {
-	/* Number of blocks from that objects that currently are cached
-	 * on the caching device.
-	 */
-	env_atomic cached_clines;
-	env_atomic dirty_clines;
-	env_atomic initial_dirty_clines;
-
-	env_atomic64 dirty_since;
-
-	struct {
-		/* clines within lru list (?) */
-		env_atomic cached_clines;
-		/* dirty clines assigned to this specific partition within
-		 * cache device
-		 */
-		env_atomic dirty_clines;
-	} part_counters[OCF_IO_CLASS_MAX];
-};
-
 /**
  * @brief Initialization mode of cache instance
  */
@@ -193,8 +144,6 @@ struct ocf_cache {
 
 	uint16_t ocf_core_inactive_count;
 	struct ocf_core core[OCF_CORE_MAX];
-	struct ocf_core_meta_config *core_conf_meta;
-	struct ocf_core_meta_runtime *core_runtime_meta;
 
 	env_atomic flush_in_progress;
 
@@ -223,6 +172,12 @@ struct ocf_cache {
 
 	void *priv;
 };
+
+static inline ocf_core_t ocf_cache_get_core(ocf_cache_t cache,
+		ocf_core_id_t core_id)
+{
+	return &cache->core[core_id];
+}
 
 #define ocf_cache_log_prefix(cache, lvl, prefix, fmt, ...) \
 	ocf_log_prefix(ocf_cache_get_ctx(cache), lvl, "%s" prefix, \

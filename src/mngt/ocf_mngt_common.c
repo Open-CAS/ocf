@@ -17,21 +17,22 @@
 #include "../engine/engine_common.h"
 
 /* Close if opened */
-int cache_mng_core_close(ocf_cache_t cache, ocf_core_id_t core_id)
+int cache_mng_core_close(ocf_core_t core)
 {
-	if (!cache->core[core_id].opened)
+	if (!core->opened)
 		return -OCF_ERR_CORE_IN_INACTIVE_STATE;
 
-	ocf_volume_close(&cache->core[core_id].volume);
-	cache->core[core_id].opened = false;
+	ocf_volume_close(&core->volume);
+	core->opened = false;
 
 	return 0;
 }
 
 /* Remove core from cleaning policy */
-void cache_mng_core_remove_from_cleaning_pol(struct ocf_cache *cache,
-		int core_id)
+void cache_mng_core_remove_from_cleaning_pol(ocf_core_t core)
 {
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	ocf_core_id_t core_id = ocf_core_get_id(core);
 	ocf_cleaning_t clean_pol_type;
 
 	OCF_METADATA_LOCK_WR();
@@ -48,16 +49,15 @@ void cache_mng_core_remove_from_cleaning_pol(struct ocf_cache *cache,
 }
 
 /* Deinitialize core metadata in attached metadata */
-void cache_mng_core_deinit_attached_meta(struct ocf_cache *cache, int core_id)
+void cache_mng_core_deinit_attached_meta(ocf_core_t core)
 {
 	int retry = 1;
 	uint64_t core_size = 0;
 	ocf_cleaning_t clean_pol_type;
-	ocf_volume_t core;
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	ocf_core_id_t core_id = ocf_core_get_id(core);
 
-	core = &cache->core[core_id].volume;
-
-	core_size = ocf_volume_get_length(core);
+	core_size = ocf_volume_get_length(&core->volume);
 	if (!core_size)
 		core_size = ~0ULL;
 
@@ -88,31 +88,34 @@ void cache_mng_core_deinit_attached_meta(struct ocf_cache *cache, int core_id)
 }
 
 /* Mark core as removed in metadata */
-void cache_mng_core_remove_from_meta(struct ocf_cache *cache, int core_id)
+void cache_mng_core_remove_from_meta(ocf_core_t core)
 {
+	ocf_cache_t cache = ocf_core_get_cache(core);
+
 	OCF_METADATA_LOCK_WR();
 
 	/* In metadata mark data this core was removed from cache */
-	cache->core_conf_meta[core_id].added = false;
+	core->conf_meta->added = false;
 
 	/* Clear UUID of core */
-	ocf_mngt_core_clear_uuid_metadata(&cache->core[core_id]);
-	cache->core_conf_meta[core_id].seq_no = OCF_SEQ_NO_INVALID;
+	ocf_mngt_core_clear_uuid_metadata(core);
+	core->conf_meta->seq_no = OCF_SEQ_NO_INVALID;
 
 	OCF_METADATA_UNLOCK_WR();
 }
 
 /* Deinit in-memory structures related to this core */
-void cache_mng_core_remove_from_cache(struct ocf_cache *cache, int core_id)
+void cache_mng_core_remove_from_cache(ocf_core_t core)
 {
-	env_free(cache->core[core_id].counters);
-	cache->core[core_id].counters = NULL;
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	ocf_core_id_t core_id = ocf_core_get_id(core);
+
+	env_free(core->counters);
+	core->counters = NULL;
 	env_bit_clear(core_id, cache->conf_meta->valid_core_bitmap);
 
-	if (!cache->core[core_id].opened &&
-			--cache->ocf_core_inactive_count == 0) {
+	if (!core->opened && --cache->ocf_core_inactive_count == 0)
 		env_bit_clear(ocf_cache_state_incomplete, &cache->cache_state);
-	}
 
 	cache->conf_meta->core_count--;
 }

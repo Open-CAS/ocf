@@ -9,7 +9,6 @@
 #include "engine/cache_engine.h"
 #include "utils/utils_part.h"
 #include "utils/utils_cache_line.h"
-#include "utils/utils_core.h"
 
 #ifdef OCF_DEBUG_STATS
 static void ocf_stats_debug_init(struct ocf_counters_debug *stats)
@@ -165,10 +164,10 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 		struct ocf_stats_io_class *stats)
 {
 	ocf_cache_t cache;
-	uint32_t i;
 	uint32_t cache_occupancy_total = 0;
 	struct ocf_counters_part *part_stat;
-	ocf_core_id_t core_id;
+	ocf_core_t i_core;
+	ocf_core_id_t i_core_id;
 
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(stats);
@@ -176,25 +175,22 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 	if (part_id < OCF_IO_CLASS_ID_MIN || part_id > OCF_IO_CLASS_ID_MAX)
 		return -OCF_ERR_INVAL;
 
-	core_id = ocf_core_get_id(core);
 	cache = ocf_core_get_cache(core);
 
 	if (!ocf_part_is_valid(&cache->user_parts[part_id]))
 		return -OCF_ERR_IO_CLASS_NOT_EXIST;
 
-	for_each_core(cache, i) {
+	for_each_core(cache, i_core, i_core_id) {
 		cache_occupancy_total += env_atomic_read(
-				&cache->core_runtime_meta[i].cached_clines);
+				&i_core->runtime_meta->cached_clines);
 	}
 
 	part_stat = &core->counters->part_counters[part_id];
 
-	stats->occupancy_clines = env_atomic_read(&cache->
-		core_runtime_meta[core_id].part_counters[part_id].
-			cached_clines);
-	stats->dirty_clines = env_atomic_read(&cache->
-		core_runtime_meta[core_id].part_counters[part_id].
-			dirty_clines);
+	stats->occupancy_clines = env_atomic_read(&core->runtime_meta->
+			part_counters[part_id].cached_clines);
+	stats->dirty_clines = env_atomic_read(&core->runtime_meta->
+			part_counters[part_id].dirty_clines);
 
 	stats->free_clines = cache->conf_meta->cachelines -
 			cache_occupancy_total;
@@ -242,7 +238,7 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 	stats->seq_cutoff_policy = ocf_core_get_seq_cutoff_policy(core);
 
 
-	env_atomic_read(&cache->core_runtime_meta[core_id].cached_clines);
+	env_atomic_read(&core->runtime_meta->cached_clines);
 
 	copy_block_stats(&stats->core_volume, &core_stats->core_blocks);
 	copy_block_stats(&stats->cache_volume, &core_stats->cache_blocks);
@@ -267,18 +263,16 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 
 		accum_block_stats(&stats->core, &curr->blocks);
 
-		stats->cache_occupancy += env_atomic_read(&cache->
-				core_runtime_meta[core_id].part_counters[i].
-						cached_clines);
-		stats->dirty += env_atomic_read(&cache->
-				core_runtime_meta[core_id].part_counters[i].
-						dirty_clines);
+		stats->cache_occupancy += env_atomic_read(&core->runtime_meta->
+				part_counters[i].cached_clines);
+		stats->dirty += env_atomic_read(&core->runtime_meta->
+				part_counters[i].dirty_clines);
 	}
 
 	stats->flushed = env_atomic_read(&core->flushed);
 
 	stats->dirty_for = _calc_dirty_for(
-		env_atomic64_read(&cache->core_runtime_meta[core_id].dirty_since));
+			env_atomic64_read(&core->runtime_meta->dirty_since));
 
 	return 0;
 }
