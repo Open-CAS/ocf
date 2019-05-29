@@ -6,6 +6,7 @@
 #include "ocf/ocf.h"
 #include "ocf_io_priv.h"
 #include "ocf_volume_priv.h"
+#include "utils/utils_io_allocator.h"
 
 /*
  * This is io allocator dedicated for bottom devices.
@@ -26,17 +27,49 @@
  *                 +-------------------------+ <----------------
  */
 
-#define OCF_IO_TOTAL_SIZE(priv_size) \
+#define OCF_IO_TOTAL(priv_size) \
 		(sizeof(struct ocf_io_internal) + priv_size)
 
-env_allocator *ocf_io_allocator_create(uint32_t size, const char *name)
+static int ocf_io_allocator_default_init(ocf_io_allocator_t allocator,
+		uint32_t priv_size, const char *name)
 {
-	return env_allocator_create(OCF_IO_TOTAL_SIZE(size), name);
+	allocator->priv = env_allocator_create(OCF_IO_TOTAL(priv_size), name);
+	if (!allocator->priv)
+		return -OCF_ERR_NO_MEM;
+
+	return 0;
 }
 
-void ocf_io_allocator_destroy(env_allocator *allocator)
+static void ocf_io_allocator_default_deinit(ocf_io_allocator_t allocator)
 {
-	env_allocator_destroy(allocator);
+	env_allocator_destroy(allocator->priv);
+	allocator->priv = NULL;
+}
+
+static void *ocf_io_allocator_default_new(ocf_io_allocator_t allocator,
+		ocf_volume_t volume, ocf_queue_t queue,
+		uint64_t addr, uint32_t bytes, uint32_t dir)
+{
+	return env_allocator_new(allocator->priv);
+}
+
+static void ocf_io_allocator_default_del(ocf_io_allocator_t allocator, void *obj)
+{
+	env_allocator_del(allocator->priv, obj);
+}
+
+const struct ocf_io_allocator_type type_default = {
+	.ops = {
+		.allocator_init = ocf_io_allocator_default_init,
+		.allocator_deinit = ocf_io_allocator_default_deinit,
+		.allocator_new = ocf_io_allocator_default_new,
+		.allocator_del = ocf_io_allocator_default_del,
+	},
+};
+
+ocf_io_allocator_type_t ocf_io_allocator_get_type_default(void)
+{
+	return &type_default;
 }
 
 /*
@@ -57,7 +90,8 @@ struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 	if (!ocf_refcnt_inc(&volume->refcnt))
 		return NULL;
 
-	ioi = env_allocator_new(volume->type->allocator);
+	ioi = ocf_io_allocator_new(&volume->type->allocator, volume, queue,
+			addr, bytes, dir);
 	if (!ioi) {
 		ocf_refcnt_dec(&volume->refcnt);
 		return NULL;
@@ -116,7 +150,7 @@ void ocf_io_put(struct ocf_io *io)
 
 	ocf_refcnt_dec(&ioi->meta.volume->refcnt);
 
-	env_allocator_del(ioi->meta.volume->type->allocator, (void *)ioi);
+	ocf_io_allocator_del(&ioi->meta.volume->type->allocator, (void *)ioi);
 }
 
 ocf_volume_t ocf_io_get_volume(struct ocf_io *io)

@@ -658,16 +658,6 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 		cache_stats = &cache->core[iter->core_id].
 				counters->cache_blocks;
 
-		io = ocf_new_cache_io(cache, req->io_queue,
-				addr, ocf_line_size(cache),
-				OCF_READ, part_id, 0);
-		if (!io) {
-			/* Allocation error */
-			iter->invalid = true;
-			_ocf_cleaner_set_error(req);
-			continue;
-		}
-
 		OCF_DEBUG_PARAM(req->cache, "Cache read, line =  %u",
 				iter->coll_idx);
 
@@ -679,6 +669,16 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 		offset = ocf_line_size(cache) * iter->hash_key;
 
 		part_id = ocf_metadata_get_partition_id(cache, iter->coll_idx);
+
+		io = ocf_new_cache_io(cache, req->io_queue,
+				addr, ocf_line_size(cache),
+				OCF_READ, part_id, 0);
+		if (!io) {
+			/* Allocation error */
+			iter->invalid = true;
+			_ocf_cleaner_set_error(req);
+			continue;
+		}
 
 		ocf_io_set_cmpl(io, iter, req, _ocf_cleaner_cache_io_cmpl);
 		err = ocf_io_set_data(io, req->data, offset);

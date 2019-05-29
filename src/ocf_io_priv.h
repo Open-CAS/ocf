@@ -8,6 +8,7 @@
 
 #include "ocf/ocf.h"
 #include "ocf_request.h"
+#include "utils/utils_io_allocator.h"
 
 struct ocf_io_meta {
 	ocf_volume_t volume;
@@ -21,9 +22,9 @@ struct ocf_io_internal {
 	struct ocf_io io;
 };
 
-env_allocator *ocf_io_allocator_create(uint32_t size, const char *name);
+int ocf_io_allocator_init(ocf_io_allocator_t allocator, ocf_io_allocator_type_t type,
+		uint32_t priv_size, const char *name);
 
-void ocf_io_allocator_destroy(env_allocator *allocator);
 
 struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir,

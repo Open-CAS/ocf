@@ -9,10 +9,15 @@
 #include "ocf_env.h"
 #include "ocf_io_priv.h"
 #include "utils/utils_refcnt.h"
+#include "utils/utils_io_allocator.h"
+
+struct ocf_volume_extended {
+	ocf_io_allocator_type_t allocator_type;
+};
 
 struct ocf_volume_type {
 	const struct ocf_volume_properties *properties;
-	env_allocator *allocator;
+	struct ocf_io_allocator allocator;
 };
 
 struct ocf_volume {
@@ -31,7 +36,8 @@ struct ocf_volume {
 };
 
 int ocf_volume_type_init(struct ocf_volume_type **type,
-		const struct ocf_volume_properties *properties);
+		const struct ocf_volume_properties *properties,
+		const struct ocf_volume_extended *extended);
 
 void ocf_volume_type_deinit(struct ocf_volume_type *type);
 
