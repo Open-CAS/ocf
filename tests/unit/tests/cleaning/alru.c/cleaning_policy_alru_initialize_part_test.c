@@ -35,9 +35,8 @@
 #include "../concurrency/ocf_cache_concurrency.h"
 #include "../ocf_def_priv.h"
 
-void _alru_rebuild(struct ocf_cache *cache)
-{
-}
+#include "cleaning/alru.c/cleaning_policy_alru_initialize_part_test_generated_warps.c"
+
 
 static void cleaning_policy_alru_initialize_test01(void **state)
 {

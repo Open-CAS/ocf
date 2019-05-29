@@ -22,6 +22,8 @@
 
 #include "../utils/utils_refcnt.h"
 
+#include "utils/utils_refcnt.c/utils_refcnt_register_zero_cb_generated_warps.c"
+
 static void zero_cb(void *ctx)
 {
 	function_called();

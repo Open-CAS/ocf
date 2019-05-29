@@ -35,36 +35,7 @@
 #include "../eviction/ops.h"
 #include "ocf_env.h"
 
-/* Mocks reqired for compilation */
-int __wrap_ocf_log_raw(const struct ocf_logger *logger, ocf_logger_lvl_t lvl,
-		const char *fmt, ...)
-{
-}
-
-ocf_ctx_t __wrap_ocf_cache_get_ctx(ocf_cache_t cache)
-{
-}
-
-char *__wrap_ocf_cache_get_name(ocf_cache_t cache)
-{
-}
-
-int __wrap_ocf_mngt_cache_lock(ocf_cache_t cache)
-{
-	return 0;
-}
-
-void __wrap_ocf_mngt_cache_unlock(ocf_cache_t cache)
-{
-}
-
-void __wrap_ocf_metadata_lock(struct ocf_cache *cache, int rw)
-{
-}
-
-void __wrap_ocf_metadata_unlock(struct ocf_cache *cache, int rw)
-{
-}
+#include "mngt/ocf_mngt_io_class.c/ocf_mngt_io_class_generated_warps.c"
 
 /* Functions mocked for testing purposes */
 bool __wrap_ocf_part_is_added(struct ocf_user_part *part)
