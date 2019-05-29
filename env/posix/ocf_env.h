@@ -473,9 +473,9 @@ static inline long env_atomic64_inc_return(env_atomic64 *a)
 	return __sync_add_and_fetch(&a->counter, 1);
 }
 
-static inline long env_atomic64_cmpxchg(env_atomic64 *a, long old, long new)
+static inline long env_atomic64_cmpxchg(env_atomic64 *a, long old_v, long new_v)
 {
-	return __sync_val_compare_and_swap(&a->counter, old, new);
+	return __sync_val_compare_and_swap(&a->counter, old_v, new_v);
 }
 
 /* *** SPIN LOCKS *** */
