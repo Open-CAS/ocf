@@ -156,8 +156,9 @@ static int _ocf_write_wt_do(struct ocf_request *req)
 }
 
 static const struct ocf_io_if _io_if_wt_resume = {
-		.read = _ocf_write_wt_do,
-		.write = _ocf_write_wt_do,
+	.read = _ocf_write_wt_do,
+	.write = _ocf_write_wt_do,
+	.resume = ocf_engine_on_resume,
 };
 
 int ocf_write_wt(struct ocf_request *req)
@@ -171,8 +172,7 @@ int ocf_write_wt(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	/* Set resume call backs */
-	req->resume = ocf_engine_on_resume;
+	/* Set resume io_if */
 	req->io_if = &_io_if_wt_resume;
 
 	OCF_METADATA_LOCK_RD(); /*- Metadata READ access, No eviction --------*/

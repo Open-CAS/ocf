@@ -703,23 +703,22 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_fire_cache = {
-		.read = _ocf_cleaner_fire_cache,
-		.write = _ocf_cleaner_fire_cache,
-};
-
 static void _ocf_cleaner_on_resume(struct ocf_request *req)
 {
 	OCF_DEBUG_TRACE(req->cache);
 	ocf_engine_push_req_front(req, true);
 }
 
+static const struct ocf_io_if _io_if_fire_cache = {
+	.read = _ocf_cleaner_fire_cache,
+	.write = _ocf_cleaner_fire_cache,
+	.resume = _ocf_cleaner_on_resume,
+};
+
 static int _ocf_cleaner_fire(struct ocf_request *req)
 {
 	int result;
 
-	/* Set resume call backs */
-	req->resume = _ocf_cleaner_on_resume;
 	req->io_if = &_io_if_fire_cache;
 
 	/* Handle cache lines locks */

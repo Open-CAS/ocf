@@ -574,7 +574,6 @@ static int _ocf_engine_refresh(struct ocf_request *req)
 		/* Refresh successful, can process with original IO interface */
 		req->io_if = req->priv;
 
-		req->resume = NULL;
 		req->priv = NULL;
 
 		if (req->rw == OCF_READ)
@@ -601,14 +600,13 @@ static int _ocf_engine_refresh(struct ocf_request *req)
 }
 
 static const struct ocf_io_if _io_if_refresh = {
-		.read = _ocf_engine_refresh,
-		.write = _ocf_engine_refresh,
+	.read = _ocf_engine_refresh,
+	.write = _ocf_engine_refresh,
 };
 
 void ocf_engine_on_resume(struct ocf_request *req)
 {
 	ENV_BUG_ON(req->priv);
-	ENV_BUG_ON(ocf_engine_on_resume != req->resume);
 	OCF_CHECK_NULL(req->io_if);
 
 	/* Exchange IO interface */

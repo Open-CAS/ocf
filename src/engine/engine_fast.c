@@ -102,8 +102,9 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 }
 
 static const struct ocf_io_if _io_if_read_fast_resume = {
-		.read = _ocf_read_fast_do,
-		.write = _ocf_read_fast_do,
+	.read = _ocf_read_fast_do,
+	.write = _ocf_read_fast_do,
+	.resume = ocf_engine_on_resume,
 };
 
 int ocf_read_fast(struct ocf_request *req)
@@ -115,8 +116,7 @@ int ocf_read_fast(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	/* Set resume call backs */
-	req->resume = ocf_engine_on_resume;
+	/* Set resume io_if */
 	req->io_if = &_io_if_read_fast_resume;
 
 	/*- Metadata RD access -----------------------------------------------*/
@@ -172,8 +172,9 @@ int ocf_read_fast(struct ocf_request *req)
  */
 
 static const struct ocf_io_if _io_if_write_fast_resume = {
-		.read = ocf_write_wb_do,
-		.write = ocf_write_wb_do,
+	.read = ocf_write_wb_do,
+	.write = ocf_write_wb_do,
+	.resume = ocf_engine_on_resume,
 };
 
 int ocf_write_fast(struct ocf_request *req)
@@ -185,8 +186,7 @@ int ocf_write_fast(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	/* Set resume call backs */
-	req->resume = ocf_engine_on_resume;
+	/* Set resume io_if */
 	req->io_if = &_io_if_write_fast_resume;
 
 	/*- Metadata RD access -----------------------------------------------*/

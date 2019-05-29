@@ -795,9 +795,9 @@ static void _req_on_lock(void *ctx, uint32_t ctx_id,
 	if (env_atomic_dec_return(&req->lock_remaining) == 0) {
 		/* All cache line locked, resume request */
 		OCF_DEBUG_RQ(req, "Resume");
-		OCF_CHECK_NULL(req->resume);
+		ENV_BUG_ON(!req->io_if->resume);
 		env_atomic_dec(&c->waiting);
-		req->resume(req);
+		req->io_if->resume(req);
 	}
 }
 
@@ -806,7 +806,7 @@ static void _req_on_lock(void *ctx, uint32_t ctx_id,
  */
 int ocf_req_trylock_rd(struct ocf_request *req)
 {
-	OCF_CHECK_NULL(req->resume);
+	ENV_BUG_ON(!req->io_if->resume);
 	return _ocf_req_lock_rd_common(req, req, _req_on_lock);
 }
 
@@ -928,7 +928,7 @@ static int _ocf_req_lock_wr_common(struct ocf_request *req, void *context,
  */
 int ocf_req_trylock_wr(struct ocf_request *req)
 {
-	OCF_CHECK_NULL(req->resume);
+	ENV_BUG_ON(!req->io_if->resume);
 	return _ocf_req_lock_wr_common(req, req, _req_on_lock);
 }
 

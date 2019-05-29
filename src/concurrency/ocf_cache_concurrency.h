@@ -53,14 +53,14 @@ size_t ocf_cache_concurrency_size_of(struct ocf_cache *cache);
 /**
  * @brief Lock OCF request for WRITE access (Lock all cache lines in map info)
  *
- * @note req->resume callback has to be set
+ * @note io_if->resume callback has to be set
  *
  * @param req - OCF request
  *
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  *
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- * added into waiting list. When lock will be acquired req->resume be called
+ * added into waiting list. When lock will be acquired io_if->resume be called
  */
 int ocf_req_trylock_wr(struct ocf_request *req);
 
@@ -75,21 +75,21 @@ int ocf_req_trylock_wr(struct ocf_request *req);
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  *
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- * added into waiting list. When lock will be acquired req->resume be called
+ * added into waiting list. When lock will be acquired io_if->resume be called
  */
 int ocf_req_retrylock_wr(struct ocf_request *req);
 
 /**
  * @brief Lock OCF request for READ access (Lock all cache lines in map info)
  *
- * @note req->resume callback has to be set
+ * @note io_if->resume callback has to be set
  *
  * @param req - OCF request
  *
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  *
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- * added into waiting list. When lock will be acquired req->resume be called
+ * added into waiting list. When lock will be acquired io_if->resume be called
  */
 int ocf_req_trylock_rd(struct ocf_request *req);
 

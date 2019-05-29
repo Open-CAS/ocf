@@ -19,8 +19,9 @@
 #include "engine_debug.h"
 
 static const struct ocf_io_if _io_if_wb_resume = {
-		.read = ocf_write_wb_do,
-		.write = ocf_write_wb_do,
+	.read = ocf_write_wb_do,
+	.write = ocf_write_wb_do,
+	.resume = ocf_engine_on_resume,
 };
 
 static void _ocf_write_wb_update_bits(struct ocf_request *req)
@@ -176,8 +177,7 @@ int ocf_write_wb(struct ocf_request *req)
 	/* Not sure if we need this. */
 	ocf_req_get(req);
 
-	/* Set resume call backs */
-	req->resume = ocf_engine_on_resume;
+	/* Set resume io_if */
 	req->io_if = &_io_if_wb_resume;
 
 	/* TODO: Handle fits into dirty */

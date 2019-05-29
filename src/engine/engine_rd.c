@@ -206,8 +206,9 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 }
 
 static const struct ocf_io_if _io_if_read_generic_resume = {
-		.read = _ocf_read_generic_do,
-		.write = _ocf_read_generic_do,
+	.read = _ocf_read_generic_do,
+	.write = _ocf_read_generic_do,
+	.resume = ocf_engine_on_resume,
 };
 
 int ocf_read_generic(struct ocf_request *req)
@@ -228,7 +229,6 @@ int ocf_read_generic(struct ocf_request *req)
 	ocf_req_get(req);
 
 	/* Set resume call backs */
-	req->resume = ocf_engine_on_resume;
 	req->io_if = &_io_if_read_generic_resume;
 
 	/*- Metadata RD access -----------------------------------------------*/

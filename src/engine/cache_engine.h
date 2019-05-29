@@ -36,6 +36,8 @@ struct ocf_io_if {
 
 	int (*write)(struct ocf_request *req);
 
+	void (*resume)(struct ocf_request *req);
+
 	const char *name;
 };
 
