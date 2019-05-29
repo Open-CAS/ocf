@@ -7,7 +7,7 @@
 #include "engine_common.h"
 #include "cache_engine.h"
 #include "engine_ops.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_io.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "ops"
@@ -48,7 +48,7 @@ int ocf_engine_ops(struct ocf_request *req)
 	env_atomic_set(&req->req_remaining, 2);
 
 	/* Submit operation into core device */
-	ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
+	ocf_submit_volume_req(&req->core->volume, req,
 			_ocf_engine_ops_complete);
 
 	ocf_submit_cache_reqs(cache, req->map, req, req->rw,

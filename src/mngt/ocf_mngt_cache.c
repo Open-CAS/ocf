@@ -13,12 +13,11 @@
 #include "../engine/cache_engine.h"
 #include "../utils/utils_part.h"
 #include "../utils/utils_cache_line.h"
-#include "../utils/utils_device.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_pipeline.h"
 #include "../utils/utils_refcnt.h"
-#include "../ocf_utils.h"
+#include "../utils/utils_async_lock.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../eviction/ops.h"
 #include "../ocf_ctx_priv.h"
@@ -283,21 +282,19 @@ static void __init_metadata_version(ocf_cache_t cache)
 
 static void __reset_stats(ocf_cache_t cache)
 {
-	int core_id;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 	ocf_part_id_t i;
 
-	for (core_id = 0; core_id < OCF_CORE_MAX; core_id++) {
-		env_atomic_set(&cache->core_runtime_meta[core_id].
-				cached_clines, 0);
-		env_atomic_set(&cache->core_runtime_meta[core_id].
-				dirty_clines, 0);
-		env_atomic64_set(&cache->core_runtime_meta[core_id].
-				dirty_since, 0);
+	for_each_core_all(cache, core, core_id) {
+		env_atomic_set(&core->runtime_meta->cached_clines, 0);
+		env_atomic_set(&core->runtime_meta->dirty_clines, 0);
+		env_atomic64_set(&core->runtime_meta->dirty_since, 0);
 
 		for (i = 0; i != OCF_IO_CLASS_MAX; i++) {
-			env_atomic_set(&cache->core_runtime_meta[core_id].
+			env_atomic_set(&core->runtime_meta->
 					part_counters[i].cached_clines, 0);
-			env_atomic_set(&cache->core_runtime_meta[core_id].
+			env_atomic_set(&core->runtime_meta->
 					part_counters[i].dirty_clines, 0);
 		}
 	}
@@ -366,7 +363,9 @@ static int _ocf_mngt_init_instance_add_cores(
 	ocf_cache_t cache = context->cache;
 	/* FIXME: This is temporary hack. Remove after storing name it meta. */
 	char core_name[OCF_CORE_NAME_SIZE];
-	int ret = -1, i;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	int ret = -1;
 	uint64_t hd_lines = 0;
 
 	OCF_ASSERT_PLUGGED(cache);
@@ -382,17 +381,13 @@ static int _ocf_mngt_init_instance_add_cores(
 	cache->conf_meta->core_count = 0;
 
 	/* Check in metadata which cores were added into cache */
-	for (i = 0; i < OCF_CORE_MAX; i++) {
+	for_each_core(cache, core, core_id) {
 		ocf_volume_t tvolume = NULL;
-		ocf_core_t core = &cache->core[i];
 
-		if (!cache->core_conf_meta[i].added)
-			continue;
-
-		if (!cache->core[i].volume.type)
+		if (!core->volume.type)
 			goto err;
 
-		ret = snprintf(core_name, sizeof(core_name), "core%d", i);
+		ret = snprintf(core_name, sizeof(core_name), "core%d", core_id);
 		if (ret < 0 || ret >= sizeof(core_name))
 			goto err;
 
@@ -412,22 +407,23 @@ static int _ocf_mngt_init_instance_add_cores(
 
 			core->opened = true;
 			ocf_cache_log(cache, log_info,
-					"Attached core %u from pool\n", i);
-		} else {
+					"Attached core %u from pool\n",
+					core_id);
+		} else if (context->cfg.open_cores) {
 			ret = ocf_volume_open(&core->volume, NULL);
 			if (ret == -OCF_ERR_NOT_OPEN_EXC) {
 				ocf_cache_log(cache, log_warn,
 						"Cannot open core %u. "
-						"Cache is busy", i);
+						"Cache is busy", core_id);
 			} else if (ret) {
 				ocf_cache_log(cache, log_warn,
-						"Cannot open core %u", i);
+						"Cannot open core %u", core_id);
 			} else {
 				core->opened = true;
 			}
 		}
 
-		env_bit_set(i, cache->conf_meta->valid_core_bitmap);
+		env_bit_set(core_id, cache->conf_meta->valid_core_bitmap);
 		cache->conf_meta->core_count++;
 		core->volume.cache = cache;
 
@@ -445,13 +441,12 @@ static int _ocf_mngt_init_instance_add_cores(
 			cache->ocf_core_inactive_count++;
 			ocf_cache_log(cache, log_warn,
 					"Cannot find core %u in pool"
-					", core added as inactive\n", i);
+					", core added as inactive\n", core_id);
 			continue;
 		}
 
 		hd_lines = ocf_bytes_2_lines(cache,
-				ocf_volume_get_length(
-				&cache->core[i].volume));
+				ocf_volume_get_length(&core->volume));
 
 		if (hd_lines) {
 			ocf_cache_log(cache, log_info,
@@ -553,8 +548,15 @@ static int _ocf_mngt_init_new_cache(struct ocf_cachemng_init_params *params)
 	if (!cache)
 		return -OCF_ERR_NO_MEM;
 
-	if (env_rwsem_init(&cache->lock) ||
-			env_mutex_init(&cache->flush_mutex)) {
+	if (ocf_mngt_cache_lock_init(cache)) {
+		env_vfree(cache);
+		return -OCF_ERR_NO_MEM;
+	}
+
+	/* Lock cache during setup - this trylock should always succeed */
+	ENV_BUG_ON(ocf_mngt_cache_trylock(cache));
+
+	if (env_mutex_init(&cache->flush_mutex)) {
 		env_vfree(cache);
 		return -OCF_ERR_NO_MEM;
 	}
@@ -696,7 +698,6 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cachemng_init_params *param,
 	cache->backfill.max_queue_size = cfg->backfill.max_queue_size;
 	cache->backfill.queue_unblock_size = cfg->backfill.queue_unblock_size;
 
-	env_rwsem_down_write(&cache->lock); /* Lock cache during setup */
 	param->flags.cache_locked = true;
 
 	cache->pt_unaligned_io = cfg->pt_unaligned_io;
@@ -1216,17 +1217,13 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	if (result)
 		goto _cache_mng_init_instance_ERROR;
 
-	if (params.locked) {
-		/* Increment reference counter to match cache_lock /
-		   cache_unlock convention. User is expected to call
-		   ocf_mngt_cache_unlock in future which would up the
-		   semaphore as well as decrement ref_count. */
-		ocf_refcnt_inc(&(*cache)->refcnt.cache);
-	} else {
+	ocf_ctx_get(ctx);
+
+	if (!params.locked) {
 		/* User did not request to lock cache instance after creation -
-		   up the semaphore here since we have acquired the lock to
+		   unlock it here since we have acquired the lock to
 		   perform management operations. */
-		env_rwsem_up_write(&(*cache)->lock);
+		ocf_mngt_cache_unlock(*cache);
 		params.flags.cache_locked = false;
 	}
 
@@ -1246,39 +1243,6 @@ static void _ocf_mng_cache_set_valid(ocf_cache_t cache)
 	 */
 	env_bit_clear(ocf_cache_state_initializing, &cache->cache_state);
 	env_bit_set(ocf_cache_state_running, &cache->cache_state);
-}
-
-static int _ocf_mngt_cache_add_cores_t_clean_pol(ocf_cache_t cache)
-{
-	int clean_type = cache->conf_meta->cleaning_policy_type;
-	int i, j, no;
-	int result;
-
-	if (cleaning_policy_ops[clean_type].add_core) {
-		no = cache->conf_meta->core_count;
-		for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {
-			if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
-				continue;
-			result = cleaning_policy_ops[clean_type].add_core(cache, i);
-			if (result) {
-				goto err;
-			}
-			j++;
-		}
-	}
-
-	return 0;
-
-err:
-	if (!cleaning_policy_ops[clean_type].remove_core)
-		return result;
-
-	while (i--) {
-		if (env_bit_test(i, cache->conf_meta->valid_core_bitmap))
-			cleaning_policy_ops[clean_type].remove_core(cache, i);
-	};
-
-	return result;
 }
 
 static void _ocf_mngt_init_attached_nonpersistent(ocf_cache_t cache)
@@ -1347,6 +1311,15 @@ static void _ocf_mngt_attach_init_instance(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
+	int result;
+
+	result = ocf_start_cleaner(cache);
+	if (result) {
+		ocf_cache_log(cache, log_err,
+				"Error while starting cleaner\n");
+		OCF_PL_FINISH_RET(context->pipeline, result);
+	}
+	context->flags.cleaner_started = true;
 
 	switch (cache->device->init_mode) {
 	case ocf_init_mode_init:
@@ -1359,23 +1332,6 @@ static void _ocf_mngt_attach_init_instance(ocf_pipeline_t pipeline,
 	default:
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_INVAL);
 	}
-}
-
-static void _ocf_mngt_attach_clean_pol(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_cache_attach_context *context = priv;
-	ocf_cache_t cache = context->cache;
-	int result;
-
-	/* TODO: Should this even be here? */
-	if (cache->device->init_mode != ocf_init_mode_load) {
-		result = _ocf_mngt_cache_add_cores_t_clean_pol(cache);
-		if (result)
-			OCF_PL_FINISH_RET(context->pipeline, result);
-	}
-
-	ocf_pipeline_next(context->pipeline);
 }
 
 static void _ocf_mngt_attach_flush_metadata_complete(void *priv, int error)
@@ -1503,17 +1459,6 @@ static void _ocf_mngt_attach_post_init(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	int result;
-
-	if (!context->flags.cleaner_started) {
-		result = ocf_start_cleaner(cache);
-		if (result) {
-			ocf_cache_log(cache, log_err,
-					"Error while starting cleaner\n");
-			OCF_PL_FINISH_RET(context->pipeline, result);
-		}
-		context->flags.cleaner_started = true;
-	}
 
 	ocf_cleaner_refcnt_unfreeze(cache);
 	ocf_refcnt_unfreeze(&cache->refcnt.metadata);
@@ -1546,7 +1491,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_test_volume),
 		OCF_PL_STEP(_ocf_mngt_attach_load_superblock),
 		OCF_PL_STEP(_ocf_mngt_attach_init_instance),
-		OCF_PL_STEP(_ocf_mngt_attach_clean_pol),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_discard),
 		OCF_PL_STEP(_ocf_mngt_attach_flush),
@@ -1647,7 +1591,7 @@ static int _ocf_mngt_cache_validate_device_cfg(
 	if (device_cfg->uuid.size > OCF_VOLUME_UUID_MAX_SIZE)
 		return -OCF_ERR_INVAL;
 
-	if (device_cfg->cache_line_size &&
+	if (device_cfg->cache_line_size != ocf_cache_line_size_none &&
 		!ocf_cache_line_size_is_valid(device_cfg->cache_line_size))
 		return -OCF_ERR_INVALID_CACHE_LINE_SIZE;
 
@@ -1907,6 +1851,7 @@ struct ocf_mngt_cache_stop_context {
 	ocf_ctx_t ctx;
 	char cache_name[OCF_CACHE_NAME_SIZE];
 	int cache_write_error;
+	bool cache_attached;
 };
 
 static void ocf_mngt_cache_stop_wait_metadata_io_finish(void *priv)
@@ -1922,6 +1867,9 @@ static void ocf_mngt_cache_stop_wait_metadata_io(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_stop_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
+	if (!context->cache_attached)
+		OCF_PL_NEXT_RET(pipeline);
+
 	ocf_refcnt_freeze(&cache->refcnt.metadata);
 	ocf_refcnt_register_zero_cb(&cache->refcnt.metadata,
 			ocf_mngt_cache_stop_wait_metadata_io_finish, context);
@@ -1932,19 +1880,18 @@ static void ocf_mngt_cache_stop_remove_cores(ocf_pipeline_t pipeline,
 {
 	struct ocf_mngt_cache_stop_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	int i, j, no;
-
-	no = cache->conf_meta->core_count;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	int no = cache->conf_meta->core_count;
 
 	/* All exported objects removed, cleaning up rest. */
-	for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {
-		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
-			continue;
-		cache_mng_core_remove_from_cache(cache, i);
-		if (ocf_cache_is_device_attached(cache))
-			cache_mng_core_remove_from_cleaning_pol(cache, i);
-		cache_mng_core_close(cache, i);
-		j++;
+	for_each_core(cache, core, core_id) {
+		cache_mng_core_remove_from_cache(core);
+		if (context->cache_attached)
+			cache_mng_core_remove_from_cleaning_pol(core);
+		cache_mng_core_close(core);
+		if (--no == 0)
+			break;
 	}
 	ENV_BUG_ON(cache->conf_meta->core_count != 0);
 
@@ -1969,7 +1916,7 @@ static void ocf_mngt_cache_stop_unplug(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_stop_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	if (!ocf_cache_is_device_attached(cache))
+	if (!context->cache_attached)
 		OCF_PL_NEXT_RET(pipeline);
 
 	_ocf_mngt_cache_unplug(cache, true, &context->unplug_context,
@@ -2077,6 +2024,7 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 	context->pipeline = pipeline;
 	context->cache = cache;
 	context->ctx = cache->owner;
+	context->cache_attached = ocf_cache_is_device_attached(cache);
 
 	result = env_strncpy(context->cache_name, sizeof(context->cache_name),
 			ocf_cache_get_name(cache), sizeof(context->cache_name));
@@ -2161,6 +2109,19 @@ void ocf_mngt_cache_save(ocf_cache_t cache,
 			ocf_mngt_cache_save_flush_sb_complete, context);
 }
 
+static void _cache_mng_update_initial_dirty_clines(ocf_cache_t cache)
+{
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+
+	for_each_core(cache, core, core_id) {
+		env_atomic_set(&core->runtime_meta->initial_dirty_clines,
+				env_atomic_read(&core->runtime_meta->
+						dirty_clines));
+	}
+
+}
+
 static int _cache_mng_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 {
 	ocf_cache_mode_t mode_old = cache->conf_meta->cache_mode;
@@ -2177,18 +2138,8 @@ static int _cache_mng_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 
 	cache->conf_meta->cache_mode = mode;
 
-	if (ocf_cache_mode_wb == mode_old) {
-		int i;
-
-		for (i = 0; i != OCF_CORE_MAX; ++i) {
-			if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
-				continue;
-			env_atomic_set(&cache->core_runtime_meta[i].
-					initial_dirty_clines,
-					env_atomic_read(&cache->
-						core_runtime_meta[i].dirty_clines));
-		}
-	}
+	if (mode_old == ocf_cache_mode_wb)
+		_cache_mng_update_initial_dirty_clines(cache);
 
 	ocf_cache_log(cache, log_info, "Changing cache mode from '%s' to '%s' "
 			"successful\n", ocf_get_io_iface_name(mode_old),
@@ -2347,17 +2298,16 @@ static void ocf_mngt_cache_detach_update_metadata(ocf_pipeline_t pipeline,
 {
 	struct ocf_mngt_cache_detach_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	int i, j, no;
-
-	no = cache->conf_meta->core_count;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	int no = cache->conf_meta->core_count;
 
 	/* remove cacheline metadata and cleaning policy meta for all cores */
-	for (i = 0, j = 0; j < no && i < OCF_CORE_MAX; i++) {
-		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
-			continue;
-		cache_mng_core_deinit_attached_meta(cache, i);
-		cache_mng_core_remove_from_cleaning_pol(cache, i);
-		j++;
+	for_each_core(cache, core, core_id) {
+		cache_mng_core_deinit_attached_meta(core);
+		cache_mng_core_remove_from_cleaning_pol(core);
+		if (--no == 0)
+			break;
 	}
 
 	ocf_pipeline_next(context->pipeline);

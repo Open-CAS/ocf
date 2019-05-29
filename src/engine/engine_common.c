@@ -11,7 +11,7 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "common"
 #include "engine_debug.h"
 #include "../utils/utils_cache_line.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_cleaner.h"
 #include "../metadata/metadata.h"
 #include "../eviction/eviction.h"
@@ -24,7 +24,7 @@ void ocf_engine_error(struct ocf_request *req,
 	if (stop_cache)
 		env_bit_clear(ocf_cache_state_running, &cache->cache_state);
 
-	ocf_core_log(&cache->core[req->core_id], log_err,
+	ocf_core_log(req->core, log_err,
 			"%s sector: %" ENV_PRIu64 ", bytes: %u\n", msg,
 			BYTES_TO_SECTORS(req->byte_position), req->byte_length);
 }
@@ -158,7 +158,7 @@ void ocf_engine_traverse(struct ocf_request *req)
 	uint64_t core_line;
 
 	struct ocf_cache *cache = req->cache;
-	ocf_core_id_t core_id = req->core_id;
+	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -201,6 +201,7 @@ int ocf_engine_check(struct ocf_request *req)
 	uint64_t core_line;
 
 	struct ocf_cache *cache = req->cache;
+	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -217,7 +218,7 @@ int ocf_engine_check(struct ocf_request *req)
 			continue;
 		}
 
-		if (_ocf_engine_check_map_entry(cache, entry, req->core_id)) {
+		if (_ocf_engine_check_map_entry(cache, entry, core_id)) {
 			/* Mapping is invalid */
 			entry->invalid = true;
 			req->info.seq_req = false;
@@ -247,6 +248,7 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 		ocf_cache_line_t *cache_line)
 {
 	struct ocf_cache *cache = req->cache;
+	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 	ocf_part_id_t part_id = req->part_id;
 	ocf_cleaning_t clean_policy_type;
 
@@ -266,7 +268,7 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 	ocf_metadata_add_to_partition(cache, part_id, *cache_line);
 
 	/* Add the block to the corresponding collision list */
-	ocf_metadata_add_to_collision(cache, req->core_id, core_line, hash_index,
+	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,
 			*cache_line);
 
 	ocf_eviction_init_cache_line(cache, *cache_line, part_id);
@@ -320,7 +322,7 @@ void ocf_engine_map(struct ocf_request *req)
 	struct ocf_map_info *entry;
 	uint64_t core_line;
 	int status = LOOKUP_MAPPED;
-	ocf_core_id_t core_id = req->core_id;
+	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
 	if (ocf_engine_unmapped_count(req))
 		status = space_managment_evict_do(cache, req,
@@ -442,12 +444,10 @@ void ocf_engine_clean(struct ocf_request *req)
 
 void ocf_engine_update_block_stats(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-	ocf_core_id_t core_id = req->core_id;
 	ocf_part_id_t part_id = req->part_id;
 	struct ocf_counters_block *blocks;
 
-	blocks = &cache->core[core_id].counters->
+	blocks = &req->core->counters->
 			part_counters[part_id].blocks;
 
 	if (req->rw == OCF_READ)
@@ -460,19 +460,15 @@ void ocf_engine_update_block_stats(struct ocf_request *req)
 
 void ocf_engine_update_request_stats(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-	ocf_core_id_t core_id = req->core_id;
 	ocf_part_id_t part_id = req->part_id;
 	struct ocf_counters_req *reqs;
 
 	switch (req->rw) {
 	case OCF_READ:
-		reqs = &cache->core[core_id].counters->
-				part_counters[part_id].read_reqs;
+		reqs = &req->core->counters->part_counters[part_id].read_reqs;
 		break;
 	case OCF_WRITE:
-		reqs = &cache->core[core_id].counters->
-				part_counters[part_id].write_reqs;
+		reqs = &req->core->counters->part_counters[part_id].write_reqs;
 		break;
 	default:
 		ENV_BUG();

@@ -234,6 +234,9 @@ typedef enum {
  * OCF supported cache line sizes in bytes
  */
 typedef enum {
+	ocf_cache_line_size_none = 0,
+		/*!< None */
+
 	ocf_cache_line_size_4 = 4 * KiB,
 		/*!< 4 kiB */
 
@@ -316,6 +319,15 @@ typedef enum {
  */
 #define OCF_READ		0
 #define OCF_WRITE		1
+/**
+ * @}
+ */
+
+/**
+ * @name OCF cleaner definitions
+ * @{
+ */
+#define OCF_CLEANER_DISABLE ~0U
 /**
  * @}
  */

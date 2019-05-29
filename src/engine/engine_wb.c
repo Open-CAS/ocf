@@ -9,7 +9,7 @@
 #include "engine_common.h"
 #include "engine_wb.h"
 #include "../metadata/metadata.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_part.h"
@@ -88,8 +88,7 @@ static const struct ocf_io_if _io_if_wb_flush_metadata = {
 static void _ocf_write_wb_complete(struct ocf_request *req, int error)
 {
 	if (error) {
-		env_atomic_inc(&req->cache->core[req->core_id].counters->
-				cache_errors.write);
+		env_atomic_inc(&req->core->counters->cache_errors.write);
 		req->error |= error;
 	}
 

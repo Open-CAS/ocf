@@ -9,12 +9,11 @@
 #include "../metadata/metadata.h"
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_cache_line.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../cleaning/acp.h"
 #include "../engine/engine_common.h"
 #include "../concurrency/ocf_cache_concurrency.h"
 #include "cleaning_priv.h"
-#include "../utils/utils_core.h"
 
 #define OCF_ACP_DEBUG 0
 
@@ -193,20 +192,23 @@ static struct acp_chunk_info *_acp_get_chunk(struct ocf_cache *cache,
 
 static void _acp_remove_cores(struct ocf_cache *cache)
 {
-	int i;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 
-	for_each_core(cache, i)
-		cleaning_policy_acp_remove_core(cache, i);
+	for_each_core(cache, core, core_id)
+		cleaning_policy_acp_remove_core(cache, core_id);
 }
 
 static int _acp_load_cores(struct ocf_cache *cache)
 {
-	int i;
+
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 	int err = 0;
 
-	for_each_core(cache, i) {
-		OCF_DEBUG_PARAM(cache, "loading core %i\n", i);
-		err = cleaning_policy_acp_add_core(cache, i);
+	for_each_core(cache, core, core_id) {
+		OCF_DEBUG_PARAM(cache, "loading core %i\n", core_id);
+		err = cleaning_policy_acp_add_core(cache, core_id);
 		if (err)
 			break;
 	}
@@ -316,6 +318,7 @@ int cleaning_policy_acp_initialize(struct ocf_cache *cache,
 	}
 
 	_acp_rebuild(cache);
+	ocf_kick_cleaner(cache);
 
 	return 0;
 }
@@ -336,6 +339,7 @@ int cleaning_policy_acp_set_cleaning_param(ocf_cache_t cache,
 		config->thread_wakeup_time = param_value;
 		ocf_cache_log(cache, log_info, "Write-back flush thread "
 			"wake-up time: %d\n", config->thread_wakeup_time);
+		ocf_kick_cleaner(cache);
 		break;
 	case ocf_acp_flush_max_buffers:
 		OCF_CLEANING_CHECK_PARAM(cache, param_value,
@@ -678,7 +682,8 @@ void cleaning_policy_acp_remove_core(ocf_cache_t cache,
 int cleaning_policy_acp_add_core(ocf_cache_t cache,
 		ocf_core_id_t core_id)
 {
-	uint64_t core_size = cache->core_conf_meta[core_id].length;
+	ocf_core_t core = ocf_cache_get_core(cache, core_id);
+	uint64_t core_size = core->conf_meta->length;
 	uint64_t num_chunks = OCF_DIV_ROUND_UP(core_size, ACP_CHUNK_SIZE);
 	struct acp_context *acp = _acp_get_ctx_from_cache(cache);
 	int i;

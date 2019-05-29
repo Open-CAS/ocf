@@ -8,7 +8,7 @@
 #include "engine_common.h"
 #include "engine_discard.h"
 #include "../metadata/metadata.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../concurrency/ocf_concurrency.h"
@@ -62,10 +62,9 @@ static void _ocf_discard_core_complete(struct ocf_io *io, int error)
 
 static int _ocf_discard_core(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
 	struct ocf_io *io;
 
-	io = ocf_volume_new_io(&cache->core[req->core_id].volume);
+	io = ocf_volume_new_io(&req->core->volume);
 	if (!io) {
 		_ocf_discard_complete_req(req, -ENOMEM);
 		return -ENOMEM;

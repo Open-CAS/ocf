@@ -10,7 +10,7 @@
 #include "engine_inv.h"
 #include "engine_common.h"
 #include "cache_engine.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_io.h"
 #include "../concurrency/ocf_concurrency.h"
 
@@ -51,25 +51,23 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 	 * request. Also, complete original request only if this is the last
 	 * sub-request to complete
 	 */
-	if (env_atomic_dec_return(&req->req_remaining) == 0) {
-		/* We must free the pages we have allocated */
-		ctx_data_secure_erase(cache->owner, req->data);
-		ctx_data_munlock(cache->owner, req->data);
-		ctx_data_free(cache->owner, req->data);
-		req->data = NULL;
+	if (env_atomic_dec_return(&req->req_remaining))
+		return;
 
-		if (req->error) {
-			env_atomic_inc(&cache->core[req->core_id].
-					counters->cache_errors.write);
-			ocf_engine_invalidate(req);
-		} else {
-			ocf_req_unlock(req);
+	/* We must free the pages we have allocated */
+	ctx_data_secure_erase(cache->owner, req->data);
+	ctx_data_munlock(cache->owner, req->data);
+	ctx_data_free(cache->owner, req->data);
+	req->data = NULL;
 
-			/* always free the request at the last point
-			 * of the completion path
-			 */
-			ocf_req_put(req);
-		}
+	if (req->error) {
+		env_atomic_inc(&req->core->counters->cache_errors.write);
+		ocf_engine_invalidate(req);
+	} else {
+		ocf_req_unlock(req);
+
+		/* put the request at the last point of the completion path */
+		ocf_req_put(req);
 	}
 }
 

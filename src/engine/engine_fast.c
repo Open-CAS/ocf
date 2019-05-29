@@ -9,7 +9,7 @@
 #include "engine_common.h"
 #include "engine_pt.h"
 #include "engine_wb.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_part.h"
 #include "../utils/utils_io.h"
 #include "../concurrency/ocf_concurrency.h"
@@ -43,8 +43,7 @@ static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 	if (req->error) {
 		OCF_DEBUG_RQ(req, "ERROR");
 
-		env_atomic_inc(&req->cache->core[req->core_id].counters->
-				cache_errors.read);
+		env_atomic_inc(&req->core->counters->cache_errors.read);
 		ocf_engine_push_req_front_pt(req);
 	} else {
 		ocf_req_unlock(req);

@@ -157,15 +157,15 @@ void ocf_part_move(struct ocf_request *req)
 				cleaning_policy_ops[type].
 					set_hot_cache_line(cache, line);
 
-			env_atomic_inc(&cache->core_runtime_meta[req->core_id].
+			env_atomic_inc(&req->core->runtime_meta->
 					part_counters[id_new].dirty_clines);
-			env_atomic_dec(&cache->core_runtime_meta[req->core_id].
+			env_atomic_dec(&req->core->runtime_meta->
 					part_counters[id_old].dirty_clines);
 		}
 
-		env_atomic_inc(&cache->core_runtime_meta[req->core_id].
+		env_atomic_inc(&req->core->runtime_meta->
 				part_counters[id_new].cached_clines);
-		env_atomic_dec(&cache->core_runtime_meta[req->core_id].
+		env_atomic_dec(&req->core->runtime_meta->
 				part_counters[id_old].cached_clines);
 
 		/* DONE */

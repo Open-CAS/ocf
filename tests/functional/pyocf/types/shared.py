@@ -21,7 +21,6 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_TOO_MANY_CACHES = auto()
     OCF_ERR_NO_FREE_RAM = auto()
     OCF_ERR_START_CACHE_FAIL = auto()
-    OCF_ERR_CACHE_IN_USE = auto()
     OCF_ERR_CACHE_NOT_EXIST = auto()
     OCF_ERR_CACHE_EXIST = auto()
     OCF_ERR_TOO_MANY_CORES = auto()

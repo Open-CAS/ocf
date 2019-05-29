@@ -9,9 +9,8 @@
 #include "ocf_io_priv.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
-#include "utils/utils_req.h"
+#include "ocf_request.h"
 #include "utils/utils_part.h"
-#include "utils/utils_device.h"
 #include "ocf_request.h"
 #include "ocf_trace_priv.h"
 
@@ -99,18 +98,12 @@ int ocf_core_get(ocf_cache_t cache, ocf_core_id_t id, ocf_core_t *core)
 
 uint32_t ocf_core_get_seq_cutoff_threshold(ocf_core_t core)
 {
-	uint32_t core_id = ocf_core_get_id(core);
-	ocf_cache_t cache = ocf_core_get_cache(core);
-
-	return cache->core_conf_meta[core_id].seq_cutoff_threshold;
+	return core->conf_meta->seq_cutoff_threshold;
 }
 
 ocf_seq_cutoff_policy ocf_core_get_seq_cutoff_policy(ocf_core_t core)
 {
-	uint32_t core_id = ocf_core_get_id(core);
-	ocf_cache_t cache = ocf_core_get_cache(core);
-
-	return cache->core_conf_meta[core_id].seq_cutoff_policy;
+	return core->conf_meta->seq_cutoff_policy;
 }
 
 int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,

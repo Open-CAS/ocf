@@ -10,7 +10,7 @@
 #include "../metadata/metadata.h"
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_part.h"
-#include "../utils/utils_allocator.h"
+#include "../utils/utils_realloc.h"
 #include "../concurrency/ocf_cache_concurrency.h"
 #include "../ocf_def_priv.h"
 #include "cleaning_priv.h"
@@ -470,6 +470,8 @@ int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata)
 	if (init_metadata)
 		_alru_rebuild(cache);
 
+	ocf_kick_cleaner(cache);
+
 	return 0;
 }
 
@@ -495,6 +497,7 @@ int cleaning_policy_alru_set_cleaning_param(ocf_cache_t cache,
 		config->thread_wakeup_time = param_value;
 		ocf_cache_log(cache, log_info, "Write-back flush thread "
 			"wake-up time: %d\n", config->thread_wakeup_time);
+		ocf_kick_cleaner(cache);
 		break;
 	case ocf_alru_stale_buffer_time:
 		OCF_CLEANING_CHECK_PARAM(cache, param_value,

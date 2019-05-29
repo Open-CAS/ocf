@@ -31,7 +31,7 @@
 #include "../metadata/metadata.h"
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_part.h"
-#include "../utils/utils_allocator.h"
+#include "../utils/utils_realloc.h"
 #include "../concurrency/ocf_cache_concurrency.h"
 #include "../ocf_def_priv.h"
 

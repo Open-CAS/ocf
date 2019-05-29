@@ -1,8 +1,13 @@
+/*
+ * Copyright(c) 2019 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "ocf/ocf.h"
 #include "../engine/cache_engine.h"
 #include "../engine/engine_common.h"
+#include "../ocf_request.h"
 #include "utils_pipeline.h"
-#include "utils_req.h"
 
 struct ocf_pipeline {
 	struct ocf_pipeline_properties *properties;

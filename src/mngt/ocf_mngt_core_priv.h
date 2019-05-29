@@ -10,4 +10,6 @@
 
 int ocf_mngt_core_init_front_volume(ocf_core_t core);
 
+void ocf_mngt_core_clear_uuid_metadata(ocf_core_t core);
+
 #endif /* __OCF_MNGT_CORE_PRIV_H__ */

@@ -42,7 +42,7 @@ static uint32_t ocf_evict_calculate(struct ocf_user_part *part,
 
 static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 		ocf_queue_t io_queue, const uint32_t evict_cline_no,
-		ocf_core_id_t core_id, ocf_part_id_t target_part_id)
+		ocf_part_id_t target_part_id)
 {
 	uint32_t to_evict = 0, evicted = 0;
 	struct ocf_user_part *part;
@@ -84,7 +84,7 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 		}
 
 		evicted += ocf_eviction_need_space(cache, io_queue,
-				part_id, to_evict, core_id);
+				part_id, to_evict);
 	}
 
 	if (!ocf_eviction_can_evict(cache))
@@ -95,7 +95,7 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 		to_evict = ocf_evict_calculate(target_part, evict_cline_no);
 		if (to_evict) {
 			evicted += ocf_eviction_need_space(cache, io_queue,
-					target_part_id, to_evict, core_id);
+					target_part_id, to_evict);
 		}
 	}
 
@@ -111,9 +111,9 @@ int space_managment_evict_do(struct ocf_cache *cache,
 	if (evict_cline_no <= cache->device->freelist_part->curr_size)
 		return LOOKUP_MAPPED;
 
-	evict_cline_no = evict_cline_no - cache->device->freelist_part->curr_size;
+	evict_cline_no -= cache->device->freelist_part->curr_size;
 	evicted = ocf_evict_do(cache, req->io_queue, evict_cline_no,
-			req->core_id, req->part_id);
+			req->part_id);
 
 	if (evict_cline_no <= evicted)
 		return LOOKUP_MAPPED;

@@ -59,6 +59,11 @@ void ocf_stop_cleaner(ocf_cache_t cache)
 	ctx_cleaner_stop(cache->owner, &cache->cleaner);
 }
 
+void ocf_kick_cleaner(ocf_cache_t cache)
+{
+	ctx_cleaner_kick(cache->owner, &cache->cleaner);
+}
+
 void ocf_cleaner_set_cmpl(ocf_cleaner_t cleaner, ocf_cleaner_end_t fn)
 {
 	cleaner->end = fn;
@@ -84,17 +89,15 @@ ocf_cache_t ocf_cleaner_get_cache(ocf_cleaner_t c)
 
 static int _ocf_cleaner_run_check_dirty_inactive(ocf_cache_t cache)
 {
-	int i;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 
 	if (!env_bit_test(ocf_cache_state_incomplete, &cache->cache_state))
 		return 0;
 
-	for (i = 0; i < OCF_CORE_MAX; ++i) {
-		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
-			continue;
-
-		if (cache->core[i].opened && env_atomic_read(&(cache->
-				core_runtime_meta[i].dirty_clines))) {
+	for_each_core(cache, core, core_id) {
+		if (core->opened && env_atomic_read(
+				&core->runtime_meta->dirty_clines)) {
 			return 0;
 		}
 	}
@@ -106,7 +109,7 @@ static void ocf_cleaner_run_complete(ocf_cleaner_t cleaner, uint32_t interval)
 {
 	ocf_cache_t cache = ocf_cleaner_get_cache(cleaner);
 
-	env_rwsem_up_write(&cache->lock);
+	ocf_async_unlock(&cache->lock);
 	cleaner->end(cleaner, interval);
 
 	ocf_queue_put(cleaner->io_queue);
@@ -126,19 +129,19 @@ void ocf_cleaner_run(ocf_cleaner_t cleaner, ocf_queue_t queue)
 	 * (error, etc.).
 	 */
 	if (!env_bit_test(ocf_cache_state_running, &cache->cache_state) ||
-			ocf_mngt_is_cache_locked(cache)) {
+			ocf_mngt_cache_is_locked(cache)) {
 		cleaner->end(cleaner, SLEEP_TIME_MS);
 		return;
 	}
 
 	/* Sleep in case there is management operation in progress. */
-	if (env_rwsem_down_write_trylock(&cache->lock)) {
+	if (ocf_mngt_cache_trylock(cache)) {
 		cleaner->end(cleaner, SLEEP_TIME_MS);
 		return;
 	}
 
 	if (_ocf_cleaner_run_check_dirty_inactive(cache)) {
-		env_rwsem_up_write(&cache->lock);
+		ocf_mngt_cache_unlock(cache);
 		cleaner->end(cleaner, SLEEP_TIME_MS);
 		return;
 	}

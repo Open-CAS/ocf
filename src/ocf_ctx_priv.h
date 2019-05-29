@@ -20,6 +20,7 @@ struct ocf_ctx {
 	const struct ocf_ctx_config *cfg;
 	struct ocf_logger logger;
 	struct ocf_volume_type *volume_type[OCF_VOLUME_TYPE_MAX];
+	env_atomic ref_count;
 	env_mutex lock;
 	struct list_head caches;
 	struct {
@@ -29,7 +30,6 @@ struct ocf_ctx {
 
 	struct {
 		struct ocf_req_allocator *req;
-		env_allocator *core_io_allocator;
 	} resources;
 };
 
@@ -144,6 +144,11 @@ static inline int ctx_cleaner_init(ocf_ctx_t ctx, ocf_cleaner_t cleaner)
 static inline void ctx_cleaner_stop(ocf_ctx_t ctx, ocf_cleaner_t cleaner)
 {
 	ctx->ops->cleaner.stop(cleaner);
+}
+
+static inline void ctx_cleaner_kick(ocf_ctx_t ctx, ocf_cleaner_t cleaner)
+{
+	ctx->ops->cleaner.kick(cleaner);
 }
 
 static inline int ctx_metadata_updater_init(ocf_ctx_t ctx,

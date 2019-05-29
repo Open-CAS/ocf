@@ -358,11 +358,11 @@ static inline void ocf_set_clean_map_info(struct ocf_request *req)
 static inline bool ocf_cache_line_size_is_valid(uint64_t size)
 {
 	switch (size) {
-	case 4 * KiB:
-	case 8 * KiB:
-	case 16 * KiB:
-	case 32 * KiB:
-	case 64 * KiB:
+	case ocf_cache_line_size_4:
+	case ocf_cache_line_size_8:
+	case ocf_cache_line_size_16:
+	case ocf_cache_line_size_32:
+	case ocf_cache_line_size_64:
 		return true;
 	default:
 		return false;

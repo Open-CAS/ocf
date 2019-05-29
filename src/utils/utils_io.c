@@ -237,8 +237,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 	uint32_t i;
 	int err;
 
-	cache_stats = &cache->core[req->core_id].
-			counters->cache_blocks;
+	cache_stats = &req->core->counters->cache_blocks;
 
 	if (reqs == 1) {
 		io = ocf_new_cache_io(cache);
@@ -328,7 +327,6 @@ update_stats:
 void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 		ocf_req_end_t callback)
 {
-	struct ocf_cache *cache = req->cache;
 	struct ocf_counters_block *core_stats;
 	uint64_t flags = req->io ? req->io->flags : 0;
 	uint32_t class = req->io ? req->io->io_class : 0;
@@ -336,8 +334,7 @@ void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 	struct ocf_io *io;
 	int err;
 
-	core_stats = &cache->core[req->core_id].
-			counters->core_blocks;
+	core_stats = &req->core->counters->core_blocks;
 	if (dir == OCF_WRITE)
 		env_atomic64_add(req->byte_length, &core_stats->write_bytes);
 	else if (dir == OCF_READ)

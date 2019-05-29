@@ -112,26 +112,27 @@ class Core:
         blocks = BlocksStats()
         errors = ErrorsStats()
 
-        self.cache.get_and_lock(True)
-
+        self.cache.read_lock()
         status = self.cache.owner.lib.ocf_stats_collect_core(
             self.handle, byref(usage), byref(req), byref(blocks), byref(errors)
         )
         if status:
-            self.cache.put_and_unlock(True)
+            self.cache.read_unlock()
             raise OcfError("Failed collecting core stats", status)
 
         status = self.cache.owner.lib.ocf_core_get_stats(
             self.handle, byref(core_stats)
         )
         if status:
-            self.cache.put_and_unlock(True)
+            self.cache.read_unlock()
             raise OcfError("Failed getting core stats", status)
 
-        self.cache.put_and_unlock(True)
+        self.cache.read_unlock()
         return {
             "size": Size(core_stats.core_size_bytes),
             "dirty_for": timedelta(seconds=core_stats.dirty_for),
+            "seq_cutoff_policy": SeqCutOffPolicy(core_stats.seq_cutoff_policy),
+            "seq_cutoff_threshold": core_stats.seq_cutoff_threshold,
             "usage": struct_to_dict(usage),
             "req": struct_to_dict(req),
             "blocks": struct_to_dict(blocks),
@@ -139,16 +140,16 @@ class Core:
         }
 
     def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
-        self.cache.get_and_write_lock()
+        self.cache.write_lock()
 
         status = self.cache.owner.lib.ocf_mngt_core_set_seq_cutoff_policy(
             self.handle, policy
         )
         if status:
-            self.cache.put_and_write_unlock()
+            self.cache.write_unlock()
             raise OcfError("Error setting core seq cut off policy", status)
 
-        self.cache.put_and_write_unlock()
+        self.cache.write_unlock()
 
     def reset_stats(self):
         self.cache.owner.lib.ocf_core_stats_initialize(self.handle)
@@ -186,3 +187,7 @@ lib.ocf_core_get_volume.argtypes = [c_void_p]
 lib.ocf_core_get_volume.restype = c_void_p
 lib.ocf_mngt_core_set_seq_cutoff_policy.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy.restype = c_int
+lib.ocf_stats_collect_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c_void_p]
+lib.ocf_stats_collect_core.restype = c_int
+lib.ocf_core_get_stats.argtypes = [c_void_p, c_void_p]
+lib.ocf_core_get_stats.restype = c_int

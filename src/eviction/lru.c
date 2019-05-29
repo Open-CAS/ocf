@@ -11,7 +11,7 @@
 #include "../concurrency/ocf_concurrency.h"
 #include "../mngt/ocf_mngt_common.h"
 #include "../engine/engine_zero.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 
 #define OCF_EVICTION_MAX_SCAN 1024
 
@@ -328,7 +328,7 @@ static void evp_lru_clean(ocf_cache_t cache, ocf_queue_t io_queue,
 	};
 	int cnt;
 
-	if (ocf_mngt_is_cache_locked(cache))
+	if (ocf_mngt_cache_is_locked(cache))
 		return;
 
 	cnt = ocf_refcnt_inc(counter);
@@ -391,7 +391,7 @@ bool evp_lru_can_evict(ocf_cache_t cache)
 
 /* the caller must hold the metadata lock */
 uint32_t evp_lru_req_clines(ocf_cache_t cache, ocf_queue_t io_queue,
-		ocf_part_id_t part_id, uint32_t cline_no, ocf_core_id_t core_id)
+		ocf_part_id_t part_id, uint32_t cline_no)
 {
 	uint32_t i;
 	ocf_cache_line_t curr_cline, prev_cline;

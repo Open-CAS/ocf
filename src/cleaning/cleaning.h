@@ -68,6 +68,8 @@ struct ocf_cleaner {
 
 int ocf_start_cleaner(ocf_cache_t cache);
 
+void ocf_kick_cleaner(ocf_cache_t cache);
+
 void ocf_stop_cleaner(ocf_cache_t cache);
 
 #endif

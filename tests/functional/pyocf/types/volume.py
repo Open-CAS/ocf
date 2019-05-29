@@ -74,6 +74,8 @@ class VolumeIoPriv(Structure):
 
 
 class Volume(Structure):
+    VOLUME_POISON=0x13
+
     _fields_ = [("_storage", c_void_p)]
     _instances_ = {}
     _uuid_ = {}
@@ -95,6 +97,7 @@ class Volume(Structure):
         type(self)._uuid_[self.uuid] = weakref.ref(self)
 
         self.data = create_string_buffer(int(self.size))
+        memset(self.data, self.VOLUME_POISON, self.size)
         self._storage = cast(self.data, c_void_p)
 
         self.reset_stats()
@@ -249,7 +252,7 @@ class Volume(Structure):
     def submit_discard(self, discard):
         try:
             dst = self._storage + discard.contents._addr
-            memset(dst, discard.contents._bytes)
+            memset(dst, 0, discard.contents._bytes)
 
             discard.contents._end(discard, 0)
         except:
@@ -280,14 +283,15 @@ class Volume(Structure):
         except:
             io.contents._end(io, -5)
 
-    def dump_contents(self, stop_after_zeros=0, offset=0, size=0):
+    def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
         if size == 0:
             size = int(self.size) - int(offset)
+
         print_buffer(
             self._storage,
-            int(size),
-            offset=int(offset),
-            stop_after_zeros=int(stop_after_zeros),
+            size,
+            ignore=ignore,
+            **kwargs
         )
 
     def md5(self):
@@ -314,6 +318,20 @@ class ErrorDevice(Volume):
     def reset_stats(self):
         super().reset_stats()
         self.stats["errors"] = {IoDir.WRITE: 0, IoDir.READ: 0}
+
+class TraceDevice(Volume):
+    def __init__(self, size, trace_fcn=None, uuid=None):
+        super().__init__(size, uuid)
+        self.trace_fcn=trace_fcn
+
+    def submit_io(self, io):
+        submit = True
+
+        if self.trace_fcn:
+            submit = self.trace_fcn(self, io)
+
+        if submit:
+            super().submit_io(io)
 
 
 lib = OcfLib.getInstance()

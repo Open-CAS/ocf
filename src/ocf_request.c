@@ -4,11 +4,10 @@
  */
 
 #include "ocf/ocf.h"
-#include "utils_req.h"
-#include "utils_cache_line.h"
-#include "../ocf_request.h"
-#include "../ocf_cache_priv.h"
-#include "../ocf_queue_priv.h"
+#include "ocf_request.h"
+#include "ocf_cache_priv.h"
+#include "ocf_queue_priv.h"
+#include "utils/utils_cache_line.h"
 
 #define OCF_UTILS_RQ_DEBUG 0
 
@@ -76,20 +75,20 @@ int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
 	req = ocf_ctx->resources.req;
 
 	if (!req)
-		goto ocf_utils_req_init_ERROR;
+		goto err;
 
 	for (i = 0; i < ARRAY_SIZE(req->allocator); i++) {
 		req->size[i] = ocf_req_sizeof(1 << i);
 
 		if (snprintf(name, sizeof(name), ALLOCATOR_NAME_FMT,
 				(1 << i)) < 0) {
-			goto ocf_utils_req_init_ERROR;
+			goto err;
 		}
 
 		req->allocator[i] = env_allocator_create(req->size[i], name);
 
 		if (!req->allocator[i])
-			goto ocf_utils_req_init_ERROR;
+			goto err;
 
 		OCF_DEBUG_PARAM(cache, "New request allocator, lines = %u, "
 				"size = %lu", 1 << i, req->size[i]);
@@ -97,10 +96,8 @@ int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
 
 	return 0;
 
-ocf_utils_req_init_ERROR:
-
+err:
 	ocf_req_allocator_deinit(ocf_ctx);
-
 	return -1;
 }
 
@@ -187,8 +184,7 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	ocf_queue_get(queue);
 	req->io_queue = queue;
 
-	/* TODO: Store core pointer instead of id */
-	req->core_id = core ? ocf_core_get_id(core) : 0;
+	req->core = core;
 	req->cache = cache;
 
 	req->d2c = (queue != cache->mngt_queue) && !ocf_refcnt_inc(
@@ -264,11 +260,10 @@ void ocf_req_get(struct ocf_request *req)
 void ocf_req_put(struct ocf_request *req)
 {
 	env_allocator *allocator;
+	ocf_queue_t queue = req->io_queue;
 
 	if (env_atomic_dec_return(&req->ref_count))
 		return;
-
-	ocf_queue_put(req->io_queue);
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -283,6 +278,8 @@ void ocf_req_put(struct ocf_request *req)
 		env_free(req->map);
 		env_allocator_del(_ocf_req_get_allocator_1(req->cache), req);
 	}
+
+	ocf_queue_put(queue);
 }
 
 void ocf_req_clear_info(struct ocf_request *req)

@@ -7,7 +7,7 @@
 #include "engine_wa.h"
 #include "engine_common.h"
 #include "cache_engine.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_io.h"
 #include "../metadata/metadata.h"
 
@@ -24,8 +24,7 @@ static void _ocf_read_wa_complete(struct ocf_request *req, int error)
 
 	if (req->error) {
 		req->info.core_error = 1;
-		env_atomic_inc(&req->cache->core[req->core_id].counters->
-				core_errors.write);
+		env_atomic_inc(&req->core->counters->core_errors.write);
 	}
 
 	/* Complete request */
@@ -72,12 +71,12 @@ int ocf_write_wa(struct ocf_request *req)
 
 		/* Submit write IO to the core */
 		env_atomic_set(&req->req_remaining, 1);
-		ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
+		ocf_submit_volume_req(&req->core->volume, req,
 				_ocf_read_wa_complete);
 
 		/* Update statistics */
 		ocf_engine_update_block_stats(req);
-		env_atomic64_inc(&cache->core[req->core_id].counters->
+		env_atomic64_inc(&req->core->counters->
 			part_counters[req->part_id].write_reqs.pass_through);
 	}
 

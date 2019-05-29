@@ -9,7 +9,6 @@
 #include "../ocf_priv.h"
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
-#include "../utils/utils_device.h"
 #include "../utils/utils_pipeline.h"
 #include "../ocf_stats_priv.h"
 #include "../ocf_def_priv.h"
@@ -21,6 +20,59 @@ static ocf_seq_no_t _ocf_mngt_get_core_seq_no(ocf_cache_t cache)
 
 	return ++cache->conf_meta->curr_core_seq_no;
 }
+
+static int _ocf_uuid_set(const struct ocf_volume_uuid *uuid,
+		struct ocf_metadata_uuid *muuid)
+{
+	int result;
+
+	if (!uuid->data || !muuid->data)
+		return -EINVAL;
+
+	if (uuid->size > sizeof(muuid->data))
+		return -ENOBUFS;
+
+	result = env_memcpy(muuid->data, sizeof(muuid->data),
+			uuid->data, uuid->size);
+	if (result)
+		return result;
+
+	result = env_memset(muuid->data + uuid->size,
+			sizeof(muuid->data) - uuid->size, 0);
+	if (result)
+		return result;
+
+	muuid->size = uuid->size;
+
+	return 0;
+}
+
+static int ocf_mngt_core_set_uuid_metadata(ocf_core_t core,
+		const struct ocf_volume_uuid *uuid,
+		struct ocf_volume_uuid *new_uuid)
+{
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	struct ocf_metadata_uuid *muuid = ocf_metadata_get_core_uuid(cache,
+						ocf_core_get_id(core));
+
+	if (_ocf_uuid_set(uuid, muuid))
+		return -ENOBUFS;
+
+	if (new_uuid) {
+		new_uuid->data = muuid->data;
+		new_uuid->size = muuid->size;
+	}
+
+	return 0;
+}
+
+void ocf_mngt_core_clear_uuid_metadata(ocf_core_t core)
+{
+	struct ocf_volume_uuid uuid = { .size = 0, };
+
+	ocf_mngt_core_set_uuid_metadata(core, &uuid, NULL);
+}
+
 
 static int _ocf_mngt_cache_try_add_core(ocf_cache_t cache, ocf_core_t *core,
 		struct ocf_mngt_core_config *cfg)
@@ -98,7 +150,7 @@ static void _ocf_mngt_cache_add_core_handle_error(
 	if (context->flags.counters_allocated) {
 		env_bit_clear(cfg->core_id,
 				cache->conf_meta->valid_core_bitmap);
-		cache->core_conf_meta[cfg->core_id].added = false;
+		core->conf_meta->added = false;
 		core->opened = false;
 
 		env_free(core->counters);
@@ -118,7 +170,7 @@ static void _ocf_mngt_cache_add_core_handle_error(
 		ocf_volume_deinit(volume);
 
 	if (context->flags.uuid_set)
-		ocf_metadata_clear_core_uuid(core);
+		ocf_mngt_core_clear_uuid_metadata(core);
 }
 
 static void _ocf_mngt_cache_add_core_flush_sb_complete(void *priv, int error)
@@ -147,14 +199,14 @@ static void _ocf_mngt_cache_add_core(ocf_cache_t cache,
 	uint64_t length;
 	int result = 0;
 
-	core = &cache->core[cfg->core_id];
+	core = ocf_cache_get_core(cache, cfg->core_id);
 	context->core = core;
 
 	volume = &core->volume;
 	volume->cache = cache;
 
 	/* Set uuid */
-	result = ocf_metadata_set_core_uuid(core, &cfg->uuid, &new_uuid);
+	result = ocf_mngt_core_set_uuid_metadata(core, &cfg->uuid, &new_uuid);
 	if (result)
 		OCF_PL_FINISH_RET(context->pipeline, result);
 
@@ -190,7 +242,7 @@ static void _ocf_mngt_cache_add_core(ocf_cache_t cache,
 	if (!length)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CORE_NOT_AVAIL);
 
-	cache->core_conf_meta[cfg->core_id].length = length;
+	core->conf_meta->length = length;
 
 	clean_type = cache->conf_meta->cleaning_policy_type;
 	if (ocf_cache_is_device_attached(cache) &&
@@ -213,30 +265,25 @@ static void _ocf_mngt_cache_add_core(ocf_cache_t cache,
 
 	/* When adding new core to cache, reset all core/cache statistics */
 	ocf_core_stats_initialize(core);
-	env_atomic_set(&cache->core_runtime_meta[cfg->core_id].
-			cached_clines, 0);
-	env_atomic_set(&cache->core_runtime_meta[cfg->core_id].
-			dirty_clines, 0);
-	env_atomic64_set(&cache->core_runtime_meta[cfg->core_id].
-			dirty_since, 0);
+	env_atomic_set(&core->runtime_meta->cached_clines, 0);
+	env_atomic_set(&core->runtime_meta->dirty_clines, 0);
+	env_atomic64_set(&core->runtime_meta->dirty_since, 0);
 
 	/* In metadata mark data this core was added into cache */
 	env_bit_set(cfg->core_id, cache->conf_meta->valid_core_bitmap);
-	cache->core_conf_meta[cfg->core_id].added = true;
+	core->conf_meta->added = true;
 	core->opened = true;
 
 	/* Set default cache parameters for sequential */
-	cache->core_conf_meta[cfg->core_id].seq_cutoff_policy =
-		ocf_seq_cutoff_policy_default;
-	cache->core_conf_meta[cfg->core_id].seq_cutoff_threshold =
-		cfg->seq_cutoff_threshold;
+	core->conf_meta->seq_cutoff_policy = ocf_seq_cutoff_policy_default;
+	core->conf_meta->seq_cutoff_threshold = cfg->seq_cutoff_threshold;
 
 	/* Add core sequence number for atomic metadata matching */
 	core_sequence_no = _ocf_mngt_get_core_seq_no(cache);
 	if (core_sequence_no == OCF_SEQ_NO_INVALID)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_TOO_MANY_CORES);
 
-	cache->core_conf_meta[cfg->core_id].seq_no = core_sequence_no;
+	core->conf_meta->seq_no = core_sequence_no;
 
 	/* Update super-block with core device addition */
 	ocf_metadata_flush_superblock(cache,
@@ -310,10 +357,14 @@ static int __ocf_mngt_try_find_core_id(ocf_cache_t cache,
 		struct ocf_mngt_core_config *cfg, ocf_core_id_t tmp_core_id)
 {
 	if (tmp_core_id == OCF_CORE_MAX) {
-		/* FIXME: uuid.data could be not NULL-terminated ANSI string */
-		ocf_cache_log(cache, log_err, "Core with uuid %s not found in "
-				"cache metadata\n", (char*) cfg->uuid.data);
+		ocf_cache_log(cache, log_err, "Core with given uuid not found "
+				"in cache metadata\n");
 		return -OCF_ERR_CORE_NOT_AVAIL;
+	}
+
+	if (cfg->core_id == OCF_CORE_MAX) {
+		cfg->core_id = tmp_core_id;
+		return 0;
 	}
 
 	if (cfg->core_id != tmp_core_id) {
@@ -605,7 +656,6 @@ static void _ocf_mngt_cache_remove_core(ocf_pipeline_t pipeline, void *priv,
 	struct ocf_mngt_cache_remove_core_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_core_t core = context->core;
-	ocf_core_id_t core_id = ocf_core_get_id(core);
 
 	ocf_core_log(core, log_debug, "Removing core\n");
 
@@ -613,12 +663,12 @@ static void _ocf_mngt_cache_remove_core(ocf_pipeline_t pipeline, void *priv,
 
 	/* Deinit everything*/
 	if (ocf_cache_is_device_attached(cache)) {
-		cache_mng_core_deinit_attached_meta(cache, core_id);
-		cache_mng_core_remove_from_cleaning_pol(cache, core_id);
+		cache_mng_core_deinit_attached_meta(core);
+		cache_mng_core_remove_from_cleaning_pol(core);
 	}
-	cache_mng_core_remove_from_meta(cache, core_id);
-	cache_mng_core_remove_from_cache(cache, core_id);
-	cache_mng_core_close(cache, core_id);
+	cache_mng_core_remove_from_meta(core);
+	cache_mng_core_remove_from_cache(core);
+	cache_mng_core_close(core);
 
 	/* Update super-block with core device removal */
 	ocf_metadata_flush_superblock(cache,
@@ -704,12 +754,11 @@ static void _ocf_mngt_cache_detach_core(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_remove_core_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_core_t core = context->core;
-	ocf_core_id_t core_id = ocf_core_get_id(core);
 	int status;
 
 	ocf_core_log(core, log_debug, "Detaching core\n");
 
-	status = cache_mng_core_close(cache, core_id);
+	status = cache_mng_core_close(core);
 
 	if (status)
 		OCF_PL_FINISH_RET(pipeline, status);
@@ -826,7 +875,7 @@ int ocf_mngt_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
 		return 0;
 	}
 
-	result = ocf_metadata_set_core_uuid(core, uuid, NULL);
+	result = ocf_mngt_core_set_uuid_metadata(core, uuid, NULL);
 	if (result)
 		return result;
 
@@ -837,19 +886,13 @@ int ocf_mngt_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
 
 int ocf_mngt_core_set_user_metadata(ocf_core_t core, void *data, size_t size)
 {
-	ocf_cache_t cache;
-	uint32_t core_id;
-
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(data);
-
-	cache = ocf_core_get_cache(core);
-	core_id = ocf_core_get_id(core);
 
 	if (size > OCF_CORE_USER_DATA_SIZE)
 		return -EINVAL;
 
-	env_memcpy(cache->core_conf_meta[core_id].user_data,
+	env_memcpy(core->conf_meta->user_data,
 			OCF_CORE_USER_DATA_SIZE, data, size);
 
 	return 0;
@@ -857,18 +900,13 @@ int ocf_mngt_core_set_user_metadata(ocf_core_t core, void *data, size_t size)
 
 int ocf_mngt_core_get_user_metadata(ocf_core_t core, void *data, size_t size)
 {
-	uint32_t core_id;
-	ocf_cache_t cache;
-
 	OCF_CHECK_NULL(core);
+	OCF_CHECK_NULL(data);
 
-	core_id = ocf_core_get_id(core);
-	cache = ocf_core_get_cache(core);
-
-	if (size > sizeof(cache->core_conf_meta[core_id].user_data))
+	if (size > sizeof(core->conf_meta->user_data))
 		return -EINVAL;
 
-	env_memcpy(data, size, cache->core_conf_meta[core_id].user_data,
+	env_memcpy(data, size, core->conf_meta->user_data,
 			OCF_CORE_USER_DATA_SIZE);
 
 	return 0;
@@ -877,10 +915,7 @@ int ocf_mngt_core_get_user_metadata(ocf_core_t core, void *data, size_t size)
 static int _cache_mng_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx)
 {
 	uint32_t threshold = *(uint32_t*) cntx;
-	ocf_cache_t cache = ocf_core_get_cache(core);
-	ocf_core_id_t core_id = ocf_core_get_id(core);
-	uint32_t threshold_old = cache->core_conf_meta[core_id].
-		seq_cutoff_threshold;
+	uint32_t threshold_old = core->conf_meta->seq_cutoff_threshold;
 
 	if (threshold_old == threshold) {
 		ocf_core_log(core, log_info,
@@ -888,7 +923,7 @@ static int _cache_mng_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx)
 				"already set\n", threshold);
 		return 0;
 	}
-	cache->core_conf_meta[core_id].seq_cutoff_threshold = threshold;
+	core->conf_meta->seq_cutoff_threshold = threshold;
 
 	ocf_core_log(core, log_info, "Changing sequential cutoff "
 			"threshold from %u to %u bytes successful\n",
@@ -941,9 +976,7 @@ static const char *_cache_mng_seq_cutoff_policy_get_name(
 static int _cache_mng_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
 {
 	ocf_seq_cutoff_policy policy = *(ocf_seq_cutoff_policy*) cntx;
-	ocf_cache_t cache = ocf_core_get_cache(core);
-	ocf_core_id_t core_id = ocf_core_get_id(core);
-	uint32_t policy_old = cache->core_conf_meta[core_id].seq_cutoff_policy;
+	uint32_t policy_old = core->conf_meta->seq_cutoff_policy;
 
 	if (policy_old == policy) {
 		ocf_core_log(core, log_info,
@@ -958,7 +991,7 @@ static int _cache_mng_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
 		return -OCF_ERR_INVAL;
 	}
 
-	cache->core_conf_meta[core_id].seq_cutoff_policy = policy;
+	core->conf_meta->seq_cutoff_policy = policy;
 
 	ocf_core_log(core, log_info,
 			"Changing sequential cutoff policy from %s to %s\n",

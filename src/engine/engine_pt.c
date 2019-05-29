@@ -7,7 +7,7 @@
 #include "engine_pt.h"
 #include "engine_common.h"
 #include "cache_engine.h"
-#include "../utils/utils_req.h"
+#include "../ocf_request.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_part.h"
 #include "../metadata/metadata.h"
@@ -28,8 +28,7 @@ static void _ocf_read_pt_complete(struct ocf_request *req, int error)
 
 	if (req->error) {
 		req->info.core_error = 1;
-		env_atomic_inc(&req->cache->core[req->core_id].counters->
-				core_errors.read);
+		env_atomic_inc(&req->core->counters->core_errors.read);
 	}
 
 	/* Complete request */
@@ -43,15 +42,12 @@ static void _ocf_read_pt_complete(struct ocf_request *req, int error)
 
 static inline void _ocf_read_pt_submit(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-
 	env_atomic_set(&req->req_remaining, 1); /* Core device IO */
 
 	OCF_DEBUG_RQ(req, "Submit");
 
 	/* Core read */
-	ocf_submit_volume_req(&cache->core[req->core_id].volume, req,
-			_ocf_read_pt_complete);
+	ocf_submit_volume_req(&req->core->volume, req, _ocf_read_pt_complete);
 }
 
 int ocf_read_pt_do(struct ocf_request *req)
@@ -91,7 +87,7 @@ int ocf_read_pt_do(struct ocf_request *req)
 
 	/* Update statistics */
 	ocf_engine_update_block_stats(req);
-	env_atomic64_inc(&cache->core[req->core_id].counters->
+	env_atomic64_inc(&req->core->counters->
 			part_counters[req->part_id].read_reqs.pass_through);
 
 	/* Put OCF request - decrease reference counter */

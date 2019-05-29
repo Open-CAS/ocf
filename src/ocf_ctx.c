@@ -7,7 +7,7 @@
 #include "ocf_ctx_priv.h"
 #include "ocf_priv.h"
 #include "ocf_volume_priv.h"
-#include "ocf_utils.h"
+#include "ocf_request.h"
 #include "ocf_logger_priv.h"
 #include "ocf_core_priv.h"
 #include "mngt/ocf_mngt_core_pool_priv.h"
@@ -114,7 +114,7 @@ int ocf_ctx_volume_create(ocf_ctx_t ctx, ocf_volume_t *volume,
 /*
  *
  */
-int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
+int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 {
 	ocf_ctx_t ocf_ctx;
 	int ret;
@@ -127,6 +127,7 @@ int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 		return -ENOMEM;
 
 	INIT_LIST_HEAD(&ocf_ctx->caches);
+	env_atomic_set(&ocf_ctx->ref_count, 1);
 	ret = env_mutex_init(&ocf_ctx->lock);
 	if (ret)
 		goto err_ctx;
@@ -140,7 +141,7 @@ int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 	if (ret)
 		goto err_ctx;
 
-	ret = ocf_utils_init(ocf_ctx);
+	ret = ocf_req_allocator_init(ocf_ctx);
 	if (ret)
 		goto err_logger;
 
@@ -155,7 +156,7 @@ int ocf_ctx_init(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 	return 0;
 
 err_utils:
-	ocf_utils_deinit(ocf_ctx);
+	ocf_req_allocator_deinit(ocf_ctx);
 err_logger:
 	ocf_logger_close(&ocf_ctx->logger);
 err_ctx:
@@ -166,25 +167,30 @@ err_ctx:
 /*
  *
  */
-int ocf_ctx_exit(ocf_ctx_t ctx)
+void ocf_ctx_get(ocf_ctx_t ctx)
 {
-	int result = 0;
-
 	OCF_CHECK_NULL(ctx);
 
-	/* Check if caches are setup */
+	env_atomic_inc(&ctx->ref_count);
+}
+
+/*
+ *
+ */
+void ocf_ctx_put(ocf_ctx_t ctx)
+{
+	OCF_CHECK_NULL(ctx);
+
+	if (env_atomic_dec_return(&ctx->ref_count))
+		return;
+
 	env_mutex_lock(&ctx->lock);
-	if (!list_empty(&ctx->caches))
-		result = -EEXIST;
+	ENV_BUG_ON(!list_empty(&ctx->caches));
 	env_mutex_unlock(&ctx->lock);
-	if (result)
-		return result;
 
 	ocf_mngt_core_pool_deinit(ctx);
 	ocf_core_volume_type_deinit(ctx);
-	ocf_utils_deinit(ctx);
+	ocf_req_allocator_deinit(ctx);
 	ocf_logger_close(&ctx->logger);
 	env_free(ctx);
-
-	return 0;
 }

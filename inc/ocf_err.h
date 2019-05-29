@@ -42,9 +42,6 @@ typedef enum {
 	/** Start cache failure */
 	OCF_ERR_START_CACHE_FAIL,
 
-	/** Cache is busy */
-	OCF_ERR_CACHE_IN_USE,
-
 	/** Cache ID does not exist */
 	OCF_ERR_CACHE_NOT_EXIST,
 
