@@ -15,14 +15,13 @@ utility.
 * [Unit Tests](#unit_tests)
 * [Build Test](#build_test)
 * [Contributing](#contributing)
+* [Security](#security)
 
-<a id="documentation"></a>
 ## Documentation
 
 Doxygen API documentation is available [here](http://open-cas.github.io/doxygen/ocf).  
 More documentation, tutorial and examples will be available soon.
 
-<a id="source"></a>
 ## Source Code
 
 Source code is available in the official OCF GitHub repository:
@@ -32,7 +31,6 @@ git clone https://github.com/open-cas/ocf
 cd ocf
 ~~~
 
-<a id="deployment"></a>
 ## Deployment
 
 OCF doesn't compile as separate library. It's designed to be included into another
@@ -56,7 +54,6 @@ make -C $OCFDIF src O=$SRCDIR CMD=cp
 make -C $OCFDIF inc O=$INCDIR CMD=cp
 ~~~
 
-<a id="examples"></a>
 ## Examples
 
 OCF is shipped with examples, which are complete, compillable and working
@@ -67,7 +64,6 @@ Examples can be found in directory `example/`.
 
 Each example contains Makefile which can be used to compile it.
 
-<a id="unit_tests"></a>
 ## Unit Tests
 
 OCF is shipped with dedicated unit test framework based on Cmocka.  
@@ -82,7 +78,6 @@ To run unit tests use following command:
 ./tests/unit/framework/run_unit_tests.py
 ~~~
 
-<a id="build_test"></a>
 ## Build Test
 
 OCF repository contains basic build test. It uses default POSIX environment.
@@ -93,10 +88,14 @@ cd tests/build/
 make
 ~~~
 
-<a id="contributing"></a>
 ## Contributing
 
 Feel like making OCF better? Don't hesitate to submit a pull request!  
 You can find more information about our contribution process
 [here](https://open-cas.github.io/contributing.html).  
 In case of any questions feel free to contact [maintainer](mailto:robert.baldyga@intel.com).
+
+## Security
+
+To report a potential security vulnerability please follow the instructions
+[here](https://open-cas.github.io/contributing.html#reporting-a-potential-security-vulnerability)
