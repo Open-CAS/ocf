@@ -165,7 +165,7 @@ static inline int ocf_uuid_set_str(ocf_uuid_t uuid, char *str)
  */
 static inline const char *ocf_uuid_to_str(const struct ocf_volume_uuid *uuid)
 {
-	return uuid->data;
+	return (const char *)uuid->data;
 }
 
 /**
