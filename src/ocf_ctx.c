@@ -45,7 +45,7 @@ int ocf_ctx_register_volume_type(ocf_ctx_t ctx, uint8_t type_id,
 	return 0;
 
 err:
-	ocf_log(ctx, log_err, "Failed to register volume operations '%s'",
+	ocf_log(ctx, log_err, "Failed to register volume operations '%s'\n",
 			properties->name);
 	return result;
 }
