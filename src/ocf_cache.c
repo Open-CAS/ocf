@@ -147,7 +147,7 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	info->occupancy = cache_occupancy_total;
 	info->dirty_for = _calc_dirty_for(dirty_since);
 	info->metadata_end_offset = ocf_cache_is_device_attached(cache) ?
-			cache->device->metadata_offset_line : 0;
+			cache->device->metadata_offset / PAGE_SIZE : 0;
 
 	info->state = cache->cache_state;
 	info->inactive.occupancy = cache_occupancy_inactive;
