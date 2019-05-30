@@ -74,8 +74,17 @@ class CacheMode(IntEnum):
     WA = 2
     PT = 3
     WI = 4
+    WO = 5
     DEFAULT = WT
 
+    def lazy_write(self):
+        return self.value in [CacheMode.WB, CacheMode.WO]
+
+    def write_insert(self):
+        return self.value not in [CacheMode.PT, CacheMode.WA, CacheMode.WI]
+
+    def read_insert(self):
+        return self.value not in [CacheMode.PT, CacheMode.WO]
 
 class EvictionPolicy(IntEnum):
     LRU = 0
