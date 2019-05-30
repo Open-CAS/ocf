@@ -49,16 +49,6 @@ typedef void (*ocf_end_io_t)(struct ocf_io *io, int error);
  */
 struct ocf_io {
 	/**
-	 * @brief OCF IO destination volume
-	 */
-	ocf_volume_t volume;
-
-	/**
-	 * @brief Operations set for this OCF IO
-	 */
-	const struct ocf_io_ops *ops;
-
-	/**
 	 * @brief OCF IO destination address
 	 */
 	uint64_t addr;
@@ -237,11 +227,7 @@ static inline void ocf_io_set_handle(struct ocf_io *io, ocf_handle_io_t fn)
  * @retval 0 Data set up successfully
  * @retval Non-zero Data set up failure
  */
-static inline int ocf_io_set_data(struct ocf_io *io, ctx_data_t *data,
-		uint32_t offset)
-{
-	return io->ops->set_data(io, data, offset);
-}
+int ocf_io_set_data(struct ocf_io *io, ctx_data_t *data, uint32_t offset);
 
 /**
  * @brief Get data vector from OCF IO
@@ -252,10 +238,7 @@ static inline int ocf_io_set_data(struct ocf_io *io, ctx_data_t *data,
  *
  * @return Data vector from IO
  */
-static inline ctx_data_t *ocf_io_get_data(struct ocf_io *io)
-{
-	return io->ops->get_data(io);
-}
+ctx_data_t *ocf_io_get_data(struct ocf_io *io);
 
 /**
  * @brief Set queue to which IO should be submitted
@@ -275,5 +258,12 @@ static inline void ocf_io_set_queue(struct ocf_io *io, ocf_queue_t queue)
  * @param[in] opaque OCF opaque
  */
 void ocf_io_handle(struct ocf_io *io, void *opaque);
+
+/**
+ * @brief Get volume associated with io
+ *
+ * @param[in] io OCF IO to be handled
+ */
+ocf_volume_t ocf_io_get_volume(struct ocf_io *io);
 
 #endif /* __OCF_IO_H__ */

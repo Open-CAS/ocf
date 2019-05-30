@@ -10,8 +10,15 @@
 #include "ocf_request.h"
 
 struct ocf_io_meta {
+	ocf_volume_t volume;
+	const struct ocf_io_ops *ops;
 	env_atomic ref_count;
 	struct ocf_request *req;
+};
+
+struct ocf_io_internal {
+	struct ocf_io_meta meta;
+	struct ocf_io io;
 };
 
 env_allocator *ocf_io_allocator_create(uint32_t size, const char *name);

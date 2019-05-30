@@ -165,18 +165,10 @@ static inline void dec_counter_if_req_was_dirty(struct ocf_core_io *core_io,
 
 static inline int ocf_core_validate_io(struct ocf_io *io)
 {
-	ocf_core_t core;
+	ocf_volume_t volume = ocf_io_get_volume(io);
+	ocf_core_t core = ocf_volume_to_core(volume);
 
-	if (!io->volume)
-		return -OCF_ERR_INVAL;
-
-	if (!io->ops)
-		return -OCF_ERR_INVAL;
-
-	if (io->addr >= ocf_volume_get_length(io->volume))
-		return -OCF_ERR_INVAL;
-
-	if (io->addr + io->bytes > ocf_volume_get_length(io->volume))
+	if (io->addr + io->bytes > ocf_volume_get_length(volume))
 		return -OCF_ERR_INVAL;
 
 	if (io->io_class >= OCF_IO_CLASS_MAX)
@@ -194,7 +186,6 @@ static inline int ocf_core_validate_io(struct ocf_io *io)
 	/* Core volume I/O must not be queued on management queue - this would
 	 * break I/O accounting code, resulting in use-after-free type of errors
 	 * after cache detach, core remove etc. */
-	core = ocf_volume_to_core(io->volume);
 	if (io->io_queue == ocf_core_get_cache(core)->mngt_queue)
 		return -OCF_ERR_INVAL;
 
@@ -234,7 +225,7 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 
 	core_io = ocf_io_to_core_io(io);
 
-	core = ocf_volume_to_core(io->volume);
+	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
 
 	ocf_trace_init_io(core_io, cache);
@@ -311,7 +302,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 
 	core_io = ocf_io_to_core_io(io);
 
-	core = ocf_volume_to_core(io->volume);
+	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
@@ -413,7 +404,7 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 
 	core_io = ocf_io_to_core_io(io);
 
-	core = ocf_volume_to_core(io->volume);
+	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
@@ -455,7 +446,7 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 
 	core_io = ocf_io_to_core_io(io);
 
-	core = ocf_volume_to_core(io->volume);
+	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,

@@ -42,16 +42,20 @@ void ocf_volume_set_uuid(ocf_volume_t volume,
 
 static inline void ocf_volume_submit_metadata(struct ocf_io *io)
 {
-	ENV_BUG_ON(!io->volume->type->properties->ops.submit_metadata);
+	ocf_volume_t volume = ocf_io_get_volume(io);
 
-	io->volume->type->properties->ops.submit_metadata(io);
+	ENV_BUG_ON(!volume->type->properties->ops.submit_metadata);
+
+	volume->type->properties->ops.submit_metadata(io);
 }
 
 static inline void ocf_volume_submit_write_zeroes(struct ocf_io *io)
 {
-	ENV_BUG_ON(!io->volume->type->properties->ops.submit_write_zeroes);
+	ocf_volume_t volume = ocf_io_get_volume(io);
 
-	io->volume->type->properties->ops.submit_write_zeroes(io);
+	ENV_BUG_ON(!volume->type->properties->ops.submit_write_zeroes);
+
+	volume->type->properties->ops.submit_write_zeroes(io);
 }
 
 #endif  /*__OCF_VOLUME_PRIV_H__ */

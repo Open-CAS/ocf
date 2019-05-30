@@ -63,7 +63,7 @@ static void metadata_io_read_i_atomic_step_end(struct ocf_io *io, int error)
 {
 	struct metadata_io_read_i_atomic_context *context = io->priv1;
 
-	OCF_DEBUG_TRACE(ocf_volume_get_cache(io->volume));
+	OCF_DEBUG_TRACE(ocf_volume_get_cache(ocf_io_get_volume(io)));
 
 	ocf_io_put(io);
 
