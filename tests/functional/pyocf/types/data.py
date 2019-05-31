@@ -96,10 +96,12 @@ class Data:
         return cls(pages * Data.PAGE_SIZE)
 
     @classmethod
-    def from_bytes(cls, source: bytes):
-        d = cls(len(source))
+    def from_bytes(cls, source: bytes, offset: int = 0, size: int = 0):
+        if size == 0:
+            size = len(source) - offset
+        d = cls(size)
 
-        memmove(d.handle, cast(source, c_void_p), len(source))
+        memmove(d.handle, cast(source, c_void_p).value + offset, size)
 
         return d
 

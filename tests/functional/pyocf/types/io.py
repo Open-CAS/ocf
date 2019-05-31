@@ -108,9 +108,9 @@ class Io(Structure):
             byref(self), addr, length, direction, io_class, flags
         )
 
-    def set_data(self, data: Data):
+    def set_data(self, data: Data, offset: int = 0):
         self.data = data
-        OcfLib.getInstance().ocf_io_set_data_wrapper(byref(self), data, 0)
+        OcfLib.getInstance().ocf_io_set_data_wrapper(byref(self), data, offset)
 
     def set_queue(self, queue: Queue):
         OcfLib.getInstance().ocf_io_set_queue_wrapper(byref(self), queue.handle)
