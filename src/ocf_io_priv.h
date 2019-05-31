@@ -25,7 +25,9 @@ env_allocator *ocf_io_allocator_create(uint32_t size, const char *name);
 
 void ocf_io_allocator_destroy(env_allocator *allocator);
 
-struct ocf_io *ocf_io_new(ocf_volume_t volume);
+struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
+		uint64_t addr, uint32_t bytes, uint32_t dir,
+		uint32_t io_class, uint64_t flags);
 
 static inline void ocf_io_start(struct ocf_io *io)
 {

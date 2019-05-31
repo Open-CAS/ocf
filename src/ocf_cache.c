@@ -14,7 +14,7 @@
 
 ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache)
 {
-	return ocf_cache_is_device_attached(cache) ? &cache->device->volume : NULL;
+	return cache->device ? &cache->device->volume : NULL;
 }
 
 ocf_cache_id_t ocf_cache_get_id(ocf_cache_t cache)

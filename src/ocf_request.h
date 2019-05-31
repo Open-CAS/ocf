@@ -7,6 +7,7 @@
 #define __OCF_REQUEST_H__
 
 #include "ocf_env.h"
+#include "ocf_io_priv.h"
 
 struct ocf_req_allocator;
 

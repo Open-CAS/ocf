@@ -64,17 +64,21 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		struct ocf_request *req, int dir, uint64_t offset,
 		uint64_t size, unsigned int reqs, ocf_req_end_t callback);
 
-static inline struct ocf_io *ocf_new_cache_io(struct ocf_cache *cache)
+static inline struct ocf_io *ocf_new_cache_io(ocf_cache_t cache,
+		ocf_queue_t queue, uint64_t addr, uint32_t bytes,
+		uint32_t dir, uint32_t io_class, uint64_t flags)
+
 {
-	return ocf_volume_new_io(&cache->device->volume);
+	return ocf_volume_new_io(ocf_cache_get_volume(cache), queue,
+			addr, bytes, dir, io_class, flags);
 }
 
-static inline struct ocf_io *ocf_new_core_io(struct ocf_cache *cache,
-		ocf_core_id_t core_id)
+static inline struct ocf_io *ocf_new_core_io(ocf_core_t core,
+		ocf_queue_t queue, uint64_t addr, uint32_t bytes,
+		uint32_t dir, uint32_t io_class, uint64_t flags)
 {
-	ENV_BUG_ON(core_id >= OCF_CORE_MAX);
-
-	return ocf_volume_new_io(&cache->core[core_id].volume);
+	return ocf_volume_new_io(ocf_core_get_volume(core), queue,
+			addr, bytes, dir, io_class, flags);
 }
 
 #endif /* UTILS_IO_H_ */

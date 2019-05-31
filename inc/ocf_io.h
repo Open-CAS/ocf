@@ -141,26 +141,6 @@ struct ocf_io_ops {
 void *ocf_io_get_priv(struct ocf_io *io);
 
 /**
- * @brief Configure OCF IO
- *
- * @param[in] io OCF IO
- * @param[in] addr OCF IO destination address
- * @param[in] bytes OCF IO size in bytes
- * @param[in] dir OCF IO direction
- * @param[in] io_class OCF IO destination class
- * @param[in] flags OCF IO flags
- */
-static inline void ocf_io_configure(struct ocf_io *io, uint64_t addr,
-		uint32_t bytes, uint32_t dir, uint32_t io_class, uint64_t flags)
-{
-	io->addr = addr;
-	io->bytes = bytes;
-	io->io_class = io_class;
-	io->flags = flags;
-	io->dir = dir;
-}
-
-/**
  * @brief Increase reference counter in OCF IO
  *
  * @note Wrapper for get IO operation
@@ -239,17 +219,6 @@ int ocf_io_set_data(struct ocf_io *io, ctx_data_t *data, uint32_t offset);
  * @return Data vector from IO
  */
 ctx_data_t *ocf_io_get_data(struct ocf_io *io);
-
-/**
- * @brief Set queue to which IO should be submitted
- *
- * @param[in] io OCF IO to set up
- * @param[in] queue IO queue handle
- */
-static inline void ocf_io_set_queue(struct ocf_io *io, ocf_queue_t queue)
-{
-	io->io_queue = queue;
-}
 
 /**
  * @brief Handle IO in cache engine

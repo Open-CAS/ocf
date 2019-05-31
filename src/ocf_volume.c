@@ -227,9 +227,11 @@ int ocf_volume_is_atomic(ocf_volume_t volume)
 	return volume->type->properties->caps.atomic_writes;
 }
 
-struct ocf_io *ocf_volume_new_io(ocf_volume_t volume)
+struct ocf_io *ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
+		uint64_t addr, uint32_t bytes, uint32_t dir,
+		uint32_t io_class, uint64_t flags)
 {
-	return ocf_io_new(volume);
+	return ocf_io_new(volume, queue, addr, bytes, dir, io_class, flags);
 }
 
 void ocf_volume_submit_io(struct ocf_io *io)

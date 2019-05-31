@@ -69,19 +69,17 @@ static int _ocf_discard_core(struct ocf_request *req)
 {
 	struct ocf_io *io;
 
-	io = ocf_volume_new_io(&req->core->volume);
+	io = ocf_volume_new_io(&req->core->volume, req->io_queue,
+			SECTORS_TO_BYTES(req->discard.sector),
+			SECTORS_TO_BYTES(req->discard.nr_sects),
+			OCF_WRITE, 0, 0);
 	if (!io) {
 		_ocf_discard_complete_req(req, -OCF_ERR_NO_MEM);
 		return -OCF_ERR_NO_MEM;
 	}
 
-	ocf_io_configure(io, SECTORS_TO_BYTES(req->discard.sector),
-			SECTORS_TO_BYTES(req->discard.nr_sects),
-			OCF_WRITE, 0, 0);
-
 	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_core_complete);
 	ocf_io_set_data(io, req->data, 0);
-	ocf_io_set_queue(io, req->io_queue);
 
 	ocf_volume_submit_discard(io);
 
@@ -109,16 +107,15 @@ static int _ocf_discard_flush_cache(struct ocf_request *req)
 {
 	struct ocf_io *io;
 
-	io = ocf_volume_new_io(&req->cache->device->volume);
+	io = ocf_volume_new_io(&req->cache->device->volume, req->io_queue,
+			0, 0, OCF_WRITE, 0, 0);
 	if (!io) {
 		ocf_metadata_error(req->cache);
 		_ocf_discard_complete_req(req, -OCF_ERR_NO_MEM);
 		return -OCF_ERR_NO_MEM;
 	}
 
-	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
 	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_cache_flush_complete);
-	ocf_io_set_queue(io, req->io_queue);
 
 	ocf_volume_submit_flush(io);
 

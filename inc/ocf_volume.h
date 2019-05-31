@@ -256,10 +256,19 @@ int ocf_volume_is_atomic(ocf_volume_t volume);
  * @brief Allocate new io
  *
  * @param[in] volume Volume
+ * @param[in] queue IO queue handle
+ * @param[in] addr OCF IO destination address
+ * @param[in] bytes OCF IO size in bytes
+ * @param[in] dir OCF IO direction
+ * @param[in] io_class OCF IO destination class
+ * @param[in] flags OCF IO flags
  *
  * @return ocf_io on success atomic, otherwise NULL
  */
-struct ocf_io *ocf_volume_new_io(ocf_volume_t volume);
+struct ocf_io *ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
+		uint64_t addr, uint32_t bytes, uint32_t dir,
+		uint32_t io_class, uint64_t flags);
+
 
 /**
  * @brief Submit io to volume

@@ -336,7 +336,10 @@ static int raw_dynamic_load_all_read(struct ocf_request *req)
 	count = OCF_MIN(RAW_DYNAMIC_LOAD_PAGES, raw->ssd_pages - context->i);
 
 	/* Allocate IO */
-	context->io = ocf_new_cache_io(context->cache);
+	context->io = ocf_new_cache_io(context->cache, req->io_queue,
+		PAGES_TO_BYTES(raw->ssd_pages_offset + context->i),
+		PAGES_TO_BYTES(count), OCF_READ, 0, 0);
+
 	if (!context->io) {
 		raw_dynamic_load_all_complete(context, -OCF_ERR_NO_MEM);
 		return 0;
@@ -349,11 +352,6 @@ static int raw_dynamic_load_all_read(struct ocf_request *req)
 		raw_dynamic_load_all_complete(context, result);
 		return 0;
 	}
-	ocf_io_configure(context->io,
-		PAGES_TO_BYTES(raw->ssd_pages_offset + context->i),
-		PAGES_TO_BYTES(count), OCF_READ, 0, 0);
-
-	ocf_io_set_queue(context->io, req->io_queue);
 	ocf_io_set_cmpl(context->io, context, NULL,
 			raw_dynamic_load_all_read_end);
 

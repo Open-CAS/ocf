@@ -31,11 +31,10 @@ void ocf_submit_volume_flush(ocf_volume_t volume,
 {
 	struct ocf_io *io;
 
-	io = ocf_volume_new_io(volume);
+	io = ocf_volume_new_io(volume, NULL, 0, 0, OCF_WRITE, 0, 0);
 	if (!io)
 		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
-	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
 	ocf_io_set_cmpl(io, cmpl, priv, _ocf_volume_flush_end);
 
 	ocf_volume_submit_flush(io);
@@ -74,7 +73,10 @@ void ocf_submit_volume_discard(ocf_volume_t volume, uint64_t addr,
 	context->priv = priv;
 
 	while (length) {
-		io = ocf_volume_new_io(volume);
+		bytes = OCF_MIN(length, max_length);
+
+		io = ocf_volume_new_io(volume, NULL, addr, bytes,
+				OCF_WRITE, 0, 0);
 		if (!io) {
 			context->error = -OCF_ERR_NO_MEM;
 			break;
@@ -82,9 +84,6 @@ void ocf_submit_volume_discard(ocf_volume_t volume, uint64_t addr,
 
 		env_atomic_inc(&context->req_remaining);
 
-		bytes = OCF_MIN(length, max_length);
-
-		ocf_io_configure(io, addr, bytes, OCF_WRITE, 0, 0);
 		ocf_io_set_cmpl(io, context, NULL, ocf_submit_volume_end);
 		ocf_volume_submit_discard(io);
 
@@ -116,7 +115,10 @@ void ocf_submit_write_zeros(ocf_volume_t volume, uint64_t addr,
 	context->priv = priv;
 
 	while (length) {
-		io = ocf_volume_new_io(volume);
+		bytes = OCF_MIN(length, max_length);
+
+		io = ocf_volume_new_io(volume, NULL, addr, bytes,
+				OCF_WRITE, 0, 0);
 		if (!io) {
 			context->error = -OCF_ERR_NO_MEM;
 			break;
@@ -124,9 +126,6 @@ void ocf_submit_write_zeros(ocf_volume_t volume, uint64_t addr,
 
 		env_atomic_inc(&context->req_remaining);
 
-		bytes = OCF_MIN(length, max_length);
-
-		ocf_io_configure(io, addr, bytes, OCF_WRITE, 0, 0);
 		ocf_io_set_cmpl(io, context, NULL, ocf_submit_volume_end);
 		ocf_volume_submit_write_zeroes(io);
 
@@ -181,7 +180,7 @@ void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
 	context->cmpl = cmpl;
 	context->priv = priv;
 
-	io = ocf_volume_new_io(&cache->device->volume);
+	io = ocf_new_cache_io(cache, NULL, addr, PAGE_SIZE, dir, 0, 0);
 	if (!io) {
 		result = -OCF_ERR_NO_MEM;
 		goto err_io;
@@ -200,7 +199,6 @@ void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
 	if (result)
 		goto err_set_data;
 
-	ocf_io_configure(io, addr, PAGE_SIZE, dir, 0, 0);
 	ocf_io_set_cmpl(io, context, NULL, ocf_submit_cache_page_end);
 
 	ocf_volume_submit_io(io);
@@ -245,12 +243,6 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 	cache_stats = &req->core->counters->cache_blocks;
 
 	if (reqs == 1) {
-		io = ocf_new_cache_io(cache);
-		if (!io) {
-			callback(req, -OCF_ERR_NO_MEM);
-			goto update_stats;
-		}
-
 		addr = ocf_metadata_map_lg2phy(cache,
 					req->map[first_cl].coll_idx);
 		addr *= ocf_line_size(cache);
@@ -258,8 +250,13 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		addr += ((req->byte_position + offset) % ocf_line_size(cache));
 		bytes = size;
 
-		ocf_io_configure(io, addr, bytes, dir, class, flags);
-		ocf_io_set_queue(io, req->io_queue);
+		io = ocf_new_cache_io(cache, req->io_queue,
+				addr, bytes, dir, class, flags);
+		if (!io) {
+			callback(req, -OCF_ERR_NO_MEM);
+			goto update_stats;
+		}
+
 		ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
 
 		err = ocf_io_set_data(io, req->data, offset);
@@ -277,15 +274,6 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 
 	/* Issue requests to cache. */
 	for (i = 0; i < reqs; i++) {
-		io = ocf_new_cache_io(cache);
-
-		if (!io) {
-			/* Finish all IOs which left with ERROR */
-			for (; i < reqs; i++)
-				callback(req, -OCF_ERR_NO_MEM);
-			goto update_stats;
-		}
-
 		addr  = ocf_metadata_map_lg2phy(cache,
 				req->map[first_cl + i].coll_idx);
 		addr *= ocf_line_size(cache);
@@ -309,8 +297,15 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		bytes = OCF_MIN(bytes, size - total_bytes);
 		ENV_BUG_ON(bytes == 0);
 
-		ocf_io_configure(io, addr, bytes, dir, class, flags);
-		ocf_io_set_queue(io, req->io_queue);
+		io = ocf_new_cache_io(cache, req->io_queue,
+				addr, bytes, dir, class, flags);
+		if (!io) {
+			/* Finish all IOs which left with ERROR */
+			for (; i < reqs; i++)
+				callback(req, -OCF_ERR_NO_MEM);
+			goto update_stats;
+		}
+
 		ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
 
 		err = ocf_io_set_data(io, req->data, offset + total_bytes);
@@ -350,15 +345,13 @@ void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 	else if (dir == OCF_READ)
 		env_atomic64_add(req->byte_length, &core_stats->read_bytes);
 
-	io = ocf_volume_new_io(volume);
+	io = ocf_volume_new_io(volume, req->io_queue, req->byte_position,
+			req->byte_length, dir, class, flags);
 	if (!io) {
 		callback(req, -OCF_ERR_NO_MEM);
 		return;
 	}
 
-	ocf_io_configure(io, req->byte_position, req->byte_length, dir,
-			class, flags);
-	ocf_io_set_queue(io, req->io_queue);
 	ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
 	err = ocf_io_set_data(io, req->data, 0);
 	if (err) {

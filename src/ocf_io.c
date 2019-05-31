@@ -48,7 +48,9 @@ static struct ocf_io_internal *ocf_io_get_internal(struct ocf_io* io)
 	return container_of(io, struct ocf_io_internal, io);
 }
 
-struct ocf_io *ocf_io_new(ocf_volume_t volume)
+struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
+		uint64_t addr, uint32_t bytes, uint32_t dir,
+		uint32_t io_class, uint64_t flags)
 {
 	struct ocf_io_internal *ioi;
 
@@ -64,6 +66,13 @@ struct ocf_io *ocf_io_new(ocf_volume_t volume)
 	ioi->meta.volume = volume;
 	ioi->meta.ops = &volume->type->properties->io_ops;
 	env_atomic_set(&ioi->meta.ref_count, 1);
+
+	ioi->io.io_queue = queue;
+	ioi->io.addr = addr;
+	ioi->io.bytes = bytes;
+	ioi->io.dir = dir;
+	ioi->io.io_class = io_class;
+	ioi->io.flags = flags;
 
 	return &ioi->io;
 }
