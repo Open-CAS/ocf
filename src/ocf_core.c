@@ -134,9 +134,12 @@ int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
 
 /* *** HELPER FUNCTIONS *** */
 
-static inline struct ocf_core_io *ocf_io_to_core_io(struct ocf_io *io)
+static inline struct ocf_request *ocf_io_to_req(struct ocf_io *io)
 {
-	return ocf_io_get_priv(io);
+	struct ocf_io_internal *ioi;
+
+	ioi = container_of(io, struct ocf_io_internal, io);
+	return container_of(ioi, struct ocf_request, ioi);
 }
 
 static inline ocf_core_t ocf_volume_to_core(ocf_volume_t volume)
@@ -146,21 +149,19 @@ static inline ocf_core_t ocf_volume_to_core(ocf_volume_t volume)
 	return core_volume->core;
 }
 
-static inline int ocf_io_set_dirty(ocf_cache_t cache,
-		struct ocf_core_io *core_io)
+static inline int ocf_io_set_dirty(struct ocf_request *req)
 {
-	core_io->dirty = !!ocf_refcnt_inc(&cache->refcnt.dirty);
-	return core_io->dirty ? 0 : -EBUSY;
+	req->dirty = !!ocf_refcnt_inc(&req->cache->refcnt.dirty);
+	return req->dirty ? 0 : -EBUSY;
 }
 
-static inline void dec_counter_if_req_was_dirty(struct ocf_core_io *core_io,
-		ocf_cache_t cache)
+static inline void dec_counter_if_req_was_dirty(struct ocf_request *req)
 {
-	if (!core_io->dirty)
+	if (!req->dirty)
 		return;
 
-	core_io->dirty = 0;
-	ocf_refcnt_dec(&cache->refcnt.dirty);
+	req->dirty = 0;
+	ocf_refcnt_dec(&req->cache->refcnt.dirty);
 }
 
 static inline int ocf_core_validate_io(struct ocf_io *io)
@@ -195,21 +196,20 @@ static inline int ocf_core_validate_io(struct ocf_io *io)
 static void ocf_req_complete(struct ocf_request *req, int error)
 {
 	/* Log trace */
-	ocf_trace_io_cmpl(ocf_io_to_core_io(req->io), req->cache);
+	ocf_trace_io_cmpl(req);
 
 	/* Complete IO */
-	ocf_io_end(req->io, error);
+	ocf_io_end(&req->ioi.io, error);
 
-	dec_counter_if_req_was_dirty(ocf_io_to_core_io(req->io), req->cache);
+	dec_counter_if_req_was_dirty(req);
 
 	/* Invalidate OCF IO, it is not valid after completion */
-	ocf_io_put(req->io);
-	req->io = NULL;
+	ocf_io_put(&req->ioi.io);
 }
 
 void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 {
-	struct ocf_core_io *core_io;
+	struct ocf_request *req;
 	ocf_req_cache_mode_t req_cache_mode;
 	ocf_core_t core;
 	ocf_cache_t cache;
@@ -219,16 +219,15 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 
 	ret = ocf_core_validate_io(io);
 	if (ret < 0) {
-		io->end(io, ret);
+		ocf_io_end(io, ret);
 		return;
 	}
 
-	core_io = ocf_io_to_core_io(io);
-
+	req = ocf_io_to_req(io);
 	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
 
-	ocf_trace_init_io(core_io, cache);
+	ocf_trace_init_io(req);
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
 					&cache->cache_state))) {
@@ -245,50 +244,40 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 
 	if (io->dir == OCF_WRITE &&
 			ocf_req_cache_mode_has_lazy_write(req_cache_mode) &&
-			ocf_io_set_dirty(cache, core_io)) {
+			ocf_io_set_dirty(req)) {
 		req_cache_mode = ocf_req_cache_mode_wt;
 	}
 
-	core_io->req = ocf_req_new(io->io_queue, core, io->addr, io->bytes,
-			io->dir);
-	if (!core_io->req) {
-		dec_counter_if_req_was_dirty(core_io, cache);
-		io->end(io, -OCF_ERR_NO_MEM);
-		return;
-	}
-
-	if (core_io->req->d2c)
+	if (req->d2c)
 		req_cache_mode = ocf_req_cache_mode_d2c;
 
-	core_io->req->part_id = ocf_part_class2id(cache, io->io_class);
-	core_io->req->data = core_io->data;
-	core_io->req->complete = ocf_req_complete;
-	core_io->req->io = io;
+	req->core = core;
+	req->complete = ocf_req_complete;
+	req->part_id = ocf_part_class2id(cache, io->io_class);
 
-	ocf_seq_cutoff_update(core, core_io->req);
+	ocf_seq_cutoff_update(core, req);
 
 	ocf_core_update_stats(core, io);
 
 	if (io->dir == OCF_WRITE)
-		ocf_trace_io(core_io, ocf_event_operation_wr, cache);
+		ocf_trace_io(req, ocf_event_operation_wr);
 	else if (io->dir == OCF_READ)
-		ocf_trace_io(core_io, ocf_event_operation_rd, cache);
+		ocf_trace_io(req, ocf_event_operation_rd);
 
 	ocf_io_get(io);
-	ret = ocf_engine_hndl_req(core_io->req, req_cache_mode);
+
+	ret = ocf_engine_hndl_req(req, req_cache_mode);
 	if (ret) {
-		dec_counter_if_req_was_dirty(core_io, cache);
-		ocf_req_put(core_io->req);
-		io->end(io, ret);
+		dec_counter_if_req_was_dirty(req);
+		ocf_io_end(io, ret);
 	}
 }
 
 int ocf_core_submit_io_fast(struct ocf_io *io)
 {
-	struct ocf_core_io *core_io;
+	struct ocf_request *req;
 	ocf_req_cache_mode_t req_cache_mode;
 	struct ocf_event_io trace_event;
-	struct ocf_request *req;
 	ocf_core_t core;
 	ocf_cache_t cache;
 	int fast;
@@ -300,8 +289,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 	if (ret < 0)
 		return ret;
 
-	core_io = ocf_io_to_core_io(io);
-
+	req = ocf_io_to_req(io);
 	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
 
@@ -311,11 +299,17 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 		return 0;
 	}
 
+	ret = ocf_req_alloc_map(req);
+	if (ret) {
+		ocf_io_end(io, -OCF_ERR_NO_MEM);
+		return 0;
+	}
+
 	req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
 
 	if (io->dir == OCF_WRITE &&
 			ocf_req_cache_mode_has_lazy_write(req_cache_mode) &&
-			ocf_io_set_dirty(cache, core_io)) {
+			ocf_io_set_dirty(req)) {
 		req_cache_mode = ocf_req_cache_mode_wt;
 	}
 
@@ -335,35 +329,22 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 		req_cache_mode = ocf_req_cache_mode_fast;
 	}
 
-	core_io->req = ocf_req_new_extended(io->io_queue, core,
-			io->addr, io->bytes, io->dir);
-	// We need additional pointer to req in case completion arrives before
-	// we leave this function and core_io is freed
-	req = core_io->req;
-
-	if (!req) {
-		dec_counter_if_req_was_dirty(core_io, cache);
-		io->end(io, -OCF_ERR_NO_MEM);
-		return 0;
-	}
 	if (req->d2c) {
-		dec_counter_if_req_was_dirty(core_io, cache);
-		ocf_req_put(req);
+		dec_counter_if_req_was_dirty(req);
 		return -OCF_ERR_IO;
 	}
 
-	req->part_id = ocf_part_class2id(cache, io->io_class);
-	req->data = core_io->data;
+	req->core = core;
 	req->complete = ocf_req_complete;
-	req->io = io;
+	req->part_id = ocf_part_class2id(cache, io->io_class);
 
 	ocf_core_update_stats(core, io);
 
 	if (cache->trace.trace_callback) {
 		if (io->dir == OCF_WRITE)
-			ocf_trace_prep_io_event(&trace_event, core_io, ocf_event_operation_wr);
+			ocf_trace_prep_io_event(&trace_event, req, ocf_event_operation_wr);
 		else if (io->dir == OCF_READ)
-			ocf_trace_prep_io_event(&trace_event, core_io, ocf_event_operation_rd);
+			ocf_trace_prep_io_event(&trace_event, req, ocf_event_operation_rd);
 	}
 
 	ocf_io_get(io);
@@ -375,10 +356,9 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 		return 0;
 	}
 
-	dec_counter_if_req_was_dirty(core_io, cache);
+	dec_counter_if_req_was_dirty(req);
 
 	ocf_io_put(io);
-	ocf_req_put(req);
 	return -OCF_ERR_IO;
 }
 
@@ -389,7 +369,7 @@ static void ocf_core_volume_submit_io(struct ocf_io *io)
 
 static void ocf_core_volume_submit_flush(struct ocf_io *io)
 {
-	struct ocf_core_io *core_io;
+	struct ocf_request *req;
 	ocf_core_t core;
 	ocf_cache_t cache;
 	int ret;
@@ -402,8 +382,7 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 		return;
 	}
 
-	core_io = ocf_io_to_core_io(io);
-
+	req = ocf_io_to_req(io);
 	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
 
@@ -413,25 +392,18 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 		return;
 	}
 
-	core_io->req = ocf_req_new(io->io_queue, core, io->addr, io->bytes,
-			io->dir);
-	if (!core_io->req) {
-		ocf_io_end(io, -OCF_ERR_NO_MEM);
-		return;
-	}
+	req->core = core;
+	req->complete = ocf_req_complete;
 
-	core_io->req->complete = ocf_req_complete;
-	core_io->req->io = io;
-	core_io->req->data = core_io->data;
-
-	ocf_trace_io(core_io, ocf_event_operation_flush, cache);
+	ocf_trace_io(req, ocf_event_operation_flush);
 	ocf_io_get(io);
-	ocf_engine_hndl_ops_req(core_io->req);
+
+	ocf_engine_hndl_ops_req(req);
 }
 
 static void ocf_core_volume_submit_discard(struct ocf_io *io)
 {
-	struct ocf_core_io *core_io;
+	struct ocf_request *req;
 	ocf_core_t core;
 	ocf_cache_t cache;
 	int ret;
@@ -444,8 +416,7 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 		return;
 	}
 
-	core_io = ocf_io_to_core_io(io);
-
+	req = ocf_io_to_req(io);
 	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
 
@@ -455,20 +426,19 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 		return;
 	}
 
-	core_io->req = ocf_req_new_discard(io->io_queue, core,
-			io->addr, io->bytes, OCF_WRITE);
-	if (!core_io->req) {
+	ret = ocf_req_alloc_map_discard(req);
+	if (ret) {
 		ocf_io_end(io, -OCF_ERR_NO_MEM);
 		return;
 	}
 
-	core_io->req->complete = ocf_req_complete;
-	core_io->req->io = io;
-	core_io->req->data = core_io->data;
+	req->core = core;
+	req->complete = ocf_req_complete;
 
-	ocf_trace_io(core_io, ocf_event_operation_discard, cache);
+	ocf_trace_io(req, ocf_event_operation_discard);
 	ocf_io_get(io);
-	ocf_engine_hndl_discard_req(core_io->req);
+
+	ocf_engine_hndl_discard_req(req);
 }
 
 /* *** VOLUME OPS *** */
@@ -508,32 +478,32 @@ static uint64_t ocf_core_volume_get_byte_length(ocf_volume_t volume)
 static int ocf_core_io_set_data(struct ocf_io *io,
 		ctx_data_t *data, uint32_t offset)
 {
-	struct ocf_core_io *core_io;
+	struct ocf_request *req;
 
 	OCF_CHECK_NULL(io);
 
 	if (!data || offset)
 		return -OCF_ERR_INVAL;
 
-	core_io = ocf_io_to_core_io(io);
-	core_io->data = data;
+	req = ocf_io_to_req(io);
+	req->data = data;
 
 	return 0;
 }
 
 static ctx_data_t *ocf_core_io_get_data(struct ocf_io *io)
 {
-	struct ocf_core_io *core_io;
+	struct ocf_request *req;
 
 	OCF_CHECK_NULL(io);
 
-	core_io = ocf_io_to_core_io(io);
-	return core_io->data;
+	req = ocf_io_to_req(io);
+	return req->data;
 }
 
 const struct ocf_volume_properties ocf_core_volume_properties = {
 	.name = "OCF Core",
-	.io_priv_size = sizeof(struct ocf_core_io),
+	.io_priv_size = 0, /* Not used - custom allocator */
 	.volume_priv_size = sizeof(struct ocf_core_volume),
 	.caps = {
 		.atomic_writes = 0,
@@ -555,10 +525,55 @@ const struct ocf_volume_properties ocf_core_volume_properties = {
 	},
 };
 
+static int ocf_core_io_allocator_init(ocf_io_allocator_t allocator,
+		uint32_t priv_size, const char *name)
+{
+	return 0;
+}
+
+static void ocf_core_io_allocator_deinit(ocf_io_allocator_t allocator)
+{
+}
+
+static void *ocf_core_io_allocator_new(ocf_io_allocator_t allocator,
+		ocf_volume_t volume, ocf_queue_t queue,
+		uint64_t addr, uint32_t bytes, uint32_t dir)
+{
+	struct ocf_request *req;
+
+	req = ocf_req_new(queue, NULL, addr, bytes, dir);
+	if (!req)
+		return NULL;
+
+	return &req->ioi;
+}
+
+static void ocf_core_io_allocator_del(ocf_io_allocator_t allocator, void *obj)
+{
+	struct ocf_request *req;
+
+	req = container_of(obj, struct ocf_request, ioi);
+	ocf_req_put(req);
+}
+
+const struct ocf_io_allocator_type ocf_core_io_allocator_type = {
+	.ops = {
+		.allocator_init = ocf_core_io_allocator_init,
+		.allocator_deinit = ocf_core_io_allocator_deinit,
+		.allocator_new = ocf_core_io_allocator_new,
+		.allocator_del = ocf_core_io_allocator_del,
+	},
+};
+
+const struct ocf_volume_extended ocf_core_volume_extended = {
+	.allocator_type = &ocf_core_io_allocator_type,
+};
+
 int ocf_core_volume_type_init(ocf_ctx_t ctx)
 {
-	return ocf_ctx_register_volume_type(ctx, 0,
-			&ocf_core_volume_properties);
+	return ocf_ctx_register_volume_type_extended(ctx, 0,
+			&ocf_core_volume_properties,
+			&ocf_core_volume_extended);
 }
 
 void ocf_core_volume_type_deinit(ocf_ctx_t ctx)

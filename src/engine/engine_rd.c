@@ -217,7 +217,7 @@ int ocf_read_generic(struct ocf_request *req)
 	int lock = OCF_LOCK_NOT_ACQUIRED;
 	struct ocf_cache *cache = req->cache;
 
-	ocf_io_start(req->io);
+	ocf_io_start(&req->ioi.io);
 
 	if (env_atomic_read(&cache->pending_read_misses_list_blocked)) {
 		/* There are conditions to bypass IO */

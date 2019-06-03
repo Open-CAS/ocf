@@ -128,7 +128,7 @@ int ocf_read_fast(struct ocf_request *req)
 
 	hit = ocf_engine_is_hit(req);
 	if (hit) {
-		ocf_io_start(req->io);
+		ocf_io_start(&req->ioi.io);
 		lock = ocf_req_trylock_rd(req);
 	}
 
@@ -198,7 +198,7 @@ int ocf_write_fast(struct ocf_request *req)
 
 	mapped = ocf_engine_is_mapped(req);
 	if (mapped) {
-		ocf_io_start(req->io);
+		ocf_io_start(&req->ioi.io);
 		lock = ocf_req_trylock_wr(req);
 	}
 

@@ -7,7 +7,6 @@
 #define __OCF_IO_PRIV_H__
 
 #include "ocf/ocf.h"
-#include "ocf_request.h"
 #include "utils/utils_io_allocator.h"
 
 struct ocf_io_meta {
@@ -16,6 +15,7 @@ struct ocf_io_meta {
 	env_atomic ref_count;
 	struct ocf_request *req;
 };
+
 
 struct ocf_io_internal {
 	struct ocf_io_meta meta;

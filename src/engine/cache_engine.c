@@ -254,6 +254,8 @@ int ocf_engine_hndl_req(struct ocf_request *req,
 	if (!req->io_if)
 		return -OCF_ERR_INVAL;
 
+	ocf_req_get(req);
+
 	/* Till OCF engine is not synchronous fully need to push OCF request
 	 * to into OCF workers
 	 */
@@ -273,6 +275,8 @@ int ocf_engine_hndl_fast_req(struct ocf_request *req,
 	if (!io_if)
 		return -OCF_ERR_INVAL;
 
+	ocf_req_get(req);
+
 	switch (req->rw) {
 	case OCF_READ:
 		ret = io_if->read(req);
@@ -281,8 +285,11 @@ int ocf_engine_hndl_fast_req(struct ocf_request *req,
 		ret = io_if->write(req);
 		break;
 	default:
-		return OCF_FAST_PATH_NO;
+		ret = OCF_FAST_PATH_NO;
 	}
+
+	if (ret == OCF_FAST_PATH_NO)
+		ocf_req_put(req);
 
 	return ret;
 }
@@ -299,6 +306,8 @@ static void ocf_engine_hndl_2dc_req(struct ocf_request *req)
 
 void ocf_engine_hndl_discard_req(struct ocf_request *req)
 {
+	ocf_req_get(req);
+
 	if (req->d2c) {
 		ocf_engine_hndl_2dc_req(req);
 		return;
@@ -314,6 +323,8 @@ void ocf_engine_hndl_discard_req(struct ocf_request *req)
 
 void ocf_engine_hndl_ops_req(struct ocf_request *req)
 {
+	ocf_req_get(req);
+
 	if (req->d2c)
 		req->io_if = &IO_IFS[OCF_IO_D2C_IF];
 	else

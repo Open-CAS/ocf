@@ -201,6 +201,10 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	req->rw = rw;
 	req->part_id = PARTITION_DEFAULT;
 
+	req->discard.sector = BYTES_TO_SECTORS(addr);
+	req->discard.nr_sects = BYTES_TO_SECTORS(bytes);
+	req->discard.handled = 0;
+
 	return req;
 }
 
@@ -216,6 +220,24 @@ int ocf_req_alloc_map(struct ocf_request *req)
 	}
 
 	return 0;
+}
+
+int ocf_req_alloc_map_discard(struct ocf_request *req)
+{
+	if (req->byte_length <= MAX_TRIM_RQ_SIZE)
+		return ocf_req_alloc_map(req);
+
+	/*
+	 * NOTE: For cache line size bigger than 8k a single-allocation mapping
+	 * can handle more than MAX_TRIM_RQ_SIZE, so for these cache line sizes
+	 * discard request uses only part of the mapping array.
+	 */
+	req->byte_length = MAX_TRIM_RQ_SIZE;
+	req->core_line_last = ocf_bytes_2_lines(req->cache,
+			req->byte_position + req->byte_length - 1);
+	req->core_line_count = req->core_line_last - req->core_line_first + 1;
+
+	return ocf_req_alloc_map(req);
 }
 
 struct ocf_request *ocf_req_new_extended(ocf_queue_t queue, ocf_core_t core,
@@ -242,10 +264,6 @@ struct ocf_request *ocf_req_new_discard(ocf_queue_t queue, ocf_core_t core,
 			OCF_MIN(bytes, MAX_TRIM_RQ_SIZE), rw);
 	if (!req)
 		return NULL;
-
-	req->discard.sector = BYTES_TO_SECTORS(addr);
-	req->discard.nr_sects = BYTES_TO_SECTORS(bytes);
-	req->discard.handled = 0;
 
 	return req;
 }

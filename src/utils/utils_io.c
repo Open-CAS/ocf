@@ -228,8 +228,8 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		uint64_t size, unsigned int reqs, ocf_req_end_t callback)
 {
 	struct ocf_counters_block *cache_stats;
-	uint64_t flags = req->io ? req->io->flags : 0;
-	uint32_t class = req->io ? req->io->io_class : 0;
+	uint64_t flags = req->ioi.io.flags;
+	uint32_t class = req->ioi.io.io_class;
 	uint64_t addr, bytes, total_bytes = 0;
 	struct ocf_io *io;
 	int err;
@@ -333,8 +333,8 @@ void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 		ocf_req_end_t callback)
 {
 	struct ocf_counters_block *core_stats;
-	uint64_t flags = req->io ? req->io->flags : 0;
-	uint32_t class = req->io ? req->io->io_class : 0;
+	uint64_t flags = req->ioi.io.flags;
+	uint32_t class = req->ioi.io.io_class;
 	int dir = req->rw;
 	struct ocf_io *io;
 	int err;

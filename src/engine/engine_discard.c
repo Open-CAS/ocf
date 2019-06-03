@@ -255,7 +255,7 @@ int ocf_discard(struct ocf_request *req)
 {
 	OCF_DEBUG_TRACE(req->cache);
 
-	ocf_io_start(req->io);
+	ocf_io_start(&req->ioi.io);
 
 	if (req->rw == OCF_READ) {
 		req->complete(req, -OCF_ERR_INVAL);
