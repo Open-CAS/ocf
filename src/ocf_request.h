@@ -131,12 +131,6 @@ struct ocf_request {
 	const struct ocf_io_if *io_if;
 	/*!< IO interface */
 
-	void (*resume)(struct ocf_request *req);
-	/*!< OCF request resume callback */
-
-	ocf_part_id_t part_id;
-	/*!< Targeted partition of requests */
-
 	void *priv;
 	/*!< Filed for private data, context */
 
@@ -167,26 +161,32 @@ struct ocf_request {
 	uint32_t alloc_core_line_count;
 	/*! Core line count for which request was initially allocated */
 
-	ocf_queue_t io_queue;
-	/*!< I/O queue handle for which request should be submitted */
-
 	int error;
 	/*!< This filed indicates an error for OCF request */
 
-	int rw;
+	ocf_part_id_t part_id;
+	/*!< Targeted partition of requests */
+
+	uint8_t rw : 1;
 	/*!< Indicator of IO direction - Read/Write */
+
+	uint8_t d2c : 1;
+	/**!< request affects metadata cachelines (is not direct-to-core) */
+
+	uint8_t dirty : 1;
+	/**!< indicates that request produces dirty data */
+
+	uint8_t master_io_req_type : 2;
+	/*!< Core device request context type */
+
+	ocf_queue_t io_queue;
+	/*!< I/O queue handle for which request should be submitted */
 
 	struct list_head list;
 	/*!< List item for OCF IO thread workers */
 
 	struct ocf_req_info info;
 	/*!< Detailed request info */
-
-	uint8_t d2c;
-	/**!< request affects metadata cachelines (is not direct-to-core) */
-
-	uint8_t master_io_req_type;
-	/*!< Core device request context type */
 
 	void (*complete)(struct ocf_request *ocf_req, int error);
 	/*!< Request completion funstion */

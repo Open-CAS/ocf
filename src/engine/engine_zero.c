@@ -129,6 +129,7 @@ static int _ocf_zero_do(struct ocf_request *req)
 static const struct ocf_io_if _io_if_ocf_zero_do = {
 	.read = _ocf_zero_do,
 	.write = _ocf_zero_do,
+	.resume = ocf_engine_on_resume,
 };
 
 /**
@@ -147,7 +148,6 @@ void ocf_engine_zero_line(struct ocf_request *req)
 
 	ENV_BUG_ON(!ocf_engine_is_mapped(req));
 
-	req->resume = ocf_engine_on_resume;
 	req->io_if = &_io_if_ocf_zero_do;
 
 	/* Some cache line are mapped, lock request for WRITE access */

@@ -99,6 +99,7 @@ int ocf_read_pt_do(struct ocf_request *req)
 static const struct ocf_io_if _io_if_pt_resume = {
 	.read = ocf_read_pt_do,
 	.write = ocf_read_pt_do,
+	.resume = ocf_engine_on_resume,
 };
 
 int ocf_read_pt(struct ocf_request *req)
@@ -114,8 +115,7 @@ int ocf_read_pt(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	/* Set resume call backs */
-	req->resume = ocf_engine_on_resume;
+	/* Set resume io_if */
 	req->io_if = &_io_if_pt_resume;
 
 	OCF_METADATA_LOCK_RD(); /*- Metadata RD access -----------------------*/
