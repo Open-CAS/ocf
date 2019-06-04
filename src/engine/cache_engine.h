@@ -59,6 +59,13 @@ static inline bool ocf_cache_mode_is_valid(ocf_cache_mode_t mode)
 	return mode >= ocf_cache_mode_wt && mode < ocf_cache_mode_max;
 }
 
+static inline bool ocf_req_cache_mode_has_lazy_write(ocf_req_cache_mode_t mode)
+{
+	return ocf_cache_mode_is_valid((ocf_cache_mode_t)mode) &&
+			ocf_mngt_cache_mode_has_lazy_write(
+					(ocf_cache_mode_t)mode);
+}
+
 void ocf_seq_cutoff_update(ocf_core_t core, struct ocf_request *req);
 
 bool ocf_fallback_pt_is_on(ocf_cache_t cache);

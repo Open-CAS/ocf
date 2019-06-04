@@ -251,7 +251,9 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 
 	if (cache_mode == ocf_cache_mode_none)
 		req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
-	if (req_cache_mode == ocf_req_cache_mode_wb &&
+
+	if (io->dir == OCF_WRITE &&
+			ocf_req_cache_mode_has_lazy_write(req_cache_mode) &&
 			ocf_io_set_dirty(cache, core_io)) {
 		req_cache_mode = ocf_req_cache_mode_wt;
 	}
@@ -319,7 +321,9 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 	}
 
 	req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
-	if (req_cache_mode == ocf_req_cache_mode_wb &&
+
+	if (io->dir == OCF_WRITE &&
+			ocf_req_cache_mode_has_lazy_write(req_cache_mode) &&
 			ocf_io_set_dirty(cache, core_io)) {
 		req_cache_mode = ocf_req_cache_mode_wt;
 	}
@@ -328,6 +332,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 	case ocf_req_cache_mode_pt:
 		return -OCF_ERR_IO;
 	case ocf_req_cache_mode_wb:
+	case ocf_req_cache_mode_wo:
 		req_cache_mode = ocf_req_cache_mode_fast;
 		break;
 	default:
