@@ -333,7 +333,7 @@ static void evp_lru_clean(ocf_cache_t cache, ocf_queue_t io_queue,
 
 	cnt = ocf_refcnt_inc(counter);
 	if (!cnt) {
-		/* cleaner disabled by mngmt operation */
+		/* cleaner disabled by management operation */
 		return;
 	}
 	if (cnt > 1) {

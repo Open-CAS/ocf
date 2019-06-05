@@ -50,9 +50,9 @@ static ocf_cache_t _ocf_mngt_get_cache(ocf_ctx_t owner,
 	"Restart with --load or --force option\n"
 
 /**
- * @brief Helpful function to start cache
+ * @brief Helpful struct to start cache
  */
-struct ocf_cachemng_init_params {
+struct ocf_cache_mngt_init_params {
 	bool metadata_volatile;
 
 	ocf_cache_id_t id;
@@ -541,7 +541,7 @@ static void _ocf_mngt_init_instance_load(
  * @brief allocate memory for new cache, add it to cache queue, set initial
  * values and running state
  */
-static int _ocf_mngt_init_new_cache(struct ocf_cachemng_init_params *params)
+static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 {
 	ocf_cache_t cache = env_vzalloc(sizeof(*cache));
 
@@ -642,7 +642,7 @@ static void _ocf_mngt_attach_cache_device(ocf_pipeline_t pipeline,
  * @brief prepare cache for init. This is first step towards initializing
  *		the cache
  */
-static int _ocf_mngt_init_prepare_cache(struct ocf_cachemng_init_params *param,
+static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param,
 		struct ocf_mngt_cache_config *cfg)
 {
 	ocf_cache_t cache;
@@ -1104,7 +1104,7 @@ int ocf_mngt_get_ram_needed(ocf_cache_t cache,
  *
  */
 static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
-		struct ocf_cachemng_init_params *params)
+		struct ocf_cache_mngt_init_params *params)
 {
 	ocf_cache_t cache = params->cache;
 
@@ -1150,7 +1150,7 @@ static void _ocf_mngt_attach_handle_error(
 }
 
 static int _ocf_mngt_cache_init(ocf_cache_t cache,
-		struct ocf_cachemng_init_params *params)
+		struct ocf_cache_mngt_init_params *params)
 {
 	int i;
 
@@ -1180,7 +1180,7 @@ static int _ocf_mngt_cache_init(ocf_cache_t cache,
 static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		struct ocf_mngt_cache_config *cfg)
 {
-	struct ocf_cachemng_init_params params;
+	struct ocf_cache_mngt_init_params params;
 	int result;
 
 	ENV_BUG_ON(env_memset(&params, sizeof(params), 0));
@@ -1197,7 +1197,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	/* Prepare cache */
 	result = _ocf_mngt_init_prepare_cache(&params, cfg);
 	if (result)
-		goto _cache_mng_init_instance_ERROR;
+		goto _cache_mngt_init_instance_ERROR;
 
 	*cache  = params.cache;
 
@@ -1207,7 +1207,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	result = ocf_metadata_init(*cache, params.metadata.line_size);
 	if (result) {
 		result =  -OCF_ERR_START_CACHE_FAIL;
-		goto _cache_mng_init_instance_ERROR;
+		goto _cache_mngt_init_instance_ERROR;
 	}
 
 	ocf_log(ctx, log_debug, "Metadata initialized\n");
@@ -1215,7 +1215,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	result = _ocf_mngt_cache_init(*cache, &params);
 	if (result)
-		goto _cache_mng_init_instance_ERROR;
+		goto _cache_mngt_init_instance_ERROR;
 
 	ocf_ctx_get(ctx);
 
@@ -1229,13 +1229,13 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	return 0;
 
-_cache_mng_init_instance_ERROR:
+_cache_mngt_init_instance_ERROR:
 	_ocf_mngt_init_handle_error(ctx, &params);
 	*cache = NULL;
 	return result;
 }
 
-static void _ocf_mng_cache_set_valid(ocf_cache_t cache)
+static void _ocf_mngt_cache_set_valid(ocf_cache_t cache)
 {
 	/*
 	 * Clear initialization state and set the valid bit so we know
@@ -1628,7 +1628,7 @@ int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	result = _ocf_mngt_cache_start(ctx, cache, cfg);
 	if (!result) {
-		_ocf_mng_cache_set_valid(*cache);
+		_ocf_mngt_cache_set_valid(*cache);
 
 		ocf_cache_log(*cache, log_info, "Successfully added\n");
 		ocf_cache_log(*cache, log_info, "Cache mode : %s\n",
@@ -1807,7 +1807,7 @@ static void _ocf_mngt_cache_load_complete(ocf_cache_t cache, void *priv1,
 	if (error)
 		OCF_CMPL_RET(cache, priv2, error);
 
-	_ocf_mng_cache_set_valid(cache);
+	_ocf_mngt_cache_set_valid(cache);
 	_ocf_mngt_cache_load_log(cache);
 
 	OCF_CMPL_RET(cache, priv2, 0);
@@ -1886,10 +1886,10 @@ static void ocf_mngt_cache_stop_remove_cores(ocf_pipeline_t pipeline,
 
 	/* All exported objects removed, cleaning up rest. */
 	for_each_core(cache, core, core_id) {
-		cache_mng_core_remove_from_cache(core);
+		cache_mngt_core_remove_from_cache(core);
 		if (context->cache_attached)
-			cache_mng_core_remove_from_cleaning_pol(core);
-		cache_mng_core_close(core);
+			cache_mngt_core_remove_from_cleaning_pol(core);
+		cache_mngt_core_close(core);
 		if (--no == 0)
 			break;
 	}
@@ -2109,7 +2109,7 @@ void ocf_mngt_cache_save(ocf_cache_t cache,
 			ocf_mngt_cache_save_flush_sb_complete, context);
 }
 
-static void _cache_mng_update_initial_dirty_clines(ocf_cache_t cache)
+static void _cache_mngt_update_initial_dirty_clines(ocf_cache_t cache)
 {
 	ocf_core_t core;
 	ocf_core_id_t core_id;
@@ -2122,7 +2122,7 @@ static void _cache_mng_update_initial_dirty_clines(ocf_cache_t cache)
 
 }
 
-static int _cache_mng_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
+static int _cache_mngt_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 {
 	ocf_cache_mode_t mode_old = cache->conf_meta->cache_mode;
 
@@ -2139,7 +2139,7 @@ static int _cache_mng_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 	cache->conf_meta->cache_mode = mode;
 
 	if (mode_old == ocf_cache_mode_wb)
-		_cache_mng_update_initial_dirty_clines(cache);
+		_cache_mngt_update_initial_dirty_clines(cache);
 
 	ocf_cache_log(cache, log_info, "Changing cache mode from '%s' to '%s' "
 			"successful\n", ocf_get_io_iface_name(mode_old),
@@ -2160,7 +2160,7 @@ int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 		return -OCF_ERR_INVAL;
 	}
 
-	result = _cache_mng_set_cache_mode(cache, mode);
+	result = _cache_mngt_set_cache_mode(cache, mode);
 
 	if (result) {
 		const char *name = ocf_get_io_iface_name(mode);
@@ -2304,8 +2304,8 @@ static void ocf_mngt_cache_detach_update_metadata(ocf_pipeline_t pipeline,
 
 	/* remove cacheline metadata and cleaning policy meta for all cores */
 	for_each_core(cache, core, core_id) {
-		cache_mng_core_deinit_attached_meta(core);
-		cache_mng_core_remove_from_cleaning_pol(core);
+		cache_mngt_core_deinit_attached_meta(core);
+		cache_mngt_core_remove_from_cleaning_pol(core);
 		if (--no == 0)
 			break;
 	}

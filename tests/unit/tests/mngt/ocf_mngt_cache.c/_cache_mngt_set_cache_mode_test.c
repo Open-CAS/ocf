@@ -4,7 +4,7 @@
  */
 
 //<tested_file_path>src/mngt/ocf_mngt_cache.c</tested_file_path>
-//<tested_function>_cache_mng_set_cache_mode</tested_function>
+//<tested_function>_cache_mngt_set_cache_mode</tested_function>
 
 /*
 <functions_to_leave>
@@ -265,12 +265,12 @@ void __wrap_ocf_mngt_cache_save_finish(
 {
 }
 
-void _cache_mng_update_initial_dirty_clines(ocf_cache_t cache)
+void _cache_mngt_update_initial_dirty_clines(ocf_cache_t cache)
 {
 	function_called();
 }
 
-static void _cache_mng_set_cache_mode_test01(void **state)
+static void _cache_mngt_set_cache_mode_test01(void **state)
 {
 	ocf_cache_mode_t mode_old = -20;
 	ocf_cache_mode_t mode_new = ocf_cache_mode_none;
@@ -291,13 +291,13 @@ static void _cache_mng_set_cache_mode_test01(void **state)
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 0);
 
-	result = _cache_mng_set_cache_mode(&cache, mode_new);
+	result = _cache_mngt_set_cache_mode(&cache, mode_new);
 
 	assert_int_equal(result, -OCF_ERR_INVAL);
 	assert_int_equal(cache.conf_meta->cache_mode, mode_old);
 }
 
-static void _cache_mng_set_cache_mode_test02(void **state)
+static void _cache_mngt_set_cache_mode_test02(void **state)
 {
 	ocf_cache_mode_t mode_old = ocf_cache_mode_wt;
 	ocf_cache_mode_t mode_new = ocf_cache_mode_wt;
@@ -322,13 +322,13 @@ static void _cache_mng_set_cache_mode_test02(void **state)
 	expect_function_call(__wrap_ocf_log_raw);
 	will_return(__wrap_ocf_log_raw, 0);
 
-	result = _cache_mng_set_cache_mode(&cache, mode_new);
+	result = _cache_mngt_set_cache_mode(&cache, mode_new);
 
 	assert_int_equal(result, 0);
 	assert_int_equal(cache.conf_meta->cache_mode, mode_old);
 }
 
-static void _cache_mng_set_cache_mode_test03(void **state)
+static void _cache_mngt_set_cache_mode_test03(void **state)
 {
 	ocf_cache_mode_t mode_old = ocf_cache_mode_wb;
 	ocf_cache_mode_t mode_new = ocf_cache_mode_wa;
@@ -351,18 +351,18 @@ static void _cache_mng_set_cache_mode_test03(void **state)
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
 
-	expect_function_call(_cache_mng_update_initial_dirty_clines);
+	expect_function_call(_cache_mngt_update_initial_dirty_clines);
 
 	expect_function_call(__wrap_ocf_log_raw);
 	will_return(__wrap_ocf_log_raw, 0);
 
-	result = _cache_mng_set_cache_mode(&cache, mode_new);
+	result = _cache_mngt_set_cache_mode(&cache, mode_new);
 
 	assert_int_equal(result, 0);
 	assert_int_equal(cache.conf_meta->cache_mode, mode_new);
 }
 
-static void _cache_mng_set_cache_mode_test04(void **state)
+static void _cache_mngt_set_cache_mode_test04(void **state)
 {
 	ocf_cache_mode_t mode_old = ocf_cache_mode_wt;
 	ocf_cache_mode_t mode_new = ocf_cache_mode_wa;
@@ -387,7 +387,7 @@ static void _cache_mng_set_cache_mode_test04(void **state)
 	expect_function_call(__wrap_ocf_log_raw);
 	will_return(__wrap_ocf_log_raw, 0);
 
-	result = _cache_mng_set_cache_mode(&cache, mode_new);
+	result = _cache_mngt_set_cache_mode(&cache, mode_new);
 
 	assert_int_equal(result, 0);
 	assert_int_equal(cache.conf_meta->cache_mode, mode_new);
@@ -399,13 +399,13 @@ static void _cache_mng_set_cache_mode_test04(void **state)
 int main(void)
 {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test(_cache_mng_set_cache_mode_test01),
-		cmocka_unit_test(_cache_mng_set_cache_mode_test02),
-		cmocka_unit_test(_cache_mng_set_cache_mode_test03),
-		cmocka_unit_test(_cache_mng_set_cache_mode_test04),
+		cmocka_unit_test(_cache_mngt_set_cache_mode_test01),
+		cmocka_unit_test(_cache_mngt_set_cache_mode_test02),
+		cmocka_unit_test(_cache_mngt_set_cache_mode_test03),
+		cmocka_unit_test(_cache_mngt_set_cache_mode_test04),
 	};
 
-	print_message("Unit test of _cache_mng_set_cache_mode\n");
+	print_message("Unit test of _cache_mngt_set_cache_mode\n");
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
