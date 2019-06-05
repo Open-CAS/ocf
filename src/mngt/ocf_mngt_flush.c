@@ -55,7 +55,7 @@ struct ocf_mngt_cache_flush_context
 		purge_core
 	} op;
 
-	/* ocf mngmt entry point completion */
+	/* ocf management entry point completion */
 	union {
 		ocf_mngt_cache_flush_end_t flush_cache;
 		ocf_mngt_core_flush_end_t flush_core;

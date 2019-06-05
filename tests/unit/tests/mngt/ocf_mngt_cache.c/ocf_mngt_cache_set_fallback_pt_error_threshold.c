@@ -45,7 +45,7 @@ ocf_ctx_t __wrap_ocf_cache_get_ctx(ocf_cache_t cache)
 	function_called();
 }
 
-int __wrap_ocf_mng_cache_set_fallback_pt(ocf_cache_t cache)
+int __wrap_ocf_mngt_cache_set_fallback_pt(ocf_cache_t cache)
 {
 	function_called();
 }

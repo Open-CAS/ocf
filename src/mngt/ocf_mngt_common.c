@@ -17,7 +17,7 @@
 #include "../engine/engine_common.h"
 
 /* Close if opened */
-int cache_mng_core_close(ocf_core_t core)
+int cache_mngt_core_close(ocf_core_t core)
 {
 	if (!core->opened)
 		return -OCF_ERR_CORE_IN_INACTIVE_STATE;
@@ -29,7 +29,7 @@ int cache_mng_core_close(ocf_core_t core)
 }
 
 /* Remove core from cleaning policy */
-void cache_mng_core_remove_from_cleaning_pol(ocf_core_t core)
+void cache_mngt_core_remove_from_cleaning_pol(ocf_core_t core)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	ocf_core_id_t core_id = ocf_core_get_id(core);
@@ -49,7 +49,7 @@ void cache_mng_core_remove_from_cleaning_pol(ocf_core_t core)
 }
 
 /* Deinitialize core metadata in attached metadata */
-void cache_mng_core_deinit_attached_meta(ocf_core_t core)
+void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 {
 	int retry = 1;
 	uint64_t core_size = 0;
@@ -88,7 +88,7 @@ void cache_mng_core_deinit_attached_meta(ocf_core_t core)
 }
 
 /* Mark core as removed in metadata */
-void cache_mng_core_remove_from_meta(ocf_core_t core)
+void cache_mngt_core_remove_from_meta(ocf_core_t core)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
 
@@ -105,7 +105,7 @@ void cache_mng_core_remove_from_meta(ocf_core_t core)
 }
 
 /* Deinit in-memory structures related to this core */
-void cache_mng_core_remove_from_cache(ocf_core_t core)
+void cache_mngt_core_remove_from_cache(ocf_core_t core)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	ocf_core_id_t core_id = ocf_core_get_id(core);

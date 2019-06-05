@@ -7,19 +7,19 @@
 #ifndef __OCF_MNGT_COMMON_H__
 #define __OCF_MNGT_COMMON_H__
 
-int cache_mng_core_close(ocf_core_t core);
+int cache_mngt_core_close(ocf_core_t core);
 
-void cache_mng_core_remove_from_meta(ocf_core_t core);
+void cache_mngt_core_remove_from_meta(ocf_core_t core);
 
-void cache_mng_core_remove_from_cache(ocf_core_t core);
+void cache_mngt_core_remove_from_cache(ocf_core_t core);
 
-void cache_mng_core_deinit_attached_meta(ocf_core_t core);
+void cache_mngt_core_deinit_attached_meta(ocf_core_t core);
 
-void cache_mng_core_remove_from_cleaning_pol(ocf_core_t core);
+void cache_mngt_core_remove_from_cleaning_pol(ocf_core_t core);
 
 int _ocf_cleaning_thread(void *priv);
 
-int cache_mng_thread_io_requests(void *data);
+int cache_mngt_thread_io_requests(void *data);
 
 bool ocf_mngt_cache_is_dirty(ocf_cache_t cache);
 

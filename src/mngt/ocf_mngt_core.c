@@ -663,12 +663,12 @@ static void _ocf_mngt_cache_remove_core(ocf_pipeline_t pipeline, void *priv,
 
 	/* Deinit everything*/
 	if (ocf_cache_is_device_attached(cache)) {
-		cache_mng_core_deinit_attached_meta(core);
-		cache_mng_core_remove_from_cleaning_pol(core);
+		cache_mngt_core_deinit_attached_meta(core);
+		cache_mngt_core_remove_from_cleaning_pol(core);
 	}
-	cache_mng_core_remove_from_meta(core);
-	cache_mng_core_remove_from_cache(core);
-	cache_mng_core_close(core);
+	cache_mngt_core_remove_from_meta(core);
+	cache_mngt_core_remove_from_cache(core);
+	cache_mngt_core_close(core);
 
 	/* Update super-block with core device removal */
 	ocf_metadata_flush_superblock(cache,
@@ -758,7 +758,7 @@ static void _ocf_mngt_cache_detach_core(ocf_pipeline_t pipeline,
 
 	ocf_core_log(core, log_debug, "Detaching core\n");
 
-	status = cache_mng_core_close(core);
+	status = cache_mngt_core_close(core);
 
 	if (status)
 		OCF_PL_FINISH_RET(pipeline, status);
@@ -912,7 +912,7 @@ int ocf_mngt_core_get_user_metadata(ocf_core_t core, void *data, size_t size)
 	return 0;
 }
 
-static int _cache_mng_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx)
+static int _cache_mngt_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx)
 {
 	uint32_t threshold = *(uint32_t*) cntx;
 	uint32_t threshold_old = core->conf_meta->seq_cutoff_threshold;
@@ -936,7 +936,7 @@ int ocf_mngt_core_set_seq_cutoff_threshold(ocf_core_t core, uint32_t thresh)
 {
 	OCF_CHECK_NULL(core);
 
-	return _cache_mng_set_core_seq_cutoff_threshold(core, &thresh);
+	return _cache_mngt_set_core_seq_cutoff_threshold(core, &thresh);
 }
 
 int ocf_mngt_core_set_seq_cutoff_threshold_all(ocf_cache_t cache,
@@ -944,7 +944,7 @@ int ocf_mngt_core_set_seq_cutoff_threshold_all(ocf_cache_t cache,
 {
 	OCF_CHECK_NULL(cache);
 
-	return ocf_core_visit(cache, _cache_mng_set_core_seq_cutoff_threshold,
+	return ocf_core_visit(cache, _cache_mngt_set_core_seq_cutoff_threshold,
 			&thresh, true);
 }
 
@@ -964,7 +964,7 @@ static const char *_ocf_seq_cutoff_policy_names[ocf_seq_cutoff_policy_max] = {
 	[ocf_seq_cutoff_policy_never] = "never",
 };
 
-static const char *_cache_mng_seq_cutoff_policy_get_name(
+static const char *_cache_mngt_seq_cutoff_policy_get_name(
 		ocf_seq_cutoff_policy policy)
 {
 	if (policy < 0 || policy >= ocf_seq_cutoff_policy_max)
@@ -973,7 +973,7 @@ static const char *_cache_mng_seq_cutoff_policy_get_name(
 	return _ocf_seq_cutoff_policy_names[policy];
 }
 
-static int _cache_mng_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
+static int _cache_mngt_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
 {
 	ocf_seq_cutoff_policy policy = *(ocf_seq_cutoff_policy*) cntx;
 	uint32_t policy_old = core->conf_meta->seq_cutoff_policy;
@@ -981,7 +981,7 @@ static int _cache_mng_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
 	if (policy_old == policy) {
 		ocf_core_log(core, log_info,
 				"Sequential cutoff policy %s is already set\n",
-				_cache_mng_seq_cutoff_policy_get_name(policy));
+				_cache_mngt_seq_cutoff_policy_get_name(policy));
 		return 0;
 	}
 
@@ -995,8 +995,8 @@ static int _cache_mng_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
 
 	ocf_core_log(core, log_info,
 			"Changing sequential cutoff policy from %s to %s\n",
-			_cache_mng_seq_cutoff_policy_get_name(policy_old),
-			_cache_mng_seq_cutoff_policy_get_name(policy));
+			_cache_mngt_seq_cutoff_policy_get_name(policy_old),
+			_cache_mngt_seq_cutoff_policy_get_name(policy));
 
 	return 0;
 }
@@ -1006,14 +1006,14 @@ int ocf_mngt_core_set_seq_cutoff_policy(ocf_core_t core,
 {
 	OCF_CHECK_NULL(core);
 
-	return _cache_mng_set_core_seq_cutoff_policy(core, &policy);
+	return _cache_mngt_set_core_seq_cutoff_policy(core, &policy);
 }
 int ocf_mngt_core_set_seq_cutoff_policy_all(ocf_cache_t cache,
 		ocf_seq_cutoff_policy policy)
 {
 	OCF_CHECK_NULL(cache);
 
-	return ocf_core_visit(cache, _cache_mng_set_core_seq_cutoff_policy,
+	return ocf_core_visit(cache, _cache_mngt_set_core_seq_cutoff_policy,
 			&policy, true);
 }
 
