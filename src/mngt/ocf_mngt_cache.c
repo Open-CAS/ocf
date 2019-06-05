@@ -1942,6 +1942,9 @@ static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_stop_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_ctx_t ctx = context->ctx;
+	int pipeline_error;
+	ocf_mngt_cache_stop_end_t pipeline_cmpl;
+	void *completion_priv;
 
 	if (!error) {
 		env_mutex_lock(&ctx->lock);
@@ -1972,10 +1975,19 @@ static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
 				context->cache_name);
 	}
 
-	context->cmpl(cache, context->priv,
-			error ?: context->cache_write_error);
+	/*
+	 * FIXME: Destroying pipeline before completing management operation is a
+	 * temporary workaround for insufficient object lifetime management in pyocf
+	 * Context must not be referenced after destroying pipeline as this is
+	 * typically freed upon pipeline destroy.
+	 */
+	pipeline_error = error ?: context->cache_write_error;
+	pipeline_cmpl = context->cmpl;
+	completion_priv = context->priv;
 
 	ocf_pipeline_destroy(context->pipeline);
+
+	pipeline_cmpl(cache, completion_priv, pipeline_error);
 
 	if (!error) {
 		/* Finally release cache instance */
