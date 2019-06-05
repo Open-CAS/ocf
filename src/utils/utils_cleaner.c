@@ -163,7 +163,7 @@ static void _ocf_cleaner_set_error(struct ocf_request *req)
 		return;
 	}
 
-	master->error = -EIO;
+	master->error = -OCF_ERR_IO;
 }
 
 static void _ocf_cleaner_complete_req(struct ocf_request *req)
@@ -273,8 +273,8 @@ static int _ocf_cleaner_fire_flush_cache(struct ocf_request *req)
 	io = ocf_volume_new_io(&req->cache->device->volume);
 	if (!io) {
 		ocf_metadata_error(req->cache);
-		req->error = -ENOMEM;
-		return -ENOMEM;
+		req->error = -OCF_ERR_NO_MEM;
+		return -OCF_ERR_NO_MEM;
 	}
 
 	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
@@ -421,7 +421,7 @@ static int _ocf_cleaner_fire_flush_cores(struct ocf_request *req)
 
 		io = ocf_new_core_io(cache, core_id);
 		if (!io) {
-			_ocf_cleaner_flush_cores_io_end(iter, req, -ENOMEM);
+			_ocf_cleaner_flush_cores_io_end(iter, req, -OCF_ERR_NO_MEM);
 			continue;
 		}
 
@@ -845,7 +845,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	}
 
 	if (!master) {
-		attribs->cmpl_fn(attribs->cmpl_context, -ENOMEM);
+		attribs->cmpl_fn(attribs->cmpl_context, -OCF_ERR_NO_MEM);
 		return;
 	}
 
@@ -877,7 +877,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 
 		/* when request allocation failed stop processing */
 		if (!req) {
-			master->error = -ENOMEM;
+			master->error = -OCF_ERR_NO_MEM;
 			break;
 		}
 

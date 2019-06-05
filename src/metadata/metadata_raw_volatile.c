@@ -32,7 +32,7 @@ uint32_t raw_volatile_checksum(ocf_cache_t cache,
 void raw_volatile_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	cmpl(priv, -ENOTSUP);
+	cmpl(priv, -OCF_ERR_NOT_SUPP);
 }
 
 /*

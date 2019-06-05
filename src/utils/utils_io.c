@@ -242,7 +242,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 	if (reqs == 1) {
 		io = ocf_new_cache_io(cache);
 		if (!io) {
-			callback(req, -ENOMEM);
+			callback(req, -OCF_ERR_NO_MEM);
 			goto update_stats;
 		}
 
@@ -277,7 +277,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		if (!io) {
 			/* Finish all IOs which left with ERROR */
 			for (; i < reqs; i++)
-				callback(req, -ENOMEM);
+				callback(req, -OCF_ERR_NO_MEM);
 			goto update_stats;
 		}
 
@@ -342,7 +342,7 @@ void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 
 	io = ocf_volume_new_io(volume);
 	if (!io) {
-		callback(req, -ENOMEM);
+		callback(req, -OCF_ERR_NO_MEM);
 		return;
 	}
 

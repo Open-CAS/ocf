@@ -63,7 +63,7 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 			if (_is_cache_line_acting(cache, i, core_id,
 					start_line, end_line)) {
 				if (ocf_cache_line_is_used(cache, i))
-					ret = -EAGAIN;
+					ret = -OCF_ERR_AGAIN;
 				else
 					actor(cache, i);
 			}
@@ -75,7 +75,7 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 			if (_is_cache_line_acting(cache, i, core_id,
 					start_line, end_line)) {
 				if (ocf_cache_line_is_used(cache, i))
-					ret = -EAGAIN;
+					ret = -OCF_ERR_AGAIN;
 				else
 					actor(cache, i);
 			}

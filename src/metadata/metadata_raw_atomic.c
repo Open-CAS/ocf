@@ -73,7 +73,7 @@ static int _raw_atomic_io_discard_do(struct ocf_cache *cache, void *context,
 	struct ocf_io *io = ocf_new_cache_io(cache);
 
 	if (!io) {
-		req->error = -ENOMEM;
+		req->error = -OCF_ERR_NO_MEM;
 		return req->error;
 	}
 
@@ -158,8 +158,8 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 
 	ctx = env_zalloc(sizeof(*ctx), ENV_MEM_NOIO);
 	if (!ctx) {
-		complete(req, -ENOMEM);
-		return -ENOMEM;
+		complete(req, -OCF_ERR_NO_MEM);
+		return -OCF_ERR_NO_MEM;
 	}
 
 	ctx->req = req;
@@ -182,9 +182,9 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 		clines_tab = env_zalloc(sizeof(*clines_tab) * line_no,
 				ENV_MEM_NOIO);
 		if (!clines_tab) {
-			complete(req, -ENOMEM);
+			complete(req, -OCF_ERR_NO_MEM);
 			env_free(ctx);
-			return -ENOMEM;
+			return -OCF_ERR_NO_MEM;
 		}
 	}
 

@@ -211,8 +211,8 @@ int ocf_req_alloc_map(struct ocf_request *req)
 
 	req->map = env_zalloc(ocf_req_sizeof_map(req), ENV_MEM_NOIO);
 	if (!req->map) {
-		req->error = -ENOMEM;
-		return -ENOMEM;
+		req->error = -OCF_ERR_NO_MEM;
+		return -OCF_ERR_NO_MEM;
 	}
 
 	return 0;

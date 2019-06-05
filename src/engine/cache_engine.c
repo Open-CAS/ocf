@@ -244,7 +244,7 @@ int ocf_engine_hndl_req(struct ocf_request *req,
 
 	req->io_if = ocf_get_io_if(req_cache_mode);
 	if (!req->io_if)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	/* Till OCF engine is not synchronous fully need to push OCF request
 	 * to into OCF workers
@@ -263,7 +263,7 @@ int ocf_engine_hndl_fast_req(struct ocf_request *req,
 
 	io_if = ocf_get_io_if(req_cache_mode);
 	if (!io_if)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	switch (req->rw) {
 	case OCF_READ:

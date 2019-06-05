@@ -71,8 +71,8 @@ static int _ocf_discard_core(struct ocf_request *req)
 
 	io = ocf_volume_new_io(&req->core->volume);
 	if (!io) {
-		_ocf_discard_complete_req(req, -ENOMEM);
-		return -ENOMEM;
+		_ocf_discard_complete_req(req, -OCF_ERR_NO_MEM);
+		return -OCF_ERR_NO_MEM;
 	}
 
 	ocf_io_configure(io, SECTORS_TO_BYTES(req->discard.sector),
@@ -112,8 +112,8 @@ static int _ocf_discard_flush_cache(struct ocf_request *req)
 	io = ocf_volume_new_io(&req->cache->device->volume);
 	if (!io) {
 		ocf_metadata_error(req->cache);
-		_ocf_discard_complete_req(req, -ENOMEM);
-		return -ENOMEM;
+		_ocf_discard_complete_req(req, -OCF_ERR_NO_MEM);
+		return -OCF_ERR_NO_MEM;
 	}
 
 	ocf_io_configure(io, 0, 0, OCF_WRITE, 0, 0);
@@ -261,7 +261,7 @@ int ocf_discard(struct ocf_request *req)
 	ocf_io_start(req->io);
 
 	if (req->rw == OCF_READ) {
-		req->complete(req, -EINVAL);
+		req->complete(req, -OCF_ERR_INVAL);
 		return 0;
 	}
 

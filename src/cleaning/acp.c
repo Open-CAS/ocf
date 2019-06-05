@@ -701,7 +701,7 @@ int cleaning_policy_acp_add_core(ocf_cache_t cache,
 	if (!acp->chunk_info[core_id]) {
 		ACP_UNLOCK_CHUNKS_WR();
 		OCF_DEBUG_PARAM(cache, "failed to allocate acp tables\n");
-		return -ENOMEM;
+		return -OCF_ERR_NO_MEM;
 	}
 
 	OCF_DEBUG_PARAM(cache, "successfully allocated acp tables\n");
