@@ -62,11 +62,11 @@ def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: Cache
     core_device.reset_stats()
 
     test_data = Data.from_string("This is test data")
-    io_to_core(core_exported, test_data, 20)
+    io_to_core(core_exported, test_data, Size.from_sector(1).B)
     check_stats_write_empty(core_exported, mode, cls)
 
     logger.info("[STAGE] Read from exported object after initial write")
-    io_from_exported_object(core_exported, test_data.size, 20)
+    io_from_exported_object(core_exported, test_data.size, Size.from_sector(1).B)
     check_stats_read_after_write(core_exported, mode, cls, True)
 
     logger.info("[STAGE] Write to exported object after read")
@@ -75,7 +75,7 @@ def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: Cache
 
     test_data = Data.from_string("Changed test data")
 
-    io_to_core(core_exported, test_data, 20)
+    io_to_core(core_exported, test_data, Size.from_sector(1).B)
     check_stats_write_after_read(core_exported, mode, cls)
 
     check_md5_sums(core_exported, mode)
@@ -97,13 +97,13 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
 
     logger.info("[STAGE] Initial write to core device")
     test_data = Data.from_string("This is test data")
-    io_to_core(core_exported, test_data, 20, True)
+    io_to_core(core_exported, test_data, Size.from_sector(1).B, True)
 
     cache_device.reset_stats()
     core_device.reset_stats()
 
     logger.info("[STAGE] Initial read from exported object")
-    io_from_exported_object(core_exported, test_data.size, 20)
+    io_from_exported_object(core_exported, test_data.size, Size.from_sector(1).B)
     check_stats_read_empty(core_exported, mode, cls)
 
     logger.info("[STAGE] Write to exported object after initial read")
@@ -112,11 +112,11 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
 
     test_data = Data.from_string("Changed test data")
     
-    io_to_core(core_exported, test_data, 20)
+    io_to_core(core_exported, test_data, Size.from_sector(1).B)
     check_stats_write_after_read(core_exported, mode, cls, True)
 
     logger.info("[STAGE] Read from exported object after write")
-    io_from_exported_object(core_exported, test_data.size, 20)
+    io_from_exported_object(core_exported, test_data.size, Size.from_sector(1).B)
     check_stats_read_after_write(core_exported, mode, cls)
 
     check_md5_sums(core_exported, mode)
