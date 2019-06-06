@@ -93,7 +93,7 @@ def test_wo_read_data_consistency(pyocf_ctx):
     # possible end sectors for test iteration
     end_sec = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 23]
 
-    SECTOR_SIZE = 512
+    SECTOR_SIZE = Size.from_sector(1).B
     CACHELINE_SIZE = 4096
     WORKSET_SIZE = 3 * CACHELINE_SIZE
     WORKSET_OFFSET = 1024 * CACHELINE_SIZE

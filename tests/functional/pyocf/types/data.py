@@ -21,7 +21,7 @@ from enum import IntEnum
 from hashlib import md5
 import weakref
 
-from ..utils import print_buffer
+from ..utils import print_buffer, Size as S
 
 
 class DataSeek(IntEnum):

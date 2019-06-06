@@ -56,9 +56,13 @@ class Size:
     _MiB = _KiB * 1024
     _GiB = _MiB * 1024
     _TiB = _GiB * 1024
+    _SECTOR_SIZE = 512
 
-    def __init__(self, b: int):
-        self.bytes = b
+    def __init__(self, b: int, sector_aligned: bool = False):
+        if sector_aligned:
+            self.bytes = ((b + self._SECTOR_SIZE - 1) // self._SECTOR_SIZE) * self._SECTOR_SIZE
+        else:
+            self.bytes = b
 
     def __int__(self):
         return self.bytes
@@ -67,24 +71,28 @@ class Size:
         return self.bytes
 
     @classmethod
-    def from_B(cls, value):
-        return cls(value)
+    def from_B(cls, value, sector_aligned = False):
+        return cls(value, sector_aligned)
 
     @classmethod
-    def from_KiB(cls, value):
-        return cls(value * cls._KiB)
+    def from_KiB(cls, value, sector_aligned = False):
+        return cls(value * cls._KiB, sector_aligned)
 
     @classmethod
-    def from_MiB(cls, value):
-        return cls(value * cls._MiB)
+    def from_MiB(cls, value, sector_aligned = False):
+        return cls(value * cls._MiB, sector_aligned)
 
     @classmethod
-    def from_GiB(cls, value):
-        return cls(value * cls._GiB)
+    def from_GiB(cls, value, sector_aligned = False):
+        return cls(value * cls._GiB, sector_aligned)
 
     @classmethod
-    def from_TiB(cls, value):
-        return cls(value * cls._TiB)
+    def from_TiB(cls, value, sector_aligned = False):
+        return cls(value * cls._TiB, sector_aligned)
+
+    @classmethod
+    def from_sector(cls, value):
+        return cls(value * cls._SECTOR_SIZE)
 
     @property
     def B(self):
@@ -105,6 +113,10 @@ class Size:
     @property
     def TiB(self):
         return self.bytes / self._TiB
+
+    @property
+    def sectors(self):
+        return self.bytes // _SECTOR_SIZE
 
     def __str__(self):
         if self.bytes < self._KiB:
