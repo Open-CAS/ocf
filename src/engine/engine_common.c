@@ -24,9 +24,12 @@ void ocf_engine_error(struct ocf_request *req,
 	if (stop_cache)
 		env_bit_clear(ocf_cache_state_running, &cache->cache_state);
 
-	ocf_core_log(req->core, log_err,
-			"%s sector: %" ENV_PRIu64 ", bytes: %u\n", msg,
-			BYTES_TO_SECTORS(req->byte_position), req->byte_length);
+	if (ocf_cache_log_rl(cache)) {
+		ocf_core_log(req->core, log_err,
+				"%s sector: %" ENV_PRIu64 ", bytes: %u\n", msg,
+				BYTES_TO_SECTORS(req->byte_position),
+				req->byte_length);
+	}
 }
 
 void ocf_engine_lookup_map_entry(struct ocf_cache *cache,
