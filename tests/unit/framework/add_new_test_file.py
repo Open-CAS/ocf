@@ -45,13 +45,14 @@ class TestGenerator(object):
 		buf += "#undef inline\n\n"
 		buf += self.get_UT_includes()
 		buf += self.get_includes(self.get_main_tested_dir() + self.get_tested_file_path())
+		buf += self.get_autowrap_file_include(dst_path)
 		buf += self.get_empty_test_function()
 		buf += self.get_test_main()
 
 		with open(dst_path, "w") as f:
 			f.writelines(buf)
 
-		print dst_path + " generated successfully!"
+		print(f"{dst_path} generated successfully!")
 
 	def get_markups(self):
 		ret = "/*\n"
@@ -85,13 +86,19 @@ class TestGenerator(object):
 
 		return textwrap.dedent(ret)
 
+	def get_autowrap_file_include(self, test_file_path):
+		autowrap_file = test_file_path.rsplit(".", 1)[0]
+		autowrap_file = autowrap_file.replace(self.main_UT_dir, "")
+		autowrap_file += "_generated_warps.c"
+		return "#include \"" + autowrap_file + "\"\n\n"
+
 	def get_includes(self, abs_path_to_tested_file):
 		with open(abs_path_to_tested_file, "r") as f:
 			code = f.readlines()
 
 		ret = [line for line in code if re.search(r'#include', line)]
 
-		return "".join(ret) + "\n\n"
+		return "".join(ret) + "\n"
 
 	def get_empty_test_function(self):
 		ret = "static void " + self.get_tested_function_name() + "_test01(void **state)\n"
@@ -125,7 +132,7 @@ class TestGenerator(object):
 			self.tested_file_path = path
 			return
 
-		print(os.path.join(self.get_main_tested_dir(), path))
+		print(f"{os.path.join(self.get_main_tested_dir(), path)}")
 		print("Given path not exists!")
 		exit(1)
 
@@ -154,7 +161,7 @@ class TestGenerator(object):
 
 def __main__():
 	if len(sys.argv) < 3:
-		print "No path to tested file or tested function name given !"
+		print("No path to tested file or tested function name given !")
 		sys.exit(1)
 
 	tested_file_path = sys.argv[1]

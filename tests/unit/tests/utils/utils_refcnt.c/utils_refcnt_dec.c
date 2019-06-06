@@ -20,6 +20,7 @@
 
 #include "../utils/utils_refcnt.h"
 
+#include "utils/utils_refcnt.c/utils_refcnt_dec_generated_warps.c"
 
 static void ocf_refcnt_dec_test01(void **state)
 {

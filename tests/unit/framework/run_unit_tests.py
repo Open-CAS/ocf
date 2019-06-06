@@ -13,8 +13,8 @@ import subprocess
 def run_command(args):
     result = subprocess.run(" ".join(args), shell=True,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    result.stdout = result.stdout.decode("ASCII")
-    result.stderr = result.stderr.decode("ASCII")
+    result.stdout = result.stdout.decode("ASCII", errors='ignore')
+    result.stderr = result.stderr.decode("ASCII", errors='ignore')
     return result
 
 script_path = os.path.dirname(os.path.realpath(__file__))
@@ -57,6 +57,7 @@ cmake_result = run_command([ "cmake", ".." ])
 print(cmake_result.stdout)
 with open(os.path.join(logs_dir, "cmake.output"), "w") as f:
     f.write(cmake_result.stdout)
+    f.write(cmake_result.stderr)
 
 if cmake_result.returncode != 0:
     with open(os.path.join(logs_dir, "tests.output"), "w") as f:
@@ -68,6 +69,7 @@ make_result = run_command([ "make", "-j" ])
 print(make_result.stdout)
 with open(os.path.join(logs_dir, "make.output"), "w") as f:
 	f.write(make_result.stdout)
+	f.write(make_result.stderr)
 
 if make_result.returncode != 0:
 	with open(os.path.join(logs_dir, "tests.output"), "w") as f:
