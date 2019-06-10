@@ -1149,7 +1149,7 @@ static void _ocf_mngt_attach_handle_error(
 		env_vfree(cache->device);
 }
 
-static int _ocf_mngt_cache_init(ocf_cache_t cache,
+static void _ocf_mngt_cache_init(ocf_cache_t cache,
 		struct ocf_cache_mngt_init_params *params)
 {
 	int i;
@@ -1173,8 +1173,6 @@ static int _ocf_mngt_cache_init(ocf_cache_t cache,
 	__init_cores(cache);
 	__init_metadata_version(cache);
 	__init_partitions(cache);
-
-	return 0;
 }
 
 static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
@@ -1213,9 +1211,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	ocf_log(ctx, log_debug, "Metadata initialized\n");
 	params.flags.metadata_inited = true;
 
-	result = _ocf_mngt_cache_init(*cache, &params);
-	if (result)
-		goto _cache_mngt_init_instance_ERROR;
+	_ocf_mngt_cache_init(*cache, &params);
 
 	ocf_ctx_get(ctx);
 
