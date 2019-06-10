@@ -27,7 +27,7 @@ int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 		return -OCF_ERR_IO_CLASS_NOT_EXIST;
 	}
 
-	if (env_strncpy(info->name, sizeof(info->name),
+	if (env_strncpy(info->name, OCF_IO_CLASS_NAME_MAX - 1,
 			cache->user_parts[part_id].config->name,
 			sizeof(cache->user_parts[part_id].config->name))) {
 		return -OCF_ERR_INVAL;

@@ -54,7 +54,7 @@ int ocf_core_set_name(ocf_core_t core, const char *src, size_t src_size)
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(src);
 
-	return env_strncpy(core->name, sizeof(core->name), src, src_size);
+	return env_strncpy(core->name, OCF_CORE_NAME_SIZE - 1, src, src_size);
 }
 
 const char *ocf_core_get_name(ocf_core_t core)

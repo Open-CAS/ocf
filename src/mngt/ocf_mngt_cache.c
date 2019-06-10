@@ -672,8 +672,8 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 	}
 
 	if (cfg->name) {
-		ret = env_strncpy(cache_name, sizeof(cache_name),
-				cfg->name, sizeof(cache_name));
+		ret = env_strncpy(cache_name, sizeof(cache_name) - 1,
+				cfg->name, sizeof(cache_name) - 1);
 		if (ret)
 			goto out;
 	} else {
