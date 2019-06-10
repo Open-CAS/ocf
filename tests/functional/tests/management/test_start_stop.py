@@ -111,8 +111,9 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
     core_device.reset_stats()
 
     test_data = Data.from_string("Changed test data")
-    
+
     io_to_core(core_exported, test_data, Size.from_sector(1).B)
+
     check_stats_write_after_read(core_exported, mode, cls, True)
 
     logger.info("[STAGE] Read from exported object after write")
@@ -159,7 +160,8 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     assert stats["conf"]["eviction_policy"] == EvictionPolicy.DEFAULT, "Eviction policy"
     assert stats["conf"]["cache_id"] == cache_id, "Cache id"
     assert cache.get_name() == name, "Cache name"
-    # TODO: metadata_layout, metadata_volatile, max_queue_size, queue_unblock_size, pt_unaligned_io, use_submit_fast
+    # TODO: metadata_layout, metadata_volatile, max_queue_size,
+    #  queue_unblock_size, pt_unaligned_io, use_submit_fast
     # TODO: test in functional tests
 
 
@@ -254,8 +256,9 @@ def test_100_start_stop(pyocf_ctx):
 
 def test_start_stop_incrementally(pyocf_ctx):
     """Starting/stopping multiple caches incrementally.
-    Check whether OCF behaves correctly when few caches at a time are in turns added and removed (#added > #removed)
-    until their number reaches limit, and then proportions are reversed and number of caches gradually falls to 0.
+    Check whether OCF behaves correctly when few caches at a time are
+    in turns added and removed (#added > #removed) until their number reaches limit,
+    and then proportions are reversed and number of caches gradually falls to 0.
     """
 
     caches = []
@@ -292,7 +295,8 @@ def test_start_stop_incrementally(pyocf_ctx):
                 stats = cache.get_stats()
                 cache_id = stats["conf"]["cache_id"]
                 cache.stop()
-                assert get_cache_by_id(pyocf_ctx, cache_id) != 0, "Try getting cache after stopping it"
+                assert get_cache_by_id(pyocf_ctx, cache_id) !=\
+                    0, "Try getting cache after stopping it"
         add = not add
 
 
@@ -306,11 +310,17 @@ def test_start_cache_same_id(pyocf_ctx, mode, cls):
     cache_device1 = Volume(Size.from_MiB(20))
     cache_device2 = Volume(Size.from_MiB(20))
     cache_id = randrange(1, 16385)
-    cache = Cache.start_on_device(cache_device1, cache_mode=mode, cache_line_size=cls, cache_id=cache_id)
+    cache = Cache.start_on_device(cache_device1,
+                                  cache_mode=mode,
+                                  cache_line_size=cls,
+                                  cache_id=cache_id)
     cache.get_stats()
 
     with pytest.raises(OcfError, match="OCF_ERR_CACHE_EXIST"):
-        cache = Cache.start_on_device(cache_device2, cache_mode=mode, cache_line_size=cls, cache_id=cache_id)
+        cache = Cache.start_on_device(cache_device2,
+                                      cache_mode=mode,
+                                      cache_line_size=cls,
+                                      cache_id=cache_id)
     cache.get_stats()
 
 
@@ -418,14 +428,20 @@ def check_stats_write_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineS
         "Occupancy"
 
 
-def check_stats_write_after_read(exported_obj: Core, mode: CacheMode, cls: CacheLineSize, read_from_empty=False):
+def check_stats_write_after_read(exported_obj: Core,
+                                 mode: CacheMode,
+                                 cls: CacheLineSize,
+                                 read_from_empty=False):
     stats = exported_obj.cache.get_stats()
     assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == \
-        (0 if mode in {CacheMode.WI, CacheMode.PT} else (2 if read_from_empty and mode.lazy_write() else 1)), \
+        (0 if mode in {CacheMode.WI, CacheMode.PT} else
+            (2 if read_from_empty and mode.lazy_write() else 1)), \
         "Writes to cache device"
     assert exported_obj.device.get_stats()[IoDir.WRITE] == (0 if mode.lazy_write() else 1), \
         "Writes to core device"
-    assert stats["req"]["wr_hits"]["value"] == (1 if (mode.read_insert() and mode != CacheMode.WI) or (mode.write_insert() and not read_from_empty) else 0), \
+    assert stats["req"]["wr_hits"]["value"] == \
+        (1 if (mode.read_insert() and mode != CacheMode.WI)
+            or (mode.write_insert() and not read_from_empty) else 0), \
         "Write hits"
     assert stats["usage"]["occupancy"]["value"] == \
         (0 if mode in {CacheMode.WI, CacheMode.PT} else (cls / CacheLineSize.LINE_4KiB)), \
@@ -438,16 +454,20 @@ def check_stats_read_after_write(exported_obj, mode, cls, write_to_empty=False):
         (2 if mode.lazy_write() else (0 if mode == CacheMode.PT else 1)), \
         "Writes to cache device"
     assert exported_obj.cache.device.get_stats()[IoDir.READ] == \
-        (1 if mode in {CacheMode.WT, CacheMode.WB, CacheMode.WO} or (mode == CacheMode.WA and not write_to_empty) else 0), \
+        (1 if mode in {CacheMode.WT, CacheMode.WB, CacheMode.WO}
+            or (mode == CacheMode.WA and not write_to_empty) else 0), \
         "Reads from cache device"
     assert exported_obj.device.get_stats()[IoDir.READ] == \
-        (0 if mode in {CacheMode.WB, CacheMode.WO, CacheMode.WT} or (mode == CacheMode.WA and not write_to_empty) else 1), \
+        (0 if mode in {CacheMode.WB, CacheMode.WO, CacheMode.WT}
+            or (mode == CacheMode.WA and not write_to_empty) else 1), \
         "Reads from core device"
-    assert stats["req"]["rd_full_misses"]["value"] == (1 if mode in {CacheMode.WA, CacheMode.WI} else 0) \
+    assert stats["req"]["rd_full_misses"]["value"] == \
+        (1 if mode in {CacheMode.WA, CacheMode.WI} else 0) \
         + (0 if write_to_empty or mode in {CacheMode.PT, CacheMode.WA} else 1), \
         "Read full misses"
     assert stats["req"]["rd_hits"]["value"] == \
-        (1 if mode in {CacheMode.WT, CacheMode.WB, CacheMode.WO} or (mode == CacheMode.WA and not write_to_empty) else 0), \
+        (1 if mode in {CacheMode.WT, CacheMode.WB, CacheMode.WO}
+            or (mode == CacheMode.WA and not write_to_empty) else 0), \
         "Read hits"
     assert stats["usage"]["occupancy"]["value"] == \
         (0 if mode == CacheMode.PT else (cls / CacheLineSize.LINE_4KiB)), "Occupancy"
@@ -467,4 +487,6 @@ def check_md5_sums(exported_obj: Core, mode: CacheMode):
 
 def get_cache_by_id(ctx, cache_id):
     cache_pointer = c_void_p()
-    return OcfLib.getInstance().ocf_mngt_cache_get_by_id(ctx.ctx_handle, cache_id, byref(cache_pointer))
+    return OcfLib.getInstance().ocf_mngt_cache_get_by_id(ctx.ctx_handle,
+                                                         cache_id,
+                                                         byref(cache_pointer))

@@ -6,7 +6,8 @@
 from ctypes import string_at
 
 
-def print_buffer(buf, length, offset=0, width=16, ignore=0, stop_after_count_ignored=0, print_fcn=print):
+def print_buffer(buf, length, offset=0, width=16, ignore=0,
+                 stop_after_count_ignored=0, print_fcn=print):
     end = int(offset) + int(length)
     offset = int(offset)
     ignored_lines = 0
@@ -15,16 +16,13 @@ def print_buffer(buf, length, offset=0, width=16, ignore=0, stop_after_count_ign
     stop_after_count_ignored = int(stop_after_count_ignored / width)
 
     for addr in range(offset, end, width):
-        cur_line = buf[addr : min(end, addr + width)]
+        cur_line = buf[addr: min(end, addr + width)]
         byteline = ""
         asciiline = ""
         if not any(x != ignore for x in cur_line):
             if stop_after_count_ignored and ignored_lines > stop_after_count_ignored:
-                print_fcn(
-                        "<{} bytes of '0x{:02X}' encountered, stopping>".format(
-                        stop_after_count_ignored * width, ignore
-                    )
-                )
+                print_fcn("<{} bytes of '0x{:02X}' encountered, stopping>".
+                          format(stop_after_count_ignored * width, ignore))
                 return
             ignored_lines += 1
             continue
@@ -71,23 +69,23 @@ class Size:
         return self.bytes
 
     @classmethod
-    def from_B(cls, value, sector_aligned = False):
+    def from_B(cls, value, sector_aligned=False):
         return cls(value, sector_aligned)
 
     @classmethod
-    def from_KiB(cls, value, sector_aligned = False):
+    def from_KiB(cls, value, sector_aligned=False):
         return cls(value * cls._KiB, sector_aligned)
 
     @classmethod
-    def from_MiB(cls, value, sector_aligned = False):
+    def from_MiB(cls, value, sector_aligned=False):
         return cls(value * cls._MiB, sector_aligned)
 
     @classmethod
-    def from_GiB(cls, value, sector_aligned = False):
+    def from_GiB(cls, value, sector_aligned=False):
         return cls(value * cls._GiB, sector_aligned)
 
     @classmethod
-    def from_TiB(cls, value, sector_aligned = False):
+    def from_TiB(cls, value, sector_aligned=False):
         return cls(value * cls._TiB, sector_aligned)
 
     @classmethod

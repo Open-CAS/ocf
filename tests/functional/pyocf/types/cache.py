@@ -86,6 +86,7 @@ class CacheMode(IntEnum):
     def read_insert(self):
         return self.value not in [CacheMode.PT, CacheMode.WO]
 
+
 class EvictionPolicy(IntEnum):
     LRU = 0
     DEFAULT = LRU
@@ -306,7 +307,7 @@ class Cache:
         c.start_cache()
         try:
             c.load_cache(device)
-        except:
+        except:  # noqa E722
             c.stop()
             raise
 
@@ -319,7 +320,7 @@ class Cache:
         c.start_cache()
         try:
             c.attach_device(device, force=True)
-        except:
+        except:  # noqa E722
             c.stop()
             raise
 
@@ -529,13 +530,12 @@ class Cache:
         if c.results["error"]:
             raise OcfError("Couldn't flush cache", c.results["error"])
 
-
     def get_name(self):
         self.read_lock()
 
         try:
             return str(self.owner.lib.ocf_cache_get_name(self), encoding="ascii")
-        except:
+        except:  # noqa E722
             raise OcfError("Couldn't get cache name")
         finally:
             self.read_unlock()

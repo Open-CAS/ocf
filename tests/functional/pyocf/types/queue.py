@@ -36,6 +36,7 @@ def io_queue_run(*, queue: Queue, kick: Condition, stop: Event):
         if stop.is_set() and not OcfLib.getInstance().ocf_queue_pending_io(queue):
             break
 
+
 class Queue:
     _instances_ = {}
 
@@ -102,4 +103,3 @@ class Queue:
             self.kick_condition.notify_all()
 
         self.thread.join()
-

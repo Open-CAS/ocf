@@ -56,7 +56,7 @@ class DataOps(Structure):
 
 
 class Data:
-    DATA_POISON=0xA5
+    DATA_POISON = 0xA5
     PAGE_SIZE = 4096
 
     _instances_ = {}
@@ -109,7 +109,7 @@ class Data:
     def from_string(cls, source: str, encoding: str = "ascii"):
         b = bytes(source, encoding)
         # duplicate string to fill space up to sector boundary
-        padding_len = S.from_B(len(b), sector_aligned = True).B - len(b)
+        padding_len = S.from_B(len(b), sector_aligned=True).B - len(b)
         padding = b * (padding_len // len(b) + 1)
         padding = padding[:padding_len]
         b = b + padding
