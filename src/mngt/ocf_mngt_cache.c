@@ -1064,7 +1064,7 @@ uint64_t _ocf_mngt_calculate_ram_needed(ocf_cache_t cache,
 int ocf_mngt_get_ram_needed(ocf_cache_t cache,
 		struct ocf_mngt_cache_device_config *cfg, uint64_t *ram_needed)
 {
-	struct ocf_volume volume;
+	struct ocf_volume *volume = &cache->device->volume;
 	ocf_volume_type_t type;
 	int result;
 
@@ -1076,21 +1076,21 @@ int ocf_mngt_get_ram_needed(ocf_cache_t cache,
 	if (!type)
 		return -OCF_ERR_INVAL_VOLUME_TYPE;
 
-	result = ocf_volume_init(&cache->device->volume, type,
+	result = ocf_volume_init(volume, type,
 			&cfg->uuid, false);
 	if (result)
 		return result;
 
-	result = ocf_volume_open(&volume, cfg->volume_params);
+	result = ocf_volume_open(volume, cfg->volume_params);
 	if (result) {
-		ocf_volume_deinit(&volume);
+		ocf_volume_deinit(volume);
 		return result;
 	}
 
-	*ram_needed = _ocf_mngt_calculate_ram_needed(cache, &volume);
+	*ram_needed = _ocf_mngt_calculate_ram_needed(cache, volume);
 
-	ocf_volume_close(&volume);
-	ocf_volume_deinit(&volume);
+	ocf_volume_close(volume);
+	ocf_volume_deinit(volume);
 
 	return 0;
 }
