@@ -9,11 +9,12 @@ utility.
 # In this readme:
 
 * [Documentation](#documentation)
-* [Source Code](#source)
+* [Source Code](#source-code)
 * [Deployment](#deployment)
 * [Examples](#examples)
-* [Unit Tests](#unit_tests)
-* [Build Test](#build_test)
+* [Unit Tests](#unit-tests)
+* [Build Test](#build-test)
+* [Functional Tests](#functional-tests)
 * [Contributing](#contributing)
 * [Security](#security)
 
@@ -67,7 +68,7 @@ Each example contains Makefile which can be used to compile it.
 ## Unit Tests
 
 OCF is shipped with dedicated unit test framework based on Cmocka.  
-To run unit test you need to install following packages:
+To run unit tests you need to install following packages:
 - Cmake (>= 3.8.1)
 - Cmocka (>= 1.1.1)
 - ctags (>= 5.8)
@@ -86,6 +87,19 @@ To run this test, use following commands:
 ~~~{.sh}
 cd tests/build/
 make
+~~~
+
+## Functional Tests
+
+OCF repository contains dedicated functional test framework written in python and executed via pytest. With the use of ctypes it is possible to call, wrap ocf functions and use C compatible data types.  
+To run functional tests you need to install the following:
+- python3 (>=3.6.7)
+- pytest (Install with `pip3 install pytest`)  
+
+To run all functional tests (in compliance with the configuration file) use the following command:
+
+~~~{.sh}
+pytest
 ~~~
 
 ## Contributing
