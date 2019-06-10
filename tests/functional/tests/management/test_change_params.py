@@ -12,6 +12,7 @@ from pyocf.utils import Size as S
 from pyocf.types.shared import CacheLineSize
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("from_cm", CacheMode)
 @pytest.mark.parametrize("to_cm", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
@@ -28,6 +29,7 @@ def test_change_cache_mode(pyocf_ctx, from_cm, to_cm, cls):
     assert stats_after["conf"]["cache_mode"] == to_cm
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cm", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_change_cleaning_policy(pyocf_ctx, cm, cls):
@@ -53,6 +55,7 @@ def test_change_cleaning_policy(pyocf_ctx, cm, cls):
             assert stats["conf"]["cleaning_policy"] == cp_to.value
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cm", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_cache_change_seq_cut_off_policy(pyocf_ctx, cm, cls):
@@ -92,6 +95,7 @@ def test_cache_change_seq_cut_off_policy(pyocf_ctx, cm, cls):
             assert stats["seq_cutoff_policy"] == seq_to.value
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cm", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_core_change_seq_cut_off_policy(pyocf_ctx, cm, cls):

@@ -15,10 +15,12 @@ from pyocf.utils import Size as S
 from pyocf.types.shared import OcfError, OcfCompletion
 
 
+@pytest.mark.ci
 def test_ctx_fixture(pyocf_ctx):
     pass
 
 
+@pytest.mark.ci
 def test_simple_wt_write(pyocf_ctx):
     cache_device = Volume(S.from_MiB(30))
     core_device = Volume(S.from_MiB(30))
@@ -52,6 +54,7 @@ def test_simple_wt_write(pyocf_ctx):
     cache.stop()
 
 
+@pytest.mark.ci
 def test_start_corrupted_metadata_lba(pyocf_ctx):
     cache_device = ErrorDevice(S.from_MiB(30), error_sectors=set([0]))
 
@@ -59,6 +62,7 @@ def test_start_corrupted_metadata_lba(pyocf_ctx):
         cache = Cache.start_on_device(cache_device)
 
 
+@pytest.mark.ci
 def test_load_cache_no_preexisting_data(pyocf_ctx):
     cache_device = Volume(S.from_MiB(30))
 
@@ -66,6 +70,7 @@ def test_load_cache_no_preexisting_data(pyocf_ctx):
         cache = Cache.load_from_device(cache_device)
 
 
+@pytest.mark.ci
 def test_load_cache(pyocf_ctx):
     cache_device = Volume(S.from_MiB(30))
 

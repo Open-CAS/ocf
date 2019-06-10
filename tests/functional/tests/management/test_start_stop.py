@@ -21,6 +21,7 @@ from pyocf.utils import Size
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.ci
 def test_start_check_default(pyocf_ctx):
     """Test if default values are correct after start.
     """
@@ -43,6 +44,7 @@ def test_start_check_default(pyocf_ctx):
     assert core_stats["seq_cutoff_policy"] == SeqCutOffPolicy.DEFAULT
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", CacheMode)
 def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
@@ -81,6 +83,7 @@ def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: Cache
     check_md5_sums(core_exported, mode)
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", CacheMode)
 def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
@@ -122,6 +125,7 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
     check_md5_sums(core_exported, mode)
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", CacheMode)
 @pytest.mark.parametrize("layout", MetadataLayout)
@@ -163,6 +167,7 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     # TODO: test in functional tests
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", CacheMode)
 @pytest.mark.parametrize("with_flush", {True, False})
@@ -197,6 +202,7 @@ def test_stop(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, with_flush: bool):
             "MD5 check: core device vs exported object with clean data"
 
 
+@pytest.mark.ci
 def test_start_stop_multiple(pyocf_ctx):
     """Starting/stopping multiple caches.
     Check whether OCF allows for starting multiple caches and stopping them in random order
@@ -229,6 +235,7 @@ def test_start_stop_multiple(pyocf_ctx):
         assert get_cache_by_id(pyocf_ctx, cache_id) != 0, "Try getting cache after stopping it"
 
 
+@pytest.mark.ci
 def test_100_start_stop(pyocf_ctx):
     """Starting/stopping stress test.
     Check OCF behaviour when cache is started and stopped continuously
@@ -252,6 +259,7 @@ def test_100_start_stop(pyocf_ctx):
         assert get_cache_by_id(pyocf_ctx, 1) != 0, "Try getting cache after stopping it"
 
 
+@pytest.mark.ci
 def test_start_stop_incrementally(pyocf_ctx):
     """Starting/stopping multiple caches incrementally.
     Check whether OCF behaves correctly when few caches at a time are in turns added and removed (#added > #removed)
@@ -296,6 +304,7 @@ def test_start_stop_incrementally(pyocf_ctx):
         add = not add
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("mode", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_start_cache_same_id(pyocf_ctx, mode, cls):
@@ -314,6 +323,7 @@ def test_start_cache_same_id(pyocf_ctx, mode, cls):
     cache.get_stats()
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("mode", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_start_cache_same_device(pyocf_ctx, mode, cls):
@@ -330,6 +340,7 @@ def test_start_cache_same_device(pyocf_ctx, mode, cls):
     cache.get_stats()
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("mode", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_start_too_small_device(pyocf_ctx, mode, cls):
@@ -343,6 +354,7 @@ def test_start_too_small_device(pyocf_ctx, mode, cls):
         Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
 
 
+@pytest.mark.ci
 def run_io_and_cache_data_if_possible(exported_obj, mode, cls):
     test_data = Data.from_string("This is test data")
 
@@ -360,6 +372,7 @@ def run_io_and_cache_data_if_possible(exported_obj, mode, cls):
         ((cls / CacheLineSize.LINE_4KiB) if mode != CacheMode.PT else 0), "Occupancy"
 
 
+@pytest.mark.ci
 def io_to_core(exported_obj: Core, data: Data, offset: int, to_core_device=False):
     io = exported_obj.new_core_io() if to_core_device else exported_obj.new_io()
     io.set_data(data)
@@ -374,6 +387,7 @@ def io_to_core(exported_obj: Core, data: Data, offset: int, to_core_device=False
     assert completion.results["err"] == 0, "IO to exported object completion"
 
 
+@pytest.mark.ci
 def io_from_exported_object(exported_obj: Core, buffer_size: int, offset: int):
     read_buffer = Data(buffer_size)
     io = exported_obj.new_io()
@@ -390,6 +404,7 @@ def io_from_exported_object(exported_obj: Core, buffer_size: int, offset: int):
     return read_buffer
 
 
+@pytest.mark.ci
 def check_stats_read_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineSize):
     stats = exported_obj.cache.get_stats()
     assert stats["conf"]["cache_mode"] == mode, "Cache mode"
@@ -402,6 +417,7 @@ def check_stats_read_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineSi
         (0 if mode == CacheMode.PT else (cls / CacheLineSize.LINE_4KiB)), "Occupancy"
 
 
+@pytest.mark.ci
 def check_stats_write_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineSize):
     stats = exported_obj.cache.get_stats()
     assert stats["conf"]["cache_mode"] == mode, "Cache mode"
@@ -417,6 +433,7 @@ def check_stats_write_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineS
         "Occupancy"
 
 
+@pytest.mark.ci
 def check_stats_write_after_read(exported_obj: Core, mode: CacheMode, cls: CacheLineSize, read_from_empty=False):
     stats = exported_obj.cache.get_stats()
     assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == \
@@ -431,6 +448,7 @@ def check_stats_write_after_read(exported_obj: Core, mode: CacheMode, cls: Cache
         "Occupancy"
 
 
+@pytest.mark.ci
 def check_stats_read_after_write(exported_obj, mode, cls, write_to_empty=False):
     stats = exported_obj.cache.get_stats()
     assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == \
@@ -452,6 +470,7 @@ def check_stats_read_after_write(exported_obj, mode, cls, write_to_empty=False):
         (0 if mode == CacheMode.PT else (cls / CacheLineSize.LINE_4KiB)), "Occupancy"
 
 
+@pytest.mark.ci
 def check_md5_sums(exported_obj: Core, mode: CacheMode):
     if mode == CacheMode.WB:
         assert exported_obj.device.md5() != exported_obj.exp_obj_md5(), \
@@ -464,6 +483,7 @@ def check_md5_sums(exported_obj: Core, mode: CacheMode):
             "MD5 check: core device vs exported object"
 
 
+@pytest.mark.ci
 def get_cache_by_id(ctx, cache_id):
     cache_pointer = c_void_p()
     return OcfLib.getInstance().ocf_mngt_cache_get_by_id(ctx.ctx_handle, cache_id, byref(cache_pointer))

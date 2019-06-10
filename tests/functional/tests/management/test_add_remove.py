@@ -15,6 +15,7 @@ from pyocf.utils import Size as S
 from pyocf.types.shared import OcfError, OcfCompletion, CacheLineSize
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cache_mode", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_adding_core(pyocf_ctx, cache_mode, cls):
@@ -40,6 +41,7 @@ def test_adding_core(pyocf_ctx, cache_mode, cls):
     assert stats["conf"]["core_count"] == 1
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cache_mode", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_removing_core(pyocf_ctx, cache_mode, cls):
@@ -64,6 +66,7 @@ def test_removing_core(pyocf_ctx, cache_mode, cls):
     assert stats["conf"]["core_count"] == 0
 
 
+@pytest.mark.ci
 def test_30add_remove(pyocf_ctx):
     # Start cache device
     cache_device = Volume(S.from_MiB(30))
@@ -85,6 +88,7 @@ def test_30add_remove(pyocf_ctx):
         assert stats["conf"]["core_count"] == 0
 
 
+@pytest.mark.ci
 def test_10add_remove_with_io(pyocf_ctx):
     # Start cache device
     cache_device = Volume(S.from_MiB(30))
@@ -116,6 +120,7 @@ def test_10add_remove_with_io(pyocf_ctx):
         assert stats["conf"]["core_count"] == 0
 
 
+@pytest.mark.ci
 def test_add_remove_30core(pyocf_ctx):
     # Start cache device
     cache_device = Volume(S.from_MiB(30))
@@ -143,6 +148,7 @@ def test_add_remove_30core(pyocf_ctx):
     assert stats["conf"]["core_count"] == 0
 
 
+@pytest.mark.ci
 def test_adding_to_random_cache(pyocf_ctx):
     cache_devices = []
     core_devices = {}
@@ -173,6 +179,7 @@ def test_adding_to_random_cache(pyocf_ctx):
         assert stats["conf"]["core_count"] == count_dict[i]
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cache_mode", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_adding_core_twice(pyocf_ctx, cache_mode, cls):
@@ -198,6 +205,7 @@ def test_adding_core_twice(pyocf_ctx, cache_mode, cls):
     assert stats["conf"]["core_count"] == 1
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cache_mode", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_adding_core_already_used(pyocf_ctx, cache_mode, cls):
@@ -232,6 +240,7 @@ def test_adding_core_already_used(pyocf_ctx, cache_mode, cls):
     assert stats["conf"]["core_count"] == 0
 
 
+@pytest.mark.ci
 @pytest.mark.parametrize("cache_mode", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_add_remove_incrementally(pyocf_ctx, cache_mode, cls):
