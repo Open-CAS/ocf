@@ -505,6 +505,7 @@ static void _ocf_mngt_flush_core(
 		ocf_core_log(core, log_err, "Flushing operation aborted, "
 				"no memory\n");
 		env_vfree(fc);
+		ocf_metadata_unlock(cache, OCF_METADATA_WR);
 		complete(context, -OCF_ERR_NO_MEM);
 		return;
 	}
@@ -540,6 +541,7 @@ static void _ocf_mngt_flush_all_cores(
 	if (ret) {
 		ocf_cache_log(cache, log_err, "Flushing operation aborted, "
 				"no memory\n");
+		ocf_metadata_unlock(cache, OCF_METADATA_WR);
 		complete(context, ret);
 		return;
 	}
