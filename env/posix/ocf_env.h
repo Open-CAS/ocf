@@ -189,7 +189,7 @@ static inline int env_mutex_init(env_mutex *mutex)
 
 static inline void env_mutex_lock(env_mutex *mutex)
 {
-	pthread_mutex_lock(&mutex->m);
+	ENV_BUG_ON(pthread_mutex_lock(&mutex->m));
 }
 
 static inline int env_mutex_lock_interruptible(env_mutex *mutex)
@@ -205,7 +205,7 @@ static inline int env_mutex_trylock(env_mutex *mutex)
 
 static inline void env_mutex_unlock(env_mutex *mutex)
 {
-	pthread_mutex_unlock(&mutex->m);
+	ENV_BUG_ON(pthread_mutex_unlock(&mutex->m));
 }
 
 static inline int env_mutex_is_locked(env_mutex *mutex)
@@ -270,7 +270,7 @@ static inline void env_rwsem_up_read(env_rwsem *s)
 
 static inline void env_rwsem_down_read(env_rwsem *s)
 {
-	pthread_rwlock_rdlock(&s->lock);
+	ENV_BUG_ON(pthread_rwlock_rdlock(&s->lock));
 }
 
 static inline int env_rwsem_down_read_trylock(env_rwsem *s)
@@ -280,12 +280,12 @@ static inline int env_rwsem_down_read_trylock(env_rwsem *s)
 
 static inline void env_rwsem_up_write(env_rwsem *s)
 {
-	pthread_rwlock_unlock(&s->lock);
+	ENV_BUG_ON(pthread_rwlock_unlock(&s->lock));
 }
 
 static inline void env_rwsem_down_write(env_rwsem *s)
 {
-	pthread_rwlock_wrlock(&s->lock);
+	ENV_BUG_ON(pthread_rwlock_wrlock(&s->lock));
 }
 
 static inline int env_rwsem_down_write_trylock(env_rwsem *s)
@@ -486,17 +486,17 @@ typedef struct {
 
 static inline void env_spinlock_init(env_spinlock *l)
 {
-	pthread_spin_init(&l->lock, 0);
+	ENV_BUG_ON(pthread_spin_init(&l->lock, 0));
 }
 
 static inline void env_spinlock_lock(env_spinlock *l)
 {
-	pthread_spin_lock(&l->lock);
+	ENV_BUG_ON(pthread_spin_lock(&l->lock));
 }
 
 static inline void env_spinlock_unlock(env_spinlock *l)
 {
-	pthread_spin_unlock(&l->lock);
+	ENV_BUG_ON(pthread_spin_unlock(&l->lock));
 }
 
 static inline void env_spinlock_lock_irq(env_spinlock *l)
@@ -525,27 +525,27 @@ typedef struct {
 
 static inline void env_rwlock_init(env_rwlock *l)
 {
-	pthread_rwlock_init(&l->lock, NULL);
+	ENV_BUG_ON(pthread_rwlock_init(&l->lock, NULL));
 }
 
 static inline void env_rwlock_read_lock(env_rwlock *l)
 {
-	pthread_rwlock_rdlock(&l->lock);
+	ENV_BUG_ON(pthread_rwlock_rdlock(&l->lock));
 }
 
 static inline void env_rwlock_read_unlock(env_rwlock *l)
 {
-	pthread_rwlock_unlock(&l->lock);
+	ENV_BUG_ON(pthread_rwlock_unlock(&l->lock));
 }
 
 static inline void env_rwlock_write_lock(env_rwlock *l)
 {
-	pthread_rwlock_wrlock(&l->lock);
+	ENV_BUG_ON(pthread_rwlock_wrlock(&l->lock));
 }
 
 static inline void env_rwlock_write_unlock(env_rwlock *l)
 {
-	pthread_rwlock_unlock(&l->lock);
+	ENV_BUG_ON(pthread_rwlock_unlock(&l->lock));
 }
 
 /* *** WAITQUEUE *** */
