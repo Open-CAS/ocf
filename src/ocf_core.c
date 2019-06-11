@@ -76,7 +76,7 @@ bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id)
 {
 	OCF_CHECK_NULL(cache);
 
-	if (id > OCF_CORE_ID_MAX || id < OCF_CORE_ID_MIN)
+	if (id > OCF_CORE_ID_MAX)
 		return false;
 
 	if (!env_bit_test(id, cache->conf_meta->valid_core_bitmap))
