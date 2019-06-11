@@ -172,7 +172,7 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(stats);
 
-	if (part_id < OCF_IO_CLASS_ID_MIN || part_id > OCF_IO_CLASS_ID_MAX)
+	if (part_id > OCF_IO_CLASS_ID_MAX)
 		return -OCF_ERR_INVAL;
 
 	cache = ocf_core_get_cache(core);

@@ -22,10 +22,11 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 		uint8_t end_bit, ocf_cache_line_t line,
 		ocf_core_id_t core_id, ocf_part_id_t part_id)
 {
-	ocf_core_t core = ocf_cache_get_core(cache, core_id);
+	ocf_core_t core;
 	bool is_valid;
 
 	ENV_BUG_ON(core_id >= OCF_CORE_MAX);
+	core = ocf_cache_get_core(cache, core_id);
 
 	if (metadata_clear_valid_sec_changed(cache, line, start_bit, end_bit,
 			&is_valid)) {

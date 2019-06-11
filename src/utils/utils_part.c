@@ -79,12 +79,10 @@ static int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
 	return v2 - v1;
 }
 
-int ocf_part_init(struct ocf_cache *cache)
+void ocf_part_init(struct ocf_cache *cache)
 {
 	ocf_lst_init(cache, &cache->lst_part, OCF_IO_CLASS_MAX,
 			ocf_part_lst_getter_valid, ocf_part_lst_cmp_valid);
-
-	return 0;
 }
 
 void ocf_part_move(struct ocf_request *req)

@@ -892,10 +892,8 @@ int ocf_mngt_core_set_user_metadata(ocf_core_t core, void *data, size_t size)
 	if (size > OCF_CORE_USER_DATA_SIZE)
 		return -EINVAL;
 
-	env_memcpy(core->conf_meta->user_data,
+	return env_memcpy(core->conf_meta->user_data,
 			OCF_CORE_USER_DATA_SIZE, data, size);
-
-	return 0;
 }
 
 int ocf_mngt_core_get_user_metadata(ocf_core_t core, void *data, size_t size)
@@ -906,10 +904,8 @@ int ocf_mngt_core_get_user_metadata(ocf_core_t core, void *data, size_t size)
 	if (size > sizeof(core->conf_meta->user_data))
 		return -EINVAL;
 
-	env_memcpy(data, size, core->conf_meta->user_data,
+	return env_memcpy(data, size, core->conf_meta->user_data,
 			OCF_CORE_USER_DATA_SIZE);
-
-	return 0;
 }
 
 static int _cache_mngt_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx)

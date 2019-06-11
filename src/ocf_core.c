@@ -54,7 +54,7 @@ int ocf_core_set_name(ocf_core_t core, const char *src, size_t src_size)
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(src);
 
-	return env_strncpy(core->name, sizeof(core->name), src, src_size);
+	return env_strncpy(core->name, OCF_CORE_NAME_SIZE - 1, src, src_size);
 }
 
 const char *ocf_core_get_name(ocf_core_t core)
@@ -76,7 +76,7 @@ bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id)
 {
 	OCF_CHECK_NULL(cache);
 
-	if (id > OCF_CORE_ID_MAX || id < OCF_CORE_ID_MIN)
+	if (id > OCF_CORE_ID_MAX)
 		return false;
 
 	if (!env_bit_test(id, cache->conf_meta->valid_core_bitmap))

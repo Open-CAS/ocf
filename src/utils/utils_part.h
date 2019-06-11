@@ -10,7 +10,7 @@
 #include "../engine/cache_engine.h"
 #include "../metadata/metadata_partition.h"
 
-int ocf_part_init(struct ocf_cache *cache);
+void ocf_part_init(struct ocf_cache *cache);
 
 static inline bool ocf_part_is_valid(struct ocf_user_part *part)
 {
