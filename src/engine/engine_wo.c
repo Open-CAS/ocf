@@ -62,7 +62,7 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 	uint64_t phys_prev, phys_curr = 0;
 	uint64_t io_start = 0;
 	uint64_t offset = 0;
-	uint64_t increment;
+	uint64_t increment = 0;
 
 	env_atomic_set(&req->req_remaining, 1);
 
