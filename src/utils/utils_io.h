@@ -60,10 +60,9 @@ void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
 void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 		ocf_req_end_t callback);
 
-
 void ocf_submit_cache_reqs(struct ocf_cache *cache,
-		struct ocf_map_info *map_info, struct ocf_request *req, int dir,
-		unsigned int reqs, ocf_req_end_t callback);
+		struct ocf_request *req, int dir, uint64_t offset,
+		uint64_t size, unsigned int reqs, ocf_req_end_t callback);
 
 static inline struct ocf_io *ocf_new_cache_io(struct ocf_cache *cache)
 {

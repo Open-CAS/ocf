@@ -696,6 +696,17 @@ void ocf_mngt_cache_save(ocf_cache_t cache,
 		ocf_mngt_cache_save_end_t cmpl, void *priv);
 
 /**
+ * @brief Determines whether given cache mode has write-back semantics, i.e. it
+ * allows for writes to be serviced in cache and lazily propagated to core.
+ *
+ * @param[in] mode input cache mode
+ */
+static inline bool ocf_mngt_cache_mode_has_lazy_write(ocf_cache_mode_t mode)
+{
+	return mode == ocf_cache_mode_wb || mode == ocf_cache_mode_wo;
+}
+
+/**
  * @brief Set cache mode in given cache
  *
  * @attention This changes only runtime state. To make changes persistent

@@ -70,7 +70,7 @@ class VolumeProperties(Structure):
 
 
 class VolumeIoPriv(Structure):
-    _fields_ = [("_data", c_void_p)]
+    _fields_ = [("_data", c_void_p), ("_offset", c_uint64)]
 
 
 class Volume(Structure):
@@ -220,7 +220,7 @@ class Volume(Structure):
             OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv)
         )
         data = Data.get_instance(data)
-        data.position = offset
+        io_priv.contents._offset = offset
         io_priv.contents._data = data.handle
 
         return 0
@@ -268,16 +268,22 @@ class Volume(Structure):
         try:
             self.stats[IoDir(io.contents._dir)] += 1
 
+            io_priv = cast(
+                OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv)
+	    )
+            offset = io_priv.contents._offset
+
             if io.contents._dir == IoDir.WRITE:
                 src_ptr = cast(io.contents._ops.contents._get_data(io), c_void_p)
-                src = Data.get_instance(src_ptr.value)
+                src = Data.get_instance(src_ptr.value).handle.value + offset
                 dst = self._storage + io.contents._addr
             elif io.contents._dir == IoDir.READ:
                 dst_ptr = cast(io.contents._ops.contents._get_data(io), c_void_p)
-                dst = Data.get_instance(dst_ptr.value)
+                dst = Data.get_instance(dst_ptr.value).handle.value + offset
                 src = self._storage + io.contents._addr
 
             memmove(dst, src, io.contents._bytes)
+            io_priv.contents._offset += io.contents._bytes
 
             io.contents._end(io, 0)
         except:

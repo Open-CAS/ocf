@@ -21,7 +21,7 @@ from enum import IntEnum
 from hashlib import md5
 import weakref
 
-from ..utils import print_buffer
+from ..utils import print_buffer, Size as S
 
 
 class DataSeek(IntEnum):
@@ -96,16 +96,24 @@ class Data:
         return cls(pages * Data.PAGE_SIZE)
 
     @classmethod
-    def from_bytes(cls, source: bytes):
-        d = cls(len(source))
+    def from_bytes(cls, source: bytes, offset: int = 0, size: int = 0):
+        if size == 0:
+            size = len(source) - offset
+        d = cls(size)
 
-        memmove(d.handle, cast(source, c_void_p), len(source))
+        memmove(d.handle, cast(source, c_void_p).value + offset, size)
 
         return d
 
     @classmethod
     def from_string(cls, source: str, encoding: str = "ascii"):
-        return cls.from_bytes(bytes(source, encoding))
+        b = bytes(source, encoding)
+        # duplicate string to fill space up to sector boundary
+        padding_len = S.from_B(len(b), sector_aligned = True).B - len(b)
+        padding = b * (padding_len // len(b) + 1)
+        padding = padding[:padding_len]
+        b = b + padding
+        return cls.from_bytes(b)
 
     @staticmethod
     @DataOps.ALLOC

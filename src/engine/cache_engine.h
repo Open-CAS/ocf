@@ -20,6 +20,7 @@ typedef enum {
 	ocf_req_cache_mode_wa = ocf_cache_mode_wa,
 	ocf_req_cache_mode_pt = ocf_cache_mode_pt,
 	ocf_req_cache_mode_wi = ocf_cache_mode_wi,
+	ocf_req_cache_mode_wo = ocf_cache_mode_wo,
 
 	/* internal modes */
 	ocf_req_cache_mode_fast,
@@ -56,6 +57,13 @@ static inline const char *ocf_get_io_iface_name(ocf_cache_mode_t cache_mode)
 static inline bool ocf_cache_mode_is_valid(ocf_cache_mode_t mode)
 {
 	return mode >= ocf_cache_mode_wt && mode < ocf_cache_mode_max;
+}
+
+static inline bool ocf_req_cache_mode_has_lazy_write(ocf_req_cache_mode_t mode)
+{
+	return ocf_cache_mode_is_valid((ocf_cache_mode_t)mode) &&
+			ocf_mngt_cache_mode_has_lazy_write(
+					(ocf_cache_mode_t)mode);
 }
 
 void ocf_seq_cutoff_update(ocf_core_t core, struct ocf_request *req);

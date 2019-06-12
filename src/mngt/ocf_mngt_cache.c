@@ -1600,6 +1600,7 @@ static const char *_ocf_cache_mode_names[ocf_cache_mode_max] = {
 	[ocf_cache_mode_wa] = "wa",
 	[ocf_cache_mode_pt] = "pt",
 	[ocf_cache_mode_wi] = "wi",
+	[ocf_cache_mode_wo] = "wo",
 };
 
 static const char *_ocf_cache_mode_get_name(ocf_cache_mode_t cache_mode)
@@ -2146,8 +2147,10 @@ static int _cache_mngt_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 
 	cache->conf_meta->cache_mode = mode;
 
-	if (mode_old == ocf_cache_mode_wb)
+	if (ocf_mngt_cache_mode_has_lazy_write(mode_old) &&
+			!ocf_mngt_cache_mode_has_lazy_write(mode)) {
 		_cache_mngt_update_initial_dirty_clines(cache);
+	}
 
 	ocf_cache_log(cache, log_info, "Changing cache mode from '%s' to '%s' "
 			"successful\n", ocf_get_io_iface_name(mode_old),

@@ -141,7 +141,7 @@ static inline void _ocf_write_wb_submit(struct ocf_request *req)
 	OCF_DEBUG_RQ(req, "Submit Data");
 
 	/* Data IO */
-	ocf_submit_cache_reqs(cache, req->map, req, OCF_WRITE,
+	ocf_submit_cache_reqs(cache, req, OCF_WRITE, 0, req->byte_length,
 			ocf_engine_io_count(req), _ocf_write_wb_complete);
 }
 

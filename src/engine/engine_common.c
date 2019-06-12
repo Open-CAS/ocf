@@ -95,15 +95,8 @@ void ocf_engine_update_req_info(struct ocf_cache *cache,
 	uint8_t end_sector = ocf_line_end_sector(cache);
 	struct ocf_map_info *_entry = &(req->map[entry]);
 
-	if (entry == 0) {
-		start_sector = BYTES_TO_SECTORS(req->byte_position)
-				% ocf_line_sectors(cache);
-	}
-
-	if (entry == req->core_line_count - 1) {
-		end_sector = BYTES_TO_SECTORS(req->byte_position +
-				req->byte_length - 1)% ocf_line_sectors(cache);
-	}
+	start_sector = ocf_map_line_start_sector(req, entry);
+	end_sector = ocf_map_line_end_sector(req, entry);
 
 	/* Handle return value */
 	switch (_entry->status) {

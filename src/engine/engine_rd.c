@@ -105,7 +105,7 @@ static inline void _ocf_read_generic_submit_hit(struct ocf_request *req)
 {
 	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req));
 
-	ocf_submit_cache_reqs(req->cache, req->map, req, OCF_READ,
+	ocf_submit_cache_reqs(req->cache, req, OCF_READ, 0, req->byte_length,
 		ocf_engine_io_count(req), _ocf_read_generic_hit_complete);
 }
 
@@ -135,7 +135,7 @@ err_alloc:
 	_ocf_read_generic_miss_complete(req, -OCF_ERR_NO_MEM);
 }
 
-static int _ocf_read_generic_do(struct ocf_request *req)
+int ocf_read_generic_do(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
 
@@ -195,7 +195,7 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 	else
 		_ocf_read_generic_submit_miss(req);
 
-	/* Updata statistics */
+	/* Update statistics */
 	ocf_engine_update_request_stats(req);
 	ocf_engine_update_block_stats(req);
 
@@ -206,8 +206,8 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 }
 
 static const struct ocf_io_if _io_if_read_generic_resume = {
-	.read = _ocf_read_generic_do,
-	.write = _ocf_read_generic_do,
+	.read = ocf_read_generic_do,
+	.write = ocf_read_generic_do,
 	.resume = ocf_engine_on_resume,
 };
 
@@ -294,7 +294,7 @@ int ocf_read_generic(struct ocf_request *req)
 				OCF_DEBUG_RQ(req, "NO LOCK");
 			} else {
 				/* Lock was acquired can perform IO */
-				_ocf_read_generic_do(req);
+				ocf_read_generic_do(req);
 			}
 		} else {
 			OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);

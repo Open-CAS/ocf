@@ -226,16 +226,22 @@ static void ocf_submit_volume_req_cmpl(struct ocf_io *io, int error)
 }
 
 void ocf_submit_cache_reqs(struct ocf_cache *cache,
-		struct ocf_map_info *map_info, struct ocf_request *req, int dir,
-		unsigned int reqs, ocf_req_end_t callback)
+		struct ocf_request *req, int dir, uint64_t offset,
+		uint64_t size, unsigned int reqs, ocf_req_end_t callback)
 {
 	struct ocf_counters_block *cache_stats;
 	uint64_t flags = req->io ? req->io->flags : 0;
 	uint32_t class = req->io ? req->io->io_class : 0;
 	uint64_t addr, bytes, total_bytes = 0;
 	struct ocf_io *io;
-	uint32_t i;
 	int err;
+	uint32_t i;
+	uint32_t entry = ocf_bytes_2_lines(cache, req->byte_position + offset) -
+			ocf_bytes_2_lines(cache, req->byte_position);
+	struct ocf_map_info *map_info = &req->map[entry];
+
+	ENV_BUG_ON(req->byte_length < offset + size);
+	ENV_BUG_ON(entry + reqs > req->core_line_count);
 
 	cache_stats = &req->core->counters->cache_blocks;
 
@@ -250,14 +256,14 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 					map_info[0].coll_idx);
 		addr *= ocf_line_size(cache);
 		addr += cache->device->metadata_offset;
-		addr += (req->byte_position % ocf_line_size(cache));
-		bytes = req->byte_length;
+		addr += ((req->byte_position + offset) % ocf_line_size(cache));
+		bytes = size;
 
 		ocf_io_configure(io, addr, bytes, dir, class, flags);
 		ocf_io_set_queue(io, req->io_queue);
 		ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
 
-		err = ocf_io_set_data(io, req->data, 0);
+		err = ocf_io_set_data(io, req->data, offset);
 		if (err) {
 			ocf_io_put(io);
 			callback(req, err);
@@ -265,7 +271,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		}
 
 		ocf_volume_submit_io(io);
-		total_bytes = req->byte_length;
+		total_bytes = bytes;
 
 		goto update_stats;
 	}
@@ -288,24 +294,27 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		bytes = ocf_line_size(cache);
 
 		if (i == 0) {
-			uint64_t seek = (req->byte_position %
+			uint64_t seek = ((req->byte_position + offset) %
 					ocf_line_size(cache));
 
 			addr += seek;
 			bytes -= seek;
 		} else  if (i == (reqs - 1)) {
 			uint64_t skip = (ocf_line_size(cache) -
-				((req->byte_position + req->byte_length) %
+				((req->byte_position + offset + size) %
 				ocf_line_size(cache))) % ocf_line_size(cache);
 
 			bytes -= skip;
 		}
 
+		bytes = OCF_MIN(bytes, size - total_bytes);
+		ENV_BUG_ON(bytes == 0);
+
 		ocf_io_configure(io, addr, bytes, dir, class, flags);
 		ocf_io_set_queue(io, req->io_queue);
 		ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
 
-		err = ocf_io_set_data(io, req->data, total_bytes);
+		err = ocf_io_set_data(io, req->data, offset + total_bytes);
 		if (err) {
 			ocf_io_put(io);
 			/* Finish all IOs which left with ERROR */
@@ -316,6 +325,8 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		ocf_volume_submit_io(io);
 		total_bytes += bytes;
 	}
+
+	ENV_BUG_ON(total_bytes != size);
 
 update_stats:
 	if (dir == OCF_WRITE)

@@ -15,6 +15,7 @@
 #include "engine_wi.h"
 #include "engine_wa.h"
 #include "engine_wb.h"
+#include "engine_wo.h"
 #include "engine_fast.h"
 #include "engine_discard.h"
 #include "engine_d2c.h"
@@ -32,6 +33,7 @@ enum ocf_io_if_type {
 	OCF_IO_WA_IF,
 	OCF_IO_WI_IF,
 	OCF_IO_PT_IF,
+	OCF_IO_WO_IF,
 	OCF_IO_MAX_IF,
 
 	/* Private OCF interfaces */
@@ -68,6 +70,11 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 		.write = ocf_write_wi,
 		.name = "Pass Through",
 	},
+	[OCF_IO_WO_IF] = {
+		.read = ocf_read_wo,
+		.write = ocf_write_wb,
+		.name = "Write Only",
+	},
 	[OCF_IO_FAST_IF] = {
 		.read = ocf_read_fast,
 		.write = ocf_write_fast,
@@ -95,6 +102,7 @@ static const struct ocf_io_if *cache_mode_io_if_map[ocf_req_cache_mode_max] = {
 	[ocf_req_cache_mode_wb] = &IO_IFS[OCF_IO_WB_IF],
 	[ocf_req_cache_mode_wa] = &IO_IFS[OCF_IO_WA_IF],
 	[ocf_req_cache_mode_wi] = &IO_IFS[OCF_IO_WI_IF],
+	[ocf_req_cache_mode_wo] = &IO_IFS[OCF_IO_WO_IF],
 	[ocf_req_cache_mode_pt] = &IO_IFS[OCF_IO_PT_IF],
 	[ocf_req_cache_mode_fast] = &IO_IFS[OCF_IO_FAST_IF],
 	[ocf_req_cache_mode_d2c] = &IO_IFS[OCF_IO_D2C_IF],

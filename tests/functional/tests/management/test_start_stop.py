@@ -62,11 +62,11 @@ def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: Cache
     core_device.reset_stats()
 
     test_data = Data.from_string("This is test data")
-    io_to_core(core_exported, test_data, 20)
+    io_to_core(core_exported, test_data, Size.from_sector(1).B)
     check_stats_write_empty(core_exported, mode, cls)
 
     logger.info("[STAGE] Read from exported object after initial write")
-    io_from_exported_object(core_exported, test_data.size, 20)
+    io_from_exported_object(core_exported, test_data.size, Size.from_sector(1).B)
     check_stats_read_after_write(core_exported, mode, cls, True)
 
     logger.info("[STAGE] Write to exported object after read")
@@ -75,7 +75,7 @@ def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: Cache
 
     test_data = Data.from_string("Changed test data")
 
-    io_to_core(core_exported, test_data, 20)
+    io_to_core(core_exported, test_data, Size.from_sector(1).B)
     check_stats_write_after_read(core_exported, mode, cls)
 
     check_md5_sums(core_exported, mode)
@@ -97,13 +97,13 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
 
     logger.info("[STAGE] Initial write to core device")
     test_data = Data.from_string("This is test data")
-    io_to_core(core_exported, test_data, 20, True)
+    io_to_core(core_exported, test_data, Size.from_sector(1).B, True)
 
     cache_device.reset_stats()
     core_device.reset_stats()
 
     logger.info("[STAGE] Initial read from exported object")
-    io_from_exported_object(core_exported, test_data.size, 20)
+    io_from_exported_object(core_exported, test_data.size, Size.from_sector(1).B)
     check_stats_read_empty(core_exported, mode, cls)
 
     logger.info("[STAGE] Write to exported object after initial read")
@@ -112,11 +112,11 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
 
     test_data = Data.from_string("Changed test data")
     
-    io_to_core(core_exported, test_data, 20)
+    io_to_core(core_exported, test_data, Size.from_sector(1).B)
     check_stats_write_after_read(core_exported, mode, cls, True)
 
     logger.info("[STAGE] Read from exported object after write")
-    io_from_exported_object(core_exported, test_data.size, 20)
+    io_from_exported_object(core_exported, test_data.size, Size.from_sector(1).B)
     check_stats_read_after_write(core_exported, mode, cls)
 
     check_md5_sums(core_exported, mode)
@@ -180,7 +180,7 @@ def test_stop(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, with_flush: bool):
     run_io_and_cache_data_if_possible(core_exported, mode, cls)
 
     stats = cache.get_stats()
-    assert int(stats["conf"]["dirty"]) == (1 if mode == CacheMode.WB else 0), "Dirty data before MD5"
+    assert int(stats["conf"]["dirty"]) == (1 if mode.lazy_write() else 0), "Dirty data before MD5"
 
     md5_exported_core = core_exported.exp_obj_md5()
 
@@ -188,7 +188,7 @@ def test_stop(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, with_flush: bool):
         cache.flush()
     cache.stop()
 
-    if mode == CacheMode.WB and not with_flush:
+    if mode.lazy_write() and not with_flush:
         pytest.xfail("MD5 sums equal without flush with dirty data")  # TODO: remove after WB fixed
         assert core_device.md5() != md5_exported_core, \
             "MD5 check: core device vs exported object with dirty data"
@@ -393,38 +393,39 @@ def io_from_exported_object(exported_obj: Core, buffer_size: int, offset: int):
 def check_stats_read_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineSize):
     stats = exported_obj.cache.get_stats()
     assert stats["conf"]["cache_mode"] == mode, "Cache mode"
-    assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == (0 if mode == CacheMode.PT else 1), \
+    assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == (1 if mode.read_insert() else 0), \
         "Writes to cache device"
     assert exported_obj.device.get_stats()[IoDir.READ] == 1, "Reads from core device"
     assert stats["req"]["rd_full_misses"]["value"] == (0 if mode == CacheMode.PT else 1), \
         "Read full misses"
     assert stats["usage"]["occupancy"]["value"] == \
-        (0 if mode == CacheMode.PT else (cls / CacheLineSize.LINE_4KiB)), "Occupancy"
+        ((cls / CacheLineSize.LINE_4KiB) if mode.read_insert() else 0), "Occupancy"
 
 
 def check_stats_write_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineSize):
     stats = exported_obj.cache.get_stats()
     assert stats["conf"]["cache_mode"] == mode, "Cache mode"
+    # TODO(ajrutkow): why 1 for WT ??
     assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == \
-        (2 if mode == CacheMode.WB else (1 if mode == CacheMode.WT else 0)), \
+        (2 if mode.lazy_write() else (1 if mode == CacheMode.WT else 0)), \
         "Writes to cache device"
-    assert exported_obj.device.get_stats()[IoDir.WRITE] == (0 if mode == CacheMode.WB else 1), \
+    assert exported_obj.device.get_stats()[IoDir.WRITE] == (0 if mode.lazy_write() else 1), \
         "Writes to core device"
-    assert stats["req"]["wr_full_misses"]["value"] == (1 if mode in {CacheMode.WT, CacheMode.WB} else 0), \
+    assert stats["req"]["wr_full_misses"]["value"] == (1 if mode.write_insert() else 0), \
         "Write full misses"
     assert stats["usage"]["occupancy"]["value"] == \
-        ((cls / CacheLineSize.LINE_4KiB) if mode in {CacheMode.WB, CacheMode.WT} else 0), \
+        ((cls / CacheLineSize.LINE_4KiB) if mode.write_insert() else 0), \
         "Occupancy"
 
 
 def check_stats_write_after_read(exported_obj: Core, mode: CacheMode, cls: CacheLineSize, read_from_empty=False):
     stats = exported_obj.cache.get_stats()
     assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == \
-        (0 if mode in {CacheMode.WI, CacheMode.PT} else (2 if read_from_empty and mode == CacheMode.WB else 1)), \
+        (0 if mode in {CacheMode.WI, CacheMode.PT} else (2 if read_from_empty and mode.lazy_write() else 1)), \
         "Writes to cache device"
-    assert exported_obj.device.get_stats()[IoDir.WRITE] == (0 if mode == CacheMode.WB else 1), \
+    assert exported_obj.device.get_stats()[IoDir.WRITE] == (0 if mode.lazy_write() else 1), \
         "Writes to core device"
-    assert stats["req"]["wr_hits"]["value"] == (0 if mode in {CacheMode.WI, CacheMode.PT} else 1), \
+    assert stats["req"]["wr_hits"]["value"] == (1 if (mode.read_insert() and mode != CacheMode.WI) or (mode.write_insert() and not read_from_empty) else 0), \
         "Write hits"
     assert stats["usage"]["occupancy"]["value"] == \
         (0 if mode in {CacheMode.WI, CacheMode.PT} else (cls / CacheLineSize.LINE_4KiB)), \
@@ -434,26 +435,26 @@ def check_stats_write_after_read(exported_obj: Core, mode: CacheMode, cls: Cache
 def check_stats_read_after_write(exported_obj, mode, cls, write_to_empty=False):
     stats = exported_obj.cache.get_stats()
     assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == \
-        (2 if mode == CacheMode.WB else (0 if mode == CacheMode.PT else 1)), \
+        (2 if mode.lazy_write() else (0 if mode == CacheMode.PT else 1)), \
         "Writes to cache device"
     assert exported_obj.cache.device.get_stats()[IoDir.READ] == \
-        (1 if mode in {CacheMode.WT, CacheMode.WB} or (mode == CacheMode.WA and not write_to_empty) else 0), \
+        (1 if mode in {CacheMode.WT, CacheMode.WB, CacheMode.WO} or (mode == CacheMode.WA and not write_to_empty) else 0), \
         "Reads from cache device"
     assert exported_obj.device.get_stats()[IoDir.READ] == \
-        (0 if mode in {CacheMode.WB, CacheMode.WT} or (mode == CacheMode.WA and not write_to_empty) else 1), \
+        (0 if mode in {CacheMode.WB, CacheMode.WO, CacheMode.WT} or (mode == CacheMode.WA and not write_to_empty) else 1), \
         "Reads from core device"
     assert stats["req"]["rd_full_misses"]["value"] == (1 if mode in {CacheMode.WA, CacheMode.WI} else 0) \
         + (0 if write_to_empty or mode in {CacheMode.PT, CacheMode.WA} else 1), \
         "Read full misses"
     assert stats["req"]["rd_hits"]["value"] == \
-        (1 if mode in {CacheMode.WT, CacheMode.WB} or (mode == CacheMode.WA and not write_to_empty) else 0), \
+        (1 if mode in {CacheMode.WT, CacheMode.WB, CacheMode.WO} or (mode == CacheMode.WA and not write_to_empty) else 0), \
         "Read hits"
     assert stats["usage"]["occupancy"]["value"] == \
         (0 if mode == CacheMode.PT else (cls / CacheLineSize.LINE_4KiB)), "Occupancy"
 
 
 def check_md5_sums(exported_obj: Core, mode: CacheMode):
-    if mode == CacheMode.WB:
+    if mode.lazy_write():
         assert exported_obj.device.md5() != exported_obj.exp_obj_md5(), \
             "MD5 check: core device vs exported object without flush"
         exported_obj.cache.flush()
