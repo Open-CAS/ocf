@@ -111,6 +111,28 @@ int ocf_ctx_volume_create(ocf_ctx_t ctx, ocf_volume_t *volume,
 	return ocf_volume_create(volume, ctx->volume_type[type_id], uuid);
 }
 
+static void check_ops_provided(const struct ocf_ctx_ops *ops)
+{
+	ENV_BUG_ON(!ops->data.alloc);
+	ENV_BUG_ON(!ops->data.free);
+	ENV_BUG_ON(!ops->data.mlock);
+	ENV_BUG_ON(!ops->data.munlock);
+	ENV_BUG_ON(!ops->data.read);
+	ENV_BUG_ON(!ops->data.write);
+	ENV_BUG_ON(!ops->data.zero);
+	ENV_BUG_ON(!ops->data.seek);
+	ENV_BUG_ON(!ops->data.copy);
+	ENV_BUG_ON(!ops->data.secure_erase);
+
+	ENV_BUG_ON(!ops->cleaner.init);
+	ENV_BUG_ON(!ops->cleaner.kick);
+	ENV_BUG_ON(!ops->cleaner.stop);
+
+	ENV_BUG_ON(!ops->metadata_updater.init);
+	ENV_BUG_ON(!ops->metadata_updater.kick);
+	ENV_BUG_ON(!ops->metadata_updater.stop);
+}
+
 /*
  *
  */
@@ -121,6 +143,8 @@ int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 
 	OCF_CHECK_NULL(ctx);
 	OCF_CHECK_NULL(cfg);
+
+	check_ops_provided(&cfg->ops);
 
 	ocf_ctx = env_zalloc(sizeof(*ocf_ctx), ENV_MEM_NORMAL);
 	if (!ocf_ctx)
