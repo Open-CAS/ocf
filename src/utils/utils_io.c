@@ -236,12 +236,11 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 	struct ocf_io *io;
 	int err;
 	uint32_t i;
-	uint32_t entry = ocf_bytes_2_lines(cache, req->byte_position + offset) -
-			ocf_bytes_2_lines(cache, req->byte_position);
-	struct ocf_map_info *map_info = &req->map[entry];
+	uint32_t first_cl = ocf_bytes_2_lines(cache, req->byte_position +
+			offset) - ocf_bytes_2_lines(cache, req->byte_position);
 
 	ENV_BUG_ON(req->byte_length < offset + size);
-	ENV_BUG_ON(entry + reqs > req->core_line_count);
+	ENV_BUG_ON(first_cl + reqs > req->core_line_count);
 
 	cache_stats = &req->core->counters->cache_blocks;
 
@@ -253,7 +252,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		}
 
 		addr = ocf_metadata_map_lg2phy(cache,
-					map_info[0].coll_idx);
+					req->map[first_cl].coll_idx);
 		addr *= ocf_line_size(cache);
 		addr += cache->device->metadata_offset;
 		addr += ((req->byte_position + offset) % ocf_line_size(cache));
@@ -288,7 +287,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		}
 
 		addr  = ocf_metadata_map_lg2phy(cache,
-				map_info[i].coll_idx);
+				req->map[first_cl + i].coll_idx);
 		addr *= ocf_line_size(cache);
 		addr += cache->device->metadata_offset;
 		bytes = ocf_line_size(cache);

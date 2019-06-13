@@ -167,38 +167,30 @@ static void _ocf_read_wo_core_complete(struct ocf_request *req, int error)
 
 int ocf_read_wo_do(struct ocf_request *req)
 {
-	ocf_cache_t cache = req->cache;
-
-	if (ocf_engine_is_hit(req)) {
-		/* read hit - just fetch the data from cache using standard read path
-		 */
-		ocf_read_generic_do(req);
-		return 0;
-	}
-
 	ocf_req_get(req);
 
-	if (req->info.re_part) {
-		OCF_DEBUG_RQ(req, "Re-Part");
+	/* Lack of cacheline repartitioning here is deliberate. WO cache mode
+	 * reads should not affect cacheline status as reading data from the
+	 * cache is just an internal optimization. Also WO cache mode is
+	 * designed to be used with partitioning based on write life-time hints
+	 * and read requests do not carry write lifetime hint by definition.
+	 */
 
-		OCF_METADATA_LOCK_WR();
+	if (ocf_engine_is_hit(req)) {
+		/* read hit - just fetch the data from cache */
+		OCF_DEBUG_RQ(req, "Submit cache hit");
+		ocf_read_generic_submit_hit(req);
+	} else {
 
-		/* Probably some cache lines are assigned into wrong
-		 * partition. Need to move it to new one
-		 */
-		ocf_part_move(req);
-
-		OCF_METADATA_UNLOCK_WR();
+		OCF_DEBUG_RQ(req, "Submit core");
+		ocf_submit_volume_req(&req->core->volume, req,
+				_ocf_read_wo_core_complete);
 	}
-
-	OCF_DEBUG_RQ(req, "Submit core");
-	ocf_submit_volume_req(&req->core->volume, req, _ocf_read_wo_core_complete);
 
 	ocf_engine_update_request_stats(req);
 	ocf_engine_update_block_stats(req);
 
 	ocf_req_put(req);
-
 	return 0;
 }
 
