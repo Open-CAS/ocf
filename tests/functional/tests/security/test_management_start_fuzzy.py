@@ -12,7 +12,6 @@ from pyocf.utils import Size
 from pyocf.types.shared import OcfError, CacheLineSize
 from ctypes import c_uint32
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -51,7 +50,8 @@ def test_fuzzy_start_cache_line_size(pyocf_ctx, c_uint64_randomize, cm):
         with pytest.raises(OcfError, match="OCF_ERR_INVALID_CACHE_LINE_SIZE"):
             try_start_cache(cache_mode=cm, cache_line_size=c_uint64_randomize)
     else:
-        logger.warning(f"Test skipped for valid cache line size enum value: '{c_uint64_randomize}'. ")
+        logger.warning(
+            f"Test skipped for valid cache line size enum value: '{c_uint64_randomize}'. ")
 
 
 @pytest.mark.security
@@ -67,8 +67,9 @@ def test_fuzzy_start_name(pyocf_ctx, string_randomize, cm, cls):
     """
     cache_device = Volume(Size.from_MiB(30))
     try:
-        cache = Cache.start_on_device(cache_device, name=string_randomize, cache_mode=cm, cache_line_size=cls)
-    except:
+        cache = Cache.start_on_device(cache_device, name=string_randomize, cache_mode=cm,
+                                      cache_line_size=cls)
+    except OcfError:
         logger.error(f"Cache did not start properly with correct name value: {string_randomize}")
     cache.stop()
 
@@ -107,7 +108,8 @@ def test_fuzzy_start_eviction_policy(pyocf_ctx, c_uint32_randomize, cm, cls):
         with pytest.raises(OcfError, match="OCF_ERR_INVAL"):
             try_start_cache(eviction_policy=c_uint32_randomize, cache_mode=cm, cache_line_size=cls)
     else:
-        logger.warning(f"Test skipped for valid eviction policy enum value: '{c_uint32_randomize}'. ")
+        logger.warning(
+            f"Test skipped for valid eviction policy enum value: '{c_uint32_randomize}'. ")
 
 
 @pytest.mark.security
@@ -125,7 +127,8 @@ def test_fuzzy_start_metadata_layout(pyocf_ctx, c_uint32_randomize, cm, cls):
         with pytest.raises(OcfError, match="OCF_ERR_INVAL"):
             try_start_cache(metadata_layout=c_uint32_randomize, cache_mode=cm, cache_line_size=cls)
     else:
-        logger.warning(f"Test skipped for valid metadata layout enum value: '{c_uint32_randomize}'. ")
+        logger.warning(
+            f"Test skipped for valid metadata layout enum value: '{c_uint32_randomize}'. ")
 
 
 @pytest.mark.security
@@ -133,7 +136,8 @@ def test_fuzzy_start_metadata_layout(pyocf_ctx, c_uint32_randomize, cm, cls):
 @pytest.mark.parametrize('max_wb_queue_size', generate_random_numbers(c_uint32, 10))
 def test_fuzzy_start_max_queue_size(pyocf_ctx, max_wb_queue_size, c_uint32_randomize, cls):
     """
-    Test whether it is impossible to start cache with invalid dependence between max queue size and queue unblock size.
+    Test whether it is impossible to start cache with invalid dependence between max queue size
+    and queue unblock size.
     :param pyocf_ctx: basic pyocf context fixture
     :param max_wb_queue_size: max queue size value to start cache with
     :param c_uint32_randomize: queue unblock size value to start cache with
@@ -148,4 +152,5 @@ def test_fuzzy_start_max_queue_size(pyocf_ctx, max_wb_queue_size, c_uint32_rando
                 cache_line_size=cls)
     else:
         logger.warning(f"Test skipped for valid values: "
-                       f"'max_queue_size={max_wb_queue_size}, queue_unblock_size={c_uint32_randomize}'.")
+                       f"'max_queue_size={max_wb_queue_size}, "
+                       f"queue_unblock_size={c_uint32_randomize}'.")

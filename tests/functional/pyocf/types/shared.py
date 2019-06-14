@@ -102,7 +102,7 @@ class SharedOcfObject(Structure):
     def get_instance(cls, ref: int):
         try:
             return cls._instances_[ref]
-        except:
+        except:  # noqa E722
             logging.getLogger("pyocf").error(
                 "OcfSharedObject corruption. wanted: {} instances: {}".format(
                     ref, cls._instances_

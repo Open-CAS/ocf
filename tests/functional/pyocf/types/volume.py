@@ -74,7 +74,7 @@ class VolumeIoPriv(Structure):
 
 
 class Volume(Structure):
-    VOLUME_POISON=0x13
+    VOLUME_POISON = 0x13
 
     _fields_ = [("_storage", c_void_p)]
     _instances_ = {}
@@ -184,7 +184,7 @@ class Volume(Structure):
         uuid = str(uuid_ptr.contents._data, encoding="ascii")
         try:
             volume = Volume.get_by_uuid(uuid)
-        except:
+        except:  # noqa E722 TODO:Investigate whether this really should be so broad
             print("Tried to access unallocated volume {}".format(uuid))
             print("{}".format(Volume._uuid_))
             return -1
@@ -255,7 +255,7 @@ class Volume(Structure):
             memset(dst, 0, discard.contents._bytes)
 
             discard.contents._end(discard, 0)
-        except:
+        except:  # noqa E722
             discard.contents._end(discard, -5)
 
     def get_stats(self):
@@ -269,8 +269,7 @@ class Volume(Structure):
             self.stats[IoDir(io.contents._dir)] += 1
 
             io_priv = cast(
-                OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv)
-	    )
+                OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv))
             offset = io_priv.contents._offset
 
             if io.contents._dir == IoDir.WRITE:
@@ -286,7 +285,7 @@ class Volume(Structure):
             io_priv.contents._offset += io.contents._bytes
 
             io.contents._end(io, 0)
-        except:
+        except:  # noqa E722
             io.contents._end(io, -5)
 
     def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
@@ -325,10 +324,11 @@ class ErrorDevice(Volume):
         super().reset_stats()
         self.stats["errors"] = {IoDir.WRITE: 0, IoDir.READ: 0}
 
+
 class TraceDevice(Volume):
     def __init__(self, size, trace_fcn=None, uuid=None):
         super().__init__(size, uuid)
-        self.trace_fcn=trace_fcn
+        self.trace_fcn = trace_fcn
 
     def submit_io(self, io):
         submit = True

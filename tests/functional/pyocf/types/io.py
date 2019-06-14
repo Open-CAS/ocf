@@ -92,7 +92,7 @@ class Io(Structure):
     def end(self, err):
         try:
             self.callback(err)
-        except:
+        except:  # noqa E722
             pass
 
         self.put()
