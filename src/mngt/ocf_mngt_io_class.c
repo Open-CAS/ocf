@@ -236,7 +236,7 @@ static int _ocf_mngt_io_class_validate_cfg(ocf_cache_t cache,
 		return 0;
 
 	if (cfg->cache_mode < ocf_cache_mode_none ||
-			cfg->cache_mode >= ocf_cache_mode_max) {
+			cfg->cache_mode > ocf_cache_mode_max) {
 		return -OCF_ERR_INVAL;
 	}
 
