@@ -100,9 +100,11 @@ def test_wo_read_data_consistency(pyocf_ctx):
     # possible end sectors for test iteration
     end_sec = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 23]
 
-    SECTOR_SIZE = Size.from_sector(1).B
+    CACHELINE_COUNT = 3
     CACHELINE_SIZE = 4096
-    WORKSET_SIZE = 3 * CACHELINE_SIZE
+    SECTOR_SIZE = Size.from_sector(1).B
+    CLS = CACHELINE_SIZE // SECTOR_SIZE
+    WORKSET_SIZE = CACHELINE_COUNT * CACHELINE_SIZE
     WORKSET_OFFSET = 1024 * CACHELINE_SIZE
     SECTOR_COUNT = int(WORKSET_SIZE / SECTOR_SIZE)
     ITRATION_COUNT = 200
@@ -137,6 +139,8 @@ def test_wo_read_data_consistency(pyocf_ctx):
 
     cache.add_core(core)
 
+    insert_order = [x for x in range(CACHELINE_COUNT)]
+
     # generate regions status combinations and shuffle it
     combinations = []
     state_combinations = product(SectorStatus, repeat=len(region_start))
@@ -153,21 +157,28 @@ def test_wo_read_data_consistency(pyocf_ctx):
         io_to_exp_obj(core, WORKSET_OFFSET, len(data[SectorStatus.INVALID]),
                       data[SectorStatus.INVALID], 0, IoDir.WRITE)
 
-        # insert clean sectors
+        # randomize cacheline insertion order to exercise different
+        # paths with regard to cache I/O physical addresses continuousness
+        random.shuffle(insert_order)
+        sectors = [insert_order[i // CLS] * CLS + (i % CLS) for i in range(SECTOR_COUNT)]
+
+        # insert clean sectors - iterate over cachelines in @insert_order order
         cache.change_cache_mode(cache_mode=CacheMode.WT)
-        for sec in range(SECTOR_COUNT):
+        for sec in sectors:
             region = sector_to_region(sec, region_start)
-            if S[region] == SectorStatus.CLEAN:
+            if S[region] != SectorStatus.INVALID:
                 io_to_exp_obj(core, WORKSET_OFFSET + SECTOR_SIZE * sec, SECTOR_SIZE,
                               data[SectorStatus.CLEAN], sec * SECTOR_SIZE, IoDir.WRITE)
 
         # write dirty sectors
         cache.change_cache_mode(cache_mode=CacheMode.WO)
-        for sec in range(SECTOR_COUNT):
+        for sec in sectors:
             region = sector_to_region(sec, region_start)
             if S[region] == SectorStatus.DIRTY:
                 io_to_exp_obj(core, WORKSET_OFFSET + SECTOR_SIZE * sec, SECTOR_SIZE,
                               data[SectorStatus.DIRTY], sec * SECTOR_SIZE, IoDir.WRITE)
+
+        core_device.reset_stats()
 
         for s in start_sec:
             for e in end_sec:
@@ -178,14 +189,26 @@ def test_wo_read_data_consistency(pyocf_ctx):
                 START = s * SECTOR_SIZE
                 END = e * SECTOR_SIZE
                 size = (e - s + 1) * SECTOR_SIZE
-                assert(0 == io_to_exp_obj(core, WORKSET_OFFSET + START, size,
-                                          result_b, START, IoDir.READ)),\
-                    "error reading in WO mode: S={}, start={}, end={}".format(S, s, e)
+                assert 0 == io_to_exp_obj(
+                    core, WORKSET_OFFSET + START, size, result_b, START, IoDir.READ
+                ), "error reading in WO mode: S={}, start={}, end={}, insert_order={}".format(
+                    S, s, e, insert_order
+                )
 
                 # verify read data
                 for sec in range(s, e + 1):
                     # just check the first byte of sector
                     region = sector_to_region(sec, region_start)
                     check_byte = sec * SECTOR_SIZE
-                    assert(result_b[check_byte] == data[S[region]][check_byte]), \
-                        "unexpected data in sector {}, S={}, s={}, e={}\n".format(sec, S, s, e)
+                    assert (
+                        result_b[check_byte] == data[S[region]][check_byte]
+                    ), "unexpected data in sector {}, S={}, s={}, e={}, insert_order={}\n".format(
+                        sec, S, s, e, insert_order
+                    )
+
+                # WO is not supposed to clean dirty data
+                assert (
+                    core_device.get_stats()[IoDir.WRITE] == 0
+                ), "unexpected write to core device, S={}, s={}, e={}, insert_order = {}\n".format(
+                    S, s, e, insert_order
+                )
