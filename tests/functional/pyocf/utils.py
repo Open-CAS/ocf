@@ -16,7 +16,7 @@ def print_buffer(buf, length, offset=0, width=16, ignore=0,
     stop_after_count_ignored = int(stop_after_count_ignored / width)
 
     for addr in range(offset, end, width):
-        cur_line = buf[addr: min(end, addr + width)]
+        cur_line = buf[addr : min(end, addr + width)]
         byteline = ""
         asciiline = ""
         if not any(x != ignore for x in cur_line):
@@ -114,7 +114,7 @@ class Size:
 
     @property
     def sectors(self):
-        return self.bytes // _SECTOR_SIZE
+        return self.bytes // self._SECTOR_SIZE
 
     def __str__(self):
         if self.bytes < self._KiB:

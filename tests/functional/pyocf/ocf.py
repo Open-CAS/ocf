@@ -6,8 +6,6 @@ from ctypes import c_void_p, cdll
 import inspect
 import os
 
-lib = None
-
 
 class OcfLib:
     __lib__ = None
