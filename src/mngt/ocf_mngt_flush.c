@@ -598,20 +598,6 @@ static void _ocf_mngt_flush_finish(ocf_pipeline_t pipeline, void *priv,
 	ocf_cache_t cache = context->cache;
 	ocf_core_t core = context->core;
 
-	if (!error) {
-		switch(context->op) {
-		case flush_cache:
-		case purge_cache:
-			ENV_BUG_ON(ocf_mngt_cache_is_dirty(cache));
-			break;
-		case flush_core:
-		case purge_core:
-			ENV_BUG_ON(env_atomic_read(
-					&core->runtime_meta->dirty_clines));
-			break;
-		}
-	}
-
 	_ocf_mngt_end_flush(cache);
 
 	switch (context->op) {
