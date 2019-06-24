@@ -15,7 +15,7 @@ ifeq ($(strip $(OUTDIR)),)
 endif
 
 ifeq ($(strip $(CMD)),)
-INSTALL=ln -s
+INSTALL=ln -fs
 else ifeq ($(strip $(CMD)),cp)
 INSTALL=cp
 else ifeq ($(strip $(CMD)),install)
