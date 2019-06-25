@@ -96,8 +96,7 @@ static int _ocf_cleaner_run_check_dirty_inactive(ocf_cache_t cache)
 		return 0;
 
 	for_each_core(cache, core, core_id) {
-		if (core->opened && env_atomic_read(
-				&core->runtime_meta->dirty_clines)) {
+		if (core->opened && ocf_mngt_core_is_dirty(core)) {
 			return 0;
 		}
 	}

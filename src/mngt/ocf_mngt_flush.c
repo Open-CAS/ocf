@@ -105,6 +105,11 @@ static void _ocf_mngt_end_flush(ocf_cache_t cache)
 	env_mutex_unlock(&cache->flush_mutex);
 }
 
+bool ocf_mngt_core_is_dirty(ocf_core_t core)
+{
+	return !!env_atomic_read(&core->runtime_meta->dirty_clines);
+}
+
 bool ocf_mngt_cache_is_dirty(ocf_cache_t cache)
 {
 	ocf_core_t core;
@@ -113,7 +118,7 @@ bool ocf_mngt_cache_is_dirty(ocf_cache_t cache)
 	OCF_CHECK_NULL(cache);
 
 	for_each_core(cache, core, core_id) {
-		if (env_atomic_read(&core->runtime_meta->dirty_clines))
+		if (ocf_mngt_core_is_dirty(core))
 			return true;
 	}
 

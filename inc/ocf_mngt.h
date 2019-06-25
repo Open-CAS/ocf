@@ -606,6 +606,15 @@ void ocf_mngt_cache_flush(ocf_cache_t cache,
 		ocf_mngt_cache_flush_end_t cmpl, void *priv);
 
 /**
+ * @brief Check if core is dirty
+ *
+ * @param[in] core Core handle
+ *
+ * @retval true if core is dirty, false otherwise
+ */
+bool ocf_mngt_core_is_dirty(ocf_core_t core);
+
+/**
  * @brief Check if cache is dirty
  *
  * @param[in] cache Cache handle
