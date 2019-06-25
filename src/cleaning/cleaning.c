@@ -108,7 +108,7 @@ static void ocf_cleaner_run_complete(ocf_cleaner_t cleaner, uint32_t interval)
 {
 	ocf_cache_t cache = ocf_cleaner_get_cache(cleaner);
 
-	ocf_async_unlock(&cache->lock);
+	ocf_mngt_cache_unlock(cache);
 	cleaner->end(cleaner, interval);
 
 	ocf_queue_put(cleaner->io_queue);
