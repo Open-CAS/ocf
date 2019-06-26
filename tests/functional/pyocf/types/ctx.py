@@ -74,11 +74,9 @@ class OcfCtx:
         if not vol_type.type_id:
             raise Exception("Already unregistered")
 
-        result = self.lib.ocf_ctx_unregister_volume_type(
+        self.lib.ocf_ctx_unregister_volume_type(
             self.ctx_handle, vol_type.type_id
         )
-        if result != 0:
-            raise OcfError("Volume type unregistration failed", result)
 
         del self.volume_types[vol_type.type_id]
 
