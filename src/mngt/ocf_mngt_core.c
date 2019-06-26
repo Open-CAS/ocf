@@ -456,7 +456,11 @@ int ocf_mngt_core_init_front_volume(ocf_core_t core)
 	if (ret)
 		return ret;
 
-	return ocf_volume_open(&core->front_volume, NULL);
+	ret = ocf_volume_open(&core->front_volume, NULL);
+	if (ret)
+		ocf_volume_deinit(&core->front_volume);
+
+	return ret;
 }
 
 static void ocf_mngt_cache_add_core_prepare(ocf_pipeline_t pipeline,
@@ -658,8 +662,6 @@ static void _ocf_mngt_cache_remove_core(ocf_pipeline_t pipeline, void *priv,
 	ocf_core_t core = context->core;
 
 	ocf_core_log(core, log_debug, "Removing core\n");
-
-	ocf_volume_close(&core->front_volume);
 
 	/* Deinit everything*/
 	if (ocf_cache_is_device_attached(cache)) {
