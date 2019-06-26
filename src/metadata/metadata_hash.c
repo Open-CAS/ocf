@@ -1200,6 +1200,7 @@ struct ocf_metadata_hash_context {
 	void *priv;
 	ocf_pipeline_t pipeline;
 	ocf_cache_t cache;
+	struct ocf_metadata_raw segment_copy[metadata_segment_fixed_size_max];
 };
 
 static void ocf_metadata_hash_generic_complete(void *priv, int error)
@@ -1221,6 +1222,34 @@ static void ocf_medatata_hash_load_segment(ocf_pipeline_t pipeline,
 
 	ocf_metadata_raw_load_all(cache, &ctrl->raw_desc[segment],
 			ocf_metadata_hash_generic_complete, context);
+}
+
+static void ocf_medatata_hash_store_segment(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_metadata_hash_context *context = priv;
+	int segment = ocf_pipeline_arg_get_int(arg);
+	struct ocf_metadata_hash_ctrl *ctrl;
+	ocf_cache_t cache = context->cache;
+	int error;
+
+	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.iface_priv;
+
+	context->segment_copy[segment].mem_pool =
+		env_malloc(ctrl->raw_desc[segment].mem_pool_limit, ENV_MEM_NORMAL);
+	if (!context->segment_copy[segment].mem_pool)
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_NO_MEM);
+
+	error = env_memcpy(context->segment_copy[segment].mem_pool,
+			ctrl->raw_desc[segment].mem_pool_limit, METADATA_MEM_POOL(ctrl, segment),
+			ctrl->raw_desc[segment].mem_pool_limit);
+	if (error) {
+		env_free(context->segment_copy[segment].mem_pool);
+		context->segment_copy[segment].mem_pool = NULL;
+		OCF_PL_FINISH_RET(pipeline, error);
+	}
+
+	ocf_pipeline_next(pipeline);
 }
 
 static void ocf_medatata_hash_check_crc_sb_config(ocf_pipeline_t pipeline,
@@ -1321,20 +1350,57 @@ static void ocf_medatata_hash_load_superblock_post(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+static void ocf_metadata_hash_load_sb_restore(
+		struct ocf_metadata_hash_context *context)
+{
+	ocf_cache_t cache = context->cache;
+	struct ocf_metadata_hash_ctrl *ctrl;
+	int segment, error;
+
+	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.iface_priv;
+
+	for (segment = metadata_segment_sb_config;
+			segment < metadata_segment_fixed_size_max; segment++) {
+		if (!context->segment_copy[segment].mem_pool)
+			continue;
+
+		error = env_memcpy(METADATA_MEM_POOL(ctrl, segment),
+				ctrl->raw_desc[segment].mem_pool_limit,
+				context->segment_copy[segment].mem_pool,
+				ctrl->raw_desc[segment].mem_pool_limit);
+		ENV_BUG_ON(error);
+	}
+}
+
 static void ocf_metadata_hash_load_superblock_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
 	struct ocf_metadata_hash_context *context = priv;
 	ocf_cache_t cache = context->cache;
+	int segment;
 
 	if (error) {
 		ocf_cache_log(cache, log_err, "Metadata read FAILURE\n");
 		ocf_metadata_error(cache);
+		ocf_metadata_hash_load_sb_restore(context);
+	}
+
+	for (segment = metadata_segment_sb_config;
+			segment < metadata_segment_fixed_size_max; segment++) {
+		if (context->segment_copy[segment].mem_pool)
+			env_free(context->segment_copy[segment].mem_pool);
 	}
 
 	context->cmpl(context->priv, error);
 	ocf_pipeline_destroy(pipeline);
 }
+
+struct ocf_pipeline_arg ocf_metadata_hash_load_sb_store_segment_args[] = {
+	OCF_PL_ARG_INT(metadata_segment_sb_config),
+	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
+	OCF_PL_ARG_INT(metadata_segment_core_config),
+	OCF_PL_ARG_TERMINATOR(),
+};
 
 struct ocf_pipeline_arg ocf_metadata_hash_load_sb_load_segment_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_config),
@@ -1355,6 +1421,8 @@ struct ocf_pipeline_properties ocf_metadata_hash_load_sb_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_hash_context),
 	.finish = ocf_metadata_hash_load_superblock_finish,
 	.steps = {
+		OCF_PL_STEP_FOREACH(ocf_medatata_hash_store_segment,
+				ocf_metadata_hash_load_sb_store_segment_args),
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_load_segment,
 				ocf_metadata_hash_load_sb_load_segment_args),
 		OCF_PL_STEP(ocf_medatata_hash_check_crc_sb_config),

@@ -409,6 +409,9 @@ static int raw_dynamic_load_all_update(struct ocf_request *req)
 
 		OCF_DEBUG_PARAM(cache, "Non-zero loaded %llu", i);
 
+		if (ctrl->pages[context->i])
+			env_vfree(ctrl->pages[context->i]);
+
 		ctrl->pages[context->i] = context->page;
 		context->page = NULL;
 
