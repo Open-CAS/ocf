@@ -1,5 +1,9 @@
 # Open CAS Framework
 
+[![Build Status](https://open-cas-logs.s3.us-east-2.amazonaws.com/master-status/build/curr-badge.svg)](https://open-cas-logs.s3.us-east-2.amazonaws.com/master-status/build/build.html)
+[![Tests Status](https://open-cas-logs.s3.us-east-2.amazonaws.com/master-status/tests/curr-badge.svg)](https://open-cas-logs.s3.us-east-2.amazonaws.com/master-status/tests/index.html)
+[![License](https://open-cas-logs.s3.us-east-2.amazonaws.com/master-status/license-badge.svg)](LICENSE)
+
 Open CAS Framework (OCF) is high performance block storage caching meta-library
 written in C. It's entirely platform and system independent, accessing system API
 through user provided environment wrappers layer. OCF tightly integrates with the
