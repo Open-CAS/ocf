@@ -158,21 +158,31 @@ class Core:
         logging.getLogger("pyocf").warning(
             "Reading whole exported object! This disturbs statistics values"
         )
-        read_buffer = Data(self.device.size)
-        io = self.new_io()
-        io.configure(0, read_buffer.size, IoDir.READ, 0, 0)
-        io.set_data(read_buffer)
-        io.set_queue(self.cache.get_default_queue())
 
-        cmpl = OcfCompletion([("err", c_int)])
-        io.callback = cmpl.callback
-        io.submit()
-        cmpl.wait()
+        cache_line_size = int(self.cache.get_stats()['conf']['cache_line_size'])
+        read_buffer_all = Data(self.device.size)
 
-        if cmpl.results["err"]:
-            raise Exception("Error reading whole exported object")
+        read_buffer = Data(cache_line_size)
 
-        return read_buffer.md5()
+        position = 0
+        while position < read_buffer_all.size:
+            io = self.new_io()
+            io.configure(position, cache_line_size, IoDir.READ, 0, 0)
+            io.set_data(read_buffer)
+            io.set_queue(self.cache.get_default_queue())
+
+            cmpl = OcfCompletion([("err", c_int)])
+            io.callback = cmpl.callback
+            io.submit()
+            cmpl.wait()
+
+            if cmpl.results["err"]:
+                raise Exception("Error reading whole exported object")
+
+            read_buffer_all.copy(read_buffer, position, 0, cache_line_size)
+            position += cache_line_size
+
+        return read_buffer_all.md5()
 
 
 lib = OcfLib.getInstance()

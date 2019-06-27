@@ -178,11 +178,13 @@ def test_stop(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, with_flush: bool):
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
     core_exported = Core.using_device(core_device)
     cache.add_core(core_exported)
+    cls_no = 10
 
-    run_io_and_cache_data_if_possible(core_exported, mode, cls)
+    run_io_and_cache_data_if_possible(core_exported, mode, cls, cls_no)
 
     stats = cache.get_stats()
-    assert int(stats["conf"]["dirty"]) == (1 if mode.lazy_write() else 0), "Dirty data before MD5"
+    assert int(stats["conf"]["dirty"]) == (cls_no if mode.lazy_write() else 0),\
+        "Dirty data before MD5"
 
     md5_exported_core = core_exported.exp_obj_md5()
 
@@ -191,7 +193,6 @@ def test_stop(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, with_flush: bool):
     cache.stop()
 
     if mode.lazy_write() and not with_flush:
-        pytest.xfail("MD5 sums equal without flush with dirty data")  # TODO: remove after WB fixed
         assert core_device.md5() != md5_exported_core, \
             "MD5 check: core device vs exported object with dirty data"
     else:
@@ -353,21 +354,21 @@ def test_start_too_small_device(pyocf_ctx, mode, cls):
         Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
 
 
-def run_io_and_cache_data_if_possible(exported_obj, mode, cls):
-    test_data = Data.from_string("This is test data")
+def run_io_and_cache_data_if_possible(exported_obj, mode, cls, cls_no):
+    test_data = Data(cls_no * cls)
 
     if mode in {CacheMode.WI, CacheMode.WA}:
         logger.info("[STAGE] Write to core device")
-        io_to_core(exported_obj, test_data, 20, True)
+        io_to_core(exported_obj, test_data, 0, True)
         logger.info("[STAGE] Read from exported object")
-        io_from_exported_object(exported_obj, test_data.size, 20)
+        io_from_exported_object(exported_obj, test_data.size, 0)
     else:
         logger.info("[STAGE] Write to exported object")
-        io_to_core(exported_obj, test_data, 20)
+        io_to_core(exported_obj, test_data, 0)
 
     stats = exported_obj.cache.get_stats()
     assert stats["usage"]["occupancy"]["value"] == \
-        ((cls / CacheLineSize.LINE_4KiB) if mode != CacheMode.PT else 0), "Occupancy"
+        ((cls_no * cls / CacheLineSize.LINE_4KiB) if mode != CacheMode.PT else 0), "Occupancy"
 
 
 def io_to_core(exported_obj: Core, data: Data, offset: int, to_core_device=False):
