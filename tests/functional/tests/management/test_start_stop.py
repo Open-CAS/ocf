@@ -354,6 +354,25 @@ def test_start_too_small_device(pyocf_ctx, mode, cls):
         Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
 
 
+def test_start_stop_noqueue(pyocf_ctx):
+    # cache object just to construct cfg conveniently
+    _cache = Cache(pyocf_ctx.ctx_handle)
+
+    cache_handle = c_void_p()
+    status = pyocf_ctx.lib.ocf_mngt_cache_start(
+        pyocf_ctx.ctx_handle, byref(cache_handle), byref(_cache.cfg)
+    )
+    assert not status, "Failed to start cache: {}".format(status)
+
+    # stop without creating mngmt queue
+    c = OcfCompletion(
+        [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)]
+    )
+    pyocf_ctx.lib.ocf_mngt_cache_stop(cache_handle, c, None)
+    c.wait()
+    assert not c.results["error"], "Failed to stop cache: {}".format(c.results["error"])
+
+
 def run_io_and_cache_data_if_possible(exported_obj, mode, cls, cls_no):
     test_data = Data(cls_no * cls)
 
