@@ -123,8 +123,11 @@ void ocf_volume_deinit(ocf_volume_t volume)
 
 	env_free(volume->priv);
 
-	if (volume->uuid_copy && volume->uuid.data)
+	if (volume->uuid_copy && volume->uuid.data) {
 		env_vfree(volume->uuid.data);
+		volume->uuid.data = NULL;
+		volume->uuid.size = 0;
+	}
 }
 
 void ocf_volume_move(ocf_volume_t volume, ocf_volume_t from)
