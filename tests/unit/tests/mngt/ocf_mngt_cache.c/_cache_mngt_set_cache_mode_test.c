@@ -8,6 +8,7 @@
 
 /*
 <functions_to_leave>
+ocf_mngt_cache_mode_has_lazy_write
 </functions_to_leave>
 */
 
