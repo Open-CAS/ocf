@@ -69,7 +69,7 @@ struct ocf_metadata_hash_ctrl {
 /*
  * get entries for specified metadata hash type
  */
-static ocf_cache_line_t ocf_metadata_hash_get_entires(
+static ocf_cache_line_t ocf_metadata_hash_get_entries(
 		enum ocf_metadata_segment type,
 		ocf_cache_line_t cache_lines)
 {
@@ -242,7 +242,7 @@ static int ocf_metadata_hash_calculate_metadata_size(
 
 			/* Setup number of entries */
 			raw->entries
-				= ocf_metadata_hash_get_entires(i, cache_lines);
+				= ocf_metadata_hash_get_entries(i, cache_lines);
 
 			/*
 			 * Setup SSD location and size
@@ -478,7 +478,7 @@ static struct ocf_metadata_hash_ctrl *ocf_metadata_hash_ctrl_init(
 		raw->entries_in_page = PAGE_SIZE / raw->entry_size;
 
 		/* Setup number of entries */
-		raw->entries = ocf_metadata_hash_get_entires(i, 0);
+		raw->entries = ocf_metadata_hash_get_entries(i, 0);
 
 		/*
 		 * Setup SSD location and size
