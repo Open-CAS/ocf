@@ -62,7 +62,7 @@ def test_start_corrupted_metadata_lba(pyocf_ctx):
 def test_load_cache_no_preexisting_data(pyocf_ctx):
     cache_device = Volume(S.from_MiB(30))
 
-    with pytest.raises(OcfError, match="OCF_ERR_START_CACHE_FAIL"):
+    with pytest.raises(OcfError, match="OCF_ERR_NO_METADATA"):
         cache = Cache.load_from_device(cache_device)
 
 

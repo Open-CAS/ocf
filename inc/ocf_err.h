@@ -39,6 +39,9 @@ typedef enum {
 	/** No metadata found on device */
 	OCF_ERR_NO_METADATA,
 
+	/** Cache metadata found on device */
+	OCF_ERR_METADATA_FOUND,
+
 	/** Invalid volume type */
 	OCF_ERR_INVAL_VOLUME_TYPE,
 
