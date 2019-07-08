@@ -922,8 +922,23 @@ static void _ocf_mngt_attach_load_properties_end(void *priv, int error,
 
 	context->metadata.status = error;
 
-	if (error)
-		OCF_PL_NEXT_RET(context->pipeline);
+	if (error) {
+		/*
+		 * If --load option wasn't used and old metadata doesn't exist on the
+		 * device, dismiss error.
+		 */
+		if (error == -OCF_ERR_NO_METADATA &&
+				cache->device->init_mode != ocf_init_mode_load)
+			OCF_PL_NEXT_RET(context->pipeline);
+		else
+			OCF_PL_FINISH_RET(context->pipeline, error);
+	} else if (cache->device->init_mode != ocf_init_mode_load) {
+		/*
+		 * To prevent silent metadata overriding, return error if old metadata
+		 * was detected but --load flag wasn't used.
+		 */
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_METADATA_FOUND);
+	}
 
 	context->metadata.shutdown_status = properties->shutdown_status;
 	context->metadata.dirty_flushed = properties->dirty_flushed;
@@ -948,6 +963,9 @@ static void _ocf_mngt_attach_load_properties(ocf_pipeline_t pipeline,
 	context->metadata.shutdown_status = ocf_metadata_clean_shutdown;
 	context->metadata.dirty_flushed = DIRTY_FLUSHED;
 	context->metadata.line_size = context->cfg.cache_line_size;
+
+	if (context->cfg.force)
+		OCF_PL_NEXT_RET(context->pipeline);
 
 	if (cache->device->init_mode == ocf_init_mode_metadata_volatile)
 		OCF_PL_NEXT_RET(context->pipeline);
