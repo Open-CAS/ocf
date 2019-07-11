@@ -6,6 +6,9 @@
 #ifndef __METADATA_SUPERBLOCK_H__
 #define __METADATA_SUPERBLOCK_H__
 
+#include "../eviction/eviction.h"
+#include "../promotion/promotion.h"
+
 #define CACHE_MAGIC_NUMBER	0x187E1CA6
 
 /**
@@ -38,6 +41,7 @@ struct ocf_superblock_config {
 	struct cleaning_policy_config cleaning[CLEANING_POLICY_TYPE_MAX];
 
 	ocf_eviction_t eviction_policy_type;
+	ocf_promotion_t promotion_policy_type;
 
 	/* Current core sequence number */
 	ocf_core_id_t curr_core_seq_no;

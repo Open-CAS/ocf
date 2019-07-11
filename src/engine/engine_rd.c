@@ -269,7 +269,7 @@ int ocf_read_generic(struct ocf_request *req)
 		 */
 		ocf_engine_map(req);
 
-		if (!req->info.eviction_error) {
+		if (!req->info.mapping_error) {
 			if (ocf_engine_is_hit(req)) {
 				/* After mapping turns out there is hit,
 				 * so lock OCF request for read access
@@ -287,7 +287,7 @@ int ocf_read_generic(struct ocf_request *req)
 		/*- END Metadata WR access -----------------------------------*/
 	}
 
-	if (!req->info.eviction_error) {
+	if (!req->info.mapping_error) {
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* Lock was not acquired, need to wait for resume */

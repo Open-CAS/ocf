@@ -46,6 +46,7 @@ class CacheConfig(Structure):
         ("_name", c_char_p),
         ("_cache_mode", c_uint32),
         ("_eviction_policy", c_uint32),
+        ("_promotion_policy", c_uint32),
         ("_cache_line_size", c_uint64),
         ("_metadata_layout", c_uint32),
         ("_metadata_volatile", c_bool),
@@ -92,6 +93,12 @@ class EvictionPolicy(IntEnum):
     DEFAULT = LRU
 
 
+class PromotionPolicy(IntEnum):
+    NOP = 0
+    NHIT = 1
+    DEFAULT = NOP
+
+
 class CleaningPolicy(IntEnum):
     NOP = 0
     ALRU = 1
@@ -131,6 +138,7 @@ class Cache:
         name: str = "",
         cache_mode: CacheMode = CacheMode.DEFAULT,
         eviction_policy: EvictionPolicy = EvictionPolicy.DEFAULT,
+        promotion_policy: PromotionPolicy = PromotionPolicy.DEFAULT,
         cache_line_size: CacheLineSize = CacheLineSize.DEFAULT,
         metadata_layout: MetadataLayout = MetadataLayout.DEFAULT,
         metadata_volatile: bool = False,
@@ -150,6 +158,7 @@ class Cache:
             _name=name.encode("ascii") if name else None,
             _cache_mode=cache_mode,
             _eviction_policy=eviction_policy,
+            _promotion_policy=promotion_policy,
             _cache_line_size=cache_line_size,
             _metadata_layout=metadata_layout,
             _metadata_volatile=metadata_volatile,
