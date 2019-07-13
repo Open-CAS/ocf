@@ -164,10 +164,9 @@ def prepare_cache_and_core(core_size: Size, cache_size: Size = Size.from_MiB(20)
 
 
 def io_operation(core: Core, data: Data, io_direction: int, offset: int = 0, io_class: int = 0):
-    io = core.new_io()
+    io = core.new_io(core.cache.get_default_queue(), offset, data.size,
+                     io_direction, io_class, 0)
     io.set_data(data)
-    io.configure(offset, data.size, io_direction, io_class, 0)
-    io.set_queue(core.cache.get_default_queue())
 
     completion = OcfCompletion([("err", c_int)])
     io.callback = completion.callback

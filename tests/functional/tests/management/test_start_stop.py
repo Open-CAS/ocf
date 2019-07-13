@@ -372,10 +372,10 @@ def run_io_and_cache_data_if_possible(exported_obj, mode, cls, cls_no):
 
 
 def io_to_core(exported_obj: Core, data: Data, offset: int, to_core_device=False):
-    io = exported_obj.new_core_io() if to_core_device else exported_obj.new_io()
+    new_io = exported_obj.new_core_io if to_core_device else exported_obj.new_io
+    io = new_io(exported_obj.cache.get_default_queue(), offset, data.size,
+                IoDir.WRITE, 0, 0)
     io.set_data(data)
-    io.configure(offset, data.size, IoDir.WRITE, 0, 0)
-    io.set_queue(exported_obj.cache.get_default_queue())
 
     completion = OcfCompletion([("err", c_int)])
     io.callback = completion.callback
@@ -387,10 +387,9 @@ def io_to_core(exported_obj: Core, data: Data, offset: int, to_core_device=False
 
 def io_from_exported_object(exported_obj: Core, buffer_size: int, offset: int):
     read_buffer = Data(buffer_size)
-    io = exported_obj.new_io()
-    io.configure(offset, read_buffer.size, IoDir.READ, 0, 0)
+    io = exported_obj.new_io(exported_obj.cache.get_default_queue(), offset,
+                             read_buffer.size, IoDir.READ, 0, 0)
     io.set_data(read_buffer)
-    io.set_queue(exported_obj.cache.get_default_queue())
 
     completion = OcfCompletion([("err", c_int)])
     io.callback = completion.callback
