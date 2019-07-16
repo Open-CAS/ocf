@@ -33,17 +33,6 @@ void ocf_io_set_handle_wrapper(struct ocf_io *io, ocf_handle_io_t fn)
 	ocf_io_set_handle(io, fn);
 }
 
-int ocf_io_set_data_wrapper(struct ocf_io *io, ctx_data_t *data,
-		uint32_t offset)
-{
-	return ocf_io_set_data(io, data, offset);
-}
-
-ctx_data_t *ocf_io_get_data_wrapper(struct ocf_io *io)
-{
-	return ocf_io_get_data(io);
-}
-
 void ocf_io_set_queue_wrapper(struct ocf_io *io, ocf_queue_t queue)
 {
 	ocf_io_set_queue(io, queue);

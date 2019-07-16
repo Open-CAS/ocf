@@ -37,8 +37,6 @@ class Io(Structure):
 
     _instances_ = {}
     _fields_ = [
-        ("_volume", c_void_p),
-        ("_ops", POINTER(IoOps)),
         ("_addr", c_uint64),
         ("_flags", c_uint64),
         ("_bytes", c_uint32),
@@ -110,7 +108,7 @@ class Io(Structure):
 
     def set_data(self, data: Data, offset: int = 0):
         self.data = data
-        OcfLib.getInstance().ocf_io_set_data_wrapper(byref(self), data, offset)
+        OcfLib.getInstance().ocf_io_set_data(byref(self), data, offset)
 
     def set_queue(self, queue: Queue):
         OcfLib.getInstance().ocf_io_set_queue_wrapper(byref(self), queue.handle)
@@ -137,7 +135,7 @@ lib.ocf_io_set_queue_wrapper.argtypes = [POINTER(Io), c_uint32]
 lib.ocf_core_new_io_wrapper.argtypes = [c_void_p]
 lib.ocf_core_new_io_wrapper.restype = c_void_p
 
-lib.ocf_io_set_data_wrapper.argtypes = [POINTER(Io), c_void_p, c_uint32]
-lib.ocf_io_set_data_wrapper.restype = c_int
+lib.ocf_io_set_data.argtypes = [POINTER(Io), c_void_p, c_uint32]
+lib.ocf_io_set_data.restype = c_int
 
 lib.ocf_io_set_queue_wrapper.argtypes = [POINTER(Io), c_void_p]
