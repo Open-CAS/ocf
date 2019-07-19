@@ -83,8 +83,7 @@ static ocf_cache_line_t ocf_metadata_hash_get_entries(
 		return cache_lines;
 
 	case metadata_segment_hash:
-		return OCF_DIV_ROUND_UP(cache_lines / 4, OCF_HASH_PRIME) *
-				OCF_HASH_PRIME - 1;
+		return OCF_DIV_ROUND_UP(cache_lines, 4);
 
 	case metadata_segment_sb_config:
 		return OCF_DIV_ROUND_UP(sizeof(struct ocf_superblock_config),
