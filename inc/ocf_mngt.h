@@ -102,6 +102,22 @@ uint32_t ocf_mngt_cache_get_count(ocf_ctx_t ctx);
 int ocf_mngt_cache_get_by_id(ocf_ctx_t ctx, ocf_cache_id_t id, ocf_cache_t *cache);
 
 /**
+ * @brief Get OCF cache by name
+ *
+ * @note This function on success also increases reference counter
+ *       in given cache
+ *
+ * @param[in] ctx OCF context
+ * @param[in] name OCF cache name
+ * @param[out] cache OCF cache handle
+ *
+ * @retval 0 Get cache successfully
+ * @retval -OCF_ERR_CACHE_NOT_EXIST Cache with given name doesn't exist
+ */
+int ocf_mngt_cache_get_by_name(ocf_ctx_t ctx, const char* name,
+		ocf_cache_t *cache);
+
+/**
  * @brief Increment reference counter of cache
  *
  * @param[in] cache OCF cache handle
@@ -247,8 +263,7 @@ struct ocf_mngt_cache_config {
 	ocf_cache_id_t id;
 
 	/**
-	 * @brief Cache name. In case of being NULL, cache id is stringified to
-	 *		cache name
+	 * @brief Cache name
 	 */
 	const char *name;
 
@@ -309,13 +324,15 @@ struct ocf_mngt_cache_config {
 /**
  * @brief Initialize core config to default values
  *
+ * @note This function doesn't initialize name field which has no default
+ *       value and is required to be set by user.
+ *
  * @param[in] cfg Cache config stucture
  */
 static inline void ocf_mngt_cache_config_set_default(
 		struct ocf_mngt_cache_config *cfg)
 {
 	cfg->id = OCF_CACHE_ID_INVALID;
-	cfg->name = NULL;
 	cfg->cache_mode = ocf_cache_mode_default;
 	cfg->eviction_policy = ocf_eviction_default;
 	cfg->promotion_policy = ocf_promotion_default;

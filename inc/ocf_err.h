@@ -57,10 +57,10 @@ typedef enum {
 	/** Start cache failure */
 	OCF_ERR_START_CACHE_FAIL,
 
-	/** Cache ID does not exist */
+	/** Cache ID/name does not exist */
 	OCF_ERR_CACHE_NOT_EXIST,
 
-	/** Cache ID already exists */
+	/** Cache ID/name already exists */
 	OCF_ERR_CACHE_EXIST,
 
 	/** Too many core devices in cache */

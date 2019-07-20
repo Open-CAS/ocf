@@ -183,6 +183,44 @@ int ocf_mngt_cache_get_by_id(ocf_ctx_t ocf_ctx, ocf_cache_id_t id, ocf_cache_t *
 	return error;
 }
 
+int ocf_mngt_cache_get_by_name(ocf_ctx_t ctx, const char *name,
+		ocf_cache_t *cache)
+{
+	struct ocf_cache *instance = NULL;
+	struct ocf_cache *iter = NULL;
+
+	OCF_CHECK_NULL(ctx);
+	OCF_CHECK_NULL(cache);
+
+	/* Lock caches list */
+	env_rmutex_lock(&ctx->lock);
+
+	list_for_each_entry(iter, &ctx->caches, list) {
+		if (!env_strncmp(ocf_cache_get_name(iter), name,
+				OCF_CACHE_NAME_SIZE)) {
+			instance = iter;
+			break;
+		}
+	}
+
+	if (instance) {
+		/* if cache is either fully initialized or during recovery */
+		if (!ocf_refcnt_inc(&instance->refcnt.cache)) {
+			/* Cache not initialized yet */
+			instance = NULL;
+		}
+	}
+
+	env_rmutex_unlock(&ctx->lock);
+
+	if (!instance)
+		return -OCF_ERR_CACHE_NOT_EXIST;
+
+	*cache = instance;
+
+	return 0;
+}
+
 typedef void (*ocf_lock_fn_t)(ocf_async_lock_waiter_t waiter);
 
 typedef int (*ocf_trylock_fn_t)(ocf_async_lock_t lock);

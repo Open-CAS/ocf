@@ -726,17 +726,19 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 		}
 	}
 
-	if (cfg->name) {
-		ret = env_strncpy(cache_name, sizeof(cache_name) - 1,
-				cfg->name, sizeof(cache_name) - 1);
-		if (ret)
-			goto out;
-	} else {
-		ret = snprintf(cache_name, sizeof(cache_name),
-				"cache%hu", param->id);
-		if (ret < 0)
-			goto out;
+	/* Check if cache with specified name exists */
+	ret = ocf_mngt_cache_get_by_name(param->ctx, cfg->name, &cache);
+	if (!ret) {
+		ocf_mngt_cache_put(cache);
+		/* Cache already exist */
+		ret = -OCF_ERR_CACHE_EXIST;
+		goto out;
 	}
+
+	ret = env_strncpy(cache_name, sizeof(cache_name),
+			cfg->name, sizeof(cache_name));
+	if (ret)
+		goto out;
 
 	ocf_log(param->ctx, log_info, "Inserting cache %s\n", cache_name);
 
@@ -1641,6 +1643,9 @@ err_pipeline:
 static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 {
 	if (cfg->id > OCF_CACHE_ID_MAX)
+		return -OCF_ERR_INVAL;
+
+	if (!cfg->name)
 		return -OCF_ERR_INVAL;
 
 	if (!ocf_cache_mode_is_valid(cfg->cache_mode))
