@@ -119,7 +119,6 @@ struct ocf_cache_add_core_context {
 	void *priv;
 	ocf_pipeline_t pipeline;
 	struct ocf_mngt_core_config cfg;
-	char core_name[OCF_CORE_NAME_SIZE];
 	ocf_cache_t cache;
 	ocf_core_t core;
 
@@ -346,8 +345,9 @@ static int __ocf_mngt_lookup_core_uuid(ocf_cache_t cache,
 
 		if (!env_strncmp(core->volume.uuid.data, cfg->uuid.data,
 					OCF_MIN(core->volume.uuid.size,
-						cfg->uuid.size)))
+						cfg->uuid.size))) {
 			return i;
+		}
 	}
 
 	return OCF_CORE_MAX;
@@ -468,27 +468,22 @@ static void ocf_mngt_cache_add_core_prepare(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_add_core_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	char *core_name = context->core_name;
+	ocf_core_t core;
 	int result;
 
 	result = _ocf_mngt_find_core_id(cache, &context->cfg);
 	if (result)
 		OCF_PL_FINISH_RET(context->pipeline, result);
 
-	if (context->cfg.name) {
-		result = env_strncpy(core_name, sizeof(context->core_name),
-				context->cfg.name, sizeof(context->core_name));
-		if (result)
-			OCF_PL_FINISH_RET(context->pipeline, result);
-	} else {
-		result = snprintf(core_name, sizeof(context->core_name),
-				"core%hu", context->cfg.core_id);
-		if (result < 0)
-			OCF_PL_FINISH_RET(context->pipeline, result);
-	}
+	if (!context->cfg.name)
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_INVAL);
+
+	result = ocf_core_get_by_name(cache, context->cfg.name, &core);
+	if (!result && !context->cfg.try_add)
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CORE_EXIST);
 
 	result = ocf_core_set_name(&cache->core[context->cfg.core_id],
-			core_name, sizeof(context->core_name));
+			context->cfg.name, OCF_CORE_NAME_SIZE);
 	if (result)
 		OCF_PL_FINISH_RET(context->pipeline, result);
 
@@ -500,7 +495,7 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_add_core_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	char *core_name = context->core_name;
+	const char *core_name = context->cfg.name;
 	int result;
 
 	ocf_cache_log(cache, log_debug, "Inserting core %s\n", core_name);
@@ -540,10 +535,10 @@ static void ocf_mngt_cache_add_core_finish(ocf_pipeline_t pipeline,
 
 		if (error == -OCF_ERR_CORE_NOT_AVAIL) {
 			ocf_cache_log(cache, log_err, "Core %s is zero size\n",
-					context->core_name);
+					context->cfg.name);
 		}
 		ocf_cache_log(cache, log_err, "Adding core %s failed\n",
-				context->core_name);
+				context->cfg.name);
 		goto out;
 	}
 
@@ -551,6 +546,7 @@ static void ocf_mngt_cache_add_core_finish(ocf_pipeline_t pipeline,
 
 out:
 	context->cmpl(cache, core, context->priv, error);
+	env_vfree(context->cfg.name);
 	env_vfree(context->cfg.uuid.data);
 	ocf_pipeline_destroy(context->pipeline);
 }
@@ -572,6 +568,7 @@ void ocf_mngt_cache_add_core(ocf_cache_t cache,
 {
 	struct ocf_cache_add_core_context *context;
 	ocf_pipeline_t pipeline;
+	char *name;
 	void *data;
 	int result;
 
@@ -593,10 +590,23 @@ void ocf_mngt_cache_add_core(ocf_cache_t cache,
 	context->cache = cache;
 	context->cfg = *cfg;
 
+	name = env_vmalloc(OCF_CORE_NAME_SIZE);
+	if (!name) {
+		result = -OCF_ERR_NO_MEM;
+		goto err_pipeline;
+	}
+
+	result = env_strncpy(name, OCF_CORE_NAME_SIZE,
+			cfg->name, OCF_CORE_NAME_SIZE);
+	if (result)
+		goto err_name;
+
+	context->cfg.name = name;
+
 	data = env_vmalloc(cfg->uuid.size);
 	if (!data) {
 		result = -OCF_ERR_NO_MEM;
-		goto err_pipeline;
+		goto err_name;
 	}
 
 	result = env_memcpy(data, cfg->uuid.size, cfg->uuid.data,
@@ -610,6 +620,8 @@ void ocf_mngt_cache_add_core(ocf_cache_t cache,
 
 err_uuid:
 	env_vfree(data);
+err_name:
+	env_vfree(context->cfg.name);
 err_pipeline:
 	ocf_pipeline_destroy(context->pipeline);
 	OCF_CMPL_RET(cache, NULL, priv, result);

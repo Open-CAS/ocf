@@ -91,17 +91,12 @@ struct ocf_core {
 	struct ocf_counters_core *counters;
 };
 
+int ocf_core_set_name(ocf_core_t core, const char *src, size_t src_size);
+
 bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id);
 
 int ocf_core_volume_type_init(ocf_ctx_t ctx);
 
 void ocf_core_volume_type_deinit(ocf_ctx_t ctx);
-
-#define for_each_core_all(_cache, _core, _id) \
-	for (_id = 0; _core = &cache->core[_id], _id < OCF_CORE_MAX; _id++)
-
-#define for_each_core(_cache, _core, _id) \
-	for_each_core_all(_cache, _core, _id) \
-		if (core->conf_meta->added)
 
 #endif /* __OCF_CORE_PRIV_H__ */

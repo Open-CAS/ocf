@@ -58,7 +58,7 @@ struct ocf_mngt_core_config {
 /**
  * @brief Initialize core config to default values
  *
- * @note This function doesn't initiialize uuid and volume_type fields
+ * @note This function doesn't initialize name, uuid and volume_type fields
  *       which have no default values and are required to be set by user.
  *
  * @param[in] cfg Core config stucture
@@ -67,7 +67,6 @@ static inline void ocf_mngt_core_config_set_default(
 		struct ocf_mngt_core_config *cfg)
 {
 	cfg->core_id = OCF_CORE_ID_INVALID;
-	cfg->name = NULL;
 	cfg->try_add = false;
 	cfg->seq_cutoff_threshold = 1024;
 	cfg->user_metadata.data = NULL;
