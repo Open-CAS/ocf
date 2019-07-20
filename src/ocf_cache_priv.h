@@ -114,8 +114,6 @@ struct ocf_cache {
 
 	int cache_id;
 
-	char name[OCF_CACHE_NAME_SIZE];
-
 	struct {
 		/* cache get/put counter */
 		struct ocf_refcnt cache;

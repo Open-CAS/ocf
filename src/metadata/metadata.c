@@ -32,18 +32,16 @@ int ocf_metadata_init(struct ocf_cache *cache,
 
 	ENV_BUG_ON(cache->metadata.iface_priv);
 
-	ret = ocf_metadata_io_init(cache);
-	if (ret)
-		return ret;
-
 	*iface = *metadata_hash_get_iface();
 	ret = cache->metadata.iface.init(cache, cache_line_size);
-	if (ret)
+	if (ret) {
 		ocf_metadata_io_deinit(cache);
+		return ret;
+	}
 
 	ocf_metadata_concurrency_init(cache);
 
-	return ret;
+	return 0;
 }
 
 int ocf_metadata_init_variable_size(struct ocf_cache *cache, uint64_t device_size,

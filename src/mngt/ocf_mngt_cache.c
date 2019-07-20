@@ -701,7 +701,6 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 		struct ocf_mngt_cache_config *cfg)
 {
 	ocf_cache_t cache;
-	char cache_name[OCF_CACHE_NAME_SIZE];
 	int ret = 0;
 
 	ret = env_rmutex_lock_interruptible(&param->ctx->lock);
@@ -735,22 +734,13 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 		goto out;
 	}
 
-	ret = env_strncpy(cache_name, sizeof(cache_name),
-			cfg->name, sizeof(cache_name));
-	if (ret)
-		goto out;
-
-	ocf_log(param->ctx, log_info, "Inserting cache %s\n", cache_name);
+	ocf_log(param->ctx, log_info, "Inserting cache %s\n", cfg->name);
 
 	ret = _ocf_mngt_init_new_cache(param);
 	if (ret)
 		goto out;
 
 	cache = param->cache;
-
-	ret = ocf_cache_set_name(cache, cache_name, sizeof(cache_name));
-	if (ret)
-		goto out;
 
 	cache->backfill.max_queue_size = cfg->backfill.max_queue_size;
 	cache->backfill.queue_unblock_size = cfg->backfill.queue_unblock_size;
@@ -1265,6 +1255,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		struct ocf_mngt_cache_config *cfg)
 {
 	struct ocf_cache_mngt_init_params params;
+	ocf_cache_t tmp_cache;
 	int result;
 
 	ENV_BUG_ON(env_memset(&params, sizeof(params), 0));
@@ -1284,21 +1275,30 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	if (result)
 		goto _cache_mngt_init_instance_ERROR;
 
-	*cache  = params.cache;
+	tmp_cache = params.cache;
 
 	/*
 	 * Initialize metadata selected segments of metadata in memory
 	 */
-	result = ocf_metadata_init(*cache, params.metadata.line_size);
+	result = ocf_metadata_init(tmp_cache, params.metadata.line_size);
 	if (result) {
 		result =  -OCF_ERR_START_CACHE_FAIL;
 		goto _cache_mngt_init_instance_ERROR;
 	}
 
-	ocf_log(ctx, log_debug, "Metadata initialized\n");
 	params.flags.metadata_inited = true;
 
-	_ocf_mngt_cache_init(*cache, &params);
+	result = ocf_cache_set_name(tmp_cache, cfg->name, OCF_CACHE_NAME_SIZE);
+	if (result)
+		goto _cache_mngt_init_instance_ERROR;
+
+	result = ocf_metadata_io_init(tmp_cache);
+	if (result)
+		goto _cache_mngt_init_instance_ERROR;
+
+	ocf_cache_log(tmp_cache, log_debug, "Metadata initialized\n");
+
+	_ocf_mngt_cache_init(tmp_cache, &params);
 
 	ocf_ctx_get(ctx);
 
@@ -1306,9 +1306,11 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		/* User did not request to lock cache instance after creation -
 		   unlock it here since we have acquired the lock to
 		   perform management operations. */
-		ocf_mngt_cache_unlock(*cache);
+		ocf_mngt_cache_unlock(tmp_cache);
 		params.flags.cache_locked = false;
 	}
+
+	*cache = tmp_cache;
 
 	return 0;
 
