@@ -401,8 +401,6 @@ static int _ocf_mngt_init_instance_add_cores(
 		struct ocf_cache_attach_context *context)
 {
 	ocf_cache_t cache = context->cache;
-	/* FIXME: This is temporary hack. Remove after storing name it meta. */
-	char core_name[OCF_CORE_NAME_SIZE];
 	ocf_core_t core;
 	ocf_core_id_t core_id;
 	int ret = -1;
@@ -425,14 +423,6 @@ static int _ocf_mngt_init_instance_add_cores(
 		ocf_volume_t tvolume = NULL;
 
 		if (!core->volume.type)
-			goto err;
-
-		ret = snprintf(core_name, sizeof(core_name), "core%d", core_id);
-		if (ret < 0 || ret >= sizeof(core_name))
-			goto err;
-
-		ret = ocf_core_set_name(core, core_name, sizeof(core_name));
-		if (ret)
 			goto err;
 
 		tvolume = ocf_mngt_core_pool_lookup(ocf_cache_get_ctx(cache),

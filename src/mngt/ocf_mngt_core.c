@@ -21,6 +21,12 @@ static ocf_seq_no_t _ocf_mngt_get_core_seq_no(ocf_cache_t cache)
 	return ++cache->conf_meta->curr_core_seq_no;
 }
 
+static int ocf_mngt_core_set_name(ocf_core_t core, const char *name)
+{
+	return env_strncpy(core->conf_meta->name, OCF_CORE_NAME_SIZE,
+			name, OCF_CORE_NAME_SIZE);
+}
+
 static int _ocf_uuid_set(const struct ocf_volume_uuid *uuid,
 		struct ocf_metadata_uuid *muuid)
 {
@@ -482,8 +488,8 @@ static void ocf_mngt_cache_add_core_prepare(ocf_pipeline_t pipeline,
 	if (!result && !context->cfg.try_add)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CORE_EXIST);
 
-	result = ocf_core_set_name(&cache->core[context->cfg.core_id],
-			context->cfg.name, OCF_CORE_NAME_SIZE);
+	result = ocf_mngt_core_set_name(&cache->core[context->cfg.core_id],
+			context->cfg.name);
 	if (result)
 		OCF_PL_FINISH_RET(context->pipeline, result);
 
