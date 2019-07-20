@@ -17,12 +17,6 @@ ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache)
 	return cache->device ? &cache->device->volume : NULL;
 }
 
-ocf_cache_id_t ocf_cache_get_id(ocf_cache_t cache)
-{
-	OCF_CHECK_NULL(cache);
-	return cache->cache_id;
-}
-
 int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size)
 {
 	OCF_CHECK_NULL(cache);

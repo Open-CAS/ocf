@@ -59,8 +59,8 @@ struct ocf_event_cache_desc {
 	/** Event header */
 	struct ocf_event_hdr hdr;
 
-	/** Cache Id */
-	ocf_cache_id_t id;
+	/** Cache name */
+	const char *name;
 
 	/** Cache line size */
 	ocf_cache_line_size_t cache_line_size;

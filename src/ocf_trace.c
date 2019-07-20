@@ -48,7 +48,7 @@ static int _ocf_trace_cache_info(ocf_cache_t cache, ocf_queue_t io_queue)
 			env_ticks_to_nsecs(env_get_tick_count()),
 			sizeof(cache_desc));
 
-	cache_desc.id = ocf_cache_get_id(cache);
+	cache_desc.name = ocf_cache_get_name(cache);
 	cache_desc.cache_line_size = ocf_cache_get_line_size(cache);
 	cache_desc.cache_mode = ocf_cache_get_mode(cache);
 
@@ -85,9 +85,7 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 		return -EINVAL;
 
 	if (cache->trace.trace_callback) {
-		ocf_cache_log(cache, log_err,
-				"Tracing already started for cache %u\n",
-				ocf_cache_get_id(cache));
+		ocf_cache_log(cache, log_err, "Tracing already started\n");
 		return -EINVAL;
 	}
 
@@ -107,8 +105,7 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 		}
 	}
 
-	ocf_cache_log(cache, log_info,
-			"Tracing started for cache %u\n", ocf_cache_get_id(cache));
+	ocf_cache_log(cache, log_info, "Tracing started\n");
 
 	return result;
 }
@@ -120,9 +117,7 @@ int ocf_mngt_stop_trace(ocf_cache_t cache)
 	OCF_CHECK_NULL(cache);
 
 	if (!cache->trace.trace_callback) {
-		ocf_cache_log(cache, log_err,
-				"Tracing not started for cache %u\n",
-				ocf_cache_get_id(cache));
+		ocf_cache_log(cache, log_err, "Tracing not started\n");
 		return -EINVAL;
 	}
 

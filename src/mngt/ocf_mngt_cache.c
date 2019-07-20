@@ -25,22 +25,6 @@
 
 #define OCF_ASSERT_PLUGGED(cache) ENV_BUG_ON(!(cache)->device)
 
-static ocf_cache_t _ocf_mngt_get_cache(ocf_ctx_t owner,
-		ocf_cache_id_t cache_id)
-{
-	ocf_cache_t iter = NULL;
-	ocf_cache_t cache = NULL;
-
-	list_for_each_entry(iter, &owner->caches, list) {
-		if (iter->cache_id == cache_id) {
-			cache = iter;
-			break;
-		}
-	}
-
-	return cache;
-}
-
 #define DIRTY_SHUTDOWN_ERROR_MSG "Please use --load option to restore " \
 	"previous cache state (Warning: data corruption may happen)"  \
 	"\nOr initialize your cache using --force option. " \
@@ -54,9 +38,6 @@ static ocf_cache_t _ocf_mngt_get_cache(ocf_ctx_t owner,
  */
 struct ocf_cache_mngt_init_params {
 	bool metadata_volatile;
-
-	ocf_cache_id_t id;
-		/*!< cache id */
 
 	ocf_ctx_t ctx;
 		/*!< OCF context */
@@ -174,18 +155,6 @@ struct ocf_cache_attach_context {
 
 	ocf_pipeline_t pipeline;
 };
-
-static ocf_cache_id_t _ocf_mngt_cache_find_free_id(ocf_ctx_t owner)
-{
-	ocf_cache_id_t id = OCF_CACHE_ID_INVALID;
-
-	for (id = OCF_CACHE_ID_MIN; id <= OCF_CACHE_ID_MAX; id++) {
-		if (!_ocf_mngt_get_cache(owner, id))
-			return id;
-	}
-
-	return OCF_CACHE_ID_INVALID;
-}
 
 static void __init_hash_table(ocf_cache_t cache)
 {
@@ -614,9 +583,6 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 	/* start with freezed metadata ref counter to indicate detached device*/
 	ocf_refcnt_freeze(&cache->refcnt.metadata);
 
-	/* Copy all required initialization parameters */
-	cache->cache_id = params->id;
-
 	env_atomic_set(&(cache->last_access_ms),
 			env_ticks_to_msecs(env_get_tick_count()));
 
@@ -696,24 +662,6 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 	ret = env_rmutex_lock_interruptible(&param->ctx->lock);
 	if (ret)
 		return ret;
-
-	if (param->id == OCF_CACHE_ID_INVALID) {
-		/* ID was not specified, take first free id */
-		param->id = _ocf_mngt_cache_find_free_id(param->ctx);
-		if (param->id == OCF_CACHE_ID_INVALID) {
-			ret = -OCF_ERR_TOO_MANY_CACHES;
-			goto out;
-		}
-		cfg->id = param->id;
-	} else {
-		/* ID was set, check if cache exist with specified ID */
-		cache = _ocf_mngt_get_cache(param->ctx, param->id);
-		if (cache) {
-			/* Cache already exist */
-			ret = -OCF_ERR_CACHE_EXIST;
-			goto out;
-		}
-	}
 
 	/* Check if cache with specified name exists */
 	ret = ocf_mngt_cache_get_by_name(param->ctx, cfg->name, &cache);
@@ -1250,8 +1198,6 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	ENV_BUG_ON(env_memset(&params, sizeof(params), 0));
 
-	params.id = cfg->id;
-
 	params.ctx = ctx;
 	params.metadata.cache_mode = cfg->cache_mode;
 	params.metadata.layout = cfg->metadata_layout;
@@ -1634,9 +1580,6 @@ err_pipeline:
 
 static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 {
-	if (cfg->id > OCF_CACHE_ID_MAX)
-		return -OCF_ERR_INVAL;
-
 	if (!cfg->name)
 		return -OCF_ERR_INVAL;
 

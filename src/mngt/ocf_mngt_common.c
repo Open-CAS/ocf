@@ -139,50 +139,6 @@ void ocf_mngt_cache_put(ocf_cache_t cache)
 	}
 }
 
-int ocf_mngt_cache_get_by_id(ocf_ctx_t ocf_ctx, ocf_cache_id_t id, ocf_cache_t *cache)
-{
-	int error = 0;
-	struct ocf_cache *instance = NULL;
-	struct ocf_cache *iter = NULL;
-
-	OCF_CHECK_NULL(ocf_ctx);
-	OCF_CHECK_NULL(cache);
-
-	*cache = NULL;
-
-	if ((id < OCF_CACHE_ID_MIN) || (id > OCF_CACHE_ID_MAX)) {
-		/* Cache id out of range */
-		return -OCF_ERR_INVAL;
-	}
-
-	/* Lock caches list */
-	env_rmutex_lock(&ocf_ctx->lock);
-
-	list_for_each_entry(iter, &ocf_ctx->caches, list) {
-		if (iter->cache_id == id) {
-			instance = iter;
-			break;
-		}
-	}
-
-	if (instance) {
-		/* if cache is either fully initialized or during recovery */
-		if (!ocf_refcnt_inc(&instance->refcnt.cache)) {
-			/* Cache not initialized yet */
-			instance = NULL;
-		}
-	}
-
-	env_rmutex_unlock(&ocf_ctx->lock);
-
-	if (!instance)
-		error = -OCF_ERR_CACHE_NOT_EXIST;
-	else
-		*cache = instance;
-
-	return error;
-}
-
 int ocf_mngt_cache_get_by_name(ocf_ctx_t ctx, const char *name,
 		ocf_cache_t *cache)
 {

@@ -85,22 +85,6 @@ uint32_t ocf_mngt_cache_get_count(ocf_ctx_t ctx);
 /* Cache instances getters */
 
 /**
- * @brief Get OCF cache
- *
- * @note This function on success also increasing reference counter
- *       in given cache
- *
- * @param[in] ctx OCF context
- * @param[in] id OCF cache ID
- * @param[out] cache OCF cache handle
- *
- * @retval 0 Get cache successfully
- * @retval -OCF_ERR_INV_CACHE_ID Cache ID out of range
- * @retval -OCF_ERR_CACHE_NOT_EXIST Cache with given ID is not exist
- */
-int ocf_mngt_cache_get_by_id(ocf_ctx_t ctx, ocf_cache_id_t id, ocf_cache_t *cache);
-
-/**
  * @brief Get OCF cache by name
  *
  * @note This function on success also increases reference counter
@@ -256,12 +240,6 @@ int ocf_mngt_cache_visit_reverse(ocf_ctx_t ctx, ocf_mngt_cache_visitor_t visitor
  */
 struct ocf_mngt_cache_config {
 	/**
-	 * @brief Cache ID. In case of setting this field to invalid cache
-	 *		id first available cache ID will be set
-	 */
-	ocf_cache_id_t id;
-
-	/**
 	 * @brief Cache name
 	 */
 	const char *name;
@@ -331,7 +309,6 @@ struct ocf_mngt_cache_config {
 static inline void ocf_mngt_cache_config_set_default(
 		struct ocf_mngt_cache_config *cfg)
 {
-	cfg->id = OCF_CACHE_ID_INVALID;
 	cfg->cache_mode = ocf_cache_mode_default;
 	cfg->eviction_policy = ocf_eviction_default;
 	cfg->promotion_policy = ocf_promotion_default;

@@ -112,8 +112,6 @@ struct ocf_cache {
 
 	ocf_eviction_t eviction_policy_init;
 
-	int cache_id;
-
 	struct {
 		/* cache get/put counter */
 		struct ocf_refcnt cache;
