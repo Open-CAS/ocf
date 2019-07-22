@@ -15,6 +15,7 @@
 #include "../utils/utils_cleaner.h"
 #include "../metadata/metadata.h"
 #include "../eviction/eviction.h"
+#include "../promotion/promotion.h"
 
 void ocf_engine_error(struct ocf_request *req,
 		bool stop_cache, const char *msg)
@@ -171,6 +172,7 @@ void ocf_engine_traverse(struct ocf_request *req)
 
 		if (entry->status != LOOKUP_HIT) {
 			req->info.seq_req = false;
+
 			/* There is miss then lookup for next map entry */
 			OCF_DEBUG_PARAM(cache, "Miss, core line = %llu",
 					entry->core_line);
@@ -249,7 +251,7 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 	ocf_cleaning_t clean_policy_type;
 
 	if (cache->device->freelist_part->curr_size == 0) {
-		req->info.eviction_error = 1;
+		req->info.mapping_error = 1;
 		return;
 	}
 
@@ -320,11 +322,16 @@ void ocf_engine_map(struct ocf_request *req)
 	int status = LOOKUP_MAPPED;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
+	if (!ocf_promotion_req_should_promote(cache->promotion_policy, req)) {
+		req->info.mapping_error = 1;
+		return;
+	}
+
 	if (ocf_engine_unmapped_count(req))
 		status = space_managment_evict_do(cache, req,
 				ocf_engine_unmapped_count(req));
 
-	if (req->info.eviction_error)
+	if (req->info.mapping_error)
 		return;
 
 	ocf_req_clear_info(req);
@@ -342,7 +349,7 @@ void ocf_engine_map(struct ocf_request *req)
 			ocf_engine_map_cache_line(req, entry->core_line,
 					entry->hash_key, &entry->coll_idx);
 
-			if (req->info.eviction_error) {
+			if (req->info.mapping_error) {
 				/*
 				 * Eviction error (mapping error), need to
 				 * clean, return and do pass through
@@ -362,6 +369,12 @@ void ocf_engine_map(struct ocf_request *req)
 
 		ocf_engine_update_req_info(cache, req, i);
 
+	}
+
+	if (!req->info.mapping_error) {
+		/* request has been inserted into cache - purge it from promotion
+		 * policy */
+		ocf_promotion_req_purge(cache->promotion_policy, req);
 	}
 
 	OCF_DEBUG_PARAM(req->cache, "Sequential - %s", req->info.seq_req ?

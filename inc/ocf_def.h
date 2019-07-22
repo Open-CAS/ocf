@@ -193,7 +193,7 @@ typedef enum {
 } ocf_seq_cutoff_policy;
 
 /**
- * OCF supported eviction types
+ * OCF supported eviction policy types
  */
 typedef enum {
 	ocf_eviction_lru = 0,
@@ -205,6 +205,23 @@ typedef enum {
 	ocf_eviction_default = ocf_eviction_lru,
 		/*!< Default eviction policy */
 } ocf_eviction_t;
+
+/**
+ * OCF supported promotion policy types
+ */
+typedef enum {
+	ocf_promotion_nop = 0,
+		/*!< No promotion policy. Cache inserts are not filtered */
+
+	ocf_promotion_nhit,
+		/*!< Line can be inserted after N requests for it */
+
+	ocf_promotion_max,
+		/*!< Stopper of enumerator */
+
+	ocf_promotion_default = ocf_promotion_nop,
+		/*!< Default promotion policy */
+} ocf_promotion_t;
 
 /**
  * OCF supported Write-Back cleaning policies type

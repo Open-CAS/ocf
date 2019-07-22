@@ -30,8 +30,8 @@ struct ocf_req_info {
 	uint32_t flush_metadata : 1;
 	/*!< This bit tells if metadata flushing is required */
 
-	uint32_t eviction_error : 1;
-	/*!< Eviction error flag */
+	uint32_t mapping_error : 1;
+	/*!< Core lines in this request were not mapped into cache */
 
 	uint32_t re_part : 1;
 	/*!< This bit indicate that in the request some cache lines

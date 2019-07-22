@@ -197,7 +197,7 @@ int ocf_write_wt(struct ocf_request *req)
 		 */
 		ocf_engine_map(req);
 
-		if (!req->info.eviction_error) {
+		if (!req->info.mapping_error) {
 			/* Lock request for WRITE access */
 			lock = ocf_req_trylock_wr(req);
 		}
@@ -205,7 +205,7 @@ int ocf_write_wt(struct ocf_request *req)
 		OCF_METADATA_UNLOCK_WR(); /*- END Metadata WR access ---------*/
 	}
 
-	if (!req->info.eviction_error) {
+	if (!req->info.mapping_error) {
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* WR lock was not acquired, need to wait for resume */

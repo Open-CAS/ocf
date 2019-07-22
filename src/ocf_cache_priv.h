@@ -20,6 +20,7 @@
 #include "cleaning/cleaning.h"
 #include "ocf_logger_priv.h"
 #include "ocf/ocf_trace.h"
+#include "promotion/promotion.h"
 
 #define DIRTY_FLUSHED 1
 #define DIRTY_NOT_FLUSHED 0
@@ -149,6 +150,7 @@ struct ocf_cache {
 
 	struct ocf_cleaner cleaner;
 	struct ocf_metadata_updater metadata_updater;
+	ocf_promotion_policy_t promotion_policy;
 
 	struct ocf_async_lock lock;
 
