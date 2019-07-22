@@ -172,6 +172,9 @@ struct ocf_cache {
 static inline ocf_core_t ocf_cache_get_core(ocf_cache_t cache,
 		ocf_core_id_t core_id)
 {
+	if (core_id >= OCF_CORE_MAX)
+		return NULL;
+
 	return &cache->core[core_id];
 }
 

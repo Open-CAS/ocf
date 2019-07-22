@@ -20,6 +20,11 @@
  */
 struct ocf_mngt_core_config {
 	/**
+	 * @brief OCF core name
+	 */
+	const char *name;
+
+	/**
 	 * @brief OCF core volume UUID
 	 */
 	struct ocf_volume_uuid uuid;
@@ -28,17 +33,6 @@ struct ocf_mngt_core_config {
 	 * @brief OCF core volume type
 	 */
 	uint8_t volume_type;
-
-	/**
-	 * @brief OCF core ID number
-	 */
-	ocf_core_id_t core_id;
-
-	/**
-	 * @brief OCF core name. In case of being NULL, core id is stringified
-	 *	to core name
-	 */
-	const char *name;
 
 	/**
 	 * @brief Add core to pool if cache isn't present or add core to
@@ -66,7 +60,6 @@ struct ocf_mngt_core_config {
 static inline void ocf_mngt_core_config_set_default(
 		struct ocf_mngt_core_config *cfg)
 {
-	cfg->core_id = OCF_CORE_ID_INVALID;
 	cfg->try_add = false;
 	cfg->seq_cutoff_threshold = 1024;
 	cfg->user_metadata.data = NULL;
