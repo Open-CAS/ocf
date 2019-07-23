@@ -145,7 +145,9 @@ class Volume(Structure):
     @VolumeOps.SUBMIT_IO
     def _submit_io(io):
         io_structure = cast(io, POINTER(Io))
-        volume = Volume.get_instance(io_structure.contents._volume)
+        volume = Volume.get_instance(
+            OcfLib.getInstance().ocf_io_get_volume(io_structure)
+        )
 
         volume.submit_io(io_structure)
 
@@ -153,7 +155,9 @@ class Volume(Structure):
     @VolumeOps.SUBMIT_FLUSH
     def _submit_flush(flush):
         io_structure = cast(flush, POINTER(Io))
-        volume = Volume.get_instance(io_structure.contents._volume)
+        volume = Volume.get_instance(
+            OcfLib.getInstance().ocf_io_get_volume(io_structure)
+        )
 
         volume.submit_flush(io_structure)
 
@@ -166,7 +170,9 @@ class Volume(Structure):
     @VolumeOps.SUBMIT_DISCARD
     def _submit_discard(discard):
         io_structure = cast(discard, POINTER(Io))
-        volume = Volume.get_instance(io_structure.contents._volume)
+        volume = Volume.get_instance(
+            OcfLib.getInstance().ocf_io_get_volume(io_structure)
+        )
 
         volume.submit_discard(io_structure)
 
@@ -273,11 +279,11 @@ class Volume(Structure):
             offset = io_priv.contents._offset
 
             if io.contents._dir == IoDir.WRITE:
-                src_ptr = cast(io.contents._ops.contents._get_data(io), c_void_p)
+                src_ptr = cast(OcfLib.getInstance().ocf_io_get_data(io), c_void_p)
                 src = Data.get_instance(src_ptr.value).handle.value + offset
                 dst = self._storage + io.contents._addr
             elif io.contents._dir == IoDir.READ:
-                dst_ptr = cast(io.contents._ops.contents._get_data(io), c_void_p)
+                dst_ptr = cast(OcfLib.getInstance().ocf_io_get_data(io), c_void_p)
                 dst = Data.get_instance(dst_ptr.value).handle.value + offset
                 src = self._storage + io.contents._addr
 
@@ -342,3 +348,7 @@ class TraceDevice(Volume):
 
 lib = OcfLib.getInstance()
 lib.ocf_io_get_priv.restype = POINTER(VolumeIoPriv)
+lib.ocf_io_get_volume.argtypes = [c_void_p]
+lib.ocf_io_get_volume.restype = c_void_p
+lib.ocf_io_get_data.argtypes = [c_void_p]
+lib.ocf_io_get_data.restype = c_void_p

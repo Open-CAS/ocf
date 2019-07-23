@@ -65,7 +65,7 @@ struct ocf_volume_type;
 /**
  * @brief handle to volume type
  */
-typedef const struct ocf_volume_type *ocf_volume_type_t;
+typedef struct ocf_volume_type *ocf_volume_type_t;
 
 /**
  * @brief handle to volume uuid

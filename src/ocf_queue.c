@@ -90,10 +90,10 @@ void ocf_queue_run_single(ocf_queue_t q)
 	if (!io_req)
 		return;
 
-	if (io_req->io && io_req->io->handle)
-		io_req->io->handle(io_req->io, io_req);
+	if (io_req->ioi.io.handle)
+		io_req->ioi.io.handle(&io_req->ioi.io, io_req);
 	else
-		ocf_io_handle(io_req->io, io_req);
+		ocf_io_handle(&io_req->ioi.io, io_req);
 }
 
 void ocf_queue_run(ocf_queue_t q)

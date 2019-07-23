@@ -70,8 +70,9 @@ static int _raw_atomic_io_discard_do(struct ocf_cache *cache, void *context,
 		uint64_t start_addr, uint32_t len, struct _raw_atomic_flush_ctx *ctx)
 {
 	struct ocf_request *req = context;
-	struct ocf_io *io = ocf_new_cache_io(cache);
+	struct ocf_io *io;
 
+	io = ocf_new_cache_io(cache, NULL, start_addr, len, OCF_WRITE, 0, 0);
 	if (!io) {
 		req->error = -OCF_ERR_NO_MEM;
 		return req->error;
@@ -82,7 +83,6 @@ static int _raw_atomic_io_discard_do(struct ocf_cache *cache, void *context,
 
 	env_atomic_inc(&ctx->flush_req_cnt);
 
-	ocf_io_configure(io, start_addr, len, OCF_WRITE, 0, 0);
 	ocf_io_set_cmpl(io, ctx, NULL, _raw_atomic_io_discard_end);
 
 	if (cache->device->volume.features.discard_zeroes)

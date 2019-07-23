@@ -18,7 +18,6 @@ from enum import IntEnum
 
 from ..ocf import OcfLib
 from .data import Data
-from .queue import Queue
 
 
 class IoDir(IntEnum):
@@ -37,8 +36,6 @@ class Io(Structure):
 
     _instances_ = {}
     _fields_ = [
-        ("_volume", c_void_p),
-        ("_ops", POINTER(IoOps)),
         ("_addr", c_uint64),
         ("_flags", c_uint64),
         ("_bytes", c_uint32),
@@ -101,19 +98,9 @@ class Io(Structure):
     def submit(self):
         return OcfLib.getInstance().ocf_core_submit_io_wrapper(byref(self))
 
-    def configure(
-        self, addr: int, length: int, direction: IoDir, io_class: int, flags: int
-    ):
-        OcfLib.getInstance().ocf_io_configure_wrapper(
-            byref(self), addr, length, direction, io_class, flags
-        )
-
     def set_data(self, data: Data, offset: int = 0):
         self.data = data
-        OcfLib.getInstance().ocf_io_set_data_wrapper(byref(self), data, offset)
-
-    def set_queue(self, queue: Queue):
-        OcfLib.getInstance().ocf_io_set_queue_wrapper(byref(self), queue.handle)
+        OcfLib.getInstance().ocf_io_set_data(byref(self), data, offset)
 
 
 IoOps.SET_DATA = CFUNCTYPE(c_int, POINTER(Io), c_void_p, c_uint32)
@@ -122,22 +109,10 @@ IoOps.GET_DATA = CFUNCTYPE(c_void_p, POINTER(Io))
 IoOps._fields_ = [("_set_data", IoOps.SET_DATA), ("_get_data", IoOps.GET_DATA)]
 
 lib = OcfLib.getInstance()
-lib.ocf_core_new_io_wrapper.restype = POINTER(Io)
 lib.ocf_io_set_cmpl_wrapper.argtypes = [POINTER(Io), c_void_p, c_void_p, Io.END]
-lib.ocf_io_configure_wrapper.argtypes = [
-    POINTER(Io),
-    c_uint64,
-    c_uint32,
-    c_uint32,
-    c_uint32,
-    c_uint64,
-]
-lib.ocf_io_set_queue_wrapper.argtypes = [POINTER(Io), c_uint32]
 
 lib.ocf_core_new_io_wrapper.argtypes = [c_void_p]
 lib.ocf_core_new_io_wrapper.restype = c_void_p
 
-lib.ocf_io_set_data_wrapper.argtypes = [POINTER(Io), c_void_p, c_uint32]
-lib.ocf_io_set_data_wrapper.restype = c_int
-
-lib.ocf_io_set_queue_wrapper.argtypes = [POINTER(Io), c_void_p]
+lib.ocf_io_set_data.argtypes = [POINTER(Io), c_void_p, c_uint32]
+lib.ocf_io_set_data.restype = c_int

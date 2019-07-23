@@ -19,8 +19,6 @@ from pyocf.types.shared import OcfCompletion
 
 def __io(io, queue, address, size, data, direction):
     io.set_data(data, 0)
-    io.configure(address, size, direction, 0, 0)
-    io.set_queue(queue)
     completion = OcfCompletion([("err", c_int)])
     io.callback = completion.callback
     io.submit()
@@ -28,7 +26,8 @@ def __io(io, queue, address, size, data, direction):
     return int(completion.results['err'])
 
 
-def _io(io, queue, address, size, data, offset, direction):
+def _io(new_io, queue, address, size, data, offset, direction):
+    io = new_io(queue, address, size, direction, 0, 0)
     if direction == IoDir.READ:
         _data = Data.from_bytes(bytes(size))
     else:
@@ -40,12 +39,12 @@ def _io(io, queue, address, size, data, offset, direction):
 
 
 def io_to_core(core, address, size, data, offset, direction):
-    return _io(core.new_core_io(), core.cache.get_default_queue(), address, size,
+    return _io(core.new_core_io, core.cache.get_default_queue(), address, size,
                data, offset, direction)
 
 
 def io_to_exp_obj(core, address, size, data, offset, direction):
-    return _io(core.new_io(), core.cache.get_default_queue(), address, size, data,
+    return _io(core.new_io, core.cache.get_default_queue(), address, size, data,
                offset, direction)
 
 

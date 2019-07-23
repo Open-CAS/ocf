@@ -260,16 +260,12 @@ int submit_io(ocf_core_t core, struct volume_data *data,
 	struct ocf_io *io;
 
 	/* Allocate new io */
-	io = ocf_core_new_io(core);
+	io = ocf_core_new_io(core, cache_priv->io_queue, addr, len, dir, 0, 0);
 	if (!io)
 		return -ENOMEM;
 
-	/* Setup io address, lenght, direction, flags and ioclass */
-	ocf_io_configure(io, addr, len, dir, 0, 0);
 	/* Assign data to io */
 	ocf_io_set_data(io, data, 0);
-	/* Setup io queue to */
-	ocf_io_set_queue(io, cache_priv->io_queue);
 	/* Setup completion function */
 	ocf_io_set_cmpl(io, NULL, NULL, cmpl);
 	/* Submit io */

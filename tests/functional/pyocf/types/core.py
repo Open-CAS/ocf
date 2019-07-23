@@ -11,9 +11,10 @@ from ctypes import (
     c_int,
     c_uint8,
     c_uint16,
+    c_uint32,
+    c_uint64,
     c_char_p,
     c_bool,
-    c_uint32,
     cast,
     byref,
     create_string_buffer,
@@ -22,6 +23,7 @@ from datetime import timedelta
 
 from .data import Data
 from .io import Io, IoDir
+from .queue import Queue
 from .shared import Uuid, OcfCompletion, OcfError, SeqCutOffPolicy
 from .stats.core import CoreStats
 from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
@@ -92,17 +94,25 @@ class Core:
     def get_handle(self):
         return self.handle
 
-    def new_io(self):
+    def new_io(
+        self, queue: Queue, addr: int, length: int, direction: IoDir,
+        io_class: int, flags: int
+    ):
         if not self.cache:
             raise Exception("Core isn't attached to any cache")
 
-        io = OcfLib.getInstance().ocf_core_new_io_wrapper(self.handle)
+        io = OcfLib.getInstance().ocf_core_new_io_wrapper(
+            self.handle, queue.handle, addr, length, direction, io_class, flags)
         return Io.from_pointer(io)
 
-    def new_core_io(self):
+    def new_core_io(
+        self, queue: Queue, addr: int, length: int, direction: IoDir,
+        io_class: int, flags: int
+    ):
         lib = OcfLib.getInstance()
-        core = lib.ocf_core_get_volume(self.handle)
-        io = lib.ocf_volume_new_io(core)
+        volume = lib.ocf_core_get_volume(self.handle)
+        io = lib.ocf_volume_new_io(
+            volume, queue.handle, addr, length, direction, io_class, flags)
         return Io.from_pointer(io)
 
     def get_stats(self):
@@ -166,10 +176,9 @@ class Core:
 
         position = 0
         while position < read_buffer_all.size:
-            io = self.new_io()
-            io.configure(position, cache_line_size, IoDir.READ, 0, 0)
+            io = self.new_io(self.cache.get_default_queue(), position,
+                             cache_line_size, IoDir.READ, 0, 0)
             io.set_data(read_buffer)
-            io.set_queue(self.cache.get_default_queue())
 
             cmpl = OcfCompletion([("err", c_int)])
             io.callback = cmpl.callback
@@ -187,7 +196,15 @@ class Core:
 
 lib = OcfLib.getInstance()
 lib.ocf_core_get_volume.restype = c_void_p
-lib.ocf_volume_new_io.argtypes = [c_void_p]
+lib.ocf_volume_new_io.argtypes = [
+    c_void_p,
+    c_void_p,
+    c_uint64,
+    c_uint32,
+    c_uint32,
+    c_uint32,
+    c_uint64,
+]
 lib.ocf_volume_new_io.restype = c_void_p
 lib.ocf_core_get_volume.argtypes = [c_void_p]
 lib.ocf_core_get_volume.restype = c_void_p
@@ -197,3 +214,13 @@ lib.ocf_stats_collect_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c
 lib.ocf_stats_collect_core.restype = c_int
 lib.ocf_core_get_stats.argtypes = [c_void_p, c_void_p]
 lib.ocf_core_get_stats.restype = c_int
+lib.ocf_core_new_io_wrapper.argtypes = [
+    c_void_p,
+    c_void_p,
+    c_uint64,
+    c_uint32,
+    c_uint32,
+    c_uint32,
+    c_uint64,
+]
+lib.ocf_core_new_io_wrapper.restype = c_void_p

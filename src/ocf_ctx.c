@@ -15,8 +15,9 @@
 /*
  *
  */
-int ocf_ctx_register_volume_type(ocf_ctx_t ctx, uint8_t type_id,
-		const struct ocf_volume_properties *properties)
+int ocf_ctx_register_volume_type_extended(ocf_ctx_t ctx, uint8_t type_id,
+		const struct ocf_volume_properties *properties,
+		const struct ocf_volume_extended *extended)
 {
 	int result = 0;
 
@@ -31,7 +32,7 @@ int ocf_ctx_register_volume_type(ocf_ctx_t ctx, uint8_t type_id,
 		goto err;
 	}
 
-	ocf_volume_type_init(&ctx->volume_type[type_id], properties);
+	ocf_volume_type_init(&ctx->volume_type[type_id], properties, extended);
 	if (!ctx->volume_type[type_id])
 		result = -EINVAL;
 
@@ -48,6 +49,13 @@ err:
 	ocf_log(ctx, log_err, "Failed to register volume operations '%s'\n",
 			properties->name);
 	return result;
+}
+
+int ocf_ctx_register_volume_type(ocf_ctx_t ctx, uint8_t type_id,
+		const struct ocf_volume_properties *properties)
+{
+	return ocf_ctx_register_volume_type_extended(ctx, type_id,
+			properties, NULL);
 }
 
 /*

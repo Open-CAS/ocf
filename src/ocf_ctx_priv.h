@@ -9,6 +9,7 @@
 #include "ocf_env.h"
 #include "ocf/ocf_ctx.h"
 #include "ocf_logger_priv.h"
+#include "ocf_volume_priv.h"
 
 #define OCF_VOLUME_TYPE_MAX 8
 
@@ -44,6 +45,10 @@ struct ocf_ctx {
 
 #define ocf_log_stack_trace(ctx) \
 	ocf_log_stack_trace_raw(&ctx->logger)
+
+int ocf_ctx_register_volume_type_extended(ocf_ctx_t ctx, uint8_t type_id,
+		const struct ocf_volume_properties *properties,
+		const struct ocf_volume_extended *extended);
 
 /**
  * @name Environment data buffer operations wrappers

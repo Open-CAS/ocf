@@ -48,7 +48,7 @@ static void volume_submit_io(struct ocf_io *io)
 	struct myvolume *myvolume;
 
 	data = ocf_io_get_data(io);
-	myvolume = ocf_volume_get_priv(io->volume);
+	myvolume = ocf_volume_get_priv(ocf_io_get_volume(io));
 
 	if (io->dir == OCF_WRITE) {
 		memcpy(myvolume->mem + io->addr,

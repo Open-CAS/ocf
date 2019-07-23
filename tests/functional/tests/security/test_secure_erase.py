@@ -87,10 +87,10 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
     cache.add_core(core)
 
     write_data = Data.from_string("This is test data")
-    io = core.new_io()
+    io = core.new_io(
+        cache.get_default_queue(), 20, write_data.size, IoDir.WRITE, 0, 0
+    )
     io.set_data(write_data)
-    io.configure(20, write_data.size, IoDir.WRITE, 0, 0)
-    io.set_queue(cache.get_default_queue())
 
     cmpl = OcfCompletion([("err", c_int)])
     io.callback = cmpl.callback
@@ -100,12 +100,11 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
     cmpls = []
     for i in range(100):
         read_data = Data(500)
-        io = core.new_io()
-        io.set_data(read_data)
-        io.configure(
-            (i * 1259) % int(core_device.size), read_data.size, IoDir.READ, 0, 0
+        io = core.new_io(
+            cache.get_default_queue(), (i * 1259) % int(core_device.size),
+            read_data.size, IoDir.READ, 0, 0
         )
-        io.set_queue(cache.get_default_queue())
+        io.set_data(read_data)
 
         cmpl = OcfCompletion([("err", c_int)])
         io.callback = cmpl.callback
@@ -116,10 +115,10 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
         c.wait()
 
     write_data = Data.from_string("TEST DATA" * 100)
-    io = core.new_io()
+    io = core.new_io(
+        cache.get_default_queue(), 500, write_data.size, IoDir.WRITE, 0, 0
+    )
     io.set_data(write_data)
-    io.configure(500, write_data.size, IoDir.WRITE, 0, 0)
-    io.set_queue(cache.get_default_queue())
 
     cmpl = OcfCompletion([("err", c_int)])
     io.callback = cmpl.callback
@@ -169,12 +168,11 @@ def test_secure_erase_simple_io_cleaning():
     cmpls = []
     for i in range(10000):
         read_data = Data(S.from_KiB(120))
-        io = core.new_io()
-        io.set_data(read_data)
-        io.configure(
-            (i * 1259) % int(core_device.size), read_data.size, IoDir.WRITE, 0, 0
+        io = core.new_io(
+            cache.get_default_queue(), (i * 1259) % int(core_device.size),
+            read_data.size, IoDir.WRITE, 0, 0
         )
-        io.set_queue(cache.get_default_queue())
+        io.set_data(read_data)
 
         cmpl = OcfCompletion([("err", c_int)])
         io.callback = cmpl.callback

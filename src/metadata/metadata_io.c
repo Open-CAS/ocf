@@ -63,7 +63,7 @@ static void metadata_io_read_i_atomic_step_end(struct ocf_io *io, int error)
 {
 	struct metadata_io_read_i_atomic_context *context = io->priv1;
 
-	OCF_DEBUG_TRACE(ocf_volume_get_cache(io->volume));
+	OCF_DEBUG_TRACE(ocf_volume_get_cache(ocf_io_get_volume(io)));
 
 	ocf_io_put(io);
 
@@ -99,18 +99,17 @@ int metadata_io_read_i_atomic_step(struct ocf_request *req)
 	ctx_data_seek(cache->owner, context->data, ctx_data_seek_begin, 0);
 
 	/* Allocate new IO */
-	io = ocf_new_cache_io(cache);
+	io = ocf_new_cache_io(cache, req->io_queue,
+			cache->device->metadata_offset +
+			SECTORS_TO_BYTES(context->curr_offset),
+			SECTORS_TO_BYTES(context->curr_count), OCF_READ, 0, 0);
+
 	if (!io) {
 		metadata_io_read_i_atomic_complete(context, -OCF_ERR_NO_MEM);
 		return 0;
 	}
 
 	/* Setup IO */
-	ocf_io_configure(io, cache->device->metadata_offset +
-			SECTORS_TO_BYTES(context->curr_offset),
-			SECTORS_TO_BYTES(context->curr_count), OCF_READ, 0, 0);
-
-	ocf_io_set_queue(io, req->io_queue);
 	ocf_io_set_cmpl(io, context, NULL, metadata_io_read_i_atomic_step_end);
 	result = ocf_io_set_data(io, context->data, 0);
 	if (result) {
@@ -231,19 +230,16 @@ static int ocf_restart_meta_io(struct ocf_request *req)
 	metadata_io_req_fill(meta_io_req);
 	OCF_METADATA_UNLOCK_RD();
 
-	io = ocf_new_cache_io(cache);
+	io = ocf_new_cache_io(cache, req->io_queue,
+			PAGES_TO_BYTES(meta_io_req->page),
+			PAGES_TO_BYTES(meta_io_req->count),
+			OCF_WRITE, 0, 0);
 	if (!io) {
 		metadata_io_i_asynch_end(meta_io_req, -OCF_ERR_NO_MEM);
 		return 0;
 	}
 
 	/* Setup IO */
-	ocf_io_configure(io,
-			PAGES_TO_BYTES(meta_io_req->page),
-			PAGES_TO_BYTES(meta_io_req->count),
-			OCF_WRITE, 0, 0);
-
-	ocf_io_set_queue(io, req->io_queue);
 	ocf_io_set_cmpl(io, meta_io_req, NULL, metadata_io_i_asynch_cmpl);
 	ret = ocf_io_set_data(io, meta_io_req->data, 0);
 	if (ret) {
@@ -415,7 +411,10 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 		ret = metadata_updater_check_overlaps(cache, &a_req->reqs[i]);
 		if (ret == 0) {
 			/* Allocate new IO */
-			io = ocf_new_cache_io(cache);
+			io = ocf_new_cache_io(cache, queue,
+					PAGES_TO_BYTES(a_req->reqs[i].page),
+					PAGES_TO_BYTES(a_req->reqs[i].count),
+					dir, 0, 0);
 			if (!io) {
 				error = -OCF_ERR_NO_MEM;
 				metadata_io_req_error(cache, a_req, i, error);
@@ -426,12 +425,6 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 				metadata_io_req_fill(&a_req->reqs[i]);
 
 			/* Setup IO */
-			ocf_io_configure(io,
-					PAGES_TO_BYTES(a_req->reqs[i].page),
-					PAGES_TO_BYTES(a_req->reqs[i].count),
-					dir, 0, 0);
-
-			ocf_io_set_queue(io, queue);
 			ocf_io_set_cmpl(io, &a_req->reqs[i], NULL,
 					metadata_io_i_asynch_cmpl);
 			error = ocf_io_set_data(io, a_req->reqs[i].data, 0);

@@ -18,20 +18,6 @@
 #define ocf_core_log(core, lvl, fmt, ...) \
 	ocf_core_log_prefix(core, lvl, ": ", fmt, ##__VA_ARGS__)
 
-struct ocf_core_io {
-	bool dirty;
-	/*!< Indicates if io leaves dirty data  */
-
-	struct ocf_request *req;
-	ctx_data_t *data;
-
-	log_sid_t sid;
-	/*!< Sequence ID */
-
-	uint64_t timestamp;
-	/*!< Timestamp */
-};
-
 struct ocf_metadata_uuid {
 	uint32_t size;
 	uint8_t data[OCF_VOLUME_UUID_MAX_SIZE];

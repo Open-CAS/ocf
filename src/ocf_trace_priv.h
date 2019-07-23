@@ -40,19 +40,17 @@ static inline uint64_t ocf_trace_seq_id(ocf_cache_t cache)
 	return env_atomic64_inc_return(&cache->trace.trace_seq_ref);
 }
 
-static inline void ocf_trace_init_io(struct ocf_core_io *io, ocf_cache_t cache)
+static inline void ocf_trace_init_io(struct ocf_request *req)
 {
-	io->timestamp = env_ticks_to_nsecs(env_get_tick_count());
-	io->sid = ocf_trace_seq_id(cache);
+	req->timestamp = env_ticks_to_nsecs(env_get_tick_count());
+	req->sid = ocf_trace_seq_id(req->cache);
 }
 
 static inline void ocf_trace_prep_io_event(struct ocf_event_io *ev,
-		struct ocf_core_io *io, ocf_event_operation_t op)
+		struct ocf_request *req, ocf_event_operation_t op)
 {
-	struct ocf_request *req = io->req;
-
-	ocf_event_init_hdr(&ev->hdr, ocf_event_type_io, io->sid,
-		io->timestamp, sizeof(*ev));
+	ocf_event_init_hdr(&ev->hdr, ocf_event_type_io, req->sid,
+		req->timestamp, sizeof(*ev));
 
 	ev->addr = req->byte_position;
 	if (op == ocf_event_operation_discard)
@@ -63,7 +61,7 @@ static inline void ocf_trace_prep_io_event(struct ocf_event_io *ev,
 	ev->operation = op;
 	ev->core_id = ocf_core_get_id(req->core);
 
-	ev->io_class = req->io->io_class;
+	ev->io_class = req->ioi.io.io_class;
 }
 
 static inline void ocf_trace_push(ocf_queue_t queue, void *trace, uint32_t size)
@@ -103,34 +101,31 @@ static inline void ocf_trace_push(ocf_queue_t queue, void *trace, uint32_t size)
 	env_atomic64_dec(&queue->trace_ref_cntr);
 }
 
-static inline void ocf_trace_io(struct ocf_core_io *io, ocf_event_operation_t dir, ocf_cache_t cache)
+static inline void ocf_trace_io(struct ocf_request *req,
+		ocf_event_operation_t dir)
 {
 	struct ocf_event_io ev;
-	struct ocf_request *req;
 
-	if (!cache->trace.trace_callback)
+	if (!req->cache->trace.trace_callback)
 		return;
 
-	req  = io->req;
-	ocf_trace_prep_io_event(&ev, io, dir);
+	ocf_trace_prep_io_event(&ev, req, dir);
 
 	ocf_trace_push(req->io_queue, &ev, sizeof(ev));
 }
 
-static inline void ocf_trace_io_cmpl(struct ocf_core_io *io, ocf_cache_t cache)
+static inline void ocf_trace_io_cmpl(struct ocf_request *req)
 {
 	struct ocf_event_io_cmpl ev;
-	struct ocf_request *req;
 
-	if (!cache->trace.trace_callback)
+	if (!req->cache->trace.trace_callback)
 		return;
 
-	req = io->req;
 	ocf_event_init_hdr(&ev.hdr, ocf_event_type_io_cmpl,
-			ocf_trace_seq_id(cache),
+			ocf_trace_seq_id(req->cache),
 			env_ticks_to_nsecs(env_get_tick_count()),
 			sizeof(ev));
-	ev.rsid = io->sid;
+	ev.rsid = req->sid;
 	ev.is_hit = ocf_engine_is_hit(req);
 
 	ocf_trace_push(req->io_queue, &ev, sizeof(ev));

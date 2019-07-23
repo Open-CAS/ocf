@@ -42,7 +42,7 @@ int ocf_io_d2c(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	ocf_io_start(req->io);
+	ocf_io_start(&req->ioi.io);
 
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);

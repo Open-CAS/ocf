@@ -7,6 +7,7 @@
 #define __OCF_REQUEST_H__
 
 #include "ocf_env.h"
+#include "ocf_io_priv.h"
 
 struct ocf_req_allocator;
 
@@ -103,6 +104,9 @@ struct ocf_req_discard_info {
  * @brief OCF IO request
  */
 struct ocf_request {
+	struct ocf_io_internal ioi;
+	/*!< OCF IO associated with request */
+
 	env_atomic ref_count;
 	/*!< Reference usage count, once OCF request reaches zero it
 	 * will be de-initialed. Get/Put method are intended to modify
@@ -179,6 +183,12 @@ struct ocf_request {
 	uint8_t master_io_req_type : 2;
 	/*!< Core device request context type */
 
+	log_sid_t sid;
+	/*!< Tracing sequence ID */
+
+	uint64_t timestamp;
+	/*!< Tracing timestamp */
+
 	ocf_queue_t io_queue;
 	/*!< I/O queue handle for which request should be submitted */
 
@@ -190,9 +200,6 @@ struct ocf_request {
 
 	void (*complete)(struct ocf_request *ocf_req, int error);
 	/*!< Request completion function */
-
-	struct ocf_io *io;
-	/*!< OCF IO associated with request */
 
 	struct ocf_req_discard_info discard;
 
@@ -241,6 +248,16 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
  * @retval non-zero Allocation failed
  */
 int ocf_req_alloc_map(struct ocf_request *req);
+
+/**
+ * @brief Allocate OCF request map for discard request
+ *
+ * @param req OCF request
+ *
+ * @retval 0 Allocation succeed
+ * @retval non-zero Allocation failed
+ */
+int ocf_req_alloc_map_discard(struct ocf_request *req);
 
 /**
  * @brief Allocate new OCF request with NOIO map allocation for huge request

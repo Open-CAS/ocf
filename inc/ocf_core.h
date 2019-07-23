@@ -128,14 +128,23 @@ int ocf_core_get(ocf_cache_t cache, ocf_core_id_t id, ocf_core_t *core);
  * @brief Allocate new ocf_io
  *
  * @param[in] core Core object
+ * @param[in] queue IO queue handle
+ * @param[in] addr OCF IO destination address
+ * @param[in] bytes OCF IO size in bytes
+ * @param[in] dir OCF IO direction
+ * @param[in] io_class OCF IO destination class
+ * @param[in] flags OCF IO flags
  *
  * @retval ocf_io object
  */
-static inline struct ocf_io *ocf_core_new_io(ocf_core_t core)
+static inline struct ocf_io *ocf_core_new_io(ocf_core_t core, ocf_queue_t queue,
+		uint64_t addr, uint32_t bytes, uint32_t dir,
+		uint32_t io_class, uint64_t flags)
 {
 	ocf_volume_t volume = ocf_core_get_front_volume(core);
 
-	return ocf_volume_new_io(volume);
+	return ocf_volume_new_io(volume, queue, addr, bytes, dir,
+			io_class, flags);
 }
 
 /**

@@ -711,18 +711,16 @@ static int ocf_metadata_query_cores_io(ocf_volume_t volume,
 	env_atomic_inc(&context->count);
 
 	/* Allocate new IO */
-	io = ocf_volume_new_io(volume);
+	io = ocf_volume_new_io(volume, NULL,
+			PAGES_TO_BYTES(page),
+			PAGES_TO_BYTES(num_pages),
+			OCF_READ, 0, 0);
 	if (!io) {
 		err = -OCF_ERR_NO_MEM;
 		goto exit_error;
 	}
 
 	/* Setup IO */
-	ocf_io_configure(io,
-			PAGES_TO_BYTES(page),
-			PAGES_TO_BYTES(num_pages),
-			OCF_READ, 0, 0);
-
 	ocf_io_set_cmpl(io, context, NULL,
 			ocf_metadata_query_cores_end_io);
 	err = ocf_io_set_data(io, data, PAGES_TO_BYTES(offset));

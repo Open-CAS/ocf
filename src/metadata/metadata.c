@@ -199,7 +199,8 @@ static int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
 	context->priv2 = priv2;
 
 	/* Allocate resources for IO */
-	io = ocf_volume_new_io(volume);
+	io = ocf_volume_new_io(volume, NULL, 0, sb_pages * PAGE_SIZE,
+			OCF_READ, 0, 0);
 	if (!io) {
 		ocf_log(ctx, log_err, "Memory allocation error");
 		result = -OCF_ERR_NO_MEM;
@@ -223,8 +224,6 @@ static int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
 		result = -OCF_ERR_IO;
 		goto err_set_data;
 	}
-
-	ocf_io_configure(io, 0, sb_pages * PAGE_SIZE, OCF_READ, 0, 0);
 
 	ocf_io_set_cmpl(io, context, NULL, ocf_metadata_read_sb_complete);
 	ocf_volume_submit_io(io);
