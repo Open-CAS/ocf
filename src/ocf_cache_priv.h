@@ -67,8 +67,6 @@ enum ocf_mngt_cache_init_mode {
 struct ocf_cache_device {
 	struct ocf_volume volume;
 
-	ocf_cache_line_t metadata_offset_line;
-
 	/* Hash Table contains contains pointer to the entry in
 	 * Collision Table so it actually contains collision Table
 	 * indexes.

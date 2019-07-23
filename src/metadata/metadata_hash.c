@@ -965,7 +965,6 @@ finalize:
 				ctrl->raw_desc[metadata_segment_hash].entries;
 
 		cache->device->metadata_offset = ctrl->count_pages * PAGE_SIZE;
-		cache->device->metadata_offset_line = ctrl->count_pages;
 
 		cache->conf_meta->cachelines = ctrl->cachelines;
 		cache->conf_meta->line_size = cache_line_size;
