@@ -224,7 +224,12 @@ typedef env_mutex env_rmutex;
 
 static inline int env_rmutex_init(env_rmutex *rmutex)
 {
-	env_mutex_init(rmutex);
+	pthread_mutexattr_t attr;
+
+	pthread_mutexattr_init(&attr);
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+	pthread_mutex_init(&rmutex->m, &attr);
+
 	return 0;
 }
 
