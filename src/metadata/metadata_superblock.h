@@ -6,8 +6,7 @@
 #ifndef __METADATA_SUPERBLOCK_H__
 #define __METADATA_SUPERBLOCK_H__
 
-#include "../eviction/eviction.h"
-#include "../promotion/promotion.h"
+#include <ocf/ocf_def.h>
 
 #define CACHE_MAGIC_NUMBER	0x187E1CA6
 
