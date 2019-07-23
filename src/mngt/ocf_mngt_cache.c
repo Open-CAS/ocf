@@ -704,7 +704,7 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 	char cache_name[OCF_CACHE_NAME_SIZE];
 	int ret = 0;
 
-	ret = env_mutex_lock_interruptible(&param->ctx->lock);
+	ret = env_rmutex_lock_interruptible(&param->ctx->lock);
 	if (ret)
 		return ret;
 
@@ -762,7 +762,7 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 	cache->metadata.is_volatile = cfg->metadata_volatile;
 
 out:
-	env_mutex_unlock(&param->ctx->lock);
+	env_rmutex_unlock(&param->ctx->lock);
 	return ret;
 }
 
@@ -1196,12 +1196,12 @@ static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
 	if (params->flags.metadata_inited)
 		ocf_metadata_deinit(cache);
 
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 
 	list_del(&cache->list);
 	env_vfree(cache);
 
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 }
 
 static void _ocf_mngt_attach_handle_error(
@@ -2028,12 +2028,12 @@ static void ocf_mngt_cache_stop_put_io_queues(ocf_pipeline_t pipeline,
 
 static void ocf_mngt_cache_remove(ocf_ctx_t ctx, ocf_cache_t cache)
 {
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 	/* Mark device uninitialized */
 	ocf_refcnt_freeze(&cache->refcnt.cache);
 	/* Remove cache from the list */
 	list_del(&cache->list);
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 }
 
 static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,

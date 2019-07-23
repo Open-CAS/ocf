@@ -156,7 +156,7 @@ int ocf_mngt_cache_get_by_id(ocf_ctx_t ocf_ctx, ocf_cache_id_t id, ocf_cache_t *
 	}
 
 	/* Lock caches list */
-	env_mutex_lock(&ocf_ctx->lock);
+	env_rmutex_lock(&ocf_ctx->lock);
 
 	list_for_each_entry(iter, &ocf_ctx->caches, list) {
 		if (iter->cache_id == id) {
@@ -173,7 +173,7 @@ int ocf_mngt_cache_get_by_id(ocf_ctx_t ocf_ctx, ocf_cache_id_t id, ocf_cache_t *
 		}
 	}
 
-	env_mutex_unlock(&ocf_ctx->lock);
+	env_rmutex_unlock(&ocf_ctx->lock);
 
 	if (!instance)
 		error = -OCF_ERR_CACHE_NOT_EXIST;
@@ -363,7 +363,7 @@ static int _ocf_mngt_cache_get_list_cpy(ocf_ctx_t ocf_ctx, ocf_cache_t **list,
 	*list = NULL;
 	*size = 0;
 
-	env_mutex_lock(&ocf_ctx->lock);
+	env_rmutex_lock(&ocf_ctx->lock);
 
 	list_for_each_entry(iter, &ocf_ctx->caches, list) {
 		count++;
@@ -392,7 +392,7 @@ static int _ocf_mngt_cache_get_list_cpy(ocf_ctx_t ocf_ctx, ocf_cache_t **list,
 	}
 
 END:
-	env_mutex_unlock(&ocf_ctx->lock);
+	env_rmutex_unlock(&ocf_ctx->lock);
 	return result;
 }
 
