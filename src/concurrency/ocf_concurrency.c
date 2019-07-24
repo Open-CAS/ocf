@@ -9,7 +9,7 @@ int ocf_concurrency_init(struct ocf_cache *cache)
 {
 	int result = 0;
 
-	result = ocf_cache_concurrency_init(cache);
+	result = ocf_cache_line_concurrency_init(cache);
 
 	if (result)
 		ocf_concurrency_deinit(cache);
@@ -19,6 +19,6 @@ int ocf_concurrency_init(struct ocf_cache *cache)
 
 void ocf_concurrency_deinit(struct ocf_cache *cache)
 {
-	ocf_cache_concurrency_deinit(cache);
+	ocf_cache_line_concurrency_deinit(cache);
 }
 

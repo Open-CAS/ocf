@@ -38,6 +38,6 @@ int ocf_concurrency_init(struct ocf_cache *cache);
  */
 void ocf_concurrency_deinit(struct ocf_cache *cache);
 
-#include "ocf_cache_concurrency.h"
+#include "ocf_cache_line_concurrency.h"
 
 #endif /* OCF_CONCURRENCY_H_ */

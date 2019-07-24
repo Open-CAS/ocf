@@ -52,7 +52,7 @@ struct __waiters_list {
 	env_spinlock lock;
 };
 
-struct ocf_cache_concurrency {
+struct ocf_cache_line_concurrency {
 	env_rwlock lock;
 	env_atomic *access;
 	env_atomic waiting;
@@ -69,24 +69,24 @@ struct ocf_cache_concurrency {
 #define ALLOCATOR_NAME_FMT "ocf_%s_cache_concurrency"
 #define ALLOCATOR_NAME_MAX (sizeof(ALLOCATOR_NAME_FMT) + OCF_CACHE_NAME_SIZE)
 
-int ocf_cache_concurrency_init(struct ocf_cache *cache)
+int ocf_cache_line_concurrency_init(struct ocf_cache *cache)
 {
 	uint32_t i;
 	int error = 0;
-	struct ocf_cache_concurrency *c;
+	struct ocf_cache_line_concurrency *c;
 	char name[ALLOCATOR_NAME_MAX];
 
-	ENV_BUG_ON(cache->device->concurrency.cache);
+	ENV_BUG_ON(cache->device->concurrency.cache_line);
 
 	OCF_DEBUG_TRACE(cache);
 
 	c = env_vmalloc(sizeof(*c));
 	if (!c) {
 		error = __LINE__;
-		goto ocf_cache_concurrency_init;
+		goto ocf_cache_line_concurrency_init;
 	}
 
-	cache->device->concurrency.cache = c;
+	cache->device->concurrency.cache_line = c;
 
 	OCF_REALLOC_INIT(&c->access, &c->access_limit);
 	OCF_REALLOC_CP(&c->access, sizeof(c->access[0]),
@@ -94,19 +94,19 @@ int ocf_cache_concurrency_init(struct ocf_cache *cache)
 
 	if (!c->access) {
 		error = __LINE__;
-		goto ocf_cache_concurrency_init;
+		goto ocf_cache_line_concurrency_init;
 	}
 
 	if (snprintf(name, sizeof(name), ALLOCATOR_NAME_FMT,
 			ocf_cache_get_name(cache)) < 0) {
 		error = __LINE__;
-		goto ocf_cache_concurrency_init;
+		goto ocf_cache_line_concurrency_init;
 	}
 
 	c->allocator = env_allocator_create(sizeof(struct __waiter), name);
 	if (!c->allocator) {
 		error = __LINE__;
-		goto ocf_cache_concurrency_init;
+		goto ocf_cache_line_concurrency_init;
 	}
 
 	/* Init concurrency control table */
@@ -119,12 +119,12 @@ int ocf_cache_concurrency_init(struct ocf_cache *cache)
 
 	return 0;
 
-ocf_cache_concurrency_init:
+ocf_cache_line_concurrency_init:
 
 	ocf_cache_log(cache, log_err, "Cannot initialize cache concurrency, "
 			"ERROR %d", error);
 
-	ocf_cache_concurrency_deinit(cache);
+	ocf_cache_line_concurrency_deinit(cache);
 
 	return -1;
 }
@@ -132,16 +132,16 @@ ocf_cache_concurrency_init:
 /*
  *
  */
-void ocf_cache_concurrency_deinit(struct ocf_cache *cache)
+void ocf_cache_line_concurrency_deinit(struct ocf_cache *cache)
 {
-	struct ocf_cache_concurrency *concurrency;
+	struct ocf_cache_line_concurrency *concurrency;
 
-	if (!cache->device->concurrency.cache)
+	if (!cache->device->concurrency.cache_line)
 		return;
 
 	OCF_DEBUG_TRACE(cache);
 
-	concurrency = cache->device->concurrency.cache;
+	concurrency = cache->device->concurrency.cache_line;
 
 	if (concurrency->access)
 		OCF_REALLOC_DEINIT(&concurrency->access,
@@ -151,17 +151,17 @@ void ocf_cache_concurrency_deinit(struct ocf_cache *cache)
 		env_allocator_destroy(concurrency->allocator);
 
 	env_vfree(concurrency);
-	cache->device->concurrency.cache = NULL;
+	cache->device->concurrency.cache_line = NULL;
 }
 
-size_t ocf_cache_concurrency_size_of(struct ocf_cache *cache)
+size_t ocf_cache_line_concurrency_size_of(struct ocf_cache *cache)
 {
 	size_t size;
 
 	size = sizeof(env_atomic);
 	size *= cache->device->collision_table_entries;
 
-	size += sizeof(struct ocf_cache_concurrency);
+	size += sizeof(struct ocf_cache_line_concurrency);
 
 	return size;
 }
@@ -169,7 +169,7 @@ size_t ocf_cache_concurrency_size_of(struct ocf_cache *cache)
 /*
  *
  */
-static inline bool __are_waiters(struct ocf_cache_concurrency *c,
+static inline bool __are_waiters(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line)
 {
 	bool are = false;
@@ -197,7 +197,7 @@ static inline bool __are_waiters(struct ocf_cache_concurrency *c,
 /*
  *
  */
-static inline void __add_waiter(struct ocf_cache_concurrency *c,
+static inline void __add_waiter(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line, struct __waiter *waiter)
 {
 	uint32_t idx = _WAITERS_LIST_ITEM(line);
@@ -225,7 +225,7 @@ static inline void __add_waiter(struct ocf_cache_concurrency *c,
 /*
  *
  */
-static inline bool __try_lock_wr(struct ocf_cache_concurrency *c,
+static inline bool __try_lock_wr(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line)
 {
 	env_atomic *access = &c->access[line];
@@ -241,7 +241,7 @@ static inline bool __try_lock_wr(struct ocf_cache_concurrency *c,
 /*
  *
  */
-static inline bool __try_lock_rd_idle(struct ocf_cache_concurrency *c,
+static inline bool __try_lock_rd_idle(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line)
 {
 	env_atomic *access = &c->access[line];
@@ -254,7 +254,7 @@ static inline bool __try_lock_rd_idle(struct ocf_cache_concurrency *c,
 /*
  *
  */
-static inline bool __try_lock_rd(struct ocf_cache_concurrency *c,
+static inline bool __try_lock_rd(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line)
 {
 	env_atomic *access = &c->access[line];
@@ -265,7 +265,7 @@ static inline bool __try_lock_rd(struct ocf_cache_concurrency *c,
 /*
  *
  */
-static inline void __unlock_wr(struct ocf_cache_concurrency *c,
+static inline void __unlock_wr(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line)
 {
 	env_atomic *access = &c->access[line];
@@ -277,7 +277,7 @@ static inline void __unlock_wr(struct ocf_cache_concurrency *c,
 /*
  *
  */
-static inline void __unlock_rd(struct ocf_cache_concurrency *c,
+static inline void __unlock_rd(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line)
 {
 	env_atomic *access = &c->access[line];
@@ -290,7 +290,7 @@ static inline void __unlock_rd(struct ocf_cache_concurrency *c,
 /*
  *
  */
-static inline bool __try_lock_wr2wr(struct ocf_cache_concurrency *c,
+static inline bool __try_lock_wr2wr(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line)
 {
 	env_atomic *access = &c->access[line];
@@ -302,7 +302,7 @@ static inline bool __try_lock_wr2wr(struct ocf_cache_concurrency *c,
 /*
  *
  */
-static inline bool __try_lock_wr2rd(struct ocf_cache_concurrency *c,
+static inline bool __try_lock_wr2rd(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line)
 {
 	env_atomic *access = &c->access[line];
@@ -315,7 +315,7 @@ static inline bool __try_lock_wr2rd(struct ocf_cache_concurrency *c,
 /*
  *
  */
-static inline bool __try_lock_rd2wr(struct ocf_cache_concurrency *c,
+static inline bool __try_lock_rd2wr(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line)
 {
 	env_atomic *access = &c->access[line];
@@ -334,7 +334,7 @@ static inline bool __try_lock_rd2wr(struct ocf_cache_concurrency *c,
 /*
  *
  */
-static inline bool __try_lock_rd2rd(struct ocf_cache_concurrency *c,
+static inline bool __try_lock_rd2rd(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line)
 {
 	env_atomic *access = &c->access[line];
@@ -350,7 +350,7 @@ static inline bool __try_lock_rd2rd(struct ocf_cache_concurrency *c,
 /*
  *
  */
-static inline bool __lock_cache_line_wr(struct ocf_cache_concurrency *c,
+static inline bool __lock_cache_line_wr(struct ocf_cache_line_concurrency *c,
 		const ocf_cache_line_t line, __on_lock on_lock,
 		void *ctx, uint32_t ctx_id)
 {
@@ -407,7 +407,7 @@ static inline bool __lock_cache_line_wr(struct ocf_cache_concurrency *c,
  * Attempt to lock cache line for read.
  * In case cache line is locked,  attempt to add caller on wait list.
  */
-static inline bool __lock_cache_line_rd(struct ocf_cache_concurrency *c,
+static inline bool __lock_cache_line_rd(struct ocf_cache_line_concurrency *c,
 		const ocf_cache_line_t line, __on_lock on_lock,
 		void *ctx, uint32_t ctx_id)
 {
@@ -465,7 +465,7 @@ static inline bool __lock_cache_line_rd(struct ocf_cache_concurrency *c,
 	return locked || waiting;
 }
 
-static inline void __unlock_cache_line_rd_common(struct ocf_cache_concurrency *c,
+static inline void __unlock_cache_line_rd_common(struct ocf_cache_line_concurrency *c,
 		const ocf_cache_line_t line)
 {
 	bool locked = false;
@@ -534,7 +534,7 @@ static inline void __unlock_cache_line_rd_common(struct ocf_cache_concurrency *c
 /*
  *
  */
-static inline void __unlock_cache_line_rd(struct ocf_cache_concurrency *c,
+static inline void __unlock_cache_line_rd(struct ocf_cache_line_concurrency *c,
 		const ocf_cache_line_t line)
 {
 	unsigned long flags = 0;
@@ -546,7 +546,7 @@ static inline void __unlock_cache_line_rd(struct ocf_cache_concurrency *c,
 }
 
 
-static inline void __unlock_cache_line_wr_common(struct ocf_cache_concurrency *c,
+static inline void __unlock_cache_line_wr_common(struct ocf_cache_line_concurrency *c,
 		const ocf_cache_line_t line)
 {
 	uint32_t i = 0;
@@ -615,7 +615,7 @@ static inline void __unlock_cache_line_wr_common(struct ocf_cache_concurrency *c
 /*
  *
  */
-static inline void __unlock_cache_line_wr(struct ocf_cache_concurrency *c,
+static inline void __unlock_cache_line_wr(struct ocf_cache_line_concurrency *c,
 		const ocf_cache_line_t line)
 {
 	unsigned long flags = 0;
@@ -631,7 +631,7 @@ static inline void __unlock_cache_line_wr(struct ocf_cache_concurrency *c,
  * Request can be assigned with lock asynchronously at any point of time,
  * so need to check lock state under a common lock.
  */
-static inline void __remove_line_from_waiters_list(struct ocf_cache_concurrency *c,
+static inline void __remove_line_from_waiters_list(struct ocf_cache_line_concurrency *c,
 	struct ocf_request *req, int i, void *ctx, int rw)
 {
 	ocf_cache_line_t line = req->map[i].coll_idx;
@@ -670,7 +670,7 @@ static int _ocf_req_lock_rd_common(struct ocf_request *req, void *context,
 {
 	bool locked, waiting;
 	int32_t i;
-	struct ocf_cache_concurrency *c = req->cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.cache_line;
 	ocf_cache_line_t line;
 
 	OCF_DEBUG_RQ(req, "Lock");
@@ -783,7 +783,7 @@ static void _req_on_lock(void *ctx, uint32_t ctx_id,
 		ocf_cache_line_t line, int rw)
 {
 	struct ocf_request *req = ctx;
-	struct ocf_cache_concurrency *c = req->cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.cache_line;
 
 	if (rw == OCF_READ)
 		req->map[ctx_id].rd_locked = true;
@@ -818,7 +818,7 @@ static int _ocf_req_lock_wr_common(struct ocf_request *req, void *context,
 {
 	bool locked, waiting;
 	int32_t i;
-	struct ocf_cache_concurrency *c = req->cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.cache_line;
 	ocf_cache_line_t line;
 
 	OCF_DEBUG_RQ(req, "Lock");
@@ -937,7 +937,7 @@ int ocf_req_trylock_wr(struct ocf_request *req)
  */
 void ocf_req_unlock_rd(struct ocf_request *req)
 {
-	struct ocf_cache_concurrency *c = req->cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.cache_line;
 	int32_t i;
 	ocf_cache_line_t line;
 
@@ -965,7 +965,7 @@ void ocf_req_unlock_rd(struct ocf_request *req)
  */
 void ocf_req_unlock_wr(struct ocf_request *req)
 {
-	struct ocf_cache_concurrency *c = req->cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.cache_line;
 	int32_t i;
 	ocf_cache_line_t line;
 
@@ -993,7 +993,7 @@ void ocf_req_unlock_wr(struct ocf_request *req)
  */
 void ocf_req_unlock(struct ocf_request *req)
 {
-	struct ocf_cache_concurrency *c = req->cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.cache_line;
 	int32_t i;
 	ocf_cache_line_t line;
 
@@ -1029,7 +1029,7 @@ void ocf_req_unlock(struct ocf_request *req)
 void ocf_req_unlock_entry(struct ocf_cache *cache,
 		struct ocf_request *req, uint32_t entry)
 {
-	struct ocf_cache_concurrency *c = req->cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.cache_line;
 
 	ENV_BUG_ON(req->map[entry].status == LOOKUP_MISS);
 
@@ -1052,7 +1052,7 @@ void ocf_req_unlock_entry(struct ocf_cache *cache,
 bool ocf_cache_line_is_used(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	struct ocf_cache_concurrency *c = cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = cache->device->concurrency.cache_line;
 
 	ENV_BUG_ON(line >= cache->device->collision_table_entries);
 
@@ -1071,7 +1071,7 @@ bool ocf_cache_line_is_used(struct ocf_cache *cache,
 bool ocf_cache_line_are_waiters(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	struct ocf_cache_concurrency *c = cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = cache->device->concurrency.cache_line;
 	bool are;
 	unsigned long flags = 0;
 
@@ -1090,16 +1090,16 @@ bool ocf_cache_line_are_waiters(struct ocf_cache *cache,
 /*
  *
  */
-uint32_t ocf_cache_concurrency_suspended_no(struct ocf_cache *cache)
+uint32_t ocf_cache_line_concurrency_suspended_no(struct ocf_cache *cache)
 {
-	struct ocf_cache_concurrency *c = cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = cache->device->concurrency.cache_line;
 
 	return env_atomic_read(&c->waiting);
 }
 
 bool ocf_cache_line_try_lock_rd(struct ocf_cache *cache, ocf_cache_line_t line)
 {
-	struct ocf_cache_concurrency *c = cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = cache->device->concurrency.cache_line;
 	return __lock_cache_line_rd(c, line, NULL, NULL, 0);
 }
 
@@ -1108,7 +1108,7 @@ bool ocf_cache_line_try_lock_rd(struct ocf_cache *cache, ocf_cache_line_t line)
  */
 void ocf_cache_line_unlock_rd(struct ocf_cache *cache, ocf_cache_line_t line)
 {
-	struct ocf_cache_concurrency *c = cache->device->concurrency.cache;
+	struct ocf_cache_line_concurrency *c = cache->device->concurrency.cache_line;
 
 	OCF_DEBUG_RQ(cache, "Cache line = %u", line);
 

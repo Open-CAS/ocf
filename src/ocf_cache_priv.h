@@ -85,7 +85,7 @@ struct ocf_cache_device {
 	struct ocf_part *freelist_part;
 
 	struct {
-		struct ocf_cache_concurrency *cache;
+		struct ocf_cache_line_concurrency *cache_line;
 	} concurrency;
 
 	enum ocf_mngt_cache_init_mode init_mode;
