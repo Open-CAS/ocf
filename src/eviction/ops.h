@@ -8,6 +8,7 @@
 
 #include "eviction.h"
 #include "../metadata/metadata.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 
 /**
  * @brief Initialize cache line before adding it into eviction

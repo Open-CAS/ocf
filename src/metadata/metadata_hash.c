@@ -546,10 +546,6 @@ int ocf_metadata_hash_init(struct ocf_cache *cache,
 		core->runtime_meta = &core_meta_runtime[core_id];
 	}
 
-	env_spinlock_init(&cache->metadata.lock.eviction);
-	env_rwlock_init(&cache->metadata.lock.status);
-	env_rwsem_init(&cache->metadata.lock.collision);
-
 	return 0;
 }
 

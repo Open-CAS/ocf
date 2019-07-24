@@ -1053,8 +1053,14 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
 	}
 
-	ocf_cache_log(cache, log_debug, "Cache attached\n");
 	context->flags.attached_metadata_inited = true;
+
+	if (ocf_metadata_concurrency_attached_init(cache)) {
+		ocf_cache_log(cache, log_err, "Failed to initialize attached "
+				"metadata concurrency\n");
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
+	}
+
 
 	for (i = 0; i < OCF_IO_CLASS_MAX + 1; ++i) {
 		cache->user_parts[i].runtime =
@@ -1537,6 +1543,8 @@ static void _ocf_mngt_attach_post_init(ocf_pipeline_t pipeline,
 
 	ocf_cleaner_refcnt_unfreeze(cache);
 	ocf_refcnt_unfreeze(&cache->refcnt.metadata);
+
+	ocf_cache_log(cache, log_debug, "Cache attached\n");
 
 	ocf_pipeline_next(context->pipeline);
 }

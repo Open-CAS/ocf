@@ -41,6 +41,8 @@ int ocf_metadata_init(struct ocf_cache *cache,
 	if (ret)
 		ocf_metadata_io_deinit(cache);
 
+	ocf_metadata_concurrency_init(cache);
+
 	return ret;
 }
 
