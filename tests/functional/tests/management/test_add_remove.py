@@ -152,7 +152,7 @@ def test_adding_to_random_cache(pyocf_ctx):
     # Create 5 cache devices
     for i in range(0, cache_amount):
         cache_device = Volume(S.from_MiB(30))
-        cache = Cache.start_on_device(cache_device)
+        cache = Cache.start_on_device(cache_device, name=f"cache{i}")
         cache_devices.append(cache)
 
     # Create 50 core devices and add to random cache
@@ -204,13 +204,13 @@ def test_adding_core_already_used(pyocf_ctx, cache_mode, cls):
     # Start first cache device
     cache_device1 = Volume(S.from_MiB(30))
     cache1 = Cache.start_on_device(
-        cache_device1, cache_mode=cache_mode, cache_line_size=cls
+        cache_device1, cache_mode=cache_mode, cache_line_size=cls, name="cache1"
     )
 
     # Start second cache device
     cache_device2 = Volume(S.from_MiB(30))
     cache2 = Cache.start_on_device(
-        cache_device2, cache_mode=cache_mode, cache_line_size=cls
+        cache_device2, cache_mode=cache_mode, cache_line_size=cls, name="cache2"
     )
 
     # Create core device

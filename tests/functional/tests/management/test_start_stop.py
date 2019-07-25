@@ -6,6 +6,7 @@
 import logging
 from ctypes import c_int, c_void_p, byref
 from random import randrange
+from itertools import count
 
 import pytest
 
@@ -209,12 +210,14 @@ def test_start_stop_multiple(pyocf_ctx):
     caches_no = randrange(6, 11)
     for i in range(1, caches_no):
         cache_device = Volume(Size.from_MiB(20))
+        cache_name = f"cache{i}"
         cache_mode = CacheMode(randrange(0, len(CacheMode)))
         size = 4096 * 2**randrange(0, len(CacheLineSize))
         cache_line_size = CacheLineSize(size)
 
         cache = Cache.start_on_device(
             cache_device,
+            name=cache_name,
             cache_mode=cache_mode,
             cache_line_size=cache_line_size)
         caches.append(cache)
@@ -239,12 +242,14 @@ def test_100_start_stop(pyocf_ctx):
 
     for i in range(1, 101):
         cache_device = Volume(Size.from_MiB(20))
+        cache_name = f"cache{i}"
         cache_mode = CacheMode(randrange(0, len(CacheMode)))
         size = 4096 * 2**randrange(0, len(CacheLineSize))
         cache_line_size = CacheLineSize(size)
 
         cache = Cache.start_on_device(
             cache_device,
+            name=cache_name,
             cache_mode=cache_mode,
             cache_line_size=cache_line_size)
         stats = cache.get_stats()
@@ -262,6 +267,7 @@ def test_start_stop_incrementally(pyocf_ctx):
     and then proportions are reversed and number of caches gradually falls to 0.
     """
 
+    counter = count()
     caches = []
     caches_limit = 10
     add = True
@@ -271,12 +277,14 @@ def test_start_stop_incrementally(pyocf_ctx):
         if add:
             for i in range(0, randrange(3, 5) if increase else randrange(1, 3)):
                 cache_device = Volume(Size.from_MiB(20))
+                cache_name = f"cache{next(counter)}"
                 cache_mode = CacheMode(randrange(0, len(CacheMode)))
                 size = 4096 * 2**randrange(0, len(CacheLineSize))
                 cache_line_size = CacheLineSize(size)
 
                 cache = Cache.start_on_device(
                     cache_device,
+                    name=cache_name,
                     cache_mode=cache_mode,
                     cache_line_size=cache_line_size)
                 caches.append(cache)
@@ -310,18 +318,21 @@ def test_start_cache_same_id(pyocf_ctx, mode, cls):
 
     cache_device1 = Volume(Size.from_MiB(20))
     cache_device2 = Volume(Size.from_MiB(20))
+    cache_name = "cache"
     cache_id = randrange(1, 16385)
     cache = Cache.start_on_device(cache_device1,
                                   cache_mode=mode,
                                   cache_line_size=cls,
-                                  cache_id=cache_id)
+                                  cache_id=cache_id,
+                                  name=cache_name)
     cache.get_stats()
 
     with pytest.raises(OcfError, match="OCF_ERR_CACHE_EXIST"):
         cache = Cache.start_on_device(cache_device2,
                                       cache_mode=mode,
                                       cache_line_size=cls,
-                                      cache_id=cache_id)
+                                      cache_id=cache_id,
+                                      name=cache_name)
     cache.get_stats()
 
 
@@ -333,11 +344,15 @@ def test_start_cache_same_device(pyocf_ctx, mode, cls):
     """
 
     cache_device = Volume(Size.from_MiB(20))
-    cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
+    cache = Cache.start_on_device(
+        cache_device, cache_mode=mode, cache_line_size=cls, name="cache1"
+    )
     cache.get_stats()
 
     with pytest.raises(OcfError, match="OCF_ERR_NOT_OPEN_EXC"):
-        cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
+        cache = Cache.start_on_device(
+            cache_device, cache_mode=mode, cache_line_size=cls, name="cache2"
+        )
     cache.get_stats()
 
 

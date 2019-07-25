@@ -135,7 +135,7 @@ class Cache:
         self,
         owner,
         cache_id: int = DEFAULT_ID,
-        name: str = "",
+        name: str = "cache",
         cache_mode: CacheMode = CacheMode.DEFAULT,
         eviction_policy: EvictionPolicy = EvictionPolicy.DEFAULT,
         promotion_policy: PromotionPolicy = PromotionPolicy.DEFAULT,
@@ -155,7 +155,7 @@ class Cache:
 
         self.cfg = CacheConfig(
             _id=cache_id,
-            _name=name.encode("ascii") if name else None,
+            _name=cast(create_string_buffer(name.encode("ascii")), c_char_p),
             _cache_mode=cache_mode,
             _eviction_policy=eviction_policy,
             _promotion_policy=promotion_policy,
