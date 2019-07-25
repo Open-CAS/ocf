@@ -56,7 +56,7 @@ class Core:
         self,
         device: Volume,
         try_add: bool,
-        name: str = "",
+        name: str = "core",
         core_id: int = DEFAULT_ID,
         seq_cutoff_threshold: int = DEFAULT_SEQ_CUTOFF_THRESHOLD,
     ):
@@ -74,7 +74,7 @@ class Core:
                 _size=len(self.device_name) + 1,
             ),
             _core_id=self.core_id,
-            _name=name.encode("ascii") if name else None,
+            _name=cast(create_string_buffer(name.encode("ascii")), c_char_p),
             _volume_type=self.device.type_id,
             _try_add=try_add,
             _seq_cutoff_threshold=seq_cutoff_threshold,
