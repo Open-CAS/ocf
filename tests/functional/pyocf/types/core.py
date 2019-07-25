@@ -42,7 +42,6 @@ class CoreConfig(Structure):
         ("_volume_type", c_uint8),
         ("_core_id", c_uint16),
         ("_name", c_char_p),
-        ("_cache_id", c_uint16),
         ("_try_add", c_bool),
         ("_seq_cutoff_threshold", c_uint32),
         ("_user_metadata", UserMetadata),
