@@ -118,5 +118,5 @@ def get_default_ctx(logger):
 
 
 lib = OcfLib.getInstance()
-lib.ocf_mngt_cache_get_by_id.argtypes = [c_void_p, c_void_p, c_void_p]
-lib.ocf_mngt_cache_get_by_id.restype = c_int
+lib.ocf_mngt_cache_get_by_name.argtypes = [c_void_p, c_void_p, c_void_p]
+lib.ocf_mngt_cache_get_by_name.restype = c_int

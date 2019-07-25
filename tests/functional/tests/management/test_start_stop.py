@@ -135,7 +135,6 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     cache_device = Volume(Size.from_MiB(20))
     queue_size = randrange(60000, 2**32)
     unblock_size = randrange(1, queue_size)
-    cache_id = randrange(1, 16385)
     volatile_metadata = randrange(2) == 1
     unaligned_io = randrange(2) == 1
     submit_fast = randrange(2) == 1
@@ -146,7 +145,6 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
         cache_device,
         cache_mode=mode,
         cache_line_size=cls,
-        cache_id=cache_id,
         name=name,
         metadata_layout=MetadataLayout.SEQUENTIAL,
         metadata_volatile=volatile_metadata,
@@ -159,7 +157,6 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     assert stats["conf"]["cache_mode"] == mode, "Cache mode"
     assert stats["conf"]["cache_line_size"] == cls, "Cache line size"
     assert stats["conf"]["eviction_policy"] == EvictionPolicy.DEFAULT, "Eviction policy"
-    assert stats["conf"]["cache_id"] == cache_id, "Cache id"
     assert cache.get_name() == name, "Cache name"
     # TODO: metadata_layout, metadata_volatile, max_queue_size,
     #  queue_unblock_size, pt_unaligned_io, use_submit_fast
@@ -224,15 +221,15 @@ def test_start_stop_multiple(pyocf_ctx):
         stats = cache.get_stats()
         assert stats["conf"]["cache_mode"] == cache_mode, "Cache mode"
         assert stats["conf"]["cache_line_size"] == cache_line_size, "Cache line size"
-        assert stats["conf"]["cache_id"] == i, "Cache id"
+        assert stats["conf"]["cache_name"] == cache_name, "Cache name"
 
     caches.sort(key=lambda e: randrange(1000))
     for cache in caches:
         logger.info("Getting stats before stopping cache")
         stats = cache.get_stats()
-        cache_id = stats["conf"]["cache_id"]
+        cache_name = stats["conf"]["cache_name"]
         cache.stop()
-        assert get_cache_by_id(pyocf_ctx, cache_id) != 0, "Try getting cache after stopping it"
+        assert get_cache_by_name(pyocf_ctx, cache_name) != 0, "Try getting cache after stopping it"
 
 
 def test_100_start_stop(pyocf_ctx):
@@ -255,9 +252,9 @@ def test_100_start_stop(pyocf_ctx):
         stats = cache.get_stats()
         assert stats["conf"]["cache_mode"] == cache_mode, "Cache mode"
         assert stats["conf"]["cache_line_size"] == cache_line_size, "Cache line size"
-        assert stats["conf"]["cache_id"] == 1, "Cache id"
+        assert stats["conf"]["cache_name"] == cache_name, "Cache name"
         cache.stop()
-        assert get_cache_by_id(pyocf_ctx, 1) != 0, "Try getting cache after stopping it"
+        assert get_cache_by_name(pyocf_ctx, "cache1") != 0, "Try getting cache after stopping it"
 
 
 def test_start_stop_incrementally(pyocf_ctx):
@@ -291,7 +288,7 @@ def test_start_stop_incrementally(pyocf_ctx):
                 stats = cache.get_stats()
                 assert stats["conf"]["cache_mode"] == cache_mode, "Cache mode"
                 assert stats["conf"]["cache_line_size"] == cache_line_size, "Cache line size"
-                assert stats["conf"]["cache_id"] == len(caches), "Cache id"
+                assert stats["conf"]["cache_name"] == cache_name, "Cache name"
                 if len(caches) == caches_limit:
                     increase = False
         else:
@@ -302,28 +299,26 @@ def test_start_stop_incrementally(pyocf_ctx):
                 cache = caches.pop()
                 logger.info("Getting stats before stopping cache")
                 stats = cache.get_stats()
-                cache_id = stats["conf"]["cache_id"]
+                cache_name = stats["conf"]["cache_name"]
                 cache.stop()
-                assert get_cache_by_id(pyocf_ctx, cache_id) !=\
-                    0, "Try getting cache after stopping it"
+                assert get_cache_by_name(pyocf_ctx, cache_name) != 0, \
+                    "Try getting cache after stopping it"
         add = not add
 
 
 @pytest.mark.parametrize("mode", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_start_cache_same_id(pyocf_ctx, mode, cls):
-    """Adding two caches with the same cache_id
-    Check that OCF does not allow for 2 caches to be started with the same cache_id
+    """Adding two caches with the same name
+    Check that OCF does not allow for 2 caches to be started with the same cache_name
     """
 
     cache_device1 = Volume(Size.from_MiB(20))
     cache_device2 = Volume(Size.from_MiB(20))
     cache_name = "cache"
-    cache_id = randrange(1, 16385)
     cache = Cache.start_on_device(cache_device1,
                                   cache_mode=mode,
                                   cache_line_size=cls,
-                                  cache_id=cache_id,
                                   name=cache_name)
     cache.get_stats()
 
@@ -331,7 +326,6 @@ def test_start_cache_same_id(pyocf_ctx, mode, cls):
         cache = Cache.start_on_device(cache_device2,
                                       cache_mode=mode,
                                       cache_line_size=cls,
-                                      cache_id=cache_id,
                                       name=cache_name)
     cache.get_stats()
 
@@ -519,8 +513,8 @@ def check_md5_sums(exported_obj: Core, mode: CacheMode):
             "MD5 check: core device vs exported object"
 
 
-def get_cache_by_id(ctx, cache_id):
+def get_cache_by_name(ctx, cache_name):
     cache_pointer = c_void_p()
-    return OcfLib.getInstance().ocf_mngt_cache_get_by_id(ctx.ctx_handle,
-                                                         cache_id,
-                                                         byref(cache_pointer))
+    return OcfLib.getInstance().ocf_mngt_cache_get_by_name(
+        ctx.ctx_handle, cache_name, byref(cache_pointer)
+    )
