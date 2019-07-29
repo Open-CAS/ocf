@@ -261,6 +261,7 @@ int ocf_discard(struct ocf_request *req)
 
 	if (req->rw == OCF_READ) {
 		req->complete(req, -OCF_ERR_INVAL);
+		ocf_req_put(req);
 		return 0;
 	}
 
