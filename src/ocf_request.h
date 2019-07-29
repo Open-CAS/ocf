@@ -50,9 +50,11 @@ struct ocf_req_info {
 };
 
 struct ocf_map_info {
-	/* If HIT -> pointer to hash_key and coll_idx */
-	unsigned int hash_key;
-	unsigned int coll_idx;
+	ocf_cache_line_t hash;
+	/*!< target LBA & core id hash */
+
+	ocf_cache_line_t coll_idx;
+	/*!< Index in collision table (in case of hit) */
 
 	uint64_t core_line;
 

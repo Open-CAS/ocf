@@ -6,21 +6,19 @@
 #ifndef __METADATA_MISC_H__
 #define __METADATA_MISC_H__
 
-/*
- * Hash function needs number that has no common factors with both number
- * of cores and number of entries in metadata hash container (hash lists).
- * This can be easily achived by picking prime which is bigger than maximum
- * number of cores and ensuring that count of hash table entries is not
- * divisible by this number. Let's choose 4099, which is smallest prime
- * greater than OCF_CORE_MAX (which is 4096).
+/* Hash function intentionally returns consecutive (modulo @hash_table_entries)
+ * values for consecutive @core_line_num. This way it is trivial to sort all
+ * core lines within a single request in ascending hash value order. This kind
+ * of sorting is required to assure that (future) hash bucket metadata locks are
+ * always acquired in fixed order, eliminating the risk of dead locks.
  */
-#define OCF_HASH_PRIME 4099
-
 static inline ocf_cache_line_t ocf_metadata_hash_func(ocf_cache_t cache,
 		uint64_t core_line_num, ocf_core_id_t core_id)
 {
-	return (ocf_cache_line_t) ((core_line_num * OCF_HASH_PRIME + core_id) %
-			cache->device->hash_table_entries);
+	const unsigned int entries = cache->device->hash_table_entries;
+
+	return (ocf_cache_line_t) ((core_line_num  + (core_id * (entries / 32)))
+			% entries);
 }
 
 void ocf_metadata_sparse_cache_line(struct ocf_cache *cache,

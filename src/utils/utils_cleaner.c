@@ -489,7 +489,7 @@ static void _ocf_cleaner_core_io_for_dirty_range(struct ocf_request *req,
 
 	addr = (ocf_line_size(cache) * iter->core_line)
 			+ SECTORS_TO_BYTES(begin);
-	offset = (ocf_line_size(cache) * iter->hash_key)
+	offset = (ocf_line_size(cache) * iter->hash)
 			+ SECTORS_TO_BYTES(begin);
 
 	io = ocf_new_core_io(core, req->io_queue, addr,
@@ -666,7 +666,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 		addr *= ocf_line_size(cache);
 		addr += cache->device->metadata_offset;
 
-		offset = ocf_line_size(cache) * iter->hash_key;
+		offset = ocf_line_size(cache) * iter->hash;
 
 		part_id = ocf_metadata_get_partition_id(cache, iter->coll_idx);
 
@@ -773,7 +773,7 @@ static int _ocf_cleaner_do_fire(struct ocf_request *req,  uint32_t i_out,
 		req->map[i_out].core_id = OCF_CORE_MAX;
 		req->map[i_out].core_line = ULLONG_MAX;
 		req->map[i_out].status = LOOKUP_MISS;
-		req->map[i_out].hash_key = i_out;
+		req->map[i_out].hash = i_out;
 	}
 
 	if (do_sort) {
@@ -781,7 +781,7 @@ static int _ocf_cleaner_do_fire(struct ocf_request *req,  uint32_t i_out,
 		env_sort(req->map, req->core_line_count, sizeof(req->map[0]),
 			_ocf_cleaner_cmp_private, NULL);
 		for (i = 0; i < req->core_line_count; i++)
-			req->map[i].hash_key = i;
+			req->map[i].hash = i;
 	}
 
 	/* issue actual request */
@@ -916,7 +916,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 		req->map[i_out].core_line = core_sector;
 		req->map[i_out].coll_idx = cache_line;
 		req->map[i_out].status = LOOKUP_HIT;
-		req->map[i_out].hash_key = i_out;
+		req->map[i_out].hash = i_out;
 		i_out++;
 
 		if (max == i_out) {

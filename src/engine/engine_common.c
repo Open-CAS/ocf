@@ -38,19 +38,19 @@ void ocf_engine_lookup_map_entry(struct ocf_cache *cache,
 		uint64_t core_line)
 {
 	ocf_cache_line_t line;
-	ocf_cache_line_t hash_key;
+	ocf_cache_line_t hash;
 
-	hash_key = ocf_metadata_hash_func(cache, core_line, core_id);
+	hash = ocf_metadata_hash_func(cache, core_line, core_id);
 
 	/* Initially assume that we have cache miss.
 	 * Hash points to proper bucket.
 	 */
-	entry->hash_key = hash_key;
+	entry->hash = hash;
 	entry->status = LOOKUP_MISS;
 	entry->coll_idx = cache->device->collision_table_entries;
 	entry->core_line = core_line;
 
-	line = ocf_metadata_get_hash(cache, hash_key);
+	line = ocf_metadata_get_hash(cache, hash);
 
 	while (line != cache->device->collision_table_entries) {
 		ocf_core_id_t curr_core_id;
@@ -347,7 +347,7 @@ void ocf_engine_map(struct ocf_request *req)
 
 		if (entry->status != LOOKUP_HIT) {
 			ocf_engine_map_cache_line(req, entry->core_line,
-					entry->hash_key, &entry->coll_idx);
+					entry->hash, &entry->coll_idx);
 
 			if (req->info.mapping_error) {
 				/*
