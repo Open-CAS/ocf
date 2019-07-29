@@ -12,7 +12,7 @@
 #include "../ocf_request.h"
 #include "../cleaning/acp.h"
 #include "../engine/engine_common.h"
-#include "../concurrency/ocf_cache_concurrency.h"
+#include "../concurrency/ocf_cache_line_concurrency.h"
 #include "cleaning_priv.h"
 
 #define OCF_ACP_DEBUG 0

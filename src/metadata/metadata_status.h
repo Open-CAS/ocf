@@ -6,7 +6,8 @@
 #ifndef __METADATA_STATUS_H__
 #define __METADATA_STATUS_H__
 
-#include "../ocf_request.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
+
 /*******************************************************************************
  * Dirty
  ******************************************************************************/

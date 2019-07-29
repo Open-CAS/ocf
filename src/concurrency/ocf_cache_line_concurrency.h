@@ -14,7 +14,7 @@
 /**
  * @brief OCF cache concurrency module handle
  */
-struct ocf_cache_concurrency;
+struct ocf_cache_line_concurrency;
 
 /**
  * @brief Initialize OCF cache concurrency module
@@ -22,14 +22,14 @@ struct ocf_cache_concurrency;
  * @param cache - OCF cache instance
  * @return 0 - Initialization successful, otherwise ERROR
  */
-int ocf_cache_concurrency_init(struct ocf_cache *cache);
+int ocf_cache_line_concurrency_init(struct ocf_cache *cache);
 
 /**
  * @biref De-Initialize  OCF cache concurrency module
  *
  * @param cache - OCF cache instance
  */
-void ocf_cache_concurrency_deinit(struct ocf_cache *cache);
+void ocf_cache_line_concurrency_deinit(struct ocf_cache *cache);
 
 /**
  * @brief Get number of waiting (suspended) OCF requests in due to cache
@@ -39,7 +39,7 @@ void ocf_cache_concurrency_deinit(struct ocf_cache *cache);
  *
  * @return Number of suspended OCF requests
  */
-uint32_t ocf_cache_concurrency_suspended_no(struct ocf_cache *cache);
+uint32_t ocf_cache_line_concurrency_suspended_no(struct ocf_cache *cache);
 
 /**
  * @brief Return memory footprint conusmed by cache concurrency module
@@ -48,7 +48,7 @@ uint32_t ocf_cache_concurrency_suspended_no(struct ocf_cache *cache);
  *
  * @return Memory footprint of cache concurrency module
  */
-size_t ocf_cache_concurrency_size_of(struct ocf_cache *cache);
+size_t ocf_cache_line_concurrency_size_of(struct ocf_cache *cache);
 
 /**
  * @brief Lock OCF request for WRITE access (Lock all cache lines in map info)

@@ -470,8 +470,4 @@ struct ocf_metadata {
 	} lock;
 };
 
-
-#define OCF_METADATA_RD 0
-#define OCF_METADATA_WR 1
-
 #endif /* __METADATA_STRUCTS_H__ */

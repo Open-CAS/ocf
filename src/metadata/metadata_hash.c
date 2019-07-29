@@ -546,10 +546,6 @@ int ocf_metadata_hash_init(struct ocf_cache *cache,
 		core->runtime_meta = &core_meta_runtime[core_id];
 	}
 
-	env_spinlock_init(&cache->metadata.lock.eviction);
-	env_rwlock_init(&cache->metadata.lock.status);
-	env_rwsem_init(&cache->metadata.lock.collision);
-
 	return 0;
 }
 
@@ -1183,7 +1179,7 @@ static size_t ocf_metadata_hash_size_of(struct ocf_cache *cache)
 	/* Get additional part of memory footprint */
 
 	/* Cache concurrency mechnism */
-	size += ocf_cache_concurrency_size_of(cache);
+	size += ocf_cache_line_concurrency_size_of(cache);
 
 	return size;
 }

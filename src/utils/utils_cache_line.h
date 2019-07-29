@@ -7,7 +7,7 @@
 #define UTILS_CACHE_LINE_H_
 
 #include "../metadata/metadata.h"
-#include "../concurrency/ocf_cache_concurrency.h"
+#include "../concurrency/ocf_cache_line_concurrency.h"
 #include "../eviction/eviction.h"
 #include "../eviction/ops.h"
 #include "../engine/cache_engine.h"
