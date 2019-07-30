@@ -38,11 +38,9 @@ class UserMetadata(Structure):
 
 class CoreConfig(Structure):
     _fields_ = [
+        ("_name", c_char_p),
         ("_uuid", Uuid),
         ("_volume_type", c_uint8),
-        ("_core_id", c_uint16),
-        ("_name", c_char_p),
-        ("_cache_id", c_uint16),
         ("_try_add", c_bool),
         ("_seq_cutoff_threshold", c_uint32),
         ("_user_metadata", UserMetadata),
@@ -57,14 +55,12 @@ class Core:
         self,
         device: Volume,
         try_add: bool,
-        name: str = "",
-        core_id: int = DEFAULT_ID,
+        name: str = "core",
         seq_cutoff_threshold: int = DEFAULT_SEQ_CUTOFF_THRESHOLD,
     ):
         self.cache = None
         self.device = device
         self.device_name = device.uuid
-        self.core_id = core_id
         self.handle = c_void_p()
         self.cfg = CoreConfig(
             _uuid=Uuid(
@@ -74,8 +70,7 @@ class Core:
                 ),
                 _size=len(self.device_name) + 1,
             ),
-            _core_id=self.core_id,
-            _name=name.encode("ascii") if name else None,
+            _name=cast(create_string_buffer(name.encode("ascii")), c_char_p),
             _volume_type=self.device.type_id,
             _try_add=try_add,
             _seq_cutoff_threshold=seq_cutoff_threshold,

@@ -19,9 +19,9 @@ int ocf_mngt_core_pool_get_count(ocf_ctx_t ctx)
 {
 	int count;
 	OCF_CHECK_NULL(ctx);
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 	count = ctx->core_pool.core_pool_count;
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 	return count;
 }
 
@@ -43,10 +43,10 @@ int ocf_mngt_core_pool_add(ocf_ctx_t ctx, ocf_uuid_t uuid, uint8_t type)
 		return result;
 	}
 
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 	list_add(&volume->core_pool_item, &ctx->core_pool.core_pool_head);
 	ctx->core_pool.core_pool_count++;
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 	return result;
 }
 
@@ -59,14 +59,14 @@ int ocf_mngt_core_pool_visit(ocf_ctx_t ctx,
 	OCF_CHECK_NULL(ctx);
 	OCF_CHECK_NULL(visitor);
 
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 	list_for_each_entry(svolume, &ctx->core_pool.core_pool_head,
 			core_pool_item) {
 		result = visitor(&svolume->uuid, visitor_ctx);
 		if (result)
 			break;
 	}
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 	return result;
 }
 
@@ -94,10 +94,10 @@ void ocf_mngt_core_pool_remove(ocf_ctx_t ctx, ocf_volume_t volume)
 {
 	OCF_CHECK_NULL(ctx);
 	OCF_CHECK_NULL(volume);
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 	ctx->core_pool.core_pool_count--;
 	list_del(&volume->core_pool_item);
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 	ocf_volume_destroy(volume);
 }
 

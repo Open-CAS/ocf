@@ -101,15 +101,6 @@ struct ocf_cache_info {
 ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache);
 
 /**
- * @brief Get ID of given cache object
- *
- * @param[in] cache Cache object
- *
- * @retval Cache ID
- */
-ocf_cache_id_t ocf_cache_get_id(ocf_cache_t cache);
-
-/**
  * @brief Set name of given cache object
  *
  * @param[in] cache Cache object

@@ -17,6 +17,19 @@
 #include "ocf_mngt.h"
 
 /**
+ * @brief Get OCF core by name
+ *
+ * @param[in] cache OCF cache
+ * @param[in] name Core name
+ * @param[out] core OCF core handle
+ *
+ * @retval 0 Get cache successfully
+ * @retval -OCF_ERR_CORE_NOT_EXIST Core with given name doesn't exist
+ */
+int ocf_core_get_by_name(ocf_cache_t cache, const char *name,
+		ocf_core_t *core);
+
+/**
  * @brief Obtain cache object from core
  *
  * @param[in] core Core object
@@ -81,18 +94,6 @@ ocf_seq_cutoff_policy ocf_core_get_seq_cutoff_policy(ocf_core_t core);
  * @retval Core ID
  */
 ocf_core_id_t ocf_core_get_id(ocf_core_t core);
-
-/**
- * @brief Set name of given core object
- *
- * @param[in] core Core object
- * @param[in] src Source of Core name
- * @param[in] src_size Size of src
- *
- * @retval 0 Success
- * @retval Non-zero Fail
- */
-int ocf_core_set_name(ocf_core_t core, const char *src, size_t src_size);
 
 /**
  * @brief Get name of given core object

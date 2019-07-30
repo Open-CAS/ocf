@@ -24,10 +24,10 @@ int ocf_ctx_register_volume_type_extended(ocf_ctx_t ctx, uint8_t type_id,
 	if (!ctx || !properties)
 		return -EINVAL;
 
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 
 	if (type_id >= OCF_VOLUME_TYPE_MAX || ctx->volume_type[type_id]) {
-		env_mutex_unlock(&ctx->lock);
+		env_rmutex_unlock(&ctx->lock);
 		result = -EINVAL;
 		goto err;
 	}
@@ -36,7 +36,7 @@ int ocf_ctx_register_volume_type_extended(ocf_ctx_t ctx, uint8_t type_id,
 	if (!ctx->volume_type[type_id])
 		result = -EINVAL;
 
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 
 	if (result)
 		goto err;
@@ -65,14 +65,14 @@ void ocf_ctx_unregister_volume_type(ocf_ctx_t ctx, uint8_t type_id)
 {
 	OCF_CHECK_NULL(ctx);
 
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 
 	if (type_id < OCF_VOLUME_TYPE_MAX && ctx->volume_type[type_id]) {
 		ocf_volume_type_deinit(ctx->volume_type[type_id]);
 		ctx->volume_type[type_id] = NULL;
 	}
 
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 }
 
 /*
@@ -160,7 +160,7 @@ int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 
 	INIT_LIST_HEAD(&ocf_ctx->caches);
 	env_atomic_set(&ocf_ctx->ref_count, 1);
-	ret = env_mutex_init(&ocf_ctx->lock);
+	ret = env_rmutex_init(&ocf_ctx->lock);
 	if (ret)
 		goto err_ctx;
 
@@ -216,9 +216,9 @@ void ocf_ctx_put(ocf_ctx_t ctx)
 	if (env_atomic_dec_return(&ctx->ref_count))
 		return;
 
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 	ENV_BUG_ON(!list_empty(&ctx->caches));
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 
 	ocf_mngt_core_pool_deinit(ctx);
 	ocf_core_volume_type_deinit(ctx);

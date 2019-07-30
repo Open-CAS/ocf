@@ -22,7 +22,7 @@ struct ocf_ctx {
 	struct ocf_logger logger;
 	struct ocf_volume_type *volume_type[OCF_VOLUME_TYPE_MAX];
 	env_atomic ref_count;
-	env_mutex lock;
+	env_rmutex lock;
 	struct list_head caches;
 	struct {
 		struct list_head core_pool_head;

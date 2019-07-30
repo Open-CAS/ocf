@@ -25,22 +25,6 @@
 
 #define OCF_ASSERT_PLUGGED(cache) ENV_BUG_ON(!(cache)->device)
 
-static ocf_cache_t _ocf_mngt_get_cache(ocf_ctx_t owner,
-		ocf_cache_id_t cache_id)
-{
-	ocf_cache_t iter = NULL;
-	ocf_cache_t cache = NULL;
-
-	list_for_each_entry(iter, &owner->caches, list) {
-		if (iter->cache_id == cache_id) {
-			cache = iter;
-			break;
-		}
-	}
-
-	return cache;
-}
-
 #define DIRTY_SHUTDOWN_ERROR_MSG "Please use --load option to restore " \
 	"previous cache state (Warning: data corruption may happen)"  \
 	"\nOr initialize your cache using --force option. " \
@@ -54,9 +38,6 @@ static ocf_cache_t _ocf_mngt_get_cache(ocf_ctx_t owner,
  */
 struct ocf_cache_mngt_init_params {
 	bool metadata_volatile;
-
-	ocf_cache_id_t id;
-		/*!< cache id */
 
 	ocf_ctx_t ctx;
 		/*!< OCF context */
@@ -174,18 +155,6 @@ struct ocf_cache_attach_context {
 
 	ocf_pipeline_t pipeline;
 };
-
-static ocf_cache_id_t _ocf_mngt_cache_find_free_id(ocf_ctx_t owner)
-{
-	ocf_cache_id_t id = OCF_CACHE_ID_INVALID;
-
-	for (id = OCF_CACHE_ID_MIN; id <= OCF_CACHE_ID_MAX; id++) {
-		if (!_ocf_mngt_get_cache(owner, id))
-			return id;
-	}
-
-	return OCF_CACHE_ID_INVALID;
-}
 
 static void __init_hash_table(ocf_cache_t cache)
 {
@@ -401,8 +370,6 @@ static int _ocf_mngt_init_instance_add_cores(
 		struct ocf_cache_attach_context *context)
 {
 	ocf_cache_t cache = context->cache;
-	/* FIXME: This is temporary hack. Remove after storing name it meta. */
-	char core_name[OCF_CORE_NAME_SIZE];
 	ocf_core_t core;
 	ocf_core_id_t core_id;
 	int ret = -1;
@@ -425,14 +392,6 @@ static int _ocf_mngt_init_instance_add_cores(
 		ocf_volume_t tvolume = NULL;
 
 		if (!core->volume.type)
-			goto err;
-
-		ret = snprintf(core_name, sizeof(core_name), "core%d", core_id);
-		if (ret < 0 || ret >= sizeof(core_name))
-			goto err;
-
-		ret = ocf_core_set_name(core, core_name, sizeof(core_name));
-		if (ret)
 			goto err;
 
 		tvolume = ocf_mngt_core_pool_lookup(ocf_cache_get_ctx(cache),
@@ -624,9 +583,6 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 	/* start with freezed metadata ref counter to indicate detached device*/
 	ocf_refcnt_freeze(&cache->refcnt.metadata);
 
-	/* Copy all required initialization parameters */
-	cache->cache_id = params->id;
-
 	env_atomic_set(&(cache->last_access_ms),
 			env_ticks_to_msecs(env_get_tick_count()));
 
@@ -701,54 +657,28 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 		struct ocf_mngt_cache_config *cfg)
 {
 	ocf_cache_t cache;
-	char cache_name[OCF_CACHE_NAME_SIZE];
 	int ret = 0;
 
-	ret = env_mutex_lock_interruptible(&param->ctx->lock);
+	ret = env_rmutex_lock_interruptible(&param->ctx->lock);
 	if (ret)
 		return ret;
 
-	if (param->id == OCF_CACHE_ID_INVALID) {
-		/* ID was not specified, take first free id */
-		param->id = _ocf_mngt_cache_find_free_id(param->ctx);
-		if (param->id == OCF_CACHE_ID_INVALID) {
-			ret = -OCF_ERR_TOO_MANY_CACHES;
-			goto out;
-		}
-		cfg->id = param->id;
-	} else {
-		/* ID was set, check if cache exist with specified ID */
-		cache = _ocf_mngt_get_cache(param->ctx, param->id);
-		if (cache) {
-			/* Cache already exist */
-			ret = -OCF_ERR_CACHE_EXIST;
-			goto out;
-		}
+	/* Check if cache with specified name exists */
+	ret = ocf_mngt_cache_get_by_name(param->ctx, cfg->name, &cache);
+	if (!ret) {
+		ocf_mngt_cache_put(cache);
+		/* Cache already exist */
+		ret = -OCF_ERR_CACHE_EXIST;
+		goto out;
 	}
 
-	if (cfg->name) {
-		ret = env_strncpy(cache_name, sizeof(cache_name) - 1,
-				cfg->name, sizeof(cache_name) - 1);
-		if (ret)
-			goto out;
-	} else {
-		ret = snprintf(cache_name, sizeof(cache_name),
-				"cache%hu", param->id);
-		if (ret < 0)
-			goto out;
-	}
-
-	ocf_log(param->ctx, log_info, "Inserting cache %s\n", cache_name);
+	ocf_log(param->ctx, log_info, "Inserting cache %s\n", cfg->name);
 
 	ret = _ocf_mngt_init_new_cache(param);
 	if (ret)
 		goto out;
 
 	cache = param->cache;
-
-	ret = ocf_cache_set_name(cache, cache_name, sizeof(cache_name));
-	if (ret)
-		goto out;
 
 	cache->backfill.max_queue_size = cfg->backfill.max_queue_size;
 	cache->backfill.queue_unblock_size = cfg->backfill.queue_unblock_size;
@@ -762,7 +692,7 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 	cache->metadata.is_volatile = cfg->metadata_volatile;
 
 out:
-	env_mutex_unlock(&param->ctx->lock);
+	env_rmutex_unlock(&param->ctx->lock);
 	return ret;
 }
 
@@ -1196,12 +1126,12 @@ static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
 	if (params->flags.metadata_inited)
 		ocf_metadata_deinit(cache);
 
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 
 	list_del(&cache->list);
 	env_vfree(cache);
 
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 }
 
 static void _ocf_mngt_attach_handle_error(
@@ -1263,11 +1193,10 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		struct ocf_mngt_cache_config *cfg)
 {
 	struct ocf_cache_mngt_init_params params;
+	ocf_cache_t tmp_cache;
 	int result;
 
 	ENV_BUG_ON(env_memset(&params, sizeof(params), 0));
-
-	params.id = cfg->id;
 
 	params.ctx = ctx;
 	params.metadata.cache_mode = cfg->cache_mode;
@@ -1282,21 +1211,30 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	if (result)
 		goto _cache_mngt_init_instance_ERROR;
 
-	*cache  = params.cache;
+	tmp_cache = params.cache;
 
 	/*
 	 * Initialize metadata selected segments of metadata in memory
 	 */
-	result = ocf_metadata_init(*cache, params.metadata.line_size);
+	result = ocf_metadata_init(tmp_cache, params.metadata.line_size);
 	if (result) {
 		result =  -OCF_ERR_START_CACHE_FAIL;
 		goto _cache_mngt_init_instance_ERROR;
 	}
 
-	ocf_log(ctx, log_debug, "Metadata initialized\n");
 	params.flags.metadata_inited = true;
 
-	_ocf_mngt_cache_init(*cache, &params);
+	result = ocf_cache_set_name(tmp_cache, cfg->name, OCF_CACHE_NAME_SIZE);
+	if (result)
+		goto _cache_mngt_init_instance_ERROR;
+
+	result = ocf_metadata_io_init(tmp_cache);
+	if (result)
+		goto _cache_mngt_init_instance_ERROR;
+
+	ocf_cache_log(tmp_cache, log_debug, "Metadata initialized\n");
+
+	_ocf_mngt_cache_init(tmp_cache, &params);
 
 	ocf_ctx_get(ctx);
 
@@ -1304,9 +1242,11 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		/* User did not request to lock cache instance after creation -
 		   unlock it here since we have acquired the lock to
 		   perform management operations. */
-		ocf_mngt_cache_unlock(*cache);
+		ocf_mngt_cache_unlock(tmp_cache);
 		params.flags.cache_locked = false;
 	}
+
+	*cache = tmp_cache;
 
 	return 0;
 
@@ -1640,7 +1580,7 @@ err_pipeline:
 
 static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 {
-	if (cfg->id > OCF_CACHE_ID_MAX)
+	if (!cfg->name)
 		return -OCF_ERR_INVAL;
 
 	if (!ocf_cache_mode_is_valid(cfg->cache_mode))
@@ -2028,12 +1968,12 @@ static void ocf_mngt_cache_stop_put_io_queues(ocf_pipeline_t pipeline,
 
 static void ocf_mngt_cache_remove(ocf_ctx_t ctx, ocf_cache_t cache)
 {
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 	/* Mark device uninitialized */
 	ocf_refcnt_freeze(&cache->refcnt.cache);
 	/* Remove cache from the list */
 	list_del(&cache->list);
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 }
 
 static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,

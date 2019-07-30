@@ -112,10 +112,6 @@ struct ocf_cache {
 
 	ocf_eviction_t eviction_policy_init;
 
-	int cache_id;
-
-	char name[OCF_CACHE_NAME_SIZE];
-
 	struct {
 		/* cache get/put counter */
 		struct ocf_refcnt cache;
@@ -176,8 +172,18 @@ struct ocf_cache {
 static inline ocf_core_t ocf_cache_get_core(ocf_cache_t cache,
 		ocf_core_id_t core_id)
 {
+	if (core_id >= OCF_CORE_MAX)
+		return NULL;
+
 	return &cache->core[core_id];
 }
+
+#define for_each_core_all(_cache, _core, _id) \
+	for (_id = 0; _core = &cache->core[_id], _id < OCF_CORE_MAX; _id++)
+
+#define for_each_core(_cache, _core, _id) \
+	for_each_core_all(_cache, _core, _id) \
+		if (_core->conf_meta->added)
 
 #define ocf_cache_log_prefix(cache, lvl, prefix, fmt, ...) \
 	ocf_log_prefix(ocf_cache_get_ctx(cache), lvl, "%s" prefix, \

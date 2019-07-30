@@ -17,22 +17,17 @@ ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache)
 	return cache->device ? &cache->device->volume : NULL;
 }
 
-ocf_cache_id_t ocf_cache_get_id(ocf_cache_t cache)
-{
-	OCF_CHECK_NULL(cache);
-	return cache->cache_id;
-}
-
 int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size)
 {
 	OCF_CHECK_NULL(cache);
-	return env_strncpy(cache->name, OCF_CACHE_NAME_SIZE - 1, src, src_size);
+	return env_strncpy(cache->conf_meta->name, OCF_CACHE_NAME_SIZE,
+			src, src_size);
 }
 
 const char *ocf_cache_get_name(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	return cache->name;
+	return cache->conf_meta->name;
 }
 
 bool ocf_cache_is_incomplete(ocf_cache_t cache)

@@ -139,27 +139,21 @@ void ocf_mngt_cache_put(ocf_cache_t cache)
 	}
 }
 
-int ocf_mngt_cache_get_by_id(ocf_ctx_t ocf_ctx, ocf_cache_id_t id, ocf_cache_t *cache)
+int ocf_mngt_cache_get_by_name(ocf_ctx_t ctx, const char *name,
+		ocf_cache_t *cache)
 {
-	int error = 0;
 	struct ocf_cache *instance = NULL;
 	struct ocf_cache *iter = NULL;
 
-	OCF_CHECK_NULL(ocf_ctx);
+	OCF_CHECK_NULL(ctx);
 	OCF_CHECK_NULL(cache);
 
-	*cache = NULL;
-
-	if ((id < OCF_CACHE_ID_MIN) || (id > OCF_CACHE_ID_MAX)) {
-		/* Cache id out of range */
-		return -OCF_ERR_INVAL;
-	}
-
 	/* Lock caches list */
-	env_mutex_lock(&ocf_ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 
-	list_for_each_entry(iter, &ocf_ctx->caches, list) {
-		if (iter->cache_id == id) {
+	list_for_each_entry(iter, &ctx->caches, list) {
+		if (!env_strncmp(ocf_cache_get_name(iter), name,
+				OCF_CACHE_NAME_SIZE)) {
 			instance = iter;
 			break;
 		}
@@ -173,14 +167,14 @@ int ocf_mngt_cache_get_by_id(ocf_ctx_t ocf_ctx, ocf_cache_id_t id, ocf_cache_t *
 		}
 	}
 
-	env_mutex_unlock(&ocf_ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 
 	if (!instance)
-		error = -OCF_ERR_CACHE_NOT_EXIST;
-	else
-		*cache = instance;
+		return -OCF_ERR_CACHE_NOT_EXIST;
 
-	return error;
+	*cache = instance;
+
+	return 0;
 }
 
 typedef void (*ocf_lock_fn_t)(ocf_async_lock_waiter_t waiter);
@@ -363,7 +357,7 @@ static int _ocf_mngt_cache_get_list_cpy(ocf_ctx_t ocf_ctx, ocf_cache_t **list,
 	*list = NULL;
 	*size = 0;
 
-	env_mutex_lock(&ocf_ctx->lock);
+	env_rmutex_lock(&ocf_ctx->lock);
 
 	list_for_each_entry(iter, &ocf_ctx->caches, list) {
 		count++;
@@ -392,7 +386,7 @@ static int _ocf_mngt_cache_get_list_cpy(ocf_ctx_t ocf_ctx, ocf_cache_t **list,
 	}
 
 END:
-	env_mutex_unlock(&ocf_ctx->lock);
+	env_rmutex_unlock(&ocf_ctx->lock);
 	return result;
 }
 

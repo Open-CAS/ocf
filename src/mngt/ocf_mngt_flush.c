@@ -179,13 +179,12 @@ static int _ocf_mngt_get_sectors(ocf_cache_t cache, ocf_core_id_t core_id,
 			break;
 	}
 
-	ocf_core_log(&cache->core[core_id], log_debug,
+	ocf_core_log(core, log_debug,
 			"%u dirty cache lines to clean\n", j);
 
 	if (dirty != j) {
-		ocf_cache_log(cache, log_debug, "Wrong number of dirty "
-				"blocks for flushing core %s (%u!=%u)\n",
-				cache->core[core_id].name, j, dirty);
+		ocf_core_log(core, log_debug, "Wrong number of dirty "
+				"blocks for flushing (%u!=%u)\n", j, dirty);
 	}
 
 

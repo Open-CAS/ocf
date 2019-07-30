@@ -128,7 +128,7 @@ def test_add_remove_30core(pyocf_ctx):
         stats = cache.get_stats()
         assert stats["conf"]["core_count"] == i
         core_device = Volume(S.from_MiB(10))
-        core = Core.using_device(core_device)
+        core = Core.using_device(core_device, name=f"core{i}")
         core_devices.append(core)
         cache.add_core(core)
 
@@ -152,13 +152,13 @@ def test_adding_to_random_cache(pyocf_ctx):
     # Create 5 cache devices
     for i in range(0, cache_amount):
         cache_device = Volume(S.from_MiB(30))
-        cache = Cache.start_on_device(cache_device)
+        cache = Cache.start_on_device(cache_device, name=f"cache{i}")
         cache_devices.append(cache)
 
     # Create 50 core devices and add to random cache
     for i in range(0, core_amount):
         core_device = Volume(S.from_MiB(10))
-        core = Core.using_device(core_device)
+        core = Core.using_device(core_device, name=f"core{i}")
         core_devices[core] = randint(0, cache_amount - 1)
         cache_devices[core_devices[core]].add_core(core)
 
@@ -204,13 +204,13 @@ def test_adding_core_already_used(pyocf_ctx, cache_mode, cls):
     # Start first cache device
     cache_device1 = Volume(S.from_MiB(30))
     cache1 = Cache.start_on_device(
-        cache_device1, cache_mode=cache_mode, cache_line_size=cls
+        cache_device1, cache_mode=cache_mode, cache_line_size=cls, name="cache1"
     )
 
     # Start second cache device
     cache_device2 = Volume(S.from_MiB(30))
     cache2 = Cache.start_on_device(
-        cache_device2, cache_mode=cache_mode, cache_line_size=cls
+        cache_device2, cache_mode=cache_mode, cache_line_size=cls, name="cache2"
     )
 
     # Create core device
@@ -246,7 +246,7 @@ def test_add_remove_incrementally(pyocf_ctx, cache_mode, cls):
     # Create 5 core devices and add to cache
     for i in range(0, core_amount):
         core_device = Volume(S.from_MiB(10))
-        core = Core.using_device(core_device)
+        core = Core.using_device(core_device, name=f"core{i}")
         core_devices.append(core)
         cache.add_core(core)
 

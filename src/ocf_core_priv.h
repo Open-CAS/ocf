@@ -26,6 +26,8 @@ struct ocf_metadata_uuid {
 #define OCF_CORE_USER_DATA_SIZE 64
 
 struct ocf_core_meta_config {
+	char name[OCF_CORE_NAME_SIZE];
+
 	uint8_t type;
 
 	/* This bit means that object was added into cache */
@@ -69,8 +71,6 @@ struct ocf_core_meta_runtime {
 
 
 struct ocf_core {
-	char name[OCF_CORE_NAME_SIZE];
-
 	struct ocf_volume front_volume;
 	struct ocf_volume volume;
 
@@ -96,12 +96,5 @@ bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id);
 int ocf_core_volume_type_init(ocf_ctx_t ctx);
 
 void ocf_core_volume_type_deinit(ocf_ctx_t ctx);
-
-#define for_each_core_all(_cache, _core, _id) \
-	for (_id = 0; _core = &cache->core[_id], _id < OCF_CORE_MAX; _id++)
-
-#define for_each_core(_cache, _core, _id) \
-	for_each_core_all(_cache, _core, _id) \
-		if (core->conf_meta->added)
 
 #endif /* __OCF_CORE_PRIV_H__ */

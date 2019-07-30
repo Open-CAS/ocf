@@ -17,13 +17,13 @@ uint32_t ocf_mngt_cache_get_count(ocf_ctx_t ctx)
 
 	OCF_CHECK_NULL(ctx);
 
-	env_mutex_lock(&ctx->lock);
+	env_rmutex_lock(&ctx->lock);
 
 	/* currently, there are no macros in list.h to get list size.*/
 	list_for_each_entry(cache, &ctx->caches, list)
 		count++;
 
-	env_mutex_unlock(&ctx->lock);
+	env_rmutex_unlock(&ctx->lock);
 
 	return count;
 }

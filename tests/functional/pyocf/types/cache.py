@@ -42,7 +42,6 @@ class Backfill(Structure):
 
 class CacheConfig(Structure):
     _fields_ = [
-        ("_id", c_uint16),
         ("_name", c_char_p),
         ("_cache_mode", c_uint32),
         ("_eviction_policy", c_uint32),
@@ -134,8 +133,7 @@ class Cache:
     def __init__(
         self,
         owner,
-        cache_id: int = DEFAULT_ID,
-        name: str = "",
+        name: str = "cache",
         cache_mode: CacheMode = CacheMode.DEFAULT,
         eviction_policy: EvictionPolicy = EvictionPolicy.DEFAULT,
         promotion_policy: PromotionPolicy = PromotionPolicy.DEFAULT,
@@ -154,8 +152,7 @@ class Cache:
         self.cache_line_size = cache_line_size
 
         self.cfg = CacheConfig(
-            _id=cache_id,
-            _name=name.encode("ascii") if name else None,
+            _name=cast(create_string_buffer(name.encode("ascii")), c_char_p),
             _cache_mode=cache_mode,
             _eviction_policy=eviction_policy,
             _promotion_policy=promotion_policy,
@@ -437,7 +434,7 @@ class Cache:
             raise OcfError("Failed getting stats", status)
 
         line_size = CacheLineSize(cache_info.cache_line_size)
-        cache_id = self.owner.lib.ocf_cache_get_id(self)
+        cache_name = self.owner.lib.ocf_cache_get_name(self).decode("ascii")
 
         self.read_unlock()
         return {
@@ -468,7 +465,7 @@ class Cache:
                 "core_count": cache_info.core_count,
                 "metadata_footprint": Size(cache_info.metadata_footprint),
                 "metadata_end_offset": Size(cache_info.metadata_end_offset),
-                "cache_id": cache_id,
+                "cache_name": cache_name,
             },
             "block": struct_to_dict(block),
             "req": struct_to_dict(req),
