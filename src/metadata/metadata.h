@@ -207,24 +207,4 @@ typedef void (*ocf_metadata_load_properties_end_t)(void *priv, int error,
 void ocf_metadata_load_properties(ocf_volume_t volume,
 		ocf_metadata_load_properties_end_t cmpl, void *priv);
 
-/**
- * @brief Validate cache line size
- *
- * @param size Cache line size
- * @return true - cache line size is valid, false - cache line is invalid
- */
-static inline bool ocf_metadata_line_size_is_valid(uint32_t size)
-{
-	switch (size) {
-	case 4 * KiB:
-	case 8 * KiB:
-	case 16 * KiB:
-	case 32 * KiB:
-	case 64 * KiB:
-		return true;
-	default:
-		return false;
-	}
-}
-
 #endif /* METADATA_H_ */
