@@ -16,7 +16,6 @@
 #include "../utils/utils_cleaner.h"
 #include "../metadata/metadata.h"
 #include "../eviction/eviction.h"
-#include "../promotion/promotion.h"
 
 void ocf_engine_error(struct ocf_request *req,
 		bool stop_cache, const char *msg)
@@ -315,17 +314,14 @@ void ocf_engine_map(struct ocf_request *req)
 	int status = LOOKUP_MAPPED;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
-	if (!ocf_promotion_req_should_promote(cache->promotion_policy, req)) {
+	if (!ocf_engine_unmapped_count(req))
+		return;
+
+	if (ocf_engine_unmapped_count(req) >
+			ocf_freelist_num_free(cache->freelist)) {
 		req->info.mapping_error = 1;
 		return;
 	}
-
-	if (ocf_engine_unmapped_count(req))
-		status = space_managment_evict_do(cache, req,
-				ocf_engine_unmapped_count(req));
-
-	if (req->info.mapping_error)
-		return;
 
 	ocf_req_clear_info(req);
 	req->info.seq_req = true;
@@ -395,6 +391,15 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 		req->info.dirty_all = 0;
 		ocf_engine_push_req_front(req, true);
 	}
+}
+
+int ocf_engine_evict(struct ocf_request *req)
+{
+	if (!ocf_engine_unmapped_count(req))
+		return 0;
+
+	return space_managment_evict_do(req->cache, req,
+			ocf_engine_unmapped_count(req));
 }
 
 static int _ocf_engine_clean_getter(struct ocf_cache *cache,

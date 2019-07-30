@@ -162,19 +162,28 @@ void ocf_engine_lookup_map_entry(struct ocf_cache *cache,
 		uint64_t core_line);
 
 /**
- * @brief Traverse request in order to lookup cache lines If there are misses
- * need to call eviction. This process is called 'mapping'.
- *
- * @note This function CALL EVICTION
+ * @brief Traverse request in order to lookup cache lines. If there are misses,
+ * attempt to map free cache lines.
  *
  * @param req OCF request
  */
 void ocf_engine_map(struct ocf_request *req);
 
 /**
+ * @brief Evict cachelines to populate freelist.
+ *
+ * @param req OCF request
+ *
+ * @returns eviction status
+ * @retval LOOKUP_MAPPED successfully evicted required number of cachelines
+ * @retval LOOKUP_MISS eviction failure
+ */
+int ocf_engine_evict(struct ocf_request *req);
+
+/**
  * @brief Traverse OCF request (lookup cache)
  *
- * @note This function DO NOT CALL EVICTION. Only lookup in metadata is
+ * @note This function does not evict cachelines. Only lookup in metadata is
  * performed. Main purpose of this function is to check if there is a HIT.
  *
  * @param req OCF request
