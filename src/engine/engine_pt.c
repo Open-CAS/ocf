@@ -102,7 +102,7 @@ static const struct ocf_io_if _io_if_pt_resume = {
 int ocf_read_pt(struct ocf_request *req)
 {
 	bool use_cache = false;
-	int lock = OCF_LOCK_NOT_ACQUIRED;
+	int lock = OCF_LOCK_ACQUIRED;
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -127,14 +127,17 @@ int ocf_read_pt(struct ocf_request *req)
 			/* There are mapped cache line,
 			 * lock request for READ access
 			 */
-			lock = ocf_req_async_lock_rd(req, ocf_engine_on_resume);
-		} else {
-			/* No mapped cache lines, no need to get lock */
-			lock = OCF_LOCK_ACQUIRED;
+			lock = ocf_req_trylock_rd(req);
 		}
 	}
 
-	ocf_req_hash_unlock_rd(req);
+	if (lock != OCF_LOCK_ACQUIRED) {
+		ocf_req_hash_lock_upgrade(req);
+		lock = ocf_req_async_lock_rd(req, ocf_engine_on_resume);
+		ocf_req_hash_unlock_wr(req);
+	} else {
+		ocf_req_hash_unlock_rd(req);
+	}
 
 	if (use_cache) {
 		/*

@@ -50,7 +50,6 @@ struct __waiters_list {
 };
 
 struct ocf_cache_line_concurrency {
-	env_rwlock lock;
 	env_atomic *access;
 	env_atomic waiting;
 	size_t access_limit;
@@ -112,8 +111,6 @@ int ocf_cache_line_concurrency_init(struct ocf_cache *cache)
 		env_spinlock_init(&c->waiters_lsts[i].lock);
 	}
 
-	env_rwlock_init(&c->lock);
-
 	return 0;
 
 ocf_cache_line_concurrency_init:
@@ -140,8 +137,6 @@ void ocf_cache_line_concurrency_deinit(struct ocf_cache *cache)
 	OCF_DEBUG_TRACE(cache);
 
 	concurrency = cache->device->concurrency.cache_line;
-
-	env_rwlock_destroy(&concurrency->lock);
 
 	for (i = 0; i < _WAITERS_LIST_ENTRIES; i++)
 		env_spinlock_destroy(&concurrency->waiters_lsts[i].lock);
@@ -694,7 +689,7 @@ static inline void __remove_line_from_waiters_list(struct ocf_cache_line_concurr
 /* Try to read-lock request without adding waiters. Function should be called
  * under read lock, multiple threads may attempt to acquire the lock
  * concurrently. */
-static int _ocf_req_trylock_rd(struct ocf_request *req)
+int ocf_req_trylock_rd(struct ocf_request *req)
 {
 	int32_t i;
 	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.
@@ -745,10 +740,10 @@ static int _ocf_req_trylock_rd(struct ocf_request *req)
 }
 
 /*
- * Read-lock request cache lines. Must be called under cacheline concurrency
- * write lock.
+ * Asynchronously read-lock request cache lines. Must be called under cacheline
+ * concurrency write lock.
  */
-static int _ocf_req_lock_rd(struct ocf_request *req, ocf_req_async_lock_cb cb)
+int ocf_req_async_lock_rd(struct ocf_request *req, ocf_req_async_lock_cb cb)
 {
 	int32_t i;
 	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.
@@ -801,29 +796,10 @@ err:
 
 }
 
-int ocf_req_async_lock_rd(struct ocf_request *req, ocf_req_async_lock_cb cb)
-{
-	struct ocf_cache_line_concurrency *c =
-		req->cache->device->concurrency.cache_line;
-	int lock;
-
-	env_rwlock_read_lock(&c->lock);
-	lock = _ocf_req_trylock_rd(req);
-	env_rwlock_read_unlock(&c->lock);
-
-	if (lock != OCF_LOCK_ACQUIRED) {
-		env_rwlock_write_lock(&c->lock);
-		lock = _ocf_req_lock_rd(req, cb);
-		env_rwlock_write_unlock(&c->lock);
-	}
-
-	return lock;
-}
-
 /* Try to write-lock request without adding waiters. Function should be called
  * under read lock, multiple threads may attempt to acquire the lock
  * concurrently. */
-static int _ocf_req_trylock_wr(struct ocf_request *req)
+int ocf_req_trylock_wr(struct ocf_request *req)
 {
 	int32_t i;
 	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.
@@ -872,10 +848,10 @@ static int _ocf_req_trylock_wr(struct ocf_request *req)
 }
 
 /*
- * Write-lock request cache lines. Must be called under cacheline concurrency
- * write lock.
+ * Asynchronously write-lock request cache lines. Must be called under cacheline
+ * concurrency write lock.
  */
-static int _ocf_req_lock_wr(struct ocf_request *req, ocf_req_async_lock_cb cb)
+int ocf_req_async_lock_wr(struct ocf_request *req, ocf_req_async_lock_cb cb)
 {
 	int32_t i;
 	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.
@@ -927,26 +903,6 @@ err:
 
 	return ret;
 }
-
-int ocf_req_async_lock_wr(struct ocf_request *req, ocf_req_async_lock_cb cb)
-{
-	struct ocf_cache_line_concurrency *c =
-		req->cache->device->concurrency.cache_line;
-	int lock;
-
-	env_rwlock_read_lock(&c->lock);
-	lock = _ocf_req_trylock_wr(req);
-	env_rwlock_read_unlock(&c->lock);
-
-	if (lock != OCF_LOCK_ACQUIRED) {
-		env_rwlock_write_lock(&c->lock);
-		lock = _ocf_req_lock_wr(req, cb);
-		env_rwlock_write_unlock(&c->lock);
-	}
-
-	return lock;
-}
-
 
 /*
  *

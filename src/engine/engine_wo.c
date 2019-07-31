@@ -223,10 +223,16 @@ int ocf_read_wo(struct ocf_request *req)
 		/* There are mapped cache lines,
 		 * lock request for READ access
 		 */
-		lock = ocf_req_async_lock_rd(req, ocf_engine_on_resume);
+		lock = ocf_req_trylock_rd(req);
 	}
 
-	ocf_req_hash_unlock_rd(req); /*- END Metadata RD access -----------------*/
+	if (lock != OCF_LOCK_ACQUIRED) {
+		ocf_req_hash_lock_upgrade(req);
+		lock = ocf_req_async_lock_rd(req, ocf_engine_on_resume);
+		ocf_req_hash_unlock_wr(req);
+	} else {
+		ocf_req_hash_unlock_rd(req);
+	}
 
 	if (lock >= 0) {
 		if (lock != OCF_LOCK_ACQUIRED) {

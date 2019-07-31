@@ -154,12 +154,18 @@ int ocf_write_wi(struct ocf_request *req)
 
 	if (ocf_engine_mapped_count(req)) {
 		/* Some cache line are mapped, lock request for WRITE access */
-		lock = ocf_req_async_lock_wr(req, _ocf_write_wi_on_resume);
+		lock = ocf_req_trylock_wr(req);
 	} else {
 		lock = OCF_LOCK_ACQUIRED;
 	}
 
-	ocf_req_hash_unlock_rd(req); /*- END Metadata READ access----------------*/
+	if (lock != OCF_LOCK_ACQUIRED) {
+		ocf_req_hash_lock_upgrade(req);
+		lock = ocf_req_async_lock_wr(req, _ocf_write_wi_on_resume);
+		ocf_req_hash_unlock_wr(req);
+	} else {
+		ocf_req_hash_unlock_rd(req);
+	}
 
 	if (lock >= 0) {
 		if (lock == OCF_LOCK_ACQUIRED) {

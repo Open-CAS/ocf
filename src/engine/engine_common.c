@@ -395,7 +395,7 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	}
 }
 
-static int  ocf_engine_evict(struct ocf_request *req)
+static int ocf_engine_evict(struct ocf_request *req)
 {
 	if (!ocf_engine_unmapped_count(req))
 		return 0;
@@ -417,6 +417,19 @@ static int lock_clines(struct ocf_request *req, enum ocf_engine_lock_type lock,
 	}
 }
 
+static int trylock_clines(struct ocf_request *req,
+		enum ocf_engine_lock_type lock)
+{
+	switch (lock) {
+	case ocf_engine_lock_write:
+		return ocf_req_trylock_wr(req);
+	case ocf_engine_lock_read:
+		return ocf_req_trylock_rd(req);
+	default:
+		return OCF_LOCK_ACQUIRED;
+	}
+}
+
 int ocf_engine_prepare_clines(struct ocf_request *req,
 		const struct ocf_engine_callbacks *engine_cbs)
 {
@@ -426,47 +439,86 @@ int ocf_engine_prepare_clines(struct ocf_request *req,
 	enum ocf_engine_lock_type lock_type;
 	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
 
+	/* Calculate hashes for hash-bucket locking */
 	ocf_req_hash(req);
-	ocf_req_hash_lock_rd(req); /*- Metadata READ access, No eviction --------*/
 
-	/* Travers to check if request is mapped fully */
+	/* Read-lock hash buckets associated with request target core & LBAs
+	 * (core lines) to assure that cache mapping for these core lines does
+	 * not change during traversation */
+	ocf_req_hash_lock_rd(req);
+
+	/* Traverse request to cache if there is hit */
 	ocf_engine_traverse(req);
-
 	mapped = ocf_engine_is_mapped(req);
+
 	if (mapped) {
+		/* We are holding hash buckets read lock, so we can attempt
+		 * per-cacheline locking fast path, which would fail either if
+		 * cachelines are already locked without putting request to a
+		 * waiter list */
 		lock_type = engine_cbs->get_lock_type(req);
-		lock = lock_clines(req, lock_type, engine_cbs->resume);
+		lock = trylock_clines(req, lock_type);
+
+		if (lock == OCF_LOCK_ACQUIRED) {
+			/* Cachelines are mapped and locked,  we don't need the
+			 * hash bucket lock any more */
+			ocf_req_hash_unlock_rd(req);
+		} else {
+			/* Failed to acquire cachelines lock in fast path,
+			 * acquire hash-buckets write lock and attempt the lock
+			 * again, allowing slow path and async assignment of
+			 * the lock. */
+			ocf_req_hash_lock_upgrade(req);
+			lock = lock_clines(req, lock_type, engine_cbs->resume);
+			ocf_req_hash_unlock_wr(req);
+		}
 	} else {
+		/* check if request should promote cachelines */
 		promote = ocf_promotion_req_should_promote(
 				req->cache->promotion_policy, req);
-		if (!promote)
+		if (!promote) {
 			req->info.mapping_error = 1;
+			ocf_req_hash_unlock_rd(req);
+		}
 	}
 
-	if (mapped || !promote) {
-		ocf_req_hash_unlock_rd(req);
-	} else {
-		/* need to attempt mapping / eviction */
-		ocf_req_hash_lock_upgrade(req); /*- Metadata WR access, eviction -----*/
+	if (!mapped && promote) {
+		/* Need to map (potentially evict) cachelines. Mapping must be
+		 * performed holding (at least) hash-bucket write lock */
+		ocf_req_hash_lock_upgrade(req);
+
 		ocf_engine_map(req);
-		ocf_req_hash_unlock_wr(req); /*- END Metadata WR access ---------*/
+		if (!req->info.mapping_error) {
+			/* Lock cachelines, potentially putting the request on
+			 * waiter list */
+			lock_type = engine_cbs->get_lock_type(req);
+			lock = trylock_clines(req, lock_type);
+			if (lock != OCF_LOCK_ACQUIRED) {
+				lock = lock_clines(req, lock_type,
+						engine_cbs->resume);
+			}
+		}
+
+		/* At this point the request is mapped or we need to evict,
+		 * which is done under global metadata lock */
+		ocf_req_hash_unlock_wr(req);
 
 		if (req->info.mapping_error) {
+			/* Not mapped - evict cachelines */
 			ocf_metadata_start_exclusive_access(metadata_lock);
-			/* Now there is exclusive access for metadata. May
-			 * traverse once again and evict cachelines if needed.
-			 */
 			if (ocf_engine_evict(req) == LOOKUP_MAPPED)
 				ocf_engine_map(req);
+			if (!req->info.mapping_error) {
+				lock_type = engine_cbs->get_lock_type(req);
+				lock = trylock_clines(req, lock_type);
+				if (lock != OCF_LOCK_ACQUIRED) {
+					lock = lock_clines(req, lock_type,
+							engine_cbs->resume);
+				}
+			}
 			ocf_metadata_end_exclusive_access(metadata_lock);
 		}
-
-		if (!req->info.mapping_error) {
-			lock_type = engine_cbs->get_lock_type(req);
-			lock = lock_clines(req, lock_type, engine_cbs->resume);
-		}
 	}
-
 
 	return lock;
 }
