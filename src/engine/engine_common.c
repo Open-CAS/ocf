@@ -538,15 +538,14 @@ void inc_fallback_pt_error_counter(ocf_cache_t cache)
 
 static int _ocf_engine_refresh(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
 	int result;
 
-	OCF_METADATA_LOCK_RD();
 	/* Check under metadata RD lock */
+	ocf_req_hash_lock_rd(req);
 
 	result = ocf_engine_check(req);
 
-	OCF_METADATA_UNLOCK_RD();
+	ocf_req_hash_unlock_rd(req);
 
 	if (result == 0) {
 

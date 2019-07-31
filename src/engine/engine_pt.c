@@ -52,16 +52,14 @@ static inline void _ocf_read_pt_submit(struct ocf_request *req)
 
 int ocf_read_pt_do(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
 	if (req->info.dirty_any) {
-		OCF_METADATA_LOCK_RD();
+		ocf_req_hash_lock_rd(req);
 		/* Need to clean, start it */
 		ocf_engine_clean(req);
-		OCF_METADATA_UNLOCK_RD();
+		ocf_req_hash_unlock_rd(req);
 
 		/* Do not processing, because first we need to clean request */
 		ocf_req_put(req);
@@ -72,14 +70,14 @@ int ocf_read_pt_do(struct ocf_request *req)
 	if (req->info.re_part) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
-		OCF_METADATA_LOCK_WR();
+		ocf_req_hash_lock_wr(req);
 
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
 		ocf_part_move(req);
 
-		OCF_METADATA_UNLOCK_WR();
+		ocf_req_hash_unlock_wr(req);
 	}
 
 	/* Submit read IO to the core */
@@ -105,7 +103,6 @@ int ocf_read_pt(struct ocf_request *req)
 {
 	bool use_cache = false;
 	int lock = OCF_LOCK_NOT_ACQUIRED;
-	struct ocf_cache *cache = req->cache;
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -117,7 +114,8 @@ int ocf_read_pt(struct ocf_request *req)
 	/* Set resume io_if */
 	req->io_if = &_io_if_pt_resume;
 
-	OCF_METADATA_LOCK_RD(); /*- Metadata RD access -----------------------*/
+	ocf_req_hash(req);
+	ocf_req_hash_lock_rd(req);
 
 	/* Traverse request to check if there are mapped cache lines */
 	ocf_engine_traverse(req);
@@ -136,7 +134,7 @@ int ocf_read_pt(struct ocf_request *req)
 		}
 	}
 
-	OCF_METADATA_UNLOCK_RD(); /*- END Metadata RD access -----------------*/
+	ocf_req_hash_unlock_rd(req);
 
 	if (use_cache) {
 		/*

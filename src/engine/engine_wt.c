@@ -97,19 +97,17 @@ static inline void _ocf_write_wt_submit(struct ocf_request *req)
 
 static void _ocf_write_wt_update_bits(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-
 	if (ocf_engine_is_miss(req)) {
-		OCF_METADATA_LOCK_RD();
+		ocf_req_hash_lock_rd(req);
 
 		/* Update valid status bits */
 		ocf_set_valid_map_info(req);
 
-		OCF_METADATA_UNLOCK_RD();
+		ocf_req_hash_unlock_rd(req);
 	}
 
 	if (req->info.dirty_any) {
-		OCF_METADATA_LOCK_WR();
+		ocf_req_hash_lock_wr(req);
 
 		/* Writes goes to SDD and HDD, need to update status bits from
 		 * dirty to clean
@@ -117,20 +115,20 @@ static void _ocf_write_wt_update_bits(struct ocf_request *req)
 
 		ocf_set_clean_map_info(req);
 
-		OCF_METADATA_UNLOCK_WR();
+		ocf_req_hash_unlock_wr(req);
 	}
 
 	if (req->info.re_part) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
-		OCF_METADATA_LOCK_WR();
+		ocf_req_hash_lock_wr(req);
 
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
 		ocf_part_move(req);
 
-		OCF_METADATA_UNLOCK_WR();
+		ocf_req_hash_unlock_wr(req);
 	}
 }
 
@@ -164,8 +162,8 @@ int ocf_write_wt(struct ocf_request *req)
 {
 	bool mapped;
 	int lock = OCF_LOCK_NOT_ACQUIRED;
-	struct ocf_cache *cache = req->cache;
 	bool promote = true;
+	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
 
 	ocf_io_start(&req->ioi.io);
 
@@ -175,7 +173,8 @@ int ocf_write_wt(struct ocf_request *req)
 	/* Set resume io_if */
 	req->io_if = &_io_if_wt_resume;
 
-	OCF_METADATA_LOCK_RD(); /*- Metadata READ access, No eviction --------*/
+	ocf_req_hash(req);
+	ocf_req_hash_lock_rd(req); /*- Metadata READ access, No eviction --------*/
 
 	/* Travers to check if request is mapped fully */
 	ocf_engine_traverse(req);
@@ -184,31 +183,32 @@ int ocf_write_wt(struct ocf_request *req)
 	if (mapped) {
 		/* All cache line are mapped, lock request for WRITE access */
 		lock = ocf_req_async_lock_wr(req, ocf_engine_on_resume);
-	}
-
-	if (!mapped) {
+	} else {
 		promote = ocf_promotion_req_should_promote(
-				cache->promotion_policy, req);
+				req->cache->promotion_policy, req);
 	}
 
-	OCF_METADATA_UNLOCK_RD(); /*- END Metadata READ access----------------*/
+	if (mapped || !promote) {
+		ocf_req_hash_unlock_rd(req);
+	} else {
+		/*- Metadata RD access ---------------------------------------*/
+		ocf_req_hash_lock_upgrade(req);
+		ocf_engine_map(req);
+		ocf_req_hash_unlock_wr(req);
 
-	if (!mapped && promote) {
-		OCF_METADATA_LOCK_WR(); /*- Metadata WR access, eviction -----*/
-
-		/* Now there is exclusive access for metadata. May traverse once
-		 * again. If there are misses need to call eviction. This
-		 * process is called 'mapping'.
-		 */
-		if (ocf_engine_evict(req) == LOOKUP_MAPPED)
-			ocf_engine_map(req);
+		if (req->info.mapping_error) {
+			/* Still not mapped - evict cachelines under global
+			 * metadata write lock */
+			ocf_metadata_start_exclusive_access(metadata_lock);
+			if (ocf_engine_evict(req) == LOOKUP_MAPPED)
+				ocf_engine_map(req);
+			ocf_metadata_end_exclusive_access(metadata_lock);
+		}
 
 		if (!req->info.mapping_error) {
 			/* Lock request for WRITE access */
 			lock = ocf_req_async_lock_wr(req, ocf_engine_on_resume);
 		}
-
-		OCF_METADATA_UNLOCK_WR(); /*- END Metadata WR access ---------*/
 	}
 
 	if (promote && !req->info.mapping_error) {

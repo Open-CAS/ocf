@@ -43,9 +43,9 @@ static int _ocf_invalidate_do(struct ocf_request *req)
 
 	ENV_BUG_ON(env_atomic_read(&req->req_remaining));
 
-	OCF_METADATA_LOCK_WR();
+	ocf_req_hash_lock_wr(req);
 	ocf_purge_map_info(req);
-	OCF_METADATA_UNLOCK_WR();
+	ocf_req_hash_unlock_wr(req);
 
 	env_atomic_inc(&req->req_remaining);
 

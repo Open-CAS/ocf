@@ -18,19 +18,17 @@
 
 static int ocf_zero_purge(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-
 	if (req->error) {
 		ocf_engine_error(req, true, "Failed to discard data on cache");
 	} else {
 		/* There are mapped cache line, need to remove them */
 
-		OCF_METADATA_LOCK_WR(); /*- Metadata WR access ---------------*/
+		ocf_req_hash_lock_wr(req); /*- Metadata WR access ---------------*/
 
 		/* Remove mapped cache lines from metadata */
 		ocf_purge_map_info(req);
 
-		OCF_METADATA_UNLOCK_WR(); /*- END Metadata WR access ---------*/
+		ocf_req_hash_unlock_wr(req); /*- END Metadata WR access ---------*/
 	}
 
 	ocf_req_unlock_wr(req);
@@ -141,6 +139,10 @@ void ocf_engine_zero_line(struct ocf_request *req)
 	int lock = OCF_LOCK_NOT_ACQUIRED;
 
 	ENV_BUG_ON(req->core_line_count != 1);
+
+	/* No hash bucket locking here - ocf_engine_zero_line caller must hold
+	 * metadata global write lock, so we have exclusive access to all hash
+	 * buckets here. */
 
 	/* Traverse to check if request is mapped */
 	ocf_engine_traverse(req);
