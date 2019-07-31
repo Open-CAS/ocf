@@ -89,6 +89,8 @@ struct ocf_volume_ops {
 	 *
 	 * @param[in] volume Volume
 	 * @param[in] volume_params optional volume parameters, opaque to OCF
+	 *
+	 * @return Zero on success, otherwise error code
 	 */
 	int (*open)(ocf_volume_t volume, void *volume_params);
 
@@ -100,16 +102,20 @@ struct ocf_volume_ops {
 	void (*close)(ocf_volume_t volume);
 
 	/**
-	 * @brief Close volume
+	 * @brief Get maximum io size
 	 *
 	 * @param[in] volume Volume
+	 *
+	 * @return Maximum io size in bytes
 	 */
 	unsigned int (*get_max_io_size)(ocf_volume_t volume);
 
 	/**
-	 * @brief Close volume
+	 * @brief Get volume length
 	 *
 	 * @param[in] volume Volume
+	 *
+	 * @return Volume lenght in bytes
 	 */
 	uint64_t (*get_length)(ocf_volume_t volume);
 };
