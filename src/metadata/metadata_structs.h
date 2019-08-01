@@ -435,6 +435,7 @@ struct ocf_metadata_lock
 	env_spinlock eviction; /*!< Fast lock for eviction policy */
 	env_rwsem *hash; /*!< Hash bucket locks */
 	uint32_t num_hash_entries;  /*!< Hash bucket count */
+	ocf_cache_t cache;  /*!< Parent cache object */
 };
 
 /**

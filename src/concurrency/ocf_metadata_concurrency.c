@@ -4,6 +4,7 @@
  */
 
 #include "ocf_metadata_concurrency.h"
+#include "../metadata/metadata_misc.h"
 
 void ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 {
@@ -20,11 +21,12 @@ void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock)
 }
 
 int ocf_metadata_concurrency_attached_init(
-		struct ocf_metadata_lock *metadata_lock,
+		struct ocf_metadata_lock *metadata_lock, ocf_cache_t cache,
 		uint64_t hash_table_entries)
 {
 	uint64_t i;
 
+	metadata_lock->cache = cache;
 	metadata_lock->num_hash_entries = hash_table_entries;
 	metadata_lock->hash = env_vzalloc(sizeof(env_rwsem) *
 			hash_table_entries);
@@ -130,6 +132,49 @@ int ocf_metadata_hash_try_lock(struct ocf_metadata_lock *metadata_lock,
 		return -1;
 
 	return 0;
+}
+
+/* NOTE: attempt to acquire hash lock for multiple core lines may end up
+ * in deadlock. In order to hash lock multiple core lines safely, use
+ * ocf_req_hash_lock_* functions */
+void ocf_metadata_hash_lock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	ocf_metadata_start_shared_access(metadata_lock);
+	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_RD);
+}
+
+void ocf_metadata_hash_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_RD);
+	ocf_metadata_end_shared_access(metadata_lock);
+}
+
+void ocf_metadata_hash_lock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	ocf_metadata_start_shared_access(metadata_lock);
+	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_WR);
+}
+
+void ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_WR);
+	ocf_metadata_end_shared_access(metadata_lock);
 }
 
 #define _NUM_HASH_ENTRIES req->cache->metadata.lock.num_hash_entries

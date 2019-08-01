@@ -15,7 +15,7 @@ void ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock);
 void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock);
 
 int ocf_metadata_concurrency_attached_init(
-		struct ocf_metadata_lock *metadata_lock,
+		struct ocf_metadata_lock *metadata_lock, ocf_cache_t cache,
 		uint64_t hash_table_entries);
 
 void ocf_metadata_concurrency_attached_deinit(
@@ -113,6 +113,16 @@ static inline void ocf_metadata_status_bits_unlock(
 		ocf_metadata_status_bits_unlock(&cache->metadata.lock, \
 				OCF_METADATA_WR)
 
+void ocf_metadata_hash_lock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+void ocf_metadata_hash_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+void ocf_metadata_hash_lock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+void ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+
+/* lock entire request in deadlock-free manner */
 void ocf_req_hash_lock_rd(struct ocf_request *req);
 void ocf_req_hash_unlock_rd(struct ocf_request *req);
 void ocf_req_hash_lock_wr(struct ocf_request *req);
