@@ -85,8 +85,10 @@ struct ocf_core {
 
 	env_atomic flushed;
 
-	/* This bit means that object is open*/
+	/* This bit means that object is open */
 	uint32_t opened : 1;
+	/* This bit means that core is added into cache */
+	uint32_t added : 1;
 
 	struct ocf_counters_core *counters;
 };
