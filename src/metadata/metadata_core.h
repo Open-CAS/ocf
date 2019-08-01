@@ -36,12 +36,6 @@ static inline ocf_core_id_t ocf_metadata_get_core_id(
 	return cache->metadata.iface.get_core_id(cache, line);
 }
 
-static inline uint64_t ocf_metadata_get_core_sector(
-		struct ocf_cache *cache, ocf_cache_line_t line)
-{
-	return cache->metadata.iface.get_core_sector(cache, line);
-}
-
 static inline struct ocf_metadata_uuid *ocf_metadata_get_core_uuid(
 		struct ocf_cache *cache, ocf_core_id_t core_id)
 {

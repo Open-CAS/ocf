@@ -340,9 +340,6 @@ struct ocf_metadata_iface {
 	ocf_core_id_t (*get_core_id)(struct ocf_cache *cache,
 			ocf_cache_line_t line);
 
-	uint64_t (*get_core_sector)(struct ocf_cache *cache,
-			ocf_cache_line_t line);
-
 	void (*get_core_and_part_id)(struct ocf_cache *cache,
 			ocf_cache_line_t line, ocf_core_id_t *core_id,
 			ocf_part_id_t *part_id);

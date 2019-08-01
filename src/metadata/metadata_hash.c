@@ -2253,24 +2253,6 @@ static ocf_core_id_t ocf_metadata_hash_get_core_id(
 	return OCF_CORE_MAX;
 }
 
-static uint64_t ocf_metadata_hash_get_core_sector(
-		struct ocf_cache *cache, ocf_cache_line_t line)
-{
-	const struct ocf_metadata_map *collision;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv;
-
-	collision = ocf_metadata_raw_rd_access(cache,
-			&(ctrl->raw_desc[metadata_segment_collision]), line,
-			ctrl->mapping_size);
-
-	if (collision)
-		return collision->core_line;
-
-	ocf_metadata_error(cache);
-	return ULLONG_MAX;
-}
-
 static struct ocf_metadata_uuid *ocf_metadata_hash_get_core_uuid(
 		struct ocf_cache *cache, ocf_core_id_t core_id)
 {
@@ -2844,7 +2826,6 @@ static const struct ocf_metadata_iface metadata_hash_iface = {
 	.set_core_info = ocf_metadata_hash_set_core_info,
 	.get_core_info = ocf_metadata_hash_get_core_info,
 	.get_core_id = ocf_metadata_hash_get_core_id,
-	.get_core_sector = ocf_metadata_hash_get_core_sector,
 	.get_core_uuid  = ocf_metadata_hash_get_core_uuid,
 
 	/*
