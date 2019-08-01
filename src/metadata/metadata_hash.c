@@ -2601,40 +2601,6 @@ static void ocf_metadata_hash_get_collision_info(
 	}
 }
 
-static ocf_cache_line_t ocf_metadata_hash_get_collision_next(
-		struct ocf_cache *cache, ocf_cache_line_t line)
-{
-	const struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv;
-
-	info = ocf_metadata_raw_rd_access(cache,
-			&(ctrl->raw_desc[metadata_segment_list_info]), line,
-			sizeof(*info));
-	if (info)
-		return info->next_col;
-
-	ocf_metadata_error(cache);
-	return cache->device->collision_table_entries;
-}
-
-static ocf_cache_line_t ocf_metadata_hash_get_collision_prev(
-		struct ocf_cache *cache, ocf_cache_line_t line)
-{
-	const struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv;
-
-	info = ocf_metadata_raw_rd_access(cache,
-			&(ctrl->raw_desc[metadata_segment_list_info]), line,
-			sizeof(*info));
-	if (info)
-		return info->prev_col;
-
-	ocf_metadata_error(cache);
-	return cache->device->collision_table_entries;
-}
-
 /*******************************************************************************
  *  Partition
  ******************************************************************************/
@@ -2841,8 +2807,6 @@ static const struct ocf_metadata_iface metadata_hash_iface = {
 	.set_collision_info = ocf_metadata_hash_set_collision_info,
 	.set_collision_next = ocf_metadata_hash_set_collision_next,
 	.set_collision_prev = ocf_metadata_hash_set_collision_prev,
-	.get_collision_next = ocf_metadata_hash_get_collision_next,
-	.get_collision_prev = ocf_metadata_hash_get_collision_prev,
 
 	/*
 	 * Partition Info

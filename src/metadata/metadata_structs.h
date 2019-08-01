@@ -361,12 +361,6 @@ struct ocf_metadata_iface {
 	void (*set_collision_prev)(struct ocf_cache *cache,
 				ocf_cache_line_t line, ocf_cache_line_t prev);
 
-	ocf_cache_line_t (*get_collision_next)(struct ocf_cache *cache,
-				ocf_cache_line_t line);
-
-	ocf_cache_line_t (*get_collision_prev)(struct ocf_cache *cache,
-					ocf_cache_line_t line);
-
 	ocf_part_id_t (*get_partition_id)(struct ocf_cache *cache,
 			ocf_cache_line_t line);
 
