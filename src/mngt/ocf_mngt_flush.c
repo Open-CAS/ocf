@@ -385,9 +385,9 @@ static int _ofc_flush_container_step(struct ocf_request *req)
 	struct flush_container *fc = req->priv;
 	ocf_cache_t cache = fc->cache;
 
-	ocf_metadata_lock(cache, OCF_METADATA_WR);
+	OCF_METADATA_LOCK_WR();
 	_ocf_mngt_flush_portion(fc);
-	ocf_metadata_unlock(cache, OCF_METADATA_WR);
+	OCF_METADATA_UNLOCK_WR();
 
 	return 0;
 }
@@ -501,7 +501,7 @@ static void _ocf_mngt_flush_core(
 		return;
 	}
 
-	ocf_metadata_lock(cache, OCF_METADATA_WR);
+	OCF_METADATA_LOCK_WR();
 
 	ret = _ocf_mngt_get_sectors(cache, core_id,
 			&fc->flush_data, &fc->count);
@@ -509,7 +509,7 @@ static void _ocf_mngt_flush_core(
 		ocf_core_log(core, log_err, "Flushing operation aborted, "
 				"no memory\n");
 		env_vfree(fc);
-		ocf_metadata_unlock(cache, OCF_METADATA_WR);
+		OCF_METADATA_UNLOCK_WR();
 		complete(context, -OCF_ERR_NO_MEM);
 		return;
 	}
@@ -519,7 +519,7 @@ static void _ocf_mngt_flush_core(
 
 	_ocf_mngt_flush_containers(context, fc, 1, complete);
 
-	ocf_metadata_unlock(cache, OCF_METADATA_WR);
+	OCF_METADATA_UNLOCK_WR();
 }
 
 static void _ocf_mngt_flush_all_cores(
@@ -538,21 +538,21 @@ static void _ocf_mngt_flush_all_cores(
 
 	env_atomic_set(&cache->flush_in_progress, 1);
 
-	ocf_metadata_lock(cache, OCF_METADATA_WR);
+	OCF_METADATA_LOCK_WR();
 
 	/* Get all 'dirty' sectors for all cores */
 	ret = _ocf_mngt_get_flush_containers(cache, &fctbl, &fcnum);
 	if (ret) {
 		ocf_cache_log(cache, log_err, "Flushing operation aborted, "
 				"no memory\n");
-		ocf_metadata_unlock(cache, OCF_METADATA_WR);
+		OCF_METADATA_UNLOCK_WR();
 		complete(context, ret);
 		return;
 	}
 
 	_ocf_mngt_flush_containers(context, fctbl, fcnum, complete);
 
-	ocf_metadata_unlock(cache, OCF_METADATA_WR);
+	OCF_METADATA_UNLOCK_WR();
 }
 
 static void _ocf_mngt_flush_all_cores_complete(
@@ -907,7 +907,7 @@ int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type)
 		return 0;
 	}
 
-	ocf_metadata_lock(cache, OCF_METADATA_WR);
+	OCF_METADATA_LOCK_WR();
 
 	if (cleaning_policy_ops[old_type].deinitialize)
 		cleaning_policy_ops[old_type].deinitialize(cache);
@@ -925,7 +925,7 @@ int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type)
 
 	cache->conf_meta->cleaning_policy_type = type;
 
-	ocf_metadata_unlock(cache, OCF_METADATA_WR);
+	OCF_METADATA_UNLOCK_WR();
 
 	ocf_cache_log(cache, log_info, "Changing cleaning policy from "
 			"%s to %s\n", cleaning_policy_ops[old_type].name,
@@ -957,12 +957,12 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
 	if (!cleaning_policy_ops[type].set_cleaning_param)
 		return -OCF_ERR_INVAL;
 
-	ocf_metadata_lock(cache, OCF_METADATA_WR);
+	OCF_METADATA_LOCK_WR();
 
 	ret = cleaning_policy_ops[type].set_cleaning_param(cache,
 			param_id, param_value);
 
-	ocf_metadata_unlock(cache, OCF_METADATA_WR);
+	OCF_METADATA_UNLOCK_WR();
 
 	return ret;
 }
