@@ -377,13 +377,6 @@ static int _ocf_mngt_init_instance_add_cores(
 
 	OCF_ASSERT_PLUGGED(cache);
 
-	if (cache->conf_meta->cachelines !=
-	    ocf_metadata_get_cachelines_count(cache)) {
-		ocf_cache_log(cache, log_err,
-				"ERROR: Cache device size mismatch!\n");
-		return -OCF_ERR_START_CACHE_FAIL;
-	}
-
 	/* Count value will be re-calculated on the basis of 'added' flag */
 	cache->conf_meta->core_count = 0;
 
@@ -1302,6 +1295,14 @@ static void _ocf_mngt_attach_load_superblock_complete(void *priv, int error)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
+
+	if (cache->conf_meta->cachelines !=
+	    ocf_metadata_get_cachelines_count(cache)) {
+		ocf_cache_log(cache, log_err,
+				"ERROR: Cache device size mismatch!\n");
+		OCF_PL_FINISH_RET(context->pipeline,
+				-OCF_ERR_START_CACHE_FAIL);
+	}
 
 	if (error) {
 		ocf_cache_log(cache, log_err,
