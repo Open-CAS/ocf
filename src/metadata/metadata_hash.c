@@ -2347,18 +2347,6 @@ static void ocf_metadata_hash_set_hash(struct ocf_cache *cache,
 		ocf_metadata_error(cache);
 }
 
-/*
- * Hash Table - Get Entries
- */
-static ocf_cache_line_t ocf_metadata_hash_entries_hash(
-		struct ocf_cache *cache)
-{
-	struct ocf_metadata_hash_ctrl *ctrl
-		= (struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv;
-
-	return ctrl->raw_desc[metadata_segment_hash].entries;
-}
-
 /*******************************************************************************
  * Cleaning Policy
  ******************************************************************************/
@@ -2767,7 +2755,6 @@ static const struct ocf_metadata_iface metadata_hash_iface = {
 	 */
 	.get_hash = ocf_metadata_hash_get_hash,
 	.set_hash = ocf_metadata_hash_set_hash,
-	.entries_hash = ocf_metadata_hash_entries_hash,
 
 	/*
 	 * Cleaning Policy
