@@ -39,7 +39,7 @@ int ocf_metadata_init(struct ocf_cache *cache,
 		return ret;
 	}
 
-	ocf_metadata_concurrency_init(cache);
+	ocf_metadata_concurrency_init(&cache->metadata.lock);
 
 	return 0;
 }
@@ -73,7 +73,7 @@ void ocf_metadata_deinit(struct ocf_cache *cache)
 		cache->metadata.iface.deinit(cache);
 	}
 
-	ocf_metadata_concurrency_deinit(cache);
+	ocf_metadata_concurrency_deinit(&cache->metadata.lock);
 
 	ocf_metadata_io_deinit(cache);
 }

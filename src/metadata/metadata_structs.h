@@ -428,6 +428,15 @@ struct ocf_cache_line_settings {
 	uint64_t sector_end;
 };
 
+struct ocf_metadata_lock
+{
+	env_rwsem global; /*!< global metadata lock (GML) */
+	env_rwlock status; /*!< Fast lock for status bits */
+	env_spinlock eviction; /*!< Fast lock for eviction policy */
+	env_rwsem *hash; /*!< Hash bucket locks */
+	uint32_t num_hash_entries;  /*!< Hash bucket count */
+};
+
 /**
  * @brief Metadata control structure
  */
@@ -444,11 +453,7 @@ struct ocf_metadata {
 	bool is_volatile;
 		/*!< true if metadata used in volatile mode (RAM only) */
 
-	struct {
-		env_rwsem collision; /*!< lock for collision table */
-		env_rwlock status; /*!< Fast lock for status bits */
-		env_spinlock eviction; /*!< Fast lock for eviction policy */
-	} lock;
+	struct ocf_metadata_lock lock;
 };
 
 #endif /* __METADATA_STRUCTS_H__ */
