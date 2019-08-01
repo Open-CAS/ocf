@@ -117,6 +117,7 @@ void cache_mngt_core_remove_from_cache(ocf_core_t core)
 	env_free(core->counters);
 	core->counters = NULL;
 	env_bit_clear(core_id, cache->conf_meta->valid_core_bitmap);
+	core->conf_meta->added = false;
 
 	if (!core->opened && --cache->ocf_core_inactive_count == 0)
 		env_bit_clear(ocf_cache_state_incomplete, &cache->cache_state);
