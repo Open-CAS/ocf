@@ -183,7 +183,7 @@ static inline ocf_core_t ocf_cache_get_core(ocf_cache_t cache,
 
 #define for_each_core(_cache, _core, _id) \
 	for_each_core_all(_cache, _core, _id) \
-		if (_core->conf_meta->added)
+		if (_core->conf_meta->valid)
 
 #define ocf_cache_log_prefix(cache, lvl, prefix, fmt, ...) \
 	ocf_log_prefix(ocf_cache_get_ctx(cache), lvl, "%s" prefix, \

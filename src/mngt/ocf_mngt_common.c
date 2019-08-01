@@ -99,7 +99,7 @@ void cache_mngt_core_remove_from_meta(ocf_core_t core)
 	OCF_METADATA_LOCK_WR();
 
 	/* In metadata mark data this core was removed from cache */
-	core->conf_meta->added = false;
+	core->conf_meta->valid = false;
 
 	/* Clear UUID of core */
 	ocf_mngt_core_clear_uuid_metadata(core);

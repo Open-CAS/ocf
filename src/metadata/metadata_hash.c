@@ -640,7 +640,7 @@ static void ocf_metadata_query_cores_end(struct query_cores_context *context,
 		ocf_metadata_hash_query_cores_data_read(ctx,
 				&context->data.core_config,
 				&core_config, sizeof(core_config));
-		if (core_config.added) {
+		if (core_config.valid) {
 			env_bit_set(i, valid_core_bitmap);
 			++core_count;
 		}

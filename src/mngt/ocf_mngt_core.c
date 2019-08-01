@@ -115,7 +115,7 @@ static void _ocf_mngt_cache_add_core_handle_error(
 	if (context->flags.counters_allocated) {
 		env_bit_clear(core_id,
 				cache->conf_meta->valid_core_bitmap);
-		core->conf_meta->added = false;
+		core->conf_meta->valid = false;
 		core->opened = false;
 
 		env_free(core->counters);
@@ -419,7 +419,7 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 
 	/* In metadata mark data this core was added into cache */
 	env_bit_set(core_id, cache->conf_meta->valid_core_bitmap);
-	core->conf_meta->added = true;
+	core->conf_meta->valid = true;
 	core->opened = true;
 
 	/* Set default cache parameters for sequential */
