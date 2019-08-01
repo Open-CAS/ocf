@@ -292,7 +292,6 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
 	ocf_error_t result;
 
 	/* Lock to ensure consistency */
-	OCF_METADATA_LOCK_WR();
 
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
@@ -303,7 +302,6 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
 	if (result) {
 		ocf_cache_log(cache, log_err,
 				"Cannot initialize cleaning policy\n");
-		OCF_METADATA_UNLOCK_WR();
 		return result;
 	}
 
@@ -313,24 +311,19 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
 		ocf_cache_log(cache, log_err,
 				"Cannot initialize promotion policy\n");
 		__deinit_cleaning_policy(cache);
-		OCF_METADATA_UNLOCK_WR();
 		return result;
 	}
-
-	OCF_METADATA_UNLOCK_WR();
 
 	return 0;
 }
 
 static void init_attached_data_structures_recovery(ocf_cache_t cache)
 {
-	OCF_METADATA_LOCK_WR();
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
 	__init_partitions_attached(cache);
 	__reset_stats(cache);
 	__init_metadata_version(cache);
-	OCF_METADATA_UNLOCK_WR();
 }
 
 /****************************************************************
@@ -2242,11 +2235,11 @@ int ocf_mngt_cache_promotion_set_policy(ocf_cache_t cache, ocf_promotion_t type)
 {
 	int result;
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	result = ocf_promotion_set_policy(cache->promotion_policy, type);
 
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	return result;
 }
@@ -2255,11 +2248,11 @@ ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache)
 {
 	ocf_promotion_t result;
 
-	OCF_METADATA_LOCK_RD();
+	ocf_metadata_start_shared_access(&cache->metadata.lock);
 
 	result = cache->conf_meta->promotion_policy_type;
 
-	OCF_METADATA_UNLOCK_RD();
+	ocf_metadata_end_shared_access(&cache->metadata.lock);
 
 	return result;
 }
@@ -2269,12 +2262,12 @@ int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
 {
 	int result;
 
-	OCF_METADATA_LOCK_RD();
+	ocf_metadata_start_shared_access(&cache->metadata.lock);
 
 	result = ocf_promotion_get_param(cache->promotion_policy, param_id,
 			param_value);
 
-	OCF_METADATA_UNLOCK_RD();
+	ocf_metadata_end_shared_access(&cache->metadata.lock);
 
 	return result;
 }
@@ -2284,12 +2277,12 @@ int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
 {
 	int result;
 
-	OCF_METADATA_LOCK_RD();
+	ocf_metadata_start_shared_access(&cache->metadata.lock);
 
 	result = ocf_promotion_set_param(cache->promotion_policy, param_id,
 			param_value);
 
-	OCF_METADATA_UNLOCK_RD();
+	ocf_metadata_end_shared_access(&cache->metadata.lock);
 
 	return result;
 }

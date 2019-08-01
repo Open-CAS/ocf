@@ -320,7 +320,7 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 	/* Update metadata */
 	for (i = 0; i < req->core_line_count; i++, iter++) {
 		if (iter->status == LOOKUP_MISS)
@@ -345,7 +345,7 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 	}
 
 	ocf_metadata_flush_do_asynch(cache, req, _ocf_cleaner_metadata_io_end);
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	return 0;
 }

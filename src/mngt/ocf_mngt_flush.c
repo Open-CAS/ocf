@@ -385,9 +385,9 @@ static int _ofc_flush_container_step(struct ocf_request *req)
 	struct flush_container *fc = req->priv;
 	ocf_cache_t cache = fc->cache;
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 	_ocf_mngt_flush_portion(fc);
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	return 0;
 }
@@ -501,7 +501,7 @@ static void _ocf_mngt_flush_core(
 		return;
 	}
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	ret = _ocf_mngt_get_sectors(cache, core_id,
 			&fc->flush_data, &fc->count);
@@ -509,7 +509,7 @@ static void _ocf_mngt_flush_core(
 		ocf_core_log(core, log_err, "Flushing operation aborted, "
 				"no memory\n");
 		env_vfree(fc);
-		OCF_METADATA_UNLOCK_WR();
+		ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 		complete(context, -OCF_ERR_NO_MEM);
 		return;
 	}
@@ -519,7 +519,7 @@ static void _ocf_mngt_flush_core(
 
 	_ocf_mngt_flush_containers(context, fc, 1, complete);
 
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 }
 
 static void _ocf_mngt_flush_all_cores(
@@ -538,21 +538,21 @@ static void _ocf_mngt_flush_all_cores(
 
 	env_atomic_set(&cache->flush_in_progress, 1);
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	/* Get all 'dirty' sectors for all cores */
 	ret = _ocf_mngt_get_flush_containers(cache, &fctbl, &fcnum);
 	if (ret) {
 		ocf_cache_log(cache, log_err, "Flushing operation aborted, "
 				"no memory\n");
-		OCF_METADATA_UNLOCK_WR();
+		ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 		complete(context, ret);
 		return;
 	}
 
 	_ocf_mngt_flush_containers(context, fctbl, fcnum, complete);
 
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 }
 
 static void _ocf_mngt_flush_all_cores_complete(
@@ -774,10 +774,10 @@ static void _ocf_mngt_cache_invalidate(ocf_pipeline_t pipeline, void *priv,
 	ocf_cache_t cache = context->cache;
 	int result;
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 	result = ocf_metadata_sparse_range(cache, context->purge.core_id, 0,
 			context->purge.end_byte);
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
@@ -907,7 +907,7 @@ int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type)
 		return 0;
 	}
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	if (cleaning_policy_ops[old_type].deinitialize)
 		cleaning_policy_ops[old_type].deinitialize(cache);
@@ -925,7 +925,7 @@ int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type)
 
 	cache->conf_meta->cleaning_policy_type = type;
 
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	ocf_cache_log(cache, log_info, "Changing cleaning policy from "
 			"%s to %s\n", cleaning_policy_ops[old_type].name,
@@ -957,12 +957,12 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
 	if (!cleaning_policy_ops[type].set_cleaning_param)
 		return -OCF_ERR_INVAL;
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	ret = cleaning_policy_ops[type].set_cleaning_param(cache,
 			param_id, param_value);
 
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	return ret;
 }

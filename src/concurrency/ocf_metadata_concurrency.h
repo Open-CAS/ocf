@@ -79,24 +79,6 @@ static inline void ocf_metadata_status_bits_unlock(
 		ENV_BUG();
 }
 
-#define OCF_METADATA_LOCK_RD() ocf_metadata_start_shared_access( \
-		&cache->metadata.lock)
-
-#define OCF_METADATA_UNLOCK_RD() ocf_metadata_end_shared_access( \
-		&cache->metadata.lock)
-
-#define OCF_METADATA_LOCK_RD_TRY() ocf_metadata_try_start_shared_access( \
-		&cache->metadata.lock)
-
-#define OCF_METADATA_LOCK_WR() ocf_metadata_start_exclusive_access( \
-		&cache->metadata.lock)
-
-#define OCF_METADATA_LOCK_WR_TRY() \
-		ocf_metadata_try_start_exclusive_access(&cache->metadata.lock)
-
-#define OCF_METADATA_UNLOCK_WR() ocf_metadata_end_exclusive_access( \
-		&cache->metadata.lock)
-
 #define OCF_METADATA_BITS_LOCK_RD() \
 		ocf_metadata_status_bits_lock(&cache->metadata.lock, \
 				OCF_METADATA_RD)

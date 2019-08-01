@@ -39,7 +39,7 @@ void cache_mngt_core_remove_from_cleaning_pol(ocf_core_t core)
 	ocf_core_id_t core_id = ocf_core_get_id(core);
 	ocf_cleaning_t clean_pol_type;
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	clean_pol_type = cache->conf_meta->cleaning_policy_type;
 	if (cache->core[core_id].opened) {
@@ -49,7 +49,7 @@ void cache_mngt_core_remove_from_cleaning_pol(ocf_core_t core)
 		}
 	}
 
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 }
 
 /* Deinitialize core metadata in attached metadata */
@@ -65,7 +65,7 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 	if (!core_size)
 		core_size = ~0ULL;
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	clean_pol_type = cache->conf_meta->cleaning_policy_type;
 	while (retry) {
@@ -82,13 +82,14 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 		}
 
 		if (retry) {
-			OCF_METADATA_UNLOCK_WR();
+			ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 			env_msleep(100);
-			OCF_METADATA_LOCK_WR();
+			ocf_metadata_start_exclusive_access(
+					&cache->metadata.lock);
 		}
 	}
 
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 }
 
 /* Mark core as removed in metadata */
@@ -96,7 +97,7 @@ void cache_mngt_core_remove_from_meta(ocf_core_t core)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	/* In metadata mark data this core was removed from cache */
 	core->conf_meta->valid = false;
@@ -105,7 +106,7 @@ void cache_mngt_core_remove_from_meta(ocf_core_t core)
 	ocf_mngt_core_clear_uuid_metadata(core);
 	core->conf_meta->seq_no = OCF_SEQ_NO_INVALID;
 
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 }
 
 /* Deinit in-memory structures related to this core */
