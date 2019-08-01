@@ -14,13 +14,14 @@ MAIN_DIRECTORY_OF_UNIT_TESTS = "../tests/"
 # Paths to all directories, in which tests are stored. All paths should be relative to
 # MAIN_DIRECTORY_OF_UNIT_TESTS
 DIRECTORIES_WITH_TESTS_LIST = ["cleaning/", "metadata/", "mngt/", "concurrency/", "engine/",
-                               "eviction/", "utils/"]
+                               "eviction/", "utils/", "promotion/"]
 
 # Paths to all directories containing files with sources. All paths should be relative to
 # MAIN_DIRECTORY_OF_TESTED_PROJECT
 DIRECTORIES_TO_INCLUDE_FROM_PROJECT_LIST = ["src/", "src/cleaning/", "src/engine/", "src/metadata/",
                                             "src/eviction/", "src/mngt/", "src/concurrency/",
-                                            "src/utils/", "inc/"]
+                                            "src/utils/", "inc/", "src/promotion/",
+                                            "src/promotion/nhit/"]
 
 # Paths to all directories from directory with tests, which should also be included
 DIRECTORIES_TO_INCLUDE_FROM_UT_LIST = ["ocf_env/"]

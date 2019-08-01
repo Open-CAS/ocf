@@ -210,7 +210,7 @@ typedef enum {
  * OCF supported promotion policy types
  */
 typedef enum {
-	ocf_promotion_nop = 0,
+	ocf_promotion_always = 0,
 		/*!< No promotion policy. Cache inserts are not filtered */
 
 	ocf_promotion_nhit,
@@ -219,7 +219,7 @@ typedef enum {
 	ocf_promotion_max,
 		/*!< Stopper of enumerator */
 
-	ocf_promotion_default = ocf_promotion_nop,
+	ocf_promotion_default = ocf_promotion_always,
 		/*!< Default promotion policy */
 } ocf_promotion_t;
 
