@@ -59,6 +59,9 @@ err:
 
 void ocf_volume_type_deinit(struct ocf_volume_type *type)
 {
+	if (type->properties->deinit)
+		type->properties->deinit();
+
 	ocf_io_allocator_deinit(&type->allocator);
 	env_free(type);
 }

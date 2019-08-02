@@ -209,6 +209,17 @@ void ocf_ctx_get(ocf_ctx_t ctx)
 /*
  *
  */
+static void ocf_ctx_unregister_volume_types(ocf_ctx_t ctx)
+{
+	int id;
+
+	for (id = 0; id < OCF_VOLUME_TYPE_MAX; id++)
+		ocf_ctx_unregister_volume_type(ctx, id);
+}
+
+/*
+ *
+ */
 void ocf_ctx_put(ocf_ctx_t ctx)
 {
 	OCF_CHECK_NULL(ctx);
@@ -221,7 +232,7 @@ void ocf_ctx_put(ocf_ctx_t ctx)
 	env_rmutex_unlock(&ctx->lock);
 
 	ocf_mngt_core_pool_deinit(ctx);
-	ocf_core_volume_type_deinit(ctx);
+	ocf_ctx_unregister_volume_types(ctx);
 	ocf_req_allocator_deinit(ctx);
 	ocf_logger_close(&ctx->logger);
 	env_free(ctx);

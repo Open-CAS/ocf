@@ -141,6 +141,9 @@ struct ocf_volume_properties {
 
 	struct ocf_io_ops io_ops;
 		/*!< IO operations */
+
+	void (*deinit)(void);
+		/*!< Deinitialize volume type */
 };
 
 /**

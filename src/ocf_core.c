@@ -532,6 +532,7 @@ const struct ocf_volume_properties ocf_core_volume_properties = {
 		.set_data = ocf_core_io_set_data,
 		.get_data = ocf_core_io_get_data,
 	},
+	.deinit = NULL,
 };
 
 static int ocf_core_io_allocator_init(ocf_io_allocator_t allocator,
@@ -583,9 +584,4 @@ int ocf_core_volume_type_init(ocf_ctx_t ctx)
 	return ocf_ctx_register_volume_type_extended(ctx, 0,
 			&ocf_core_volume_properties,
 			&ocf_core_volume_extended);
-}
-
-void ocf_core_volume_type_deinit(ocf_ctx_t ctx)
-{
-	ocf_ctx_unregister_volume_type(ctx, 0);
 }
