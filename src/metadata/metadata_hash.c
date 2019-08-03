@@ -2605,60 +2605,6 @@ static void ocf_metadata_hash_get_collision_info(
  *  Partition
  ******************************************************************************/
 
-static ocf_part_id_t ocf_metadata_hash_get_partition_id(
-		struct ocf_cache *cache, ocf_cache_line_t line)
-{
-	const struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv;
-
-	info = ocf_metadata_raw_rd_access(cache,
-			&(ctrl->raw_desc[metadata_segment_list_info]), line,
-			sizeof(*info));
-
-	if (info)
-		return info->partition_id;
-
-	ocf_metadata_error(cache);
-	return PARTITION_DEFAULT;
-}
-
-static ocf_cache_line_t ocf_metadata_hash_get_partition_next(
-		struct ocf_cache *cache, ocf_cache_line_t line)
-{
-	const struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv;
-
-	info = ocf_metadata_raw_rd_access(cache,
-			&(ctrl->raw_desc[metadata_segment_list_info]), line,
-			sizeof(*info));
-
-	if (info)
-		return info->partition_next;
-
-	ocf_metadata_error(cache);
-	return PARTITION_DEFAULT;
-}
-
-static ocf_cache_line_t ocf_metadata_hash_get_partition_prev(
-		struct ocf_cache *cache, ocf_cache_line_t line)
-{
-	const struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv;
-
-	info = ocf_metadata_raw_rd_access(cache,
-			&(ctrl->raw_desc[metadata_segment_list_info]), line,
-			sizeof(*info));
-
-	if (info)
-		return info->partition_prev;
-
-	ocf_metadata_error(cache);
-	return PARTITION_DEFAULT;
-}
-
 static void ocf_metadata_hash_get_partition_info(
 		struct ocf_cache *cache, ocf_cache_line_t line,
 		ocf_part_id_t *part_id, ocf_cache_line_t *next_line,
@@ -2811,9 +2757,6 @@ static const struct ocf_metadata_iface metadata_hash_iface = {
 	/*
 	 * Partition Info
 	 */
-	.get_partition_id = ocf_metadata_hash_get_partition_id,
-	.get_partition_next = ocf_metadata_hash_get_partition_next,
-	.get_partition_prev = ocf_metadata_hash_get_partition_prev,
 	.get_partition_info = ocf_metadata_hash_get_partition_info,
 	.set_partition_next = ocf_metadata_hash_set_partition_next,
 	.set_partition_prev = ocf_metadata_hash_set_partition_prev,
