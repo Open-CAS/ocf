@@ -43,30 +43,20 @@ uint32_t raw_dynamic_checksum(ocf_cache_t cache,
 /*
  * RAW DYNAMIC - Get specified entry
  */
-int raw_dynamic_get(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		void *data, uint32_t size);
+int raw_dynamic_get(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+		uint32_t entry, void *data);
 
 /*
  * RAW DYNAMIC - Set specified entry
  */
-int raw_dynamic_set(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		void *data, uint32_t size);
-
-/*
- * RAW DYNAMIC - Read only access for specified entry
- */
-const void *raw_dynamic_rd_access(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		uint32_t size);
+int raw_dynamic_set(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+		uint32_t entry, void *data);
 
 /*
  * RAW DYNAMIC - Write access for specified entry
  */
-void *raw_dynamic_wr_access(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		uint32_t size);
+void *raw_dynamic_access(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, uint32_t entry);
 
 /*
  * RAW DYNAMIC - Load all metadata of this RAW metadata container

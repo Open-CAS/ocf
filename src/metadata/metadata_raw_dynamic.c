@@ -64,15 +64,15 @@ struct _raw_ctrl {
 };
 
 static void *_raw_dynamic_get_item(ocf_cache_t cache,
-	struct ocf_metadata_raw *raw, ocf_cache_line_t line, uint32_t size)
+		struct ocf_metadata_raw *raw, uint32_t entry)
 {
 	void *new = NULL;
 	struct _raw_ctrl *ctrl = (struct _raw_ctrl *)raw->priv;
-	uint32_t page = _RAW_DYNAMIC_PAGE(raw, line);
+	uint32_t page = _RAW_DYNAMIC_PAGE(raw, entry);
 
-	ENV_BUG_ON(!_raw_is_valid(raw, line, size));
+	ENV_BUG_ON(!_raw_is_valid(raw, entry));
 
-	OCF_DEBUG_PARAM(cache, "Accessing item %u on page %u", line, page);
+	OCF_DEBUG_PARAM(cache, "Accessing item %u on page %u", entry, page);
 
 	if (!ctrl->pages[page]) {
 		/* No page, allocate one, and set*/
@@ -107,7 +107,7 @@ _raw_dynamic_get_item_SKIP:
 	}
 
 	if (ctrl->pages[page])
-		return ctrl->pages[page] + _RAW_DYNAMIC_PAGE_OFFSET(raw, line);
+		return ctrl->pages[page] + _RAW_DYNAMIC_PAGE_OFFSET(raw, entry);
 
 	return NULL;
 }
@@ -220,56 +220,43 @@ uint32_t raw_dynamic_checksum(ocf_cache_t cache,
 /*
 * RAM DYNAMIC Implementation - Get
 */
-int raw_dynamic_get(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		void *data, uint32_t size)
+int raw_dynamic_get(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+		uint32_t entry, void *data)
 {
-	void *item = _raw_dynamic_get_item(cache, raw, line, size);
+	void *item = _raw_dynamic_get_item(cache, raw, entry);
 
 	if (!item) {
-		ENV_BUG_ON(env_memset(data, size, 0));
+		ENV_BUG_ON(env_memset(data, raw->entry_size, 0));
 		ocf_metadata_error(cache);
 		return -1;
 	}
 
-	return env_memcpy(data, size, item, size);
+	return env_memcpy(data, raw->entry_size, item, raw->entry_size);
 }
 
 /*
 * RAM DYNAMIC Implementation - Set
 */
-int raw_dynamic_set(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		void *data, uint32_t size)
+int raw_dynamic_set(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+		uint32_t entry, void *data)
 {
-	void *item = _raw_dynamic_get_item(cache, raw, line, size);
+	void *item = _raw_dynamic_get_item(cache, raw, entry);
 
 	if (!item) {
 		ocf_metadata_error(cache);
 		return -1;
 	}
 
-	return env_memcpy(item, size, data, size);
+	return env_memcpy(item, raw->entry_size, data, raw->entry_size);
 }
 
 /*
 * RAM DYNAMIC Implementation - access
 */
-const void *raw_dynamic_rd_access(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		uint32_t size)
+void *raw_dynamic_access(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, uint32_t entry)
 {
-	return _raw_dynamic_get_item(cache, raw, line, size);
-}
-
-/*
-* RAM DYNAMIC Implementation - access
-*/
-void *raw_dynamic_wr_access(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		uint32_t size)
-{
-	return _raw_dynamic_get_item(cache, raw, line, size);
+	return _raw_dynamic_get_item(cache, raw, entry);
 }
 
 /*

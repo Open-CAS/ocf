@@ -152,49 +152,34 @@ static uint32_t _raw_ram_checksum(ocf_cache_t cache,
 /*
  * RAM Implementation - Get entry
  */
-static int _raw_ram_get(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		void *data, uint32_t size)
+static int _raw_ram_get(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+		uint32_t entry, void *data)
 {
-	ENV_BUG_ON(!_raw_is_valid(raw, line, size));
+	ENV_BUG_ON(!_raw_is_valid(raw, entry));
 
-	return _RAW_RAM_GET(raw, line, data);
+	return _RAW_RAM_GET(raw, entry, data);
 }
 
 /*
  * RAM Implementation - Read only entry access
  */
-static const void *_raw_ram_rd_access(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		uint32_t size)
+static void *_raw_ram_access(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, uint32_t entry)
 {
-	ENV_BUG_ON(!_raw_is_valid(raw, line, size));
+	ENV_BUG_ON(!_raw_is_valid(raw, entry));
 
-	return _RAW_RAM_ADDR(raw, line);
-}
-
-/*
- * RAM Implementation - Read only entry access
- */
-static void *_raw_ram_wr_access(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		uint32_t size)
-{
-	ENV_BUG_ON(!_raw_is_valid(raw, line, size));
-
-	return _RAW_RAM_ADDR(raw, line);
+	return _RAW_RAM_ADDR(raw, entry);
 }
 
 /*
  * RAM Implementation - Set Entry
  */
-static int _raw_ram_set(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, ocf_cache_line_t line,
-		void *data, uint32_t size)
+static int _raw_ram_set(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+		uint32_t entry, void *data)
 {
-	ENV_BUG_ON(!_raw_is_valid(raw, line, size));
+	ENV_BUG_ON(!_raw_is_valid(raw, entry));
 
-	return _RAW_RAM_SET(raw, line, data);
+	return _RAW_RAM_SET(raw, entry, data);
 }
 
 struct _raw_ram_load_all_context {
@@ -558,8 +543,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.checksum		= _raw_ram_checksum,
 		.get			= _raw_ram_get,
 		.set			= _raw_ram_set,
-		.rd_access		= _raw_ram_rd_access,
-		.wr_access		= _raw_ram_wr_access,
+		.access			= _raw_ram_access,
 		.load_all		= _raw_ram_load_all,
 		.flush_all		= _raw_ram_flush_all,
 		.flush_mark		= _raw_ram_flush_mark,
@@ -573,8 +557,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.checksum		= raw_dynamic_checksum,
 		.get			= raw_dynamic_get,
 		.set			= raw_dynamic_set,
-		.rd_access		= raw_dynamic_rd_access,
-		.wr_access		= raw_dynamic_wr_access,
+		.access			= raw_dynamic_access,
 		.load_all		= raw_dynamic_load_all,
 		.flush_all		= raw_dynamic_flush_all,
 		.flush_mark		= raw_dynamic_flush_mark,
@@ -588,8 +571,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.checksum		= raw_volatile_checksum,
 		.get			= _raw_ram_get,
 		.set			= _raw_ram_set,
-		.rd_access		= _raw_ram_rd_access,
-		.wr_access		= _raw_ram_wr_access,
+		.access			= _raw_ram_access,
 		.load_all		= raw_volatile_load_all,
 		.flush_all		= raw_volatile_flush_all,
 		.flush_mark		= raw_volatile_flush_mark,
@@ -603,8 +585,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.checksum		= _raw_ram_checksum,
 		.get			= _raw_ram_get,
 		.set			= _raw_ram_set,
-		.rd_access		= _raw_ram_rd_access,
-		.wr_access		= _raw_ram_wr_access,
+		.access			= _raw_ram_access,
 		.load_all		= _raw_ram_load_all,
 		.flush_all		= _raw_ram_flush_all,
 		.flush_mark		= raw_atomic_flush_mark,
