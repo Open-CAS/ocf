@@ -2218,16 +2218,16 @@ static void ocf_metadata_hash_set_core_info(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_core_id_t core_id,
 		uint64_t core_sector)
 {
-	struct ocf_metadata_map *collisioin;
+	struct ocf_metadata_map *collision;
 	struct ocf_metadata_hash_ctrl *ctrl =
 		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv;
 
-	collisioin = ocf_metadata_raw_wr_access(cache,
+	collision = ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_collision]), line);
 
-	if (collisioin) {
-		collisioin->core_id = core_id;
-		collisioin->core_line = core_sector;
+	if (collision) {
+		collision->core_id = core_id;
+		collision->core_line = core_sector;
 	} else {
 		ocf_metadata_error(cache);
 	}
