@@ -24,15 +24,15 @@ utility.
 
 ## Documentation
 
+OCF documentation is available on [GitHub Pages](http://open-cas.github.io/doxygen/ocf).
 Doxygen API documentation is available [here](http://open-cas.github.io/doxygen/ocf).  
-More documentation, tutorial and examples will be available soon.
 
 ## Source Code
 
 Source code is available in the official OCF GitHub repository:
 
 ~~~{.sh}
-git clone https://github.com/open-cas/ocf
+git clone https://github.com/Open-CAS/ocf.git
 cd ocf
 ~~~
 
