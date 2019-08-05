@@ -65,7 +65,7 @@ static bool _ocf_metadata_test_##what##_##type(struct ocf_cache *cache, \
 \
 	const struct ocf_metadata_map_##type *map = raw->mem_pool; \
 \
-	_raw_bug_on(raw, line, sizeof(*map)); \
+	_raw_bug_on(raw, line); \
 \
 	if (all) { \
 		if (mask == (map[line].what & mask)) { \
@@ -95,7 +95,7 @@ static bool _ocf_metadata_test_out_##what##_##type(struct ocf_cache *cache, \
 \
 	const struct ocf_metadata_map_##type *map = raw->mem_pool; \
 \
-	_raw_bug_on(raw, line, sizeof(*map)); \
+	_raw_bug_on(raw, line); \
 \
 	if (map[line].what & ~mask) { \
 		return true; \
@@ -117,7 +117,7 @@ static bool _ocf_metadata_clear_##what##_##type(struct ocf_cache *cache, \
 \
 	struct ocf_metadata_map_##type *map = raw->mem_pool; \
 \
-	_raw_bug_on(raw, line, sizeof(*map)); \
+	_raw_bug_on(raw, line); \
 \
 	map[line].what &= ~mask; \
 \
@@ -142,7 +142,7 @@ static bool _ocf_metadata_set_##what##_##type(struct ocf_cache *cache, \
 \
 	struct ocf_metadata_map_##type *map = raw->mem_pool; \
 \
-	_raw_bug_on(raw, line, sizeof(*map)); \
+	_raw_bug_on(raw, line); \
 \
 	result = map[line].what ? true : false; \
 \
@@ -166,7 +166,7 @@ static bool _ocf_metadata_test_and_set_##what##_##type( \
 \
 	struct ocf_metadata_map_##type *map = raw->mem_pool; \
 \
-	_raw_bug_on(raw, line, sizeof(*map)); \
+	_raw_bug_on(raw, line); \
 \
 	if (all) { \
 		if (mask == (map[line].what & mask)) { \
@@ -201,7 +201,7 @@ static bool _ocf_metadata_test_and_clear_##what##_##type( \
 \
 	struct ocf_metadata_map_##type *map = raw->mem_pool; \
 \
-	_raw_bug_on(raw, line, sizeof(*map)); \
+	_raw_bug_on(raw, line); \
 \
 	if (all) { \
 		if (mask == (map[line].what & mask)) { \
