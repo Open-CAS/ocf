@@ -32,7 +32,7 @@ Doxygen API documentation is available [here](http://open-cas.github.io/doxygen/
 Source code is available in the official OCF GitHub repository:
 
 ~~~{.sh}
-git clone https://github.com/open-cas/ocf
+git clone https://github.com/Open-CAS/ocf.git
 cd ocf
 ~~~
 
