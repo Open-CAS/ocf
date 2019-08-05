@@ -95,6 +95,4 @@ bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id);
 
 int ocf_core_volume_type_init(ocf_ctx_t ctx);
 
-void ocf_core_volume_type_deinit(ocf_ctx_t ctx);
-
 #endif /* __OCF_CORE_PRIV_H__ */

@@ -66,6 +66,7 @@ class VolumeProperties(Structure):
         ("_caps", VolumeCaps),
         ("_ops", VolumeOps),
         ("_io_ops", IoOps),
+        ("_deinit", c_char_p),
     ]
 
 
@@ -125,6 +126,7 @@ class Volume(Structure):
                 _io_ops=IoOps(
                     _set_data=cls._io_set_data, _get_data=cls._io_get_data
                 ),
+                _deinit=0,
             )
 
         return cls.props
