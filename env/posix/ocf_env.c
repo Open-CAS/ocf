@@ -110,11 +110,6 @@ void env_allocator_destroy(env_allocator *allocator)
 	}
 }
 
-uint32_t env_allocator_item_count(env_allocator *allocator)
-{
-	return env_atomic_read(&allocator->count);
-}
-
 /* *** DEBUGING *** */
 
 #define ENV_TRACE_DEPTH	16

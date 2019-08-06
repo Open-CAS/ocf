@@ -169,8 +169,6 @@ void *env_allocator_new(env_allocator *allocator);
 
 void env_allocator_del(env_allocator *allocator, void *item);
 
-uint32_t env_allocator_item_count(env_allocator *allocator);
-
 /* *** MUTEX *** */
 
 typedef struct {
@@ -198,27 +196,10 @@ static inline int env_mutex_lock_interruptible(env_mutex *mutex)
 	return 0;
 }
 
-static inline int env_mutex_trylock(env_mutex *mutex)
-{
-	return pthread_mutex_trylock(&mutex->m) ? -OCF_ERR_NO_LOCK : 0;
-}
-
 static inline void env_mutex_unlock(env_mutex *mutex)
 {
 	ENV_BUG_ON(pthread_mutex_unlock(&mutex->m));
 }
-
-static inline int env_mutex_is_locked(env_mutex *mutex)
-{
-	if (env_mutex_trylock(mutex) == 0) {
-		env_mutex_unlock(mutex);
-		return 1;
-	}
-
-	return 0;
-}
-
-/* *** RECURSIVE MUTEX *** */
 
 typedef env_mutex env_rmutex;
 
@@ -243,19 +224,9 @@ static inline int env_rmutex_lock_interruptible(env_rmutex *rmutex)
 	return env_mutex_lock_interruptible(rmutex);
 }
 
-static inline int env_rmutex_trylock(env_rmutex *rmutex)
-{
-	return env_mutex_trylock(rmutex);
-}
-
 static inline void env_rmutex_unlock(env_rmutex *rmutex)
 {
 	env_mutex_unlock(rmutex);
-}
-
-static inline int env_rmutex_is_locked(env_rmutex *rmutex)
-{
-	return env_mutex_is_locked(rmutex);
 }
 
 /* *** RW SEMAPHORE *** */
@@ -298,28 +269,6 @@ static inline int env_rwsem_down_write_trylock(env_rwsem *s)
 	return pthread_rwlock_trywrlock(&s->lock) ? -OCF_ERR_NO_LOCK : 0;
 }
 
-static inline int env_rwsem_is_locked(env_rwsem *s)
-{
-	if (env_rwsem_down_read_trylock(s) == 0) {
-		env_rwsem_up_read(s);
-		return 0;
-	}
-
-	return 1;
-}
-
-static inline int env_rwsem_down_write_interruptible(env_rwsem *s)
-{
-	env_rwsem_down_write(s);
-	return 0;
-}
-
-static inline int env_rwsem_down_read_interruptible(env_rwsem *s)
-{
-	env_rwsem_down_read(s);
-	return 0;
-}
-
 /* *** COMPLETION *** */
 struct completion {
 	sem_t sem;
@@ -340,12 +289,6 @@ static inline void env_completion_wait(env_completion *completion)
 static inline void env_completion_complete(env_completion *completion)
 {
 	sem_post(&completion->sem);
-}
-
-static inline void env_completion_complete_and_exit(
-		env_completion *completion, int ret)
-{
-	env_completion_complete(completion); /* TODO */
 }
 
 /* *** ATOMIC VARIABLES *** */
@@ -378,11 +321,6 @@ static inline void env_atomic_sub(int i, env_atomic *a)
 	__sync_sub_and_fetch(&a->counter, i);
 }
 
-static inline bool env_atomic_sub_and_test(int i, env_atomic *a)
-{
-	return __sync_sub_and_fetch(&a->counter, i) == 0;
-}
-
 static inline void env_atomic_inc(env_atomic *a)
 {
 	env_atomic_add(1, a);
@@ -396,11 +334,6 @@ static inline void env_atomic_dec(env_atomic *a)
 static inline bool env_atomic_dec_and_test(env_atomic *a)
 {
 	return __sync_sub_and_fetch(&a->counter, 1) == 0;
-}
-
-static inline bool env_atomic_inc_and_test(env_atomic *a)
-{
-	return __sync_add_and_fetch(&a->counter, 1) == 0;
 }
 
 static inline int env_atomic_add_return(int i, env_atomic *a)
@@ -504,16 +437,6 @@ static inline void env_spinlock_unlock(env_spinlock *l)
 	ENV_BUG_ON(pthread_spin_unlock(&l->lock));
 }
 
-static inline void env_spinlock_lock_irq(env_spinlock *l)
-{
-	env_spinlock_lock(l);
-}
-
-static inline void env_spinlock_unlock_irq(env_spinlock *l)
-{
-	env_spinlock_unlock(l);
-}
-
 #define env_spinlock_lock_irqsave(l, flags) \
 		(void)flags; \
 		env_spinlock_lock(l)
@@ -559,16 +482,6 @@ typedef struct {
 	sem_t sem;
 } env_waitqueue;
 
-static inline void env_waitqueue_init(env_waitqueue *w)
-{
-	sem_init(&w->sem, 0, 0);
-}
-
-static inline void env_waitqueue_wake_up(env_waitqueue *w)
-{
-	sem_post(&w->sem);
-}
-
 #define env_waitqueue_wait(w, condition)	\
 ({						\
 	int __ret = 0;				\
@@ -602,12 +515,6 @@ static inline bool env_bit_test(int nr, const volatile unsigned long *addr)
 	char mask = 1 << (nr & 7);
 
 	return !!(*byte & mask);
-}
-
-/* *** SCHEDULING *** */
-static inline void env_schedule(void)
-{
-	sched_yield();
 }
 
 static inline int env_in_interrupt(void)
@@ -688,14 +595,6 @@ static inline void env_msleep(uint64_t n)
 struct env_timeval {
 	uint64_t sec, usec;
 };
-
-static inline void env_gettimeofday(struct env_timeval *tv)
-{
-	struct timeval t;
-	gettimeofday(&t, NULL);
-	tv->sec = t.tv_sec;
-	tv->usec = t.tv_usec;
-}
 
 uint32_t env_crc32(uint32_t crc, uint8_t const *data, size_t len);
 
