@@ -475,6 +475,13 @@ void _ocf_mngt_init_instance_load_complete(void *priv, int error)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
 	}
 
+	result = __init_promotion_policy(cache);
+	if (result) {
+		ocf_cache_log(cache, log_err,
+				"Cannot initialize promotion policy\n");
+		OCF_PL_FINISH_RET(context->pipeline, result);
+	}
+
 	cleaning_policy = cache->conf_meta->cleaning_policy_type;
 	if (!cleaning_policy_ops[cleaning_policy].initialize)
 		goto out;
@@ -487,14 +494,7 @@ void _ocf_mngt_init_instance_load_complete(void *priv, int error)
 	if (result) {
 		ocf_cache_log(cache, log_err,
 				"Cannot initialize cleaning policy\n");
-		OCF_PL_FINISH_RET(context->pipeline, result);
-	}
-
-	result = __init_promotion_policy(cache);
-	if (result) {
-		__deinit_cleaning_policy(cache);
-		ocf_cache_log(cache, log_err,
-				"Cannot initialize promotion policy\n");
+		__deinit_promotion_policy(cache);
 		OCF_PL_FINISH_RET(context->pipeline, result);
 	}
 
