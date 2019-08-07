@@ -640,7 +640,7 @@ static void ocf_metadata_query_cores_end(struct query_cores_context *context,
 		ocf_metadata_hash_query_cores_data_read(ctx,
 				&context->data.core_config,
 				&core_config, sizeof(core_config));
-		if (core_config.added) {
+		if (core_config.valid) {
 			env_bit_set(i, valid_core_bitmap);
 			++core_count;
 		}
@@ -1313,7 +1313,7 @@ static void ocf_medatata_hash_load_superblock_post(ocf_pipeline_t pipeline,
 	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.iface_priv;
 	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 
-	for_each_core(cache, core, core_id) {
+	for_each_core_metadata(cache, core, core_id) {
 		muuid = ocf_metadata_get_core_uuid(cache, core_id);
 		uuid.data = muuid->data;
 		uuid.size = muuid->size;
@@ -1473,7 +1473,7 @@ static void ocf_medatata_hash_flush_superblock_prepare(ocf_pipeline_t pipeline,
 	ocf_core_id_t core_id;
 
 	/* Synchronize core objects types */
-	for_each_core(cache, core, core_id) {
+	for_each_core_metadata(cache, core, core_id) {
 		core->conf_meta->type = ocf_ctx_get_volume_type_id(
 				cache->owner, core->volume.type);
 	}

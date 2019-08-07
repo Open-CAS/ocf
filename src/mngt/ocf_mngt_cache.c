@@ -377,18 +377,11 @@ static int _ocf_mngt_init_instance_add_cores(
 
 	OCF_ASSERT_PLUGGED(cache);
 
-	if (cache->conf_meta->cachelines !=
-	    ocf_metadata_get_cachelines_count(cache)) {
-		ocf_cache_log(cache, log_err,
-				"ERROR: Cache device size mismatch!\n");
-		return -OCF_ERR_START_CACHE_FAIL;
-	}
-
-	/* Count value will be re-calculated on the basis of 'added' flag */
+	/* Count value will be re-calculated on the basis of 'valid' flag */
 	cache->conf_meta->core_count = 0;
 
-	/* Check in metadata which cores were added into cache */
-	for_each_core(cache, core, core_id) {
+	/* Check in metadata which cores were saved in cache metadata */
+	for_each_core_metadata(cache, core, core_id) {
 		ocf_volume_t tvolume = NULL;
 
 		if (!core->volume.type)
@@ -423,6 +416,7 @@ static int _ocf_mngt_init_instance_add_cores(
 		}
 
 		env_bit_set(core_id, cache->conf_meta->valid_core_bitmap);
+		core->added = true;
 		cache->conf_meta->core_count++;
 		core->volume.cache = cache;
 
@@ -1303,6 +1297,14 @@ static void _ocf_mngt_attach_load_superblock_complete(void *priv, int error)
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
+	if (cache->conf_meta->cachelines !=
+	    ocf_metadata_get_cachelines_count(cache)) {
+		ocf_cache_log(cache, log_err,
+				"ERROR: Cache device size mismatch!\n");
+		OCF_PL_FINISH_RET(context->pipeline,
+				-OCF_ERR_START_CACHE_FAIL);
+	}
+
 	if (error) {
 		ocf_cache_log(cache, log_err,
 				"ERROR: Cannot load cache state\n");
@@ -1903,7 +1905,10 @@ static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache, bool attached)
 	int no = cache->conf_meta->core_count;
 
 	/* All exported objects removed, cleaning up rest. */
-	for_each_core(cache, core, core_id) {
+	for_each_core_all(cache, core, core_id) {
+		if (!env_bit_test(core_id, cache->conf_meta->valid_core_bitmap))
+			continue;
+
 		cache_mngt_core_remove_from_cache(core);
 		if (attached)
 			cache_mngt_core_remove_from_cleaning_pol(core);
@@ -2362,7 +2367,7 @@ static void ocf_mngt_cache_detach_update_metadata(ocf_pipeline_t pipeline,
 	int no = cache->conf_meta->core_count;
 
 	/* remove cacheline metadata and cleaning policy meta for all cores */
-	for_each_core(cache, core, core_id) {
+	for_each_core_metadata(cache, core, core_id) {
 		cache_mngt_core_deinit_attached_meta(core);
 		cache_mngt_core_remove_from_cleaning_pol(core);
 		if (--no == 0)

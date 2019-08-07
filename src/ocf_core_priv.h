@@ -30,8 +30,8 @@ struct ocf_core_meta_config {
 
 	uint8_t type;
 
-	/* This bit means that object was added into cache */
-	uint32_t added : 1;
+	/* This bit means that object was saved in cache metadata */
+	uint32_t valid : 1;
 
 	/* Core sequence number used to correlate cache lines with cores
 	 * when recovering from atomic device */
@@ -85,8 +85,10 @@ struct ocf_core {
 
 	env_atomic flushed;
 
-	/* This bit means that object is open*/
+	/* This bit means that object is open */
 	uint32_t opened : 1;
+	/* This bit means that core is added into cache */
+	uint32_t added : 1;
 
 	struct ocf_counters_core *counters;
 };
