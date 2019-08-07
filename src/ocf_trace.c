@@ -27,7 +27,7 @@ static int _ocf_core_desc(ocf_core_t core, void  *ctx)
 			ocf_trace_seq_id(cache),
 			env_ticks_to_nsecs(env_get_tick_count()),
 			sizeof(core_desc));
-	core_desc.id = ocf_core_get_id(core);
+	core_desc.name = ocf_core_get_name(core);
 	core_desc.core_size = ocf_volume_get_length(
 			ocf_core_get_volume(core));
 

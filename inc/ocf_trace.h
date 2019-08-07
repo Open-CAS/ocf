@@ -85,8 +85,8 @@ struct ocf_event_core_desc {
 	/** Event header */
 	struct ocf_event_hdr hdr;
 
-	/** Core Id */
-	ocf_core_id_t id;
+	/** Core name */
+	const char *name;
 
 	/** Core size in bytes */
 	uint64_t core_size;
@@ -123,8 +123,8 @@ struct ocf_event_io {
 	/** IO class of IO */
 	uint32_t io_class;
 
-	/** Core ID */
-	ocf_core_id_t core_id;
+	/** Core name */
+	const char *core_name;
 
 	/** Operation type: read, write, trim or flush **/
 	ocf_event_operation_t operation;

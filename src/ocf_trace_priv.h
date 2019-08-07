@@ -59,7 +59,7 @@ static inline void ocf_trace_prep_io_event(struct ocf_event_io *ev,
 		ev->len = req->byte_length;
 
 	ev->operation = op;
-	ev->core_id = ocf_core_get_id(req->core);
+	ev->core_name = ocf_core_get_name(req->core);
 
 	ev->io_class = req->ioi.io.io_class;
 }
