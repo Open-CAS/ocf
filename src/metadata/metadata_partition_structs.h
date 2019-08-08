@@ -10,12 +10,6 @@
 #include "../cleaning/cleaning.h"
 #include "../eviction/eviction.h"
 
-struct ocf_part {
-        ocf_cache_line_t head;
-        ocf_cache_line_t tail;
-        uint32_t curr_size;
-};
-
 struct ocf_user_part_config {
         char name[OCF_IO_CLASS_NAME_MAX];
         uint32_t min_size;

@@ -21,6 +21,7 @@
 #include "../concurrency/ocf_concurrency.h"
 #include "../eviction/ops.h"
 #include "../ocf_ctx_priv.h"
+#include "../ocf_freelist.h"
 #include "../cleaning/cleaning.h"
 
 #define OCF_ASSERT_PLUGGED(cache) ENV_BUG_ON(!(cache)->device)
@@ -117,6 +118,8 @@ struct ocf_cache_attach_context {
 			 * load or recovery
 			 */
 
+		bool freelist_inited : 1;
+
 		bool concurrency_inited : 1;
 	} flags;
 
@@ -156,18 +159,6 @@ struct ocf_cache_attach_context {
 	ocf_pipeline_t pipeline;
 };
 
-static void __init_hash_table(ocf_cache_t cache)
-{
-	/* Initialize hash table*/
-	ocf_metadata_init_hash_table(cache);
-}
-
-static void __init_freelist(ocf_cache_t cache)
-{
-	/* Initialize free list partition*/
-	ocf_metadata_init_freelist_partition(cache);
-}
-
 static void __init_partitions(ocf_cache_t cache)
 {
 	ocf_part_id_t i_part;
@@ -202,6 +193,14 @@ static void __init_partitions_attached(ocf_cache_t cache)
 
 		ocf_eviction_initialize(cache, part_id);
 	}
+}
+
+static void __init_freelist(ocf_cache_t cache)
+{
+	uint64_t free_clines = ocf_metadata_collision_table_entries(cache) -
+			ocf_get_cache_occupancy(cache);
+
+	ocf_freelist_populate(cache->freelist, free_clines);
 }
 
 static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
@@ -295,9 +294,10 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
 	/* Lock to ensure consistency */
 	OCF_METADATA_LOCK_WR();
 
-	__init_hash_table(cache);
-	__init_freelist(cache);
+	ocf_metadata_init_hash_table(cache);
+	ocf_metadata_init_collision(cache);
 	__init_partitions_attached(cache);
+	__init_freelist(cache);
 
 	result = __init_cleaning_policy(cache);
 	if (result) {
@@ -325,8 +325,8 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
 static void init_attached_data_structures_recovery(ocf_cache_t cache)
 {
 	OCF_METADATA_LOCK_WR();
-	__init_hash_table(cache);
-	__init_freelist(cache);
+	ocf_metadata_init_hash_table(cache);
+	ocf_metadata_init_collision(cache);
 	__init_partitions_attached(cache);
 	__reset_stats(cache);
 	__init_metadata_version(cache);
@@ -468,6 +468,8 @@ void _ocf_mngt_init_instance_load_complete(void *priv, int error)
 				"Cannot read cache metadata\n");
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
 	}
+
+	__init_freelist(cache);
 
 	result = __init_promotion_policy(cache);
 	if (result) {
@@ -985,8 +987,10 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
 	}
 
-
-	cache->device->freelist_part = &cache->device->runtime_meta->freelist_part;
+	cache->freelist = ocf_freelist_init(cache);
+	if (!cache->freelist)
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
+	context->flags.freelist_inited = true;
 
 	ret = ocf_concurrency_init(cache);
 	if (ret)
@@ -1142,6 +1146,9 @@ static void _ocf_mngt_attach_handle_error(
 
 	if (context->flags.concurrency_inited)
 		ocf_concurrency_deinit(cache);
+
+	if (context->flags.freelist_inited)
+		ocf_freelist_deinit(cache->freelist);
 
 	if (context->flags.volume_inited)
 		ocf_volume_deinit(&cache->device->volume);
@@ -1725,6 +1732,7 @@ static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
 
 	ocf_metadata_deinit_variable_size(cache);
 	ocf_concurrency_deinit(cache);
+	ocf_freelist_deinit(cache->freelist);
 
 	ocf_volume_deinit(&cache->device->volume);
 

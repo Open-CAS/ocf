@@ -75,12 +75,6 @@ static inline void ocf_metadata_set_partition_info(
 			next_line, prev_line);
 }
 
-void ocf_metadata_add_to_free_list(struct ocf_cache *cache,
-		ocf_cache_line_t cline);
-
-void ocf_metadata_remove_from_free_list(struct ocf_cache *cache,
-		ocf_cache_line_t cline);
-
 void ocf_metadata_add_to_partition(struct ocf_cache *cache,
 		ocf_part_id_t part_id, ocf_cache_line_t line);
 

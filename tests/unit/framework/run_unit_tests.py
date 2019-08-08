@@ -25,7 +25,7 @@ def rm_cmd(trgt):
     if result.returncode != 0:
         raise Exception("Removing {} before testing failed!".
                         format(os.path.dirname(os.path.realpath(__file__))
-                        + trgt))
+                               + trgt))
 
 
 def cleanup():

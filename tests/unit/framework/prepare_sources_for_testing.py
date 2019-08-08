@@ -207,6 +207,8 @@ class UnitTestsSourcesGenerator(object):
 
         buf += "enable_testing()\n\n"
 
+        buf += "add_definitions(-DUNIT_TEST -DUNSTATIC)\n\n"
+
         buf += "include_directories(\n"
         dirs_to_inc = self.get_dirs_to_include_list() + self.get_framework_includes() \
             + self.get_tests_internal_includes_list()
@@ -711,37 +713,36 @@ class UnitTestsSourcesGenerator(object):
 
         self.main_tested_dir = main_tested_dir
 
-    """Adding 'TEST' macro to OCF header only for Unit Tests purpose."""
+    """Adding 'UNIT_TEST' flag to OCF header only for Unit Tests purpose."""
     def add_test_flag(self, file):
         for dir in self.get_tests_internal_includes_list():
             if os.path.isfile(dir + file):
                 with open(dir + file, 'r') as ocf:
                     body = ocf.readlines()
-                    if '#define TEST' not in body[5]:
-                        body[3] += '\n#define TEST\n'
+                    if '#define UNIT_TEST' not in body[5]:
+                        body[3] += '\n#define UNIT_TEST\n'
                     ocf.close()
                 with open(dir + file, 'w') as ocf:
                     ocf.writelines(body)
                     ocf.close()
 
-    def rmv_static(self, file):
-        for dir in self.get_tests_internal_includes_list():
-            if os.path.isfile(dir + file):
-                with open(dir + file, 'r') as ocf:
-                    body = ocf.readlines()
-                    for i in range(len(body)):
-                        if 'static inline ' in body[i]:
-                            print(body[i])
-                            body[i] = body[i].replace('static inline ', '')
-                    ocf.close()
-                with open(dir + file, 'w') as ocf:
-                    ocf.writelines(body)
-                    ocf.close()
+    # def rmv_static(self, file):
+    #     for dir in self.get_tests_internal_includes_list():
+    #         if os.path.isfile(dir + file):
+    #             with open(dir + file, 'r') as ocf:
+    #                 body = ocf.readlines()
+    #                 for i in range(len(body)):
+    #                     if 'static inline ' in body[i]:
+    #                         print(body[i])
+    #                         body[i] = body[i].replace('static inline ', '')
+    #                 ocf.close()
+    #             with open(dir + file, 'w') as ocf:
+    #                 ocf.writelines(body)
+    #                 ocf.close()
 
 def __main__():
     generator = UnitTestsSourcesGenerator()
     generator.copy_includes()
-    generator.rmv_static('ocf_env.h')
     generator.add_test_flag('ocf/ocf.h')
     generator.preprocessing()
     generator.prepare_sources_for_testing()

@@ -104,7 +104,7 @@ class TestGenerator(object):
     def get_empty_test_function(self):
         ret = "static void " + self.get_tested_function_name() + "_test01(void **state)\n"
         ret += "{\n"
-        ret += "\tprint_test_description(\"Put test description here\");\n"
+        ret += "\tprint_test_description(\"Put test description here\\n\");\n"
         ret += "\tassert_int_equal(1,1);\n"
         ret += "}\n\n"
 
@@ -116,7 +116,7 @@ class TestGenerator(object):
         ret += "\tconst struct CMUnitTest tests[] = {\n"
         ret += "\t\tcmocka_unit_test(" + self.get_tested_function_name() + "_test01)\n"
         ret += "\t};\n\n"
-        ret += "\tprint_message(\"Unit test of " + self.get_tested_file_path() + "\");\n\n"
+        ret += "\tprint_message(\"Unit test for " + self.get_tested_function_name() + "\\n\");\n\n"
         ret += "\treturn cmocka_run_group_tests(tests, NULL, NULL);\n"
         ret += "}"
 

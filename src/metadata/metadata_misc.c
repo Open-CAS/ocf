@@ -5,6 +5,7 @@
 
 #include "ocf/ocf.h"
 #include "metadata.h"
+#include "../ocf_freelist.h"
 #include "../utils/utils_cache_line.h"
 
 static bool _is_cache_line_acting(struct ocf_cache *cache,
@@ -100,7 +101,7 @@ void ocf_metadata_sparse_cache_line(struct ocf_cache *cache,
 
 	ocf_metadata_remove_from_partition(cache, partition_id, cache_line);
 
-	ocf_metadata_add_to_free_list(cache, cache_line);
+	ocf_freelist_put_cache_line(cache->freelist, cache_line);
 }
 
 static void _ocf_metadata_sparse_cache_line(struct ocf_cache *cache,

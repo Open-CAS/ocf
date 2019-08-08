@@ -6,9 +6,6 @@
 #ifndef __OCF_ENV_H__
 #define __OCF_ENV_H__
 
-#ifndef __LIBOCF_ENV_H__
-#define __LIBOCF_ENV_H__
-
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -83,7 +80,7 @@ typedef uint64_t sector_t;
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
 
 /* STRING OPERATIONS */
-#ifndef TEST
+#ifndef UNIT_TEST
 #define env_memcpy(dest, dmax, src, slen) ({ \
 		memcpy(dest, src, min(dmax, slen)); \
 		0; \
@@ -106,7 +103,7 @@ typedef uint64_t sector_t;
 		0; \
 	})
 
-#ifdef TEST
+#ifdef UNIT_TEST
 int env_memcpy(void *dest, size_t destsz, const void * src, size_t count)
 {
 	if (destsz < count)
@@ -115,6 +112,12 @@ int env_memcpy(void *dest, size_t destsz, const void * src, size_t count)
 		memcpy(dest, src, count);
 	return 0;
 }
+
+#ifdef UNSTATIC
+#define static  
+#define inline  
+#endif
+
 #endif
 
 /* MEMORY MANAGEMENT */
@@ -492,6 +495,11 @@ static inline void env_spinlock_init(env_spinlock *l)
 	ENV_BUG_ON(pthread_spin_init(&l->lock, 0));
 }
 
+static inline int env_spinlock_trylock(env_spinlock *l)
+{
+	return pthread_spin_trylock(&l->lock) ? -OCF_ERR_NO_LOCK : 0;
+}
+
 static inline void env_spinlock_lock(env_spinlock *l)
 {
 	ENV_BUG_ON(pthread_spin_lock(&l->lock));
@@ -629,6 +637,13 @@ struct env_timeval {
 
 uint32_t env_crc32(uint32_t crc, uint8_t const *data, size_t len);
 
-#endif /* __LIBOCF_ENV_H__ */
+unsigned env_get_execution_context(void);
+void env_put_execution_context(unsigned ctx);
+unsigned env_get_execution_context_count(void);
+
+#ifdef UNSTATIC
+#undef static 
+#undef inline 
+#endif
 
 #endif /* __OCF_ENV_H__ */
