@@ -644,4 +644,9 @@ uint32_t env_crc32(uint32_t crc, uint8_t const *data, size_t len);
 
 #define ENV_PRIu64 "lu"
 
+unsigned env_get_execution_context(void);
+void env_put_execution_context(unsigned ctx);
+unsigned env_get_execution_context_count(void);
+
+
 #endif /* __OCF_ENV_H__ */
