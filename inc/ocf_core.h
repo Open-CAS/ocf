@@ -87,15 +87,6 @@ uint32_t ocf_core_get_seq_cutoff_threshold(ocf_core_t core);
 ocf_seq_cutoff_policy ocf_core_get_seq_cutoff_policy(ocf_core_t core);
 
 /**
- * @brief Get ID of given core object
- *
- * @param[in] core Core object
- *
- * @retval Core ID
- */
-ocf_core_id_t ocf_core_get_id(ocf_core_t core);
-
-/**
  * @brief Get name of given core object
  *
  * @param[in] core Core object
@@ -112,18 +103,6 @@ const char *ocf_core_get_name(ocf_core_t core);
  * @retval Core state
  */
 ocf_core_state_t ocf_core_get_state(ocf_core_t core);
-
-/**
- * @brief Obtain core object of given ID from cache
- *
- * @param[in] cache Cache object
- * @param[in] id Core ID
- * @param[out] core Core object
- *
- * @retval 0 Success
- * @retval Non-zero Core getting failed
- */
-int ocf_core_get(ocf_cache_t cache, ocf_core_id_t id, ocf_core_t *core);
 
 /**
  * @brief Allocate new ocf_io
