@@ -65,21 +65,6 @@ size_t ocf_cache_line_concurrency_size_of(struct ocf_cache *cache);
 int ocf_req_trylock_wr(struct ocf_request *req);
 
 /**
- * @brief Try complete lock of OCF request for WRITE access (Lock cache lines
- * that marked as invalid)
- *
- * @param req - OCF request
- *
- * @note If request not locked it will be added into waiting list
- *
- * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
- *
- * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- * added into waiting list. When lock will be acquired io_if->resume be called
- */
-int ocf_req_retrylock_wr(struct ocf_request *req);
-
-/**
  * @brief Lock OCF request for READ access (Lock all cache lines in map info)
  *
  * @note io_if->resume callback has to be set
