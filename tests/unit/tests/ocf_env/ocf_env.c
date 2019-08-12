@@ -127,11 +127,6 @@ void env_allocator_destroy(env_allocator *allocator)
 	}
 }
 
-uint32_t env_allocator_item_count(env_allocator *allocator)
-{
-	return env_atomic_read(&allocator->count);
-}
-
 /* *** COMPLETION *** */
 
 void env_completion_init(env_completion *completion)
@@ -173,24 +168,10 @@ int env_mutex_lock_interruptible(env_mutex *mutex)
 	return mock();
 }
 
-int env_mutex_trylock(env_mutex *mutex)
-{
-	function_called();
-	check_expected_ptr(mutex);
-	return mock();
-}
-
 void env_mutex_unlock(env_mutex *mutex)
 {
 	function_called();
 	check_expected_ptr(mutex);
-}
-
-int env_mutex_is_locked(env_mutex *mutex)
-{
-	function_called();
-	check_expected_ptr(mutex);
-	return mock();
 }
 
 int env_rmutex_init(env_rmutex *rmutex)
@@ -213,24 +194,10 @@ int env_rmutex_lock_interruptible(env_rmutex *rmutex)
 	return mock();
 }
 
-int env_rmutex_trylock(env_rmutex *rmutex)
-{
-	function_called();
-	check_expected_ptr(rmutex);
-	return mock();
-}
-
 void env_rmutex_unlock(env_rmutex *rmutex)
 {
 	function_called();
 	check_expected_ptr(rmutex);
-}
-
-int env_rmutex_is_locked(env_rmutex *rmutex)
-{
-	function_called();
-	check_expected_ptr(rmutex);
-	return mock();
 }
 
 int env_rwsem_init(env_rwsem *s)
@@ -298,11 +265,6 @@ void env_atomic_sub(int i, env_atomic *a)
 	*a -= i;
 }
 
-bool env_atomic_sub_and_test(int i, env_atomic *a)
-{
-	return *a-=i == 0;
-}
-
 void env_atomic_inc(env_atomic *a)
 {
 	++*a;
@@ -316,11 +278,6 @@ void env_atomic_dec(env_atomic *a)
 bool env_atomic_dec_and_test(env_atomic *a)
 {
 	return --*a == 0;
-}
-
-bool env_atomic_inc_and_test(env_atomic *a)
-{
-	return ++*a == 0;
 }
 
 int env_atomic_add_return(int i, env_atomic *a)
@@ -422,18 +379,6 @@ void env_spinlock_unlock(env_spinlock *l)
 	check_expected_ptr(l);
 }
 
-void env_spinlock_lock_irq(env_spinlock *l)
-{
-	function_called();
-	check_expected_ptr(l);
-}
-
-void env_spinlock_unlock_irq(env_spinlock *l)
-{
-	function_called();
-	check_expected_ptr(l);
-}
-
 void env_rwlock_init(env_rwlock *l)
 {
 	function_called();
@@ -464,20 +409,6 @@ void env_rwlock_write_unlock(env_rwlock *l)
 	check_expected_ptr(l);
 }
 
-void env_waitqueue_init(env_waitqueue *w)
-{
-	w->completed = false;
-	w->waiting = false;
-	w->co = NULL;
-}
-
-void env_waitqueue_wake_up(env_waitqueue *w)
-{
-	w->completed = true;
-	if (!w->waiting || !w->co)
-		return;
-}
-
 void env_bit_set(int nr, volatile void *addr)
 {
 	char *byte = (char *) addr + (nr >> 3);
@@ -506,11 +437,6 @@ bool env_bit_test(int nr, const volatile unsigned long *addr)
 /* *** SCHEDULING *** */
 
 void env_touch_softlockup_wd(void)
-{
-	function_called();
-}
-
-void env_schedule(void)
 {
 	function_called();
 }

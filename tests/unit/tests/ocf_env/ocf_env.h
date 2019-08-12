@@ -3,16 +3,6 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#ifndef __LIBOCF_ENV_H__
-#define __LIBOCF_ENV_H__
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-#ifndef __USE_GNU
-#define __USE_GNU
-#endif
-
 #include <linux/limits.h>
 #include <linux/stddef.h>
 #include <stdint.h>
@@ -48,13 +38,10 @@ typedef uint64_t sector_t;
 
 #define PAGE_SIZE 4096
 
-#define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
-
 /* *** MEMORY MANAGEMENT *** */
 
 #define ENV_MEM_NORMAL	0
 #define ENV_MEM_NOIO	1
-#define ENV_MEM_ATOMIC	2
 
 #define ENV_WARN(cond, fmt, args...) ({})
 
@@ -120,8 +107,6 @@ void *env_allocator_new(env_allocator *allocator);
 
 void env_allocator_del(env_allocator *allocator, void *item);
 
-uint32_t env_allocator_item_count(env_allocator *allocator);
-
 /* *** MUTEX *** */
 
 typedef struct {
@@ -134,11 +119,7 @@ void env_mutex_lock(env_mutex *mutex);
 
 int env_mutex_lock_interruptible(env_mutex *mutex);
 
-int env_mutex_trylock(env_mutex *mutex);
-
 void env_mutex_unlock(env_mutex *mutex);
-
-int env_mutex_is_locked(env_mutex *mutex);
 
 /* *** RECURSIVE MUTEX *** */
 
@@ -150,11 +131,7 @@ void env_rmutex_lock(env_rmutex *rmutex);
 
 int env_rmutex_lock_interruptible(env_rmutex *rmutex);
 
-int env_rmutex_trylock(env_rmutex *rmutex);
-
 void env_rmutex_unlock(env_rmutex *rmutex);
-
-int env_rmutex_is_locked(env_rmutex *rmutex);
 
 /* *** RW SEMAPHORE *** */
 typedef struct {
@@ -175,8 +152,6 @@ void env_rwsem_down_write(env_rwsem *s);
 
 int env_rwsem_down_write_trylock(env_rwsem *s);
 
-int env_rwsem_is_locked(env_rwsem *s);
-
 /* *** ATOMIC VARIABLES *** */
 
 typedef int env_atomic;
@@ -191,15 +166,11 @@ void env_atomic_add(int i, env_atomic *a);
 
 void env_atomic_sub(int i, env_atomic *a);
 
-bool env_atomic_sub_and_test(int i, env_atomic *a);
-
 void env_atomic_inc(env_atomic *a);
 
 void env_atomic_dec(env_atomic *a);
 
 bool env_atomic_dec_and_test(env_atomic *a);
-
-bool env_atomic_inc_and_test(env_atomic *a);
 
 int env_atomic_add_return(int i, env_atomic *a);
 
@@ -253,10 +224,6 @@ void env_spinlock_lock(env_spinlock *l);
 
 void env_spinlock_unlock(env_spinlock *l);
 
-void env_spinlock_lock_irq(env_spinlock *l);
-
-void env_spinlock_unlock_irq(env_spinlock *l);
-
 #define env_spinlock_lock_irqsave(l, flags) \
 	env_spinlock_lock(l); (void)flags;
 
@@ -286,22 +253,6 @@ typedef struct {
 	Coroutine *co;
 } env_waitqueue;
 
-void env_waitqueue_init(env_waitqueue *w);
-
-void env_waitqueue_wake_up(env_waitqueue *w);
-
-#define env_waitqueue_wait(w, condition)	\
-({						\
-	int __ret = 0;				\
-	if (!(condition) && !w.completed) {	\
-		w.waiting = true;		\
-	}					\
-	w.co = NULL;				\
-	w.waiting = false;			\
-	w.completed = false;			\
-	__ret = __ret;				\
-})
-
 /* *** BIT OPERATIONS *** */
 
 void env_bit_set(int nr, volatile void *addr);
@@ -313,8 +264,6 @@ bool env_bit_test(int nr, const volatile unsigned long *addr);
 /* *** SCHEDULING *** */
 
 void env_touch_softlockup_wd(void);
-
-void env_schedule(void);
 
 int env_in_interrupt(void);
 
@@ -352,5 +301,3 @@ void env_msleep(uint64_t n);
 /* *** CRC *** */
 
 uint32_t env_crc32(uint32_t crc, uint8_t const *data, size_t len);
-
-#endif /* __OCF_ENV_H__ */

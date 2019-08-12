@@ -3,11 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#ifndef __OCF_ENV_LIST__
-#define __OCF_ENV_LIST__
-
 #define LIST_POISON1  ((void *)0x101)
-#define LIST_POISON2  ((void *)0x202)
 
 /**
  * List entry structure mimicking linux kernel based one.
@@ -164,5 +160,3 @@ static inline void list_move_tail(struct list_head *it, struct list_head *l1)
 	     _list_entry_helper(item, (item)->field_name.next, field_name) != \
 		     _list_entry_helper(item, (plist)->next, field_name); \
 	     item = q, q = _list_entry_helper(q, (q)->field_name.next, field_name))
-
-#endif // __OCF_ENV_LIST__
