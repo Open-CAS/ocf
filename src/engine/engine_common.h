@@ -162,15 +162,34 @@ void ocf_engine_lookup_map_entry(struct ocf_cache *cache,
 		uint64_t core_line);
 
 /**
- * @brief Traverse request in order to lookup cache lines. If there are misses,
- * attempt to map free cache lines.
- *
- * @param req OCF request
+ * @brief Request cacheline lock type
  */
-void ocf_engine_map(struct ocf_request *req);
+enum ocf_engine_lock_type
+{
+	/** No lock */
+	ocf_engine_lock_none = 0,
+	/** Write lock */
+	ocf_engine_lock_write,
+	/** Read lock */
+	ocf_engine_lock_read,
+};
 
 /**
- * @brief Evict cachelines to populate freelist.
+ * @brief Engine-specific callbacks for common request handling rountine
+ *
+ * TODO(arutk): expand this structure to fit all engines and all steps
+ */
+struct ocf_engine_callbacks
+{
+	/** Specify locking requirements after request is mapped */
+	enum ocf_engine_lock_type (*get_lock_type)(struct ocf_request *req);
+
+	/** Resume handling after acquiring asynchronous lock */
+	ocf_req_async_lock_cb resume;
+};
+
+/**
+ * @brief Map and lock cachelines
  *
  * @param req OCF request
  *
@@ -178,7 +197,8 @@ void ocf_engine_map(struct ocf_request *req);
  * @retval LOOKUP_MAPPED successfully evicted required number of cachelines
  * @retval LOOKUP_MISS eviction failure
  */
-int ocf_engine_evict(struct ocf_request *req);
+int ocf_engine_prepare_clines(struct ocf_request *req,
+		const struct ocf_engine_callbacks *engine_cbs);
 
 /**
  * @brief Traverse OCF request (lookup cache)

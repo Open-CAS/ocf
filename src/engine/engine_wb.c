@@ -163,12 +163,20 @@ int ocf_write_wb_do(struct ocf_request *req)
 	return 0;
 }
 
+static enum ocf_engine_lock_type ocf_wb_get_lock_type(struct ocf_request *req)
+{
+	return ocf_engine_lock_write;
+}
+
+static const struct ocf_engine_callbacks _wb_engine_callbacks =
+{
+	.get_lock_type = ocf_wb_get_lock_type,
+	.resume = ocf_engine_on_resume,
+};
+
 int ocf_write_wb(struct ocf_request *req)
 {
-	bool mapped;
 	int lock = OCF_LOCK_NOT_ACQUIRED;
-	bool promote = true;
-	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
 
 	ocf_io_start(&req->ioi.io);
 
@@ -180,45 +188,9 @@ int ocf_write_wb(struct ocf_request *req)
 
 	/* TODO: Handle fits into dirty */
 
-	ocf_req_hash(req);
-	ocf_req_hash_lock_rd(req); /*- Metadata READ access, No eviction --------*/
+	lock = ocf_engine_prepare_clines(req, &_wb_engine_callbacks);
 
-	/* Travers to check if request is mapped fully */
-	ocf_engine_traverse(req);
-
-	mapped = ocf_engine_is_mapped(req);
-	if (mapped) {
-		/* All cache line are mapped, lock request for WRITE access */
-		lock = ocf_req_async_lock_wr(req, ocf_engine_on_resume);
-	} else  {
-		promote = ocf_promotion_req_should_promote(
-				req->cache->promotion_policy, req);
-	}
-
-	if (mapped || !promote) {
-		ocf_req_hash_unlock_rd(req);
-	} else {
-		/*- Metadata RD access ---------------------------------------*/
-		ocf_req_hash_lock_upgrade(req);
-		ocf_engine_map(req);
-		ocf_req_hash_unlock_wr(req);
-
-		if (req->info.mapping_error) {
-			/* Still not mapped - evict cachelines under global
-			 * metadata write lock */
-			ocf_metadata_start_exclusive_access(metadata_lock);
-			if (ocf_engine_evict(req) == LOOKUP_MAPPED)
-				ocf_engine_map(req);
-			ocf_metadata_end_exclusive_access(metadata_lock);
-		}
-
-		if (!req->info.mapping_error) {
-			/* Lock request for WRITE access */
-			lock = ocf_req_async_lock_wr(req, ocf_engine_on_resume);
-		}
-	}
-
-	if (promote && !req->info.mapping_error) {
+	if (!req->info.mapping_error) {
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* WR lock was not acquired, need to wait for resume */

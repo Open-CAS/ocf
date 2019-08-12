@@ -16,6 +16,8 @@
 #include "../utils/utils_cleaner.h"
 #include "../metadata/metadata.h"
 #include "../eviction/eviction.h"
+#include "../promotion/promotion.h"
+#include "../concurrency/ocf_concurrency.h"
 
 void ocf_engine_error(struct ocf_request *req,
 		bool stop_cache, const char *msg)
@@ -305,7 +307,7 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 	}
 }
 
-void ocf_engine_map(struct ocf_request *req)
+static void ocf_engine_map(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
 	uint32_t i;
@@ -393,13 +395,80 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	}
 }
 
-int ocf_engine_evict(struct ocf_request *req)
+static int  ocf_engine_evict(struct ocf_request *req)
 {
 	if (!ocf_engine_unmapped_count(req))
 		return 0;
 
 	return space_managment_evict_do(req->cache, req,
 			ocf_engine_unmapped_count(req));
+}
+
+static int lock_clines(struct ocf_request *req, enum ocf_engine_lock_type lock,
+		ocf_req_async_lock_cb cb)
+{
+	switch (lock) {
+	case ocf_engine_lock_write:
+		return ocf_req_async_lock_wr(req, cb);
+	case ocf_engine_lock_read:
+		return ocf_req_async_lock_rd(req, cb);
+	default:
+		return OCF_LOCK_ACQUIRED;
+	}
+}
+
+int ocf_engine_prepare_clines(struct ocf_request *req,
+		const struct ocf_engine_callbacks *engine_cbs)
+{
+	bool mapped;
+	bool promote = true;
+	int lock = -ENOENT;
+	enum ocf_engine_lock_type lock_type;
+	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
+
+	ocf_req_hash(req);
+	ocf_req_hash_lock_rd(req); /*- Metadata READ access, No eviction --------*/
+
+	/* Travers to check if request is mapped fully */
+	ocf_engine_traverse(req);
+
+	mapped = ocf_engine_is_mapped(req);
+	if (mapped) {
+		lock_type = engine_cbs->get_lock_type(req);
+		lock = lock_clines(req, lock_type, engine_cbs->resume);
+	} else {
+		promote = ocf_promotion_req_should_promote(
+				req->cache->promotion_policy, req);
+		if (!promote)
+			req->info.mapping_error = 1;
+	}
+
+	if (mapped || !promote) {
+		ocf_req_hash_unlock_rd(req);
+	} else {
+		/* need to attempt mapping / eviction */
+		ocf_req_hash_lock_upgrade(req); /*- Metadata WR access, eviction -----*/
+		ocf_engine_map(req);
+		ocf_req_hash_unlock_wr(req); /*- END Metadata WR access ---------*/
+
+		if (req->info.mapping_error) {
+			ocf_metadata_start_exclusive_access(metadata_lock);
+			/* Now there is exclusive access for metadata. May
+			 * traverse once again and evict cachelines if needed.
+			 */
+			if (ocf_engine_evict(req) == LOOKUP_MAPPED)
+				ocf_engine_map(req);
+			ocf_metadata_end_exclusive_access(metadata_lock);
+		}
+
+		if (!req->info.mapping_error) {
+			lock_type = engine_cbs->get_lock_type(req);
+			lock = lock_clines(req, lock_type, engine_cbs->resume);
+		}
+	}
+
+
+	return lock;
 }
 
 static int _ocf_engine_clean_getter(struct ocf_cache *cache,
