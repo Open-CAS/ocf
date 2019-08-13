@@ -102,7 +102,8 @@ def test_10add_remove_with_io(pyocf_ctx):
 
         write_data = Data.from_string("Test data")
         io = core.new_io(
-            cache.get_default_queue(), 20, write_data.size, IoDir.WRITE, 0, 0
+            cache.get_default_queue(), S.from_sector(1).B, write_data.size,
+            IoDir.WRITE, 0, 0
         )
         io.set_data(write_data)
 
