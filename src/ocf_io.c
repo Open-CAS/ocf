@@ -4,6 +4,7 @@
  */
 
 #include "ocf/ocf.h"
+#include "ocf_def_priv.h"
 #include "ocf_io_priv.h"
 #include "ocf_volume_priv.h"
 #include "utils/utils_io_allocator.h"
@@ -86,6 +87,10 @@ struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 		uint32_t io_class, uint64_t flags)
 {
 	struct ocf_io_internal *ioi;
+	uint32_t sector_size = SECTORS_TO_BYTES(1);
+
+	if ((addr % sector_size) || (bytes % sector_size))
+		return NULL;
 
 	if (!ocf_refcnt_inc(&volume->refcnt))
 		return NULL;
