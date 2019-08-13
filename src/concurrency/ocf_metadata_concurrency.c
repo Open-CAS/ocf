@@ -12,6 +12,13 @@ void ocf_metadata_concurrency_init(struct ocf_cache *cache)
 	env_rwsem_init(&cache->metadata.lock.collision);
 }
 
+void ocf_metadata_concurrency_deinit(struct ocf_cache *cache)
+{
+	env_spinlock_destroy(&cache->metadata.lock.eviction);
+	env_rwlock_destroy(&cache->metadata.lock.status);
+	env_rwsem_destroy(&cache->metadata.lock.collision);
+}
+
 int ocf_metadata_concurrency_attached_init(struct ocf_cache *cache)
 {
 	return 0;

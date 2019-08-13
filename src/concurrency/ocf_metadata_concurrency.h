@@ -12,6 +12,8 @@
 
 void ocf_metadata_concurrency_init(struct ocf_cache *cache);
 
+void ocf_metadata_concurrency_deinit(struct ocf_cache *cache);
+
 int ocf_metadata_concurrency_attached_init(struct ocf_cache *cache);
 
 static inline void ocf_metadata_eviction_lock(struct ocf_cache *cache)

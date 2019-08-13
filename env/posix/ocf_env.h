@@ -201,6 +201,16 @@ static inline void env_mutex_unlock(env_mutex *mutex)
 	ENV_BUG_ON(pthread_mutex_unlock(&mutex->m));
 }
 
+static inline int env_mutex_destroy(env_mutex *mutex)
+{
+	if(pthread_mutex_destroy(&mutex->m))
+		return 1;
+
+	return 0;
+}
+
+/* *** RECURSIVE MUTEX *** */
+
 typedef env_mutex env_rmutex;
 
 static inline int env_rmutex_init(env_rmutex *rmutex)
@@ -227,6 +237,14 @@ static inline int env_rmutex_lock_interruptible(env_rmutex *rmutex)
 static inline void env_rmutex_unlock(env_rmutex *rmutex)
 {
 	env_mutex_unlock(rmutex);
+}
+
+static inline int env_rmutex_destroy(env_rmutex *rmutex)
+{
+	if(pthread_mutex_destroy(&rmutex->m))
+		return 1;
+
+	return 0;
 }
 
 /* *** RW SEMAPHORE *** */
@@ -269,6 +287,11 @@ static inline int env_rwsem_down_write_trylock(env_rwsem *s)
 	return pthread_rwlock_trywrlock(&s->lock) ? -OCF_ERR_NO_LOCK : 0;
 }
 
+static inline int env_rwsem_destroy(env_rwsem *s)
+{
+	return pthread_rwlock_destroy(&s->lock);
+}
+
 /* *** COMPLETION *** */
 struct completion {
 	sem_t sem;
@@ -289,6 +312,11 @@ static inline void env_completion_wait(env_completion *completion)
 static inline void env_completion_complete(env_completion *completion)
 {
 	sem_post(&completion->sem);
+}
+
+static inline void env_completion_destroy(env_completion *completion)
+{
+	sem_destroy(&completion->sem);
 }
 
 /* *** ATOMIC VARIABLES *** */
@@ -445,6 +473,11 @@ static inline void env_spinlock_unlock(env_spinlock *l)
 		(void)flags; \
 		env_spinlock_unlock(l)
 
+static inline void env_spinlock_destroy(env_spinlock *l)
+{
+	ENV_BUG_ON(pthread_spin_destroy(&l->lock));
+}
+
 /* *** RW LOCKS *** */
 
 typedef struct {
@@ -476,6 +509,11 @@ static inline void env_rwlock_write_unlock(env_rwlock *l)
 	ENV_BUG_ON(pthread_rwlock_unlock(&l->lock));
 }
 
+static inline void env_rwlock_destroy(env_rwlock *l)
+{
+	ENV_BUG_ON(pthread_rwlock_destroy(&l->lock));
+}
+
 /* *** WAITQUEUE *** */
 
 typedef struct {
@@ -489,6 +527,11 @@ typedef struct {
 		sem_wait(&w.sem);		\
 	__ret = __ret;				\
 })
+
+static inline void env_waitqueue_destroy(env_waitqueue *w)
+{
+	sem_destroy(&w->sem);
+}
 
 /* *** BIT OPERATIONS *** */
 

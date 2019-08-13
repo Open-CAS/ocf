@@ -134,6 +134,7 @@ ocf_cache_line_concurrency_init:
  */
 void ocf_cache_line_concurrency_deinit(struct ocf_cache *cache)
 {
+	int i;
 	struct ocf_cache_line_concurrency *concurrency;
 
 	if (!cache->device->concurrency.cache_line)
@@ -142,6 +143,11 @@ void ocf_cache_line_concurrency_deinit(struct ocf_cache *cache)
 	OCF_DEBUG_TRACE(cache);
 
 	concurrency = cache->device->concurrency.cache_line;
+
+	env_rwlock_destroy(&concurrency->lock);
+
+	for (i = 0; i < _WAITERS_LIST_ENTRIES; i++)
+		env_spinlock_destroy(&concurrency->waiters_lsts[i].lock);
 
 	if (concurrency->access)
 		OCF_REALLOC_DEINIT(&concurrency->access,

@@ -233,7 +233,12 @@ void cleaning_policy_acp_init_cache_block(struct ocf_cache *cache,
 
 void cleaning_policy_acp_deinitialize(struct ocf_cache *cache)
 {
+	struct acp_context *acp;
+
 	_acp_remove_cores(cache);
+
+	acp = cache->cleaner.cleaning_policy_context;
+	env_rwsem_destroy(&acp->chunks_lock);
 
 	env_vfree(cache->cleaner.cleaning_policy_context);
 	cache->cleaner.cleaning_policy_context = NULL;

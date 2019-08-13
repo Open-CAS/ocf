@@ -72,6 +72,8 @@ void ocf_async_lock_deinit(struct ocf_async_lock *lock)
 	list_for_each_entry_safe(iter, temp, &lock->waiters, list)
 		list_move_tail(&iter->list, &waiters);
 	env_mutex_unlock(&lock->mutex);
+	
+	env_mutex_destroy(&lock->mutex);
 
 	_ocf_async_lock_run_waiters(lock, &waiters, -OCF_ERR_NO_LOCK);
 }

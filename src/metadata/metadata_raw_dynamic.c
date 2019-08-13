@@ -129,6 +129,8 @@ int raw_dynamic_deinit(ocf_cache_t cache,
 	for (i = 0; i < raw->ssd_pages; i++)
 		env_secure_free(ctrl->pages[i], PAGE_SIZE);
 
+	env_mutex_destroy(&ctrl->lock);
+
 	env_vfree(ctrl);
 	raw->priv = NULL;
 
