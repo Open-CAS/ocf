@@ -88,7 +88,8 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
 
     write_data = Data.from_string("This is test data")
     io = core.new_io(
-        cache.get_default_queue(), 20, write_data.size, IoDir.WRITE, 0, 0
+        cache.get_default_queue(), S.from_sector(1).B, write_data.size,
+        IoDir.WRITE, 0, 0
     )
     io.set_data(write_data)
 
