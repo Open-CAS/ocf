@@ -33,6 +33,7 @@ void ocf_metadata_updater_kick(ocf_cache_t cache)
 void ocf_metadata_updater_stop(ocf_cache_t cache)
 {
 	ctx_metadata_updater_stop(cache->owner, &cache->metadata_updater);
+	env_mutex_destroy(&cache->metadata_updater.syncher.lock);
 }
 
 void ocf_metadata_updater_set_priv(ocf_metadata_updater_t mu, void *priv)

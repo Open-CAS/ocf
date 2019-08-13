@@ -233,6 +233,8 @@ void ocf_ctx_put(ocf_ctx_t ctx)
 
 	ocf_mngt_core_pool_deinit(ctx);
 	ocf_ctx_unregister_volume_types(ctx);
+	env_rmutex_destroy(&ctx->lock);
+	
 	ocf_req_allocator_deinit(ctx);
 	ocf_logger_close(&ctx->logger);
 	env_free(ctx);

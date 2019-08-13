@@ -60,6 +60,7 @@ void ocf_queue_put(ocf_queue_t queue)
 		list_del(&queue->list);
 		queue->ops->stop(queue);
 		ocf_mngt_cache_put(queue->cache);
+		env_spinlock_destroy(&queue->io_list_lock);
 		env_free(queue);
 	}
 }

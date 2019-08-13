@@ -308,6 +308,7 @@ static void ocf_volume_close_end(void *ctx)
 	env_completion *cmpl = ctx;
 
 	env_completion_complete(cmpl);
+	env_completion_destroy(cmpl);
 }
 
 void ocf_volume_close(ocf_volume_t volume)
