@@ -3,18 +3,25 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+/**
+ * @file
+ * @brief OCF 
+ * 
+ * 
+ */
+
 #include "ocf_env.h"
 #include <sched.h>
 #include <execinfo.h>
 
 struct _env_allocator {
-	/*!< Memory pool ID unique name */
+	/*! Memory pool ID unique name */
 	char *name;
 
-	/*!< Size of specific item of memory pool */
+	/*! Size of specific item of memory pool */
 	uint32_t item_size;
 
-	/*!< Number of currently allocated items in pool */
+	/*! Number of currently allocated items in pool */
 	env_atomic count;
 };
 
@@ -45,7 +52,6 @@ void *env_allocator_new(env_allocator *allocator)
 	return &item->data;
 }
 
-
 env_allocator *env_allocator_create(uint32_t size, const char *fmt_name, ...)
 {
 	char name[OCF_ALLOCATOR_NAME_MAX] = { '\0' };
@@ -60,7 +66,7 @@ env_allocator *env_allocator_create(uint32_t size, const char *fmt_name, ...)
 
 	allocator->item_size = size + sizeof(struct _env_allocator_item);
 
-	/* Format allocator name */
+	/*! Format allocator name */
 	va_start(args, fmt_name);
 	result = vsnprintf(name, sizeof(name), fmt_name, args);
 	va_end(args);

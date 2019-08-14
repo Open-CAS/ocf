@@ -4,9 +4,12 @@
  */
 
 /**
- * @file
- * @brief OCF types
- */
+* @file
+* @brief OCF types
+*
+* This file contains data types for whole OCF.
+*/
+
 #ifndef __OCF_TYPES_H_
 #define __OCF_TYPES_H_
 

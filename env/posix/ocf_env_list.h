@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+/**
+ * @file
+ * @brief OCF lists
+ *
+ * Header file for OCF which contains customized list types.
+ */
 #ifndef __OCF_ENV_LIST__
 #define __OCF_ENV_LIST__
 
@@ -165,4 +171,4 @@ static inline void list_move_tail(struct list_head *it, struct list_head *l1)
 		     _list_entry_helper(item, (plist)->next, field_name); \
 	     item = q, q = _list_entry_helper(q, (q)->field_name.next, field_name))
 
-#endif // __OCF_ENV_LIST__
+#endif /* __OCF_ENV_LIST__ */
