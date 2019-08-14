@@ -3,6 +3,14 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+/**
+ * @file
+ * @brief OCF environment functions and macros
+ * 
+ * This file contains definitions for many OCF functions
+ * and sets macros
+ */
+
 #ifndef __OCF_ENV_H__
 #define __OCF_ENV_H__
 
@@ -15,12 +23,9 @@
 
 #include <linux/limits.h>
 #include <linux/stddef.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <stddef.h>
 #include <string.h>
 #include <pthread.h>
 #include <assert.h>

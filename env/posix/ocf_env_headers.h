@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+/**
+ * @file
+ * @brief OCF libs and macros
+ *
+ * Header file with OCF common libraries and macros.
+ */
 #ifndef __OCF_ENV_HEADERS_H__
 #define __OCF_ENV_HEADERS_H__
 
