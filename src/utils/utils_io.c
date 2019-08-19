@@ -229,7 +229,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 {
 	struct ocf_counters_block *cache_stats;
 	uint64_t flags = req->ioi.io.flags;
-	uint32_t class = req->ioi.io.io_class;
+	uint32_t io_class = req->ioi.io.io_class;
 	uint64_t addr, bytes, total_bytes = 0;
 	struct ocf_io *io;
 	int err;
@@ -240,7 +240,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 	ENV_BUG_ON(req->byte_length < offset + size);
 	ENV_BUG_ON(first_cl + reqs > req->core_line_count);
 
-	cache_stats = &req->core->counters->cache_blocks;
+	cache_stats = &req->core->counters->part_counters[io_class].cache_blocks;
 
 	if (reqs == 1) {
 		addr = ocf_metadata_map_lg2phy(cache,
@@ -251,7 +251,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		bytes = size;
 
 		io = ocf_new_cache_io(cache, req->io_queue,
-				addr, bytes, dir, class, flags);
+				addr, bytes, dir, io_class, flags);
 		if (!io) {
 			callback(req, -OCF_ERR_NO_MEM);
 			goto update_stats;
@@ -298,7 +298,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		ENV_BUG_ON(bytes == 0);
 
 		io = ocf_new_cache_io(cache, req->io_queue,
-				addr, bytes, dir, class, flags);
+				addr, bytes, dir, io_class, flags);
 		if (!io) {
 			/* Finish all IOs which left with ERROR */
 			for (; i < reqs; i++)
@@ -334,19 +334,19 @@ void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 {
 	struct ocf_counters_block *core_stats;
 	uint64_t flags = req->ioi.io.flags;
-	uint32_t class = req->ioi.io.io_class;
+	uint32_t io_class = req->ioi.io.io_class;
 	int dir = req->rw;
 	struct ocf_io *io;
 	int err;
 
-	core_stats = &req->core->counters->core_blocks;
+	core_stats = &req->core->counters->part_counters[io_class].core_blocks;
 	if (dir == OCF_WRITE)
 		env_atomic64_add(req->byte_length, &core_stats->write_bytes);
 	else if (dir == OCF_READ)
 		env_atomic64_add(req->byte_length, &core_stats->read_bytes);
 
 	io = ocf_volume_new_io(volume, req->io_queue, req->byte_position,
-			req->byte_length, dir, class, flags);
+			req->byte_length, dir, io_class, flags);
 	if (!io) {
 		callback(req, -OCF_ERR_NO_MEM);
 		return;

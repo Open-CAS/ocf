@@ -480,12 +480,13 @@ static void _ocf_cleaner_core_io_for_dirty_range(struct ocf_request *req,
 	uint64_t addr, offset;
 	int err;
 	ocf_cache_t cache = req->cache;
-	ocf_core_t core = ocf_cache_get_core(cache, iter->core_id);
 	struct ocf_io *io;
-	struct ocf_counters_block *core_stats =
-		&cache->core[iter->core_id].counters->core_blocks;
+	struct ocf_counters_block *core_stats;
+	ocf_core_t core = ocf_cache_get_core(cache, iter->core_id);
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache,
 			iter->coll_idx);
+
+	core_stats = &core->counters->part_counters[part_id].core_blocks;
 
 	addr = (ocf_line_size(cache) * iter->core_line)
 			+ SECTORS_TO_BYTES(begin);
@@ -637,7 +638,8 @@ static void _ocf_cleaner_cache_io_cmpl(struct ocf_io *io, int error)
  */
 static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
+	ocf_cache_t cache = req->cache;
+	ocf_core_t core;
 	uint32_t i;
 	struct ocf_map_info *iter = req->map;
 	uint64_t addr, offset;
@@ -650,13 +652,11 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	env_atomic_inc(&req->req_remaining);
 
 	for (i = 0; i < req->core_line_count; i++, iter++) {
-		if (iter->core_id == OCF_CORE_MAX)
+		core = ocf_cache_get_core(cache, iter->core_id);
+		if (!core)
 			continue;
 		if (iter->status == LOOKUP_MISS)
 			continue;
-
-		cache_stats = &cache->core[iter->core_id].
-				counters->cache_blocks;
 
 		OCF_DEBUG_PARAM(req->cache, "Cache read, line =  %u",
 				iter->coll_idx);
@@ -669,6 +669,8 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 		offset = ocf_line_size(cache) * iter->hash;
 
 		part_id = ocf_metadata_get_partition_id(cache, iter->coll_idx);
+
+		cache_stats = &core->counters->part_counters[part_id].cache_blocks;
 
 		io = ocf_new_cache_io(cache, req->io_queue,
 				addr, ocf_line_size(cache),

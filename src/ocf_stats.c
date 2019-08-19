@@ -47,6 +47,8 @@ static void ocf_stats_part_init(struct ocf_counters_part *stats)
 	ocf_stats_req_init(&stats->write_reqs);
 
 	ocf_stats_block_init(&stats->blocks);
+	ocf_stats_block_init(&stats->core_blocks);
+	ocf_stats_block_init(&stats->cache_blocks);
 }
 
 static void ocf_stats_error_init(struct ocf_counters_error *stats)
@@ -76,9 +78,6 @@ void ocf_core_stats_initialize(ocf_core_t core)
 	OCF_CHECK_NULL(core);
 
 	exp_obj_stats = core->counters;
-
-	ocf_stats_block_init(&exp_obj_stats->core_blocks);
-	ocf_stats_block_init(&exp_obj_stats->cache_blocks);
 
 	ocf_stats_error_init(&exp_obj_stats->cache_errors);
 	ocf_stats_error_init(&exp_obj_stats->core_errors);
@@ -240,9 +239,6 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 
 	env_atomic_read(&core->runtime_meta->cached_clines);
 
-	copy_block_stats(&stats->core_volume, &core_stats->core_blocks);
-	copy_block_stats(&stats->cache_volume, &core_stats->cache_blocks);
-
 	copy_error_stats(&stats->core_errors,
 			&core_stats->core_errors);
 	copy_error_stats(&stats->cache_errors,
@@ -262,6 +258,8 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 				&curr->write_reqs);
 
 		accum_block_stats(&stats->core, &curr->blocks);
+		accum_block_stats(&stats->core_volume, &curr->core_blocks);
+		accum_block_stats(&stats->cache_volume, &curr->cache_blocks);
 
 		stats->cache_occupancy += env_atomic_read(&core->runtime_meta->
 				part_counters[i].cached_clines);

@@ -31,6 +31,9 @@ struct ocf_counters_part {
 	struct ocf_counters_req write_reqs;
 
 	struct ocf_counters_block blocks;
+
+	struct ocf_counters_block core_blocks;
+	struct ocf_counters_block cache_blocks;
 };
 
 #ifdef OCF_DEBUG_STATS
@@ -44,9 +47,6 @@ struct ocf_counters_debug {
 #endif
 
 struct ocf_counters_core {
-	struct ocf_counters_block core_blocks;
-	struct ocf_counters_block cache_blocks;
-
 	struct ocf_counters_error core_errors;
 	struct ocf_counters_error cache_errors;
 
