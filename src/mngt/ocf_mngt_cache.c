@@ -1582,7 +1582,7 @@ err_pipeline:
 
 static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 {
-	if (!cfg->name)
+	if (!strnlen(cfg->name, OCF_CACHE_NAME_SIZE))
 		return -OCF_ERR_INVAL;
 
 	if (!ocf_cache_mode_is_valid(cfg->cache_mode))

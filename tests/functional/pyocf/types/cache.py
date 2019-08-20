@@ -8,6 +8,7 @@ from ctypes import (
     c_uint32,
     c_uint16,
     c_int,
+    c_char,
     c_char_p,
     c_void_p,
     c_bool,
@@ -41,8 +42,9 @@ class Backfill(Structure):
 
 
 class CacheConfig(Structure):
+    MAX_CACHE_NAME_SIZE = 32
     _fields_ = [
-        ("_name", c_char_p),
+        ("_name", c_char * MAX_CACHE_NAME_SIZE),
         ("_cache_mode", c_uint32),
         ("_eviction_policy", c_uint32),
         ("_promotion_policy", c_uint32),
@@ -152,7 +154,7 @@ class Cache:
         self.cache_line_size = cache_line_size
 
         self.cfg = CacheConfig(
-            _name=cast(create_string_buffer(name.encode("ascii")), c_char_p),
+            _name=name.encode("ascii"),
             _cache_mode=cache_mode,
             _eviction_policy=eviction_policy,
             _promotion_policy=promotion_policy,
@@ -307,7 +309,7 @@ class Cache:
             raise OcfError("Loading cache device failed", c.results["error"])
 
     @classmethod
-    def load_from_device(cls, device, name=""):
+    def load_from_device(cls, device, name="cache"):
         c = cls(name=name, owner=device.owner)
 
         c.start_cache()
