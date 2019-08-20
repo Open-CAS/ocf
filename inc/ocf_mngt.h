@@ -235,7 +235,7 @@ struct ocf_mngt_cache_config {
 	/**
 	 * @brief Cache name
 	 */
-	const char *name;
+	char name[OCF_CACHE_NAME_SIZE];
 
 	/**
 	 * @brief Cache mode
