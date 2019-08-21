@@ -174,6 +174,7 @@ static int ctx_metadata_updater_init(ocf_metadata_updater_t mu)
  */
 static void ctx_metadata_updater_kick(ocf_metadata_updater_t mu)
 {
+    ocf_metadata_updater_run(mu);
 }
 
 /*
