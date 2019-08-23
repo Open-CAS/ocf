@@ -56,7 +56,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache, uint64_t device_siz
 void ocf_metadata_init_freelist_partition(struct ocf_cache *cache)
 {
 	OCF_DEBUG_TRACE(cache);
-	cache->metadata.iface.layout_iface->init_freelist(cache);
+	cache->metadata.iface.init_freelist(cache);
 }
 
 void ocf_metadata_init_hash_table(struct ocf_cache *cache)
