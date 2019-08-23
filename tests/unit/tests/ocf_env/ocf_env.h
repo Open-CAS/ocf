@@ -38,10 +38,9 @@ typedef uint64_t u64;
 
 typedef uint64_t sector_t;
 
-#define ENV_PRIu64 "lu"
+#define __packed	__attribute__((packed))
 
-#define __packed __attribute__((packed))
-#define __aligned(x) __attribute__((aligned(x)))
+#define ENV_PRIu64 "lu"
 
 /* linux sector 512-bytes */
 #define ENV_SECTOR_SHIFT	9
@@ -54,7 +53,6 @@ typedef uint64_t sector_t;
 
 #define ENV_MEM_NORMAL	0
 #define ENV_MEM_NOIO	1
-#define ENV_MEM_ATOMIC	2
 
 #define ENV_WARN(cond, fmt, args...) ({})
 

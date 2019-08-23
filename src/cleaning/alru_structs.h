@@ -13,7 +13,7 @@ struct alru_cleaning_policy_meta {
 	uint32_t timestamp;
 	uint32_t lru_prev;
 	uint32_t lru_next;
-} __attribute__((packed));
+} __packed;
 
 struct alru_cleaning_policy_config {
 	uint32_t thread_wakeup_time;	/* in seconds */

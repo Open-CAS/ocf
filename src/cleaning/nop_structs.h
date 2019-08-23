@@ -7,7 +7,7 @@
 #define __LAYER_CLEANING_POLICY_NOP_STRUCTS_H__
 
 struct nop_cleaning_policy_meta {
-} __attribute__((packed));
+} __packed;
 
 struct nop_cleaning_policy {
 };

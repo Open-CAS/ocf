@@ -54,7 +54,6 @@ typedef uint64_t u64;
 typedef uint64_t sector_t;
 
 #define __packed	__attribute__((packed))
-#define __aligned(x)	__attribute__((aligned(x)))
 
 #define likely(cond)       __builtin_expect(!!(cond), 1)
 #define unlikely(cond)     __builtin_expect(!!(cond), 0)
@@ -69,7 +68,6 @@ typedef uint64_t sector_t;
 
 #define ENV_WARN(cond, fmt...)		printf(fmt)
 #define ENV_WARN_ON(cond)		;
-#define ENV_WARN_ONCE(cond, fmt...)	ENV_WARN(cond, fmt)
 
 #define ENV_BUG()			assert(0)
 #define ENV_BUG_ON(cond)		do { if (cond) ENV_BUG(); } while (0)
@@ -77,7 +75,6 @@ typedef uint64_t sector_t;
 /* *** MEMORY MANAGEMENT *** */
 #define ENV_MEM_NORMAL	0
 #define ENV_MEM_NOIO	0
-#define ENV_MEM_ATOMIC	0
 
 static inline void *env_malloc(size_t size, int flags)
 {
@@ -519,25 +516,6 @@ static inline void env_rwlock_destroy(env_rwlock *l)
 	ENV_BUG_ON(pthread_rwlock_destroy(&l->lock));
 }
 
-/* *** WAITQUEUE *** */
-
-typedef struct {
-	sem_t sem;
-} env_waitqueue;
-
-#define env_waitqueue_wait(w, condition)	\
-({						\
-	int __ret = 0;				\
-	if (!(condition))			\
-		sem_wait(&w.sem);		\
-	__ret = __ret;				\
-})
-
-static inline void env_waitqueue_destroy(env_waitqueue *w)
-{
-	sem_destroy(&w->sem);
-}
-
 /* *** BIT OPERATIONS *** */
 
 static inline void env_bit_set(int nr, volatile void *addr)
@@ -619,7 +597,6 @@ static inline void env_sort(void *base, size_t num, size_t size,
 		*diff = memcmp(s1, s2, min(s1max, s2max)); \
 		0; \
 	})
-#define env_strdup strndup
 #define env_strnlen(s, smax) strnlen(s, smax)
 #define env_strncmp strncmp
 #define env_strncpy(dest, dmax, src, slen) ({ \

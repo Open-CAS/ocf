@@ -23,7 +23,7 @@ struct eviction_policy {
 /* Eviction policy metadata per cache line */
 union eviction_policy_meta {
 	struct lru_eviction_policy_meta lru;
-} __attribute__((packed));
+} __packed;
 
 /* the caller must hold the metadata lock for all operations
  *

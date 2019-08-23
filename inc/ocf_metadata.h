@@ -30,7 +30,7 @@ struct ocf_atomic_metadata {
 
 	/** Set bit indicates that sector i dirty */
 	uint32_t dirty : 1;
-} __attribute__((packed));
+} __packed;
 
 #define OCF_ATOMIC_METADATA_SIZE	sizeof(struct ocf_atomic_metadata)
 
