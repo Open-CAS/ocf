@@ -61,6 +61,13 @@ void ocf_metadata_init_freelist_partition(struct ocf_cache *cache);
 void ocf_metadata_init_hash_table(struct ocf_cache *cache);
 
 /**
+ * @brief Initialize collision table
+ *
+ * @param cache - Cache instance
+ */
+void ocf_metadata_init_collision(struct ocf_cache *cache);
+
+/**
  * @brief De-Initialize metadata
  *
  * @param cache - Cache instance
@@ -206,5 +213,11 @@ typedef void (*ocf_metadata_load_properties_end_t)(void *priv, int error,
 
 void ocf_metadata_load_properties(ocf_volume_t volume,
 		ocf_metadata_load_properties_end_t cmpl, void *priv);
+
+static inline ocf_cache_line_t ocf_metadata_collision_table_entries(
+		struct ocf_cache *cache)
+{
+	return cache->device->collision_table_entries;
+}
 
 #endif /* METADATA_H_ */

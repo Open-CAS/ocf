@@ -59,8 +59,6 @@ struct ocf_superblock_config {
  * @brief OCF cache metadata runtime superblock
  */
 struct ocf_superblock_runtime {
-	struct ocf_part freelist_part;
-
 	uint32_t cleaning_thread_access;
 };
 

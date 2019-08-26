@@ -44,18 +44,6 @@ static uint64_t _bytes4k(uint64_t bytes)
 	return (bytes + 4095UL) >> 12;
 }
 
-static uint64_t _get_cache_occupancy(ocf_cache_t cache)
-{
-	uint64_t result = 0;
-	ocf_core_t core;
-	ocf_core_id_t core_id;
-
-	for_each_core(cache, core, core_id)
-		result += env_atomic_read(&core->runtime_meta->cached_clines);
-
-	return result;
-}
-
 static void _set(struct ocf_stat *stat, uint64_t value, uint64_t denominator)
 {
 	stat->value = value;
@@ -169,7 +157,7 @@ int ocf_stats_collect_core(ocf_core_t core,
 	cache = ocf_core_get_cache(core);
 	cache_line_size = ocf_cache_get_line_size(cache);
 	cache_size = cache->conf_meta->cachelines;
-	cache_occupancy = _get_cache_occupancy(cache);
+	cache_occupancy = ocf_get_cache_occupancy(cache);
 
 	_ocf_stats_zero(usage);
 	_ocf_stats_zero(req);

@@ -21,6 +21,7 @@
 #include "ocf_logger_priv.h"
 #include "ocf/ocf_trace.h"
 #include "promotion/promotion.h"
+#include "ocf_freelist.h"
 
 #define DIRTY_FLUSHED 1
 #define DIRTY_NOT_FLUSHED 0
@@ -82,8 +83,6 @@ struct ocf_cache_device {
 
 	uint64_t metadata_offset;
 
-	struct ocf_part *freelist_part;
-
 	struct {
 		struct ocf_cache_line_concurrency *cache_line;
 	} concurrency;
@@ -109,6 +108,8 @@ struct ocf_cache {
 	struct ocf_user_part user_parts[OCF_IO_CLASS_MAX + 1];
 
 	struct ocf_metadata metadata;
+
+	ocf_freelist_t freelist;
 
 	ocf_eviction_t eviction_policy_init;
 
@@ -198,5 +199,17 @@ static inline ocf_core_t ocf_cache_get_core(ocf_cache_t cache,
 
 #define ocf_cache_log_rl(cache) \
 	ocf_log_rl(ocf_cache_get_ctx(cache))
+
+static inline uint64_t ocf_get_cache_occupancy(ocf_cache_t cache)
+{
+	uint64_t result = 0;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+
+	for_each_core(cache, core, core_id)
+		result += env_atomic_read(&core->runtime_meta->cached_clines);
+
+	return result;
+}
 
 #endif /* __OCF_CACHE_PRIV_H__ */

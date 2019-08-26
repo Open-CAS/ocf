@@ -124,13 +124,6 @@ struct ocf_metadata_iface {
 		struct ocf_volume_uuid *uuid, uint32_t count,
 		ocf_metadata_query_cores_end_t cmpl, void *priv);
 
-	/**
-	 * @brief Initialize freelist partition
-	 *
-	 * @param cache - Cache instance
-	 */
-
-	void (*init_freelist)(struct ocf_cache *cache);
 
 	/**
 	 * @brief Metadata cache line location on pages interface
@@ -143,6 +136,13 @@ struct ocf_metadata_iface {
 	 * @param cache - Cache instance
 	 */
 	void (*init_hash_table)(struct ocf_cache *cache);
+
+	/**
+	 * @brief Initialize collision table
+	 *
+	 * @param cache - Cache instance
+	 */
+	void (*init_collision)(struct ocf_cache *cache);
 
 	/**
 	 * @brief De-Initialize metadata

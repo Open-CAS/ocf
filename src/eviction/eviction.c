@@ -107,11 +107,13 @@ int space_managment_evict_do(struct ocf_cache *cache,
 		struct ocf_request *req, uint32_t evict_cline_no)
 {
 	uint32_t evicted;
+	uint32_t free;
 
-	if (evict_cline_no <= cache->device->freelist_part->curr_size)
+	free = ocf_freelist_num_free(cache->freelist);
+	if (evict_cline_no <= free)
 		return LOOKUP_MAPPED;
 
-	evict_cline_no -= cache->device->freelist_part->curr_size;
+	evict_cline_no -= free;
 	evicted = ocf_evict_do(cache, req->io_queue, evict_cline_no,
 			req->part_id);
 
