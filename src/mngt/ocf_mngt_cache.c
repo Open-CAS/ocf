@@ -2236,6 +2236,62 @@ int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 	return result;
 }
 
+int ocf_mngt_cache_promotion_set_policy(ocf_cache_t cache, ocf_promotion_t type)
+{
+	int result;
+
+	OCF_METADATA_LOCK_WR();
+
+	result = ocf_promotion_set_policy(cache->promotion_policy, type);
+
+	OCF_METADATA_UNLOCK_WR();
+
+	return result;
+}
+
+ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache)
+{
+	ocf_promotion_t result;
+
+	OCF_METADATA_LOCK_RD();
+
+	result = cache->conf_meta->promotion_policy_type;
+
+	OCF_METADATA_UNLOCK_RD();
+
+	return result;
+}
+
+int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
+		uint64_t *param_value)
+{
+	int result;
+
+	OCF_METADATA_LOCK_RD();
+
+	result = ocf_promotion_get_param(cache->promotion_policy, param_id,
+			param_value);
+
+	OCF_METADATA_UNLOCK_RD();
+
+	return result;
+}
+
+int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
+		uint64_t param_value)
+{
+	int result;
+
+	OCF_METADATA_LOCK_RD();
+
+	result = ocf_promotion_set_param(cache->promotion_policy, param_id,
+			param_value);
+
+	OCF_METADATA_UNLOCK_RD();
+
+	return result;
+}
+
 int ocf_mngt_cache_reset_fallback_pt_error_counter(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);

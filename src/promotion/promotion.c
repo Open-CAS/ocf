@@ -55,6 +55,35 @@ void ocf_promotion_deinit(ocf_promotion_policy_t policy)
 	env_vfree(policy);
 }
 
+ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
+		ocf_promotion_t type)
+{
+	ocf_error_t result = 0;
+	ocf_cache_t cache = policy->owner;
+	ocf_promotion_t prev_policy;
+
+	prev_policy = cache->conf_meta->promotion_policy_type;
+
+	if (ocf_promotion_policies[prev_policy].deinit)
+		ocf_promotion_policies[prev_policy].deinit(policy);
+
+	cache->conf_meta->promotion_policy_type = type;
+
+	if (ocf_promotion_policies[type].init)
+		result = ocf_promotion_policies[type].init(cache, policy);
+
+	if (result) {
+		ocf_cache_log(cache, log_err,
+				"Error switching to new promotion policy\n");
+		ocf_cache_log(cache, log_err,
+				"Falling back to 'always' promotion policy\n");
+		cache->conf_meta->promotion_policy_type = ocf_promotion_always;
+		policy->type = ocf_promotion_always;
+	}
+
+	return result;
+}
+
 ocf_error_t ocf_promotion_set_param(ocf_promotion_policy_t policy,
 		uint8_t param_id, uint64_t param_value)
 {

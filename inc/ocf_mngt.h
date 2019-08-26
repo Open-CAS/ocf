@@ -778,13 +778,62 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
  * @param[in] cache Cache handle
  * @param[in] type Cleaning policy type
  * @param[in] param_id Cleaning policy parameter id
- * @param[in] param_value Variable to store parameter value
+ * @param[out] param_value Variable to store parameter value
  *
  * @retval 0 Parameter has been get successfully
  * @retval Non-zero Error occurred and parameter has not been get
  */
 int ocf_mngt_cache_cleaning_get_param(ocf_cache_t cache,ocf_cleaning_t type,
 		uint32_t param_id, uint32_t *param_value);
+
+/**
+ * @brief Set promotion policy in given cache
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
+ * @param[in] cache Cache handle
+ * @param[in] type Promotion policy type
+ *
+ * @retval 0 Policy has been set successfully
+ * @retval Non-zero Error occurred and policy has not been set
+ */
+int ocf_mngt_cache_promotion_set_policy(ocf_cache_t cache, ocf_promotion_t type);
+
+/**
+ * @brief Get promotion policy in given cache
+ *
+ * @param[in] cache Cache handle
+ *
+ * @retval Currently set promotion policy type
+ */
+ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache);
+
+/**
+ * @brief Set promotion policy parameter for given cache
+ *
+ * @param[in] cache Cache handle
+ * @param[in] param_id Promotion policy parameter id
+ * @param[in] param_value Promotion policy parameter value
+ *
+ * @retval 0 Parameter has been set successfully
+ * @retval Non-zero Error occurred and parameter has not been set
+ */
+int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
+		uint64_t param_value);
+
+/**
+ * @brief Get promotion policy parameter for given cache
+ *
+ * @param[in] cache Cache handle
+ * @param[in] param_id Promotion policy parameter id
+ * @param[out] param_value Variable to store parameter value
+ *
+ * @retval 0 Parameter has been retrieved successfully
+ * @retval Non-zero Error occurred and parameter has not been retrieved
+ */
+int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
+		uint64_t *param_value);
 
 /**
  * @brief IO class configuration

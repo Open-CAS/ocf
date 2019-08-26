@@ -11,6 +11,7 @@
 
 struct ocf_promotion_policy {
 	ocf_cache_t owner;
+
 	ocf_promotion_t type;
 	void *ctx;
 };
