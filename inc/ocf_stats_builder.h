@@ -172,7 +172,7 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
 /**
  * @param Collect statistics for given core
  *
- * @param cache Core for each statistics will be collected
+ * @param core Core for which statistics will be collected
  * @param usage Usage statistics
  * @param req Request statistics
  * @param blocks Blocks statistics
@@ -186,5 +186,37 @@ int ocf_stats_collect_core(ocf_core_t core,
 		struct ocf_stats_requests *req,
 		struct ocf_stats_blocks *blocks,
 		struct ocf_stats_errors *errors);
+
+/**
+ * @param Collect statistics for given ioclass
+ *
+ * @param core Core handle for which statistics will be collected
+ * @param part_id Ioclass id for which statistics will be collected
+ * @param usage Usage statistics
+ * @param req Request statistics
+ * @param blocks Blocks statistics
+ *
+ * @retval 0 Success
+ * @retval Non-zero Error
+ */
+int ocf_stats_collect_part_core(ocf_core_t core, ocf_part_id_t part_id,
+		struct ocf_stats_usage *usage, struct ocf_stats_requests *req,
+		struct ocf_stats_blocks *blocks);
+
+/**
+ * @param Collect statistics for given ioclass
+ *
+ * @param cache Cache instance for which statistics will be collected
+ * @param part_id Ioclass id for which statistics will be collected
+ * @param usage Usage statistics
+ * @param req Request statistics
+ * @param blocks Blocks statistics
+ *
+ * @retval 0 Success
+ * @retval Non-zero Error
+ */
+int ocf_stats_collect_part_cache(ocf_cache_t cache, ocf_part_id_t part_id,
+		struct ocf_stats_usage *usage, struct ocf_stats_requests *req,
+		struct ocf_stats_blocks *blocks);
 
 #endif /* __OCF_STATS_BUILDER_H__ */

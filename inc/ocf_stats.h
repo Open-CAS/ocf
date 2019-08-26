@@ -62,15 +62,6 @@ struct ocf_stats_block {
  * Statistics appropriate for given IO class
  */
 struct ocf_stats_io_class {
-	/** Read requests statistics */
-	struct ocf_stats_req read_reqs;
-
-	/** Writes requests statistics */
-	struct ocf_stats_req write_reqs;
-
-	/** Block requests statistics */
-	struct ocf_stats_block blocks;
-
 	/** Number of cache lines available for given partition */
 	uint64_t free_clines;
 
@@ -79,6 +70,21 @@ struct ocf_stats_io_class {
 
 	/** Number of dirty cache lines assigned to specific partition */
 	uint64_t dirty_clines;
+
+	/** Read requests statistics */
+	struct ocf_stats_req read_reqs;
+
+	/** Writes requests statistics */
+	struct ocf_stats_req write_reqs;
+
+	/** Block requests submitted by user to this core */
+	struct ocf_stats_block blocks;
+
+	/** Block requests for cache volume statistics */
+	struct ocf_stats_block cache_blocks;
+
+	/** Block requests for core volume statistics */
+	struct ocf_stats_block core_blocks;
 };
 
 #define IO_PACKET_NO 12

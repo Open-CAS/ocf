@@ -198,6 +198,8 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 	copy_req_stats(&stats->write_reqs, &part_stat->write_reqs);
 
 	copy_block_stats(&stats->blocks, &part_stat->blocks);
+	copy_block_stats(&stats->cache_blocks, &part_stat->cache_blocks);
+	copy_block_stats(&stats->core_blocks, &part_stat->core_blocks);
 
 	return 0;
 }
