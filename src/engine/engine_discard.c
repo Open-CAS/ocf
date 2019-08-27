@@ -60,8 +60,6 @@ static void _ocf_discard_core_complete(struct ocf_io *io, int error)
 
 	OCF_DEBUG_RQ(req, "Core DISCARD Completion");
 
-	ocf_promotion_req_purge(req->cache->promotion_policy, req);
-
 	_ocf_discard_complete_req(req, error);
 
 	ocf_io_put(io);
@@ -84,6 +82,8 @@ static int _ocf_discard_core(struct ocf_request *req)
 	ocf_io_set_data(io, req->data, 0);
 
 	ocf_volume_submit_discard(io);
+
+	ocf_promotion_req_purge(req->cache->promotion_policy, req);
 
 	return 0;
 }

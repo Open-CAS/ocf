@@ -7,11 +7,11 @@
 
 #include "promotion.h"
 #include "ops.h"
-#include "nhit.h"
+#include "nhit/nhit.h"
 
 struct promotion_policy_ops ocf_promotion_policies[ocf_promotion_max] = {
-	[ocf_promotion_nop] = {
-		.name = "nop",
+	[ocf_promotion_always] = {
+		.name = "always",
 	},
 	[ocf_promotion_nhit] = {
 		.name = "nhit",
@@ -35,6 +35,7 @@ ocf_error_t ocf_promotion_init(ocf_cache_t cache, ocf_promotion_policy_t *policy
 		return -OCF_ERR_NO_MEM;
 
 	(*policy)->type = type;
+	(*policy)->owner = cache;
 
 	if (ocf_promotion_policies[type].init)
 		result = ocf_promotion_policies[type].init(cache, *policy);
@@ -64,6 +65,22 @@ ocf_error_t ocf_promotion_set_param(ocf_promotion_policy_t policy,
 
 	if (ocf_promotion_policies[type].set_param) {
 		result = ocf_promotion_policies[type].set_param(policy, param_id,
+				param_value);
+	}
+
+	return result;
+}
+
+ocf_error_t ocf_promotion_get_param(ocf_promotion_policy_t policy,
+		uint8_t param_id, uint64_t *param_value)
+{
+	ocf_promotion_t type = policy->type;
+	ocf_error_t result = 0;
+
+	ENV_BUG_ON(type >= ocf_promotion_max);
+
+	if (ocf_promotion_policies[type].get_param) {
+		result = ocf_promotion_policies[type].get_param(policy, param_id,
 				param_value);
 	}
 

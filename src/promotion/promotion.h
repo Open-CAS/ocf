@@ -44,6 +44,18 @@ ocf_error_t ocf_promotion_set_param(ocf_promotion_policy_t policy,
 		uint8_t param_id, uint64_t param_value);
 
 /**
+ * @brief Get promotion policy parameter
+ *
+ * @param[in] policy promotion policy handle
+ * @param[in] param_id id of parameter to be set
+ * @param[out] param_value value of parameter to be set
+ *
+ * @retval ocf_error_t
+ */
+ocf_error_t ocf_promotion_get_param(ocf_promotion_policy_t policy,
+		uint8_t param_id, uint64_t *param_value);
+
+/**
  * @brief Update promotion policy after cache lines have been promoted to cache
  * or discarded from core device
  *
