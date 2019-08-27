@@ -30,15 +30,6 @@ enum ocf_metadata_shutdown_status {
  * Metadata cache line location on pages interface
  */
 struct ocf_metadata_layout_iface {
-
-	/**
-	 * @brief Initialize freelist partition
-	 *
-	 * @param cache - Cache instance
-	 */
-
-	void (*init_freelist)(struct ocf_cache *cache);
-
 	/**
 	 * This function is mapping collision index to appropriate cache line
 	 * (logical cache line to physical one mapping).
@@ -132,6 +123,14 @@ struct ocf_metadata_iface {
 	void (*query_cores)(ocf_ctx_t owner, ocf_volume_t volume,
 		struct ocf_volume_uuid *uuid, uint32_t count,
 		ocf_metadata_query_cores_end_t cmpl, void *priv);
+
+	/**
+	 * @brief Initialize freelist partition
+	 *
+	 * @param cache - Cache instance
+	 */
+
+	void (*init_freelist)(struct ocf_cache *cache);
 
 	/**
 	 * @brief Metadata cache line location on pages interface

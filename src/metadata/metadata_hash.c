@@ -1014,97 +1014,33 @@ static inline void _ocf_init_collision_entry(struct ocf_cache *cache,
 }
 
 /*
- * Default initialization of freelist partition
- */
-static void ocf_metadata_hash_init_freelist_seq(struct ocf_cache *cache)
-{
-	uint32_t step = 0;
-	unsigned int i = 0;
-	ocf_cache_line_t collision_table_entries =
-			cache->device->collision_table_entries;
-
-	cache->device->freelist_part->head = 0;
-	cache->device->freelist_part->curr_size = cache->device->collision_table_entries;
-
-	/* hash_father is an index in hash_table and it's limited
-	 * to the hash_table_entries
-	 * hash_table_entries is invalid index here.
-	 */
-	_ocf_init_collision_entry(cache, i, 1, collision_table_entries);
-
-	for (i = 1; i < collision_table_entries - 1; i++) {
-		_ocf_init_collision_entry(cache, i, i + 1, i - 1);
-		OCF_COND_RESCHED_DEFAULT(step);
-	}
-
-	cache->device->freelist_part->tail = i;
-	_ocf_init_collision_entry(cache, i, collision_table_entries, i - 1);
-}
-
-/*
  * Modified initialization of freelist partition
  */
-static void ocf_metadata_hash_init_freelist_striping(
-		struct ocf_cache *cache)
+static void ocf_metadata_hash_init_freelist(struct ocf_cache *cache)
 {
 	uint32_t step = 0;
-	unsigned int i, j;
+	unsigned int i;
 	ocf_cache_line_t prev, next;
-	ocf_cache_line_t idx, last_page;
+	ocf_cache_line_t idx;
 	ocf_cache_line_t collision_table_entries =
 			cache->device->collision_table_entries;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv;
-	unsigned int entries_in_page =
-		ctrl->raw_desc[metadata_segment_collision].entries_in_page;
-	unsigned int pages =
-		ctrl->raw_desc[metadata_segment_collision].ssd_pages;
 
+	prev = collision_table_entries;
+	idx = 0;
+	for (i = 0; i < cache->device->collision_table_entries - 1; i++) {
+		next = ocf_metadata_map_phy2lg(cache, i + 1);
+		_ocf_init_collision_entry(cache, idx, next, prev);
+		prev = idx;
+		idx = next;
+		OCF_COND_RESCHED_DEFAULT(step);
+	}
+	_ocf_init_collision_entry(cache, idx, collision_table_entries, prev);
+
+	/* Initialize freelist partition */
 	cache->device->freelist_part->head = 0;
-	cache->device->freelist_part->curr_size = cache->device->collision_table_entries;
-
-	/* Modified initialization procedure */
-	prev = next = collision_table_entries;
-	last_page = pages;
-
-	for (i = 0; i < pages; i++) {
-		idx = i * entries_in_page;
-		for (j = 0; j < entries_in_page &&
-				idx < collision_table_entries; j++) {
-			next = idx + entries_in_page;
-
-			if (next >= collision_table_entries)
-				next = j + 1;
-
-			_ocf_init_collision_entry(cache, idx, next, prev);
-
-			if (idx >= entries_in_page - 1) {
-				prev = idx - entries_in_page + 1;
-			} else {
-				prev = last_page * entries_in_page + j;
-				if (prev >= collision_table_entries) {
-					prev -= entries_in_page;
-					last_page = pages - 1;
-				}
-			}
-
-			OCF_COND_RESCHED_DEFAULT(step);
-			idx++;
-		}
-	}
-
-	if (collision_table_entries < entries_in_page) {
-		idx = collision_table_entries - 1;
-	} else {
-		idx = pages * entries_in_page - 1;
-		if (idx >= collision_table_entries)
-			idx -= entries_in_page;
-
-	}
-
-	/* Terminate free list */
 	cache->device->freelist_part->tail = idx;
-	ocf_metadata_set_partition_next(cache, idx, collision_table_entries);
+	cache->device->freelist_part->curr_size = cache->device->
+			collision_table_entries;
 }
 
 
@@ -2677,6 +2613,7 @@ static const struct ocf_metadata_iface metadata_hash_iface = {
 	.init_variable_size = ocf_metadata_hash_init_variable_size,
 	.deinit_variable_size = ocf_metadata_hash_deinit_variable_size,
 	.init_hash_table = ocf_metadata_hash_init_hash_table,
+	.init_freelist = ocf_metadata_hash_init_freelist,
 
 	.layout_iface = NULL,
 	.pages = ocf_metadata_hash_pages,
@@ -2761,12 +2698,10 @@ static const struct ocf_metadata_iface metadata_hash_iface = {
 
 static const struct ocf_metadata_layout_iface layout_ifaces[ocf_metadata_layout_max] = {
 	[ocf_metadata_layout_striping] = {
-		.init_freelist = ocf_metadata_hash_init_freelist_striping,
 		.lg2phy = ocf_metadata_hash_map_lg2phy_striping,
 		.phy2lg = ocf_metadata_hash_map_phy2lg_striping
 	},
 	[ocf_metadata_layout_seq] = {
-		.init_freelist = ocf_metadata_hash_init_freelist_seq,
 		.lg2phy = ocf_metadata_hash_map_lg2phy_seq,
 		.phy2lg = ocf_metadata_hash_map_phy2lg_seq
 	}
