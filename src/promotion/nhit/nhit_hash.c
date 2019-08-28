@@ -5,7 +5,7 @@
 
 #include "../../ocf_priv.h"
 
-#include "hash.h"
+#include "nhit_hash.h"
 
 /* Implementation of hashmap-ish structure for tracking core lines in nhit
  * promotion policy. It consists of two arrays:
@@ -109,7 +109,7 @@ struct nhit_hash {
 	env_spinlock rb_pointer_lock;
 };
 
-ocf_error_t hash_init(uint64_t hash_size, nhit_hash_t *ctx)
+ocf_error_t nhit_hash_init(uint64_t hash_size, nhit_hash_t *ctx)
 {
 	int result = 0;
 	struct nhit_hash *new_ctx;
@@ -181,7 +181,7 @@ exit:
 	return result;
 }
 
-void hash_deinit(nhit_hash_t ctx)
+void nhit_hash_deinit(nhit_hash_t ctx)
 {
 	ocf_cache_line_t i;
 
@@ -329,7 +329,7 @@ static inline void write_unlock_hashes(nhit_hash_t ctx, ocf_core_id_t core_id1,
 		env_rwsem_up_write(&ctx->hash_locks[hash2]);
 }
 
-void hash_insert(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba)
+void nhit_hash_insert(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba)
 {
 	uint64_t slot_id;
 	struct nhit_list_elem *slot;
@@ -353,7 +353,7 @@ void hash_insert(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba)
 	commit_rb_slot(ctx, slot_id);
 }
 
-bool hash_query(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba,
+bool nhit_hash_query(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba,
 		int32_t *counter)
 {
 	ocf_cache_line_t hash = hash_function(core_id, core_lba,
@@ -377,7 +377,7 @@ bool hash_query(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba,
 	return true;
 }
 
-void hash_set_occurences(nhit_hash_t ctx, ocf_core_id_t core_id,
+void nhit_hash_set_occurences(nhit_hash_t ctx, ocf_core_id_t core_id,
 		uint64_t core_lba, int32_t occurences)
 {
 	ocf_cache_line_t hash = hash_function(core_id, core_lba,

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include "hash.h"
+#include "nhit_hash.h"
 #include "../../metadata/metadata.h"
 #include "../../ocf_priv.h"
 #include "../../engine/engine_common.h"
@@ -32,7 +32,7 @@ ocf_error_t nhit_init(ocf_cache_t cache, ocf_promotion_policy_t policy)
 		goto exit;
 	}
 
-	result = hash_init(ocf_metadata_get_cachelines_count(cache) *
+	result = nhit_hash_init(ocf_metadata_get_cachelines_count(cache) *
 			NHIT_MAPPING_RATIO, &ctx->hash_map);
 	if (result)
 		goto dealloc_ctx;
@@ -57,7 +57,7 @@ void nhit_deinit(ocf_promotion_policy_t policy)
 {
 	struct nhit_policy_context *ctx = policy->ctx;
 
-	hash_deinit(ctx->hash_map);
+	nhit_hash_deinit(ctx->hash_map);
 
 	env_vfree(ctx);
 	policy->ctx = NULL;
@@ -137,7 +137,7 @@ ocf_error_t nhit_get_param(ocf_promotion_policy_t policy, uint8_t param_id,
 static void core_line_purge(struct nhit_policy_context *ctx, ocf_core_id_t core_id,
 		uint64_t core_lba)
 {
-	hash_set_occurences(ctx->hash_map, core_id, core_lba, 0);
+	nhit_hash_set_occurences(ctx->hash_map, core_id, core_lba, 0);
 }
 
 void nhit_req_purge(ocf_promotion_policy_t policy,
@@ -161,13 +161,13 @@ static bool core_line_should_promote(struct nhit_policy_context *ctx,
 	bool hit;
 	int32_t counter;
 
-	hit = hash_query(ctx->hash_map, core_id, core_lba, &counter);
+	hit = nhit_hash_query(ctx->hash_map, core_id, core_lba, &counter);
 	if (hit) {
 		/* we have a hit, return now */
 		return env_atomic_read(&ctx->insertion_threshold) <= counter;
 	}
 
-	hash_insert(ctx->hash_map, core_id, core_lba);
+	nhit_hash_insert(ctx->hash_map, core_id, core_lba);
 
 	return false;
 }
