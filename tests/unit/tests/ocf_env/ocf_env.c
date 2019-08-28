@@ -3,21 +3,20 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-
 #include "ocf_env.h"
 #include <sys/types.h>
 
-#include <stdarg.h>
-#include <stddef.h>
 #include <setjmp.h>
 #include <cmocka.h>
 
+/* BUG ON */
 void bug_on(int cond)
 {
 	/*   Wrap this to use your implementation */
 	assert_false(cond);
 }
 
+/* MEMORY MANAGEMENT */
 void *env_malloc(size_t size, int flags)
 {
 	return malloc(size);
@@ -53,8 +52,7 @@ uint64_t env_get_free_memory(void)
 	return sysconf(_SC_PAGESIZE) * sysconf(_SC_AVPHYS_PAGES);
 }
 
-/* *** ALLOCATOR *** */
-
+/* ALLOCATOR */
 struct _env_allocator {
 	/*!< Memory pool ID unique name */
 	char *name;
@@ -127,8 +125,7 @@ void env_allocator_destroy(env_allocator *allocator)
 	}
 }
 
-/* *** COMPLETION *** */
-
+/* COMPLETION */
 void env_completion_init(env_completion *completion)
 {
 	function_called();
@@ -147,7 +144,7 @@ void env_completion_complete(env_completion *completion)
 	check_expected_ptr(completion);
 }
 
-
+/* MUTEX */
 int env_mutex_init(env_mutex *mutex)
 {
 	function_called();
@@ -174,6 +171,7 @@ void env_mutex_unlock(env_mutex *mutex)
 	check_expected_ptr(mutex);
 }
 
+/* RECURSIVE MUTEX */
 int env_rmutex_init(env_rmutex *rmutex)
 {
 	function_called();
@@ -200,6 +198,7 @@ void env_rmutex_unlock(env_rmutex *rmutex)
 	check_expected_ptr(rmutex);
 }
 
+/* RW SEMAPHORE */
 int env_rwsem_init(env_rwsem *s)
 {
 	function_called();
@@ -245,6 +244,7 @@ int env_rwsem_down_write_trylock(env_rwsem *s)
 	return mock();
 }
 
+/* ATOMIC VARIABLES */
 int env_atomic_read(const env_atomic *a)
 {
 	return *a;
@@ -361,6 +361,7 @@ long env_atomic64_cmpxchg(env_atomic64 *a, long old, long new)
 	return oldval;
 }
 
+/* SPIN LOCKS */
 void env_spinlock_init(env_spinlock *l)
 {
 	function_called();
@@ -379,6 +380,7 @@ void env_spinlock_unlock(env_spinlock *l)
 	check_expected_ptr(l);
 }
 
+/* RW LOCKS */
 void env_rwlock_init(env_rwlock *l)
 {
 	function_called();
@@ -409,6 +411,7 @@ void env_rwlock_write_unlock(env_rwlock *l)
 	check_expected_ptr(l);
 }
 
+/* BIT OPERATIONS */
 void env_bit_set(int nr, volatile void *addr)
 {
 	char *byte = (char *) addr + (nr >> 3);
@@ -434,8 +437,7 @@ bool env_bit_test(int nr, const volatile unsigned long *addr)
 	return !!(*byte & mask);
 }
 
-/* *** SCHEDULING *** */
-
+/* SCHEDULING */
 void env_touch_softlockup_wd(void)
 {
 	function_called();
@@ -469,6 +471,7 @@ uint64_t env_secs_to_ticks(uint64_t j)
 	return j * 1000;
 }
 
+/* STRING OPERATIONS */
 int env_memset(void *dest, size_t count, int ch)
 {
 	memset(dest, ch, count);
@@ -482,7 +485,6 @@ int env_memcpy(void *dest, size_t destsz, const void * src, size_t count)
 	else
 		memcpy(dest, src, count);
 	return 0;
-
 }
 
 int env_memcmp(const void *str1, size_t n1, const void *str2, size_t n2,
@@ -520,13 +522,12 @@ int env_strncmp(const char * str1, const char * str2, size_t num)
 	return strncmp(str1, str2, num);
 }
 
+/* TIME */
 void env_msleep(uint64_t n)
 {
-
 }
 
-/* *** CRC *** */
-
+/* CRC */
 uint32_t env_crc32(uint32_t crc, uint8_t const *data, size_t len)
 {
 	function_called();

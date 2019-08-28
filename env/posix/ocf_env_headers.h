@@ -7,7 +7,7 @@
  * @file
  * @brief OCF libs and macros
  *
- * Header file with OCF common libraries and macros.
+ * This file is mostly to aggregate external header includes.
  */
 #ifndef __OCF_ENV_HEADERS_H__
 #define __OCF_ENV_HEADERS_H__
@@ -17,7 +17,7 @@
 #include <stdbool.h>
 
 /* TODO: Move prefix printing to context logger. */
-#define OCF_LOGO "Intel(R) OCF"
+#define OCF_LOGO ""
 #define OCF_PREFIX_SHORT "[" OCF_LOGO "] "
 #define OCF_PREFIX_LONG "Open CAS Framework"
 

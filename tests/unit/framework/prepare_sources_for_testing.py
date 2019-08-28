@@ -141,7 +141,7 @@ class UnitTestsSourcesGenerator(object):
 
     def get_autowrap_file_path(self, test_file_path):
         wrap_file_path = test_file_path.rsplit('.', 1)[0]
-        wrap_file_path = wrap_file_path + "_generated_warps.c"
+        wrap_file_path = wrap_file_path + "_generated_wraps.c"
         return wrap_file_path
 
     def prepare_autowraps(self, test_file_path, preprocessed_file_path):
@@ -695,10 +695,32 @@ class UnitTestsSourcesGenerator(object):
 
         self.main_tested_dir = main_tested_dir
 
+    def add_test_flag(self):
+        for dest in self.includes_to_copy_dict:
+            if os.path.isfile(self.get_main_UT_dir() + dest + 'ocf.h'):
+                with open(self.get_main_UT_dir() + dest + 'ocf.h', 'r') as ocf:
+                    lines = ocf.readlines()
+                    lines[3] += '\n#define TEST\n'
+                    ocf.close()
+                with open(self.get_main_UT_dir() + dest + 'ocf.h', 'w') as ocf:
+                    ocf.writelines(lines)
+                    ocf.close()
+        for hdr in self.tests_internal_includes_list:
+            if os.path.isfile(hdr + 'ocf_env.h'):
+                with open(hdr + 'ocf_env.h', 'r') as ocf:
+                    lines = ocf.readlines()
+                    if ('#define TEST' not in lines[5]):
+                        lines[3] += '\n#define TEST\n'
+                    ocf.close()
+                with open(hdr + 'ocf_env.h', 'w') as ocf:
+                    ocf.writelines(lines)
+                    ocf.close()
+
 
 def __main__():
     generator = UnitTestsSourcesGenerator()
     generator.copy_includes()
+    generator.add_test_flag()
     generator.preprocessing()
     generator.prepare_sources_for_testing()
     generator.create_main_cmake_lists()

@@ -1,10 +1,16 @@
 /*
- * Copyright(c) 2012-2018 Intel Corporation
+ * Copyright(c) 2019 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#ifndef __OCF_LIST_H__
-#define __OCF_LIST_H__
+/**
+ * @file
+ * @brief OCF lists
+ *
+ * Header file for OCF which contains customized list types.
+ */
+#ifndef __OCF_ENV_LIST__
+#define __OCF_ENV_LIST__
 
 #define LIST_POISON1  ((void *)0x101)
 #define LIST_POISON2  ((void *)0x202)
@@ -67,6 +73,28 @@ static inline void list_del(struct list_head *it)
 {
 	it->next->prev = it->prev;
 	it->prev->next = it->next;
+}
+
+/**
+ * Move element to list head.
+ * @param it list entry to be moved
+ * @param l1 list main node (head)
+ */
+static inline void list_move(struct list_head *it, struct list_head *l1)
+{
+	list_del(it);
+	list_add(it, l1);
+}
+
+/**
+ * Move element to list tail.
+ * @param it list entry to be moved
+ * @param l1 list main node (head)
+ */
+static inline void list_move_tail(struct list_head *it, struct list_head *l1)
+{
+	list_del(it);
+	list_add_tail(it, l1);
 }
 
 /**
@@ -143,4 +171,4 @@ static inline void list_del(struct list_head *it)
 		     _list_entry_helper(item, (plist)->next, field_name); \
 	     item = q, q = _list_entry_helper(q, (q)->field_name.next, field_name))
 
-#endif
+#endif /* __OCF_ENV_LIST__ */

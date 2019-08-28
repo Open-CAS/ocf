@@ -40,7 +40,7 @@ ocf_mngt_cache_mode_has_lazy_write
 #include "../ocf_ctx_priv.h"
 #include "../cleaning/cleaning.h"
 
-#include "mngt/ocf_mngt_cache.c/_cache_mngt_set_cache_mode_test_generated_warps.c"
+#include "mngt/ocf_mngt_cache.c/_cache_mngt_set_cache_mode_test_generated_wraps.c"
 /*
  * Mocked functions
  */
