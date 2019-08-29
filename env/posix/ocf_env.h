@@ -618,7 +618,8 @@ static inline void env_sort(void *base, size_t num, size_t size,
 #define env_strnlen(s, smax) strnlen(s, smax)
 #define env_strncmp strncmp
 #define env_strncpy(dest, dmax, src, slen) ({ \
-		strncpy(dest, src, min(dmax, slen)); \
+		strncpy(dest, src, min(dmax - 1, slen)); \
+		dest[dmax - 1] = '\0'; \
 		0; \
 	})
 
