@@ -19,6 +19,8 @@ enum ocf_metadata_segment {
 	metadata_segment_sb_config = 0,	/*!< Super block conf */
 	metadata_segment_sb_runtime,	/*!< Super block runtime */
 	metadata_segment_reserved,	/*!< Reserved space on disk */
+	metadata_segment_part_config,	/*!< Part Config Metadata */
+	metadata_segment_part_runtime,	/*!< Part Runtime Metadata */
 	metadata_segment_core_config,	/*!< Core Config Metadata */
 	metadata_segment_core_runtime,	/*!< Core Runtime Metadata */
 	metadata_segment_core_uuid,	/*!< Core UUID */
