@@ -671,120 +671,6 @@ static inline void __remove_line_from_waiters_list(struct ocf_cache_line_concurr
 /*
  *
  */
-static int _ocf_req_lock_rd_common(struct ocf_request *req, void *context,
-		__on_lock on_lock)
-{
-	bool locked, waiting;
-	int32_t i;
-	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.cache_line;
-	ocf_cache_line_t line;
-
-	OCF_DEBUG_RQ(req, "Lock");
-
-	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
-	ENV_BUG_ON(!on_lock);
-
-	/* Try lock request without adding waiters */
-
-	env_rwlock_read_lock(&c->lock);
-	/* At this point we have many thread that tries get lock for request */
-
-	locked = true;
-	for (i = 0; i < req->core_line_count; i++) {
-
-		if (req->map[i].status == LOOKUP_MISS) {
-			/* MISS nothing to lock */
-			continue;
-		}
-
-		line = req->map[i].coll_idx;
-		ENV_BUG_ON(line >= req->cache->device->collision_table_entries);
-		ENV_BUG_ON(req->map[i].rd_locked);
-		ENV_BUG_ON(req->map[i].wr_locked);
-
-		if (__lock_cache_line_rd(c, line, NULL, NULL, 0)) {
-			/* cache line locked */
-			req->map[i].rd_locked = true;
-		} else {
-			/* Not possible to lock all request */
-			locked = false;
-			OCF_DEBUG_RQ(req, "NO Lock, cache line = %u", line);
-			break;
-		}
-	}
-
-	/* Check if request is locked */
-	if (!locked) {
-		/* Request is not locked, discard acquired locks */
-		for (; i >= 0; i--) {
-			line = req->map[i].coll_idx;
-
-			if (req->map[i].rd_locked) {
-				__unlock_rd(c, line);
-				req->map[i].rd_locked = false;
-			}
-		}
-	}
-
-	env_rwlock_read_unlock(&c->lock);
-
-	if (locked) {
-		/* Request completely locked, return acquired status */
-		return OCF_LOCK_ACQUIRED;
-	}
-
-	env_atomic_set(&req->lock_remaining, req->core_line_count);
-	env_atomic_inc(&req->lock_remaining);
-
-	env_rwlock_write_lock(&c->lock);
-	/* At this point one thread tries to get locks */
-
-	OCF_DEBUG_RQ(req, "Exclusive");
-
-	waiting = true;
-	for (i = 0; i < req->core_line_count; i++) {
-
-		if (req->map[i].status == LOOKUP_MISS) {
-			/* MISS nothing to lock */
-			env_atomic_dec(&req->lock_remaining);
-			continue;
-		}
-
-		line = req->map[i].coll_idx;
-		ENV_BUG_ON(line >= req->cache->device->collision_table_entries);
-		ENV_BUG_ON(req->map[i].rd_locked);
-		ENV_BUG_ON(req->map[i].wr_locked);
-
-		if (!__lock_cache_line_rd(c, line, on_lock, context, i)) {
-			/* lock not acquired and not added to wait list */
-			waiting = false;
-			break;
-		}
-	}
-
-	if (!waiting) {
-		for (; i >= 0; i--)
-			__remove_line_from_waiters_list(c, req, i, context, OCF_READ);
-	}
-
-	OCF_DEBUG_RQ(req, "Exclusive END");
-
-	env_rwlock_write_unlock(&c->lock);
-
-	if (env_atomic_dec_return(&req->lock_remaining) == 0)
-		return OCF_LOCK_ACQUIRED;
-
-	if (waiting) {
-		env_atomic_inc(&c->waiting);
-		return OCF_LOCK_NOT_ACQUIRED;
-	}
-
-	return -ENOMEM;
-}
-
-/*
- *
- */
 static void _req_on_lock(void *ctx, uint32_t ctx_id,
 		ocf_cache_line_t line, int rw)
 {
@@ -807,38 +693,150 @@ static void _req_on_lock(void *ctx, uint32_t ctx_id,
 	}
 }
 
-/*
- *
- */
-int ocf_req_trylock_rd(struct ocf_request *req)
+/* Try to read-lock request without adding waiters. Function should be called
+ * under read lock, multiple threads may attempt to acquire the lock
+ * concurrently. */
+static int _ocf_req_trylock_rd(struct ocf_request *req)
 {
-	ENV_BUG_ON(!req->io_if->resume);
-	return _ocf_req_lock_rd_common(req, req, _req_on_lock);
-}
-
-/*
- *
- */
-static int _ocf_req_lock_wr_common(struct ocf_request *req, void *context,
-		__on_lock on_lock)
-{
-	bool locked, waiting;
 	int32_t i;
-	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.cache_line;
+	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.
+			cache_line;
 	ocf_cache_line_t line;
+	int ret = OCF_LOCK_ACQUIRED;
 
 	OCF_DEBUG_RQ(req, "Lock");
 
 	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
 
-	/* Try lock request without adding waiters */
+	for (i = 0; i < req->core_line_count; i++) {
+		if (req->map[i].status == LOOKUP_MISS) {
+			/* MISS nothing to lock */
+			continue;
+		}
 
-	env_rwlock_read_lock(&c->lock);
-	/* At this point many thread that tries getting lock for request */
+		line = req->map[i].coll_idx;
+		ENV_BUG_ON(line >= req->cache->device->collision_table_entries);
+		ENV_BUG_ON(req->map[i].rd_locked);
+		ENV_BUG_ON(req->map[i].wr_locked);
 
-	locked = true;
+		if (__lock_cache_line_rd(c, line, NULL, NULL, 0)) {
+			/* cache line locked */
+			req->map[i].rd_locked = true;
+		} else {
+			/* Not possible to lock all cachelines */
+			ret = OCF_LOCK_NOT_ACQUIRED;
+			OCF_DEBUG_RQ(req, "NO Lock, cache line = %u", line);
+			break;
+		}
+	}
+
+	/* Check if request is locked */
+	if (ret == OCF_LOCK_NOT_ACQUIRED) {
+		/* Request is not locked, discard acquired locks */
+		for (; i >= 0; i--) {
+			line = req->map[i].coll_idx;
+
+			if (req->map[i].rd_locked) {
+				__unlock_rd(c, line);
+				req->map[i].rd_locked = false;
+			}
+		}
+	}
+
+	return ret;
+}
+
+/*
+ * Read-lock request cache lines. Must be called under cacheline concurrency
+ * write lock.
+ */
+static int _ocf_req_lock_rd(struct ocf_request *req)
+{
+	int32_t i;
+	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.
+			cache_line;
+	ocf_cache_line_t line;
+	__on_lock on_lock = _req_on_lock;
+	int ret = OCF_LOCK_NOT_ACQUIRED;
+
+	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
+
+	env_atomic_inc(&c->waiting);
+	env_atomic_set(&req->lock_remaining, req->core_line_count);
+	env_atomic_inc(&req->lock_remaining);
+
 	for (i = 0; i < req->core_line_count; i++) {
 
+		if (req->map[i].status == LOOKUP_MISS) {
+			/* MISS nothing to lock */
+			env_atomic_dec(&req->lock_remaining);
+			continue;
+		}
+
+		line = req->map[i].coll_idx;
+		ENV_BUG_ON(line >= req->cache->device->collision_table_entries);
+		ENV_BUG_ON(req->map[i].rd_locked);
+		ENV_BUG_ON(req->map[i].wr_locked);
+
+		if (!__lock_cache_line_rd(c, line, on_lock, req, i)) {
+			/* lock not acquired and not added to wait list */
+			ret = -OCF_ERR_NO_MEM;
+			goto err;
+		}
+	}
+
+	if (env_atomic_dec_return(&req->lock_remaining) == 0) {
+		ret = OCF_LOCK_ACQUIRED;
+		env_atomic_dec(&c->waiting);
+	}
+
+	return ret;
+
+err:
+	for (; i >= 0; i--) {
+		__remove_line_from_waiters_list(c, req, i, req,
+				OCF_READ);
+	}
+	env_atomic_set(&req->lock_remaining, 0);
+	env_atomic_dec(&c->waiting);
+
+	return ret;
+
+}
+
+int ocf_req_trylock_rd(struct ocf_request *req)
+{
+	struct ocf_cache_line_concurrency *c =
+		req->cache->device->concurrency.cache_line;
+	int lock;
+
+	env_rwlock_read_lock(&c->lock);
+	lock = _ocf_req_trylock_rd(req);
+	env_rwlock_read_unlock(&c->lock);
+
+	if (lock != OCF_LOCK_ACQUIRED) {
+		env_rwlock_write_lock(&c->lock);
+		lock = _ocf_req_lock_rd(req);
+		env_rwlock_write_unlock(&c->lock);
+	}
+
+	return lock;
+}
+
+/* Try to write-lock request without adding waiters. Function should be called
+ * under read lock, multiple threads may attempt to acquire the lock
+ * concurrently. */
+static int _ocf_req_trylock_wr(struct ocf_request *req)
+{
+	int32_t i;
+	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.
+			cache_line;
+	ocf_cache_line_t line;
+	int ret = OCF_LOCK_ACQUIRED;
+
+	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
+
+	for (i = 0; i < req->core_line_count; i++) {
 		if (req->map[i].status == LOOKUP_MISS) {
 			/* MISS nothing to lock */
 			continue;
@@ -853,15 +851,15 @@ static int _ocf_req_lock_wr_common(struct ocf_request *req, void *context,
 			/* cache line locked */
 			req->map[i].wr_locked = true;
 		} else {
-			/* Not possible to lock all request */
-			locked = false;
+			/* Not possible to lock all cachelines */
+			ret = OCF_LOCK_NOT_ACQUIRED;
 			OCF_DEBUG_RQ(req, "NO Lock, cache line = %u", line);
 			break;
 		}
 	}
 
 	/* Check if request is locked */
-	if (!locked) {
+	if (ret == OCF_LOCK_NOT_ACQUIRED) {
 		/* Request is not locked, discard acquired locks */
 		for (; i >= 0; i--) {
 			line = req->map[i].coll_idx;
@@ -873,22 +871,29 @@ static int _ocf_req_lock_wr_common(struct ocf_request *req, void *context,
 		}
 	}
 
-	env_rwlock_read_unlock(&c->lock);
+	return ret;
+}
 
-	if (locked) {
-		/* Request completely locked, return acquired status */
-		return OCF_LOCK_ACQUIRED;
-	}
+/*
+ * Write-lock request cache lines. Must be called under cacheline concurrency
+ * write lock.
+ */
+static int _ocf_req_lock_wr(struct ocf_request *req)
+{
+	int32_t i;
+	struct ocf_cache_line_concurrency *c = req->cache->device->concurrency.
+			cache_line;
+	ocf_cache_line_t line;
+	__on_lock on_lock = _req_on_lock;
+	int ret = OCF_LOCK_NOT_ACQUIRED;
 
+	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
+	ENV_BUG_ON(!req->io_if->resume);
+
+	env_atomic_inc(&c->waiting);
 	env_atomic_set(&req->lock_remaining, req->core_line_count);
 	env_atomic_inc(&req->lock_remaining);
 
-	env_rwlock_write_lock(&c->lock);
-	/* At this point one thread tires getting locks */
-
-	OCF_DEBUG_RQ(req, "Exclusive");
-
-	waiting = true;
 	for (i = 0; i < req->core_line_count; i++) {
 
 		if (req->map[i].status == LOOKUP_MISS) {
@@ -902,41 +907,50 @@ static int _ocf_req_lock_wr_common(struct ocf_request *req, void *context,
 		ENV_BUG_ON(req->map[i].rd_locked);
 		ENV_BUG_ON(req->map[i].wr_locked);
 
-		if (!__lock_cache_line_wr(c, line, on_lock, context, i)) {
+		if (!__lock_cache_line_wr(c, line, on_lock, req, i)) {
 			/* lock not acquired and not added to wait list */
-			waiting = false;
-			break;
+			ret = -OCF_ERR_NO_MEM;
+			goto err;
 		}
 	}
 
-	if (!waiting) {
-		for (; i >= 0; i--)
-			__remove_line_from_waiters_list(c, req, i, context, OCF_WRITE);
+	if (env_atomic_dec_return(&req->lock_remaining) == 0) {
+		ret = OCF_LOCK_ACQUIRED;
+		env_atomic_dec(&c->waiting);
 	}
 
-	OCF_DEBUG_RQ(req, "Exclusive END");
+	return ret;
 
-	env_rwlock_write_unlock(&c->lock);
-
-	if (env_atomic_dec_return(&req->lock_remaining) == 0)
-		return OCF_LOCK_ACQUIRED;
-
-	if (waiting) {
-		env_atomic_inc(&c->waiting);
-		return OCF_LOCK_NOT_ACQUIRED;
+err:
+	for (; i >= 0; i--) {
+		__remove_line_from_waiters_list(c, req, i, req,
+				OCF_WRITE);
 	}
+	env_atomic_set(&req->lock_remaining, 0);
+	env_atomic_dec(&c->waiting);
 
-	return -ENOMEM;
+	return ret;
 }
 
-/*
- *
- */
 int ocf_req_trylock_wr(struct ocf_request *req)
 {
-	ENV_BUG_ON(!req->io_if->resume);
-	return _ocf_req_lock_wr_common(req, req, _req_on_lock);
+	struct ocf_cache_line_concurrency *c =
+		req->cache->device->concurrency.cache_line;
+	int lock;
+
+	env_rwlock_read_lock(&c->lock);
+	lock = _ocf_req_trylock_wr(req);
+	env_rwlock_read_unlock(&c->lock);
+
+	if (lock != OCF_LOCK_ACQUIRED) {
+		env_rwlock_write_lock(&c->lock);
+		lock = _ocf_req_lock_wr(req);
+		env_rwlock_write_unlock(&c->lock);
+	}
+
+	return lock;
 }
+
 
 /*
  *
