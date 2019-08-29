@@ -91,7 +91,7 @@ static void simple_complete(ocf_cache_t cache, void *priv, int error)
  */
 int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 {
-	struct ocf_mngt_cache_config cache_cfg = { };
+	struct ocf_mngt_cache_config cache_cfg = { .name = "cache1" };
 	struct ocf_mngt_cache_device_config device_cfg = { };
 	struct cache_priv *cache_priv;
 	struct simple_context context;
@@ -106,7 +106,6 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	/* Cache configuration */
 	ocf_mngt_cache_config_set_default(&cache_cfg);
 	cache_cfg.metadata_volatile = true;
-	cache_cfg.name = "cache1";
 
 	/* Cache deivce (volume) configuration */
 	ocf_mngt_cache_device_config_set_default(&device_cfg);
