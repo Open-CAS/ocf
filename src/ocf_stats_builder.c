@@ -18,11 +18,11 @@
 		} \
 	} while (0)
 
-static uint64_t _percentage(uint64_t numerator, uint64_t denominator)
+static uint64_t _fraction(uint64_t numerator, uint64_t denominator)
 {
 	uint64_t result;
 	if (denominator) {
-		result = 1000 * numerator / denominator;
+		result = 10000 * numerator / denominator;
 	} else {
 		result = 0;
 	}
@@ -59,7 +59,7 @@ static uint64_t _get_cache_occupancy(ocf_cache_t cache)
 static void _set(struct ocf_stat *stat, uint64_t value, uint64_t denominator)
 {
 	stat->value = value;
-	stat->percent = _percentage(value, denominator);
+	stat->fraction = _fraction(value, denominator);
 }
 
 static void _fill_req(struct ocf_stats_requests *req, struct ocf_stats_core *s)

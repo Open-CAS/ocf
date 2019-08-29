@@ -20,8 +20,8 @@
 struct ocf_stat {
 	/** Value */
 	uint64_t value;
-	/** percent x10 */
-	uint64_t percent;
+	/** percent x100 */
+	uint64_t fraction;
 };
 
 /**
