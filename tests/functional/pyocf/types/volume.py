@@ -104,6 +104,11 @@ class Volume(Structure):
         self.reset_stats()
         self.opened = False
 
+    def get_copy(self):
+        new_volume = Volume(self.size)
+        memmove(new_volume.data, self.data, self.size)
+        return new_volume
+
     @classmethod
     def get_props(cls):
         if not cls.props:
