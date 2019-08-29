@@ -48,8 +48,6 @@ struct ocf_superblock_config {
 	/* Current core sequence number */
 	ocf_core_id_t curr_core_seq_no;
 
-	struct ocf_user_part_config user_parts[OCF_IO_CLASS_MAX + 1];
-
 	/*
 	 * Checksum for each metadata region.
 	 * This field has to be the last one!
@@ -62,8 +60,6 @@ struct ocf_superblock_config {
  */
 struct ocf_superblock_runtime {
 	struct ocf_part freelist_part;
-
-	struct ocf_user_part_runtime user_parts[OCF_IO_CLASS_MAX + 1];
 
 	uint32_t cleaning_thread_access;
 };

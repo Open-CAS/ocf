@@ -96,6 +96,12 @@ static ocf_cache_line_t ocf_metadata_hash_get_entries(
 	case metadata_segment_reserved:
 		return 32;
 
+	case metadata_segment_part_config:
+		return OCF_IO_CLASS_MAX + 1;
+
+	case metadata_segment_part_runtime:
+		return OCF_IO_CLASS_MAX + 1;
+
 	case metadata_segment_core_config:
 		return OCF_CORE_MAX;
 
@@ -152,6 +158,14 @@ static int64_t ocf_metadata_hash_get_element_size(
 
 	case metadata_segment_reserved:
 		size = PAGE_SIZE;
+		break;
+
+	case metadata_segment_part_config:
+		size = sizeof(struct ocf_user_part_config);
+		break;
+
+	case metadata_segment_part_runtime:
+		size = sizeof(struct ocf_user_part_runtime);
 		break;
 
 	case metadata_segment_hash:
@@ -318,6 +332,8 @@ static const char * const ocf_metadata_hash_raw_names[] = {
 		[metadata_segment_sb_config]		= "Super block config",
 		[metadata_segment_sb_runtime]		= "Super block runtime",
 		[metadata_segment_reserved]		= "Reserved",
+		[metadata_segment_part_config]		= "Part config",
+		[metadata_segment_part_runtime]		= "Part runtime",
 		[metadata_segment_cleaning]		= "Cleaning",
 		[metadata_segment_eviction]		= "Eviction",
 		[metadata_segment_collision]		= "Collision",
@@ -504,6 +520,8 @@ int ocf_metadata_hash_init(struct ocf_cache *cache,
 		(struct ocf_cache_line_settings *)&metadata->settings;
 	struct ocf_core_meta_config *core_meta_config;
 	struct ocf_core_meta_runtime *core_meta_runtime;
+	struct ocf_user_part_config *part_config;
+	struct ocf_user_part_runtime *part_runtime;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
 	uint32_t i = 0;
@@ -531,8 +549,16 @@ int ocf_metadata_hash_init(struct ocf_cache *cache,
 		return result;
 	}
 
-	cache->conf_meta = METADATA_MEM_POOL(ctrl,
-			metadata_segment_sb_config);
+	cache->conf_meta = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
+
+	/* Set partition metadata */
+	part_config = METADATA_MEM_POOL(ctrl, metadata_segment_part_config);
+	part_runtime = METADATA_MEM_POOL(ctrl, metadata_segment_part_runtime);
+
+	for (i = 0; i < OCF_IO_CLASS_MAX + 1; i++) {
+		cache->user_parts[i].config = &part_config[i];
+		cache->user_parts[i].runtime = &part_runtime[i];
+	}
 
 	/* Set core metadata */
 	core_meta_config = METADATA_MEM_POOL(ctrl,
@@ -1326,6 +1352,8 @@ static void ocf_metadata_hash_load_superblock_finish(ocf_pipeline_t pipeline,
 struct ocf_pipeline_arg ocf_metadata_hash_load_sb_store_segment_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_config),
 	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
+	OCF_PL_ARG_INT(metadata_segment_part_config),
+	OCF_PL_ARG_INT(metadata_segment_part_runtime),
 	OCF_PL_ARG_INT(metadata_segment_core_config),
 	OCF_PL_ARG_TERMINATOR(),
 };
@@ -1333,6 +1361,8 @@ struct ocf_pipeline_arg ocf_metadata_hash_load_sb_store_segment_args[] = {
 struct ocf_pipeline_arg ocf_metadata_hash_load_sb_load_segment_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_config),
 	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
+	OCF_PL_ARG_INT(metadata_segment_part_config),
+	OCF_PL_ARG_INT(metadata_segment_part_runtime),
 	OCF_PL_ARG_INT(metadata_segment_core_config),
 	OCF_PL_ARG_INT(metadata_segment_core_uuid),
 	OCF_PL_ARG_TERMINATOR(),
@@ -1340,6 +1370,8 @@ struct ocf_pipeline_arg ocf_metadata_hash_load_sb_load_segment_args[] = {
 
 struct ocf_pipeline_arg ocf_metadata_hash_load_sb_check_crc_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
+	OCF_PL_ARG_INT(metadata_segment_part_config),
+	OCF_PL_ARG_INT(metadata_segment_part_runtime),
 	OCF_PL_ARG_INT(metadata_segment_core_config),
 	OCF_PL_ARG_INT(metadata_segment_core_uuid),
 	OCF_PL_ARG_TERMINATOR(),
@@ -1481,6 +1513,7 @@ static void ocf_metadata_hash_flush_superblock_finish(ocf_pipeline_t pipeline,
 }
 
 struct ocf_pipeline_arg ocf_metadata_hash_flush_sb_calculate_crc_args[] = {
+	OCF_PL_ARG_INT(metadata_segment_part_config),
 	OCF_PL_ARG_INT(metadata_segment_core_config),
 	OCF_PL_ARG_INT(metadata_segment_core_uuid),
 	OCF_PL_ARG_TERMINATOR(),
@@ -1488,6 +1521,7 @@ struct ocf_pipeline_arg ocf_metadata_hash_flush_sb_calculate_crc_args[] = {
 
 struct ocf_pipeline_arg ocf_metadata_hash_flush_sb_flush_segment_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_config),
+	OCF_PL_ARG_INT(metadata_segment_part_config),
 	OCF_PL_ARG_INT(metadata_segment_core_config),
 	OCF_PL_ARG_INT(metadata_segment_core_uuid),
 	OCF_PL_ARG_TERMINATOR(),
@@ -1631,6 +1665,7 @@ out:
 
 struct ocf_pipeline_arg ocf_metadata_hash_flush_all_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
+	OCF_PL_ARG_INT(metadata_segment_part_runtime),
 	OCF_PL_ARG_INT(metadata_segment_core_runtime),
 	OCF_PL_ARG_INT(metadata_segment_cleaning),
 	OCF_PL_ARG_INT(metadata_segment_eviction),

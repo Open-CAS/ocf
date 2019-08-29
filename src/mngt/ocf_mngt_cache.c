@@ -958,7 +958,7 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	int ret, i;
+	int ret;
 
 	if (context->init_mode == ocf_init_mode_load &&
 			context->metadata.status) {
@@ -985,11 +985,6 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
 	}
 
-
-	for (i = 0; i < OCF_IO_CLASS_MAX + 1; ++i) {
-		cache->user_parts[i].runtime =
-				&cache->device->runtime_meta->user_parts[i];
-	}
 
 	cache->device->freelist_part = &cache->device->runtime_meta->freelist_part;
 
@@ -1158,8 +1153,6 @@ static void _ocf_mngt_attach_handle_error(
 static void _ocf_mngt_cache_init(ocf_cache_t cache,
 		struct ocf_cache_mngt_init_params *params)
 {
-	int i;
-
 	/*
 	 * Super block elements initialization
 	 */
@@ -1167,11 +1160,6 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	cache->conf_meta->metadata_layout = params->metadata.layout;
 	cache->conf_meta->promotion_policy_type =
 			params->metadata.promotion_policy;
-
-	for (i = 0; i < OCF_IO_CLASS_MAX + 1; ++i) {
-		cache->user_parts[i].config =
-				&cache->conf_meta->user_parts[i];
-	}
 
 	INIT_LIST_HEAD(&cache->io_queues);
 
