@@ -25,7 +25,7 @@ utility.
 
 ## Documentation
 
-OCF documentation is available on [GitHub Pages](http://open-cas.github.io/doxygen/ocf).
+OCF documentation is available on [GitHub Pages](https://open-cas.github.io/getting_started_ocf.html).
 Doxygen API documentation is available [here](http://open-cas.github.io/doxygen/ocf).  
 
 ## Source Code
