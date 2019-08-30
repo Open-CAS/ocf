@@ -95,9 +95,9 @@ class EvictionPolicy(IntEnum):
 
 
 class PromotionPolicy(IntEnum):
-    NOP = 0
+    ALWAYS = 0
     NHIT = 1
-    DEFAULT = NOP
+    DEFAULT = ALWAYS
 
 
 class CleaningPolicy(IntEnum):
@@ -239,6 +239,28 @@ class Cache:
 
         if status:
             raise OcfError("Error setting cleaning policy param", status)
+
+    def set_promotion_policy(self, promotion_policy: PromotionPolicy):
+        self.write_lock()
+
+        status = self.owner.lib.ocf_mngt_cache_promotion_set_policy(
+            self.cache_handle, promotion_policy
+        )
+
+        self.write_unlock()
+        if status:
+            raise OcfError("Error setting promotion policy", status)
+
+    def set_promotion_policy_param(self, param_id, param_value):
+        self.write_lock()
+
+        status = self.owner.lib.ocf_mngt_cache_promotion_set_param(
+            self.cache_handle, param_id, param_value
+        )
+
+        self.write_unlock()
+        if status:
+            raise OcfError("Error setting promotion policy parameter", status)
 
     def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
         self.write_lock()
@@ -558,7 +580,13 @@ lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_cache_cleaning_set_policy.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.restype = c_int
-lib.ocf_stats_collect_cache.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c_void_p]
+lib.ocf_stats_collect_cache.argtypes = [
+    c_void_p,
+    c_void_p,
+    c_void_p,
+    c_void_p,
+    c_void_p,
+]
 lib.ocf_stats_collect_cache.restype = c_int
 lib.ocf_cache_get_info.argtypes = [c_void_p, c_void_p]
 lib.ocf_cache_get_info.restype = c_int

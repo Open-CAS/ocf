@@ -32,6 +32,16 @@ ocf_error_t ocf_promotion_init(ocf_cache_t cache, ocf_promotion_policy_t *policy
 void ocf_promotion_deinit(ocf_promotion_policy_t policy);
 
 /**
+ * @brief Switch promotion policy to type. On failure will fall back to 'always'
+ *
+ * @param[in] policy promotion policy handle
+ * @param[in] type promotion policy target type
+ *
+ * @retval ocf_error_t
+ */
+ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
+		ocf_promotion_t type);
+/**
  * @brief Set promotion policy parameter
  *
  * @param[in] policy promotion policy handle

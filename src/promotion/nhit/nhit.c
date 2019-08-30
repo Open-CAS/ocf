@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include "hash.h"
+#include "nhit_hash.h"
 #include "../../metadata/metadata.h"
 #include "../../ocf_priv.h"
 #include "../../engine/engine_common.h"
@@ -13,15 +13,12 @@
 
 #define NHIT_MAPPING_RATIO 2
 
-#define NHIT_MIN_THRESHOLD 1
-#define NHIT_MAX_THRESHOLD 1000
-#define NHIT_THRESHOLD_DEFAULT 3
-
 struct nhit_policy_context {
 	nhit_hash_t hash_map;
 
 	/* Configurable parameters */
 	env_atomic insertion_threshold;
+	env_atomic64 trigger_threshold;
 };
 
 ocf_error_t nhit_init(ocf_cache_t cache, ocf_promotion_policy_t policy)
@@ -35,12 +32,15 @@ ocf_error_t nhit_init(ocf_cache_t cache, ocf_promotion_policy_t policy)
 		goto exit;
 	}
 
-	result = hash_init(ocf_metadata_get_cachelines_count(cache) *
+	result = nhit_hash_init(ocf_metadata_get_cachelines_count(cache) *
 			NHIT_MAPPING_RATIO, &ctx->hash_map);
 	if (result)
 		goto dealloc_ctx;
 
 	env_atomic_set(&ctx->insertion_threshold, NHIT_THRESHOLD_DEFAULT);
+	env_atomic64_set(&ctx->trigger_threshold,
+			OCF_DIV_ROUND_UP((NHIT_TRIGGER_DEFAULT *
+			 ocf_metadata_get_cachelines_count(cache)), 100));
 
 	policy->ctx = ctx;
 
@@ -57,7 +57,7 @@ void nhit_deinit(ocf_promotion_policy_t policy)
 {
 	struct nhit_policy_context *ctx = policy->ctx;
 
-	hash_deinit(ctx->hash_map);
+	nhit_hash_deinit(ctx->hash_map);
 
 	env_vfree(ctx);
 	policy->ctx = NULL;
@@ -71,12 +71,28 @@ ocf_error_t nhit_set_param(ocf_promotion_policy_t policy, uint8_t param_id,
 
 	switch (param_id) {
 	case nhit_insertion_threshold:
-		if (param_value > NHIT_MIN_THRESHOLD &&
+		if (param_value >= NHIT_MIN_THRESHOLD &&
 				param_value < NHIT_MAX_THRESHOLD) {
 			env_atomic_set(&ctx->insertion_threshold, param_value);
 		} else {
 			ocf_cache_log(policy->owner, log_err, "Invalid nhit "
 					"promotion policy insertion threshold!\n");
+			result = -OCF_ERR_INVAL;
+		}
+		break;
+
+	case nhit_trigger_threshold:
+		if (param_value >= NHIT_MIN_TRIGGER &&
+				param_value < NHIT_MAX_TRIGGER) {
+			env_atomic64_set(&ctx->trigger_threshold,
+				OCF_DIV_ROUND_UP((param_value *
+				ocf_metadata_get_cachelines_count(policy->owner)),
+				100));
+
+		} else {
+			ocf_cache_log(policy->owner, log_err, "Invalid nhit "
+					"promotion policy insertion trigger "
+					"threshold!\n");
 			result = -OCF_ERR_INVAL;
 		}
 		break;
@@ -121,7 +137,7 @@ ocf_error_t nhit_get_param(ocf_promotion_policy_t policy, uint8_t param_id,
 static void core_line_purge(struct nhit_policy_context *ctx, ocf_core_id_t core_id,
 		uint64_t core_lba)
 {
-	hash_set_occurences(ctx->hash_map, core_id, core_lba, 0);
+	nhit_hash_set_occurences(ctx->hash_map, core_id, core_lba, 0);
 }
 
 void nhit_req_purge(ocf_promotion_policy_t policy,
@@ -145,13 +161,13 @@ static bool core_line_should_promote(struct nhit_policy_context *ctx,
 	bool hit;
 	int32_t counter;
 
-	hit = hash_query(ctx->hash_map, core_id, core_lba, &counter);
+	hit = nhit_hash_query(ctx->hash_map, core_id, core_lba, &counter);
 	if (hit) {
 		/* we have a hit, return now */
 		return env_atomic_read(&ctx->insertion_threshold) <= counter;
 	}
 
-	hash_insert(ctx->hash_map, core_id, core_lba);
+	nhit_hash_insert(ctx->hash_map, core_id, core_lba);
 
 	return false;
 }
@@ -163,6 +179,12 @@ bool nhit_req_should_promote(ocf_promotion_policy_t policy,
 	bool result = true;
 	uint32_t i;
 	uint64_t core_line;
+	uint64_t occupied_cachelines =
+		ocf_metadata_get_cachelines_count(policy->owner) -
+		policy->owner->device->freelist_part->curr_size;
+
+	if (occupied_cachelines > env_atomic64_read(&ctx->trigger_threshold))
+		return true;
 
 	for (i = 0, core_line = req->core_line_first;
 			core_line <= req->core_line_last; core_line++, i++) {

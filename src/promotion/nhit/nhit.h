@@ -10,11 +10,6 @@
 #include "../../ocf_request.h"
 #include "../promotion.h"
 
-enum nhit_param {
-	nhit_insertion_threshold,
-	nhit_param_max
-};
-
 ocf_error_t nhit_init(ocf_cache_t cache, ocf_promotion_policy_t policy);
 
 void nhit_deinit(ocf_promotion_policy_t policy);

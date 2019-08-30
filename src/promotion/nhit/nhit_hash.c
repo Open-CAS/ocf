@@ -5,7 +5,7 @@
 
 #include "../../ocf_priv.h"
 
-#include "hash.h"
+#include "nhit_hash.h"
 
 /* Implementation of hashmap-ish structure for tracking core lines in nhit
  * promotion policy. It consists of two arrays:
@@ -16,6 +16,9 @@
  * 	open addressing. If we run out of space in this array, we just loop around
  * 	and insert elements from the beggining. So lifetime of a core line varies
  * 	depending on insertion and removal rate.
+ *
+ * and rb_pointer which is index to ring_buffer element that is going to be used
+ * for next insertion.
  *
  * Operations:
  * 	- query(core_id, core_lba):
@@ -55,9 +58,10 @@
  *	    |        ^           |        ^
  *	    |________|           |________|
  *
- * Since rb_pointer is pointing to occupied rb slot we need to write-lock hash
- * bucket I associated with this slot and remove it from collision list.
- * We've gained an empty slot and we use slot X for new hash H entry.
+ * We will attempt to insert new element at rb_pointer. Since rb_pointer is
+ * pointing to occupied rb slot we need to write-lock hash bucket I associated
+ * with this slot and remove it from collision list. We've gained an empty slot
+ * and we use slot X for new hash H entry.
  *
  *	+--+--+--+--+--+--+--+--+--+--+
  *	|  |  |I |  |  |  |  |  |H |  | hash_map
@@ -105,11 +109,12 @@ struct nhit_hash {
 	env_spinlock rb_pointer_lock;
 };
 
-ocf_error_t hash_init(uint64_t hash_size, nhit_hash_t *ctx)
+ocf_error_t nhit_hash_init(uint64_t hash_size, nhit_hash_t *ctx)
 {
 	int result = 0;
 	struct nhit_hash *new_ctx;
-	uint64_t i;
+	uint32_t i;
+	int64_t i_locks;
 
 	new_ctx = env_vzalloc(sizeof(*new_ctx));
 	if (!new_ctx) {
@@ -138,9 +143,10 @@ ocf_error_t hash_init(uint64_t hash_size, nhit_hash_t *ctx)
 		goto dealloc_hash;
 	}
 
-	for (i = 0; i < new_ctx->hash_entries; i++) {
-		if (env_rwsem_init(&new_ctx->hash_locks[i])) {
+	for (i_locks = 0; i_locks < new_ctx->hash_entries; i_locks++) {
+		if (env_rwsem_init(&new_ctx->hash_locks[i_locks])) {
 			result = -OCF_ERR_UNKNOWN;
+			i_locks--;
 			goto dealloc_locks;
 		}
 	}
@@ -164,8 +170,8 @@ ocf_error_t hash_init(uint64_t hash_size, nhit_hash_t *ctx)
 	return 0;
 
 dealloc_locks:
-	for (i = 0; i < new_ctx->hash_entries; i++)
-		ENV_BUG_ON(env_rwsem_destroy(&new_ctx->hash_locks[i]));
+	for (; i_locks >= 0; i_locks--)
+		ENV_BUG_ON(env_rwsem_destroy(&new_ctx->hash_locks[i_locks]));
 	env_vfree(new_ctx->hash_locks);
 dealloc_hash:
 	env_vfree(new_ctx->hash_map);
@@ -175,7 +181,7 @@ exit:
 	return result;
 }
 
-void hash_deinit(nhit_hash_t ctx)
+void nhit_hash_deinit(nhit_hash_t ctx)
 {
 	ocf_cache_line_t i;
 
@@ -323,7 +329,7 @@ static inline void write_unlock_hashes(nhit_hash_t ctx, ocf_core_id_t core_id1,
 		env_rwsem_up_write(&ctx->hash_locks[hash2]);
 }
 
-void hash_insert(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba)
+void nhit_hash_insert(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba)
 {
 	uint64_t slot_id;
 	struct nhit_list_elem *slot;
@@ -347,14 +353,14 @@ void hash_insert(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba)
 	commit_rb_slot(ctx, slot_id);
 }
 
-bool hash_query(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba,
+bool nhit_hash_query(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba,
 		int32_t *counter)
 {
-	OCF_CHECK_NULL(counter);
-
 	ocf_cache_line_t hash = hash_function(core_id, core_lba,
 			ctx->hash_entries);
 	uint64_t rb_idx;
+
+	OCF_CHECK_NULL(counter);
 
 	env_rwsem_down_read(&ctx->hash_locks[hash]);
 	rb_idx = core_line_lookup(ctx, core_id, core_lba);
@@ -371,7 +377,7 @@ bool hash_query(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba,
 	return true;
 }
 
-void hash_set_occurences(nhit_hash_t ctx, ocf_core_id_t core_id,
+void nhit_hash_set_occurences(nhit_hash_t ctx, ocf_core_id_t core_id,
 		uint64_t core_lba, int32_t occurences)
 {
 	ocf_cache_line_t hash = hash_function(core_id, core_lba,

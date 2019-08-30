@@ -83,8 +83,6 @@ static int _ocf_discard_core(struct ocf_request *req)
 
 	ocf_volume_submit_discard(io);
 
-	ocf_promotion_req_purge(req->cache->promotion_policy, req);
-
 	return 0;
 }
 
@@ -185,6 +183,14 @@ int _ocf_discard_step_do(struct ocf_request *req)
 
 		OCF_METADATA_UNLOCK_WR(); /*- END Metadata WR access ---------*/
 	}
+
+	OCF_METADATA_LOCK_RD();
+
+	/* Even if no cachelines are mapped they could be tracked in promotion
+	 * policy. RD lock suffices. */
+	ocf_promotion_req_purge(req->cache->promotion_policy, req);
+
+	OCF_METADATA_UNLOCK_RD();
 
 	OCF_DEBUG_RQ(req, "Discard");
 	_ocf_discard_step_complete(req, 0);
