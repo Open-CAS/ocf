@@ -71,7 +71,13 @@ typedef uint64_t sector_t;
 		abort(); \
 	})
 
-#define ENV_BUG_ON(cond) bug_on((int)cond);
+#define ENV_BUG_ON(cond) ({ \
+		int eval = cond; \
+		if (eval) { \
+			print_message("%s:%u BUG: %s\n", __FILE__, __LINE__, #cond); \
+			bug_on(eval); \
+		} \
+	})
 
 #define container_of(ptr, type, member) ({                      \
        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
@@ -127,6 +133,8 @@ typedef struct {
 } env_mutex;
 
 int env_mutex_init(env_mutex *mutex);
+
+int env_mutex_destroy(env_mutex *mutex);
 
 void env_mutex_lock(env_mutex *mutex);
 
@@ -231,9 +239,13 @@ void env_completion_complete(env_completion *completion);
 typedef struct {
 } env_spinlock;
 
-void env_spinlock_init(env_spinlock *l);
+int env_spinlock_init(env_spinlock *l);
+
+int env_spinlock_destroy(env_spinlock *l);
 
 void env_spinlock_lock(env_spinlock *l);
+
+int env_spinlock_trylock(env_spinlock *l);
 
 void env_spinlock_unlock(env_spinlock *l);
 
@@ -326,5 +338,7 @@ void env_msleep(uint64_t n);
 /* *** CRC *** */
 
 uint32_t env_crc32(uint32_t crc, uint8_t const *data, size_t len);
+
+void env_cond_resched(void);
 
 #endif /* __OCF_ENV_H__ */
