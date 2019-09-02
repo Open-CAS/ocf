@@ -455,6 +455,11 @@ static inline void env_spinlock_init(env_spinlock *l)
 	ENV_BUG_ON(pthread_spin_init(&l->lock, 0));
 }
 
+static inline int env_spinlock_trylock(env_spinlock *l)
+{
+	return pthread_spin_trylock(&l->lock) ? -OCF_ERR_NO_LOCK : 0;
+}
+
 static inline void env_spinlock_lock(env_spinlock *l)
 {
 	ENV_BUG_ON(pthread_spin_lock(&l->lock));
