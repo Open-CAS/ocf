@@ -16,6 +16,32 @@
 #include "ocf_io.h"
 #include "ocf_mngt.h"
 
+struct ocf_core_info {
+	/** Core size in cache line size unit */
+	uint64_t core_size;
+
+	/** Core size in bytes unit */
+	uint64_t core_size_bytes;
+
+	/** Fields refers ongoing flush operation */
+	struct {
+		/** Number of blocks flushed in ongoing flush operation */
+		uint32_t flushed;
+
+		/** Number of blocks left to flush in ongoing flush operation */
+		uint32_t dirty;
+	};
+
+	/** How long core is dirty in seconds unit */
+	uint32_t dirty_for;
+
+	/** Sequential cutoff threshold (in bytes) */
+	uint32_t seq_cutoff_threshold;
+
+	/** Sequential cutoff policy */
+	ocf_seq_cutoff_policy seq_cutoff_policy;
+};
+
 /**
  * @brief Get OCF core by name
  *
@@ -201,5 +227,16 @@ typedef int (*ocf_core_visitor_t)(ocf_core_t core, void *cntx);
  */
 int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
 		bool only_opened);
+
+/**
+ * @brief Get info of given core object
+ *
+ * @param[in] core Core object
+ * @param[out] info Core info structure
+ *
+ * @retval 0 Success
+ * @retval Non-zero Fail
+ */
+int ocf_core_get_info(ocf_core_t core, struct ocf_core_info *info);
 
 #endif /* __OCF_CORE_H__ */

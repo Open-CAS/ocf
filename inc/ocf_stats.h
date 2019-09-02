@@ -111,23 +111,11 @@ struct ocf_stats_core_debug {
  * @brief OCF core statistics
  */
 struct ocf_stats_core {
-	/** Core size in cache line size unit */
-	uint64_t core_size;
-
-	/** Core size in bytes unit */
-	uint64_t core_size_bytes;
-
 	/** Number of cache lines allocated in the cache for this core */
 	uint32_t cache_occupancy;
 
 	/** Number of dirty cache lines allocated in the cache for this core */
 	uint32_t dirty;
-
-	/** Number of block flushed in ongoing flush operation */
-	uint32_t flushed;
-
-	/** How long core is dirty in seconds unit */
-	uint32_t dirty_for;
 
 	/** Read requests statistics */
 	struct ocf_stats_req read_reqs;
@@ -152,12 +140,6 @@ struct ocf_stats_core {
 
 	/** Debug statistics */
 	struct ocf_stats_core_debug debug_stat;
-
-	/** Sequential cutoff threshold (in bytes) */
-	uint32_t seq_cutoff_threshold;
-
-	/** Sequential cutoff policy */
-	ocf_seq_cutoff_policy seq_cutoff_policy;
 };
 
 /**

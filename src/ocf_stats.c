@@ -204,25 +204,13 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 	return 0;
 }
 
-static uint32_t _calc_dirty_for(uint64_t dirty_since)
-{
-	return dirty_since ?
-		(env_ticks_to_msecs(env_get_tick_count() - dirty_since) / 1000)
-		: 0;
-}
-
 int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 {
 	uint32_t i;
-	ocf_core_id_t core_id;
-	ocf_cache_t cache;
 	struct ocf_counters_core *core_stats = NULL;
 	struct ocf_counters_part *curr = NULL;
 
 	OCF_CHECK_NULL(core);
-
-	core_id = ocf_core_get_id(core);
-	cache = ocf_core_get_cache(core);
 
 	if (!stats)
 		return -OCF_ERR_INVAL;
@@ -230,16 +218,6 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 	core_stats = core->counters;
 
 	ENV_BUG_ON(env_memset(stats, sizeof(*stats), 0));
-
-	stats->core_size_bytes = ocf_volume_get_length(
-			&cache->core[core_id].volume);
-	stats->core_size = ocf_bytes_2_lines_round_up(cache,
-			stats->core_size_bytes);
-	stats->seq_cutoff_threshold = ocf_core_get_seq_cutoff_threshold(core);
-	stats->seq_cutoff_policy = ocf_core_get_seq_cutoff_policy(core);
-
-
-	env_atomic_read(&core->runtime_meta->cached_clines);
 
 	copy_error_stats(&stats->core_errors,
 			&core_stats->core_errors);
@@ -268,11 +246,6 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 		stats->dirty += env_atomic_read(&core->runtime_meta->
 				part_counters[i].dirty_clines);
 	}
-
-	stats->flushed = env_atomic_read(&core->flushed);
-
-	stats->dirty_for = _calc_dirty_for(
-			env_atomic64_read(&core->runtime_meta->dirty_since));
 
 	return 0;
 }

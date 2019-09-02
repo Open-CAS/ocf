@@ -143,6 +143,13 @@ int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
 
 /* *** HELPER FUNCTIONS *** */
 
+static uint32_t _calc_dirty_for(uint64_t dirty_since)
+{
+	return dirty_since ?
+		(env_ticks_to_msecs(env_get_tick_count() - dirty_since) / 1000)
+		: 0;
+}
+
 static inline struct ocf_request *ocf_io_to_req(struct ocf_io *io)
 {
 	struct ocf_io_internal *ioi;
@@ -584,4 +591,32 @@ int ocf_core_volume_type_init(ocf_ctx_t ctx)
 	return ocf_ctx_register_volume_type_extended(ctx, 0,
 			&ocf_core_volume_properties,
 			&ocf_core_volume_extended);
+}
+
+int ocf_core_get_info(ocf_core_t core, struct ocf_core_info *info)
+{
+	ocf_cache_t cache;
+
+	OCF_CHECK_NULL(core);
+
+	cache = ocf_core_get_cache(core);
+
+	if (!info)
+		return -OCF_ERR_INVAL;
+
+	ENV_BUG_ON(env_memset(info, sizeof(*info), 0));
+
+	info->core_size_bytes = ocf_volume_get_length(&core->volume);
+	info->core_size = ocf_bytes_2_lines_round_up(cache,
+			info->core_size_bytes);
+	info->seq_cutoff_threshold = ocf_core_get_seq_cutoff_threshold(core);
+	info->seq_cutoff_policy = ocf_core_get_seq_cutoff_policy(core);
+
+	info->flushed = env_atomic_read(&core->flushed);
+	info->dirty = env_atomic_read(&core->runtime_meta->dirty_clines);
+
+	info->dirty_for = _calc_dirty_for(
+			env_atomic64_read(&core->runtime_meta->dirty_since));
+
+	return 0;
 }
