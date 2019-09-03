@@ -6,7 +6,11 @@
 #include "ocf_env.h"
 #include <sched.h>
 #include <execinfo.h>
+#include <sys/types.h>
+#include <setjmp.h>
+#include <cmocka.h>
 
+/* ALLOCATOR */
 struct _env_allocator {
 	/*!< Memory pool ID unique name */
 	char *name;
@@ -44,7 +48,6 @@ void *env_allocator_new(env_allocator *allocator)
 
 	return &item->data;
 }
-
 
 env_allocator *env_allocator_create(uint32_t size, const char *fmt_name, ...)
 {
@@ -110,8 +113,7 @@ void env_allocator_destroy(env_allocator *allocator)
 	}
 }
 
-/* *** DEBUGING *** */
-
+/* DEBUGING */
 #define ENV_TRACE_DEPTH	16
 
 void env_stack_trace(void)
@@ -129,8 +131,7 @@ void env_stack_trace(void)
 	free(messages);
 }
 
-/* *** CRC *** */
-
+/* CRC */
 uint32_t env_crc32(uint32_t crc, uint8_t const *data, size_t len)
 {
 	return crc32(crc, data, len);

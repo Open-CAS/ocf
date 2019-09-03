@@ -35,7 +35,7 @@
 #include "../eviction/ops.h"
 #include "ocf_env.h"
 
-#include "mngt/ocf_mngt_io_class.c/ocf_mngt_io_class_generated_warps.c"
+#include "mngt/ocf_mngt_io_class.c/ocf_mngt_io_class_generated_wraps.c"
 
 /* Functions mocked for testing purposes */
 bool __wrap_ocf_part_is_added(struct ocf_user_part *part)

@@ -35,7 +35,7 @@
 #include "../mngt/ocf_mngt_common.h"
 #include "../metadata/metadata.h"
 
-#include "cleaning/cleaning.c/ocf_cleaner_run_test_generated_warps.c"
+#include "cleaning/cleaning.c/ocf_cleaner_run_test_generated_wraps.c"
 
 /*
  * Mocked functions. Here we must deliver functions definitions which are not

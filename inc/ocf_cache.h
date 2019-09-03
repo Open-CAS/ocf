@@ -12,7 +12,6 @@
  * @brief OCF cache API
  */
 
-#include "ocf_types.h"
 #include "ocf_volume.h"
 #include "ocf_ctx.h"
 #include "ocf_def.h"

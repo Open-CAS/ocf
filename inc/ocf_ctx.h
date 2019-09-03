@@ -11,7 +11,6 @@
  * @brief OCF library context API
  */
 
-#include "ocf_types.h"
 #include "ocf_volume.h"
 #include "ocf_logger.h"
 

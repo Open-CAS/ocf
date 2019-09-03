@@ -6,6 +6,9 @@
 #ifndef __OCF_ENV_H__
 #define __OCF_ENV_H__
 
+#ifndef __LIBOCF_ENV_H__
+#define __LIBOCF_ENV_H__
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -15,12 +18,9 @@
 
 #include <linux/limits.h>
 #include <linux/stddef.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <stddef.h>
 #include <string.h>
 #include <pthread.h>
 #include <assert.h>
@@ -41,6 +41,15 @@
 /* linux sector 512-bytes */
 #define ENV_SECTOR_SHIFT	9
 
+#define OCF_ALLOCATOR_NAME_MAX 128
+
+#define PAGE_SIZE 4096
+
+#define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
+#define min(a,b) MIN(a,b)
+
+#define ENV_PRIu64 "lu"
+
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -49,19 +58,16 @@ typedef uint64_t u64;
 typedef uint64_t sector_t;
 
 #define __packed	__attribute__((packed))
-#define __aligned(x)	__attribute__((aligned(x)))
 
 #define likely(cond)       __builtin_expect(!!(cond), 1)
 #define unlikely(cond)     __builtin_expect(!!(cond), 0)
 
-#define min(a,b) MIN(a,b)
+/* MEMORY MANAGEMENT */
+#define ENV_MEM_NORMAL	0
+#define ENV_MEM_NOIO	0
+#define ENV_MEM_ATOMIC	0
 
-#define OCF_ALLOCATOR_NAME_MAX 128
-
-#define PAGE_SIZE 4096
-
-/* *** DEBUGING *** */
-
+/* DEBUGING */
 #define ENV_WARN(cond, fmt...)		printf(fmt)
 #define ENV_WARN_ON(cond)		;
 #define ENV_WARN_ONCE(cond, fmt...)	ENV_WARN(cond, fmt)
@@ -69,11 +75,49 @@ typedef uint64_t sector_t;
 #define ENV_BUG()			assert(0)
 #define ENV_BUG_ON(cond)		do { if (cond) ENV_BUG(); } while (0)
 
-/* *** MEMORY MANAGEMENT *** */
-#define ENV_MEM_NORMAL	0
-#define ENV_MEM_NOIO	0
-#define ENV_MEM_ATOMIC	0
+/* MISC UTILITIES */
+#define container_of(ptr, type, member) ({          \
+	const typeof(((type *)0)->member)*__mptr = (ptr);    \
+	(type *)((char *)__mptr - offsetof(type, member)); })
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
+
+/* STRING OPERATIONS */
+#ifndef TEST
+#define env_memcpy(dest, dmax, src, slen) ({ \
+		memcpy(dest, src, min(dmax, slen)); \
+		0; \
+	})
+#endif
+#define env_memset(dest, dmax, val) ({ \
+		memset(dest, val, dmax); \
+		0; \
+	})
+#define env_memcmp(s1, s1max, s2, s2max, diff) ({ \
+		*diff = memcmp(s1, s2, min(s1max, s2max)); \
+		0; \
+	})
+#define env_strdup strndup
+#define env_strnlen(s, smax) strnlen(s, smax)
+#define env_strncmp strncmp
+#define env_strncpy(dest, dmax, src, slen) ({ \
+		strncpy(dest, src, min(dmax - 1, slen)); \
+		dest[dmax - 1] = '\0'; \
+		0; \
+	})
+
+#ifdef TEST
+int env_memcpy(void *dest, size_t destsz, const void * src, size_t count)
+{
+	if (destsz < count)
+		memcpy(dest, src, destsz);
+	else
+		memcpy(dest, src, count);
+	return 0;
+}
+#endif
+
+/* MEMORY MANAGEMENT */
 static inline void *env_malloc(size_t size, int flags)
 {
 	return malloc(size);
@@ -109,9 +153,7 @@ static inline void env_vfree(const void *ptr)
 	free((void *)ptr);
 }
 
-
-/* *** SECURE MEMORY MANAGEMENT *** */
-
+/* SECURE MEMORY MANAGEMENT */
 /*
  * OCF adapter can opt to take additional steps to securely allocate and free
  * memory used by OCF to store cache metadata. This is to prevent other
@@ -157,8 +199,7 @@ static inline uint64_t env_get_free_memory(void)
 	return sysconf(_SC_PAGESIZE) * sysconf(_SC_AVPHYS_PAGES);
 }
 
-/* *** ALLOCATOR *** */
-
+/* ALLOCATOR */
 typedef struct _env_allocator env_allocator;
 
 env_allocator *env_allocator_create(uint32_t size, const char *fmt_name, ...);
@@ -169,8 +210,7 @@ void *env_allocator_new(env_allocator *allocator);
 
 void env_allocator_del(env_allocator *allocator, void *item);
 
-/* *** MUTEX *** */
-
+/* MUTEX */
 typedef struct {
 	pthread_mutex_t m;
 } env_mutex;
@@ -209,8 +249,7 @@ static inline int env_mutex_destroy(env_mutex *mutex)
 	return 0;
 }
 
-/* *** RECURSIVE MUTEX *** */
-
+/* RECURSIVE MUTEX */
 typedef env_mutex env_rmutex;
 
 static inline int env_rmutex_init(env_rmutex *rmutex)
@@ -247,7 +286,7 @@ static inline int env_rmutex_destroy(env_rmutex *rmutex)
 	return 0;
 }
 
-/* *** RW SEMAPHORE *** */
+/* RW SEMAPHORE */
 typedef struct {
 	 pthread_rwlock_t lock;
 } env_rwsem;
@@ -292,7 +331,7 @@ static inline int env_rwsem_destroy(env_rwsem *s)
 	return pthread_rwlock_destroy(&s->lock);
 }
 
-/* *** COMPLETION *** */
+/* COMPLETION */
 struct completion {
 	sem_t sem;
 };
@@ -319,8 +358,7 @@ static inline void env_completion_destroy(env_completion *completion)
 	sem_destroy(&completion->sem);
 }
 
-/* *** ATOMIC VARIABLES *** */
-
+/* ATOMIC VARIABLES */
 typedef struct {
 	volatile int counter;
 } env_atomic;
@@ -444,8 +482,7 @@ static inline long env_atomic64_cmpxchg(env_atomic64 *a, long old_v, long new_v)
 	return __sync_val_compare_and_swap(&a->counter, old_v, new_v);
 }
 
-/* *** SPIN LOCKS *** */
-
+/* SPIN LOCKS */
 typedef struct {
 	pthread_spinlock_t lock;
 } env_spinlock;
@@ -478,8 +515,7 @@ static inline void env_spinlock_destroy(env_spinlock *l)
 	ENV_BUG_ON(pthread_spin_destroy(&l->lock));
 }
 
-/* *** RW LOCKS *** */
-
+/* RW LOCKS */
 typedef struct {
 	pthread_rwlock_t lock;
 } env_rwlock;
@@ -514,27 +550,7 @@ static inline void env_rwlock_destroy(env_rwlock *l)
 	ENV_BUG_ON(pthread_rwlock_destroy(&l->lock));
 }
 
-/* *** WAITQUEUE *** */
-
-typedef struct {
-	sem_t sem;
-} env_waitqueue;
-
-#define env_waitqueue_wait(w, condition)	\
-({						\
-	int __ret = 0;				\
-	if (!(condition))			\
-		sem_wait(&w.sem);		\
-	__ret = __ret;				\
-})
-
-static inline void env_waitqueue_destroy(env_waitqueue *w)
-{
-	sem_destroy(&w->sem);
-}
-
-/* *** BIT OPERATIONS *** */
-
+/* BIT OPERATIONS */
 static inline void env_bit_set(int nr, volatile void *addr)
 {
 	char *byte = (char *)addr + (nr >> 3);
@@ -560,6 +576,7 @@ static inline bool env_bit_test(int nr, const volatile unsigned long *addr)
 	return !!(*byte & mask);
 }
 
+/* SCHEDULING */
 static inline int env_in_interrupt(void)
 {
 	return 0;
@@ -592,8 +609,7 @@ static inline uint64_t env_secs_to_ticks(uint64_t j)
 	return j * 1000000;
 }
 
-/* *** SORTING *** */
-
+/* SORTING */
 static inline void env_sort(void *base, size_t num, size_t size,
 		int (*cmp_fn)(const void *, const void *),
 		void (*swap_fn)(void *, void *, int size))
@@ -601,36 +617,7 @@ static inline void env_sort(void *base, size_t num, size_t size,
 	qsort(base, num, size, cmp_fn);
 }
 
-/* *** STRING OPERATIONS *** */
-#define env_memset(dest, dmax, val) ({ \
-		memset(dest, val, dmax); \
-		0; \
-	})
-#define env_memcpy(dest, dmax, src, slen) ({ \
-		memcpy(dest, src, min(dmax, slen)); \
-		0; \
-	})
-#define env_memcmp(s1, s1max, s2, s2max, diff) ({ \
-		*diff = memcmp(s1, s2, min(s1max, s2max)); \
-		0; \
-	})
-#define env_strdup strndup
-#define env_strnlen(s, smax) strnlen(s, smax)
-#define env_strncmp strncmp
-#define env_strncpy(dest, dmax, src, slen) ({ \
-		strncpy(dest, src, min(dmax - 1, slen)); \
-		dest[dmax - 1] = '\0'; \
-		0; \
-	})
-
-/* *** MISC UTILITIES *** */
-#define container_of(ptr, type, member) ({          \
-	const typeof(((type *)0)->member)*__mptr = (ptr);    \
-	(type *)((char *)__mptr - offsetof(type, member)); })
-
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
-
-/* *** TIME *** */
+/* TIME */
 static inline void env_msleep(uint64_t n)
 {
 	usleep(n * 1000);
@@ -642,6 +629,6 @@ struct env_timeval {
 
 uint32_t env_crc32(uint32_t crc, uint8_t const *data, size_t len);
 
-#define ENV_PRIu64 "lu"
+#endif /* __LIBOCF_ENV_H__ */
 
 #endif /* __OCF_ENV_H__ */
