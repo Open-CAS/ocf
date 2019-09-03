@@ -9,6 +9,8 @@
 
 MAIN_DIRECTORY_OF_TESTED_PROJECT = "../../../"
 
+MAIN_DIRECTORY_OF_ENV_FILES = MAIN_DIRECTORY_OF_TESTED_PROJECT + "env/"
+
 MAIN_DIRECTORY_OF_UNIT_TESTS = "../tests/"
 
 # Paths to all directories, in which tests are stored. All paths should be relative to

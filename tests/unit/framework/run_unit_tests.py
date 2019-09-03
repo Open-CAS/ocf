@@ -19,9 +19,39 @@ def run_command(args):
     return result
 
 
+def rm_cmd(trgt):
+    """Remove target with force"""
+    result = run_command(["rm", "-rf", trgt])
+    if result.returncode != 0:
+        raise Exception("Removing {} before testing failed!".
+                        format(os.path.dirname(os.path.realpath(__file__))
+                        + trgt))
+
+
+def cleanup():
+    """Delete files created by unit tests"""
+    script_path = os.path.dirname(os.path.realpath(__file__))
+    test_dir = os.path.join(script_path, tests_config.MAIN_DIRECTORY_OF_UNIT_TESTS)
+    result = run_command(["cd", test_dir])
+    if result.returncode != 0:
+        raise Exception("Cleanup before testing failed!")
+
+    rm_cmd("preprocessed_sources_repository")
+    rm_cmd("sources_to_test_repository")
+    rm_cmd("build")
+
+    result = run_command(["cd", script_path])
+    if result.returncode != 0:
+        raise Exception("Cleanup before testing failed!")
+
+
+cleanup()
+
 script_path = os.path.dirname(os.path.realpath(__file__))
 
 main_UT_dir = os.path.join(script_path, tests_config.MAIN_DIRECTORY_OF_UNIT_TESTS)
+
+main_env_dir = os.path.join(script_path, tests_config.MAIN_DIRECTORY_OF_ENV_FILES)
 
 main_tested_dir = os.path.join(script_path, tests_config.MAIN_DIRECTORY_OF_TESTED_PROJECT)
 
@@ -30,6 +60,12 @@ if not os.path.isdir(os.path.join(main_UT_dir, "ocf_env", "ocf")):
         os.makedirs(os.path.join(main_UT_dir, "ocf_env", "ocf"))
     except Exception:
         raise Exception("Cannot create ocf_env/ocf directory!")
+
+result = run_command(["cp", "-r",
+                      os.path.join(main_env_dir, "posix", "*"),
+                      os.path.join(main_UT_dir, "ocf_env")])
+if result.returncode != 0:
+    raise Exception("Preparing env sources for testing failed!")
 
 result = run_command(["cp", "-r",
                       os.path.join(main_tested_dir, "inc", "*"),

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.6
+#!/usr/bin/env python3
 
 #
 # Copyright(c) 2012-2018 Intel Corporation
@@ -42,6 +42,7 @@ class UnitTestsSourcesGenerator(object):
     script_dir_abs_path = ""
 
     main_UT_dir = ""
+    main_env_dir = ""
     main_tested_dir = ""
 
     ctags_path = ""
@@ -70,6 +71,7 @@ class UnitTestsSourcesGenerator(object):
         self.set_ctags_path()
 
         self.set_main_UT_dir()
+        self.set_main_env_dir()
         self.set_main_tested_dir()
 
         self.test_catalogues_list = tests_config.DIRECTORIES_WITH_TESTS_LIST
@@ -141,7 +143,7 @@ class UnitTestsSourcesGenerator(object):
 
     def get_autowrap_file_path(self, test_file_path):
         wrap_file_path = test_file_path.rsplit('.', 1)[0]
-        wrap_file_path = wrap_file_path + "_generated_warps.c"
+        wrap_file_path = wrap_file_path + "_generated_wraps.c"
         return wrap_file_path
 
     def prepare_autowraps(self, test_file_path, preprocessed_file_path):
@@ -655,6 +657,9 @@ class UnitTestsSourcesGenerator(object):
     def get_main_UT_dir(self):
         return os.path.normpath(self.main_UT_dir) + os.sep
 
+    def get_main_env_dir(self):
+        return os.path.normpath(self.main_env_dir) + os.sep
+
     def get_main_tested_dir(self):
         return os.path.normpath(self.main_tested_dir) + os.sep
 
@@ -672,6 +677,17 @@ class UnitTestsSourcesGenerator(object):
 
     def get_includes_to_copy_dict(self):
         return self.includes_to_copy_dict
+
+    def set_main_env_dir(self):
+        main_env_dir = os.path.normpath(os.path.normpath(self.get_script_dir_path()
+                                                         + os.sep
+                                                         + tests_config.
+                                                         MAIN_DIRECTORY_OF_ENV_FILES))
+        if not os.path.isdir(main_env_dir):
+            print("Given path to main env directory is wrong!")
+            sys.exit(1)
+
+        self.main_env_dir = main_env_dir
 
     def set_main_UT_dir(self):
         main_UT_dir = os.path.normpath(os.path.normpath(self.get_script_dir_path()
@@ -695,14 +711,43 @@ class UnitTestsSourcesGenerator(object):
 
         self.main_tested_dir = main_tested_dir
 
+    """Adding 'TEST' macro to OCF header only for Unit Tests purpose."""
+    def add_test_flag(self, file):
+        for dir in self.get_tests_internal_includes_list():
+            if os.path.isfile(dir + file):
+                with open(dir + file, 'r') as ocf:
+                    body = ocf.readlines()
+                    if '#define TEST' not in body[5]:
+                        body[3] += '\n#define TEST\n'
+                    ocf.close()
+                with open(dir + file, 'w') as ocf:
+                    ocf.writelines(body)
+                    ocf.close()
+
+    def rmv_static(self, file):
+        for dir in self.get_tests_internal_includes_list():
+            if os.path.isfile(dir + file):
+                with open(dir + file, 'r') as ocf:
+                    body = ocf.readlines()
+                    for i in range(len(body)):
+                        if 'static inline ' in body[i]:
+                            print(body[i])
+                            body[i] = body[i].replace('static inline ', '')
+                    ocf.close()
+                with open(dir + file, 'w') as ocf:
+                    ocf.writelines(body)
+                    ocf.close()
 
 def __main__():
     generator = UnitTestsSourcesGenerator()
     generator.copy_includes()
+    generator.rmv_static('ocf_env.h')
+    generator.add_test_flag('ocf/ocf.h')
     generator.preprocessing()
     generator.prepare_sources_for_testing()
     generator.create_main_cmake_lists()
     generator.generate_cmakes_for_tests()
+
 
     print("Files for testing generated!")
 
