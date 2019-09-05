@@ -112,8 +112,8 @@ static int _ocf_write_wi_do(struct ocf_request *req)
 
 	/* Update statistics */
 	ocf_engine_update_block_stats(req);
-	env_atomic64_inc(&req->core->counters->
-			part_counters[req->part_id].write_reqs.pass_through);
+	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
+			req->info.hit_no, req->core_line_count);
 
 	/* Put OCF request - decrease reference counter */
 	ocf_req_put(req);
