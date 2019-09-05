@@ -465,8 +465,7 @@ static void _ocf_cleaner_core_io_cmpl(struct ocf_io *io, int error)
 	if (error) {
 		map->invalid |= 1;
 		_ocf_cleaner_set_error(req);
-		env_atomic_inc(&req->cache->core[map->core_id].counters->
-				core_errors.write);
+		ocf_core_stats_core_error_update(req->core, OCF_WRITE);
 	}
 
 	_ocf_cleaner_core_io_end(req);
@@ -623,8 +622,7 @@ static void _ocf_cleaner_cache_io_cmpl(struct ocf_io *io, int error)
 	if (error) {
 		map->invalid |= 1;
 		_ocf_cleaner_set_error(req);
-		env_atomic_inc(&req->cache->core[map->core_id].counters->
-				cache_errors.read);
+		ocf_core_stats_cache_error_update(req->core, OCF_READ);
 	}
 
 	_ocf_cleaner_cache_io_end(req);

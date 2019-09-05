@@ -26,7 +26,7 @@ static const struct ocf_io_if _io_if_wi_flush_metadata = {
 static void _ocf_write_wi_io_flush_metadata(struct ocf_request *req, int error)
 {
 	if (error) {
-		env_atomic_inc(&req->core->counters->cache_errors.write);
+		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
 		req->error |= error;
 	}
 
@@ -77,7 +77,7 @@ static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 	if (error) {
 		req->error = error;
 		req->info.core_error = 1;
-		env_atomic_inc(&req->core->counters->core_errors.write);
+		ocf_core_stats_core_error_update(req->core, OCF_WRITE);
 	}
 
 	if (env_atomic_dec_return(&req->req_remaining))

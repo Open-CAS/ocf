@@ -61,7 +61,7 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 	req->data = NULL;
 
 	if (req->error) {
-		env_atomic_inc(&req->core->counters->cache_errors.write);
+		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
 		ocf_engine_invalidate(req);
 	} else {
 		ocf_req_unlock(req);

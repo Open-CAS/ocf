@@ -20,7 +20,7 @@ static void _ocf_invalidate_req(struct ocf_request *req, int error)
 {
 	if (error) {
 		req->error = error;
-		env_atomic_inc(&req->core->counters->cache_errors.write);
+		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
 	}
 
 	if (env_atomic_dec_return(&req->req_remaining))

@@ -24,7 +24,7 @@ static void _ocf_read_wa_complete(struct ocf_request *req, int error)
 
 	if (req->error) {
 		req->info.core_error = 1;
-		env_atomic_inc(&req->core->counters->core_errors.write);
+		ocf_core_stats_core_error_update(req->core, OCF_WRITE);
 	}
 
 	/* Complete request */

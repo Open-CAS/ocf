@@ -21,7 +21,7 @@
 static void ocf_read_wo_cache_complete(struct ocf_request *req, int error)
 {
 	if (error) {
-		env_atomic_inc(&req->core->counters->cache_errors.read);
+		ocf_core_stats_cache_error_update(req->core, OCF_READ);
 		req->error |= error;
 	}
 
@@ -148,7 +148,7 @@ static void _ocf_read_wo_core_complete(struct ocf_request *req, int error)
 	if (error) {
 		req->error |= error;
 		req->info.core_error = 1;
-		env_atomic_inc(&req->core->counters->core_errors.read);
+		ocf_core_stats_core_error_update(req->core, OCF_READ);
 	}
 
 	/* if all mapped cachelines are clean, the data we've read from core

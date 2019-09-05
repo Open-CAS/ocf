@@ -16,17 +16,13 @@
 
 static void _ocf_d2c_completion(struct ocf_request *req, int error)
 {
-	ocf_core_t core = req->core;
 	req->error = error;
 
 	OCF_DEBUG_RQ(req, "Completion");
 
 	if (req->error) {
 		req->info.core_error = 1;
-		if (req->rw == OCF_READ)
-			env_atomic_inc(&core->counters->core_errors.read);
-		else
-			env_atomic_inc(&core->counters->core_errors.write);
+		ocf_core_stats_core_error_update(req->core, req->rw);
 	}
 
 	/* Complete request */
