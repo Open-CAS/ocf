@@ -5,10 +5,9 @@
 
 /**
  * @file
- * @brief OCF API for getting and reseting statistics
+ * @brief OCF API for updating and reseting statistics
  *
- * This file contains routines pertaining to retrieval and
- * manipulation of OCF IO statistics.
+ * This file contains routines pertaining to manipulation of OCF IO statistics.
  */
 
 #ifndef __OCF_STATS_H__

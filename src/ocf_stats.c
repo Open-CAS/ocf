@@ -57,6 +57,119 @@ static void ocf_stats_error_init(struct ocf_counters_error *stats)
 	env_atomic_set(&stats->write, 0);
 }
 
+static void _ocf_stats_block_update(struct ocf_counters_block *counters, int dir,
+		uint64_t bytes)
+{
+	switch (dir) {
+		case OCF_READ:
+			env_atomic64_add(bytes, &counters->read_bytes);
+			break;
+		case OCF_WRITE:
+			env_atomic64_add(bytes, &counters->write_bytes);
+			break;
+		default:
+			ENV_BUG();
+	}
+}
+
+void ocf_core_stats_vol_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes)
+{
+	struct ocf_counters_block *counters =
+		&core->counters->part_counters[part_id].blocks;
+
+	_ocf_stats_block_update(counters, dir, bytes);
+}
+
+void ocf_core_stats_cache_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes)
+{
+	struct ocf_counters_block *counters =
+		&core->counters->part_counters[part_id].cache_blocks;
+
+	_ocf_stats_block_update(counters, dir, bytes);
+}
+
+void ocf_core_stats_core_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes)
+{
+	struct ocf_counters_block *counters =
+		&core->counters->part_counters[part_id].core_blocks;
+
+	_ocf_stats_block_update(counters, dir, bytes);
+}
+
+void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
+		uint8_t dir, uint64_t hit_no, uint64_t core_line_count)
+{
+	struct ocf_counters_req *counters;
+
+	switch (dir) {
+		case OCF_READ:
+			counters = &core->counters->part_counters[part_id].read_reqs;
+			break;
+		case OCF_WRITE:
+			counters = &core->counters->part_counters[part_id].write_reqs;
+			break;
+		default:
+			ENV_BUG();
+	}
+
+	env_atomic64_inc(&counters->total);
+
+	if (hit_no == 0)
+		env_atomic64_inc(&counters->full_miss);
+	else if (hit_no < core_line_count)
+		env_atomic64_inc(&counters->partial_miss);
+}
+
+void ocf_core_stats_request_pt_update(ocf_core_t core, ocf_part_id_t part_id,
+		uint8_t dir, uint64_t hit_no, uint64_t core_line_count)
+{
+	struct ocf_counters_req *counters;
+
+	switch (dir) {
+		case OCF_READ:
+			counters = &core->counters->part_counters[part_id].read_reqs;
+			break;
+		case OCF_WRITE:
+			counters = &core->counters->part_counters[part_id].write_reqs;
+			break;
+		default:
+			ENV_BUG();
+	}
+
+	env_atomic64_inc(&counters->pass_through);
+}
+
+static void _ocf_core_stats_error_update(struct ocf_counters_error *counters,
+		uint8_t dir)
+{
+	switch (dir) {
+		case OCF_READ:
+			env_atomic_inc(&counters->read);
+			break;
+		case OCF_WRITE:
+			env_atomic_inc(&counters->write);
+			break;
+		default:
+			ENV_BUG();
+	}
+}
+
+void ocf_core_stats_core_error_update(ocf_core_t core, uint8_t dir)
+{
+	struct ocf_counters_error *counters = &core->counters->core_errors;
+
+	_ocf_core_stats_error_update(counters, dir);
+}
+
+void ocf_core_stats_cache_error_update(ocf_core_t core, uint8_t dir)
+{
+	struct ocf_counters_error *counters = &core->counters->cache_errors;
+
+	_ocf_core_stats_error_update(counters, dir);
+}
 
 /********************************************************************
  * Function that resets stats, debug and breakdown counters.

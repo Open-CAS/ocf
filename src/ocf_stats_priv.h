@@ -182,6 +182,21 @@ struct ocf_counters_core {
 #endif
 };
 
+void ocf_core_stats_core_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes);
+void ocf_core_stats_cache_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes);
+void ocf_core_stats_vol_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes);
+
+void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
+		uint8_t dir, uint64_t hit_no, uint64_t core_line_count);
+void ocf_core_stats_request_pt_update(ocf_core_t core, ocf_part_id_t part_id,
+		uint8_t dir, uint64_t hit_no, uint64_t core_line_count);
+
+void ocf_core_stats_core_error_update(ocf_core_t core, uint8_t dir);
+void ocf_core_stats_cache_error_update(ocf_core_t core, uint8_t dir);
+
 /**
  * @brief ocf_core_io_class_get_stats retrieve io class statistics
  *			for given core
