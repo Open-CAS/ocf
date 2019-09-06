@@ -453,18 +453,8 @@ void ocf_engine_clean(struct ocf_request *req)
 
 void ocf_engine_update_block_stats(struct ocf_request *req)
 {
-	ocf_part_id_t part_id = req->part_id;
-	struct ocf_counters_block *blocks;
-
-	blocks = &req->core->counters->
-			part_counters[part_id].blocks;
-
-	if (req->rw == OCF_READ)
-		env_atomic64_add(req->byte_length, &blocks->read_bytes);
-	else if (req->rw == OCF_WRITE)
-		env_atomic64_add(req->byte_length, &blocks->write_bytes);
-	else
-		ENV_BUG();
+	ocf_core_stats_vol_block_update(req->core, req->part_id, req->rw,
+			req->byte_length);
 }
 
 void ocf_engine_update_request_stats(struct ocf_request *req)

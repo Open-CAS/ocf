@@ -227,7 +227,6 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		struct ocf_request *req, int dir, uint64_t offset,
 		uint64_t size, unsigned int reqs, ocf_req_end_t callback)
 {
-	struct ocf_counters_block *cache_stats;
 	uint64_t flags = req->ioi.io.flags;
 	uint32_t io_class = req->ioi.io.io_class;
 	uint64_t addr, bytes, total_bytes = 0;
@@ -239,8 +238,6 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 
 	ENV_BUG_ON(req->byte_length < offset + size);
 	ENV_BUG_ON(first_cl + reqs > req->core_line_count);
-
-	cache_stats = &req->core->counters->part_counters[io_class].cache_blocks;
 
 	if (reqs == 1) {
 		addr = ocf_metadata_map_lg2phy(cache,
@@ -323,27 +320,20 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 	ENV_BUG_ON(total_bytes != size);
 
 update_stats:
-	if (dir == OCF_WRITE)
-		env_atomic64_add(total_bytes, &cache_stats->write_bytes);
-	else if (dir == OCF_READ)
-		env_atomic64_add(total_bytes, &cache_stats->read_bytes);
+	ocf_core_stats_cache_block_update(req->core, io_class, dir, total_bytes);
 }
 
 void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 		ocf_req_end_t callback)
 {
-	struct ocf_counters_block *core_stats;
 	uint64_t flags = req->ioi.io.flags;
 	uint32_t io_class = req->ioi.io.io_class;
 	int dir = req->rw;
 	struct ocf_io *io;
 	int err;
 
-	core_stats = &req->core->counters->part_counters[io_class].core_blocks;
-	if (dir == OCF_WRITE)
-		env_atomic64_add(req->byte_length, &core_stats->write_bytes);
-	else if (dir == OCF_READ)
-		env_atomic64_add(req->byte_length, &core_stats->read_bytes);
+	ocf_core_stats_core_block_update(req->core, io_class, dir,
+			req->byte_length);
 
 	io = ocf_volume_new_io(volume, req->io_queue, req->byte_position,
 			req->byte_length, dir, io_class, flags);

@@ -480,12 +480,9 @@ static void _ocf_cleaner_core_io_for_dirty_range(struct ocf_request *req,
 	int err;
 	ocf_cache_t cache = req->cache;
 	struct ocf_io *io;
-	struct ocf_counters_block *core_stats;
 	ocf_core_t core = ocf_cache_get_core(cache, iter->core_id);
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache,
 			iter->coll_idx);
-
-	core_stats = &core->counters->part_counters[part_id].core_blocks;
 
 	addr = (ocf_line_size(cache) * iter->core_line)
 			+ SECTORS_TO_BYTES(begin);
@@ -505,7 +502,8 @@ static void _ocf_cleaner_core_io_for_dirty_range(struct ocf_request *req,
 
 	ocf_io_set_cmpl(io, iter, req, _ocf_cleaner_core_io_cmpl);
 
-	env_atomic64_add(SECTORS_TO_BYTES(end - begin), &core_stats->write_bytes);
+	ocf_core_stats_core_block_update(core, part_id, OCF_WRITE,
+			SECTORS_TO_BYTES(end - begin));
 
 	OCF_DEBUG_PARAM(req->cache, "Core write, line = %llu, "
 			"sector = %llu, count = %llu", iter->core_line, begin,
@@ -644,7 +642,6 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	ocf_part_id_t part_id;
 	struct ocf_io *io;
 	int err;
-	struct ocf_counters_block *cache_stats;
 
 	/* Protect IO completion race */
 	env_atomic_inc(&req->req_remaining);
@@ -668,8 +665,6 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 
 		part_id = ocf_metadata_get_partition_id(cache, iter->coll_idx);
 
-		cache_stats = &core->counters->part_counters[part_id].cache_blocks;
-
 		io = ocf_new_cache_io(cache, req->io_queue,
 				addr, ocf_line_size(cache),
 				OCF_READ, part_id, 0);
@@ -689,7 +684,8 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 			continue;
 		}
 
-		env_atomic64_add(ocf_line_size(cache), &cache_stats->read_bytes);
+		ocf_core_stats_cache_block_update(core, part_id, OCF_READ,
+				ocf_line_size(cache));
 
 		ocf_volume_submit_io(io);
 	}
