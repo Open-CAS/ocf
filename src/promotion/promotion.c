@@ -68,6 +68,7 @@ ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
 		ocf_promotion_policies[prev_policy].deinit(policy);
 
 	cache->conf_meta->promotion_policy_type = type;
+	policy->type = type;
 
 	if (ocf_promotion_policies[type].init)
 		result = ocf_promotion_policies[type].init(cache, policy);

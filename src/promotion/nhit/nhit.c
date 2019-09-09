@@ -183,7 +183,7 @@ bool nhit_req_should_promote(ocf_promotion_policy_t policy,
 		ocf_metadata_get_cachelines_count(policy->owner) -
 		ocf_freelist_num_free(policy->owner->freelist);
 
-	if (occupied_cachelines > env_atomic64_read(&ctx->trigger_threshold))
+	if (occupied_cachelines < env_atomic64_read(&ctx->trigger_threshold))
 		return true;
 
 	for (i = 0, core_line = req->core_line_first;
@@ -196,9 +196,8 @@ bool nhit_req_should_promote(ocf_promotion_policy_t policy,
 		}
 	}
 
-	/* We don't want to reject even partially
-	 * hit requests - this way we could trigger passthrough and invalidation.
-	 * Let's let it in! */
-	return result || req->info.hit_no;
+	/* We don't want to reject even partially hit requests - this way we
+	 * could trigger passthrough and invalidation. Let's let it in! */
+	return result || ocf_engine_mapped_count(req);
 }
 
