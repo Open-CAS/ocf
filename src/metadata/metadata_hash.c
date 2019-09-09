@@ -13,6 +13,7 @@
 #include "../utils/utils_pipeline.h"
 #include "../ocf_def_priv.h"
 #include "../ocf_priv.h"
+#include "../ocf_freelist.h"
 
 #define OCF_METADATA_HASH_DEBUG 0
 
@@ -1025,14 +1026,10 @@ finalize:
 }
 
 static inline void _ocf_init_collision_entry(struct ocf_cache *cache,
-		ocf_cache_line_t idx, ocf_cache_line_t next,
-		ocf_cache_line_t prev)
+		ocf_cache_line_t idx)
 {
 	ocf_cache_line_t invalid_idx = cache->device->collision_table_entries;
-	ocf_part_id_t invalid_part_id = PARTITION_INVALID;
 
-	ocf_metadata_set_partition_info(cache, idx,
-			invalid_part_id, next, prev);
 	ocf_metadata_set_collision_info(cache, idx, invalid_idx, invalid_idx);
 	ocf_metadata_set_core_info(cache, idx,
 			OCF_CORE_MAX, ULONG_MAX);
@@ -1040,35 +1037,16 @@ static inline void _ocf_init_collision_entry(struct ocf_cache *cache,
 }
 
 /*
- * Modified initialization of freelist partition
+ * Initialize collision table
  */
-static void ocf_metadata_hash_init_freelist(struct ocf_cache *cache)
+static void ocf_metadata_hash_init_collision(struct ocf_cache *cache)
 {
-	uint32_t step = 0;
 	unsigned int i;
-	ocf_cache_line_t prev, next;
-	ocf_cache_line_t idx;
-	ocf_cache_line_t collision_table_entries =
-			cache->device->collision_table_entries;
 
-	prev = collision_table_entries;
-	idx = 0;
-	for (i = 0; i < cache->device->collision_table_entries - 1; i++) {
-		next = ocf_metadata_map_phy2lg(cache, i + 1);
-		_ocf_init_collision_entry(cache, idx, next, prev);
-		prev = idx;
-		idx = next;
-		OCF_COND_RESCHED_DEFAULT(step);
+	for (i = 0; i < cache->device->collision_table_entries; i++) {
+		_ocf_init_collision_entry(cache, i);
 	}
-	_ocf_init_collision_entry(cache, idx, collision_table_entries, prev);
-
-	/* Initialize freelist partition */
-	cache->device->freelist_part->head = 0;
-	cache->device->freelist_part->tail = idx;
-	cache->device->freelist_part->curr_size = cache->device->
-			collision_table_entries;
 }
-
 
 /*
  * Initialize hash table
@@ -1850,8 +1828,6 @@ static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
 
 	part_id = PARTITION_DEFAULT;
 
-	ocf_metadata_remove_from_free_list(cache, cache_line);
-
 	ocf_metadata_add_to_partition(cache, part_id, cache_line);
 
 	hash_index = ocf_metadata_hash_func(cache, core_line, core_id);
@@ -1917,10 +1893,12 @@ static void _recovery_rebuild_metadata(ocf_pipeline_t pipeline,
 	ocf_core_id_t core_id;
 	uint64_t core_line;
 	unsigned char step = 0;
+	const uint64_t collision_table_entries =
+			ocf_metadata_collision_table_entries(cache);
 
 	OCF_METADATA_LOCK_WR();
 
-	for (cline = 0; cline < cache->device->collision_table_entries; cline++) {
+	for (cline = 0; cline < collision_table_entries; cline++) {
 		ocf_metadata_get_core_info(cache, cline, &core_id, &core_line);
 		if (core_id != OCF_CORE_MAX &&
 				(!dirty_only || metadata_test_dirty(cache,
@@ -2648,7 +2626,7 @@ static const struct ocf_metadata_iface metadata_hash_iface = {
 	.init_variable_size = ocf_metadata_hash_init_variable_size,
 	.deinit_variable_size = ocf_metadata_hash_deinit_variable_size,
 	.init_hash_table = ocf_metadata_hash_init_hash_table,
-	.init_freelist = ocf_metadata_hash_init_freelist,
+	.init_collision = ocf_metadata_hash_init_collision,
 
 	.layout_iface = NULL,
 	.pages = ocf_metadata_hash_pages,

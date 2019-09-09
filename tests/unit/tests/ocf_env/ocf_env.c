@@ -150,28 +150,25 @@ void env_completion_complete(env_completion *completion)
 
 int env_mutex_init(env_mutex *mutex)
 {
-	function_called();
-	check_expected_ptr(mutex);
-	return mock();
+	return 0;
+}
+
+int env_mutex_destroy(env_mutex *mutex)
+{
+	return 0;
 }
 
 void env_mutex_lock(env_mutex *mutex)
 {
-	function_called();
-	check_expected_ptr(mutex);
 }
 
 int env_mutex_lock_interruptible(env_mutex *mutex)
 {
-	function_called();
-	check_expected_ptr(mutex);
-	return mock();
+	return 0;
 }
 
 void env_mutex_unlock(env_mutex *mutex)
 {
-	function_called();
-	check_expected_ptr(mutex);
 }
 
 int env_rmutex_init(env_rmutex *rmutex)
@@ -361,22 +358,27 @@ long env_atomic64_cmpxchg(env_atomic64 *a, long old, long new)
 	return oldval;
 }
 
-void env_spinlock_init(env_spinlock *l)
+int env_spinlock_init(env_spinlock *l)
 {
-	function_called();
-	check_expected_ptr(l);
+	return 0;
+}
+
+int env_spinlock_destroy(env_spinlock *l)
+{
+	return 0;
 }
 
 void env_spinlock_lock(env_spinlock *l)
 {
-	function_called();
-	check_expected_ptr(l);
+}
+
+int env_spinlock_trylock(env_spinlock *l)
+{
+	return 0;
 }
 
 void env_spinlock_unlock(env_spinlock *l)
 {
-	function_called();
-	check_expected_ptr(l);
 }
 
 void env_rwlock_init(env_rwlock *l)
@@ -534,4 +536,8 @@ uint32_t env_crc32(uint32_t crc, uint8_t const *data, size_t len)
 	check_expected(len);
 	check_expected_ptr(data);
 	return mock();
+}
+
+void env_cond_resched(void)
+{
 }

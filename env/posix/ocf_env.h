@@ -455,6 +455,11 @@ static inline void env_spinlock_init(env_spinlock *l)
 	ENV_BUG_ON(pthread_spin_init(&l->lock, 0));
 }
 
+static inline int env_spinlock_trylock(env_spinlock *l)
+{
+	return pthread_spin_trylock(&l->lock) ? -OCF_ERR_NO_LOCK : 0;
+}
+
 static inline void env_spinlock_lock(env_spinlock *l)
 {
 	ENV_BUG_ON(pthread_spin_lock(&l->lock));
@@ -643,5 +648,9 @@ struct env_timeval {
 uint32_t env_crc32(uint32_t crc, uint8_t const *data, size_t len);
 
 #define ENV_PRIu64 "lu"
+
+unsigned env_get_execution_context(void);
+void env_put_execution_context(unsigned ctx);
+unsigned env_get_execution_context_count(void);
 
 #endif /* __OCF_ENV_H__ */

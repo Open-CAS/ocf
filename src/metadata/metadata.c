@@ -53,16 +53,16 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache, uint64_t device_siz
 			cache_line_size, layout);
 }
 
-void ocf_metadata_init_freelist_partition(struct ocf_cache *cache)
-{
-	OCF_DEBUG_TRACE(cache);
-	cache->metadata.iface.init_freelist(cache);
-}
-
 void ocf_metadata_init_hash_table(struct ocf_cache *cache)
 {
 	OCF_DEBUG_TRACE(cache);
 	cache->metadata.iface.init_hash_table(cache);
+}
+
+void ocf_metadata_init_collision(struct ocf_cache *cache)
+{
+	OCF_DEBUG_TRACE(cache);
+	cache->metadata.iface.init_collision(cache);
 }
 
 void ocf_metadata_deinit(struct ocf_cache *cache)

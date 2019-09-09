@@ -32,8 +32,7 @@ union eviction_policy_meta {
  * set core_id to -2 to purge the whole cache partition
  */
 struct eviction_policy_ops {
-	void (*init_cline)(ocf_cache_t cache,
-			ocf_cache_line_t cline);
+	void (*init_cline)(ocf_cache_t cache, ocf_cache_line_t cline);
 	void (*rm_cline)(ocf_cache_t cache,
 			ocf_cache_line_t cline);
 	bool (*can_evict)(ocf_cache_t cache);
