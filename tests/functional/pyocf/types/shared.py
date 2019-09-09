@@ -54,6 +54,21 @@ class OcfCompletion:
     management API.
     """
 
+    class CompletionResult:
+        def __init__(self, completion_args):
+            self.completion_args = {
+                x[0]: i for i, x in enumerate(completion_args)
+            }
+            self.results = None
+            self.arg_types = [x[1] for x in completion_args]
+
+        def __getitem__(self, key):
+            try:
+                position = self.completion_args[key]
+                return self.results[position]
+            except KeyError:
+                raise KeyError(f"No completion argument {key} specified")
+
     def __init__(self, completion_args: list):
         """
         Provide ctypes arg list, and optionally index of status argument in
@@ -63,19 +78,14 @@ class OcfCompletion:
             for OCF completion function
         """
         self.e = Event()
-        self.completion_args = completion_args
+        self.results = OcfCompletion.CompletionResult(completion_args)
         self._as_parameter_ = self.callback
-        self.results = None
 
     @property
     def callback(self):
-        arg_types = list(list(zip(*self.completion_args))[1])
-
-        @CFUNCTYPE(c_void_p, *arg_types)
+        @CFUNCTYPE(c_void_p, *self.results.arg_types)
         def complete(*args):
-            self.results = {}
-            for i, arg in enumerate(args):
-                self.results[self.completion_args[i][0]] = arg
+            self.results.results = args
             self.e.set()
 
         return complete

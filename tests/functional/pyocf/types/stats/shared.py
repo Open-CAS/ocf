@@ -7,7 +7,7 @@ from ctypes import c_uint64, c_uint32, Structure
 
 
 class _Stat(Structure):
-    _fields_ = [("value", c_uint64), ("permil", c_uint64)]
+    _fields_ = [("value", c_uint64), ("fraction", c_uint64)]
 
 
 class OcfStatsReq(Structure):

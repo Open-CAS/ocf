@@ -29,6 +29,7 @@ class CacheInfo(Structure):
         ("state", c_uint8),
         ("eviction_policy", c_uint32),
         ("cleaning_policy", c_uint32),
+        ("promotion_policy", c_uint32),
         ("cache_line_size", c_uint64),
         ("flushed", c_uint32),
         ("core_count", c_uint32),

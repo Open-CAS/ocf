@@ -100,6 +100,11 @@ class PromotionPolicy(IntEnum):
     DEFAULT = ALWAYS
 
 
+class NhitParams(IntEnum):
+    INSERTION_THRESHOLD = 0
+    TRIGGER_THRESHOLD = 1
+
+
 class CleaningPolicy(IntEnum):
     NOP = 0
     ALRU = 1
@@ -250,6 +255,21 @@ class Cache:
         self.write_unlock()
         if status:
             raise OcfError("Error setting promotion policy", status)
+
+    def get_promotion_policy_param(self, param_id):
+        self.read_lock()
+
+        param_value = c_uint64()
+
+        status = self.owner.lib.ocf_mngt_cache_promotion_get_param(
+            self.cache_handle, param_id, byref(param_value)
+        )
+
+        self.read_unlock()
+        if status:
+            raise OcfError("Error getting promotion policy parameter", status)
+
+        return param_value
 
     def set_promotion_policy_param(self, param_id, param_value):
         self.write_lock()
@@ -484,6 +504,7 @@ class Cache:
                 "state": cache_info.state,
                 "eviction_policy": EvictionPolicy(cache_info.eviction_policy),
                 "cleaning_policy": CleaningPolicy(cache_info.cleaning_policy),
+                "promotion_policy": PromotionPolicy(cache_info.promotion_policy),
                 "cache_line_size": line_size,
                 "flushed": CacheLines(cache_info.flushed, line_size),
                 "core_count": cache_info.core_count,
