@@ -91,7 +91,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 		ocf_engine_io_count(req), _ocf_read_fast_complete);
 
 
-	/* Updata statistics */
+	/* Update statistics */
 	ocf_engine_update_request_stats(req);
 	ocf_engine_update_block_stats(req);
 
