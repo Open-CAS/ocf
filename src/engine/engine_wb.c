@@ -21,7 +21,6 @@
 static const struct ocf_io_if _io_if_wb_resume = {
 	.read = ocf_write_wb_do,
 	.write = ocf_write_wb_do,
-	.resume = ocf_engine_on_resume,
 };
 
 static void _ocf_write_wb_update_bits(struct ocf_request *req)
@@ -190,7 +189,7 @@ int ocf_write_wb(struct ocf_request *req)
 	mapped = ocf_engine_is_mapped(req);
 	if (mapped) {
 		/* All cache line are mapped, lock request for WRITE access */
-		lock = ocf_req_trylock_wr(req);
+		lock = ocf_req_async_lock_wr(req, ocf_engine_on_resume);
 	}
 
 	OCF_METADATA_UNLOCK_RD(); /*- END Metadata READ access----------------*/
@@ -206,7 +205,7 @@ int ocf_write_wb(struct ocf_request *req)
 
 		if (!req->info.mapping_error) {
 			/* Lock request for WRITE access */
-			lock = ocf_req_trylock_wr(req);
+			lock = ocf_req_async_lock_wr(req, ocf_engine_on_resume);
 		}
 
 		OCF_METADATA_UNLOCK_WR(); /*- END Metadata WR access ---------*/

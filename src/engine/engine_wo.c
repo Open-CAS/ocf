@@ -197,7 +197,6 @@ int ocf_read_wo_do(struct ocf_request *req)
 static const struct ocf_io_if _io_if_wo_resume = {
 	.read = ocf_read_wo_do,
 	.write = ocf_read_wo_do,
-	.resume = ocf_engine_on_resume,
 };
 
 int ocf_read_wo(struct ocf_request *req)
@@ -224,7 +223,7 @@ int ocf_read_wo(struct ocf_request *req)
 		/* There are mapped cache lines,
 		 * lock request for READ access
 		 */
-		lock = ocf_req_trylock_rd(req);
+		lock = ocf_req_async_lock_rd(req, ocf_engine_on_resume);
 	}
 
 	OCF_METADATA_UNLOCK_RD(); /*- END Metadata RD access -----------------*/

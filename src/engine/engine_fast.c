@@ -104,7 +104,6 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 static const struct ocf_io_if _io_if_read_fast_resume = {
 	.read = _ocf_read_fast_do,
 	.write = _ocf_read_fast_do,
-	.resume = ocf_engine_on_resume,
 };
 
 int ocf_read_fast(struct ocf_request *req)
@@ -129,7 +128,7 @@ int ocf_read_fast(struct ocf_request *req)
 	hit = ocf_engine_is_hit(req);
 	if (hit) {
 		ocf_io_start(&req->ioi.io);
-		lock = ocf_req_trylock_rd(req);
+		lock = ocf_req_async_lock_rd(req, ocf_engine_on_resume);
 	}
 
 	OCF_METADATA_UNLOCK_RD();
@@ -174,7 +173,6 @@ int ocf_read_fast(struct ocf_request *req)
 static const struct ocf_io_if _io_if_write_fast_resume = {
 	.read = ocf_write_wb_do,
 	.write = ocf_write_wb_do,
-	.resume = ocf_engine_on_resume,
 };
 
 int ocf_write_fast(struct ocf_request *req)
@@ -199,7 +197,7 @@ int ocf_write_fast(struct ocf_request *req)
 	mapped = ocf_engine_is_mapped(req);
 	if (mapped) {
 		ocf_io_start(&req->ioi.io);
-		lock = ocf_req_trylock_wr(req);
+		lock = ocf_req_async_lock_wr(req, ocf_engine_on_resume);
 	}
 
 	OCF_METADATA_UNLOCK_RD();

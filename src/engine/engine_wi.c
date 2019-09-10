@@ -130,7 +130,6 @@ static void _ocf_write_wi_on_resume(struct ocf_request *req)
 static const struct ocf_io_if _io_if_wi_resume = {
 	.read = _ocf_write_wi_do,
 	.write = _ocf_write_wi_do,
-	.resume = _ocf_write_wi_on_resume,
 };
 
 int ocf_write_wi(struct ocf_request *req)
@@ -155,7 +154,7 @@ int ocf_write_wi(struct ocf_request *req)
 
 	if (ocf_engine_mapped_count(req)) {
 		/* Some cache line are mapped, lock request for WRITE access */
-		lock = ocf_req_trylock_wr(req);
+		lock = ocf_req_async_lock_wr(req, _ocf_write_wi_on_resume);
 	} else {
 		lock = OCF_LOCK_ACQUIRED;
 	}

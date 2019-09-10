@@ -197,6 +197,12 @@ static void _ocf_cleaner_complete_req(struct ocf_request *req)
 	cmpl(master->priv, master->error);
 }
 
+static void _ocf_cleaner_on_resume(struct ocf_request *req)
+{
+	OCF_DEBUG_TRACE(req->cache);
+	ocf_engine_push_req_front(req, true);
+}
+
 /*
  * cleaner - Cache line lock, function lock cache lines depends on attributes
  */
@@ -207,7 +213,7 @@ static int _ocf_cleaner_cache_line_lock(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	return ocf_req_trylock_rd(req);
+	return ocf_req_async_lock_rd(req, _ocf_cleaner_on_resume);
 }
 
 /*
@@ -697,16 +703,9 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	return 0;
 }
 
-static void _ocf_cleaner_on_resume(struct ocf_request *req)
-{
-	OCF_DEBUG_TRACE(req->cache);
-	ocf_engine_push_req_front(req, true);
-}
-
 static const struct ocf_io_if _io_if_fire_cache = {
 	.read = _ocf_cleaner_fire_cache,
 	.write = _ocf_cleaner_fire_cache,
-	.resume = _ocf_cleaner_on_resume,
 };
 
 static int _ocf_cleaner_fire(struct ocf_request *req)

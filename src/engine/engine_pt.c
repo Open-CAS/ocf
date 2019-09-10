@@ -99,7 +99,6 @@ int ocf_read_pt_do(struct ocf_request *req)
 static const struct ocf_io_if _io_if_pt_resume = {
 	.read = ocf_read_pt_do,
 	.write = ocf_read_pt_do,
-	.resume = ocf_engine_on_resume,
 };
 
 int ocf_read_pt(struct ocf_request *req)
@@ -130,7 +129,7 @@ int ocf_read_pt(struct ocf_request *req)
 			/* There are mapped cache line,
 			 * lock request for READ access
 			 */
-			lock = ocf_req_trylock_rd(req);
+			lock = ocf_req_async_lock_rd(req, ocf_engine_on_resume);
 		} else {
 			/* No mapped cache lines, no need to get lock */
 			lock = OCF_LOCK_ACQUIRED;

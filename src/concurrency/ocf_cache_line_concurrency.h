@@ -50,19 +50,23 @@ uint32_t ocf_cache_line_concurrency_suspended_no(struct ocf_cache *cache);
  */
 size_t ocf_cache_line_concurrency_size_of(struct ocf_cache *cache);
 
+/* async request cacheline lock acquisition callback */
+typedef void (*ocf_req_async_lock_cb)(struct ocf_request *req);
+
 /**
  * @brief Lock OCF request for WRITE access (Lock all cache lines in map info)
  *
  * @note io_if->resume callback has to be set
  *
  * @param req - OCF request
+ * @param cb - async lock acquisition callback
  *
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  *
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
  * added into waiting list. When lock will be acquired io_if->resume be called
  */
-int ocf_req_trylock_wr(struct ocf_request *req);
+int ocf_req_async_lock_wr(struct ocf_request *req, ocf_req_async_lock_cb cb);
 
 /**
  * @brief Lock OCF request for READ access (Lock all cache lines in map info)
@@ -70,13 +74,14 @@ int ocf_req_trylock_wr(struct ocf_request *req);
  * @note io_if->resume callback has to be set
  *
  * @param req - OCF request
+ * @param cb - async lock acquisition callback
  *
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  *
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
  * added into waiting list. When lock will be acquired io_if->resume be called
  */
-int ocf_req_trylock_rd(struct ocf_request *req);
+int ocf_req_async_lock_rd(struct ocf_request *req, ocf_req_async_lock_cb cb);
 
 /**
  * @brief Unlock OCF request from WRITE access

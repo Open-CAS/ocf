@@ -22,30 +22,25 @@ static int _ocf_discard_step_do(struct ocf_request *req);
 static int _ocf_discard_step(struct ocf_request *req);
 static int _ocf_discard_flush_cache(struct ocf_request *req);
 static int _ocf_discard_core(struct ocf_request *req);
-static void _ocf_discard_on_resume(struct ocf_request *req);
 
 static const struct ocf_io_if _io_if_discard_step = {
 	.read = _ocf_discard_step,
 	.write = _ocf_discard_step,
-	.resume = _ocf_discard_on_resume,
 };
 
 static const struct ocf_io_if _io_if_discard_step_resume = {
 	.read = _ocf_discard_step_do,
 	.write = _ocf_discard_step_do,
-	.resume = _ocf_discard_on_resume,
 };
 
 static const struct ocf_io_if _io_if_discard_flush_cache = {
 	.read = _ocf_discard_flush_cache,
 	.write = _ocf_discard_flush_cache,
-	.resume = _ocf_discard_on_resume,
 };
 
 static const struct ocf_io_if _io_if_discard_core = {
 	.read = _ocf_discard_core,
 	.write = _ocf_discard_core,
-	.resume = _ocf_discard_on_resume,
 };
 
 static void _ocf_discard_complete_req(struct ocf_request *req, int error)
@@ -239,7 +234,7 @@ static int _ocf_discard_step(struct ocf_request *req)
 
 	if (ocf_engine_mapped_count(req)) {
 		/* Some cache line are mapped, lock request for WRITE access */
-		lock = ocf_req_trylock_wr(req);
+		lock = ocf_req_async_lock_wr(req, _ocf_discard_on_resume);
 	} else {
 		lock = OCF_LOCK_ACQUIRED;
 	}
