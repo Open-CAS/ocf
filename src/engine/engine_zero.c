@@ -50,7 +50,7 @@ static const struct ocf_io_if _io_if_zero_purge = {
 static void _ocf_zero_io_flush_metadata(struct ocf_request *req, int error)
 {
 	if (error) {
-		env_atomic_inc(&req->core->counters->cache_errors.write);
+		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
 		req->error = error;
 	}
 

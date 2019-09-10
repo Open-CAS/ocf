@@ -38,7 +38,7 @@ static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 		OCF_DEBUG_RQ(req, "HIT completion");
 
 		if (req->error) {
-			env_atomic_inc(&req->core->counters->cache_errors.read);
+			ocf_core_stats_cache_error_update(req->core, OCF_READ);
 			ocf_engine_push_req_front_pt(req);
 		} else {
 
@@ -77,7 +77,7 @@ static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 			req->complete(req, req->error);
 
 			req->info.core_error = 1;
-			env_atomic_inc(&req->core->counters->core_errors.read);
+			ocf_core_stats_core_error_update(req->core, OCF_READ);
 
 			ctx_data_free(cache->owner, req->cp_data);
 			req->cp_data = NULL;

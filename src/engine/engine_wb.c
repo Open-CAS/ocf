@@ -89,7 +89,7 @@ static const struct ocf_io_if _io_if_wb_flush_metadata = {
 static void _ocf_write_wb_complete(struct ocf_request *req, int error)
 {
 	if (error) {
-		env_atomic_inc(&req->core->counters->cache_errors.write);
+		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
 		req->error |= error;
 	}
 
@@ -150,13 +150,13 @@ int ocf_write_wb_do(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	/* Updata status bits */
+	/* Update status bits */
 	_ocf_write_wb_update_bits(req);
 
 	/* Submit IO */
 	_ocf_write_wb_submit(req);
 
-	/* Updata statistics */
+	/* Update statistics */
 	ocf_engine_update_request_stats(req);
 	ocf_engine_update_block_stats(req);
 

@@ -25,7 +25,7 @@ from .data import Data
 from .io import Io, IoDir
 from .queue import Queue
 from .shared import Uuid, OcfCompletion, OcfError, SeqCutOffPolicy
-from .stats.core import CoreStats
+from .stats.core import CoreInfo
 from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
 from .volume import Volume
 from ..ocf import OcfLib
@@ -111,7 +111,7 @@ class Core:
         return Io.from_pointer(io)
 
     def get_stats(self):
-        core_stats = CoreStats()
+        core_info = CoreInfo()
         usage = UsageStats()
         req = RequestsStats()
         blocks = BlocksStats()
@@ -125,8 +125,8 @@ class Core:
             self.cache.read_unlock()
             raise OcfError("Failed collecting core stats", status)
 
-        status = self.cache.owner.lib.ocf_core_get_stats(
-            self.handle, byref(core_stats)
+        status = self.cache.owner.lib.ocf_core_get_info(
+            self.handle, byref(core_info)
         )
         if status:
             self.cache.read_unlock()
@@ -134,10 +134,10 @@ class Core:
 
         self.cache.read_unlock()
         return {
-            "size": Size(core_stats.core_size_bytes),
-            "dirty_for": timedelta(seconds=core_stats.dirty_for),
-            "seq_cutoff_policy": SeqCutOffPolicy(core_stats.seq_cutoff_policy),
-            "seq_cutoff_threshold": core_stats.seq_cutoff_threshold,
+            "size": Size(core_info.core_size_bytes),
+            "dirty_for": timedelta(seconds=core_info.dirty_for),
+            "seq_cutoff_policy": SeqCutOffPolicy(core_info.seq_cutoff_policy),
+            "seq_cutoff_threshold": core_info.seq_cutoff_threshold,
             "usage": struct_to_dict(usage),
             "req": struct_to_dict(req),
             "blocks": struct_to_dict(blocks),
@@ -207,8 +207,8 @@ lib.ocf_mngt_core_set_seq_cutoff_policy.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy.restype = c_int
 lib.ocf_stats_collect_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c_void_p]
 lib.ocf_stats_collect_core.restype = c_int
-lib.ocf_core_get_stats.argtypes = [c_void_p, c_void_p]
-lib.ocf_core_get_stats.restype = c_int
+lib.ocf_core_get_info.argtypes = [c_void_p, c_void_p]
+lib.ocf_core_get_info.restype = c_int
 lib.ocf_core_new_io_wrapper.argtypes = [
     c_void_p,
     c_void_p,

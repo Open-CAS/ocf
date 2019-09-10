@@ -24,7 +24,7 @@ static void _ocf_read_wa_complete(struct ocf_request *req, int error)
 
 	if (req->error) {
 		req->info.core_error = 1;
-		env_atomic_inc(&req->core->counters->core_errors.write);
+		ocf_core_stats_core_error_update(req->core, OCF_WRITE);
 	}
 
 	/* Complete request */
@@ -76,8 +76,8 @@ int ocf_write_wa(struct ocf_request *req)
 
 		/* Update statistics */
 		ocf_engine_update_block_stats(req);
-		env_atomic64_inc(&req->core->counters->
-			part_counters[req->part_id].write_reqs.pass_through);
+		ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
+				req->info.hit_no, req->core_line_count);
 	}
 
 	/* Put OCF request - decrease reference counter */

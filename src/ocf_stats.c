@@ -47,6 +47,8 @@ static void ocf_stats_part_init(struct ocf_counters_part *stats)
 	ocf_stats_req_init(&stats->write_reqs);
 
 	ocf_stats_block_init(&stats->blocks);
+	ocf_stats_block_init(&stats->core_blocks);
+	ocf_stats_block_init(&stats->cache_blocks);
 }
 
 static void ocf_stats_error_init(struct ocf_counters_error *stats)
@@ -55,6 +57,119 @@ static void ocf_stats_error_init(struct ocf_counters_error *stats)
 	env_atomic_set(&stats->write, 0);
 }
 
+static void _ocf_stats_block_update(struct ocf_counters_block *counters, int dir,
+		uint64_t bytes)
+{
+	switch (dir) {
+		case OCF_READ:
+			env_atomic64_add(bytes, &counters->read_bytes);
+			break;
+		case OCF_WRITE:
+			env_atomic64_add(bytes, &counters->write_bytes);
+			break;
+		default:
+			ENV_BUG();
+	}
+}
+
+void ocf_core_stats_vol_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes)
+{
+	struct ocf_counters_block *counters =
+		&core->counters->part_counters[part_id].blocks;
+
+	_ocf_stats_block_update(counters, dir, bytes);
+}
+
+void ocf_core_stats_cache_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes)
+{
+	struct ocf_counters_block *counters =
+		&core->counters->part_counters[part_id].cache_blocks;
+
+	_ocf_stats_block_update(counters, dir, bytes);
+}
+
+void ocf_core_stats_core_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes)
+{
+	struct ocf_counters_block *counters =
+		&core->counters->part_counters[part_id].core_blocks;
+
+	_ocf_stats_block_update(counters, dir, bytes);
+}
+
+void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
+		uint8_t dir, uint64_t hit_no, uint64_t core_line_count)
+{
+	struct ocf_counters_req *counters;
+
+	switch (dir) {
+		case OCF_READ:
+			counters = &core->counters->part_counters[part_id].read_reqs;
+			break;
+		case OCF_WRITE:
+			counters = &core->counters->part_counters[part_id].write_reqs;
+			break;
+		default:
+			ENV_BUG();
+	}
+
+	env_atomic64_inc(&counters->total);
+
+	if (hit_no == 0)
+		env_atomic64_inc(&counters->full_miss);
+	else if (hit_no < core_line_count)
+		env_atomic64_inc(&counters->partial_miss);
+}
+
+void ocf_core_stats_request_pt_update(ocf_core_t core, ocf_part_id_t part_id,
+		uint8_t dir, uint64_t hit_no, uint64_t core_line_count)
+{
+	struct ocf_counters_req *counters;
+
+	switch (dir) {
+		case OCF_READ:
+			counters = &core->counters->part_counters[part_id].read_reqs;
+			break;
+		case OCF_WRITE:
+			counters = &core->counters->part_counters[part_id].write_reqs;
+			break;
+		default:
+			ENV_BUG();
+	}
+
+	env_atomic64_inc(&counters->pass_through);
+}
+
+static void _ocf_core_stats_error_update(struct ocf_counters_error *counters,
+		uint8_t dir)
+{
+	switch (dir) {
+		case OCF_READ:
+			env_atomic_inc(&counters->read);
+			break;
+		case OCF_WRITE:
+			env_atomic_inc(&counters->write);
+			break;
+		default:
+			ENV_BUG();
+	}
+}
+
+void ocf_core_stats_core_error_update(ocf_core_t core, uint8_t dir)
+{
+	struct ocf_counters_error *counters = &core->counters->core_errors;
+
+	_ocf_core_stats_error_update(counters, dir);
+}
+
+void ocf_core_stats_cache_error_update(ocf_core_t core, uint8_t dir)
+{
+	struct ocf_counters_error *counters = &core->counters->cache_errors;
+
+	_ocf_core_stats_error_update(counters, dir);
+}
 
 /********************************************************************
  * Function that resets stats, debug and breakdown counters.
@@ -76,9 +191,6 @@ void ocf_core_stats_initialize(ocf_core_t core)
 	OCF_CHECK_NULL(core);
 
 	exp_obj_stats = core->counters;
-
-	ocf_stats_block_init(&exp_obj_stats->core_blocks);
-	ocf_stats_block_init(&exp_obj_stats->cache_blocks);
 
 	ocf_stats_error_init(&exp_obj_stats->cache_errors);
 	ocf_stats_error_init(&exp_obj_stats->core_errors);
@@ -199,29 +311,19 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 	copy_req_stats(&stats->write_reqs, &part_stat->write_reqs);
 
 	copy_block_stats(&stats->blocks, &part_stat->blocks);
+	copy_block_stats(&stats->cache_blocks, &part_stat->cache_blocks);
+	copy_block_stats(&stats->core_blocks, &part_stat->core_blocks);
 
 	return 0;
-}
-
-static uint32_t _calc_dirty_for(uint64_t dirty_since)
-{
-	return dirty_since ?
-		(env_ticks_to_msecs(env_get_tick_count() - dirty_since) / 1000)
-		: 0;
 }
 
 int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 {
 	uint32_t i;
-	ocf_core_id_t core_id;
-	ocf_cache_t cache;
 	struct ocf_counters_core *core_stats = NULL;
 	struct ocf_counters_part *curr = NULL;
 
 	OCF_CHECK_NULL(core);
-
-	core_id = ocf_core_get_id(core);
-	cache = ocf_core_get_cache(core);
 
 	if (!stats)
 		return -OCF_ERR_INVAL;
@@ -229,19 +331,6 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 	core_stats = core->counters;
 
 	ENV_BUG_ON(env_memset(stats, sizeof(*stats), 0));
-
-	stats->core_size_bytes = ocf_volume_get_length(
-			&cache->core[core_id].volume);
-	stats->core_size = ocf_bytes_2_lines_round_up(cache,
-			stats->core_size_bytes);
-	stats->seq_cutoff_threshold = ocf_core_get_seq_cutoff_threshold(core);
-	stats->seq_cutoff_policy = ocf_core_get_seq_cutoff_policy(core);
-
-
-	env_atomic_read(&core->runtime_meta->cached_clines);
-
-	copy_block_stats(&stats->core_volume, &core_stats->core_blocks);
-	copy_block_stats(&stats->cache_volume, &core_stats->cache_blocks);
 
 	copy_error_stats(&stats->core_errors,
 			&core_stats->core_errors);
@@ -262,17 +351,14 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 				&curr->write_reqs);
 
 		accum_block_stats(&stats->core, &curr->blocks);
+		accum_block_stats(&stats->core_volume, &curr->core_blocks);
+		accum_block_stats(&stats->cache_volume, &curr->cache_blocks);
 
 		stats->cache_occupancy += env_atomic_read(&core->runtime_meta->
 				part_counters[i].cached_clines);
 		stats->dirty += env_atomic_read(&core->runtime_meta->
 				part_counters[i].dirty_clines);
 	}
-
-	stats->flushed = env_atomic_read(&core->flushed);
-
-	stats->dirty_for = _calc_dirty_for(
-			env_atomic64_read(&core->runtime_meta->dirty_since));
 
 	return 0;
 }

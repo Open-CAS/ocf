@@ -43,7 +43,7 @@ static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 	if (req->error) {
 		OCF_DEBUG_RQ(req, "ERROR");
 
-		env_atomic_inc(&req->core->counters->cache_errors.read);
+		ocf_core_stats_cache_error_update(req->core, OCF_READ);
 		ocf_engine_push_req_front_pt(req);
 	} else {
 		ocf_req_unlock(req);
@@ -91,7 +91,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 		ocf_engine_io_count(req), _ocf_read_fast_complete);
 
 
-	/* Updata statistics */
+	/* Update statistics */
 	ocf_engine_update_request_stats(req);
 	ocf_engine_update_block_stats(req);
 

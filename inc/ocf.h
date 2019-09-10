@@ -29,7 +29,6 @@
 #include "ocf_metadata_updater.h"
 #include "ocf_io_class.h"
 #include "ocf_stats.h"
-#include "ocf_stats_builder.h"
 #include "ocf_mngt.h"
 #include "ocf_ctx.h"
 #include "ocf_err.h"
