@@ -9,46 +9,7 @@
 #include "engine/cache_engine.h"
 #include "utils/utils_part.h"
 #include "utils/utils_cache_line.h"
-
-#define _ocf_stats_zero(stats) \
-	do { \
-		if (stats) { \
-			typeof(*stats) zero = { { 0 } }; \
-			*stats = zero; \
-		} \
-	} while (0)
-
-static uint64_t _fraction(uint64_t numerator, uint64_t denominator)
-{
-	uint64_t result;
-	if (denominator) {
-		result = 10000 * numerator / denominator;
-	} else {
-		result = 0;
-	}
-	return result;
-}
-
-static uint64_t _lines4k(uint64_t size,
-		ocf_cache_line_size_t cache_line_size)
-{
-	long unsigned int result;
-
-	result = size * (cache_line_size / 4096);
-
-	return result;
-}
-
-static uint64_t _bytes4k(uint64_t bytes)
-{
-	return (bytes + 4095UL) >> 12;
-}
-
-static void _set(struct ocf_stat *stat, uint64_t value, uint64_t denominator)
-{
-	stat->value = value;
-	stat->fraction = _fraction(value, denominator);
-}
+#include "utils/utils_stats.h"
 
 static void _fill_req(struct ocf_stats_requests *req, struct ocf_stats_core *s)
 {
