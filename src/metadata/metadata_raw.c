@@ -373,7 +373,7 @@ static int _raw_ram_flush_do_asynch_fill(ocf_cache_t cache,
 	uint32_t raw_page;
 	struct _raw_ram_flush_ctx *ctx = context;
 	struct ocf_metadata_raw *raw = NULL;
-	uint64_t size;
+	uint32_t size;
 
 	ENV_BUG_ON(!ctx);
 

@@ -73,12 +73,14 @@ void ocf_volume_type_deinit(struct ocf_volume_type *type)
 int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 		struct ocf_volume_uuid *uuid, bool uuid_copy)
 {
-	uint32_t priv_size = type->properties->volume_priv_size;
+	uint32_t priv_size;
 	void *data;
 	int ret;
 
 	if (!volume || !type)
 		return -OCF_ERR_INVAL;
+
+	priv_size = type->properties->volume_priv_size;
 
 	volume->opened = false;
 	volume->type = type;
