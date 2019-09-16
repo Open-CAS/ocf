@@ -171,6 +171,7 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 
 	info->eviction_policy = cache->conf_meta->eviction_policy_type;
 	info->cleaning_policy = cache->conf_meta->cleaning_policy_type;
+	info->promotion_policy = cache->conf_meta->promotion_policy_type;
 	info->metadata_footprint = ocf_cache_is_device_attached(cache) ?
 			ocf_metadata_size_of(cache) : 0;
 	info->cache_line_size = ocf_line_size(cache);

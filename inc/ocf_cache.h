@@ -77,7 +77,10 @@ struct ocf_cache_info {
 		/*!< Eviction policy selected */
 
 	ocf_cleaning_t cleaning_policy;
-		/*!< Cleaning policy selected (alru/nop) */
+		/*!< Cleaning policy selected */
+
+	ocf_promotion_t promotion_policy;
+		/*!< Promotion policy selected */
 
 	ocf_cache_line_size_t cache_line_size;
 		/*!< Cache line size in KiB */
