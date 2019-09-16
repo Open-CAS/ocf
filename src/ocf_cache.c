@@ -11,6 +11,7 @@
 #include "utils/utils_part.h"
 #include "ocf_priv.h"
 #include "ocf_cache_priv.h"
+#include "utils/utils_stats.h"
 
 ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache)
 {
@@ -84,6 +85,8 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 
 	ENV_BUG_ON(env_memset(info, sizeof(*info), 0));
 
+	_ocf_stats_zero(&info->inactive);
+
 	info->attached = ocf_cache_is_device_attached(cache);
 	if (info->attached) {
 		info->volume_type = ocf_ctx_get_volume_type_id(cache->owner,
@@ -145,8 +148,20 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 			cache->device->metadata_offset / PAGE_SIZE : 0;
 
 	info->state = cache->cache_state;
-	info->inactive.occupancy = cache_occupancy_inactive;
-	info->inactive.dirty = dirty_blocks_inactive;
+
+	if (info->attached) {
+		_set(&info->inactive.occupancy,
+				_lines4k(cache_occupancy_inactive, ocf_line_size(cache)),
+				_lines4k(info->size, ocf_line_size(cache)));
+		_set(&info->inactive.clean,
+				_lines4k(cache_occupancy_inactive - dirty_blocks_inactive,
+					ocf_line_size(cache)),
+				_lines4k(cache_occupancy_total, ocf_line_size(cache)));
+		_set(&info->inactive.dirty,
+				_lines4k(dirty_blocks_inactive, ocf_line_size(cache)),
+				_lines4k(cache_occupancy_total, ocf_line_size(cache)));
+	}
+
 	info->flushed = (env_atomic_read(&cache->flush_in_progress)) ?
 			flushed_total : 0;
 

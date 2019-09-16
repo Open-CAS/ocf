@@ -16,6 +16,7 @@
 #include "ocf_volume.h"
 #include "ocf_ctx.h"
 #include "ocf_def.h"
+#include "ocf_stats.h"
 
 /**
  * @brief Cache info: configuration, status
@@ -32,10 +33,13 @@ struct ocf_cache_info {
 
 	/* Statistics of inactive cores */
 	struct {
-		uint32_t occupancy;
+		struct ocf_stat occupancy;
 			/*!< Cache occupancy (in cache lines) */
 
-		uint32_t dirty;
+		struct ocf_stat clean;
+			/*!< Clean blocks within cache (in cache lines) */
+
+		struct ocf_stat dirty;
 			/*!< Dirty blocks within cache (in cache lines) */
 	} inactive;
 

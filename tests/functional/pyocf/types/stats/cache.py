@@ -4,10 +4,11 @@
 #
 
 from ctypes import c_uint8, c_uint32, c_uint64, c_bool, c_int, Structure
+from pyocf.types.stats.shared import _Stat
 
 
 class _Inactive(Structure):
-    _fields_ = [("occupancy", c_uint32), ("dirty", c_uint32)]
+    _fields_ = [("occupancy", _Stat), ("clean", _Stat), ("dirty", _Stat)]
 
 
 class _FallbackPt(Structure):

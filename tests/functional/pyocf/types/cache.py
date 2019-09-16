@@ -468,9 +468,14 @@ class Cache:
                 "size": CacheLines(cache_info.size, line_size),
                 "inactive": {
                     "occupancy": CacheLines(
-                        cache_info.inactive.occupancy, line_size
+                        cache_info.inactive.occupancy.value, line_size
                     ),
-                    "dirty": CacheLines(cache_info.inactive.dirty, line_size),
+                    "dirty": CacheLines(
+                        cache_info.inactive.dirty.value, line_size
+                    ),
+                    "clean": CacheLines(
+                        cache_info.inactive.clean.value, line_size
+                    ),
                 },
                 "occupancy": CacheLines(cache_info.occupancy, line_size),
                 "dirty": CacheLines(cache_info.dirty, line_size),
