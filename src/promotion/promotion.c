@@ -18,6 +18,7 @@ struct promotion_policy_ops ocf_promotion_policies[ocf_promotion_max] = {
 		.init = nhit_init,
 		.deinit = nhit_deinit,
 		.set_param = nhit_set_param,
+		.get_param = nhit_get_param,
 		.req_purge = nhit_req_purge,
 		.req_should_promote = nhit_req_should_promote,
 	},
@@ -89,7 +90,7 @@ ocf_error_t ocf_promotion_set_param(ocf_promotion_policy_t policy,
 		uint8_t param_id, uint64_t param_value)
 {
 	ocf_promotion_t type = policy->type;
-	ocf_error_t result = 0;
+	ocf_error_t result = -OCF_ERR_INVAL;
 
 	ENV_BUG_ON(type >= ocf_promotion_max);
 
@@ -105,7 +106,7 @@ ocf_error_t ocf_promotion_get_param(ocf_promotion_policy_t policy,
 		uint8_t param_id, uint64_t *param_value)
 {
 	ocf_promotion_t type = policy->type;
-	ocf_error_t result = 0;
+	ocf_error_t result = -OCF_ERR_INVAL;
 
 	ENV_BUG_ON(type >= ocf_promotion_max);
 
