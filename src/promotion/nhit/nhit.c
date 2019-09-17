@@ -121,7 +121,12 @@ ocf_error_t nhit_get_param(ocf_promotion_policy_t policy, uint8_t param_id,
 	case ocf_nhit_insertion_threshold:
 		*param_value = env_atomic_read(&ctx->insertion_threshold);
 		break;
-
+	case ocf_nhit_trigger_threshold:
+		*param_value = OCF_DIV_ROUND_UP(
+				env_atomic64_read(&ctx->trigger_threshold) * 100,
+				ocf_metadata_get_cachelines_count(policy->owner)
+				);
+		break;
 	default:
 		ocf_cache_log(policy->owner, log_err, "Invalid nhit "
 				"promotion policy parameter (%u)!\n",
