@@ -68,6 +68,7 @@ static void _ocf_discard_core_complete(struct ocf_io *io, int error)
 static int _ocf_discard_core(struct ocf_request *req)
 {
 	struct ocf_io *io;
+	int err;
 
 	io = ocf_volume_new_io(&req->core->volume, req->io_queue,
 			SECTORS_TO_BYTES(req->discard.sector),
@@ -79,7 +80,11 @@ static int _ocf_discard_core(struct ocf_request *req)
 	}
 
 	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_core_complete);
-	ocf_io_set_data(io, req->data, 0);
+	err = ocf_io_set_data(io, req->data, 0);
+	if (err) {
+		_ocf_discard_complete_req(req, err);
+		return err;
+	}
 
 	ocf_volume_submit_discard(io);
 

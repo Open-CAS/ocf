@@ -277,8 +277,8 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 
 	OCF_METADATA_LOCK_WR();
 
-	result = env_memcpy(old_config, sizeof(&cache->user_parts),
-			cache->user_parts, sizeof(&cache->user_parts));
+	result = env_memcpy(old_config, sizeof(cache->user_parts),
+			cache->user_parts, sizeof(cache->user_parts));
 	if (result)
 		goto out_cpy;
 
@@ -295,8 +295,8 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 
 out_edit:
 	if (result) {
-		ENV_BUG_ON(env_memcpy(cache->user_parts, sizeof(&cache->user_parts),
-					old_config, sizeof(&cache->user_parts)));
+		ENV_BUG_ON(env_memcpy(cache->user_parts, sizeof(cache->user_parts),
+					old_config, sizeof(cache->user_parts)));
 	}
 
 out_cpy:

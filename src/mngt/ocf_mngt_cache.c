@@ -571,9 +571,14 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 		return -OCF_ERR_NO_MEM;
 	}
 
+	if (!ocf_refcnt_inc(&cache->refcnt.cache)){
+		env_mutex_destroy(&cache->flush_mutex);
+		env_vfree(cache);
+		return -OCF_ERR_START_CACHE_FAIL;
+	}
+
 	INIT_LIST_HEAD(&cache->list);
 	list_add_tail(&cache->list, &params->ctx->caches);
-	ocf_refcnt_inc(&cache->refcnt.cache);
 	cache->owner = params->ctx;
 
 	/* start with freezed metadata ref counter to indicate detached device*/
@@ -1654,14 +1659,8 @@ int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		ocf_cache_log(*cache, log_info, "Successfully added\n");
 		ocf_cache_log(*cache, log_info, "Cache mode : %s\n",
 			_ocf_cache_mode_get_name(ocf_cache_get_mode(*cache)));
-	} else {
-		if (cfg->name) {
-			ocf_log(ctx, log_err, "Inserting cache %s failed\n",
-					cfg->name);
-		} else {
-			ocf_log(ctx, log_err, "Inserting cache failed\n");
-		}
-	}
+	} else
+		ocf_log(ctx, log_err, "%s: Inserting cache failed\n", cfg->name);
 
 	return result;
 }

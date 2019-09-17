@@ -774,9 +774,16 @@ int ocf_metadata_query_cores_segment_io(
 	uint32_t offset;
 	uint32_t io_count;
 	uint32_t i;
-	uint32_t max_pages_per_io = ocf_volume_get_max_io_size(volume) /
-						PAGE_SIZE;
+	uint32_t max_pages_per_io;
 	int err = 0;
+	unsigned int max_io_size = ocf_volume_get_max_io_size(volume);
+
+	if (!max_io_size) {
+		err = -OCF_ERR_INVAL;
+		goto exit;
+	}
+
+	max_pages_per_io = max_io_size / PAGE_SIZE;
 
 	/* Allocate data */
 	segment_data->data = ctx_data_alloc(owner,

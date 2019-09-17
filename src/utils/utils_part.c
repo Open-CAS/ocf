@@ -64,7 +64,7 @@ static int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
 	if (!p2->config->flags.valid) {
 		if (p2_size) {
 			v2 = SHRT_MAX;
-			p1->config->flags.eviction = true;
+			p2->config->flags.eviction = true;
 		} else {
 			v2 = SHRT_MIN;
 			p2->config->flags.eviction = false;

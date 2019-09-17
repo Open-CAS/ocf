@@ -32,7 +32,7 @@ static int _ocf_uuid_set(const struct ocf_volume_uuid *uuid,
 {
 	int result;
 
-	if (!uuid->data || !muuid->data)
+	if (!uuid->data)
 		return -EINVAL;
 
 	if (uuid->size > sizeof(muuid->data))
