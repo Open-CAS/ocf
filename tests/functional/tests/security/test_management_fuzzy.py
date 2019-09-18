@@ -110,9 +110,9 @@ def test_neg_cache_set_seq_cut_off_policy(pyocf_ctx, cm, cls):
 
     # Create 2 core devices
     core_device1 = Volume(S.from_MiB(10))
-    core1 = Core.using_device(core_device1)
+    core1 = Core.using_device(core_device1, name="core1")
     core_device2 = Volume(S.from_MiB(10))
-    core2 = Core.using_device(core_device2)
+    core2 = Core.using_device(core_device2, name="core2")
 
     # Add cores
     cache.add_core(core1)
