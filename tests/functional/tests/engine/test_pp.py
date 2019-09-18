@@ -3,17 +3,14 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-from ctypes import c_int, cast, c_void_p
-from enum import IntEnum
+from ctypes import c_int
 import pytest
 import math
 
 from pyocf.types.cache import (
     Cache,
-    CacheMode,
     PromotionPolicy,
     NhitParams,
-    CacheLineSize,
 )
 from pyocf.types.core import Core
 from pyocf.types.volume import Volume
@@ -59,7 +56,6 @@ def test_change_to_nhit_and_back_io_in_flight(pyocf_ctx):
         * no IOs should fail
     """
 
-    io_error = False
     # Step 1
     cache_device = Volume(Size.from_MiB(30))
     core_device = Volume(Size.from_MiB(30))
@@ -265,7 +261,6 @@ def test_promoted_after_hits_various_thresholds(
 
     c.wait()
 
-    stats = cache.get_stats()
     assert (
         threshold_reached_occupancy
         == cache.get_stats()["usage"]["occupancy"]["value"] - 1
