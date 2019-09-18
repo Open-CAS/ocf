@@ -820,7 +820,7 @@ ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache);
  * @retval Non-zero Error occurred and parameter has not been set
  */
 int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
-		uint64_t param_value);
+		uint32_t param_value);
 
 /**
  * @brief Get promotion policy parameter for given cache
@@ -833,7 +833,7 @@ int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
  * @retval Non-zero Error occurred and parameter has not been retrieved
  */
 int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
-		uint64_t *param_value);
+		uint32_t *param_value);
 
 /**
  * @brief IO class configuration

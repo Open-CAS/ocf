@@ -27,11 +27,11 @@ struct promotion_policy_ops {
 		/*!< Deinit and free promotion policy */
 
 	ocf_error_t (*set_param)(ocf_promotion_policy_t policy, uint8_t param_id,
-			uint64_t param_value);
+			uint32_t param_value);
 		/*!< Set promotion policy parameter */
 
 	ocf_error_t (*get_param)(ocf_promotion_policy_t policy, uint8_t param_id,
-			uint64_t *param_value);
+			uint32_t *param_value);
 		/*!< Get promotion policy parameter */
 
 	void (*req_purge)(ocf_promotion_policy_t policy,

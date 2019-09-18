@@ -2263,7 +2263,7 @@ ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache)
 }
 
 int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
-		uint64_t *param_value)
+		uint32_t *param_value)
 {
 	int result;
 
@@ -2278,7 +2278,7 @@ int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
 }
 
 int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
-		uint64_t param_value)
+		uint32_t param_value)
 {
 	int result;
 
