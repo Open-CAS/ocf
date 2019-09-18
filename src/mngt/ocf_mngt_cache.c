@@ -1593,6 +1593,11 @@ static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 		return -OCF_ERR_INVAL;
 	}
 
+	if (cfg->promotion_policy >= ocf_promotion_max ||
+			cfg->promotion_policy < 0 ) {
+		return -OCF_ERR_INVAL;
+	}
+
 	if (!ocf_cache_line_size_is_valid(cfg->cache_line_size))
 		return -OCF_ERR_INVALID_CACHE_LINE_SIZE;
 
