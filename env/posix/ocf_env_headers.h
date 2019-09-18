@@ -15,8 +15,8 @@
 #define OCF_PREFIX_SHORT "[" OCF_LOGO "] "
 #define OCF_PREFIX_LONG "Open CAS Framework"
 
-#define OCF_VERSION_MAIN 1
-#define OCF_VERSION_MAJOR 1
-#define OCF_VERSION_MINOR 1
+#define OCF_VERSION_MAIN 19
+#define OCF_VERSION_MAJOR 9
+#define OCF_VERSION_MINOR 0
 
 #endif /* __OCF_ENV_HEADERS_H__ */
