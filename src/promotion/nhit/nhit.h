@@ -15,10 +15,10 @@ ocf_error_t nhit_init(ocf_cache_t cache, ocf_promotion_policy_t policy);
 void nhit_deinit(ocf_promotion_policy_t policy);
 
 ocf_error_t nhit_set_param(ocf_promotion_policy_t policy, uint8_t param_id,
-		uint64_t param_value);
+		uint32_t param_value);
 
 ocf_error_t nhit_get_param(ocf_promotion_policy_t policy, uint8_t param_id,
-		uint64_t *param_value);
+		uint32_t *param_value);
 
 void nhit_req_purge(ocf_promotion_policy_t policy,
 		struct ocf_request *req);

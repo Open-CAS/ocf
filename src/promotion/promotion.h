@@ -51,7 +51,7 @@ ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
  * @retval ocf_error_t
  */
 ocf_error_t ocf_promotion_set_param(ocf_promotion_policy_t policy,
-		uint8_t param_id, uint64_t param_value);
+		uint8_t param_id, uint32_t param_value);
 
 /**
  * @brief Get promotion policy parameter
@@ -63,7 +63,7 @@ ocf_error_t ocf_promotion_set_param(ocf_promotion_policy_t policy,
  * @retval ocf_error_t
  */
 ocf_error_t ocf_promotion_get_param(ocf_promotion_policy_t policy,
-		uint8_t param_id, uint64_t *param_value);
+		uint8_t param_id, uint32_t *param_value);
 
 /**
  * @brief Update promotion policy after cache lines have been promoted to cache
