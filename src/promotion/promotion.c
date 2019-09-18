@@ -63,6 +63,9 @@ ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
 	ocf_cache_t cache = policy->owner;
 	ocf_promotion_t prev_policy;
 
+	if (type >= ocf_promotion_max)
+		return -OCF_ERR_INVAL;
+
 	prev_policy = cache->conf_meta->promotion_policy_type;
 
 	if (ocf_promotion_policies[prev_policy].deinit)
