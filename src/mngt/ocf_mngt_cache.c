@@ -892,7 +892,6 @@ err_buffer:
 /**
  * Prepare metadata accordingly to mode (for load/recovery read from disk)
  */
-
 static void _ocf_mngt_attach_load_properties_end(void *priv, int error,
 		struct ocf_metadata_load_properties *properties)
 {
@@ -917,6 +916,14 @@ static void _ocf_mngt_attach_load_properties_end(void *priv, int error,
 		 * was detected but --load flag wasn't used.
 		 */
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_METADATA_FOUND);
+	}
+
+	/*
+	 * Check if name loaded from disk is the same as present one.
+	 */
+	if (env_strncmp(cache->conf_meta->name, properties->cache_name,
+				OCF_CACHE_NAME_SIZE)) {
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CACHE_NAME_MISMATCH);
 	}
 
 	context->metadata.shutdown_status = properties->shutdown_status;

@@ -290,6 +290,7 @@ static void ocf_metadata_load_properties_cmpl(
 	properties.cache_mode = superblock->cache_mode;
 	properties.shutdown_status = superblock->clean_shutdown;
 	properties.dirty_flushed = superblock->dirty_flushed;
+	properties.cache_name = superblock->name;
 
 	OCF_CMPL_RET(priv, 0, &properties);
 }
