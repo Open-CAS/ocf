@@ -21,14 +21,14 @@ ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache)
 int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size)
 {
 	OCF_CHECK_NULL(cache);
-	return env_strncpy(cache->conf_meta->name, OCF_CACHE_NAME_SIZE,
+	return env_strncpy(cache->name, OCF_CACHE_NAME_SIZE,
 			src, src_size);
 }
 
 const char *ocf_cache_get_name(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	return cache->conf_meta->name;
+	return cache->name;
 }
 
 bool ocf_cache_is_incomplete(ocf_cache_t cache)

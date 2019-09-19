@@ -27,8 +27,6 @@ struct ocf_superblock_config {
 	/* Currently set cache mode */
 	ocf_cache_mode_t cache_mode;
 
-	char name[OCF_CACHE_NAME_SIZE];
-
 	ocf_cache_line_t cachelines;
 	uint32_t valid_parts_no;
 

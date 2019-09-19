@@ -100,6 +100,8 @@ struct ocf_cache {
 	/* unset running to not serve any more I/O requests */
 	unsigned long cache_state;
 
+	char name[OCF_CACHE_NAME_SIZE];
+
 	struct ocf_superblock_config *conf_meta;
 
 	struct ocf_cache_device *device;
