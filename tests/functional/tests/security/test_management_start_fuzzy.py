@@ -6,7 +6,7 @@
 import pytest
 import logging
 from tests.utils import generate_random_numbers
-from pyocf.types.cache import Cache, CacheMode, EvictionPolicy, MetadataLayout
+from pyocf.types.cache import Cache, CacheMode, EvictionPolicy, MetadataLayout, PromotionPolicy
 from pyocf.types.volume import Volume
 from pyocf.utils import Size
 from pyocf.types.shared import OcfError, CacheLineSize
@@ -154,3 +154,22 @@ def test_fuzzy_start_max_queue_size(pyocf_ctx, max_wb_queue_size, c_uint32_rando
         logger.warning(f"Test skipped for valid values: "
                        f"'max_queue_size={max_wb_queue_size}, "
                        f"queue_unblock_size={c_uint32_randomize}'.")
+
+
+@pytest.mark.security
+@pytest.mark.parametrize("cm", CacheMode)
+@pytest.mark.parametrize("cls", CacheLineSize)
+def test_fuzzy_start_promotion_policy(pyocf_ctx, c_uint32_randomize, cm, cls):
+    """
+    Test whether it is impossible to start cache with invalid promotion policy
+    :param pyocf_ctx: basic pyocf context fixture
+    :param c_uint32_randomize: promotion policy to start with
+    :param cm: cache mode value to start cache with
+    :param cls: cache line size to start cache with
+    """
+    if c_uint32_randomize not in [item.value for item in PromotionPolicy]:
+        with pytest.raises(OcfError, match="OCF_ERR_INVAL"):
+            try_start_cache(cache_mode=cm, cache_line_size=cls, promotion_policy=c_uint32_randomize)
+    else:
+        logger.warning(
+            f"Test skipped for valid promotion policy: '{c_uint32_randomize}'. ")

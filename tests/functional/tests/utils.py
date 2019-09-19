@@ -9,6 +9,7 @@ from ctypes import (
     c_uint64,
     c_uint32,
     c_uint16,
+    c_uint8,
     c_int,
     c_uint
 )
@@ -16,6 +17,7 @@ from ctypes import (
 
 def generate_random_numbers(c_type, count=1000):
     type_dict = {
+        c_uint8: [0, c_uint8(-1).value],
         c_uint16: [0, c_uint16(-1).value],
         c_uint32: [0, c_uint32(-1).value],
         c_uint64: [0, c_uint64(-1).value],

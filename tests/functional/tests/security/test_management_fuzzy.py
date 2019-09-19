@@ -5,7 +5,8 @@
 
 import pytest
 
-from pyocf.types.cache import Cache, CacheMode, CleaningPolicy, AlruParams, AcpParams
+from pyocf.types.cache import Cache, CacheMode, CleaningPolicy,\
+    AlruParams, AcpParams, PromotionPolicy, NhitParams, ConfValidValues
 from pyocf.types.core import Core
 from pyocf.types.volume import Volume
 from pyocf.utils import Size as S
@@ -13,7 +14,8 @@ from tests.utils import generate_random_numbers
 from pyocf.types.shared import OcfError, CacheLineSize, SeqCutOffPolicy
 from ctypes import (
     c_uint64,
-    c_uint32
+    c_uint32,
+    c_uint8
 )
 
 
@@ -206,3 +208,105 @@ def test_neg_set_acp_param(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error setting cleaning policy param"):
             cache.set_cleaning_policy_param(CleaningPolicy.ALRU, i, 1)
+
+
+@pytest.mark.parametrize("cm", CacheMode)
+@pytest.mark.parametrize("cls", CacheLineSize)
+@pytest.mark.security
+def test_neg_set_promotion_policy(pyocf_ctx, cm, cls):
+    """
+    Test whether it is possible to set invalid param for promotion policy
+    :param pyocf_ctx: basic pyocf context fixture
+    :param cm: cache mode we start with
+    :param cls: cache line size we start with
+    :return:
+    """
+    # Start cache device
+    cache_device = Volume(S.from_MiB(30))
+    cache = Cache.start_on_device(
+        cache_device, cache_mode=cm, cache_line_size=cls
+    )
+
+    # Change to invalid promotion policy and check if failed
+    for i in generate_random_numbers(c_uint32):
+        if i in [item.value for item in PromotionPolicy]:
+            continue
+        with pytest.raises(OcfError, match="Error setting promotion policy"):
+            cache.set_promotion_policy(i)
+
+
+@pytest.mark.parametrize("cm", CacheMode)
+@pytest.mark.parametrize("cls", CacheLineSize)
+@pytest.mark.security
+def test_neg_set_nhit_promotion_policy_param(pyocf_ctx, cm, cls):
+    """
+    Test whether it is possible to set invalid promotion policy param id for nhit promotion policy
+    :param pyocf_ctx: basic pyocf context fixture
+    :param cm: cache mode we start with
+    :param cls: cache line size we start with
+    :return:
+    """
+    # Start cache device
+    cache_device = Volume(S.from_MiB(30))
+    cache = Cache.start_on_device(
+        cache_device, cache_mode=cm, cache_line_size=cls, promotion_policy=PromotionPolicy.NHIT
+    )
+
+    # Set invalid promotion policy param id and check if failed
+    for i in generate_random_numbers(c_uint8):
+        if i in [item.value for item in NhitParams]:
+            continue
+        with pytest.raises(OcfError, match="Error setting promotion policy parameter"):
+            cache.set_promotion_policy_param(i, 1)
+
+
+@pytest.mark.parametrize("cm", CacheMode)
+@pytest.mark.parametrize("cls", CacheLineSize)
+@pytest.mark.security
+def test_neg_set_nhit_promotion_policy_param_trigger(pyocf_ctx, cm, cls):
+    """
+    Test whether it is possible to set invalid promotion policy param TRIGGER_THRESHOLD for
+    nhit promotion policy
+    :param pyocf_ctx: basic pyocf context fixture
+    :param cm: cache mode we start with
+    :param cls: cache line size we start with
+    :return:
+    """
+    # Start cache device
+    cache_device = Volume(S.from_MiB(30))
+    cache = Cache.start_on_device(
+        cache_device, cache_mode=cm, cache_line_size=cls, promotion_policy=PromotionPolicy.NHIT
+    )
+
+    # Set to invalid promotion policy trigger threshold and check if failed
+    for i in generate_random_numbers(c_uint32):
+        if i in ConfValidValues.promotion_nhit_trigger_threshold_range:
+            continue
+        with pytest.raises(OcfError, match="Error setting promotion policy parameter"):
+            cache.set_promotion_policy_param(NhitParams.TRIGGER_THRESHOLD, i)
+
+
+@pytest.mark.parametrize("cm", CacheMode)
+@pytest.mark.parametrize("cls", CacheLineSize)
+@pytest.mark.security
+def test_neg_set_nhit_promotion_policy_param_threshold(pyocf_ctx, cm, cls):
+    """
+    Test whether it is possible to set invalid promotion policy param INSERTION_THRESHOLD for
+    nhit promotion policy
+    :param pyocf_ctx: basic pyocf context fixture
+    :param cm: cache mode we start with
+    :param cls: cache line size we start with
+    :return:
+    """
+    # Start cache device
+    cache_device = Volume(S.from_MiB(30))
+    cache = Cache.start_on_device(
+        cache_device, cache_mode=cm, cache_line_size=cls, promotion_policy=PromotionPolicy.NHIT
+    )
+
+    # Set to invalid promotion policy insertion threshold and check if failed
+    for i in generate_random_numbers(c_uint32):
+        if i in ConfValidValues.promotion_nhit_insertion_threshold_range:
+            continue
+        with pytest.raises(OcfError, match="Error setting promotion policy parameter"):
+            cache.set_promotion_policy_param(NhitParams.INSERTION_THRESHOLD, i)

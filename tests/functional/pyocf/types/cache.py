@@ -70,6 +70,11 @@ class CacheDeviceConfig(Structure):
     ]
 
 
+class ConfValidValues:
+    promotion_nhit_insertion_threshold_range = range(2, 1000)
+    promotion_nhit_trigger_threshold_range = range(0, 100)
+
+
 class CacheMode(IntEnum):
     WT = 0
     WB = 1
@@ -131,7 +136,6 @@ class MetadataLayout(IntEnum):
 
 
 class Cache:
-    DEFAULT_ID = 0
     DEFAULT_BACKFILL_QUEUE_SIZE = 65536
     DEFAULT_BACKFILL_UNBLOCK = 60000
     DEFAULT_PT_UNALIGNED_IO = False
