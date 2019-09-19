@@ -86,10 +86,14 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
     core = Core.using_device(core_device)
     cache.add_core(core)
 
-    write_data = Data.from_string("This is test data")
+    write_data = DataCopyTracer(S.from_sector(1))
     io = core.new_io(
-        cache.get_default_queue(), S.from_sector(1).B, write_data.size,
-        IoDir.WRITE, 0, 0
+        cache.get_default_queue(),
+        S.from_sector(1).B,
+        write_data.size,
+        IoDir.WRITE,
+        0,
+        0,
     )
     io.set_data(write_data)
 
@@ -100,10 +104,14 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
 
     cmpls = []
     for i in range(100):
-        read_data = Data(500)
+        read_data = DataCopyTracer(S.from_sector(1))
         io = core.new_io(
-            cache.get_default_queue(), (i * 1259) % int(core_device.size),
-            read_data.size, IoDir.READ, 0, 0
+            cache.get_default_queue(),
+            i * S.from_sector(1).B,
+            read_data.size,
+            IoDir.READ,
+            0,
+            0,
         )
         io.set_data(read_data)
 
@@ -115,9 +123,9 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
     for c in cmpls:
         c.wait()
 
-    write_data = Data.from_string("TEST DATA" * 100)
+    write_data = DataCopyTracer.from_string("TEST DATA" * 100)
     io = core.new_io(
-        cache.get_default_queue(), 500, write_data.size, IoDir.WRITE, 0, 0
+        cache.get_default_queue(), S.from_sector(1), write_data.size, IoDir.WRITE, 0, 0
     )
     io.set_data(write_data)
 
@@ -147,6 +155,12 @@ def test_secure_erase_simple_io_cleaning():
     """
         Perform simple IO which will trigger WB cleaning. Track all the data from
         cleaner (locked) and make sure they are erased and unlocked after use.
+
+        1. Start cache in WB mode
+        2. Write single sector at LBA 0
+        3. Read whole cache line at LBA 0
+        4. Assert that 3. triggered cleaning
+        5. Check if all locked Data copies were erased and unlocked
     """
     ctx = OcfCtx(
         OcfLib.getInstance(),
@@ -166,22 +180,27 @@ def test_secure_erase_simple_io_cleaning():
     core = Core.using_device(core_device)
     cache.add_core(core)
 
-    cmpls = []
-    for i in range(10000):
-        read_data = Data(S.from_KiB(120))
-        io = core.new_io(
-            cache.get_default_queue(), (i * 1259) % int(core_device.size),
-            read_data.size, IoDir.WRITE, 0, 0
-        )
-        io.set_data(read_data)
+    read_data = Data(S.from_sector(1).B)
+    io = core.new_io(
+        cache.get_default_queue(), S.from_sector(1).B, read_data.size, IoDir.WRITE, 0, 0
+    )
+    io.set_data(read_data)
 
-        cmpl = OcfCompletion([("err", c_int)])
-        io.callback = cmpl.callback
-        cmpls.append(cmpl)
-        io.submit()
+    cmpl = OcfCompletion([("err", c_int)])
+    io.callback = cmpl.callback
+    io.submit()
+    cmpl.wait()
 
-    for c in cmpls:
-        c.wait()
+    read_data = Data(S.from_sector(8).B)
+    io = core.new_io(
+        cache.get_default_queue(), S.from_sector(1).B, read_data.size, IoDir.READ, 0, 0
+    )
+    io.set_data(read_data)
+
+    cmpl = OcfCompletion([("err", c_int)])
+    io.callback = cmpl.callback
+    io.submit()
+    cmpl.wait()
 
     stats = cache.get_stats()
 
