@@ -206,6 +206,7 @@ struct ocf_metadata_load_properties {
 	ocf_metadata_layout_t layout;
 	ocf_cache_line_size_t line_size;
 	ocf_cache_mode_t cache_mode;
+	char *cache_name;
 };
 
 typedef void (*ocf_metadata_load_properties_end_t)(void *priv, int error,

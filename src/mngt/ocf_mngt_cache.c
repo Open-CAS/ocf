@@ -889,15 +889,52 @@ err_buffer:
 	OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_NO_MEM);
 }
 
+static int _ocf_confirm_cache_name(ocf_cache_t cache, char *loaded_name)
+{
+	ocf_cache_t iter;
+	ocf_ctx_t ctx = ocf_cache_get_ctx(cache);
+	int result;
+
+	/*
+	 * Check if name loaded from disk is the same as present one.
+	 */
+	if (!env_strncmp(cache->conf_meta->name, loaded_name, OCF_CACHE_NAME_SIZE))
+		return 0;
+
+	/*
+	 * Check if there is no cache running with name as loaded one.
+	 */
+	list_for_each_entry(iter, &ctx->caches, list) {
+		if (!env_strncmp(ocf_cache_get_name(iter), loaded_name,
+					OCF_CACHE_NAME_SIZE)) {
+			ocf_cache_log(cache, log_err,
+					"Loading cache state ERROR,"
+				    " loaded cache name %s already occupied!\n", loaded_name);
+			return -OCF_ERR_CACHE_EXIST;
+		}
+	}
+
+	ocf_cache_log(cache, log_info,
+			"Changing cache name to loaded: %s\n", loaded_name);
+	result = ocf_cache_set_name(cache, loaded_name, OCF_CACHE_NAME_SIZE);
+	if (result) {
+		ocf_cache_log(cache, log_err,
+				"Failed to change cache name to %s\n", loaded_name);
+		return result;
+	}
+
+	return 0;
+}
+
 /**
  * Prepare metadata accordingly to mode (for load/recovery read from disk)
  */
-
 static void _ocf_mngt_attach_load_properties_end(void *priv, int error,
 		struct ocf_metadata_load_properties *properties)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
+	int ret = 0;
 
 	context->metadata.status = error;
 
@@ -918,6 +955,10 @@ static void _ocf_mngt_attach_load_properties_end(void *priv, int error,
 		 */
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_METADATA_FOUND);
 	}
+
+	ret = _ocf_confirm_cache_name(cache, properties->cache_name);
+	if (ret)
+		OCF_PL_FINISH_RET(context->pipeline, ret);
 
 	context->metadata.shutdown_status = properties->shutdown_status;
 	context->metadata.dirty_flushed = properties->dirty_flushed;
