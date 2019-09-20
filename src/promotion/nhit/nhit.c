@@ -185,7 +185,7 @@ bool nhit_req_should_promote(ocf_promotion_policy_t policy,
 	uint32_t i;
 	uint64_t core_line;
 	uint64_t occupied_cachelines =
-		ocf_metadata_get_cachelines_count(policy->owner) -
+		ocf_metadata_collision_table_entries(policy->owner) -
 		ocf_freelist_num_free(policy->owner->freelist);
 
 	if (occupied_cachelines < env_atomic64_read(&ctx->trigger_threshold))
