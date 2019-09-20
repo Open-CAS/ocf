@@ -179,9 +179,8 @@ def fill_cache(cache, fill_ratio):
 
 @pytest.mark.parametrize("fill_percentage", [0, 1, 50, 99])
 @pytest.mark.parametrize("insertion_threshold", [2, 8])
-@pytest.mark.parametrize("io_dir", IoDir)
 def test_promoted_after_hits_various_thresholds(
-    pyocf_ctx, io_dir, insertion_threshold, fill_percentage
+    pyocf_ctx, insertion_threshold, fill_percentage
 ):
     """
     Check promotion policy behavior with various set thresholds
@@ -230,7 +229,7 @@ def test_promoted_after_hits_various_thresholds(
             cache.get_default_queue(),
             last_core_line,
             write_data.size,
-            io_dir,
+            IoDir.WRITE,
             0,
             0,
         )
@@ -253,13 +252,13 @@ def test_promoted_after_hits_various_thresholds(
     comp = OcfCompletion([("error", c_int)])
     write_data = Data(cache_lines.line_size)
     io = core.new_io(
-        cache.get_default_queue(), last_core_line, write_data.size, io_dir, 0, 0
+        cache.get_default_queue(), last_core_line, write_data.size, IoDir.WRITE, 0, 0
     )
     io.set_data(write_data)
     io.callback = comp.callback
     io.submit()
 
-    c.wait()
+    comp.wait()
 
     assert (
         threshold_reached_occupancy
