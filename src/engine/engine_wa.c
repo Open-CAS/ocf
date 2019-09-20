@@ -38,19 +38,19 @@ static void _ocf_read_wa_complete(struct ocf_request *req, int error)
 
 int ocf_write_wa(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-
 	ocf_io_start(&req->ioi.io);
 
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	OCF_METADATA_LOCK_RD(); /*- Metadata RD access -----------------------*/
+	ocf_req_hash(req);
+
+	ocf_req_hash_lock_rd(req); /*- Metadata RD access -----------------------*/
 
 	/* Traverse request to check if there are mapped cache lines */
 	ocf_engine_traverse(req);
 
-	OCF_METADATA_UNLOCK_RD(); /*- END Metadata RD access -----------------*/
+	ocf_req_hash_unlock_rd(req); /*- END Metadata RD access -----------------*/
 
 	if (ocf_engine_is_hit(req)) {
 		ocf_req_clear(req);

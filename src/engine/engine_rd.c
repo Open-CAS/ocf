@@ -137,8 +137,6 @@ err_alloc:
 
 static int _ocf_read_generic_do(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-
 	if (ocf_engine_is_miss(req) && req->map->rd_locked) {
 		/* Miss can be handled only on write locks.
 		 * Need to switch to PT
@@ -153,12 +151,12 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 
 	if (ocf_engine_is_miss(req)) {
 		if (req->info.dirty_any) {
-			OCF_METADATA_LOCK_RD();
+			ocf_req_hash_lock_rd(req);
 
 			/* Request is dirty need to clean request */
 			ocf_engine_clean(req);
 
-			OCF_METADATA_UNLOCK_RD();
+			ocf_req_hash_unlock_rd(req);
 
 			/* We need to clean request before processing, return */
 			ocf_req_put(req);
@@ -166,25 +164,25 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 			return 0;
 		}
 
-		OCF_METADATA_LOCK_RD();
+		ocf_req_hash_lock_rd(req);
 
 		/* Set valid status bits map */
 		ocf_set_valid_map_info(req);
 
-		OCF_METADATA_UNLOCK_RD();
+		ocf_req_hash_unlock_rd(req);
 	}
 
 	if (req->info.re_part) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
-		OCF_METADATA_LOCK_WR();
+		ocf_req_hash_lock_wr(req);
 
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
 		ocf_part_move(req);
 
-		OCF_METADATA_UNLOCK_WR();
+		ocf_req_hash_unlock_wr(req);
 	}
 
 	OCF_DEBUG_RQ(req, "Submit");
@@ -208,12 +206,24 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 static const struct ocf_io_if _io_if_read_generic_resume = {
 	.read = _ocf_read_generic_do,
 	.write = _ocf_read_generic_do,
+};
+
+static enum ocf_engine_lock_type ocf_rd_get_lock_type(struct ocf_request *req)
+{
+	if (ocf_engine_is_hit(req))
+		return ocf_engine_lock_read;
+	else
+		return ocf_engine_lock_write;
+}
+
+static const struct ocf_engine_callbacks _rd_engine_callbacks =
+{
+	.get_lock_type = ocf_rd_get_lock_type,
 	.resume = ocf_engine_on_resume,
 };
 
 int ocf_read_generic(struct ocf_request *req)
 {
-	bool mapped;
 	int lock = OCF_LOCK_NOT_ACQUIRED;
 	struct ocf_cache *cache = req->cache;
 
@@ -231,61 +241,7 @@ int ocf_read_generic(struct ocf_request *req)
 	/* Set resume call backs */
 	req->io_if = &_io_if_read_generic_resume;
 
-	/*- Metadata RD access -----------------------------------------------*/
-
-	OCF_METADATA_LOCK_RD();
-
-	/* Traverse request to cache if there is hit */
-	ocf_engine_traverse(req);
-
-	mapped = ocf_engine_is_mapped(req);
-	if (mapped) {
-		/* Request is fully mapped, no need to call eviction */
-		if (ocf_engine_is_hit(req)) {
-			/* There is a hit, lock request for READ access */
-			lock = ocf_req_trylock_rd(req);
-		} else {
-			/* All cache line mapped, but some sectors are not valid
-			 * and cache insert will be performed - lock for
-			 * WRITE is required
-			 */
-			lock = ocf_req_trylock_wr(req);
-		}
-	}
-
-	OCF_METADATA_UNLOCK_RD();
-
-	/*- END Metadata RD access -------------------------------------------*/
-
-	if (!mapped) {
-
-		/*- Metadata WR access ---------------------------------------*/
-
-		OCF_METADATA_LOCK_WR();
-
-		/* Now there is exclusive access for metadata. May traverse once
-		 * again. If there are misses need to call eviction. This
-		 * process is called 'mapping'.
-		 */
-		ocf_engine_map(req);
-
-		if (!req->info.mapping_error) {
-			if (ocf_engine_is_hit(req)) {
-				/* After mapping turns out there is hit,
-				 * so lock OCF request for read access
-				 */
-				lock = ocf_req_trylock_rd(req);
-			} else {
-				/* Miss, new cache lines were mapped,
-				 * need to lock OCF request for write access
-				 */
-				lock = ocf_req_trylock_wr(req);
-			}
-		}
-		OCF_METADATA_UNLOCK_WR();
-
-		/*- END Metadata WR access -----------------------------------*/
-	}
+	lock = ocf_engine_prepare_clines(req, &_rd_engine_callbacks);
 
 	if (!req->info.mapping_error) {
 		if (lock >= 0) {

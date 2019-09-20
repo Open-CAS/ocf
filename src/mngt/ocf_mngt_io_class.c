@@ -275,7 +275,7 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 	if (!old_config)
 		return -OCF_ERR_NO_MEM;
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	result = env_memcpy(old_config, sizeof(cache->user_parts),
 			cache->user_parts, sizeof(cache->user_parts));
@@ -300,7 +300,7 @@ out_edit:
 	}
 
 out_cpy:
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 	env_free(old_config);
 
 	return result;

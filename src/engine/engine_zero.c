@@ -18,19 +18,17 @@
 
 static int ocf_zero_purge(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-
 	if (req->error) {
 		ocf_engine_error(req, true, "Failed to discard data on cache");
 	} else {
 		/* There are mapped cache line, need to remove them */
 
-		OCF_METADATA_LOCK_WR(); /*- Metadata WR access ---------------*/
+		ocf_req_hash_lock_wr(req); /*- Metadata WR access ---------------*/
 
 		/* Remove mapped cache lines from metadata */
 		ocf_purge_map_info(req);
 
-		OCF_METADATA_UNLOCK_WR(); /*- END Metadata WR access ---------*/
+		ocf_req_hash_unlock_wr(req); /*- END Metadata WR access ---------*/
 	}
 
 	ocf_req_unlock_wr(req);
@@ -129,7 +127,6 @@ static int _ocf_zero_do(struct ocf_request *req)
 static const struct ocf_io_if _io_if_ocf_zero_do = {
 	.read = _ocf_zero_do,
 	.write = _ocf_zero_do,
-	.resume = ocf_engine_on_resume,
 };
 
 /**
@@ -143,6 +140,10 @@ void ocf_engine_zero_line(struct ocf_request *req)
 
 	ENV_BUG_ON(req->core_line_count != 1);
 
+	/* No hash bucket locking here - ocf_engine_zero_line caller must hold
+	 * metadata global write lock, so we have exclusive access to all hash
+	 * buckets here. */
+
 	/* Traverse to check if request is mapped */
 	ocf_engine_traverse(req);
 
@@ -151,7 +152,7 @@ void ocf_engine_zero_line(struct ocf_request *req)
 	req->io_if = &_io_if_ocf_zero_do;
 
 	/* Some cache line are mapped, lock request for WRITE access */
-	lock = ocf_req_trylock_wr(req);
+	lock = ocf_req_async_lock_wr(req, ocf_engine_on_resume);
 
 	if (lock >= 0) {
 		ENV_BUG_ON(lock != OCF_LOCK_ACQUIRED);

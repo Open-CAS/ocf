@@ -311,3 +311,14 @@ void ocf_req_clear_map(struct ocf_request *req)
 		ENV_BUG_ON(env_memset(req->map,
 			   sizeof(req->map[0]) * req->core_line_count, 0));
 }
+
+void ocf_req_hash(struct ocf_request *req)
+{
+	int i;
+
+	for (i = 0; i < req->core_line_count; i++) {
+		req->map[i].hash = ocf_metadata_hash_func(req->cache,
+				req->core_line_first + i,
+				ocf_core_get_id(req->core));
+	}
+}

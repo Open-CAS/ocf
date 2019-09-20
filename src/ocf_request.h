@@ -320,6 +320,13 @@ void ocf_req_clear_info(struct ocf_request *req);
 void ocf_req_clear_map(struct ocf_request *req);
 
 /**
+ * @brief Calculate hashes for all core lines within the request
+ *
+ * @param req - OCF request
+ */
+void ocf_req_hash(struct ocf_request *req);
+
+/**
  * @brief Clear OCF request
  *
  * @param req - OCF request

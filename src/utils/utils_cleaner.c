@@ -197,6 +197,12 @@ static void _ocf_cleaner_complete_req(struct ocf_request *req)
 	cmpl(master->priv, master->error);
 }
 
+static void _ocf_cleaner_on_resume(struct ocf_request *req)
+{
+	OCF_DEBUG_TRACE(req->cache);
+	ocf_engine_push_req_front(req, true);
+}
+
 /*
  * cleaner - Cache line lock, function lock cache lines depends on attributes
  */
@@ -207,7 +213,7 @@ static int _ocf_cleaner_cache_line_lock(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	return ocf_req_trylock_rd(req);
+	return ocf_req_async_lock_rd(req, _ocf_cleaner_on_resume);
 }
 
 /*
@@ -314,7 +320,7 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 	/* Update metadata */
 	for (i = 0; i < req->core_line_count; i++, iter++) {
 		if (iter->status == LOOKUP_MISS)
@@ -339,7 +345,7 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 	}
 
 	ocf_metadata_flush_do_asynch(cache, req, _ocf_cleaner_metadata_io_end);
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	return 0;
 }
@@ -697,16 +703,9 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	return 0;
 }
 
-static void _ocf_cleaner_on_resume(struct ocf_request *req)
-{
-	OCF_DEBUG_TRACE(req->cache);
-	ocf_engine_push_req_front(req, true);
-}
-
 static const struct ocf_io_if _io_if_fire_cache = {
 	.read = _ocf_cleaner_fire_cache,
 	.write = _ocf_cleaner_fire_cache,
-	.resume = _ocf_cleaner_on_resume,
 };
 
 static int _ocf_cleaner_fire(struct ocf_request *req)

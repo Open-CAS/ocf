@@ -1903,7 +1903,7 @@ static void _recovery_rebuild_metadata(ocf_pipeline_t pipeline,
 	const uint64_t collision_table_entries =
 			ocf_metadata_collision_table_entries(cache);
 
-	OCF_METADATA_LOCK_WR();
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	for (cline = 0; cline < collision_table_entries; cline++) {
 		ocf_metadata_get_core_info(cache, cline, &core_id, &core_line);
@@ -1923,7 +1923,7 @@ static void _recovery_rebuild_metadata(ocf_pipeline_t pipeline,
 		OCF_COND_RESCHED(step, 128);
 	}
 
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	ocf_pipeline_next(pipeline);
 }

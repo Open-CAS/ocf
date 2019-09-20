@@ -779,7 +779,7 @@ static void alru_clean(struct alru_flush_ctx *fctx)
 		return;
 	}
 
-	if (OCF_METADATA_LOCK_WR_TRY()) {
+	if (ocf_metadata_try_start_exclusive_access(&cache->metadata.lock)) {
 		alru_clean_complete(fctx, 0);
 		return;
 	}
@@ -797,7 +797,7 @@ static void alru_clean(struct alru_flush_ctx *fctx)
 		fctx->flush_perfomed = true;
 		ocf_cleaner_do_flush_data_async(cache, fctx->flush_data, to_clean,
 				&fctx->attribs);
-		OCF_METADATA_UNLOCK_WR();
+		ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 		return;
 	}
 
@@ -806,7 +806,7 @@ static void alru_clean(struct alru_flush_ctx *fctx)
 		env_ticks_to_secs(env_get_tick_count());
 
 end:
-	OCF_METADATA_UNLOCK_WR();
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 	alru_clean_complete(fctx, 0);
 }
 

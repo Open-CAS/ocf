@@ -17,6 +17,7 @@
 #include "../metadata/metadata.h"
 #include "../eviction/eviction.h"
 #include "../promotion/promotion.h"
+#include "../concurrency/ocf_concurrency.h"
 
 void ocf_engine_error(struct ocf_request *req,
 		bool stop_cache, const char *msg)
@@ -306,7 +307,7 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 	}
 }
 
-void ocf_engine_map(struct ocf_request *req)
+static void ocf_engine_map(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
 	uint32_t i;
@@ -315,17 +316,14 @@ void ocf_engine_map(struct ocf_request *req)
 	int status = LOOKUP_MAPPED;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
-	if (!ocf_promotion_req_should_promote(cache->promotion_policy, req)) {
+	if (!ocf_engine_unmapped_count(req))
+		return;
+
+	if (ocf_engine_unmapped_count(req) >
+			ocf_freelist_num_free(cache->freelist)) {
 		req->info.mapping_error = 1;
 		return;
 	}
-
-	if (ocf_engine_unmapped_count(req))
-		status = space_managment_evict_do(cache, req,
-				ocf_engine_unmapped_count(req));
-
-	if (req->info.mapping_error)
-		return;
 
 	ocf_req_clear_info(req);
 	req->info.seq_req = true;
@@ -395,6 +393,134 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 		req->info.dirty_all = 0;
 		ocf_engine_push_req_front(req, true);
 	}
+}
+
+static int ocf_engine_evict(struct ocf_request *req)
+{
+	if (!ocf_engine_unmapped_count(req))
+		return 0;
+
+	return space_managment_evict_do(req->cache, req,
+			ocf_engine_unmapped_count(req));
+}
+
+static int lock_clines(struct ocf_request *req, enum ocf_engine_lock_type lock,
+		ocf_req_async_lock_cb cb)
+{
+	switch (lock) {
+	case ocf_engine_lock_write:
+		return ocf_req_async_lock_wr(req, cb);
+	case ocf_engine_lock_read:
+		return ocf_req_async_lock_rd(req, cb);
+	default:
+		return OCF_LOCK_ACQUIRED;
+	}
+}
+
+static int trylock_clines(struct ocf_request *req,
+		enum ocf_engine_lock_type lock)
+{
+	switch (lock) {
+	case ocf_engine_lock_write:
+		return ocf_req_trylock_wr(req);
+	case ocf_engine_lock_read:
+		return ocf_req_trylock_rd(req);
+	default:
+		return OCF_LOCK_ACQUIRED;
+	}
+}
+
+int ocf_engine_prepare_clines(struct ocf_request *req,
+		const struct ocf_engine_callbacks *engine_cbs)
+{
+	bool mapped;
+	bool promote = true;
+	int lock = -ENOENT;
+	enum ocf_engine_lock_type lock_type;
+	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
+
+	/* Calculate hashes for hash-bucket locking */
+	ocf_req_hash(req);
+
+	/* Read-lock hash buckets associated with request target core & LBAs
+	 * (core lines) to assure that cache mapping for these core lines does
+	 * not change during traversation */
+	ocf_req_hash_lock_rd(req);
+
+	/* Traverse request to cache if there is hit */
+	ocf_engine_traverse(req);
+	mapped = ocf_engine_is_mapped(req);
+
+	if (mapped) {
+		/* We are holding hash buckets read lock, so we can attempt
+		 * per-cacheline locking fast path, which would fail either if
+		 * cachelines are already locked without putting request to a
+		 * waiter list */
+		lock_type = engine_cbs->get_lock_type(req);
+		lock = trylock_clines(req, lock_type);
+
+		if (lock == OCF_LOCK_ACQUIRED) {
+			/* Cachelines are mapped and locked,  we don't need the
+			 * hash bucket lock any more */
+			ocf_req_hash_unlock_rd(req);
+		} else {
+			/* Failed to acquire cachelines lock in fast path,
+			 * acquire hash-buckets write lock and attempt the lock
+			 * again, allowing slow path and async assignment of
+			 * the lock. */
+			ocf_req_hash_lock_upgrade(req);
+			lock = lock_clines(req, lock_type, engine_cbs->resume);
+			ocf_req_hash_unlock_wr(req);
+		}
+	} else {
+		/* check if request should promote cachelines */
+		promote = ocf_promotion_req_should_promote(
+				req->cache->promotion_policy, req);
+		if (!promote) {
+			req->info.mapping_error = 1;
+			ocf_req_hash_unlock_rd(req);
+		}
+	}
+
+	if (!mapped && promote) {
+		/* Need to map (potentially evict) cachelines. Mapping must be
+		 * performed holding (at least) hash-bucket write lock */
+		ocf_req_hash_lock_upgrade(req);
+
+		ocf_engine_map(req);
+		if (!req->info.mapping_error) {
+			/* Lock cachelines, potentially putting the request on
+			 * waiter list */
+			lock_type = engine_cbs->get_lock_type(req);
+			lock = trylock_clines(req, lock_type);
+			if (lock != OCF_LOCK_ACQUIRED) {
+				lock = lock_clines(req, lock_type,
+						engine_cbs->resume);
+			}
+		}
+
+		/* At this point the request is mapped or we need to evict,
+		 * which is done under global metadata lock */
+		ocf_req_hash_unlock_wr(req);
+
+		if (req->info.mapping_error) {
+			/* Not mapped - evict cachelines */
+			ocf_metadata_start_exclusive_access(metadata_lock);
+			if (ocf_engine_evict(req) == LOOKUP_MAPPED)
+				ocf_engine_map(req);
+			if (!req->info.mapping_error) {
+				lock_type = engine_cbs->get_lock_type(req);
+				lock = trylock_clines(req, lock_type);
+				if (lock != OCF_LOCK_ACQUIRED) {
+					lock = lock_clines(req, lock_type,
+							engine_cbs->resume);
+				}
+			}
+			ocf_metadata_end_exclusive_access(metadata_lock);
+		}
+	}
+
+	return lock;
 }
 
 static int _ocf_engine_clean_getter(struct ocf_cache *cache,
@@ -533,15 +659,14 @@ void inc_fallback_pt_error_counter(ocf_cache_t cache)
 
 static int _ocf_engine_refresh(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
 	int result;
 
-	OCF_METADATA_LOCK_RD();
 	/* Check under metadata RD lock */
+	ocf_req_hash_lock_rd(req);
 
 	result = ocf_engine_check(req);
 
-	OCF_METADATA_UNLOCK_RD();
+	ocf_req_hash_unlock_rd(req);
 
 	if (result == 0) {
 

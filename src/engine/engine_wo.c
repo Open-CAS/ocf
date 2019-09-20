@@ -197,12 +197,10 @@ int ocf_read_wo_do(struct ocf_request *req)
 static const struct ocf_io_if _io_if_wo_resume = {
 	.read = ocf_read_wo_do,
 	.write = ocf_read_wo_do,
-	.resume = ocf_engine_on_resume,
 };
 
 int ocf_read_wo(struct ocf_request *req)
 {
-	ocf_cache_t cache = req->cache;
 	int lock = OCF_LOCK_ACQUIRED;
 
 	OCF_DEBUG_TRACE(req->cache);
@@ -215,7 +213,8 @@ int ocf_read_wo(struct ocf_request *req)
 	/* Set resume call backs */
 	req->io_if = &_io_if_wo_resume;
 
-	OCF_METADATA_LOCK_RD(); /*- Metadata RD access -----------------------*/
+	ocf_req_hash(req);
+	ocf_req_hash_lock_rd(req); /*- Metadata RD access -----------------------*/
 
 	/* Traverse request to check if there are mapped cache lines */
 	ocf_engine_traverse(req);
@@ -227,7 +226,13 @@ int ocf_read_wo(struct ocf_request *req)
 		lock = ocf_req_trylock_rd(req);
 	}
 
-	OCF_METADATA_UNLOCK_RD(); /*- END Metadata RD access -----------------*/
+	if (lock != OCF_LOCK_ACQUIRED) {
+		ocf_req_hash_lock_upgrade(req);
+		lock = ocf_req_async_lock_rd(req, ocf_engine_on_resume);
+		ocf_req_hash_unlock_wr(req);
+	} else {
+		ocf_req_hash_unlock_rd(req);
+	}
 
 	if (lock >= 0) {
 		if (lock != OCF_LOCK_ACQUIRED) {
