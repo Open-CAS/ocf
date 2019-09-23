@@ -72,7 +72,7 @@ ocf_error_t nhit_set_param(ocf_promotion_policy_t policy, uint8_t param_id,
 	switch (param_id) {
 	case ocf_nhit_insertion_threshold:
 		if (param_value >= OCF_NHIT_MIN_THRESHOLD &&
-				param_value < OCF_NHIT_MAX_THRESHOLD) {
+				param_value <= OCF_NHIT_MAX_THRESHOLD) {
 			env_atomic_set(&ctx->insertion_threshold, param_value);
 		} else {
 			ocf_cache_log(policy->owner, log_err, "Invalid nhit "
@@ -83,7 +83,7 @@ ocf_error_t nhit_set_param(ocf_promotion_policy_t policy, uint8_t param_id,
 
 	case ocf_nhit_trigger_threshold:
 		if (param_value >= OCF_NHIT_MIN_TRIGGER &&
-				param_value < OCF_NHIT_MAX_TRIGGER) {
+				param_value <= OCF_NHIT_MAX_TRIGGER) {
 			env_atomic64_set(&ctx->trigger_threshold,
 				OCF_DIV_ROUND_UP((param_value *
 				ocf_metadata_get_cachelines_count(policy->owner)),
