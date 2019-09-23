@@ -116,6 +116,9 @@ typedef enum {
 
 	/** Invalid cache line size */
 	OCF_ERR_INVALID_CACHE_LINE_SIZE,
+
+	/** Invalid cache name loaded*/
+	OCF_ERR_CACHE_NAME_MISMATCH,
 } ocf_error_t;
 
 #endif /* __OCF_ERR_H__ */
