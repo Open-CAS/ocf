@@ -113,9 +113,9 @@ ocf_cache_line_t ocf_metadata_get_cachelines_count(ocf_cache_t cache)
 void ocf_metadata_flush_all(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_start_shared_access(&cache->metadata.lock);
 	cache->metadata.iface.flush_all(cache, cmpl, priv);
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_end_shared_access(&cache->metadata.lock);
 }
 
 void ocf_metadata_load_all(ocf_cache_t cache,

@@ -226,9 +226,9 @@ static int ocf_restart_meta_io(struct ocf_request *req)
 	int ret;
 
 	/* Fill with the latest metadata. */
-	/* TODO: synchronize with concurrent metadata io and hash bucket locks
-	 */
+	ocf_metadata_start_shared_access(&cache->metadata.lock);
 	metadata_io_req_fill(meta_io_req);
+	ocf_metadata_end_shared_access(&cache->metadata.lock);
 
 	io = ocf_new_cache_io(cache, req->io_queue,
 			PAGES_TO_BYTES(meta_io_req->page),
