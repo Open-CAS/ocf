@@ -41,6 +41,11 @@ uint32_t raw_dynamic_checksum(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw);
 
 /*
+ * RAM DYNAMIC Implementation - Entry page number
+ */
+uint32_t raw_dynamic_page(struct ocf_metadata_raw *raw, uint32_t entry);
+
+/*
  * RAW DYNAMIC - Get specified entry
  */
 int raw_dynamic_get(ocf_cache_t cache, struct ocf_metadata_raw *raw,

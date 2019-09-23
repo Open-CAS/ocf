@@ -150,6 +150,16 @@ static uint32_t _raw_ram_checksum(ocf_cache_t cache,
 }
 
 /*
+ * RAM Implementation - Entry page number
+ */
+uint32_t _raw_ram_page(struct ocf_metadata_raw *raw, uint32_t entry)
+{
+	ENV_BUG_ON(entry >= raw->entries);
+
+	return _RAW_RAM_PAGE(raw, entry);
+}
+
+/*
  * RAM Implementation - Get entry
  */
 static int _raw_ram_get(ocf_cache_t cache, struct ocf_metadata_raw *raw,
@@ -541,6 +551,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_of		= _raw_ram_size_of,
 		.size_on_ssd		= _raw_ram_size_on_ssd,
 		.checksum		= _raw_ram_checksum,
+		.page			= _raw_ram_page,
 		.get			= _raw_ram_get,
 		.set			= _raw_ram_set,
 		.access			= _raw_ram_access,
@@ -555,6 +566,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_of		= raw_dynamic_size_of,
 		.size_on_ssd		= raw_dynamic_size_on_ssd,
 		.checksum		= raw_dynamic_checksum,
+		.page			= raw_dynamic_page,
 		.get			= raw_dynamic_get,
 		.set			= raw_dynamic_set,
 		.access			= raw_dynamic_access,
@@ -569,6 +581,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_of		= _raw_ram_size_of,
 		.size_on_ssd		= raw_volatile_size_on_ssd,
 		.checksum		= raw_volatile_checksum,
+		.page			= _raw_ram_page,
 		.get			= _raw_ram_get,
 		.set			= _raw_ram_set,
 		.access			= _raw_ram_access,
@@ -583,6 +596,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_of		= _raw_ram_size_of,
 		.size_on_ssd		= _raw_ram_size_on_ssd,
 		.checksum		= _raw_ram_checksum,
+		.page			= _raw_ram_page,
 		.get			= _raw_ram_get,
 		.set			= _raw_ram_set,
 		.access			= _raw_ram_access,

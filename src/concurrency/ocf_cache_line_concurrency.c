@@ -71,6 +71,8 @@ int ocf_cache_line_concurrency_init(struct ocf_cache *cache)
 	int error = 0;
 	struct ocf_cache_line_concurrency *c;
 	char name[ALLOCATOR_NAME_MAX];
+	ocf_cache_line_t line_entries = ocf_metadata_collision_table_entries(
+						cache);
 
 	ENV_BUG_ON(cache->device->concurrency.cache_line);
 
@@ -85,8 +87,8 @@ int ocf_cache_line_concurrency_init(struct ocf_cache *cache)
 	cache->device->concurrency.cache_line = c;
 
 	OCF_REALLOC_INIT(&c->access, &c->access_limit);
-	OCF_REALLOC_CP(&c->access, sizeof(c->access[0]),
-			cache->device->collision_table_entries, &c->access_limit);
+	OCF_REALLOC_CP(&c->access, sizeof(c->access[0]), line_entries,
+		&c->access_limit);
 
 	if (!c->access) {
 		error = __LINE__;

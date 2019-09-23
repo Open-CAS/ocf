@@ -102,6 +102,7 @@ struct raw_iface {
 	uint32_t (*checksum)(ocf_cache_t cache,
 			struct ocf_metadata_raw *raw);
 
+	uint32_t (*page)(struct ocf_metadata_raw *raw, uint32_t entry);
 
 	int (*get)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 			uint32_t entry, void *data);
@@ -181,6 +182,19 @@ static inline uint32_t ocf_metadata_raw_checksum(struct ocf_cache* cache,
 		struct ocf_metadata_raw* raw)
 {
 	return raw->iface->checksum(cache, raw);
+}
+
+/**
+ * @brief Calculate entry page index
+ *
+ * @param raw - RAW descriptor
+ * @param entry - Entry number
+ * @return Page index
+ */
+static inline uint32_t ocf_metadata_raw_page(struct ocf_metadata_raw* raw,
+		uint32_t entry)
+{
+	return raw->iface->page(raw, entry);
 }
 
 /**

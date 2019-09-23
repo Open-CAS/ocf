@@ -220,6 +220,16 @@ uint32_t raw_dynamic_checksum(ocf_cache_t cache,
 }
 
 /*
+ * RAM DYNAMIC Implementation - Entry page number
+ */
+uint32_t raw_dynamic_page(struct ocf_metadata_raw *raw, uint32_t entry)
+{
+	ENV_BUG_ON(entry >= raw->entries);
+
+	return _RAW_DYNAMIC_PAGE(raw, entry);
+}
+
+/*
 * RAM DYNAMIC Implementation - Get
 */
 int raw_dynamic_get(ocf_cache_t cache, struct ocf_metadata_raw *raw,
