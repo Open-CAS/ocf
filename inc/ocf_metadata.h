@@ -60,6 +60,9 @@ struct ocf_metadata_probe_status {
 
 	/** Cache contains dirty data */
 	bool cache_dirty;
+
+	/** Loaded name of cache instance */
+	char cache_name[OCF_CACHE_NAME_SIZE];
 };
 
 /**
