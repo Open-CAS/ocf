@@ -10,7 +10,7 @@
 
 struct ocf_async_lock {
 	struct list_head waiters;
-	env_mutex mutex;
+	env_spinlock waiters_lock;
 	uint32_t rd;
 	uint32_t wr;
 	uint32_t waiter_priv_size;

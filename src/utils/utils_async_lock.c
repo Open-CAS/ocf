@@ -47,12 +47,7 @@ void _ocf_async_lock_run_waiters(struct ocf_async_lock *lock,
 
 int ocf_async_lock_init(struct ocf_async_lock *lock, uint32_t waiter_priv_size)
 {
-	int result;
-
-	result = env_mutex_init(&lock->mutex);
-	if (result)
-		return result;
-
+	env_spinlock_init(&lock->waiters_lock);
 	INIT_LIST_HEAD(&lock->waiters);
 	lock->rd = 0;
 	lock->wr = 0;
@@ -68,12 +63,12 @@ void ocf_async_lock_deinit(struct ocf_async_lock *lock)
 
 	INIT_LIST_HEAD(&waiters);
 
-	env_mutex_lock(&lock->mutex);
+	env_spinlock_lock(&lock->waiters_lock);
 	list_for_each_entry_safe(iter, temp, &lock->waiters, list)
 		list_move_tail(&iter->list, &waiters);
-	env_mutex_unlock(&lock->mutex);
-	
-	env_mutex_destroy(&lock->mutex);
+	env_spinlock_unlock(&lock->waiters_lock);
+
+	env_spinlock_destroy(&lock->waiters_lock);
 
 	_ocf_async_lock_run_waiters(lock, &waiters, -OCF_ERR_NO_LOCK);
 }
@@ -117,11 +112,11 @@ void ocf_async_lock(ocf_async_lock_waiter_t waiter)
 	ocf_async_lock_t lock = waiter->lock;
 	int result;
 
-	env_mutex_lock(&lock->mutex);
+	env_spinlock_lock(&lock->waiters_lock);
 
 	result = _ocf_async_trylock(lock);
 	if (!result) {
-		env_mutex_unlock(&lock->mutex);
+		env_spinlock_unlock(&lock->waiters_lock);
 		waiter->cmpl(waiter, 0);
 		env_vfree(waiter);
 		return;
@@ -130,16 +125,16 @@ void ocf_async_lock(ocf_async_lock_waiter_t waiter)
 	waiter->write_lock = true;
 	list_add_tail(&waiter->list, &lock->waiters);
 
-	env_mutex_unlock(&lock->mutex);
+	env_spinlock_unlock(&lock->waiters_lock);
 }
 
 int ocf_async_trylock(struct ocf_async_lock *lock)
 {
 	int result;
 
-	env_mutex_lock(&lock->mutex);
+	env_spinlock_lock(&lock->waiters_lock);
 	result = _ocf_async_trylock(lock);
-	env_mutex_unlock(&lock->mutex);
+	env_spinlock_unlock(&lock->waiters_lock);
 
 	return result;
 }
@@ -150,7 +145,7 @@ void ocf_async_unlock(struct ocf_async_lock *lock)
 
 	INIT_LIST_HEAD(&waiters);
 
-	env_mutex_lock(&lock->mutex);
+	env_spinlock_lock(&lock->waiters_lock);
 
 	ENV_BUG_ON(lock->rd);
 	ENV_BUG_ON(!lock->wr);
@@ -159,7 +154,7 @@ void ocf_async_unlock(struct ocf_async_lock *lock)
 
 	_ocf_async_lock_collect_waiters(lock, &waiters);
 
-	env_mutex_unlock(&lock->mutex);
+	env_spinlock_unlock(&lock->waiters_lock);
 
 	_ocf_async_lock_run_waiters(lock, &waiters, 0);
 }
@@ -178,11 +173,11 @@ void ocf_async_read_lock(ocf_async_lock_waiter_t waiter)
 	ocf_async_lock_t lock = waiter->lock;
 	int result;
 
-	env_mutex_lock(&lock->mutex);
+	env_spinlock_lock(&lock->waiters_lock);
 
 	result = _ocf_async_read_trylock(lock);
 	if (!result) {
-		env_mutex_unlock(&lock->mutex);
+		env_spinlock_unlock(&lock->waiters_lock);
 		waiter->cmpl(waiter, 0);
 		env_vfree(waiter);
 		return;
@@ -191,16 +186,16 @@ void ocf_async_read_lock(ocf_async_lock_waiter_t waiter)
 	waiter->write_lock = false;
 	list_add_tail(&waiter->list, &lock->waiters);
 
-	env_mutex_unlock(&lock->mutex);
+	env_spinlock_unlock(&lock->waiters_lock);
 }
 
 int ocf_async_read_trylock(struct ocf_async_lock *lock)
 {
 	int result;
 
-	env_mutex_lock(&lock->mutex);
+	env_spinlock_lock(&lock->waiters_lock);
 	result = _ocf_async_read_trylock(lock);
-	env_mutex_unlock(&lock->mutex);
+	env_spinlock_unlock(&lock->waiters_lock);
 
 	return result;
 }
@@ -211,19 +206,19 @@ void ocf_async_read_unlock(struct ocf_async_lock *lock)
 
 	INIT_LIST_HEAD(&waiters);
 
-	env_mutex_lock(&lock->mutex);
+	env_spinlock_lock(&lock->waiters_lock);
 
 	ENV_BUG_ON(!lock->rd);
 	ENV_BUG_ON(lock->wr);
 
 	if (--lock->rd) {
-		env_mutex_unlock(&lock->mutex);
+		env_spinlock_unlock(&lock->waiters_lock);
 		return;
 	}
 
 	_ocf_async_lock_collect_waiters(lock, &waiters);
 
-	env_mutex_unlock(&lock->mutex);
+	env_spinlock_unlock(&lock->waiters_lock);
 
 	_ocf_async_lock_run_waiters(lock, &waiters, 0);
 }
@@ -232,9 +227,9 @@ bool ocf_async_is_locked(struct ocf_async_lock *lock)
 {
 	bool locked;
 
-	env_mutex_lock(&lock->mutex);
+	env_spinlock_lock(&lock->waiters_lock);
 	locked = lock->rd || lock->wr;
-	env_mutex_unlock(&lock->mutex);
+	env_spinlock_unlock(&lock->waiters_lock);
 
 	return locked;
 }
