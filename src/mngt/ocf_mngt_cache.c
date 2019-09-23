@@ -60,6 +60,9 @@ struct ocf_cache_mngt_init_params {
 		bool metadata_inited : 1;
 			/*!< Metadata is inited to valid state */
 
+		bool added_to_list : 1;
+			/*!< Cache is added to context list */
+
 		bool cache_locked : 1;
 			/*!< Cache has been locked */
 	} flags;
@@ -547,32 +550,28 @@ static void _ocf_mngt_init_instance_load(
 static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 {
 	ocf_cache_t cache = env_vzalloc(sizeof(*cache));
+	int result;
 
 	if (!cache)
 		return -OCF_ERR_NO_MEM;
 
 	if (ocf_mngt_cache_lock_init(cache)) {
-		env_vfree(cache);
-		return -OCF_ERR_NO_MEM;
+		result = -OCF_ERR_NO_MEM;
+		goto alloc_err;
 	}
 
 	/* Lock cache during setup - this trylock should always succeed */
 	ENV_BUG_ON(ocf_mngt_cache_trylock(cache));
 
 	if (env_mutex_init(&cache->flush_mutex)) {
-		env_vfree(cache);
-		return -OCF_ERR_NO_MEM;
+		result = -OCF_ERR_NO_MEM;
+		goto lock_err;
 	}
 
 	if (!ocf_refcnt_inc(&cache->refcnt.cache)){
-		env_mutex_destroy(&cache->flush_mutex);
-		env_vfree(cache);
-		return -OCF_ERR_START_CACHE_FAIL;
+		result = -OCF_ERR_START_CACHE_FAIL;
+		goto flush_mutex_err;
 	}
-
-	INIT_LIST_HEAD(&cache->list);
-	list_add_tail(&cache->list, &params->ctx->caches);
-	cache->owner = params->ctx;
 
 	/* start with freezed metadata ref counter to indicate detached device*/
 	ocf_refcnt_freeze(&cache->refcnt.metadata);
@@ -586,6 +585,15 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 	params->flags.cache_alloc = true;
 
 	return 0;
+
+flush_mutex_err:
+	env_mutex_destroy(&cache->flush_mutex);
+lock_err:
+	ocf_mngt_cache_lock_deinit(cache);
+alloc_err:
+	env_vfree(cache);
+
+	return result;
 }
 
 static void _ocf_mngt_attach_cache_device(ocf_pipeline_t pipeline,
@@ -653,10 +661,6 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 	ocf_cache_t cache;
 	int ret = 0;
 
-	ret = env_rmutex_lock_interruptible(&param->ctx->lock);
-	if (ret)
-		return ret;
-
 	/* Check if cache with specified name exists */
 	ret = ocf_mngt_cache_get_by_name(param->ctx, cfg->name, &cache);
 	if (!ret) {
@@ -686,7 +690,6 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 	cache->metadata.is_volatile = cfg->metadata_volatile;
 
 out:
-	env_rmutex_unlock(&param->ctx->lock);
 	return ret;
 }
 
@@ -1125,6 +1128,9 @@ static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
 	if (params->flags.metadata_inited)
 		ocf_metadata_deinit(cache);
 
+	if (!params->flags.added_to_list)
+		return;
+
 	env_rmutex_lock(&ctx->lock);
 
 	list_del(&cache->list);
@@ -1201,10 +1207,16 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	params.metadata.promotion_policy = cfg->promotion_policy;
 	params.locked = cfg->locked;
 
-	/* Prepare cache */
-	result = _ocf_mngt_init_prepare_cache(&params, cfg);
+	result = env_rmutex_lock_interruptible(&ctx->lock);
 	if (result)
 		goto _cache_mngt_init_instance_ERROR;
+
+	/* Prepare cache */
+	result = _ocf_mngt_init_prepare_cache(&params, cfg);
+	if (result) {
+		env_rmutex_unlock(&ctx->lock);
+		goto _cache_mngt_init_instance_ERROR;
+	}
 
 	tmp_cache = params.cache;
 
@@ -1213,15 +1225,23 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	 */
 	result = ocf_metadata_init(tmp_cache, params.metadata.line_size);
 	if (result) {
+		env_rmutex_unlock(&ctx->lock);
 		result =  -OCF_ERR_START_CACHE_FAIL;
 		goto _cache_mngt_init_instance_ERROR;
 	}
-
 	params.flags.metadata_inited = true;
 
+	tmp_cache->owner = ctx;
+
 	result = ocf_cache_set_name(tmp_cache, cfg->name, OCF_CACHE_NAME_SIZE);
-	if (result)
+	if (result) {
+		env_rmutex_unlock(&ctx->lock);
 		goto _cache_mngt_init_instance_ERROR;
+	}
+
+	list_add_tail(&tmp_cache->list, &ctx->caches);
+	params.flags.added_to_list = true;
+	env_rmutex_unlock(&ctx->lock);
 
 	result = ocf_metadata_io_init(tmp_cache);
 	if (result)
