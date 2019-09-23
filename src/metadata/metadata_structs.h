@@ -441,6 +441,7 @@ struct ocf_metadata_lock
 	env_spinlock eviction; /*!< Fast lock for eviction policy */
 	env_rwsem *hash; /*!< Hash bucket locks */
 	env_rwsem *collision_pages; /*!< Collision table page locks */
+	env_spinlock partition[OCF_IO_CLASS_MAX]; /* partition lock */
 	uint32_t num_hash_entries;  /*!< Hash bucket count */
 	uint32_t num_collision_pages; /*!< Collision table page count */
 	ocf_cache_t cache;  /*!< Parent cache object */

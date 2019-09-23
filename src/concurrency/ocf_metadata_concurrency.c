@@ -8,13 +8,25 @@
 
 void ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 {
+	unsigned i;
+
 	env_spinlock_init(&metadata_lock->eviction);
 	env_rwlock_init(&metadata_lock->status);
 	env_rwsem_init(&metadata_lock->global);
+
+	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+		env_spinlock_init(&metadata_lock->partition[i]);
+	}
 }
 
 void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock)
 {
+	unsigned i;
+
+	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+		env_spinlock_destroy(&metadata_lock->partition[i]);
+	}
+
 	env_spinlock_destroy(&metadata_lock->eviction);
 	env_rwlock_destroy(&metadata_lock->status);
 	env_rwsem_destroy(&metadata_lock->global);

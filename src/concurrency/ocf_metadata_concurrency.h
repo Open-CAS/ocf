@@ -33,6 +33,20 @@ static inline void ocf_metadata_eviction_unlock(
 	env_spinlock_unlock(&metadata_lock->eviction);
 }
 
+static inline void ocf_metadata_partition_lock(
+		struct ocf_metadata_lock *metadata_lock,
+		ocf_part_id_t part_id)
+{
+	env_spinlock_lock(&metadata_lock->partition[part_id]);
+}
+
+static inline void ocf_metadata_partition_unlock(
+		struct ocf_metadata_lock *metadata_lock,
+		ocf_part_id_t part_id)
+{
+	env_spinlock_unlock(&metadata_lock->partition[part_id]);
+}
+
 #define OCF_METADATA_EVICTION_LOCK() \
 		ocf_metadata_eviction_lock(&cache->metadata.lock)
 
