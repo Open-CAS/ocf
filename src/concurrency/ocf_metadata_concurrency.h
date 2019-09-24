@@ -16,7 +16,7 @@ void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock);
 
 int ocf_metadata_concurrency_attached_init(
 		struct ocf_metadata_lock *metadata_lock, ocf_cache_t cache,
-		uint64_t hash_table_entries, uint32_t colision_table_pages);
+		uint32_t hash_table_entries, uint32_t colision_table_pages);
 
 void ocf_metadata_concurrency_attached_deinit(
 		struct ocf_metadata_lock *metadata_lock);

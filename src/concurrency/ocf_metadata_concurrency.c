@@ -34,9 +34,9 @@ void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock)
 
 int ocf_metadata_concurrency_attached_init(
 		struct ocf_metadata_lock *metadata_lock, ocf_cache_t cache,
-		uint64_t hash_table_entries, uint32_t colision_table_pages)
+		uint32_t hash_table_entries, uint32_t colision_table_pages)
 {
-	uint64_t i;
+	uint32_t i;
 	int err = 0;
 
 	metadata_lock->hash = env_vzalloc(sizeof(env_rwsem) *
@@ -79,7 +79,7 @@ int ocf_metadata_concurrency_attached_init(
 void ocf_metadata_concurrency_attached_deinit(
 		struct ocf_metadata_lock *metadata_lock)
 {
-	uint64_t i;
+	uint32_t i;
 
 	if (metadata_lock->hash) {
 		for (i = 0; i < metadata_lock->num_hash_entries; i++)
