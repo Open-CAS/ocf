@@ -52,14 +52,26 @@ int ocf_metadata_concurrency_attached_init(
 		return -OCF_ERR_NO_MEM;
 	}
 
-	for (i = 0; i < hash_table_entries; i++)
-		env_rwsem_init(&metadata_lock->hash[i]);
+	for (i = 0; i < hash_table_entries; i++) {
+		err = env_rwsem_init(&metadata_lock->hash[i]);
+		if (err)
+			 break;
+	}
+	if (err) {
+		while (i--)
+			env_rwsem_destroy(&metadata_lock->hash[i]);
+		env_vfree(metadata_lock->hash);
+		metadata_lock->hash = NULL;
+		ocf_metadata_concurrency_attached_deinit(metadata_lock);
+		return err;
+	}
+
+
 	for (i = 0; i < colision_table_pages; i++) {
 		err = env_rwsem_init(&metadata_lock->collision_pages[i]);
 		if (err)
 			break;
 	}
-
 	if (err) {
 		while (i--)
 			env_rwsem_destroy(&metadata_lock->collision_pages[i]);
