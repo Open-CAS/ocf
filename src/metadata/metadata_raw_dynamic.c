@@ -141,6 +141,8 @@ int raw_dynamic_deinit(ocf_cache_t cache,
  * RAM DYNAMIC Implementation - Initialize
  */
 int raw_dynamic_init(ocf_cache_t cache,
+		ocf_flush_page_synch_t lock_page_pfn,
+		ocf_flush_page_synch_t unlock_page_pfn,
 		struct ocf_metadata_raw *raw)
 {
 	struct _raw_ctrl *ctrl;
@@ -163,6 +165,9 @@ int raw_dynamic_init(ocf_cache_t cache,
 	}
 
 	raw->priv = ctrl;
+
+	raw->lock_page = lock_page_pfn;
+	raw->unlock_page = unlock_page_pfn;
 
 	return 0;
 }
@@ -504,8 +509,12 @@ static int raw_dynamic_flush_all_fill(ocf_cache_t cache,
 
 	if (ctrl->pages[raw_page]) {
 		OCF_DEBUG_PARAM(cache, "Page = %u", raw_page);
+		if (raw->lock_page)
+			raw->lock_page(cache, raw, raw_page);
 		ctx_data_wr_check(cache->owner, data, ctrl->pages[raw_page],
 				PAGE_SIZE);
+		if (raw->unlock_page)
+			raw->unlock_page(cache, raw, raw_page);
 	} else {
 		OCF_DEBUG_PARAM(cache, "Zero fill, Page = %u", raw_page);
 		/* Page was not allocated before set only zeros */

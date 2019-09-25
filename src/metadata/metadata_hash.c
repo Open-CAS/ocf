@@ -542,7 +542,8 @@ int ocf_metadata_hash_init(struct ocf_cache *cache,
 	metadata->iface_priv = ctrl;
 
 	for (i = 0; i < metadata_segment_fixed_size_max; i++) {
-		result |= ocf_metadata_raw_init(cache, &(ctrl->raw_desc[i]));
+		result |= ocf_metadata_raw_init(cache, NULL, NULL,
+				&(ctrl->raw_desc[i]));
 		if (result)
 			break;
 	}
@@ -880,6 +881,23 @@ exit:
 	ocf_metadata_query_cores_end(context, err);
 }
 
+static void ocf_metadata_hash_flush_lock_collision_page(struct ocf_cache *cache,
+		struct ocf_metadata_raw *raw, uint32_t page)
+
+{
+	ocf_collision_start_exclusive_access(&cache->metadata.lock,
+			page);
+}
+
+static void ocf_metadata_hash_flush_unlock_collision_page(
+		struct ocf_cache *cache, struct ocf_metadata_raw *raw,
+		uint32_t page)
+
+{
+	ocf_collision_end_exclusive_access(&cache->metadata.lock,
+			page);
+}
+
 /*
  * Initialize hash metadata interface
  */
@@ -893,6 +911,7 @@ static int ocf_metadata_hash_init_variable_size(struct ocf_cache *cache,
 	struct ocf_metadata_hash_ctrl *ctrl = NULL;
 	struct ocf_cache_line_settings *settings =
 		(struct ocf_cache_line_settings *)&cache->metadata.settings;
+	ocf_flush_page_synch_t lock_page, unlock_page;
 
 	OCF_DEBUG_TRACE(cache);
 
@@ -949,7 +968,17 @@ static int ocf_metadata_hash_init_variable_size(struct ocf_cache *cache,
 	 */
 	for (i = metadata_segment_variable_size_start;
 			i < metadata_segment_max; i++) {
-		result |= ocf_metadata_raw_init(cache, &(ctrl->raw_desc[i]));
+		if (i == metadata_segment_collision) {
+			lock_page =
+				ocf_metadata_hash_flush_lock_collision_page;
+			unlock_page =
+				ocf_metadata_hash_flush_unlock_collision_page;
+		} else {
+			lock_page = unlock_page = NULL;
+		}
+
+		result |= ocf_metadata_raw_init(cache, lock_page, unlock_page,
+				&(ctrl->raw_desc[i]));
 
 		if (result)
 			goto finalize;

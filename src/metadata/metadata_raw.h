@@ -42,6 +42,14 @@ enum ocf_metadata_raw_type {
 	metadata_raw_type_min = metadata_raw_type_ram /*!<  MAX */
 };
 
+struct ocf_metadata_raw;
+
+/**
+ * @brief Container page lock/unlock callback
+ */
+typedef void (*ocf_flush_page_synch_t)(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, uint32_t page);
+
 /**
  * @brief RAW instance descriptor
  */
@@ -75,6 +83,9 @@ struct ocf_metadata_raw {
 	size_t mem_pool_limit; /*! Current memory pool size (limit) */
 
 	void *priv; /*!< Private data - context */
+
+	ocf_flush_page_synch_t lock_page; /*!< Page lock callback */
+	ocf_flush_page_synch_t unlock_page; /*!< Page unlock callback */
 };
 
 /**
@@ -82,6 +93,8 @@ struct ocf_metadata_raw {
  */
 struct raw_iface {
 	int (*init)(ocf_cache_t cache,
+			ocf_flush_page_synch_t lock_page_pfn,
+			ocf_flush_page_synch_t unlock_page_pfn,
 			struct ocf_metadata_raw *raw);
 
 	int (*deinit)(ocf_cache_t cache,
@@ -131,10 +144,14 @@ struct raw_iface {
  * @brief Initialize RAW instance
  *
  * @param cache - Cache instance
+ * @param lock_page_pfn - Optional page lock callback
+ * @param lock_page_pfn - Optional page unlock callback
  * @param raw - RAW descriptor
  * @return 0 - Operation success, otherwise error
  */
 int ocf_metadata_raw_init(ocf_cache_t cache,
+		ocf_flush_page_synch_t lock_page_pfn,
+		ocf_flush_page_synch_t unlock_page_pfn,
 		struct ocf_metadata_raw *raw);
 
 /**

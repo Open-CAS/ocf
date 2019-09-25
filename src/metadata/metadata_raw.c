@@ -90,7 +90,9 @@ static int _raw_ram_deinit(ocf_cache_t cache,
  * RAM Implementation - Initialize
  */
 static int _raw_ram_init(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw)
+	ocf_flush_page_synch_t lock_page_pfn,
+	ocf_flush_page_synch_t unlock_page_pfn,
+	struct ocf_metadata_raw *raw)
 {
 	size_t mem_pool_size;
 
@@ -104,6 +106,9 @@ static int _raw_ram_init(ocf_cache_t cache,
 	if (!raw->mem_pool)
 		return -OCF_ERR_NO_MEM;
 	ENV_BUG_ON(env_memset(raw->mem_pool, mem_pool_size, 0));
+
+	raw->lock_page = lock_page_pfn;
+	raw->unlock_page = unlock_page_pfn;
 
 	return 0;
 }
@@ -286,7 +291,12 @@ static int _raw_ram_flush_all_fill(ocf_cache_t cache,
 
 	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
 
+	if (raw->lock_page)
+		raw->lock_page(cache, raw, raw_page);
 	ctx_data_wr_check(cache->owner, data, _RAW_RAM_ADDR(raw, line), size);
+	if (raw->unlock_page)
+		raw->unlock_page(cache, raw, raw_page);
+
 	ctx_data_zero_check(cache->owner, data, PAGE_SIZE - size);
 
 	return 0;
@@ -398,7 +408,12 @@ static int _raw_ram_flush_do_asynch_fill(ocf_cache_t cache,
 
 	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
 
+	if (raw->lock_page)
+		raw->lock_page(cache, raw, raw_page);
 	ctx_data_wr_check(cache->owner, data, _RAW_RAM_ADDR(raw, line), size);
+	if (raw->unlock_page)
+		raw->unlock_page(cache, raw, raw_page);
+
 	ctx_data_zero_check(cache->owner, data, PAGE_SIZE - size);
 
 	return 0;
@@ -612,13 +627,15 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
  ******************************************************************************/
 
 int ocf_metadata_raw_init(ocf_cache_t cache,
+		ocf_flush_page_synch_t lock_page_pfn,
+		ocf_flush_page_synch_t unlock_page_pfn,
 		struct ocf_metadata_raw *raw)
 {
 	ENV_BUG_ON(raw->raw_type < metadata_raw_type_min);
 	ENV_BUG_ON(raw->raw_type >= metadata_raw_type_max);
 
 	raw->iface = &(IRAW[raw->raw_type]);
-	return raw->iface->init(cache, raw);
+	return raw->iface->init(cache, lock_page_pfn, unlock_page_pfn, raw);
 }
 
 int ocf_metadata_raw_deinit(ocf_cache_t cache,

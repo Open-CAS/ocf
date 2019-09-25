@@ -15,6 +15,8 @@
  * RAW DYNAMIC - Initialize
  */
 int raw_dynamic_init(ocf_cache_t cache,
+		ocf_flush_page_synch_t lock_page_pfn,
+		ocf_flush_page_synch_t unlock_page_pfn,
 		struct ocf_metadata_raw *raw);
 
 /*
