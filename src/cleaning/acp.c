@@ -636,6 +636,8 @@ void cleaning_policy_acp_purge_block(struct ocf_cache *cache,
 	struct acp_cleaning_policy_meta *acp_meta;
 	struct acp_chunk_info *chunk;
 
+	ACP_LOCK_CHUNKS_WR();
+
 	acp_meta = _acp_meta_get(cache, cache_line, &policy_meta);
 	chunk = _acp_get_chunk(cache, cache_line);
 
@@ -646,6 +648,8 @@ void cleaning_policy_acp_purge_block(struct ocf_cache *cache,
 	}
 
 	_acp_update_bucket(acp, chunk);
+
+	ACP_UNLOCK_CHUNKS_WR();
 }
 
 int cleaning_policy_acp_purge_range(struct ocf_cache *cache,

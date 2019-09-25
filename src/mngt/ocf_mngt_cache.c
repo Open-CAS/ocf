@@ -976,15 +976,7 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 			cache->conf_meta->metadata_layout)) {
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
 	}
-
 	context->flags.attached_metadata_inited = true;
-
-	if (ocf_metadata_concurrency_attached_init(&cache->metadata.lock,
-			cache, cache->device->hash_table_entries)) {
-		ocf_cache_log(cache, log_err, "Failed to initialize attached "
-				"metadata concurrency\n");
-		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
-	}
 
 	cache->freelist = ocf_freelist_init(cache);
 	if (!cache->freelist)
@@ -1728,7 +1720,6 @@ static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
 
 	ocf_volume_close(&cache->device->volume);
 
-	ocf_metadata_concurrency_attached_deinit(&cache->metadata.lock);
 	ocf_metadata_deinit_variable_size(cache);
 	ocf_concurrency_deinit(cache);
 	ocf_freelist_deinit(cache->freelist);

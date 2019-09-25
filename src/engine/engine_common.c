@@ -260,8 +260,10 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 	ocf_metadata_add_to_partition(cache, part_id, *cache_line);
 
 	/* Add the block to the corresponding collision list */
+	ocf_metadata_start_collision_shared_access(cache, *cache_line);
 	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,
 			*cache_line);
+	ocf_metadata_end_collision_shared_access(cache, *cache_line);
 
 	ocf_eviction_init_cache_line(cache, *cache_line, part_id);
 
@@ -295,9 +297,17 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 		case LOOKUP_MAPPED:
 			OCF_DEBUG_RQ(req, "Canceling cache line %u",
 					entry->coll_idx);
+
+			ocf_metadata_start_collision_shared_access(cache,
+					entry->coll_idx);
+
 			set_cache_line_invalid_no_flush(cache, 0,
 					ocf_line_end_sector(cache),
 					entry->coll_idx);
+
+			ocf_metadata_end_collision_shared_access(cache,
+					entry->coll_idx);
+
 			break;
 
 		default:

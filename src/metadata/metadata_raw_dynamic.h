@@ -15,6 +15,8 @@
  * RAW DYNAMIC - Initialize
  */
 int raw_dynamic_init(ocf_cache_t cache,
+		ocf_flush_page_synch_t lock_page_pfn,
+		ocf_flush_page_synch_t unlock_page_pfn,
 		struct ocf_metadata_raw *raw);
 
 /*
@@ -39,6 +41,11 @@ uint32_t raw_dynamic_size_on_ssd(struct ocf_metadata_raw *raw);
  */
 uint32_t raw_dynamic_checksum(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw);
+
+/*
+ * RAM DYNAMIC Implementation - Entry page number
+ */
+uint32_t raw_dynamic_page(struct ocf_metadata_raw *raw, uint32_t entry);
 
 /*
  * RAW DYNAMIC - Get specified entry

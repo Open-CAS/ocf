@@ -105,4 +105,16 @@ void ocf_metadata_add_to_collision(struct ocf_cache *cache,
 void ocf_metadata_remove_from_collision(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_part_id_t part_id);
 
+static inline void ocf_metadata_start_collision_shared_access(
+		struct ocf_cache *cache, ocf_cache_line_t line)
+{
+	cache->metadata.iface.start_collision_shared_access(cache, line);
+}
+
+static inline void ocf_metadata_end_collision_shared_access(
+		struct ocf_cache *cache, ocf_cache_line_t line)
+{
+	cache->metadata.iface.end_collision_shared_access(cache, line);
+}
+
 #endif /* METADATA_COLLISION_H_ */

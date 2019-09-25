@@ -432,8 +432,12 @@ uint32_t evp_lru_req_clines(ocf_cache_t cache, ocf_queue_t io_queue,
 			evp_lru_zero_line(cache, io_queue, curr_cline);
 
 		} else {
+			ocf_metadata_start_collision_shared_access(cache,
+					curr_cline);
 			set_cache_line_invalid_no_flush(cache, 0,
 					ocf_line_end_sector(cache),
+					curr_cline);
+			ocf_metadata_end_collision_shared_access(cache,
 					curr_cline);
 
 			/* Goto next item. */

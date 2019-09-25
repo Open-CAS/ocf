@@ -26,6 +26,8 @@ void ocf_metadata_add_to_partition(struct ocf_cache *cache,
 
 	ENV_BUG_ON(!(line < line_entries));
 
+	ocf_metadata_partition_lock(&cache->metadata.lock, part_id);
+
 	/* First node to be added/ */
 	if (!part->runtime->curr_size) {
 
@@ -55,6 +57,8 @@ void ocf_metadata_add_to_partition(struct ocf_cache *cache,
 	}
 
 	part->runtime->curr_size++;
+
+	ocf_metadata_partition_unlock(&cache->metadata.lock, part_id);
 }
 
 /* Deletes the node with the given collision_index from the Partition list */
@@ -67,6 +71,8 @@ void ocf_metadata_remove_from_partition(struct ocf_cache *cache,
 	struct ocf_user_part *part = &cache->user_parts[part_id];
 
 	ENV_BUG_ON(!(line < line_entries));
+
+	ocf_metadata_partition_lock(&cache->metadata.lock, part_id);
 
 	/* Get Partition info */
 	ocf_metadata_get_partition_info(cache, line, NULL,
@@ -131,4 +137,6 @@ void ocf_metadata_remove_from_partition(struct ocf_cache *cache,
 	}
 
 	part->runtime->curr_size--;
+
+	ocf_metadata_partition_unlock(&cache->metadata.lock, part_id);
 }
