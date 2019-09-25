@@ -108,18 +108,6 @@ struct ocf_cache_info {
 ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache);
 
 /**
- * @brief Set name of given cache object
- *
- * @param[in] cache Cache object
- * @param[in] src Source of Cache name
- * @param[in] src_size Size of src
- *
- * @retval 0 Success
- * @retval Non-zero Fail
- */
-int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size);
-
-/**
  * @brief Get name of given cache object
  *
  * @param[in] cache Cache object
