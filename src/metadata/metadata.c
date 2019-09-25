@@ -290,6 +290,7 @@ static void ocf_metadata_load_properties_cmpl(
 	properties.cache_mode = superblock->cache_mode;
 	properties.shutdown_status = superblock->clean_shutdown;
 	properties.dirty_flushed = superblock->dirty_flushed;
+	properties.cache_name = superblock->name;
 
 	OCF_CMPL_RET(priv, 0, &properties);
 }
@@ -329,6 +330,8 @@ static void ocf_metadata_probe_cmpl(struct ocf_metadata_read_sb_ctx *context)
 	status.clean_shutdown = (superblock->clean_shutdown !=
 			ocf_metadata_dirty_shutdown);
 	status.cache_dirty = (superblock->dirty_flushed == DIRTY_NOT_FLUSHED);
+	env_strncpy(status.cache_name, OCF_CACHE_NAME_SIZE, superblock->name,
+			OCF_CACHE_NAME_SIZE);
 
 	OCF_CMPL_RET(priv, 0, &status);
 }

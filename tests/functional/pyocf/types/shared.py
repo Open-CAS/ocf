@@ -46,6 +46,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_CORE_IN_INACTIVE_STATE = auto()
     OCF_ERR_INVALID_CACHE_MODE = auto()
     OCF_ERR_INVALID_CACHE_LINE_SIZE = auto()
+    OCF_ERR_CACHE_NAME_MISMATCH = auto()
 
 
 class OcfCompletion:
