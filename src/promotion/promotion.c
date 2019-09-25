@@ -68,6 +68,12 @@ ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
 
 	prev_policy = cache->conf_meta->promotion_policy_type;
 
+	if (type == prev_policy) {
+		ocf_cache_log(cache, log_info, "Promotion policy '%s' is already set\n",
+			      ocf_promotion_policies[type].name);
+		return 0;
+	}
+
 	if (ocf_promotion_policies[prev_policy].deinit)
 		ocf_promotion_policies[prev_policy].deinit(policy);
 
