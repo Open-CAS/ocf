@@ -117,8 +117,8 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 		return -OCF_ERR_INVAL;
 	}
 
-	if (!name || !name[0])
-		return -OCF_ERR_IO_CLASS_NOT_EXIST;
+	if (!name[0])
+		return -OCF_ERR_INVAL;
 
 	if (part_id == PARTITION_DEFAULT) {
 		/* Special behavior for default partition */
@@ -175,12 +175,11 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 	return result;
 }
 
-static int _ocf_mngt_io_class_remove(ocf_cache_t cache,
+static void _ocf_mngt_io_class_remove(ocf_cache_t cache,
 		const struct ocf_mngt_io_class_config *cfg)
 {
 	struct ocf_user_part *dest_part;
 	ocf_part_id_t part_id = cfg->class_id;
-	int result;
 
 	dest_part = &cache->user_parts[part_id];
 
@@ -190,37 +189,30 @@ static int _ocf_mngt_io_class_remove(ocf_cache_t cache,
 		ocf_cache_log(cache, log_info,
 				"Cannot remove unclassified IO class, "
 				"id: %u [ ERROR ]\n", part_id);
-		return 0;
+		return;
 	}
 
-	if (ocf_part_is_valid(dest_part)) {
-
-		result = 0;
-
-		ocf_part_set_valid(cache, part_id, false);
-
-		ocf_cache_log(cache, log_info,
-				"Removing IO class, id: %u [ %s ]\n",
-				part_id, result ? "ERROR" : "OK");
-
-	} else {
+	if (!ocf_part_is_valid(dest_part)) {
 		/* Does not exist */
-		result = -OCF_ERR_IO_CLASS_NOT_EXIST;
+		return;
 	}
 
-	return result;
+
+	ocf_part_set_valid(cache, part_id, false);
+
+	ocf_cache_log(cache, log_info,
+			"Removing IO class, id: %u [ OK ]\n", part_id);
 }
 
 static int _ocf_mngt_io_class_edit(ocf_cache_t cache,
 		const struct ocf_mngt_io_class_config *cfg)
 {
-	int result;
+	int result = 0;
 
-	if (cfg->name) {
+	if (cfg->name)
 		result = _ocf_mngt_io_class_configure(cache, cfg);
-	} else {
-		result = _ocf_mngt_io_class_remove(cache, cfg);
-	}
+	else
+		_ocf_mngt_io_class_remove(cache, cfg);
 
 	return result;
 }
@@ -284,7 +276,7 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
 		result = _ocf_mngt_io_class_edit(cache, &cfg->config[i]);
-		if (result && result != -OCF_ERR_IO_CLASS_NOT_EXIST) {
+		if (result) {
 			ocf_cache_log(cache, log_err,
 					"Failed to set new io class config\n");
 			goto out_edit;
