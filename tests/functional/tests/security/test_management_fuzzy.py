@@ -10,7 +10,7 @@ from pyocf.types.cache import Cache, CacheMode, CleaningPolicy,\
 from pyocf.types.core import Core
 from pyocf.types.volume import Volume
 from pyocf.utils import Size as S
-from tests.utils import generate_random_numbers
+from tests.utils.random import RandomGenerator, DefaultRanges
 from pyocf.types.shared import OcfError, CacheLineSize, SeqCutOffPolicy
 from ctypes import (
     c_uint64,
@@ -36,7 +36,7 @@ def test_neg_change_cache_mode(pyocf_ctx, cm, cls):
     )
 
     # Change cache mode to invalid one and check if failed
-    for i in generate_random_numbers(c_uint32):
+    for i in RandomGenerator(DefaultRanges.UINT32):
         if i in [item.value for item in CacheMode]:
             continue
         with pytest.raises(OcfError, match="Error changing cache mode"):
@@ -61,7 +61,7 @@ def test_neg_set_cleaning_policy(pyocf_ctx, cm, cls):
     )
 
     # Set cleaning policy to invalid one and check if failed
-    for i in generate_random_numbers(c_uint32):
+    for i in RandomGenerator(DefaultRanges.UINT32):
         if i in [item.value for item in CleaningPolicy]:
             continue
         with pytest.raises(OcfError, match="Error changing cleaning policy"):
@@ -86,7 +86,7 @@ def test_neg_attach_cls(pyocf_ctx, cm, cls):
     cache.start_cache()
 
     # Check whether it is possible to attach cache device with invalid cache line size
-    for i in generate_random_numbers(c_uint64):
+    for i in RandomGenerator(DefaultRanges.UINT64):
         if i in [item.value for item in CacheLineSize]:
             continue
         with pytest.raises(OcfError, match="Attaching cache device failed"):
@@ -121,7 +121,7 @@ def test_neg_cache_set_seq_cut_off_policy(pyocf_ctx, cm, cls):
     cache.add_core(core2)
 
     # Change cache seq cut off policy to invalid one and check if failed
-    for i in generate_random_numbers(c_uint32):
+    for i in RandomGenerator(DefaultRanges.UINT32):
         if i in [item.value for item in SeqCutOffPolicy]:
             continue
         with pytest.raises(OcfError, match="Error setting cache seq cut off policy"):
@@ -153,7 +153,7 @@ def test_neg_core_set_seq_cut_off_policy(pyocf_ctx, cm, cls):
     cache.add_core(core)
 
     # Change core seq cut off policy to invalid one and check if failed
-    for i in generate_random_numbers(c_uint32):
+    for i in RandomGenerator(DefaultRanges.UINT32):
         if i in [item.value for item in SeqCutOffPolicy]:
             continue
         with pytest.raises(OcfError, match="Error setting core seq cut off policy"):
@@ -178,7 +178,7 @@ def test_neg_set_alru_param(pyocf_ctx, cm, cls):
     )
 
     # Change invalid alru param and check if failed
-    for i in generate_random_numbers(c_uint32):
+    for i in RandomGenerator(DefaultRanges.UINT32):
         if i in [item.value for item in AlruParams]:
             continue
         with pytest.raises(OcfError, match="Error setting cleaning policy param"):
@@ -203,7 +203,7 @@ def test_neg_set_acp_param(pyocf_ctx, cm, cls):
     )
 
     # Change invalid acp param and check if failed
-    for i in generate_random_numbers(c_uint32):
+    for i in RandomGenerator(DefaultRanges.UINT32):
         if i in [item.value for item in AcpParams]:
             continue
         with pytest.raises(OcfError, match="Error setting cleaning policy param"):
@@ -228,7 +228,7 @@ def test_neg_set_promotion_policy(pyocf_ctx, cm, cls):
     )
 
     # Change to invalid promotion policy and check if failed
-    for i in generate_random_numbers(c_uint32):
+    for i in RandomGenerator(DefaultRanges.UINT32):
         if i in [item.value for item in PromotionPolicy]:
             continue
         with pytest.raises(OcfError, match="Error setting promotion policy"):
@@ -253,7 +253,7 @@ def test_neg_set_nhit_promotion_policy_param(pyocf_ctx, cm, cls):
     )
 
     # Set invalid promotion policy param id and check if failed
-    for i in generate_random_numbers(c_uint8):
+    for i in RandomGenerator(DefaultRanges.UINT8):
         if i in [item.value for item in NhitParams]:
             continue
         with pytest.raises(OcfError, match="Error setting promotion policy parameter"):
@@ -279,7 +279,7 @@ def test_neg_set_nhit_promotion_policy_param_trigger(pyocf_ctx, cm, cls):
     )
 
     # Set to invalid promotion policy trigger threshold and check if failed
-    for i in generate_random_numbers(c_uint32):
+    for i in RandomGenerator(DefaultRanges.UINT32):
         if i in ConfValidValues.promotion_nhit_trigger_threshold_range:
             continue
         with pytest.raises(OcfError, match="Error setting promotion policy parameter"):
@@ -305,7 +305,7 @@ def test_neg_set_nhit_promotion_policy_param_threshold(pyocf_ctx, cm, cls):
     )
 
     # Set to invalid promotion policy insertion threshold and check if failed
-    for i in generate_random_numbers(c_uint32):
+    for i in RandomGenerator(DefaultRanges.UINT32):
         if i in ConfValidValues.promotion_nhit_insertion_threshold_range:
             continue
         with pytest.raises(OcfError, match="Error setting promotion policy parameter"):
