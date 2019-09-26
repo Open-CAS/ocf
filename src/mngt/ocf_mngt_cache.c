@@ -1225,7 +1225,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	tmp_cache->owner = ctx;
 
-	result = ocf_cache_set_name(tmp_cache, cfg->name, OCF_CACHE_NAME_SIZE);
+	result = ocf_cache_set_name(tmp_cache, cfg->name, cfg->name_len);
 	if (result) {
 		env_rmutex_unlock(&ctx->lock);
 		goto _cache_mngt_init_instance_ERROR;

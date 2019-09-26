@@ -91,7 +91,8 @@ static void simple_complete(ocf_cache_t cache, void *priv, int error)
  */
 int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 {
-	struct ocf_mngt_cache_config cache_cfg = { .name = "cache1" };
+	struct ocf_mngt_cache_config cache_cfg = { .name = "cache1",
+						   .name_len = sizeof("cache1") };
 	struct ocf_mngt_cache_device_config device_cfg = { };
 	struct cache_priv *cache_priv;
 	struct simple_context context;
@@ -208,6 +209,7 @@ int initialize_core(ocf_cache_t cache, ocf_core_t *core)
 	/* Core configuration */
 	ocf_mngt_core_config_set_default(&core_cfg);
 	core_cfg.name = "core1";
+	core_cfg.name_len = sizeof("core1");
 	core_cfg.volume_type = VOL_TYPE;
 	ret = ocf_uuid_set_str(&core_cfg.uuid, "core");
 	if (ret)

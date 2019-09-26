@@ -542,7 +542,7 @@ void ocf_mngt_cache_add_core(ocf_cache_t cache,
 	}
 
 	result = env_strncpy(name, OCF_CORE_NAME_SIZE,
-			cfg->name, OCF_CORE_NAME_SIZE);
+			cfg->name, cfg->name_len);
 	if (result)
 		goto err_name;
 
