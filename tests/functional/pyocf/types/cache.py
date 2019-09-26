@@ -13,6 +13,7 @@ from ctypes import (
     c_void_p,
     c_bool,
     c_uint8,
+    c_size_t,
     Structure,
     byref,
     cast,
@@ -45,6 +46,7 @@ class CacheConfig(Structure):
     MAX_CACHE_NAME_SIZE = 32
     _fields_ = [
         ("_name", c_char * MAX_CACHE_NAME_SIZE),
+        ("_name_len", c_size_t),
         ("_cache_mode", c_uint32),
         ("_eviction_policy", c_uint32),
         ("_promotion_policy", c_uint32),
@@ -145,6 +147,7 @@ class Cache:
         self,
         owner,
         name: str = "cache",
+        name_len: int = len("cache") + 1,
         cache_mode: CacheMode = CacheMode.DEFAULT,
         eviction_policy: EvictionPolicy = EvictionPolicy.DEFAULT,
         promotion_policy: PromotionPolicy = PromotionPolicy.DEFAULT,
@@ -164,6 +167,7 @@ class Cache:
 
         self.cfg = CacheConfig(
             _name=name.encode("ascii"),
+            _name_len=len(name) + 1,
             _cache_mode=cache_mode,
             _eviction_policy=eviction_policy,
             _promotion_policy=promotion_policy,

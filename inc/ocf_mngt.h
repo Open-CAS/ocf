@@ -25,6 +25,11 @@ struct ocf_mngt_core_config {
 	const char *name;
 
 	/**
+	 * @brief The maximum number of characters to copy from core name
+	 */
+	size_t name_len;
+
+	/**
 	 * @brief OCF core volume UUID
 	 */
 	struct ocf_volume_uuid uuid;
@@ -236,6 +241,11 @@ struct ocf_mngt_cache_config {
 	 * @brief Cache name
 	 */
 	char name[OCF_CACHE_NAME_SIZE];
+
+	/**
+	 * @brief The maximum number of characters to copy from cache name
+	 */
+	size_t name_len;
 
 	/**
 	 * @brief Cache mode
