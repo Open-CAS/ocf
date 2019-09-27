@@ -1986,10 +1986,15 @@ static void ocf_mngt_cache_stop_put_io_queues(ocf_pipeline_t pipeline,
 
 static void ocf_mngt_cache_remove(ocf_ctx_t ctx, ocf_cache_t cache)
 {
-	env_rmutex_lock(&ctx->lock);
 	/* Mark device uninitialized */
 	ocf_refcnt_freeze(&cache->refcnt.cache);
+
+	/* Deinitialize locks */
+	ocf_mngt_cache_lock_deinit(cache);
+	env_mutex_destroy(&cache->flush_mutex);
+
 	/* Remove cache from the list */
+	env_rmutex_lock(&ctx->lock);
 	list_del(&cache->list);
 	env_rmutex_unlock(&ctx->lock);
 }
