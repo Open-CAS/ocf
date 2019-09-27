@@ -65,10 +65,12 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
 
 
 def send_io(exported_obj: Core, data: Data):
-    io = exported_obj.new_io()
+    io = exported_obj.new_io(
+        exported_obj.cache.get_default_queue(),
+        0, data.size, IoDir.WRITE, 0, 0
+    )
+
     io.set_data(data)
-    io.configure(0, data.size, IoDir.WRITE, 0, 0)
-    io.set_queue(exported_obj.cache.get_default_queue())
 
     completion = OcfCompletion([("err", c_int)])
     io.callback = completion.callback
