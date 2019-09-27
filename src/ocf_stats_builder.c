@@ -266,6 +266,9 @@ int ocf_stats_collect_part_core(ocf_core_t core, ocf_part_id_t part_id,
 
 	OCF_CHECK_NULL(core);
 
+	if (part_id > OCF_IO_CLASS_ID_MAX)
+		return -OCF_ERR_INVAL;
+
 	cache = ocf_core_get_cache(core);
 
 	_ocf_stats_zero(usage);
@@ -290,6 +293,9 @@ int ocf_stats_collect_part_cache(ocf_cache_t cache, ocf_part_id_t part_id,
 	int result = 0;
 
 	OCF_CHECK_NULL(cache);
+
+	if (part_id > OCF_IO_CLASS_ID_MAX)
+		return -OCF_ERR_INVAL;
 
 	_ocf_stats_zero(usage);
 	_ocf_stats_zero(req);
