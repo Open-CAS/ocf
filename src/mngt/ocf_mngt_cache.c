@@ -23,6 +23,7 @@
 #include "../ocf_ctx_priv.h"
 #include "../ocf_freelist.h"
 #include "../cleaning/cleaning.h"
+#include "../promotion/ops.h"
 
 #define OCF_ASSERT_PLUGGED(cache) ENV_BUG_ON(!(cache)->device)
 
@@ -245,7 +246,15 @@ static void __init_eviction_policy(ocf_cache_t cache,
 
 static ocf_error_t __init_promotion_policy(ocf_cache_t cache)
 {
+	int i;
+
+	OCF_ASSERT_PLUGGED(cache);
 	ENV_BUG_ON(cache->promotion_policy);
+
+	for (i = 0; i < ocf_promotion_max; i++) {
+		if (ocf_promotion_policies[i].setup)
+			ocf_promotion_policies[i].setup(cache);
+	}
 
 	return ocf_promotion_init(cache, &cache->promotion_policy);
 }
@@ -467,7 +476,7 @@ void _ocf_mngt_init_instance_load_complete(void *priv, int error)
 
 	__init_freelist(cache);
 
-	result = __init_promotion_policy(cache);
+	result = ocf_promotion_init(cache, &cache->promotion_policy);
 	if (result) {
 		ocf_cache_log(cache, log_err,
 				"Cannot initialize promotion policy\n");
@@ -1169,8 +1178,6 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	 */
 	cache->conf_meta->cache_mode = params->metadata.cache_mode;
 	cache->conf_meta->metadata_layout = params->metadata.layout;
-	cache->conf_meta->promotion_policy_type =
-			params->metadata.promotion_policy;
 
 	INIT_LIST_HEAD(&cache->io_queues);
 
@@ -2276,14 +2283,13 @@ ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache)
 }
 
 int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
-		uint32_t *param_value)
+		ocf_promotion_t type, uint32_t *param_value)
 {
 	int result;
 
 	ocf_metadata_start_shared_access(&cache->metadata.lock);
 
-	result = ocf_promotion_get_param(cache->promotion_policy, param_id,
-			param_value);
+	result = ocf_promotion_get_param(cache, param_id, type, param_value);
 
 	ocf_metadata_end_shared_access(&cache->metadata.lock);
 
@@ -2291,16 +2297,15 @@ int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
 }
 
 int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
-		uint32_t param_value)
+		ocf_promotion_t type, uint32_t param_value)
 {
 	int result;
 
-	ocf_metadata_start_shared_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
-	result = ocf_promotion_set_param(cache->promotion_policy, param_id,
-			param_value);
+	result = ocf_promotion_set_param(cache, param_id, type, param_value);
 
-	ocf_metadata_end_shared_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	return result;
 }

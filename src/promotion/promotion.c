@@ -15,6 +15,7 @@ struct promotion_policy_ops ocf_promotion_policies[ocf_promotion_max] = {
 	},
 	[ocf_promotion_nhit] = {
 		.name = "nhit",
+		.setup = nhit_setup,
 		.init = nhit_init,
 		.deinit = nhit_deinit,
 		.set_param = nhit_set_param,
@@ -95,32 +96,30 @@ ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
 	return result;
 }
 
-ocf_error_t ocf_promotion_set_param(ocf_promotion_policy_t policy,
-		uint8_t param_id, uint32_t param_value)
+ocf_error_t ocf_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
+		ocf_promotion_t type, uint32_t param_value)
 {
-	ocf_promotion_t type = policy->type;
 	ocf_error_t result = -OCF_ERR_INVAL;
 
 	ENV_BUG_ON(type >= ocf_promotion_max);
 
 	if (ocf_promotion_policies[type].set_param) {
-		result = ocf_promotion_policies[type].set_param(policy, param_id,
+		result = ocf_promotion_policies[type].set_param(cache, param_id,
 				param_value);
 	}
 
 	return result;
 }
 
-ocf_error_t ocf_promotion_get_param(ocf_promotion_policy_t policy,
-		uint8_t param_id, uint32_t *param_value)
+ocf_error_t ocf_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
+		ocf_promotion_t type, uint32_t *param_value)
 {
-	ocf_promotion_t type = policy->type;
 	ocf_error_t result = -OCF_ERR_INVAL;
 
 	ENV_BUG_ON(type >= ocf_promotion_max);
 
 	if (ocf_promotion_policies[type].get_param) {
-		result = ocf_promotion_policies[type].get_param(policy, param_id,
+		result = ocf_promotion_policies[type].get_param(cache, param_id,
 				param_value);
 	}
 
