@@ -15,22 +15,25 @@ int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 	if (err)
 		return err;
 
-	//@TODO handle env_rwlock_init return val
 	env_rwlock_init(&metadata_lock->status);
-	env_rwsem_init(&metadata_lock->global);
+	err = env_rwsem_init(&metadata_lock->global);
+	if (err)
+		goto rwsem_err;
 
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
 		err = env_spinlock_init(&metadata_lock->partition[i]);
 		if (err)
-			break;
+			goto spinlocks_err;
 	}
 
-	if (err) {
-		while (i--)
-			env_spinlock_destroy(&metadata_lock->partition[i]);
-		return err;
-	}
+	return err;
 
+spinlocks_err:
+	while (i--)
+		env_spinlock_destroy(&metadata_lock->partition[i]);
+rwsem_err:
+	env_rwlock_destroy(&metadata_lock->status);
+	env_spinlock_destroy(&metadata_lock->eviction);
 	return err;
 }
 

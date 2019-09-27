@@ -50,7 +50,7 @@ int ocf_async_lock_init(struct ocf_async_lock *lock, uint32_t waiter_priv_size)
 	int err = 0;
 
 	err = env_spinlock_init(&lock->waiters_lock);
-	if (err);
+	if (err)
 		return err;
 
 	INIT_LIST_HEAD(&lock->waiters);
