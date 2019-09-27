@@ -2276,14 +2276,13 @@ ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache)
 }
 
 int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
-		uint32_t *param_value)
+		ocf_promotion_t type, uint32_t *param_value)
 {
 	int result;
 
 	ocf_metadata_start_shared_access(&cache->metadata.lock);
 
-	result = ocf_promotion_get_param(cache->promotion_policy, param_id,
-			param_value);
+	result = ocf_promotion_get_param(cache, param_id, type, param_value);
 
 	ocf_metadata_end_shared_access(&cache->metadata.lock);
 
@@ -2291,16 +2290,15 @@ int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
 }
 
 int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
-		uint32_t param_value)
+		ocf_promotion_t type, uint32_t param_value)
 {
 	int result;
 
-	ocf_metadata_start_shared_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
-	result = ocf_promotion_set_param(cache->promotion_policy, param_id,
-			param_value);
+	result = ocf_promotion_set_param(cache, param_id, type, param_value);
 
-	ocf_metadata_end_shared_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	return result;
 }

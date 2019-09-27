@@ -9,6 +9,13 @@
 #include "ocf/ocf.h"
 #include "../ocf_request.h"
 
+#define PROMOTION_POLICY_CONFIG_BYTES 256
+#define PROMOTION_POLICY_TYPE_MAX 2
+
+struct promotion_policy_config {
+	uint8_t data[PROMOTION_POLICY_CONFIG_BYTES];
+};
+
 typedef struct ocf_promotion_policy *ocf_promotion_policy_t;
 /**
  * @brief Allocate and initialize promotion policy. Should be called after cache
@@ -44,26 +51,28 @@ ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
 /**
  * @brief Set promotion policy parameter
  *
- * @param[in] policy promotion policy handle
+ * @param[in] cache cache handle
  * @param[in] param_id id of parameter to be set
+ * @param[in] type id of propmotion policy to be configured
  * @param[in] param_value value of parameter to be set
  *
  * @retval ocf_error_t
  */
-ocf_error_t ocf_promotion_set_param(ocf_promotion_policy_t policy,
-		uint8_t param_id, uint32_t param_value);
+ocf_error_t ocf_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
+		ocf_promotion_t type, uint32_t param_value);
 
 /**
  * @brief Get promotion policy parameter
  *
- * @param[in] policy promotion policy handle
+ * @param[in] cache cache handle
  * @param[in] param_id id of parameter to be set
+ * @param[in] type id of propmotion policy to be configured
  * @param[out] param_value value of parameter to be set
  *
  * @retval ocf_error_t
  */
-ocf_error_t ocf_promotion_get_param(ocf_promotion_policy_t policy,
-		uint8_t param_id, uint32_t *param_value);
+ocf_error_t ocf_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
+		ocf_promotion_t type, uint32_t *param_value);
 
 /**
  * @brief Update promotion policy after cache lines have been promoted to cache
