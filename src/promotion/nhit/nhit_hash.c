@@ -146,7 +146,6 @@ ocf_error_t nhit_hash_init(uint64_t hash_size, nhit_hash_t *ctx)
 	for (i_locks = 0; i_locks < new_ctx->hash_entries; i_locks++) {
 		if (env_rwsem_init(&new_ctx->hash_locks[i_locks])) {
 			result = -OCF_ERR_UNKNOWN;
-			i_locks--;
 			goto dealloc_locks;
 		}
 	}
@@ -163,14 +162,17 @@ ocf_error_t nhit_hash_init(uint64_t hash_size, nhit_hash_t *ctx)
 		env_atomic_set(&new_ctx->ring_buffer[i].counter, 0);
 	}
 
-	env_spinlock_init(&new_ctx->rb_pointer_lock);
+	result = env_spinlock_init(&new_ctx->rb_pointer_lock);
+	if (result)
+		goto dealloc_locks;
+
 	new_ctx->rb_pointer = 0;
 
 	*ctx = new_ctx;
 	return 0;
 
 dealloc_locks:
-	for (; i_locks >= 0; i_locks--)
+	while (i_locks--)
 		ENV_BUG_ON(env_rwsem_destroy(&new_ctx->hash_locks[i_locks]));
 	env_vfree(new_ctx->hash_locks);
 dealloc_hash:

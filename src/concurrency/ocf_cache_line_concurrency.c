@@ -110,13 +110,17 @@ int ocf_cache_line_concurrency_init(struct ocf_cache *cache)
 	/* Init concurrency control table */
 	for (i = 0; i < _WAITERS_LIST_ENTRIES; i++) {
 		INIT_LIST_HEAD(&c->waiters_lsts[i].head);
-		env_spinlock_init(&c->waiters_lsts[i].lock);
+		error = env_spinlock_init(&c->waiters_lsts[i].lock);
+		if (error)
+			goto spinlock_err;
 	}
 
 	return 0;
 
+spinlock_err:
+	while (i--)
+		env_spinlock_destroy(&c->waiters_lsts[i].lock);
 ocf_cache_line_concurrency_init:
-
 	ocf_cache_log(cache, log_err, "Cannot initialize cache concurrency, "
 			"ERROR %d", error);
 

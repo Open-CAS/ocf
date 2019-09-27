@@ -467,6 +467,7 @@ int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata)
 	struct ocf_user_part *part;
 	ocf_part_id_t part_id;
 	struct alru_context *alru;
+	int error = 0;
 	unsigned i;
 
 	alru = env_vzalloc(sizeof(*alru));
@@ -475,8 +476,19 @@ int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata)
 		return -OCF_ERR_NO_MEM;
 	}
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++)
-		env_spinlock_init(&alru->list_lock[i]);
+	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+		error = env_spinlock_init(&alru->list_lock[i]);
+		if (error)
+			break;
+	}
+
+	if (error) {
+		while (i--)
+			env_spinlock_destroy(&alru->list_lock[i]);
+		env_vfree(alru);
+		return error;
+	}
+
 
 	cache->cleaner.cleaning_policy_context = alru;
 

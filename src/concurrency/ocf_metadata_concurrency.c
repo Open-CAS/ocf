@@ -6,17 +6,32 @@
 #include "ocf_metadata_concurrency.h"
 #include "../metadata/metadata_misc.h"
 
-void ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
+int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 {
+	int err = 0;
 	unsigned i;
 
-	env_spinlock_init(&metadata_lock->eviction);
+	err = env_spinlock_init(&metadata_lock->eviction);
+	if (err)
+		return err;
+
+	//@TODO handle env_rwlock_init return val
 	env_rwlock_init(&metadata_lock->status);
 	env_rwsem_init(&metadata_lock->global);
 
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
-		env_spinlock_init(&metadata_lock->partition[i]);
+		err = env_spinlock_init(&metadata_lock->partition[i]);
+		if (err)
+			break;
 	}
+
+	if (err) {
+		while (i--)
+			env_spinlock_destroy(&metadata_lock->partition[i]);
+		return err;
+	}
+
+	return err;
 }
 
 void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock)

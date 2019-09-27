@@ -385,21 +385,28 @@ ocf_freelist_t ocf_freelist_init(struct ocf_cache *cache)
 	freelist->lock = env_vzalloc(sizeof(freelist->lock[0]) * num);
 	freelist->part = env_vzalloc(sizeof(freelist->part[0]) * num);
 
-	if (!freelist->lock || !freelist->part) {
-		env_vfree(freelist->lock);
-		env_vfree(freelist->part);
-		env_vfree(freelist);
-		return NULL;
-	}
+	if (!freelist->lock || !freelist->part)
+		goto free_allocs;
 
 	for (i = 0; i < num; i++) {
-		env_spinlock_init(&freelist->lock[i]);
+		if (env_spinlock_init(&freelist->lock[i]))
+			goto spinlock_err;
+
 		freelist->part[i].head = line_entries;
 		freelist->part[i].tail = line_entries;
 		env_atomic64_set(&freelist->part[i].curr_size, 0);
 	}
 
 	return freelist;
+
+spinlock_err:
+	while (i--)
+		env_spinlock_destroy(&freelist->lock[i]);
+free_allocs:
+	env_vfree(freelist->lock);
+	env_vfree(freelist->part);
+	env_vfree(freelist);
+	return NULL;
 }
 
 void ocf_freelist_deinit(ocf_freelist_t freelist)

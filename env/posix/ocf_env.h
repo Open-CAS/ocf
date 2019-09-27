@@ -450,9 +450,9 @@ typedef struct {
 	pthread_spinlock_t lock;
 } env_spinlock;
 
-static inline void env_spinlock_init(env_spinlock *l)
+static inline int env_spinlock_init(env_spinlock *l)
 {
-	ENV_BUG_ON(pthread_spin_init(&l->lock, 0));
+	return pthread_spin_init(&l->lock, 0);
 }
 
 static inline int env_spinlock_trylock(env_spinlock *l)

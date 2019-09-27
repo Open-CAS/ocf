@@ -10,7 +10,7 @@
 #define OCF_METADATA_RD 0
 #define OCF_METADATA_WR 1
 
-void ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock);
+int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock);
 
 void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock);
 
