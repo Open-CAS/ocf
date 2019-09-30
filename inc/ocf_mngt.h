@@ -85,12 +85,13 @@ uint32_t ocf_mngt_cache_get_count(ocf_ctx_t ctx);
  *
  * @param[in] ctx OCF context
  * @param[in] name OCF cache name
+ * @param[in] name_len Cache name length
  * @param[out] cache OCF cache handle
  *
  * @retval 0 Get cache successfully
  * @retval -OCF_ERR_CACHE_NOT_EXIST Cache with given name doesn't exist
  */
-int ocf_mngt_cache_get_by_name(ocf_ctx_t ctx, const char* name,
+int ocf_mngt_cache_get_by_name(ocf_ctx_t ctx, const char* name, size_t name_len,
 		ocf_cache_t *cache);
 
 /**

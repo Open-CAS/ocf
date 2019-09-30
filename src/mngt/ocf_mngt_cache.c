@@ -662,7 +662,8 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 	int ret = 0;
 
 	/* Check if cache with specified name exists */
-	ret = ocf_mngt_cache_get_by_name(param->ctx, cfg->name, &cache);
+	ret = ocf_mngt_cache_get_by_name(param->ctx, cfg->name,
+					OCF_CACHE_NAME_SIZE, &cache);
 	if (!ret) {
 		ocf_mngt_cache_put(cache);
 		/* Cache already exist */
@@ -924,8 +925,8 @@ static void _ocf_mngt_attach_load_properties_end(void *priv, int error,
 	/*
 	 * Check if name loaded from disk is the same as present one.
 	 */
-	if (env_strncmp(cache->conf_meta->name, properties->cache_name,
-				OCF_CACHE_NAME_SIZE)) {
+	if (env_strncmp(cache->conf_meta->name, OCF_CACHE_NAME_SIZE,
+			properties->cache_name, OCF_CACHE_NAME_SIZE)) {
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CACHE_NAME_MISMATCH);
 	}
 

@@ -47,12 +47,13 @@ struct ocf_core_info {
  *
  * @param[in] cache OCF cache
  * @param[in] name Core name
+ * @param[in] name_len Core name length
  * @param[out] core OCF core handle
  *
  * @retval 0 Get cache successfully
  * @retval -OCF_ERR_CORE_NOT_EXIST Core with given name doesn't exist
  */
-int ocf_core_get_by_name(ocf_cache_t cache, const char *name,
+int ocf_core_get_by_name(ocf_cache_t cache, const char *name, size_t name_len,
 		ocf_core_t *core);
 
 /**

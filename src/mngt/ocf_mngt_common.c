@@ -140,7 +140,7 @@ void ocf_mngt_cache_put(ocf_cache_t cache)
 	}
 }
 
-int ocf_mngt_cache_get_by_name(ocf_ctx_t ctx, const char *name,
+int ocf_mngt_cache_get_by_name(ocf_ctx_t ctx, const char *name, size_t name_len,
 		ocf_cache_t *cache)
 {
 	struct ocf_cache *instance = NULL;
@@ -153,8 +153,8 @@ int ocf_mngt_cache_get_by_name(ocf_ctx_t ctx, const char *name,
 	env_rmutex_lock(&ctx->lock);
 
 	list_for_each_entry(iter, &ctx->caches, list) {
-		if (!env_strncmp(ocf_cache_get_name(iter), name,
-				OCF_CACHE_NAME_SIZE)) {
+		if (!env_strncmp(ocf_cache_get_name(iter), OCF_CACHE_NAME_SIZE,
+				name, name_len)) {
 			instance = iter;
 			break;
 		}
