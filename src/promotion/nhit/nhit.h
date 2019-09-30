@@ -13,7 +13,7 @@
 
 void nhit_setup(ocf_cache_t cache);
 
-ocf_error_t nhit_init(ocf_cache_t cache, ocf_promotion_policy_t policy);
+ocf_error_t nhit_init(ocf_cache_t cache);
 
 void nhit_deinit(ocf_promotion_policy_t policy);
 

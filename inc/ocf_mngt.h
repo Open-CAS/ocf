@@ -813,29 +813,29 @@ ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache);
  * @brief Set promotion policy parameter for given cache
  *
  * @param[in] cache Cache handle
- * @param[in] param_id Promotion policy parameter id
  * @param[in] type Promotion policy type
+ * @param[in] param_id Promotion policy parameter id
  * @param[in] param_value Promotion policy parameter value
  *
  * @retval 0 Parameter has been set successfully
  * @retval Non-zero Error occurred and parameter has not been set
  */
-int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
-		ocf_promotion_t type, uint32_t param_value);
+int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, ocf_promotion_t type,
+		uint8_t param_id, uint32_t param_value);
 
 /**
  * @brief Get promotion policy parameter for given cache
  *
  * @param[in] cache Cache handle
- * @param[in] param_id Promotion policy parameter id
  * @param[in] type Promotion policy type
+ * @param[in] param_id Promotion policy parameter id
  * @param[out] param_value Variable to store parameter value
  *
  * @retval 0 Parameter has been retrieved successfully
  * @retval Non-zero Error occurred and parameter has not been retrieved
  */
-int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
-		ocf_promotion_t type, uint32_t *param_value);
+int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, ocf_promotion_t type,
+		uint8_t param_id, uint32_t *param_value);
 
 /**
  * @brief IO class configuration

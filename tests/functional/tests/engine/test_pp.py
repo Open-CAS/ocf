@@ -186,10 +186,10 @@ def test_promoted_after_hits_various_thresholds(
 
     # Step 2
     cache.set_promotion_policy_param(
-        NhitParams.TRIGGER_THRESHOLD, PromotionPolicy.NHIT, fill_percentage
+        PromotionPolicy.NHIT, NhitParams.TRIGGER_THRESHOLD, fill_percentage
     )
     cache.set_promotion_policy_param(
-        NhitParams.INSERTION_THRESHOLD, PromotionPolicy.NHIT, insertion_threshold
+        PromotionPolicy.NHIT, NhitParams.INSERTION_THRESHOLD, insertion_threshold
     )
     # Step 3
     fill_cache(cache, fill_percentage / 100)
@@ -284,10 +284,10 @@ def test_partial_hit_promotion(pyocf_ctx):
     # Step 3
     cache.set_promotion_policy(PromotionPolicy.NHIT)
     cache.set_promotion_policy_param(
-        NhitParams.TRIGGER_THRESHOLD, PromotionPolicy.NHIT, 0
+        PromotionPolicy.NHIT, NhitParams.TRIGGER_THRESHOLD, 0
     )
     cache.set_promotion_policy_param(
-        NhitParams.INSERTION_THRESHOLD, PromotionPolicy.NHIT, 100
+        PromotionPolicy.NHIT, NhitParams.INSERTION_THRESHOLD, 100
     )
 
     # Step 4

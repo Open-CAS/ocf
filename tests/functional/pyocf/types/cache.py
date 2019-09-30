@@ -255,7 +255,7 @@ class Cache:
         param_value = c_uint64()
 
         status = self.owner.lib.ocf_mngt_cache_promotion_get_param(
-            self.cache_handle, param_id, promotion_type, byref(param_value)
+            self.cache_handle, promotion_type, param_id, byref(param_value)
         )
 
         self.read_unlock()
@@ -264,11 +264,11 @@ class Cache:
 
         return param_value
 
-    def set_promotion_policy_param(self, param_id, promotion_type, param_value):
+    def set_promotion_policy_param(self, promotion_type, param_id, param_value):
         self.write_lock()
 
         status = self.owner.lib.ocf_mngt_cache_promotion_set_param(
-            self.cache_handle, param_id, promotion_type, param_value
+            self.cache_handle, promotion_type, param_id, param_value
         )
 
         self.write_unlock()

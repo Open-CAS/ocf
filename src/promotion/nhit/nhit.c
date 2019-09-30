@@ -27,7 +27,7 @@ void nhit_setup(ocf_cache_t cache)
 	cfg->trigger_threshold = OCF_NHIT_TRIGGER_DEFAULT;
 }
 
-ocf_error_t nhit_init(ocf_cache_t cache, ocf_promotion_policy_t policy)
+ocf_error_t nhit_init(ocf_cache_t cache)
 {
 	struct nhit_policy_context *ctx;
 	int result = 0;
@@ -43,7 +43,7 @@ ocf_error_t nhit_init(ocf_cache_t cache, ocf_promotion_policy_t policy)
 	if (result)
 		goto dealloc_ctx;
 
-	policy->ctx = ctx;
+	cache->promotion_policy->ctx = ctx;
 
 	return 0;
 
@@ -172,7 +172,7 @@ static bool core_line_should_promote(ocf_promotion_policy_t policy,
 	bool hit;
 	int32_t counter;
 
-	cfg = (void *)&policy->owner->conf_meta->promotion[ocf_promotion_nhit].data;
+	cfg = (struct nhit_promotion_policy_config*)policy->config;
 	ctx = policy->ctx;
 
 	hit = nhit_hash_query(ctx->hash_map, core_id, core_lba, &counter);
@@ -197,7 +197,7 @@ bool nhit_req_should_promote(ocf_promotion_policy_t policy,
 		ocf_metadata_collision_table_entries(policy->owner) -
 		ocf_freelist_num_free(policy->owner->freelist);
 
-	cfg = (void *)&policy->owner->conf_meta->promotion[ocf_promotion_nhit].data;
+	cfg = (struct nhit_promotion_policy_config*)policy->config;
 
 	if (occupied_cachelines < OCF_DIV_ROUND_UP(
 			((uint64_t)cfg->trigger_threshold *

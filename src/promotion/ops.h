@@ -13,6 +13,10 @@ struct ocf_promotion_policy {
 	ocf_cache_t owner;
 
 	ocf_promotion_t type;
+
+	void *config;
+	/* Pointer to config values stored in cache superblock */
+
 	void *ctx;
 };
 
@@ -23,7 +27,7 @@ struct promotion_policy_ops {
 	void (*setup)(ocf_cache_t cache);
 		/*!< initialize promotion policy default config */
 
-	ocf_error_t (*init)(ocf_cache_t cache, ocf_promotion_policy_t policy);
+	ocf_error_t (*init)(ocf_cache_t cache);
 		/*!< Allocate and initialize promotion policy */
 
 	void (*deinit)(ocf_promotion_policy_t policy);
