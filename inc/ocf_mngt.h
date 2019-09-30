@@ -22,7 +22,7 @@ struct ocf_mngt_core_config {
 	/**
 	 * @brief OCF core name
 	 */
-	const char *name;
+	char name[OCF_CORE_NAME_SIZE];
 
 	/**
 	 * @brief OCF core volume UUID

@@ -476,7 +476,6 @@ static void ocf_mngt_cache_add_core_finish(ocf_pipeline_t pipeline,
 
 out:
 	context->cmpl(cache, core, context->priv, error);
-	env_vfree(context->cfg.name);
 	env_vfree(context->cfg.uuid.data);
 	ocf_pipeline_destroy(context->pipeline);
 }
@@ -509,7 +508,6 @@ void ocf_mngt_cache_add_core(ocf_cache_t cache,
 {
 	struct ocf_cache_add_core_context *context;
 	ocf_pipeline_t pipeline;
-	char *name;
 	void *data;
 	int result;
 
@@ -518,7 +516,7 @@ void ocf_mngt_cache_add_core(ocf_cache_t cache,
 	if (!cache->mngt_queue)
 		OCF_CMPL_RET(cache, NULL, priv, -OCF_ERR_INVAL);
 
-	if (!cfg->name)
+	if (!env_strnlen(cfg->name, OCF_CORE_NAME_SIZE))
 		OCF_CMPL_RET(cache, NULL, priv, -OCF_ERR_INVAL);
 
 	result = ocf_pipeline_create(&pipeline, cache, cfg->try_add ?
@@ -535,23 +533,10 @@ void ocf_mngt_cache_add_core(ocf_cache_t cache,
 	context->cache = cache;
 	context->cfg = *cfg;
 
-	name = env_vmalloc(OCF_CORE_NAME_SIZE);
-	if (!name) {
-		result = -OCF_ERR_NO_MEM;
-		goto err_pipeline;
-	}
-
-	result = env_strncpy(name, OCF_CORE_NAME_SIZE,
-			cfg->name, OCF_CORE_NAME_SIZE);
-	if (result)
-		goto err_name;
-
-	context->cfg.name = name;
-
 	data = env_vmalloc(cfg->uuid.size);
 	if (!data) {
 		result = -OCF_ERR_NO_MEM;
-		goto err_name;
+		goto err_pipeline;
 	}
 
 	result = env_memcpy(data, cfg->uuid.size, cfg->uuid.data,
@@ -565,8 +550,6 @@ void ocf_mngt_cache_add_core(ocf_cache_t cache,
 
 err_uuid:
 	env_vfree(data);
-err_name:
-	env_vfree(context->cfg.name);
 err_pipeline:
 	ocf_pipeline_destroy(context->pipeline);
 	OCF_CMPL_RET(cache, NULL, priv, result);

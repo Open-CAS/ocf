@@ -13,6 +13,7 @@ from ctypes import (
     c_uint16,
     c_uint32,
     c_uint64,
+    c_char,
     c_char_p,
     c_bool,
     cast,
@@ -37,8 +38,9 @@ class UserMetadata(Structure):
 
 
 class CoreConfig(Structure):
+    MAX_CORE_NAME_SIZE = 32
     _fields_ = [
-        ("_name", c_char_p),
+        ("_name", c_char * MAX_CORE_NAME_SIZE),
         ("_uuid", Uuid),
         ("_volume_type", c_uint8),
         ("_try_add", c_bool),
@@ -70,7 +72,7 @@ class Core:
                 ),
                 _size=len(self.device_name) + 1,
             ),
-            _name=cast(create_string_buffer(name.encode("ascii")), c_char_p),
+            _name=name.encode("ascii"),
             _volume_type=self.device.type_id,
             _try_add=try_add,
             _seq_cutoff_threshold=seq_cutoff_threshold,
