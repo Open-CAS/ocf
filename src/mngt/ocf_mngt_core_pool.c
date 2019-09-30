@@ -82,7 +82,7 @@ ocf_volume_t ocf_mngt_core_pool_lookup(ocf_ctx_t ctx, ocf_uuid_t uuid,
 	list_for_each_entry(svolume, &ctx->core_pool.core_pool_head,
 			core_pool_item) {
 		if (svolume->type == type && !env_strncmp(svolume->uuid.data,
-			uuid->data, OCF_MIN(svolume->uuid.size, uuid->size))) {
+			svolume->uuid.size, uuid->data, uuid->size)) {
 			return svolume;
 		}
 	}

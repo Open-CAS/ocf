@@ -228,7 +228,8 @@ static void ocf_mngt_cache_try_add_core_prepare(ocf_pipeline_t pipeline,
 	ocf_ctx_t ctx = cache->owner;
 	int result;
 
-	result = ocf_core_get_by_name(cache, cfg->name, &core);
+	result = ocf_core_get_by_name(cache, cfg->name,
+				OCF_CORE_NAME_SIZE, &core);
 	if (result)
 		goto err;
 
@@ -245,8 +246,8 @@ static void ocf_mngt_cache_try_add_core_prepare(ocf_pipeline_t pipeline,
 		goto err;
 	}
 
-	if (env_strncmp(volume->uuid.data, cfg->uuid.data,
-			OCF_MIN(volume->uuid.size, cfg->uuid.size))) {
+	if (env_strncmp(volume->uuid.data, volume->uuid.size, cfg->uuid.data,
+			cfg->uuid.size)) {
 		result = -OCF_ERR_INVAL;
 		goto err;
 	}
@@ -304,7 +305,8 @@ static void ocf_mngt_cache_add_core_prepare(ocf_pipeline_t pipeline,
 	ocf_core_t core;
 	int result;
 
-	result = ocf_core_get_by_name(cache, cfg->name, &core);
+	result = ocf_core_get_by_name(cache, cfg->name,
+				OCF_CACHE_NAME_SIZE, &core);
 	if (!result)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CORE_EXIST);
 
