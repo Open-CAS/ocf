@@ -32,7 +32,13 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 	}
 
 	env_atomic_set(&tmp_queue->io_no, 0);
-	env_spinlock_init(&tmp_queue->io_list_lock);
+	result = env_spinlock_init(&tmp_queue->io_list_lock);
+	if (result) {
+		ocf_mngt_cache_put(cache);
+		free(tmp_queue);
+		return result;
+	}
+
 	INIT_LIST_HEAD(&tmp_queue->io_list);
 	env_atomic_set(&tmp_queue->ref_count, 1);
 	tmp_queue->cache = cache;

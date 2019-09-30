@@ -302,10 +302,15 @@ int cleaning_policy_acp_initialize(struct ocf_cache *cache,
 		ocf_cache_log(cache, log_err, "acp context allocation error\n");
 		return -OCF_ERR_NO_MEM;
 	}
+
+	err = env_rwsem_init(&acp->chunks_lock);
+	if (err) {
+		env_vfree(acp);
+		return err;
+	}
+
 	cache->cleaner.cleaning_policy_context = acp;
 	acp->cache = cache;
-
-	env_rwsem_init(&acp->chunks_lock);
 
 	for (i = 0; i < ACP_MAX_BUCKETS; i++) {
 		INIT_LIST_HEAD(&acp->bucket_info[i].chunk_list);

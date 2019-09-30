@@ -568,10 +568,7 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 		goto lock_err;
 	}
 
-	if (!ocf_refcnt_inc(&cache->refcnt.cache)){
-		result = -OCF_ERR_START_CACHE_FAIL;
-		goto flush_mutex_err;
-	}
+	ENV_BUG_ON(!ocf_refcnt_inc(&cache->refcnt.cache));
 
 	/* start with freezed metadata ref counter to indicate detached device*/
 	ocf_refcnt_freeze(&cache->refcnt.metadata);
@@ -586,8 +583,6 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 
 	return 0;
 
-flush_mutex_err:
-	env_mutex_destroy(&cache->flush_mutex);
 lock_err:
 	ocf_mngt_cache_lock_deinit(cache);
 alloc_err:
