@@ -35,7 +35,7 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 	result = env_spinlock_init(&tmp_queue->io_list_lock);
 	if (result) {
 		ocf_mngt_cache_put(cache);
-		free(tmp_queue);
+		env_free(tmp_queue);
 		return result;
 	}
 
