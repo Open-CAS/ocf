@@ -7,11 +7,7 @@ from ctypes import c_int
 import pytest
 import math
 
-from pyocf.types.cache import (
-    Cache,
-    PromotionPolicy,
-    NhitParams,
-)
+from pyocf.types.cache import Cache, PromotionPolicy, NhitParams
 from pyocf.types.core import Core
 from pyocf.types.volume import Volume
 from pyocf.types.data import Data
@@ -71,12 +67,7 @@ def test_change_to_nhit_and_back_io_in_flight(pyocf_ctx):
         comp = OcfCompletion([("error", c_int)])
         write_data = Data(4096)
         io = core.new_io(
-            cache.get_default_queue(),
-            i * 4096,
-            write_data.size,
-            IoDir.WRITE,
-            0,
-            0,
+            cache.get_default_queue(), i * 4096, write_data.size, IoDir.WRITE, 0, 0
         )
         completions += [comp]
         io.set_data(write_data)
@@ -89,9 +80,7 @@ def test_change_to_nhit_and_back_io_in_flight(pyocf_ctx):
     # Step 4
     for c in completions:
         c.wait()
-        assert not c.results[
-            "error"
-        ], "No IO's should fail when turning NHIT policy on"
+        assert not c.results["error"], "No IO's should fail when turning NHIT policy on"
 
     # Step 5
     completions = []
@@ -99,12 +88,7 @@ def test_change_to_nhit_and_back_io_in_flight(pyocf_ctx):
         comp = OcfCompletion([("error", c_int)])
         write_data = Data(4096)
         io = core.new_io(
-            cache.get_default_queue(),
-            i * 4096,
-            write_data.size,
-            IoDir.WRITE,
-            0,
-            0,
+            cache.get_default_queue(), i * 4096, write_data.size, IoDir.WRITE, 0, 0
         )
         completions += [comp]
         io.set_data(write_data)
@@ -157,9 +141,7 @@ def fill_cache(cache, fill_ratio):
 
     if bytes_to_fill % max_io_size:
         comp = OcfCompletion([("error", c_int)])
-        write_data = Data(
-            Size.from_B(bytes_to_fill % max_io_size, sector_aligned=True)
-        )
+        write_data = Data(Size.from_B(bytes_to_fill % max_io_size, sector_aligned=True))
         io = core.new_io(
             cache.get_default_queue(),
             ios_to_issue * max_io_size,
@@ -198,18 +180,16 @@ def test_promoted_after_hits_various_thresholds(
     cache_device = Volume(Size.from_MiB(30))
     core_device = Volume(Size.from_MiB(30))
 
-    cache = Cache.start_on_device(
-        cache_device, promotion_policy=PromotionPolicy.NHIT
-    )
+    cache = Cache.start_on_device(cache_device, promotion_policy=PromotionPolicy.NHIT)
     core = Core.using_device(core_device)
     cache.add_core(core)
 
     # Step 2
     cache.set_promotion_policy_param(
-        NhitParams.TRIGGER_THRESHOLD, fill_percentage
+        PromotionPolicy.NHIT, NhitParams.TRIGGER_THRESHOLD, fill_percentage
     )
     cache.set_promotion_policy_param(
-        NhitParams.INSERTION_THRESHOLD, insertion_threshold
+        PromotionPolicy.NHIT, NhitParams.INSERTION_THRESHOLD, insertion_threshold
     )
     # Step 3
     fill_cache(cache, fill_percentage / 100)
@@ -290,9 +270,7 @@ def test_partial_hit_promotion(pyocf_ctx):
     # Step 2
     comp = OcfCompletion([("error", c_int)])
     write_data = Data(Size.from_sector(1))
-    io = core.new_io(
-        cache.get_default_queue(), 0, write_data.size, IoDir.READ, 0, 0
-    )
+    io = core.new_io(cache.get_default_queue(), 0, write_data.size, IoDir.READ, 0, 0)
     io.set_data(write_data)
     io.callback = comp.callback
     io.submit()
@@ -305,15 +283,17 @@ def test_partial_hit_promotion(pyocf_ctx):
 
     # Step 3
     cache.set_promotion_policy(PromotionPolicy.NHIT)
-    cache.set_promotion_policy_param(NhitParams.TRIGGER_THRESHOLD, 0)
-    cache.set_promotion_policy_param(NhitParams.INSERTION_THRESHOLD, 100)
+    cache.set_promotion_policy_param(
+        PromotionPolicy.NHIT, NhitParams.TRIGGER_THRESHOLD, 0
+    )
+    cache.set_promotion_policy_param(
+        PromotionPolicy.NHIT, NhitParams.INSERTION_THRESHOLD, 100
+    )
 
     # Step 4
     comp = OcfCompletion([("error", c_int)])
     write_data = Data(2 * cache_lines.line_size)
-    io = core.new_io(
-        cache.get_default_queue(), 0, write_data.size, IoDir.WRITE, 0, 0
-    )
+    io = core.new_io(cache.get_default_queue(), 0, write_data.size, IoDir.WRITE, 0, 0)
     io.set_data(write_data)
     io.callback = comp.callback
     io.submit()

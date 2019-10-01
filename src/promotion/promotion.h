@@ -9,18 +9,36 @@
 #include "ocf/ocf.h"
 #include "../ocf_request.h"
 
+#define PROMOTION_POLICY_CONFIG_BYTES 256
+#define PROMOTION_POLICY_TYPE_MAX 2
+
+
+struct promotion_policy_config {
+	uint8_t data[PROMOTION_POLICY_CONFIG_BYTES];
+};
+
 typedef struct ocf_promotion_policy *ocf_promotion_policy_t;
+
+/**
+ * @brief Initialize promotion policy default values. Should be called after
+ * cache metadata has been allocated and cache->conf_meta->promotion_policy_type
+ * has been set.
+ *
+ * @param[in] cache OCF cache instance
+ */
+void ocf_promotion_setup(ocf_cache_t cache);
+
 /**
  * @brief Allocate and initialize promotion policy. Should be called after cache
  * metadata has been allocated and cache->conf_meta->promotion_policy_type has
  * been set.
  *
  * @param[in] cache OCF cache instance
- * @param[out] param initialized policy handle
+ * @param[in] type type of promotion policy to initialize
  *
  * @retval ocf_error_t
  */
-ocf_error_t ocf_promotion_init(ocf_cache_t cache, ocf_promotion_policy_t *policy);
+ocf_error_t ocf_promotion_init(ocf_cache_t cache, ocf_promotion_t type);
 
 /**
  * @brief Stop, deinitialize and free promotion policy structures.
@@ -44,25 +62,27 @@ ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
 /**
  * @brief Set promotion policy parameter
  *
- * @param[in] policy promotion policy handle
+ * @param[in] cache cache handle
+ * @param[in] type id of promotion policy to be configured
  * @param[in] param_id id of parameter to be set
  * @param[in] param_value value of parameter to be set
  *
  * @retval ocf_error_t
  */
-ocf_error_t ocf_promotion_set_param(ocf_promotion_policy_t policy,
+ocf_error_t ocf_promotion_set_param(ocf_cache_t cache, ocf_promotion_t type,
 		uint8_t param_id, uint32_t param_value);
 
 /**
  * @brief Get promotion policy parameter
  *
- * @param[in] policy promotion policy handle
+ * @param[in] cache cache handle
+ * @param[in] type id of promotion policy to be configured
  * @param[in] param_id id of parameter to be set
  * @param[out] param_value value of parameter to be set
  *
  * @retval ocf_error_t
  */
-ocf_error_t ocf_promotion_get_param(ocf_promotion_policy_t policy,
+ocf_error_t ocf_promotion_get_param(ocf_cache_t cache, ocf_promotion_t type,
 		uint8_t param_id, uint32_t *param_value);
 
 /**

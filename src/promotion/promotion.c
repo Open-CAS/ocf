@@ -15,6 +15,7 @@ struct promotion_policy_ops ocf_promotion_policies[ocf_promotion_max] = {
 	},
 	[ocf_promotion_nhit] = {
 		.name = "nhit",
+		.setup = nhit_setup,
 		.init = nhit_init,
 		.deinit = nhit_deinit,
 		.set_param = nhit_set_param,
@@ -24,22 +25,30 @@ struct promotion_policy_ops ocf_promotion_policies[ocf_promotion_max] = {
 	},
 };
 
-ocf_error_t ocf_promotion_init(ocf_cache_t cache, ocf_promotion_policy_t *policy)
+ocf_error_t ocf_promotion_init(ocf_cache_t cache, ocf_promotion_t type)
 {
-	ocf_promotion_t type = cache->conf_meta->promotion_policy_type;
+	ocf_promotion_policy_t policy;
 	ocf_error_t result = 0;
 
 	ENV_BUG_ON(type >= ocf_promotion_max);
 
-	*policy = env_vmalloc(sizeof(**policy));
-	if (!*policy)
+	policy = env_vmalloc(sizeof(*policy));
+	if (!policy)
 		return -OCF_ERR_NO_MEM;
 
-	(*policy)->type = type;
-	(*policy)->owner = cache;
+	policy->type = type;
+	policy->owner = cache;
+	policy->config =
+		(void *)&cache->conf_meta->promotion[type].data;
+	cache->promotion_policy = policy;
 
 	if (ocf_promotion_policies[type].init)
-		result = ocf_promotion_policies[type].init(cache, *policy);
+		result = ocf_promotion_policies[type].init(cache);
+
+	if (result) {
+		env_vfree(cache->promotion_policy);
+		cache->promotion_policy = NULL;
+	}
 
 	return result;
 }
@@ -81,7 +90,7 @@ ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
 	policy->type = type;
 
 	if (ocf_promotion_policies[type].init)
-		result = ocf_promotion_policies[type].init(cache, policy);
+		result = ocf_promotion_policies[type].init(cache);
 
 	if (result) {
 		ocf_cache_log(cache, log_err,
@@ -95,32 +104,30 @@ ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
 	return result;
 }
 
-ocf_error_t ocf_promotion_set_param(ocf_promotion_policy_t policy,
+ocf_error_t ocf_promotion_set_param(ocf_cache_t cache, ocf_promotion_t type,
 		uint8_t param_id, uint32_t param_value)
 {
-	ocf_promotion_t type = policy->type;
 	ocf_error_t result = -OCF_ERR_INVAL;
 
 	ENV_BUG_ON(type >= ocf_promotion_max);
 
 	if (ocf_promotion_policies[type].set_param) {
-		result = ocf_promotion_policies[type].set_param(policy, param_id,
+		result = ocf_promotion_policies[type].set_param(cache, param_id,
 				param_value);
 	}
 
 	return result;
 }
 
-ocf_error_t ocf_promotion_get_param(ocf_promotion_policy_t policy,
+ocf_error_t ocf_promotion_get_param(ocf_cache_t cache, ocf_promotion_t type,
 		uint8_t param_id, uint32_t *param_value)
 {
-	ocf_promotion_t type = policy->type;
 	ocf_error_t result = -OCF_ERR_INVAL;
 
 	ENV_BUG_ON(type >= ocf_promotion_max);
 
 	if (ocf_promotion_policies[type].get_param) {
-		result = ocf_promotion_policies[type].get_param(policy, param_id,
+		result = ocf_promotion_policies[type].get_param(cache, param_id,
 				param_value);
 	}
 

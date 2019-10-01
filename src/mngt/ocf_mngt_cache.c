@@ -23,6 +23,7 @@
 #include "../ocf_ctx_priv.h"
 #include "../ocf_freelist.h"
 #include "../cleaning/cleaning.h"
+#include "../promotion/ops.h"
 
 #define OCF_ASSERT_PLUGGED(cache) ENV_BUG_ON(!(cache)->device)
 
@@ -115,6 +116,9 @@ struct ocf_cache_attach_context {
 
 		bool cleaner_started : 1;
 			/*!< Cleaner has been started */
+
+		bool promotion_initialized : 1;
+			/*!< Promotion policy has been started */
 
 		bool cores_opened : 1;
 			/*!< underlying cores are opened (happens only during
@@ -243,11 +247,16 @@ static void __init_eviction_policy(ocf_cache_t cache,
 	cache->conf_meta->eviction_policy_type = eviction;
 }
 
-static ocf_error_t __init_promotion_policy(ocf_cache_t cache)
+static void __setup_promotion_policy(ocf_cache_t cache)
 {
-	ENV_BUG_ON(cache->promotion_policy);
+	int i;
 
-	return ocf_promotion_init(cache, &cache->promotion_policy);
+	OCF_CHECK_NULL(cache);
+
+	for (i = 0; i < ocf_promotion_max; i++) {
+		if (ocf_promotion_policies[i].setup)
+			ocf_promotion_policies[i].setup(cache);
+	}
 }
 
 static void __deinit_promotion_policy(ocf_cache_t cache)
@@ -309,13 +318,7 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
 	}
 
 	__init_eviction_policy(cache, eviction_policy);
-	result =__init_promotion_policy(cache);
-	if (result) {
-		ocf_cache_log(cache, log_err,
-				"Cannot initialize promotion policy\n");
-		__deinit_cleaning_policy(cache);
-		return result;
-	}
+	__setup_promotion_policy(cache);
 
 	return 0;
 }
@@ -467,13 +470,6 @@ void _ocf_mngt_init_instance_load_complete(void *priv, int error)
 
 	__init_freelist(cache);
 
-	result = __init_promotion_policy(cache);
-	if (result) {
-		ocf_cache_log(cache, log_err,
-				"Cannot initialize promotion policy\n");
-		OCF_PL_FINISH_RET(context->pipeline, result);
-	}
-
 	cleaning_policy = cache->conf_meta->cleaning_policy_type;
 	if (!cleaning_policy_ops[cleaning_policy].initialize)
 		goto out;
@@ -486,7 +482,6 @@ void _ocf_mngt_init_instance_load_complete(void *priv, int error)
 	if (result) {
 		ocf_cache_log(cache, log_err,
 				"Cannot initialize cleaning policy\n");
-		__deinit_promotion_policy(cache);
 		OCF_PL_FINISH_RET(context->pipeline, result);
 	}
 
@@ -1135,6 +1130,9 @@ static void _ocf_mngt_attach_handle_error(
 	if (context->flags.cleaner_started)
 		ocf_stop_cleaner(cache);
 
+	if (context->flags.promotion_initialized)
+		__deinit_promotion_policy(cache);
+
 	if (context->flags.cores_opened)
 		_ocf_mngt_close_all_uninitialized_cores(cache);
 
@@ -1165,8 +1163,7 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	 */
 	cache->conf_meta->cache_mode = params->metadata.cache_mode;
 	cache->conf_meta->metadata_layout = params->metadata.layout;
-	cache->conf_meta->promotion_policy_type =
-			params->metadata.promotion_policy;
+	cache->conf_meta->promotion_policy_type = params->metadata.promotion_policy;
 
 	INIT_LIST_HEAD(&cache->io_queues);
 
@@ -1352,6 +1349,14 @@ static void _ocf_mngt_attach_init_instance(ocf_pipeline_t pipeline,
 		OCF_PL_FINISH_RET(context->pipeline, result);
 	}
 	context->flags.cleaner_started = true;
+
+	result = ocf_promotion_init(cache, cache->conf_meta->promotion_policy_type);
+	if (result) {
+		ocf_cache_log(cache, log_err,
+				"Cannot initialize promotion policy\n");
+		OCF_PL_FINISH_RET(context->pipeline, result);
+	}
+	context->flags.promotion_initialized = true;
 
 	switch (cache->device->init_mode) {
 	case ocf_init_mode_init:
@@ -1823,6 +1828,7 @@ static void _ocf_mngt_cache_load_log(ocf_cache_t cache)
 	ocf_cache_mode_t cache_mode = ocf_cache_get_mode(cache);
 	ocf_eviction_t eviction_type = cache->conf_meta->eviction_policy_type;
 	ocf_cleaning_t cleaning_type = cache->conf_meta->cleaning_policy_type;
+	ocf_promotion_t promotion_type = cache->conf_meta->promotion_policy_type;
 
 	ocf_cache_log(cache, log_info, "Successfully loaded\n");
 	ocf_cache_log(cache, log_info, "Cache mode : %s\n",
@@ -1831,6 +1837,8 @@ static void _ocf_mngt_cache_load_log(ocf_cache_t cache)
 			evict_policy_ops[eviction_type].name);
 	ocf_cache_log(cache, log_info, "Cleaning policy : %s\n",
 			cleaning_policy_ops[cleaning_type].name);
+	ocf_cache_log(cache, log_info, "Promotion policy : %s\n",
+			ocf_promotion_policies[promotion_type].name);
 	ocf_core_visit(cache, _ocf_mngt_cache_load_core_log,
 			cache, false);
 }
@@ -2276,32 +2284,30 @@ ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache)
 	return result;
 }
 
-int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, uint8_t param_id,
-		uint32_t *param_value)
+int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, ocf_promotion_t type,
+		uint8_t param_id, uint32_t *param_value)
 {
 	int result;
 
 	ocf_metadata_start_shared_access(&cache->metadata.lock);
 
-	result = ocf_promotion_get_param(cache->promotion_policy, param_id,
-			param_value);
+	result = ocf_promotion_get_param(cache, type, param_id, param_value);
 
 	ocf_metadata_end_shared_access(&cache->metadata.lock);
 
 	return result;
 }
 
-int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, uint8_t param_id,
-		uint32_t param_value)
+int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, ocf_promotion_t type,
+		uint8_t param_id, uint32_t param_value)
 {
 	int result;
 
-	ocf_metadata_start_shared_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
-	result = ocf_promotion_set_param(cache->promotion_policy, param_id,
-			param_value);
+	result = ocf_promotion_set_param(cache, type, param_id, param_value);
 
-	ocf_metadata_end_shared_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	return result;
 }

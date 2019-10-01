@@ -41,8 +41,10 @@ struct ocf_superblock_config {
 	ocf_cleaning_t cleaning_policy_type;
 	struct cleaning_policy_config cleaning[CLEANING_POLICY_TYPE_MAX];
 
-	ocf_eviction_t eviction_policy_type;
 	ocf_promotion_t promotion_policy_type;
+	struct promotion_policy_config promotion[PROMOTION_POLICY_TYPE_MAX];
+
+	ocf_eviction_t eviction_policy_type;
 
 	/* Current core sequence number */
 	ocf_core_id_t curr_core_seq_no;
