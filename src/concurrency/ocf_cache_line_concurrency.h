@@ -54,8 +54,7 @@ size_t ocf_cache_line_concurrency_size_of(struct ocf_cache *cache);
 typedef void (*ocf_req_async_lock_cb)(struct ocf_request *req);
 
 /**
- * @brief Lock OCF request for write access asynchronously. Attempts to lock all
- * cache lines in map info.
+ * @brief Lock OCF request for write access (Lock all cache lines in map info)
  *
  * @param req - OCF request
  * @param cb - async lock acquisition callback
@@ -64,27 +63,12 @@ typedef void (*ocf_req_async_lock_cb)(struct ocf_request *req);
  *		error
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- *		added into waiting list. When lock is acquired, @cb will be
- *		called.
+ * added into waiting list. When lock will be acquired @cb cllback be called
  */
 int ocf_req_async_lock_wr(struct ocf_request *req, ocf_req_async_lock_cb cb);
 
 /**
- * @brief Try to lock OCF request for write access. Serves the same purpose as
- * ocf_req_async_lock_wr, except that this function fails if lock is already
- * held by someone else.
- *
- * @param req - OCF request
- *
- * @returns lock acquisition status
- * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
- * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired
- */
-int ocf_req_trylock_wr(struct ocf_request *req);
-
-/**
- * @brief Lock OCF request for read access asynchronously. Attempts to lock all
- * cache lines in map info.
+ * @brief Lock OCF request for read access (Lock all cache lines in map info)
  *
  * @param req - OCF request
  * @param cb - async lock acquisition callback
@@ -93,40 +77,26 @@ int ocf_req_trylock_wr(struct ocf_request *req);
  *		error
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- *		added into waiting list. When lock is acquired, @cb will be
- *		called.
+ * added into waiting list. When lock will be acquired @cb callback be called
  */
 int ocf_req_async_lock_rd(struct ocf_request *req, ocf_req_async_lock_cb cb);
 
 /**
- * @brief Try to lock OCF request forread access. Serves the same purpose as
- * ocf_req_async_lock_rd, except that this function fails if lock is already
- * held by someone else.
- *
- * @param req - OCF request
- *
- * @returns lock acquisition status
- * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
- * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired
- */
-int ocf_req_trylock_rd(struct ocf_request *req);
-
-/**
- * @brief Unlock OCF request from WRITE access
+ * @brief Unlock OCF request from write access
  *
  * @param req - OCF request
  */
 void ocf_req_unlock_wr(struct ocf_request *req);
 
 /**
- * @brief Unlock OCF request from READ access
+ * @brief Unlock OCF request from read access
  *
  * @param req - OCF request
  */
 void ocf_req_unlock_rd(struct ocf_request *req);
 
 /**
- * @brief Unlock OCF request from READ or WRITE access
+ * @brief Unlock OCF request from read or write access
  *
  * @param req - OCF request
  */
@@ -163,7 +133,7 @@ bool ocf_cache_line_are_waiters(struct ocf_cache *cache,
 		ocf_cache_line_t line);
 
 /**
- * @brief un_lock request map info entry from from WRITE or READ access.
+ * @brief un_lock request map info entry from from write or read access.
  *
  * @param cache - OCF cache instance
  * @param req - OCF request
