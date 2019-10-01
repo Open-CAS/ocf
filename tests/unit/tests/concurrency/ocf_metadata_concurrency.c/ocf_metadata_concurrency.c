@@ -21,7 +21,7 @@
 #include "ocf_metadata_concurrency.h"
 #include "../metadata/metadata_misc.h"
 
-#include "concurrency/ocf_metadata_concurrency.c/ocf_metadata_concurrency_generated_warps.c"
+#include "concurrency/ocf_metadata_concurrency.c/ocf_metadata_concurrency_generated_wraps.c"
 
 void __wrap_ocf_metadata_hash_lock(struct ocf_metadata_lock *metadata_lock,
 		ocf_cache_line_t hash, int rw)

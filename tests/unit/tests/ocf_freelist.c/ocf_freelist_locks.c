@@ -31,7 +31,7 @@
 #include "ocf/ocf.h"
 #include "metadata/metadata.h"
 
-#include "ocf_freelist.c/ocf_freelist_get_put_generated_warps.c"
+#include "ocf_freelist.c/ocf_freelist_get_put_generated_wraps.c"
 
 ocf_cache_line_t __wrap_ocf_metadata_collision_table_entries(ocf_cache_t cache)
 {

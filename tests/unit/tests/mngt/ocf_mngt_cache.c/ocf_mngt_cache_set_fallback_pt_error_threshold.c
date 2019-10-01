@@ -34,7 +34,7 @@
 #include "../ocf_ctx_priv.h"
 #include "../cleaning/cleaning.h"
 
-#include "mngt/ocf_mngt_cache.c/ocf_mngt_cache_set_fallback_pt_error_threshold_generated_warps.c"
+#include "mngt/ocf_mngt_cache.c/ocf_mngt_cache_set_fallback_pt_error_threshold_generated_wraps.c"
 
 int __wrap_ocf_log_raw(ocf_logger_t logger, ocf_logger_lvl_t lvl,
 		const char *fmt, ...)
