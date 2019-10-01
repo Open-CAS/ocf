@@ -5,7 +5,7 @@
 
 import pytest
 import logging
-from tests.utils import generate_random_numbers
+from tests.utils.random import RandomGenerator, DefaultRanges
 from pyocf.types.cache import Cache, CacheMode, EvictionPolicy, MetadataLayout, PromotionPolicy
 from pyocf.types.volume import Volume
 from pyocf.utils import Size
@@ -133,7 +133,7 @@ def test_fuzzy_start_metadata_layout(pyocf_ctx, c_uint32_randomize, cm, cls):
 
 @pytest.mark.security
 @pytest.mark.parametrize("cls", CacheLineSize)
-@pytest.mark.parametrize('max_wb_queue_size', generate_random_numbers(c_uint32, 10))
+@pytest.mark.parametrize('max_wb_queue_size', RandomGenerator(DefaultRanges.UINT32, 10))
 def test_fuzzy_start_max_queue_size(pyocf_ctx, max_wb_queue_size, c_uint32_randomize, cls):
     """
     Test whether it is impossible to start cache with invalid dependence between max queue size
