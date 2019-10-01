@@ -3,14 +3,15 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-import pytest
 import logging
-from tests.utils.random import RandomGenerator, DefaultRanges
+
+import pytest
+
 from pyocf.types.cache import Cache, CacheMode, EvictionPolicy, MetadataLayout, PromotionPolicy
+from pyocf.types.shared import OcfError, CacheLineSize
 from pyocf.types.volume import Volume
 from pyocf.utils import Size
-from pyocf.types.shared import OcfError, CacheLineSize
-from ctypes import c_uint32
+from tests.utils.random import RandomGenerator, DefaultRanges
 
 logger = logging.getLogger(__name__)
 
@@ -66,11 +67,17 @@ def test_fuzzy_start_name(pyocf_ctx, string_randomize, cm, cls):
     :param cls: cache line size value to start cache with
     """
     cache_device = Volume(Size.from_MiB(30))
+    incorrect_values = ['']
     try:
         cache = Cache.start_on_device(cache_device, name=string_randomize, cache_mode=cm,
                                       cache_line_size=cls)
     except OcfError:
-        logger.error(f"Cache did not start properly with correct name value: {string_randomize}")
+        if string_randomize not in incorrect_values:
+            logger.error(
+                f"Cache did not start properly with correct name value: '{string_randomize}'")
+        return
+    if string_randomize in incorrect_values:
+        logger.error(f"Cache started with incorrect name value: '{string_randomize}'")
     cache.stop()
 
 
