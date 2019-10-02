@@ -250,8 +250,10 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		io = ocf_new_cache_io(cache, req->io_queue,
 				addr, bytes, dir, io_class, flags);
 		if (!io) {
+			ocf_core_stats_cache_block_update(req->core, io_class,
+					dir, total_bytes);
 			callback(req, -OCF_ERR_NO_MEM);
-			goto update_stats;
+			return;
 		}
 
 		ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
@@ -259,14 +261,18 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		err = ocf_io_set_data(io, req->data, offset);
 		if (err) {
 			ocf_io_put(io);
+			ocf_core_stats_cache_block_update(req->core, io_class,
+					dir, total_bytes);
 			callback(req, err);
-			goto update_stats;
+			return;
 		}
+
+		ocf_core_stats_cache_block_update(req->core, io_class,
+				dir, total_bytes);
 
 		ocf_volume_submit_io(io);
 		total_bytes = bytes;
-
-		goto update_stats;
+		return;
 	}
 
 	/* Issue requests to cache. */
@@ -298,9 +304,11 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 				addr, bytes, dir, io_class, flags);
 		if (!io) {
 			/* Finish all IOs which left with ERROR */
+			ocf_core_stats_cache_block_update(req->core, io_class,
+					dir, total_bytes);
 			for (; i < reqs; i++)
 				callback(req, -OCF_ERR_NO_MEM);
-			goto update_stats;
+			return;
 		}
 
 		ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
@@ -309,18 +317,17 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		if (err) {
 			ocf_io_put(io);
 			/* Finish all IOs which left with ERROR */
+			ocf_core_stats_cache_block_update(req->core, io_class,
+					dir, total_bytes);
 			for (; i < reqs; i++)
 				callback(req, err);
-			goto update_stats;
+			return;
 		}
 		ocf_volume_submit_io(io);
 		total_bytes += bytes;
 	}
 
 	ENV_BUG_ON(total_bytes != size);
-
-update_stats:
-	ocf_core_stats_cache_block_update(req->core, io_class, dir, total_bytes);
 }
 
 void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
