@@ -119,6 +119,36 @@ def test_neg_read_offset_outside_of_device(pyocf_ctx, c_int_sector_randomize):
 
 
 @pytest.mark.security
+def test_neg_offset_unaligned(pyocf_ctx, c_int_randomize):
+    """
+        Check that write operations are blocked when
+        IO offset is not aligned
+    """
+
+    core = prepare_cache_and_core(Size.from_MiB(2))
+    data = Data(int(Size.from_KiB(1)))
+    if c_int_randomize % 512 != 0:
+        with pytest.raises(Exception, match="Failed to create io!"):
+            core.new_io(core.cache.get_default_queue(), c_int_randomize, data.size,
+                        IoDir.WRITE, 0, 0)
+
+
+@pytest.mark.security
+def test_neg_size_unaligned(pyocf_ctx, c_uint16_randomize):
+    """
+        Check that write operations are blocked when
+        IO size is not aligned
+    """
+
+    core = prepare_cache_and_core(Size.from_MiB(2))
+    data = Data(int(Size.from_B(c_uint16_randomize)))
+    if c_uint16_randomize % 512 != 0:
+        with pytest.raises(Exception, match="Failed to create io!"):
+            core.new_io(core.cache.get_default_queue(), 0, data.size,
+                        IoDir.WRITE, 0, 0)
+
+
+@pytest.mark.security
 def test_neg_io_class(pyocf_ctx, c_int_randomize):
     """
         Check that IO operations are blocked when IO class
