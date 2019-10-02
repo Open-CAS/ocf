@@ -255,40 +255,62 @@ void ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 	ocf_metadata_end_shared_access(metadata_lock);
 }
 
+/* number of hash entries */
 #define _NUM_HASH_ENTRIES req->cache->metadata.lock.num_hash_entries
+
+/* true if hashes are monotonic */
+#define _IS_MONOTONIC(req) (req->map[0].hash + req->core_line_count <= \
+		_NUM_HASH_ENTRIES)
+
+/* minimal hash value */
+#define _MIN_HASH(req) (_IS_MONOTONIC(req) ? req->map[0].hash : 0)
+
+/* maximal hash value */
+#define _MAX_HASH(req) (_IS_MONOTONIC(req) ? \
+		req->map[req->core_line_count - 1].hash : \
+		_NUM_HASH_ENTRIES - 1)
+
+/* number of unique hash values in request */
+#define _HASH_COUNT(req) OCF_MIN(req->core_line_count, _NUM_HASH_ENTRIES)
+
+/* true if there is a gap in hash values */
+#define _HAS_GAP(req) (_MAX_HASH(req) - _MIN_HASH(req) + 1 > _HASH_COUNT(req))
+
+/* gap size */
+#define _GAP_VAL(req) ((_MAX_HASH(req) - _MIN_HASH(req) + 1) - _HASH_COUNT(req))
+
+/* hash value after which there is a gap */
+#define _GAP_START(req) req->map[req->core_line_count - 1].hash
+
+/* get next hash value */
+#define _HASH_NEXT(req, hash) (hash + 1 + \
+		((_HAS_GAP(req) && hash == _GAP_START(req)) ? _GAP_VAL(req) : 0))
 
 /*
  * Iterate over hash buckets for all core lines in the request in ascending hash
  * bucket value order. Each hash bucket is visited only once.
  *
- * @i is used as iteration counter, starting from 0
  * @hash stores hash values for each iteration
- * @start is internal helper variable. It set to the index of first occurence
- * of hash with minimal value within the request.
  *
  * Example hash iteration order for _NUM_HASH_ENTRIES == 5:
- *   Request hashes			Iteration order		start
- *   [2, 3, 4]				[2, 3, 4]		0
- *   [2, 3, 4, 0]		 	[0, 2, 3, 4]		3
- *   [2, 3, 4, 0, 1, 2, 3, 4, 0, 1]   	[0, 1, 2, 3, 4]		3
- *   [4, 0]				[0, 4]			1
- *   [0, 1, 2, 3, 4, 0, 1]		[0, 1, 2, 3, 4]		0
+ *   Request hashes			Iteration order
+ *   [2, 3, 4]				[2, 3, 4]
+ *   [2, 3, 4, 0]		 	[0, 2, 3, 4]
+ *   [2, 3, 4, 0, 1, 2, 3, 4, 0, 1]   	[0, 1, 2, 3, 4]
+ *   [4, 0]				[0, 4]
+ *   [0, 1, 2, 3, 4, 0, 1]		[0, 1, 2, 3, 4]
  *
  */
-#define for_each_req_hash_asc(req, i, hash, start) \
-	for (i = 0, start = (req->map[0].hash + req->core_line_count <= \
-		_NUM_HASH_ENTRIES) ? 0 : (_NUM_HASH_ENTRIES - req->map[0].hash)\
-		 % _NUM_HASH_ENTRIES, hash = req->map[start].hash; \
-		i < OCF_MIN(req->core_line_count, _NUM_HASH_ENTRIES); \
-		i++, hash = req->map[(start + i) % req->core_line_count].hash)
+#define for_each_req_hash_asc(req, hash) \
+	for (hash = _MIN_HASH(req); hash <= _MAX_HASH(req); \
+			hash = _HASH_NEXT(req, hash))
 
 void ocf_req_hash_lock_rd(struct ocf_request *req)
 {
-	unsigned i, start;
 	ocf_cache_line_t hash;
 
 	ocf_metadata_start_shared_access(&req->cache->metadata.lock);
-	for_each_req_hash_asc(req, i, hash, start) {
+	for_each_req_hash_asc(req, hash) {
 		ocf_metadata_hash_lock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_RD);
 	}
@@ -296,10 +318,9 @@ void ocf_req_hash_lock_rd(struct ocf_request *req)
 
 void ocf_req_hash_unlock_rd(struct ocf_request *req)
 {
-	unsigned i, start;
 	ocf_cache_line_t hash;
 
-	for_each_req_hash_asc(req, i, hash, start) {
+	for_each_req_hash_asc(req, hash) {
 		ocf_metadata_hash_unlock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_RD);
 	}
@@ -308,11 +329,10 @@ void ocf_req_hash_unlock_rd(struct ocf_request *req)
 
 void ocf_req_hash_lock_wr(struct ocf_request *req)
 {
-	unsigned i, start;
 	ocf_cache_line_t hash;
 
 	ocf_metadata_start_shared_access(&req->cache->metadata.lock);
-	for_each_req_hash_asc(req, i, hash, start) {
+	for_each_req_hash_asc(req, hash) {
 		ocf_metadata_hash_lock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_WR);
 	}
@@ -320,14 +340,13 @@ void ocf_req_hash_lock_wr(struct ocf_request *req)
 
 void ocf_req_hash_lock_upgrade(struct ocf_request *req)
 {
-	unsigned i, start;
 	ocf_cache_line_t hash;
 
-	for_each_req_hash_asc(req, i, hash, start) {
+	for_each_req_hash_asc(req, hash) {
 		ocf_metadata_hash_unlock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_RD);
 	}
-	for_each_req_hash_asc(req, i, hash, start) {
+	for_each_req_hash_asc(req, hash) {
 		ocf_metadata_hash_lock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_WR);
 	}
@@ -335,10 +354,9 @@ void ocf_req_hash_lock_upgrade(struct ocf_request *req)
 
 void ocf_req_hash_unlock_wr(struct ocf_request *req)
 {
-	unsigned i, start;
 	ocf_cache_line_t hash;
 
-	for_each_req_hash_asc(req, i, hash, start) {
+	for_each_req_hash_asc(req, hash) {
 		ocf_metadata_hash_unlock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_WR);
 	}
