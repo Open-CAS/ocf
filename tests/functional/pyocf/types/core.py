@@ -100,6 +100,10 @@ class Core:
 
         io = OcfLib.getInstance().ocf_core_new_io_wrapper(
             self.handle, queue.handle, addr, length, direction, io_class, flags)
+
+        if io is None:
+            raise Exception("Failed to create io!")
+
         return Io.from_pointer(io)
 
     def new_core_io(
