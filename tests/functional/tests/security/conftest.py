@@ -38,6 +38,11 @@ def c_int_randomize(request):
     return request.param
 
 
+@pytest.fixture(params=RandomGenerator(DefaultRanges.INT))
+def c_int_sector_randomize(request):
+    return request.param // 512 * 512
+
+
 @pytest.fixture(params=RandomStringGenerator())
 def string_randomize(request):
     return request.param

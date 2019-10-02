@@ -85,7 +85,7 @@ def test_neg_read_too_far(pyocf_ctx, c_uint16_randomize):
 
 
 @pytest.mark.security
-def test_neg_write_offset_outside_of_device(pyocf_ctx, c_int_randomize):
+def test_neg_write_offset_outside_of_device(pyocf_ctx, c_int_sector_randomize):
     """
         Check that write operations are blocked when
         IO offset is located outside of device range
@@ -93,16 +93,16 @@ def test_neg_write_offset_outside_of_device(pyocf_ctx, c_int_randomize):
 
     core = prepare_cache_and_core(Size.from_MiB(2))
     data = Data(int(Size.from_KiB(1)))
-    completion = io_operation(core, data, IoDir.WRITE, offset=c_int_randomize)
+    completion = io_operation(core, data, IoDir.WRITE, offset=c_int_sector_randomize)
 
-    if 0 <= c_int_randomize <= int(Size.from_MiB(2)) - int(Size.from_KiB(1)):
+    if 0 <= c_int_sector_randomize <= int(Size.from_MiB(2)) - int(Size.from_KiB(1)):
         assert completion.results["err"] == 0
     else:
         assert completion.results["err"] != 0
 
 
 @pytest.mark.security
-def test_neg_read_offset_outside_of_device(pyocf_ctx, c_int_randomize):
+def test_neg_read_offset_outside_of_device(pyocf_ctx, c_int_sector_randomize):
     """
         Check that read operations are blocked when
         IO offset is located outside of device range
@@ -110,9 +110,9 @@ def test_neg_read_offset_outside_of_device(pyocf_ctx, c_int_randomize):
 
     core = prepare_cache_and_core(Size.from_MiB(2))
     data = Data(int(Size.from_KiB(1)))
-    completion = io_operation(core, data, IoDir.READ, offset=c_int_randomize)
+    completion = io_operation(core, data, IoDir.READ, offset=c_int_sector_randomize)
 
-    if 0 <= c_int_randomize <= int(Size.from_MiB(2)) - int(Size.from_KiB(1)):
+    if 0 <= c_int_sector_randomize <= int(Size.from_MiB(2)) - int(Size.from_KiB(1)):
         assert completion.results["err"] == 0
     else:
         assert completion.results["err"] != 0
