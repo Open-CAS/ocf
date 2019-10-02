@@ -84,25 +84,6 @@ def test_fuzzy_start_name(pyocf_ctx, string_randomize, cm, cls):
 @pytest.mark.security
 @pytest.mark.parametrize("cm", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
-def test_fuzzy_start_id(pyocf_ctx, c_uint16_randomize, cm, cls):
-    """
-    Test whether it is impossible to start cache with invalid cache id value.
-    :param pyocf_ctx: basic pyocf context fixture
-    :param c_uint16_randomize: cache id value to start cache with
-    :param cm: cache mode value to start cache with
-    :param cls: cache line size value to start cache with
-    """
-    max_id_val = 1 << 14
-    if c_uint16_randomize > max_id_val:
-        with pytest.raises(OcfError, match="OCF_ERR_INVAL"):
-            try_start_cache(cache_id=c_uint16_randomize, cache_mode=cm, cache_line_size=cls)
-    else:
-        logger.warning(f"Test skipped for valid cache id value: '{c_uint16_randomize}'. ")
-
-
-@pytest.mark.security
-@pytest.mark.parametrize("cm", CacheMode)
-@pytest.mark.parametrize("cls", CacheLineSize)
 def test_fuzzy_start_eviction_policy(pyocf_ctx, c_uint32_randomize, cm, cls):
     """
     Test whether it is impossible to start cache with invalid eviction policy value.
