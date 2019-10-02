@@ -97,7 +97,11 @@ static void ocf_req_hash_lock_rd_test01(void **state)
 			.hash = {.val = {0, 1, 2, 3, 4, 0, 1}, .count = 7},
 			.expected_call = {.val = {0, 1, 2, 3, 4}, .count = 5}
 		},
-	};
+			{
+			.hash = {.val = {1, 2, 3, 4, 0, 1}, .count = 6},
+			.expected_call = {.val = {0, 1, 2, 3, 4}, .count = 5}
+		},
+};
 	const unsigned test_case_count = sizeof(test_cases) / sizeof(test_cases[0]);
 	unsigned i;
 
