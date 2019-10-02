@@ -90,7 +90,7 @@ class TestGenerator(object):
     def get_autowrap_file_include(self, test_file_path):
         autowrap_file = test_file_path.rsplit(".", 1)[0]
         autowrap_file = autowrap_file.replace(self.main_UT_dir, "")
-        autowrap_file += "_generated_warps.c"
+        autowrap_file += "_generated_wraps.c"
         return "#include \"" + autowrap_file + "\"\n\n"
 
     def get_includes(self, abs_path_to_tested_file):

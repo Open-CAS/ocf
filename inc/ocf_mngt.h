@@ -6,7 +6,6 @@
 #ifndef __OCF_MNGT_H__
 #define __OCF_MNGT_H__
 
-#include "ocf_types.h"
 #include "ocf_cache.h"
 #include "ocf_core.h"
 

@@ -35,7 +35,7 @@
 #include "../concurrency/ocf_cache_line_concurrency.h"
 #include "../ocf_def_priv.h"
 
-#include "cleaning/alru.c/cleaning_policy_alru_initialize_part_test_generated_warps.c"
+#include "cleaning/alru.c/cleaning_policy_alru_initialize_part_test_generated_wraps.c"
 
 
 static void cleaning_policy_alru_initialize_test01(void **state)
@@ -58,7 +58,7 @@ static void cleaning_policy_alru_initialize_test01(void **state)
 
         assert_int_equal(result, 0);
 
-        assert_int_equal(cache.user_parts[part_id].runtime->cleaning.policy.alru.size, 0);
+        assert_int_equal(env_atomic_read(&cache.user_parts[part_id].runtime->cleaning.policy.alru.size), 0);
         assert_int_equal(cache.user_parts[part_id].runtime->cleaning.policy.alru.lru_head, collision_table_entries);
         assert_int_equal(cache.user_parts[part_id].runtime->cleaning.policy.alru.lru_tail, collision_table_entries);
 
@@ -83,7 +83,7 @@ static void cleaning_policy_alru_initialize_test02(void **state)
         cache.device = test_malloc(sizeof(struct ocf_cache_device));
         cache.device->runtime_meta = test_malloc(sizeof(struct ocf_superblock_runtime));
 
-        cache.user_parts[part_id].runtime->cleaning.policy.alru.size = 1;
+        env_atomic_set(&cache.user_parts[part_id].runtime->cleaning.policy.alru.size, 1);
         cache.user_parts[part_id].runtime->cleaning.policy.alru.lru_head = -collision_table_entries;
         cache.user_parts[part_id].runtime->cleaning.policy.alru.lru_tail = -collision_table_entries;
 
@@ -91,7 +91,7 @@ static void cleaning_policy_alru_initialize_test02(void **state)
 
         assert_int_equal(result, 0);
 
-        assert_int_equal(cache.user_parts[part_id].runtime->cleaning.policy.alru.size, 1);
+        assert_int_equal(env_atomic_read(&cache.user_parts[part_id].runtime->cleaning.policy.alru.size), 1);
         assert_int_equal(cache.user_parts[part_id].runtime->cleaning.policy.alru.lru_head, -collision_table_entries);
         assert_int_equal(cache.user_parts[part_id].runtime->cleaning.policy.alru.lru_tail, -collision_table_entries);
 

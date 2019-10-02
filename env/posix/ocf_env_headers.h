@@ -11,7 +11,7 @@
 #include <stdbool.h>
 
 /* TODO: Move prefix printing to context logger. */
-#define OCF_LOGO "Intel(R) OCF"
+#define OCF_LOGO "OCF"
 #define OCF_PREFIX_SHORT "[" OCF_LOGO "] "
 #define OCF_PREFIX_LONG "Open CAS Framework"
 

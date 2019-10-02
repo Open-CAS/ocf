@@ -11,7 +11,6 @@
 #ifndef __OCF_CORE_H__
 #define __OCF_CORE_H__
 
-#include "ocf_types.h"
 #include "ocf_volume.h"
 #include "ocf_io.h"
 #include "ocf_mngt.h"

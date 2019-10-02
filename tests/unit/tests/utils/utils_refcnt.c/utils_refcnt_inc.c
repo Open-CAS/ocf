@@ -20,7 +20,7 @@
 
 #include "../utils/utils_refcnt.h"
 
-#include "utils/utils_refcnt.c/utils_refcnt_inc_generated_warps.c"
+#include "utils/utils_refcnt.c/utils_refcnt_inc_generated_wraps.c"
 
 static void ocf_refcnt_inc_test(void **state)
 {

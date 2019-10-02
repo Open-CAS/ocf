@@ -21,7 +21,7 @@
 #include "metadata.h"
 #include "../utils/utils_cache_line.h"
 
-#include "metadata/metadata_collision.c/metadata_collision_generated_warps.c"
+#include "metadata/metadata_collision.c/metadata_collision_generated_wraps.c"
 
 static void metadata_hash_func_test01(void **state)
 {

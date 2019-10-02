@@ -15,7 +15,7 @@ framework_script_path = os.path.join(script_path, "../framework/add_new_test_fil
 framework_script_path = os.path.normpath(framework_script_path)
 status, output = commands.getstatusoutput(framework_script_path + " " + args)
 
-print output
+print(output)
 
 if status == 0:
     path = output.split(" ", 1)[0]

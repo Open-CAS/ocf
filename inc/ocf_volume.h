@@ -13,7 +13,6 @@
 
 #include "ocf_types.h"
 #include "ocf_env.h"
-#include "ocf_err.h"
 
 struct ocf_io;
 
