@@ -36,6 +36,8 @@ class DefaultRanges(Range, enum.Enum):
 
 class RandomGenerator:
     def __init__(self, base_range=DefaultRanges.INT, count=1000):
+        with open("config/random.cfg") as f:
+            self.random = random.Random(int(f.read()))
         self.exclude = []
         self.range = base_range
         self.count = count
@@ -53,7 +55,7 @@ class RandomGenerator:
             raise StopIteration()
         self.n += 1
         while True:
-            val = random.randint(self.range.min, self.range.max)
+            val = self.random.randint(self.range.min, self.range.max)
             if self.exclude:
                 excl_map = map(lambda e: e.is_within(val), self.exclude)
                 is_excluded = reduce(lambda a, b: a or b, excl_map)
@@ -64,6 +66,8 @@ class RandomGenerator:
 
 class RandomStringGenerator:
     def __init__(self, len_range=Range(0, 20), count=700):
+        with open("config/random.cfg") as f:
+            self.random = random.Random(int(f.read()))
         self.generator = self.__string_generator(len_range)
         self.count = count
         self.n = 0
@@ -78,7 +82,7 @@ class RandomStringGenerator:
                       string.punctuation,
                       string.hexdigits]:
                 yield ''.join(random.choice(t) for _ in range(
-                    random.randint(len_range.min, len_range.max)
+                    self.random.randint(len_range.min, len_range.max)
                 ))
 
     def __iter__(self):
