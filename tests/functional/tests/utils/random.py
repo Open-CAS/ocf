@@ -43,6 +43,7 @@ class RandomGenerator:
 
     def exclude_range(self, excl_range):
         self.exclude.append(excl_range)
+        return self
 
     def __iter__(self):
         return self
