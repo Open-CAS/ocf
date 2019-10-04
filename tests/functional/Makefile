@@ -18,7 +18,7 @@ SRC=$(shell find $(SRCDIR) $(WRAPDIR) -name \*.c)
 OBJS=$(patsubst %.c, %.o, $(SRC))
 OCFLIB=$(ADAPTERDIR)/libocf.so
 
-all: | sync
+all: | sync config_random
 	$(MAKE) $(OCFLIB)
 
 $(OCFLIB): $(OBJS)
@@ -36,6 +36,9 @@ sync:
 	@$(MAKE) -C $(OCFDIR) src O=$(ADAPTERDIR)/ocf
 	@$(MAKE) -C $(OCFDIR) env O=$(ADAPTERDIR)/ocf OCF_ENV=posix
 
+config_random:
+	@python3 utils/configure_random.py
+
 clean:
 	@rm -rf $(OCFLIB) $(OBJS)
 	@echo "  CLEAN "
@@ -46,4 +49,4 @@ distclean: clean
 	@rm -rf $(INCDIR)/ocf
 	@echo "  DISTCLEAN "
 
-.PHONY: all clean sync distclean
+.PHONY: all clean sync config_random distclean
