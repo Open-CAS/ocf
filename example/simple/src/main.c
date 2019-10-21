@@ -207,7 +207,7 @@ int initialize_core(ocf_cache_t cache, ocf_core_t *core)
 
 	/* Core configuration */
 	ocf_mngt_core_config_set_default(&core_cfg);
-	core_cfg.name = "core1";
+	strcpy(core_cfg.name, "core1");
 	core_cfg.volume_type = VOL_TYPE;
 	ret = ocf_uuid_set_str(&core_cfg.uuid, "core");
 	if (ret)
