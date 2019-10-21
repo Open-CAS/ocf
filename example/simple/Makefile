@@ -19,7 +19,7 @@ all: sync
 	$(MAKE) $(PROGRAM)
 
 $(PROGRAM): $(OBJS)
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 sync:
 	@$(MAKE) -C ${OCFDIR} inc O=$(PWD)
