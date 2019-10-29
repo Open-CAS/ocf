@@ -289,7 +289,7 @@ int ocf_stats_collect_part_cache(ocf_cache_t cache, ocf_part_id_t part_id,
 		struct ocf_stats_blocks *blocks)
 {
 	struct io_class_stats_context ctx;
-	struct ocf_stats_io_class s;
+	struct ocf_stats_io_class s = {};
 	int result = 0;
 
 	OCF_CHECK_NULL(cache);
