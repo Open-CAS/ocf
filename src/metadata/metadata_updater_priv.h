@@ -21,8 +21,7 @@ struct ocf_metadata_updater {
 };
 
 
-int metadata_updater_check_overlaps(ocf_cache_t cache,
-                struct metadata_io_request *req);
+void metadata_updater_submit(struct metadata_io_request *m_req);
 
 int ocf_metadata_updater_init(struct ocf_cache *cache);
 
