@@ -57,23 +57,14 @@ ocf_cache_t ocf_metadata_updater_get_cache(ocf_metadata_updater_t mu)
 static int _metadata_updater_iterate_in_progress(ocf_cache_t cache,
 		struct metadata_io_request *new_req)
 {
-	struct metadata_io_request_asynch *a_req;
 	struct ocf_metadata_io_syncher *syncher =
 		&cache->metadata_updater.syncher;
 	struct metadata_io_request *curr, *temp;
 
 	list_for_each_entry_safe(curr, temp, &syncher->in_progress_head, list) {
 		if (env_atomic_read(&curr->finished)) {
-			a_req = curr->asynch;
-			ENV_BUG_ON(!a_req);
-
 			list_del(&curr->list);
-
-			if (env_atomic_dec_return(&a_req->req_active) == 0) {
-				OCF_REALLOC_DEINIT(&a_req->reqs,
-						&a_req->reqs_limit);
-				env_free(a_req);
-			}
+			metadata_io_req_complete(curr);
 			continue;
 		}
 		if (new_req) {
@@ -88,28 +79,29 @@ static int _metadata_updater_iterate_in_progress(ocf_cache_t cache,
 	return 0;
 }
 
-int metadata_updater_check_overlaps(ocf_cache_t cache,
-                struct metadata_io_request *req)
+void metadata_updater_submit(struct metadata_io_request *m_req)
 {
+	ocf_cache_t cache = m_req->cache;
 	struct ocf_metadata_io_syncher *syncher =
 		&cache->metadata_updater.syncher;
 	int ret;
 
 	env_mutex_lock(&syncher->lock);
 
-	ret = _metadata_updater_iterate_in_progress(cache, req);
+	ret = _metadata_updater_iterate_in_progress(cache, m_req);
 
 	/* Either add it to in-progress list or pending list for deferred
 	 * execution.
 	 */
 	if (ret == 0)
-		list_add_tail(&req->list, &syncher->in_progress_head);
+		list_add_tail(&m_req->list, &syncher->in_progress_head);
 	else
-		list_add_tail(&req->list, &syncher->pending_head);
+		list_add_tail(&m_req->list, &syncher->pending_head);
 
 	env_mutex_unlock(&syncher->lock);
 
-	return ret;
+	if (ret == 0)
+		ocf_engine_push_req_front(&m_req->req, true);
 }
 
 uint32_t ocf_metadata_updater_run(ocf_metadata_updater_t mu)
@@ -143,7 +135,7 @@ uint32_t ocf_metadata_updater_run(ocf_metadata_updater_t mu)
 		}
 		env_mutex_unlock(&syncher->lock);
 		if (ret == 0)
-			ocf_engine_push_req_front(&curr->fl_req, true);
+			ocf_engine_push_req_front(&curr->req, true);
 		env_cond_resched();
 		env_mutex_lock(&syncher->lock);
 	}
