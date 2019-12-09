@@ -5,15 +5,19 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
 
-import commands
+import subprocess
 import sys
 import os
+
 
 args = ' '.join(sys.argv[1:])
 script_path = os.path.dirname(os.path.realpath(__file__))
 framework_script_path = os.path.join(script_path, "../framework/add_new_test_file.py")
 framework_script_path = os.path.normpath(framework_script_path)
-status, output = commands.getstatusoutput(framework_script_path + " " + args)
+result = subprocess.run(framework_script_path + " " + args, shell=True,
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+status = result.returncode
+output = result.stdout.decode("ASCII", errors='ignore')
 
 print(output)
 
