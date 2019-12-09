@@ -8,6 +8,7 @@
 #include "cache_engine.h"
 #include "engine_common.h"
 #include "engine_wb.h"
+#include "engine_inv.h"
 #include "../metadata/metadata.h"
 #include "../ocf_request.h"
 #include "../utils/utils_io.h"
@@ -98,11 +99,9 @@ static void _ocf_write_wb_complete(struct ocf_request *req, int error)
 	if (req->error) {
 		ocf_engine_error(req, true, "Failed to write data to cache");
 
-		ocf_req_unlock_wr(req);
-
 		req->complete(req, req->error);
 
-		ocf_req_put(req);
+		ocf_engine_invalidate(req);
 	} else {
 		ocf_engine_push_req_front_if(req, &_io_if_wb_flush_metadata,
 				true);
