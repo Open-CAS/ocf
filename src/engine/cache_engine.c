@@ -187,6 +187,7 @@ bool ocf_seq_cutoff_check(ocf_core_t core, uint32_t dir, uint64_t addr,
 	case ocf_seq_cutoff_policy_full:
 		if (ocf_seq_cutoff_is_on(cache))
 			break;
+		return false;
 
 	case ocf_seq_cutoff_policy_never:
 		return false;
