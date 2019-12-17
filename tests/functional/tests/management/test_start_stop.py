@@ -359,7 +359,7 @@ def test_start_too_small_device(pyocf_ctx, mode, cls):
 
     cache_device = Volume(Size.from_B(20 * 1024 * 1024 - 1))
 
-    with pytest.raises(OcfError, match="OCF_ERR_START_CACHE_FAIL"):
+    with pytest.raises(OcfError, match="OCF_ERR_INVAL_CACHE_DEV"):
         Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
 
 
