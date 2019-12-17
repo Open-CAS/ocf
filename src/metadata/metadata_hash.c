@@ -1092,9 +1092,11 @@ static inline void _ocf_init_collision_entry(struct ocf_cache *cache,
 static void ocf_metadata_hash_init_collision(struct ocf_cache *cache)
 {
 	unsigned int i;
+	unsigned int step = 0;
 
 	for (i = 0; i < cache->device->collision_table_entries; i++) {
 		_ocf_init_collision_entry(cache, i);
+		OCF_COND_RESCHED_DEFAULT(step);
 	}
 }
 
