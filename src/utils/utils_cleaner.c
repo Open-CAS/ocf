@@ -467,11 +467,12 @@ static void _ocf_cleaner_core_io_cmpl(struct ocf_io *io, int error)
 {
 	struct ocf_map_info *map = io->priv1;
 	struct ocf_request *req = io->priv2;
+	ocf_core_t core = ocf_cache_get_core(req->cache, map->core_id);
 
 	if (error) {
 		map->invalid |= 1;
 		_ocf_cleaner_set_error(req);
-		ocf_core_stats_core_error_update(req->core, OCF_WRITE);
+		ocf_core_stats_core_error_update(core, OCF_WRITE);
 	}
 
 	_ocf_cleaner_core_io_end(req);
