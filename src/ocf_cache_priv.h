@@ -14,6 +14,7 @@
 #include "metadata/metadata_partition_structs.h"
 #include "metadata/metadata_updater_priv.h"
 #include "utils/utils_list.h"
+#include "utils/utils_pipeline.h"
 #include "utils/utils_refcnt.h"
 #include "utils/utils_async_lock.h"
 #include "ocf_stats_priv.h"
@@ -166,6 +167,8 @@ struct ocf_cache {
 	bool use_submit_io_fast;
 
 	struct ocf_trace trace;
+
+	ocf_pipeline_t stop_pipeline;
 
 	void *priv;
 };
