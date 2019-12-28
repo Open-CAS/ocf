@@ -55,25 +55,15 @@ ocf_cache_t ocf_metadata_updater_get_cache(ocf_metadata_updater_t mu)
 }
 
 static int _metadata_updater_iterate_in_progress(ocf_cache_t cache,
-		struct metadata_io_request *new_req)
+		struct list_head *finished, struct metadata_io_request *new_req)
 {
-	struct metadata_io_request_asynch *a_req;
 	struct ocf_metadata_io_syncher *syncher =
-		&cache->metadata_updater.syncher;
+			&cache->metadata_updater.syncher;
 	struct metadata_io_request *curr, *temp;
 
 	list_for_each_entry_safe(curr, temp, &syncher->in_progress_head, list) {
 		if (env_atomic_read(&curr->finished)) {
-			a_req = curr->asynch;
-			ENV_BUG_ON(!a_req);
-
-			list_del(&curr->list);
-
-			if (env_atomic_dec_return(&a_req->req_active) == 0) {
-				OCF_REALLOC_DEINIT(&a_req->reqs,
-						&a_req->reqs_limit);
-				env_free(a_req);
-			}
+			list_move_tail(&curr->list, finished);
 			continue;
 		}
 		if (new_req) {
@@ -88,38 +78,57 @@ static int _metadata_updater_iterate_in_progress(ocf_cache_t cache,
 	return 0;
 }
 
-int metadata_updater_check_overlaps(ocf_cache_t cache,
-                struct metadata_io_request *req)
+static void metadata_updater_process_finished(struct list_head *finished)
 {
+	struct metadata_io_request *curr, *temp;
+
+	list_for_each_entry_safe(curr, temp, finished, list) {
+		list_del(&curr->list);
+		metadata_io_req_complete(curr);
+	}
+}
+
+void metadata_updater_submit(struct metadata_io_request *m_req)
+{
+	ocf_cache_t cache = m_req->cache;
 	struct ocf_metadata_io_syncher *syncher =
-		&cache->metadata_updater.syncher;
+			&cache->metadata_updater.syncher;
+	struct list_head finished;
 	int ret;
+
+	INIT_LIST_HEAD(&finished);
 
 	env_mutex_lock(&syncher->lock);
 
-	ret = _metadata_updater_iterate_in_progress(cache, req);
+	ret = _metadata_updater_iterate_in_progress(cache, &finished, m_req);
 
 	/* Either add it to in-progress list or pending list for deferred
 	 * execution.
 	 */
 	if (ret == 0)
-		list_add_tail(&req->list, &syncher->in_progress_head);
+		list_add_tail(&m_req->list, &syncher->in_progress_head);
 	else
-		list_add_tail(&req->list, &syncher->pending_head);
+		list_add_tail(&m_req->list, &syncher->pending_head);
 
 	env_mutex_unlock(&syncher->lock);
 
-	return ret;
+	if (ret == 0)
+		ocf_engine_push_req_front(&m_req->req, true);
+
+	metadata_updater_process_finished(&finished);
 }
 
 uint32_t ocf_metadata_updater_run(ocf_metadata_updater_t mu)
 {
 	struct metadata_io_request *curr, *temp;
 	struct ocf_metadata_io_syncher *syncher;
+	struct list_head finished;
 	ocf_cache_t cache;
 	int ret;
 
 	OCF_CHECK_NULL(mu);
+
+	INIT_LIST_HEAD(&finished);
 
 	cache = ocf_metadata_updater_get_cache(mu);
 	syncher = &cache->metadata_updater.syncher;
@@ -130,20 +139,22 @@ uint32_t ocf_metadata_updater_run(ocf_metadata_updater_t mu)
 		 * If pending list is empty, we iterate over in progress
 		 * list to free memory used by finished requests.
 		 */
-		_metadata_updater_iterate_in_progress(cache, NULL);
+		_metadata_updater_iterate_in_progress(cache, &finished, NULL);
 		env_mutex_unlock(&syncher->lock);
+		metadata_updater_process_finished(&finished);
 		env_cond_resched();
 		return 0;
 	}
 	list_for_each_entry_safe(curr, temp, &syncher->pending_head, list) {
-		ret = _metadata_updater_iterate_in_progress(cache, curr);
+		ret = _metadata_updater_iterate_in_progress(cache, &finished, curr);
 		if (ret == 0) {
 			/* Move to in-progress list and kick the workers */
 			list_move_tail(&curr->list, &syncher->in_progress_head);
 		}
 		env_mutex_unlock(&syncher->lock);
+		metadata_updater_process_finished(&finished);
 		if (ret == 0)
-			ocf_engine_push_req_front(&curr->fl_req, true);
+			ocf_engine_push_req_front(&curr->req, true);
 		env_cond_resched();
 		env_mutex_lock(&syncher->lock);
 	}

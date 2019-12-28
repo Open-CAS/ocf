@@ -51,30 +51,33 @@ struct metadata_io_request {
 	uint32_t count;
 	ocf_metadata_io_event_t on_meta_fill;
 	ocf_metadata_io_event_t on_meta_drain;
-	env_atomic req_remaining;
 	ctx_data_t *data;
 	int error;
 	struct metadata_io_request_asynch *asynch;
 	env_atomic finished;
 
-	struct ocf_request fl_req;
+	struct ocf_request req;
 	struct list_head list;
 };
+
+#define METADATA_IO_REQS_LIMIT 128
 
 /*
  * Asynchronous IO request context
  */
 struct metadata_io_request_asynch {
-	ocf_cache_t cache;
-	struct metadata_io_request *reqs;
+	struct metadata_io_request reqs[METADATA_IO_REQS_LIMIT];
 	void *context;
 	int error;
-	size_t reqs_limit;
 	env_atomic req_remaining;
 	env_atomic req_active;
+	env_atomic req_current;
 	uint32_t page;
+	uint32_t count;
 	ocf_metadata_io_end_t on_complete;
 };
+
+void metadata_io_req_complete(struct metadata_io_request *m_req);
 
 /**
  * @brief Metadata read end callback
