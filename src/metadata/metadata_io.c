@@ -369,7 +369,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 	struct metadata_io_request_asynch *a_req;
 	struct metadata_io_request *m_req;
 	uint32_t max_count = metadata_io_max_page(cache);
-	uint32_t io_count = DIV_ROUND_UP(count, max_count);
+	uint32_t io_count = OCF_DIV_ROUND_UP(count, max_count);
 	uint32_t req_count = OCF_MIN(io_count, METADATA_IO_REQS_LIMIT);
 	int i;
 
