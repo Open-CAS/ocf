@@ -1153,6 +1153,8 @@ static void _ocf_mngt_attach_handle_error(
 
 	if (context->flags.device_alloc)
 		env_vfree(cache->device);
+
+	ocf_pipeline_destroy(cache->stop_pipeline);
 }
 
 static void _ocf_mngt_cache_init(ocf_cache_t cache,
@@ -1304,7 +1306,7 @@ static void _ocf_mngt_attach_load_superblock_complete(void *priv, int error)
 	ocf_cache_t cache = context->cache;
 
 	if (cache->conf_meta->cachelines !=
-	    ocf_metadata_get_cachelines_count(cache)) {
+			ocf_metadata_get_cachelines_count(cache)) {
 		ocf_cache_log(cache, log_err,
 				"ERROR: Cache device size mismatch!\n");
 		OCF_PL_FINISH_RET(context->pipeline,
@@ -1539,6 +1541,207 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 	},
 };
 
+typedef void (*_ocf_mngt_cache_unplug_end_t)(void *context, int error);
+
+struct _ocf_mngt_cache_unplug_context {
+	_ocf_mngt_cache_unplug_end_t cmpl;
+	void *priv;
+	ocf_cache_t cache;
+};
+
+struct ocf_mngt_cache_stop_context {
+	/* unplug context - this is private structure of _ocf_mngt_cache_unplug,
+	 * it is member of stop context only to reserve memory in advance for
+	 * _ocf_mngt_cache_unplug, eliminating the possibility of ENOMEM error
+	 * at the point where we are effectively unable to handle it */
+	struct _ocf_mngt_cache_unplug_context unplug_context;
+
+	ocf_mngt_cache_stop_end_t cmpl;
+	void *priv;
+	ocf_pipeline_t pipeline;
+	ocf_cache_t cache;
+	ocf_ctx_t ctx;
+	char cache_name[OCF_CACHE_NAME_SIZE];
+	int cache_write_error;
+};
+
+static void ocf_mngt_cache_stop_wait_metadata_io_finish(void *priv)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+static void ocf_mngt_cache_stop_wait_metadata_io(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_refcnt_freeze(&cache->refcnt.metadata);
+	ocf_refcnt_register_zero_cb(&cache->refcnt.metadata,
+			ocf_mngt_cache_stop_wait_metadata_io_finish, context);
+}
+
+static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache, bool attached)
+{
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	int no = cache->conf_meta->core_count;
+
+	/* All exported objects removed, cleaning up rest. */
+	for_each_core_all(cache, core, core_id) {
+		if (!env_bit_test(core_id, cache->conf_meta->valid_core_bitmap))
+			continue;
+
+		cache_mngt_core_remove_from_cache(core);
+		if (attached)
+			cache_mngt_core_remove_from_cleaning_pol(core);
+		cache_mngt_core_close(core);
+		if (--no == 0)
+			break;
+	}
+	ENV_BUG_ON(cache->conf_meta->core_count != 0);
+}
+
+static void ocf_mngt_cache_stop_remove_cores(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	_ocf_mngt_cache_stop_remove_cores(cache, true);
+
+	ocf_pipeline_next(pipeline);
+}
+
+static void ocf_mngt_cache_stop_unplug_complete(void *priv, int error)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+
+	if (error) {
+		ENV_BUG_ON(error != -OCF_ERR_WRITE_CACHE);
+		context->cache_write_error = error;
+	}
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
+		struct _ocf_mngt_cache_unplug_context *context,
+		_ocf_mngt_cache_unplug_end_t cmpl, void *priv);
+
+static void ocf_mngt_cache_stop_unplug(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	_ocf_mngt_cache_unplug(cache, true, &context->unplug_context,
+			ocf_mngt_cache_stop_unplug_complete, context);
+}
+
+static void _ocf_mngt_cache_put_io_queues(ocf_cache_t cache)
+{
+	ocf_queue_t queue, tmp_queue;
+
+	list_for_each_entry_safe(queue, tmp_queue, &cache->io_queues, list)
+		ocf_queue_put(queue);
+}
+
+static void ocf_mngt_cache_stop_put_io_queues(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	_ocf_mngt_cache_put_io_queues(cache);
+
+	ocf_pipeline_next(pipeline);
+}
+
+static void ocf_mngt_cache_remove(ocf_ctx_t ctx, ocf_cache_t cache)
+{
+	/* Mark device uninitialized */
+	ocf_refcnt_freeze(&cache->refcnt.cache);
+
+	/* Deinitialize locks */
+	ocf_mngt_cache_lock_deinit(cache);
+	env_mutex_destroy(&cache->flush_mutex);
+
+	/* Remove cache from the list */
+	env_rmutex_lock(&ctx->lock);
+	list_del(&cache->list);
+	env_rmutex_unlock(&ctx->lock);
+}
+
+static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
+		void *priv, int error)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_ctx_t ctx = context->ctx;
+	int pipeline_error;
+	ocf_mngt_cache_stop_end_t pipeline_cmpl;
+	void *completion_priv;
+
+	if (!error) {
+		ocf_mngt_cache_remove(context->ctx, cache);
+	} else {
+		/* undo metadata counter freeze */
+		ocf_refcnt_unfreeze(&cache->refcnt.metadata);
+
+		env_bit_clear(ocf_cache_state_stopping, &cache->cache_state);
+		env_bit_set(ocf_cache_state_running, &cache->cache_state);
+	}
+
+	if (!error) {
+		if (!context->cache_write_error) {
+			ocf_log(ctx, log_info,
+					"Cache %s successfully stopped\n",
+					context->cache_name);
+		} else {
+			ocf_log(ctx, log_warn, "Stopped cache %s with errors\n",
+					context->cache_name);
+		}
+	} else {
+		ocf_log(ctx, log_err, "Stopping cache %s failed\n",
+				context->cache_name);
+	}
+
+	/*
+	 * FIXME: Destroying pipeline before completing management operation is a
+	 * temporary workaround for insufficient object lifetime management in pyocf
+	 * Context must not be referenced after destroying pipeline as this is
+	 * typically freed upon pipeline destroy.
+	 */
+	pipeline_error = error ?: context->cache_write_error;
+	pipeline_cmpl = context->cmpl;
+	completion_priv = context->priv;
+
+	ocf_pipeline_destroy(context->pipeline);
+
+	pipeline_cmpl(cache, completion_priv, pipeline_error);
+
+	if (!error) {
+		/* Finally release cache instance */
+		ocf_mngt_cache_put(cache);
+	}
+}
+
+struct ocf_pipeline_properties ocf_mngt_cache_stop_pipeline_properties = {
+	.priv_size = sizeof(struct ocf_mngt_cache_stop_context),
+	.finish = ocf_mngt_cache_stop_finish,
+	.steps = {
+		OCF_PL_STEP(ocf_mngt_cache_stop_wait_metadata_io),
+		OCF_PL_STEP(ocf_mngt_cache_stop_remove_cores),
+		OCF_PL_STEP(ocf_mngt_cache_stop_unplug),
+		OCF_PL_STEP(ocf_mngt_cache_stop_put_io_queues),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+
 static void _ocf_mngt_cache_attach(ocf_cache_t cache,
 		struct ocf_mngt_cache_device_config *cfg, bool load,
 		_ocf_mngt_cache_attach_end_t cmpl, void *priv1, void *priv2)
@@ -1552,6 +1755,13 @@ static void _ocf_mngt_cache_attach(ocf_cache_t cache,
 			&_ocf_mngt_cache_attach_pipeline_properties);
 	if (result)
 		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_NO_MEM);
+
+	result = ocf_pipeline_create(&cache->stop_pipeline, cache,
+			&ocf_mngt_cache_stop_pipeline_properties);
+	if (result) {
+		ocf_pipeline_destroy(pipeline);
+		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_NO_MEM);
+	}
 
 	context = ocf_pipeline_get_priv(pipeline);
 
@@ -1591,6 +1801,7 @@ err_uuid:
 	env_vfree(data);
 err_pipeline:
 	ocf_pipeline_destroy(pipeline);
+	ocf_pipeline_destroy(cache->stop_pipeline);
 	OCF_CMPL_RET(cache, priv1, priv2, result);
 }
 
@@ -1707,7 +1918,7 @@ static void _ocf_mngt_cache_attach_complete(ocf_cache_t cache, void *priv1,
 		ocf_cache_log(cache, log_info, "Successfully attached\n");
 	} else {
 		ocf_cache_log(cache, log_err, "Attaching cache device "
-			       "failed\n");
+				   "failed\n");
 	}
 
 	OCF_CMPL_RET(cache, priv2, error);
@@ -1732,14 +1943,6 @@ void ocf_mngt_cache_attach(ocf_cache_t cache,
 	_ocf_mngt_cache_attach(cache, cfg, false,
 			_ocf_mngt_cache_attach_complete, cmpl, priv);
 }
-
-typedef void (*_ocf_mngt_cache_unplug_end_t)(void *context, int error);
-
-struct _ocf_mngt_cache_unplug_context {
-	_ocf_mngt_cache_unplug_end_t cmpl;
-	void *priv;
-	ocf_cache_t cache;
-};
 
 static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
 {
@@ -1771,9 +1974,9 @@ static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
  *
  * @param cache OCF cache instance
  * @param stop	- true if unplugging during stop - in this case we mark
- *		    clean shutdown in metadata and flush all containers.
+ *			clean shutdown in metadata and flush all containers.
  *		- false if the device is to be detached from cache - loading
- *		    metadata from this device will not be possible.
+ *			metadata from this device will not be possible.
  * @param context - context for this call, must be zeroed
  * @param cmpl Completion callback
  * @param priv Completion context
@@ -1881,194 +2084,6 @@ void ocf_mngt_cache_load(ocf_cache_t cache,
 			_ocf_mngt_cache_load_complete, cmpl, priv);
 }
 
-struct ocf_mngt_cache_stop_context {
-	/* unplug context - this is private structure of _ocf_mngt_cache_unplug,
-	 * it is member of stop context only to reserve memory in advance for
-	 * _ocf_mngt_cache_unplug, eliminating the possibility of ENOMEM error
-	 * at the point where we are effectively unable to handle it */
-	struct _ocf_mngt_cache_unplug_context unplug_context;
-
-	ocf_mngt_cache_stop_end_t cmpl;
-	void *priv;
-	ocf_pipeline_t pipeline;
-	ocf_cache_t cache;
-	ocf_ctx_t ctx;
-	char cache_name[OCF_CACHE_NAME_SIZE];
-	int cache_write_error;
-};
-
-static void ocf_mngt_cache_stop_wait_metadata_io_finish(void *priv)
-{
-	struct ocf_mngt_cache_stop_context *context = priv;
-
-	ocf_pipeline_next(context->pipeline);
-}
-
-static void ocf_mngt_cache_stop_wait_metadata_io(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_mngt_cache_stop_context *context = priv;
-	ocf_cache_t cache = context->cache;
-
-	ocf_refcnt_freeze(&cache->refcnt.metadata);
-	ocf_refcnt_register_zero_cb(&cache->refcnt.metadata,
-			ocf_mngt_cache_stop_wait_metadata_io_finish, context);
-}
-
-static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache, bool attached)
-{
-	ocf_core_t core;
-	ocf_core_id_t core_id;
-	int no = cache->conf_meta->core_count;
-
-	/* All exported objects removed, cleaning up rest. */
-	for_each_core_all(cache, core, core_id) {
-		if (!env_bit_test(core_id, cache->conf_meta->valid_core_bitmap))
-			continue;
-
-		cache_mngt_core_remove_from_cache(core);
-		if (attached)
-			cache_mngt_core_remove_from_cleaning_pol(core);
-		cache_mngt_core_close(core);
-		if (--no == 0)
-			break;
-	}
-	ENV_BUG_ON(cache->conf_meta->core_count != 0);
-}
-
-static void ocf_mngt_cache_stop_remove_cores(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_mngt_cache_stop_context *context = priv;
-	ocf_cache_t cache = context->cache;
-
-	_ocf_mngt_cache_stop_remove_cores(cache, true);
-
-	ocf_pipeline_next(pipeline);
-}
-
-static void ocf_mngt_cache_stop_unplug_complete(void *priv, int error)
-{
-	struct ocf_mngt_cache_stop_context *context = priv;
-
-	if (error) {
-		ENV_BUG_ON(error != -OCF_ERR_WRITE_CACHE);
-		context->cache_write_error = error;
-	}
-
-	ocf_pipeline_next(context->pipeline);
-}
-
-static void ocf_mngt_cache_stop_unplug(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_mngt_cache_stop_context *context = priv;
-	ocf_cache_t cache = context->cache;
-
-	_ocf_mngt_cache_unplug(cache, true, &context->unplug_context,
-			ocf_mngt_cache_stop_unplug_complete, context);
-}
-
-static void _ocf_mngt_cache_put_io_queues(ocf_cache_t cache)
-{
-	ocf_queue_t queue, tmp_queue;
-
-	list_for_each_entry_safe(queue, tmp_queue, &cache->io_queues, list)
-		ocf_queue_put(queue);
-}
-
-static void ocf_mngt_cache_stop_put_io_queues(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_mngt_cache_stop_context *context = priv;
-	ocf_cache_t cache = context->cache;
-
-	_ocf_mngt_cache_put_io_queues(cache);
-
-	ocf_pipeline_next(pipeline);
-}
-
-static void ocf_mngt_cache_remove(ocf_ctx_t ctx, ocf_cache_t cache)
-{
-	/* Mark device uninitialized */
-	ocf_refcnt_freeze(&cache->refcnt.cache);
-
-	/* Deinitialize locks */
-	ocf_mngt_cache_lock_deinit(cache);
-	env_mutex_destroy(&cache->flush_mutex);
-
-	/* Remove cache from the list */
-	env_rmutex_lock(&ctx->lock);
-	list_del(&cache->list);
-	env_rmutex_unlock(&ctx->lock);
-}
-
-static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
-		void *priv, int error)
-{
-	struct ocf_mngt_cache_stop_context *context = priv;
-	ocf_cache_t cache = context->cache;
-	ocf_ctx_t ctx = context->ctx;
-	int pipeline_error;
-	ocf_mngt_cache_stop_end_t pipeline_cmpl;
-	void *completion_priv;
-
-	if (!error) {
-		ocf_mngt_cache_remove(context->ctx, cache);
-	} else {
-		/* undo metadata counter freeze */
-		ocf_refcnt_unfreeze(&cache->refcnt.metadata);
-
-		env_bit_clear(ocf_cache_state_stopping, &cache->cache_state);
-		env_bit_set(ocf_cache_state_running, &cache->cache_state);
-	}
-
-	if (!error) {
-		if (!context->cache_write_error) {
-			ocf_log(ctx, log_info,
-					"Cache %s successfully stopped\n",
-					context->cache_name);
-		} else {
-			ocf_log(ctx, log_warn, "Stopped cache %s with errors\n",
-					context->cache_name);
-		}
-	} else {
-		ocf_log(ctx, log_err, "Stopping cache %s failed\n",
-				context->cache_name);
-	}
-
-	/*
-	 * FIXME: Destroying pipeline before completing management operation is a
-	 * temporary workaround for insufficient object lifetime management in pyocf
-	 * Context must not be referenced after destroying pipeline as this is
-	 * typically freed upon pipeline destroy.
-	 */
-	pipeline_error = error ?: context->cache_write_error;
-	pipeline_cmpl = context->cmpl;
-	completion_priv = context->priv;
-
-	ocf_pipeline_destroy(context->pipeline);
-
-	pipeline_cmpl(cache, completion_priv, pipeline_error);
-
-	if (!error) {
-		/* Finally release cache instance */
-		ocf_mngt_cache_put(cache);
-	}
-}
-
-struct ocf_pipeline_properties ocf_mngt_cache_stop_pipeline_properties = {
-	.priv_size = sizeof(struct ocf_mngt_cache_stop_context),
-	.finish = ocf_mngt_cache_stop_finish,
-	.steps = {
-		OCF_PL_STEP(ocf_mngt_cache_stop_wait_metadata_io),
-		OCF_PL_STEP(ocf_mngt_cache_stop_remove_cores),
-		OCF_PL_STEP(ocf_mngt_cache_stop_unplug),
-		OCF_PL_STEP(ocf_mngt_cache_stop_put_io_queues),
-		OCF_PL_STEP_TERMINATOR(),
-	},
-};
-
 static void ocf_mngt_cache_stop_detached(ocf_cache_t cache,
 		ocf_mngt_cache_stop_end_t cmpl, void *priv)
 {
@@ -2086,7 +2101,6 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 {
 	struct ocf_mngt_cache_stop_context *context;
 	ocf_pipeline_t pipeline;
-	int result;
 
 	OCF_CHECK_NULL(cache);
 
@@ -2097,11 +2111,7 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 
 	ENV_BUG_ON(!cache->mngt_queue);
 
-	result = ocf_pipeline_create(&pipeline, cache,
-			&ocf_mngt_cache_stop_pipeline_properties);
-	if (result)
-		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
-
+	pipeline = cache->stop_pipeline;
 	context = ocf_pipeline_get_priv(pipeline);
 
 	context->cmpl = cmpl;
@@ -2110,12 +2120,8 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 	context->cache = cache;
 	context->ctx = cache->owner;
 
-	result = env_strncpy(context->cache_name, sizeof(context->cache_name),
-			ocf_cache_get_name(cache), sizeof(context->cache_name));
-	if (result) {
-		ocf_pipeline_destroy(pipeline);
-		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
-	}
+	ENV_BUG_ON(env_strncpy(context->cache_name, sizeof(context->cache_name),
+			ocf_cache_get_name(cache), sizeof(context->cache_name)));
 
 	ocf_cache_log(cache, log_info, "Stopping cache\n");
 
@@ -2241,7 +2247,7 @@ int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 	OCF_CHECK_NULL(cache);
 
 	if (!ocf_cache_mode_is_valid(mode)) {
-	        ocf_cache_log(cache, log_err, "Cache mode %u is invalid\n",
+		ocf_cache_log(cache, log_err, "Cache mode %u is invalid\n",
 				mode);
 		return -OCF_ERR_INVAL;
 	}
@@ -2502,6 +2508,7 @@ static void ocf_mngt_cache_detach_finish(ocf_pipeline_t pipeline,
 			error ?: context->cache_write_error);
 
 	ocf_pipeline_destroy(context->pipeline);
+	ocf_pipeline_destroy(cache->stop_pipeline);
 }
 
 struct ocf_pipeline_properties ocf_mngt_cache_detach_pipeline_properties = {
