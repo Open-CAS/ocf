@@ -44,6 +44,8 @@ ocf_error_t nhit_init(ocf_cache_t cache)
 		goto dealloc_ctx;
 
 	cache->promotion_policy->ctx = ctx;
+	cache->promotion_policy->config =
+		(void *) &cache->conf_meta->promotion[ocf_promotion_nhit].data;
 
 	return 0;
 
@@ -201,8 +203,9 @@ bool nhit_req_should_promote(ocf_promotion_policy_t policy,
 
 	if (occupied_cachelines < OCF_DIV_ROUND_UP(
 			((uint64_t)cfg->trigger_threshold *
-			ocf_metadata_get_cachelines_count(policy->owner)), 100))
+			ocf_metadata_get_cachelines_count(policy->owner)), 100)) {
 		return true;
+	}
 
 	for (i = 0, core_line = req->core_line_first;
 			core_line <= req->core_line_last; core_line++, i++) {
