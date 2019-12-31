@@ -312,7 +312,7 @@ static inline void write_lock_hashes(nhit_hash_t ctx, ocf_core_id_t core_id1,
 	if (lock_order[0] != ctx->hash_entries)
 		env_rwsem_down_write(&ctx->hash_locks[lock_order[0]]);
 
-	if (lock_order[1] != ctx->hash_entries)
+	if ((lock_order[1] != ctx->hash_entries) && (lock_order[0] != lock_order[1]))
 		env_rwsem_down_write(&ctx->hash_locks[lock_order[1]]);
 }
 
@@ -327,7 +327,7 @@ static inline void write_unlock_hashes(nhit_hash_t ctx, ocf_core_id_t core_id1,
 	if (hash1 != ctx->hash_entries)
 		env_rwsem_up_write(&ctx->hash_locks[hash1]);
 
-	if (hash2 != ctx->hash_entries)
+	if ((hash2 != ctx->hash_entries) && (hash1 != hash2))
 		env_rwsem_up_write(&ctx->hash_locks[hash2]);
 }
 
