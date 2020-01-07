@@ -123,12 +123,17 @@ def test_fuzzy_start_max_queue_size(pyocf_ctx, max_wb_queue_size, c_uint32_rando
     :param c_uint32_randomize: queue unblock size value to start cache with
     :param cls: cache line size value to start cache with
     """
-    with pytest.raises(OcfError, match="OCF_ERR_INVAL"):
-        try_start_cache(
-            max_queue_size=max_wb_queue_size,
-            queue_unblock_size=max_wb_queue_size + c_uint32_randomize,
-            cache_mode=CacheMode.WB,
-            cache_line_size=cls)
+    if c_uint32_randomize > max_wb_queue_size:
+        with pytest.raises(OcfError, match="OCF_ERR_INVAL"):
+            try_start_cache(
+                max_queue_size=max_wb_queue_size,
+                queue_unblock_size=c_uint32_randomize,
+                cache_mode=CacheMode.WB,
+                cache_line_size=cls)
+    else:
+        logger.warning(f"Test skipped for valid values: "
+                       f"'max_queue_size={max_wb_queue_size}, "
+                       f"queue_unblock_size={c_uint32_randomize}'.")
 
 
 @pytest.mark.security
