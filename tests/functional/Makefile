@@ -23,11 +23,11 @@ all: | sync config_random
 
 $(OCFLIB): $(OBJS)
 	@echo "Building $@"
-	@$(CC) -shared -o $@ $(CFLAGS) $^ -fPIC $(LDFLAGS)
+	@$(CC) -coverage -shared -o $@ $(CFLAGS) $^ -fPIC $(LDFLAGS)
 
 %.o: %.c
 	@echo "Compiling $@"
-	@$(CC) -c $(CFLAGS) -o $@ -fPIC $^ $(LDFLAGS)
+	@$(CC) -coverage -c $(CFLAGS) -o $@ -fPIC $^ $(LDFLAGS)
 
 sync:
 	@echo "Syncing OCF sources"
