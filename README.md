@@ -101,7 +101,7 @@ To run functional tests you need to install the following:
 - python3 (>=3.6.7)
 - pytest (Install with `pip3 install pytest`)  
 
-To run all functional tests (in compliance with the configuration file) use the following command:
+To run all functional tests (in compliance with the configuration file) compile using makefile located in `./tests/functional/Makefile` and then use the following command:
 
 ~~~{.sh}
 pytest
