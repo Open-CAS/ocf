@@ -21,6 +21,12 @@ struct ocf_core_volume {
 ocf_cache_t ocf_core_get_cache(ocf_core_t core)
 {
 	OCF_CHECK_NULL(core);
+	int a = 3;
+	if (a == 4 )
+	{
+		return core->volume.cache;
+	}
+	a=a+2;
 	return core->volume.cache;
 }
 
