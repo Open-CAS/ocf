@@ -4,3 +4,6 @@ pyocf/libocf.so
 *.o
 pyocf/ocf/*
 *.pyc
+*.gcov
+*.gcda
+*.gcno
