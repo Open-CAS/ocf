@@ -635,7 +635,7 @@ static void _ocf_mngt_attach_cache_device(ocf_pipeline_t pipeline,
 	if (context->volume_size < OCF_CACHE_SIZE_MIN) {
 		ocf_cache_log(cache, log_err, "ERROR: Cache cache size must "
 			"be at least %llu [MiB]\n", OCF_CACHE_SIZE_MIN / MiB);
-		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_INVAL_CACHE_DEV);
 	}
 
 	ocf_pipeline_next(pipeline);
@@ -1213,7 +1213,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	result = ocf_metadata_init(tmp_cache, params.metadata.line_size);
 	if (result) {
 		env_rmutex_unlock(&ctx->lock);
-		result =  -OCF_ERR_START_CACHE_FAIL;
+		result =  -OCF_ERR_NO_MEM;
 		goto _cache_mngt_init_instance_ERROR;
 	}
 	params.flags.metadata_inited = true;
