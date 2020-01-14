@@ -6,24 +6,12 @@
 #ifndef __METADATA_CLEANING_POLICY_H__
 #define __METADATA_CLEANING_POLICY_H__
 
-/*
- * GET
- */
-static inline void
+static inline struct cleaning_policy_meta *
 ocf_metadata_get_cleaning_policy(struct ocf_cache *cache,
-		ocf_cache_line_t line, struct cleaning_policy_meta *policy)
+		ocf_cache_line_t line)
 {
-	cache->metadata.iface.get_cleaning_policy(cache, line, policy);
+	return cache->metadata.iface.get_cleaning_policy(cache, line);
 }
 
-/*
- * SET
- */
-static inline void
-ocf_metadata_set_cleaning_policy(struct ocf_cache *cache,
-		ocf_cache_line_t line, struct cleaning_policy_meta *policy)
-{
-	cache->metadata.iface.set_cleaning_policy(cache, line, policy);
-}
 
 #endif /* METADATA_CLEANING_POLICY_H_ */

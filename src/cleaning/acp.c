@@ -155,17 +155,9 @@ static struct acp_context *_acp_get_ctx_from_cache(struct ocf_cache *cache)
 }
 
 static struct acp_cleaning_policy_meta* _acp_meta_get(
-		struct ocf_cache *cache, uint32_t cache_line,
-		struct cleaning_policy_meta *policy_meta)
+		struct ocf_cache *cache, uint32_t cache_line)
 {
-	ocf_metadata_get_cleaning_policy(cache, cache_line, policy_meta);
-	return &policy_meta->meta.acp;
-}
-
-static void _acp_meta_set(struct ocf_cache *cache, uint32_t cache_line,
-		struct cleaning_policy_meta *policy_meta)
-{
-	ocf_metadata_set_cleaning_policy(cache, cache_line, policy_meta);
+	return &ocf_metadata_get_cleaning_policy(cache, cache_line)->meta.acp;
 }
 
 static struct acp_core_line_info _acp_core_line_info(struct ocf_cache *cache,
@@ -222,13 +214,10 @@ static int _acp_load_cores(struct ocf_cache *cache)
 void cleaning_policy_acp_init_cache_block(struct ocf_cache *cache,
 		uint32_t cache_line)
 {
-	struct cleaning_policy_meta policy_meta;
 	struct acp_cleaning_policy_meta *acp_meta;
 
-	/* TODO: acp meta is going to be removed soon */
-	acp_meta = _acp_meta_get(cache, cache_line, &policy_meta);
+	acp_meta = _acp_meta_get(cache, cache_line);
 	acp_meta->dirty = 0;
-	_acp_meta_set(cache, cache_line, &policy_meta);
 }
 
 void cleaning_policy_acp_deinitialize(struct ocf_cache *cache)
@@ -613,18 +602,16 @@ void cleaning_policy_acp_set_hot_cache_line(struct ocf_cache *cache,
 		uint32_t cache_line)
 {
 	struct acp_context *acp = _acp_get_ctx_from_cache(cache);
-	struct cleaning_policy_meta policy_meta;
 	struct acp_cleaning_policy_meta *acp_meta;
 	struct acp_chunk_info *chunk;
 
 	ACP_LOCK_CHUNKS_WR();
 
-	acp_meta = _acp_meta_get(cache, cache_line, &policy_meta);
+	acp_meta = _acp_meta_get(cache, cache_line);
 	chunk = _acp_get_chunk(cache, cache_line);
 
 	if (!acp_meta->dirty) {
 		acp_meta->dirty = 1;
-		_acp_meta_set(cache, cache_line, &policy_meta);
 		chunk->num_dirty++;
 	}
 
@@ -637,18 +624,16 @@ void cleaning_policy_acp_purge_block(struct ocf_cache *cache,
 		uint32_t cache_line)
 {
 	struct acp_context *acp = _acp_get_ctx_from_cache(cache);
-	struct cleaning_policy_meta policy_meta;
 	struct acp_cleaning_policy_meta *acp_meta;
 	struct acp_chunk_info *chunk;
 
 	ACP_LOCK_CHUNKS_WR();
 
-	acp_meta = _acp_meta_get(cache, cache_line, &policy_meta);
+	acp_meta = _acp_meta_get(cache, cache_line);
 	chunk = _acp_get_chunk(cache, cache_line);
 
 	if (acp_meta->dirty) {
 		acp_meta->dirty = 0;
-		_acp_meta_set(cache, cache_line, &policy_meta);
 		chunk->num_dirty--;
 	}
 
