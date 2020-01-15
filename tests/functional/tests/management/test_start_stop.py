@@ -4,7 +4,7 @@
 #
 
 import logging
-from ctypes import c_int, c_void_p, byref
+from ctypes import c_int, c_void_p, byref, c_uint32
 from random import randrange
 from itertools import count
 
@@ -328,6 +328,31 @@ def test_start_cache_same_id(pyocf_ctx, mode, cls):
                                       cache_line_size=cls,
                                       name=cache_name)
     cache.get_stats()
+
+
+@pytest.mark.parametrize("cls", CacheLineSize)
+def test_start_cache_huge_device(pyocf_ctx_log_buffer, cls):
+    """
+    Test whether we can start cache which would overflow ocf_cache_line_t type.
+    pass_criteria:
+      - Starting cache on device too big to handle should fail
+    """
+    class HugeDevice(Volume):
+        def get_length(self):
+            return Size.from_B((cls * c_uint32(-1).value))
+
+        def submit_io(self, io):
+            io.contents._end(io, 0)
+
+    cache_device = HugeDevice(Size.from_MiB(20))
+
+    with pytest.raises(OcfError, match="OCF_ERR_START_CACHE_FAIL"):
+        cache = Cache.start_on_device(cache_device, cache_line_size=cls, metadata_volatile=True)
+
+    assert any(
+        [line.find("exceeds maximum") > 0 for line in pyocf_ctx_log_buffer.get_lines()]
+    ), "Expected to find log notifying that max size was exceeded"
+
 
 
 @pytest.mark.parametrize("mode", CacheMode)
