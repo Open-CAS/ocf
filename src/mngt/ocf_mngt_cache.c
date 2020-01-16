@@ -1206,6 +1206,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	}
 
 	tmp_cache = params.cache;
+	tmp_cache->owner = ctx;
 
 	/*
 	 * Initialize metadata selected segments of metadata in memory
@@ -1217,8 +1218,6 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		goto _cache_mngt_init_instance_ERROR;
 	}
 	params.flags.metadata_inited = true;
-
-	tmp_cache->owner = ctx;
 
 	result = ocf_cache_set_name(tmp_cache, cfg->name, OCF_CACHE_NAME_SIZE);
 	if (result) {
