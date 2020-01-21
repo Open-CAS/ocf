@@ -912,6 +912,7 @@ static int ocf_metadata_hash_init_variable_size(struct ocf_cache *cache,
 	struct ocf_cache_line_settings *settings =
 		(struct ocf_cache_line_settings *)&cache->metadata.settings;
 	ocf_flush_page_synch_t lock_page, unlock_page;
+	uint64_t device_lines;
 
 	OCF_DEBUG_TRACE(cache);
 
@@ -919,7 +920,16 @@ static int ocf_metadata_hash_init_variable_size(struct ocf_cache *cache,
 
 	ctrl = cache->metadata.iface_priv;
 
-	ctrl->device_lines = device_size / cache_line_size;
+	device_lines = device_size / cache_line_size;
+	if (device_lines >= (ocf_cache_line_t)(-1)){
+		/* TODO: This is just a rough check. Most optimal one would be
+		 * located in calculate_metadata_size. */
+		ocf_cache_log(cache, log_err, "Device exceeds maximum suported size "
+				"with this cache line size. Try bigger cache line size.");
+		return -OCF_ERR_INVAL_CACHE_DEV;
+	}
+
+	ctrl->device_lines = device_lines;
 
 	if (settings->size != cache_line_size)
 		/* Re-initialize settings with different cache line size */
