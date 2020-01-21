@@ -61,7 +61,8 @@ void ocf_submit_volume_discard(ocf_volume_t volume, uint64_t addr,
 {
 	struct ocf_submit_volume_context *context;
 	uint64_t bytes;
-	uint64_t max_length = (uint32_t)~0;
+	uint64_t sector_mask = (1 << ENV_SECTOR_SHIFT) - 1;
+	uint64_t max_length = (uint32_t)~0 & ~sector_mask;
 	struct ocf_io *io;
 
 	context = env_vzalloc(sizeof(*context));
