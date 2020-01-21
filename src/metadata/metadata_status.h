@@ -229,20 +229,23 @@ static inline bool metadata_clear_dirty_sec_changed(
 /*
  * Marks given cache line's bits as dirty
  *
- * @return true if the cache line was clean and became dirty
- * @return false if the cache line was dirty before marking bits
+ * @return true if any cache line's sector became dirty
+ * @return false for other cases
  */
 static inline bool metadata_set_dirty_sec_changed(
 		struct ocf_cache *cache, ocf_cache_line_t line,
-		uint8_t start, uint8_t stop)
+		uint8_t start, uint8_t stop, bool *line_was_dirty)
 {
-	bool was_dirty;
+	bool sec_changed;
 
 	OCF_METADATA_BITS_LOCK_WR();
-	was_dirty = cache->metadata.iface.set_dirty(cache, line, start, stop);
+	sec_changed = !cache->metadata.iface.test_dirty(cache, line,
+			start, stop, true);
+	*line_was_dirty = cache->metadata.iface.set_dirty(cache, line, start,
+			stop);
 	OCF_METADATA_BITS_UNLOCK_WR();
 
-	return !was_dirty;
+	return sec_changed;
 }
 
 /*******************************************************************************
