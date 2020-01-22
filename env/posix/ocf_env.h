@@ -180,7 +180,7 @@ static inline void env_secure_free(const void *ptr, size_t size)
 
 static inline uint64_t env_get_free_memory(void)
 {
-	return sysconf(_SC_PAGESIZE) * sysconf(_SC_AVPHYS_PAGES);
+	return (uint64_t)(-1);
 }
 
 /* ALLOCATOR */
