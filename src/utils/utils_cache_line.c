@@ -102,35 +102,40 @@ void set_cache_line_clean(struct ocf_cache *cache, uint8_t start_bit,
 	ocf_cache_line_t line = req->map[map_idx].coll_idx;
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, line);
 	uint8_t evp_type = cache->conf_meta->eviction_policy_type;
+	bool line_is_clean;
 
-	if (metadata_clear_dirty_sec_changed(cache, line, start_bit, end_bit)) {
-		/*
-		 * Update the number of dirty cached data for that
-		 * core object
-		 */
-		if (env_atomic_dec_and_test(&req->core->runtime_meta->
-				dirty_clines)) {
-			/*
-			 * If this is last dirty cline reset dirty
-			 * timestamp
-			 */
-			env_atomic64_set(&req->core->runtime_meta->
-					dirty_since, 0);
-		}
-
-		/*
-		 * decrement dirty clines statistic for given cline
-		 */
-		env_atomic_dec(&req->core->runtime_meta->
-				part_counters[part_id].dirty_clines);
-
-		if (likely(evict_policy_ops[evp_type].clean_cline))
-			evict_policy_ops[evp_type].clean_cline(cache, part_id, line);
-
-		ocf_purge_cleaning_policy(cache, line);
+	if (metadata_clear_dirty_sec_changed(cache, line, start_bit, end_bit,
+				&line_is_clean)) {
 		ocf_metadata_flush_mark(cache, req, map_idx, CLEAN, start_bit,
-					end_bit);
+				end_bit);
+		if (line_is_clean) {
+			/*
+			 * Update the number of dirty cached data for that
+			 * core object
+			 */
+			if (env_atomic_dec_and_test(&req->core->runtime_meta->
+						dirty_clines)) {
+				/*
+				 * If this is last dirty cline reset dirty
+				 * timestamp
+				 */
+				env_atomic64_set(&req->core->runtime_meta->
+						dirty_since, 0);
+			}
+
+			/*
+			 * decrement dirty clines statistic for given cline
+			 */
+			env_atomic_dec(&req->core->runtime_meta->
+					part_counters[part_id].dirty_clines);
+
+			if (likely(evict_policy_ops[evp_type].clean_cline))
+				evict_policy_ops[evp_type].clean_cline(cache, part_id, line);
+
+			ocf_purge_cleaning_policy(cache, line);
+		}
 	}
+
 }
 
 void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
