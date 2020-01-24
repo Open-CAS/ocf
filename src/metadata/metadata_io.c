@@ -298,7 +298,7 @@ void metadata_io_req_finalize(struct metadata_io_request *m_req)
 	struct metadata_io_request_asynch *a_req = m_req->asynch;
 
 	if (env_atomic_dec_return(&a_req->req_active) == 0)
-		env_free(a_req);
+		env_vfree(a_req);
 }
 
 static uint32_t metadata_io_max_page(ocf_cache_t cache)
@@ -376,7 +376,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 	if (count == 0)
 		return 0;
 
-	a_req = env_zalloc(sizeof(*a_req), ENV_MEM_NOIO);
+	a_req = env_vzalloc(sizeof(*a_req));
 	if (!a_req)
 		return -OCF_ERR_NO_MEM;
 
@@ -430,7 +430,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 err:
 	while (i--)
 		ctx_data_free(cache->owner, a_req->reqs[i].data);
-	env_free(a_req);
+	env_vfree(a_req);
 
 	return -OCF_ERR_NO_MEM;
 }
