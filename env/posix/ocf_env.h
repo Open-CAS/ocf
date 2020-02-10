@@ -71,6 +71,8 @@ typedef uint64_t sector_t;
 
 #define ENV_BUG()			assert(0)
 #define ENV_BUG_ON(cond)		do { if (cond) ENV_BUG(); } while (0)
+#define ENV_BUILD_BUG_ON(cond)		_Static_assert(!(cond), "static "\
+					"assertion failure")
 
 /* MISC UTILITIES */
 #define container_of(ptr, type, member) ({          \
