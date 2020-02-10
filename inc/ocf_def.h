@@ -352,6 +352,6 @@ typedef enum {
  * @}
  */
 
-#define MAX_TRIM_RQ_SIZE	(1 * MiB)
+#define MAX_TRIM_RQ_SIZE	(512 * KiB)
 
 #endif /* __OCF_DEF_H__ */

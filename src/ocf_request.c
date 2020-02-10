@@ -42,7 +42,7 @@ struct ocf_req_allocator {
 
 static inline size_t ocf_req_sizeof_map(struct ocf_request *req)
 {
-	uint32_t lines = req->alloc_core_line_count;
+	uint32_t lines = req->core_line_count;
 	size_t size = (lines * sizeof(struct ocf_map_info));
 
 	ENV_BUG_ON(lines == 0);
@@ -224,6 +224,9 @@ int ocf_req_alloc_map(struct ocf_request *req)
 
 int ocf_req_alloc_map_discard(struct ocf_request *req)
 {
+	ENV_BUILD_BUG_ON(MAX_TRIM_RQ_SIZE / ocf_cache_line_size_4 *
+			sizeof(struct ocf_map_info) > 4 * KiB);
+
 	if (req->byte_length <= MAX_TRIM_RQ_SIZE)
 		return ocf_req_alloc_map(req);
 
