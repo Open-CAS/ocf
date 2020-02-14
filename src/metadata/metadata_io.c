@@ -422,7 +422,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 		compl_hndl(cache, context, a_req->error);
 
 	if (env_atomic_dec_return(&a_req->req_active) == 0)
-		env_free(a_req);
+		env_vfree(a_req);
 
 	return 0;
 
