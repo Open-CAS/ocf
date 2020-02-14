@@ -375,7 +375,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 	if (count == 0)
 		return 0;
 
-	a_req = env_vzalloc(sizeof(*a_req));
+	a_req = env_vzalloc_flags(sizeof(*a_req), ENV_MEM_NOIO);
 	if (!a_req)
 		return -OCF_ERR_NO_MEM;
 
@@ -422,7 +422,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 		compl_hndl(cache, context, a_req->error);
 
 	if (env_atomic_dec_return(&a_req->req_active) == 0)
-		env_free(a_req);
+		env_vfree(a_req);
 
 	return 0;
 
