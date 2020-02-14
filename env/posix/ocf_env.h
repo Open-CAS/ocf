@@ -124,6 +124,16 @@ static inline void env_free(const void *ptr)
 	free((void *)ptr);
 }
 
+static inline void *env_vmalloc_flags(size_t size, int flags)
+{
+	return malloc(size);
+}
+
+static inline void *env_vzalloc_flags(size_t size, int flags)
+{
+	return env_zalloc(size, 0);
+}
+
 static inline void *env_vmalloc(size_t size)
 {
 	return malloc(size);
