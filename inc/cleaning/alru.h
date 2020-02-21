@@ -27,7 +27,7 @@ enum ocf_cleaning_alru_parameters {
  */
 
 /** Wake up time minimum value */
-#define OCF_ALRU_MIN_WAKE_UP			1
+#define OCF_ALRU_MIN_WAKE_UP			0
 /** Wake up time maximum value */
 #define OCF_ALRU_MAX_WAKE_UP			3600
 /** Wake up time default value */
@@ -60,7 +60,7 @@ enum ocf_cleaning_alru_parameters {
  */
 
 /** Idle time before flushing thread can start minimum value */
-#define OCF_ALRU_MIN_ACTIVITY_THRESHOLD		500
+#define OCF_ALRU_MIN_ACTIVITY_THRESHOLD		0
 /** Idle time before flushing thread can start maximum value */
 #define OCF_ALRU_MAX_ACTIVITY_THRESHOLD		1000000
 /** Idle time before flushing thread can start default value */
