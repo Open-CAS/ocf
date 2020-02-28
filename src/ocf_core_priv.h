@@ -38,10 +38,10 @@ struct ocf_core_meta_config {
 	ocf_seq_no_t seq_no;
 
 	/* Sequential cutoff threshold (in bytes) */
-	uint32_t seq_cutoff_threshold;
+	env_atomic seq_cutoff_threshold;
 
 	/* Sequential cutoff policy */
-	ocf_seq_cutoff_policy seq_cutoff_policy;
+	env_atomic seq_cutoff_policy;
 
 	/* core object size in bytes */
 	uint64_t length;

@@ -106,12 +106,12 @@ int ocf_core_get(ocf_cache_t cache, ocf_core_id_t id, ocf_core_t *core)
 
 uint32_t ocf_core_get_seq_cutoff_threshold(ocf_core_t core)
 {
-	return core->conf_meta->seq_cutoff_threshold;
+	return env_atomic_read(&core->conf_meta->seq_cutoff_threshold);
 }
 
 ocf_seq_cutoff_policy ocf_core_get_seq_cutoff_policy(ocf_core_t core)
 {
-	return core->conf_meta->seq_cutoff_policy;
+	return env_atomic_read(&core->conf_meta->seq_cutoff_policy);
 }
 
 int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
