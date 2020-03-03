@@ -239,4 +239,21 @@ int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
  */
 int ocf_core_get_info(ocf_core_t core, struct ocf_core_info *info);
 
+/**
+ * @brief Set core private data
+ *
+ * @param[in] core Core object
+ * @param[in] priv Private data
+ */
+void ocf_core_set_priv(ocf_core_t core, void *priv);
+
+/**
+ * @brief Get core private data
+ *
+ * @param[in] core Core object
+ *
+ * @retval Private data
+ */
+void *ocf_core_get_priv(ocf_core_t core);
+
 #endif /* __OCF_CORE_H__ */

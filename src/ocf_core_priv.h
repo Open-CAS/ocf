@@ -91,6 +91,8 @@ struct ocf_core {
 	uint32_t added : 1;
 
 	struct ocf_counters_core *counters;
+
+	void *priv;
 };
 
 bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id);

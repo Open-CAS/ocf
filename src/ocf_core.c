@@ -620,3 +620,15 @@ int ocf_core_get_info(ocf_core_t core, struct ocf_core_info *info)
 
 	return 0;
 }
+
+void ocf_core_set_priv(ocf_core_t core, void *priv)
+{
+	OCF_CHECK_NULL(core);
+	core->priv = priv;
+}
+
+void *ocf_core_get_priv(ocf_core_t core)
+{
+	OCF_CHECK_NULL(core);
+	return core->priv;
+}
