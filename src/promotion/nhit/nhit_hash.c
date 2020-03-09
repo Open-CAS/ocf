@@ -86,15 +86,13 @@
 #define HASH_PRIME 4099
 
 struct nhit_list_elem {
-	ocf_core_id_t core_id;
+	/* Fields are ordered for memory efficiency, not for looks. */
 	uint64_t core_lba;
-
+	env_atomic counter;
 	ocf_cache_line_t coll_prev;
 	ocf_cache_line_t coll_next;
-
+	ocf_core_id_t core_id;
 	bool valid;
-
-	env_atomic counter;
 };
 
 struct nhit_hash {
