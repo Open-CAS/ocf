@@ -48,6 +48,13 @@ ocf_error_t ocf_promotion_init(ocf_cache_t cache, ocf_promotion_t type)
 	if (result) {
 		env_vfree(cache->promotion_policy);
 		cache->promotion_policy = NULL;
+		ocf_cache_log(cache, log_info,
+				"Policy '%s' failed to initialize\n",
+				ocf_promotion_policies[type].name);
+	} else {
+		ocf_cache_log(cache, log_info,
+				"Policy '%s' initialized successfully\n",
+				ocf_promotion_policies[type].name);
 	}
 
 	return result;
@@ -99,6 +106,10 @@ ocf_error_t ocf_promotion_set_policy(ocf_promotion_policy_t policy,
 				"Falling back to 'always' promotion policy\n");
 		cache->conf_meta->promotion_policy_type = ocf_promotion_always;
 		policy->type = ocf_promotion_always;
+	} else {
+		ocf_cache_log(cache, log_info,
+				"Switched to '%s' promotion policy\n",
+				ocf_promotion_policies[type].name);
 	}
 
 	return result;
