@@ -107,6 +107,26 @@ struct nhit_hash {
 	env_spinlock rb_pointer_lock;
 };
 
+static uint64_t calculate_hash_buckets(uint64_t hash_size)
+{
+	return OCF_DIV_ROUND_UP(hash_size / 4, HASH_PRIME) * HASH_PRIME - 1;
+}
+
+uint64_t nhit_hash_sizeof(uint64_t hash_size)
+{
+	uint64_t size = 0;
+	uint64_t n_buckets = calculate_hash_buckets(hash_size);
+
+	size += sizeof(struct nhit_hash);
+
+	size += n_buckets * sizeof(ocf_cache_line_t);
+	size += n_buckets * sizeof(env_rwsem);
+
+	size += hash_size * sizeof(struct nhit_list_elem);
+
+	return size;
+}
+
 ocf_error_t nhit_hash_init(uint64_t hash_size, nhit_hash_t *ctx)
 {
 	int result = 0;
@@ -121,9 +141,7 @@ ocf_error_t nhit_hash_init(uint64_t hash_size, nhit_hash_t *ctx)
 	}
 
 	new_ctx->rb_entries = hash_size;
-	new_ctx->hash_entries = OCF_DIV_ROUND_UP(
-			new_ctx->rb_entries / 4,
-			HASH_PRIME) * HASH_PRIME - 1;
+	new_ctx->hash_entries = calculate_hash_buckets(hash_size);
 
 	new_ctx->hash_map = env_vzalloc(
 			new_ctx->hash_entries * sizeof(*new_ctx->hash_map));

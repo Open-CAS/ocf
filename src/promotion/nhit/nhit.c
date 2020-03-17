@@ -27,10 +27,35 @@ void nhit_setup(ocf_cache_t cache)
 	cfg->trigger_threshold = OCF_NHIT_TRIGGER_DEFAULT;
 }
 
+static uint64_t nhit_sizeof(ocf_cache_t cache)
+{
+	uint64_t size = 0;
+
+	size += sizeof(struct nhit_policy_context);
+	size += nhit_hash_sizeof(ocf_metadata_get_cachelines_count(cache) *
+			NHIT_MAPPING_RATIO);
+
+	return size;
+}
+
 ocf_error_t nhit_init(ocf_cache_t cache)
 {
 	struct nhit_policy_context *ctx;
 	int result = 0;
+	uint64_t available, size;
+
+	size = nhit_sizeof(cache);
+	available = env_get_free_memory();
+
+	if (size >= available) {
+		ocf_cache_log(cache, log_err, "Not enough memory to "
+				"initialize 'nhit' promotion policy! "
+				"Required %lu, available %lu\n",
+				(long unsigned)size,
+				(long unsigned)available);
+
+		return -OCF_ERR_NO_FREE_RAM;
+	}
 
 	ctx = env_vmalloc(sizeof(*ctx));
 	if (!ctx) {

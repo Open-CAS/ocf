@@ -10,6 +10,8 @@
 
 typedef struct nhit_hash *nhit_hash_t;
 
+uint64_t nhit_hash_sizeof(uint64_t hash_size);
+
 ocf_error_t nhit_hash_init(uint64_t hash_size, nhit_hash_t *ctx);
 
 void nhit_hash_deinit(nhit_hash_t ctx);
