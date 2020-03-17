@@ -26,9 +26,6 @@ struct ocf_req_info {
 	uint32_t seq_req : 1;
 	/*!< Sequential cache request flag. */
 
-	uint32_t seq_cutoff : 1;
-	/*!< Sequential cut off set for this request */
-
 	uint32_t flush_metadata : 1;
 	/*!< This bit tells if metadata flushing is required */
 
@@ -187,6 +184,9 @@ struct ocf_request {
 
 	uint8_t master_io_req_type : 2;
 	/*!< Core device request context type */
+
+	uint8_t seq_cutoff : 1;
+	/*!< Sequential cut off set for this request */
 
 	log_sid_t sid;
 	/*!< Tracing sequence ID */

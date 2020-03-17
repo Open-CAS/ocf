@@ -120,7 +120,7 @@ int ocf_read_pt(struct ocf_request *req)
 	/* Traverse request to check if there are mapped cache lines */
 	ocf_engine_traverse(req);
 
-	if (req->info.seq_cutoff && ocf_engine_is_dirty_all(req)) {
+	if (req->seq_cutoff && ocf_engine_is_dirty_all(req)) {
 		use_cache = true;
 	} else {
 		if (ocf_engine_mapped_count(req)) {
