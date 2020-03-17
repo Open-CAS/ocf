@@ -157,14 +157,6 @@ static inline struct ocf_io *ocf_core_new_io(ocf_core_t core, ocf_queue_t queue,
  * @brief Submit ocf_io
  *
  * @param[in] io IO to be submitted
- * @param[in] mode Cache mode to be enforced
- */
-void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode);
-
-/**
- * @brief Submit ocf_io
- *
- * @param[in] io IO to be submitted
  */
 static inline void ocf_core_submit_io(struct ocf_io *io)
 {

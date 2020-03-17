@@ -8,6 +8,7 @@
 
 #include "ocf_env.h"
 #include "ocf_io_priv.h"
+#include "engine/cache_engine.h"
 
 struct ocf_req_allocator;
 
@@ -148,6 +149,8 @@ struct ocf_request {
 
 	ctx_data_t *cp_data;
 	/*!< Copy of request data */
+
+	ocf_req_cache_mode_t cache_mode;
 
 	uint64_t byte_position;
 	/*!< LBA byte position of request in core domain */
@@ -325,6 +328,8 @@ void ocf_req_clear_map(struct ocf_request *req);
  * @param req - OCF request
  */
 void ocf_req_hash(struct ocf_request *req);
+
+int ocf_req_set_dirty(struct ocf_request *req);
 
 /**
  * @brief Clear OCF request

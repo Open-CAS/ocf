@@ -40,8 +40,8 @@ struct ocf_io_if {
 	const char *name;
 };
 
-ocf_cache_mode_t ocf_get_effective_cache_mode(ocf_cache_t cache,
-		ocf_core_t core, struct ocf_io *io);
+void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
+		ocf_core_t core, struct ocf_request *req);
 
 const struct ocf_io_if *ocf_get_io_if(ocf_req_cache_mode_t cache_mode);
 
@@ -74,14 +74,12 @@ bool ocf_seq_cutoff_check(ocf_core_t core, uint32_t dir, uint64_t addr,
 struct ocf_request *ocf_engine_pop_req(struct ocf_cache *cache,
 		struct ocf_queue *q);
 
-int ocf_engine_hndl_req(struct ocf_request *req,
-		ocf_req_cache_mode_t req_cache_mode);
+int ocf_engine_hndl_req(struct ocf_request *req);
 
 #define OCF_FAST_PATH_YES	7
 #define OCF_FAST_PATH_NO	13
 
-int ocf_engine_hndl_fast_req(struct ocf_request *req,
-		ocf_req_cache_mode_t req_cache_mode);
+int ocf_engine_hndl_fast_req(struct ocf_request *req);
 
 void ocf_engine_hndl_discard_req(struct ocf_request *req);
 
