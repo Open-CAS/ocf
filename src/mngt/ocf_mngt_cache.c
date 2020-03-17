@@ -1044,11 +1044,11 @@ uint64_t _ocf_mngt_calculate_ram_needed(ocf_cache_t cache,
 	uint64_t min_free_ram;
 
 	/* Superblock + per core metadata */
-	const_data_size = 50 * MiB;
+	const_data_size = 100 * MiB;
 
 	/* Cache metadata */
 	cache_line_no = volume_size / line_size;
-	data_per_line = (52 + (2 * (line_size / KiB / 4)));
+	data_per_line = (68 + (2 * (line_size / KiB / 4)));
 
 	min_free_ram = const_data_size + cache_line_no * data_per_line;
 
