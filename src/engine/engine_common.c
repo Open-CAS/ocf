@@ -405,7 +405,7 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	}
 }
 
-static int  ocf_engine_evict(struct ocf_request *req)
+static int ocf_engine_evict(struct ocf_request *req)
 {
 	if (!ocf_engine_unmapped_count(req))
 		return 0;

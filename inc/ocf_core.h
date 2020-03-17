@@ -178,7 +178,7 @@ static inline void ocf_core_submit_io(struct ocf_io *io)
  * @param[in] io IO to be submitted
  *
  * @retval 0 IO has been submitted successfully
- * @retval Non-zero Fast submit failed. Try to submit IO with ocf_submit_io()
+ * @retval Non-zero Fast submit failed. Try to submit IO with ocf_core_submit_io()
  */
 int ocf_core_submit_io_fast(struct ocf_io *io);
 

@@ -85,7 +85,7 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 		.write = ocf_discard,
 		.name = "Discard",
 	},
-	[OCF_IO_D2C_IF] =  {
+	[OCF_IO_D2C_IF] = {
 		.read = ocf_io_d2c,
 		.write = ocf_io_d2c,
 		.name = "Direct to core",
