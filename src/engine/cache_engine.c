@@ -7,6 +7,7 @@
 #include "../ocf_priv.h"
 #include "../ocf_cache_priv.h"
 #include "../ocf_queue_priv.h"
+#include "../ocf_seq_cutoff.h"
 #include "cache_engine.h"
 #include "engine_common.h"
 #include "engine_rd.h"
@@ -161,68 +162,6 @@ bool ocf_fallback_pt_is_on(ocf_cache_t cache)
 			cache->fallback_pt_error_threshold);
 }
 
-#define SEQ_CUTOFF_FULL_MARGIN \
-		(OCF_TO_EVICTION_MIN + OCF_PENDING_EVICTION_LIMIT)
-
-static inline bool ocf_seq_cutoff_is_on(ocf_cache_t cache)
-{
-	if (!ocf_cache_is_device_attached(cache))
-		return false;
-
-	return (ocf_freelist_num_free(cache->freelist) <=
-			SEQ_CUTOFF_FULL_MARGIN);
-}
-
-bool ocf_seq_cutoff_check(ocf_core_t core, uint32_t dir, uint64_t addr,
-		uint64_t bytes)
-{
-	ocf_cache_t cache = ocf_core_get_cache(core);
-
-	ocf_seq_cutoff_policy policy = ocf_core_get_seq_cutoff_policy(core);
-
-	switch (policy) {
-	case ocf_seq_cutoff_policy_always:
-		break;
-
-	case ocf_seq_cutoff_policy_full:
-		if (ocf_seq_cutoff_is_on(cache))
-			break;
-		return false;
-
-	case ocf_seq_cutoff_policy_never:
-		return false;
-	default:
-		ENV_WARN(true, "Invalid sequential cutoff policy!");
-		return false;
-	}
-
-	if (dir == core->seq_cutoff.rw &&
-			core->seq_cutoff.last == addr &&
-			core->seq_cutoff.bytes + bytes >=
-			ocf_core_get_seq_cutoff_threshold(core)) {
-		return true;
-	}
-
-	return false;
-}
-
-void ocf_seq_cutoff_update(ocf_core_t core, struct ocf_request *req)
-{
-	/*
-	 * If IO is not consequent or has another direction,
-	 * reset sequential cutoff state.
-	 */
-	if (req->byte_position != core->seq_cutoff.last ||
-			req->rw != core->seq_cutoff.rw) {
-		core->seq_cutoff.rw = req->rw;
-		core->seq_cutoff.bytes = 0;
-	}
-
-	/* Update last accessed position and bytes counter */
-	core->seq_cutoff.last = req->byte_position + req->byte_length;
-	core->seq_cutoff.bytes += req->byte_length;
-}
-
 void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		ocf_core_t core, struct ocf_request *req)
 {
@@ -242,8 +181,7 @@ void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		return;
 	}
 
-	if (ocf_seq_cutoff_check(core, req->rw, req->byte_position,
-				 req->byte_length)) {
+	if (ocf_core_seq_cutoff_check(core, req)) {
 		req->cache_mode = ocf_req_cache_mode_pt;
 		req->seq_cutoff = 1;
 		return;

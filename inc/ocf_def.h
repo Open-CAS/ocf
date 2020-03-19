@@ -175,6 +175,8 @@ typedef enum {
 		/*!< Current cache mode of given cache instance */
 } ocf_cache_mode_t;
 
+#define OCF_SEQ_CUTOFF_MAX_STREAMS 256
+
 typedef enum {
 	ocf_seq_cutoff_policy_always = 0,
 		/*!< Sequential cutoff always on */

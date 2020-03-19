@@ -249,7 +249,7 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 
 	ocf_resolve_effective_cache_mode(cache, core, req);
 
-	ocf_seq_cutoff_update(core, req);
+	ocf_core_seq_cutoff_update(core, req);
 
 	ocf_core_update_stats(core, io);
 
@@ -339,7 +339,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 	fast = ocf_engine_hndl_fast_req(req);
 	if (fast != OCF_FAST_PATH_NO) {
 		ocf_trace_push(io->io_queue, &trace_event, sizeof(trace_event));
-		ocf_seq_cutoff_update(core, req);
+		ocf_core_seq_cutoff_update(core, req);
 		return 0;
 	}
 

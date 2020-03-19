@@ -406,6 +406,8 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 		context->flags.clean_pol_added = true;
 	}
 
+	ocf_core_seq_cutoff_init(core);
+
 	/* When adding new core to cache, allocate stat counters */
 	core->counters =
 		env_zalloc(sizeof(*core->counters), ENV_MEM_NORMAL);
