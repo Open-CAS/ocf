@@ -517,9 +517,9 @@ static void _ocf_mngt_flush_core(
 	fc->core_id = core_id;
 	fc->iter = 0;
 
-	_ocf_mngt_flush_containers(context, fc, 1, complete);
-
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+
+	_ocf_mngt_flush_containers(context, fc, 1, complete);
 }
 
 static void _ocf_mngt_flush_all_cores(
@@ -550,9 +550,9 @@ static void _ocf_mngt_flush_all_cores(
 		return;
 	}
 
-	_ocf_mngt_flush_containers(context, fctbl, fcnum, complete);
-
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+
+	_ocf_mngt_flush_containers(context, fctbl, fcnum, complete);
 }
 
 static void _ocf_mngt_flush_all_cores_complete(
