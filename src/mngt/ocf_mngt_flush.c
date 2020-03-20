@@ -142,17 +142,22 @@ static int _ocf_mngt_get_sectors(ocf_cache_t cache, ocf_core_id_t core_id,
 	ocf_core_id_t i_core_id;
 	struct flush_data *p;
 	uint32_t i, j, dirty = 0;
+	unsigned ret = 0;
+
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	dirty = env_atomic_read(&core->runtime_meta->dirty_clines);
 	if (!dirty) {
 		*num = 0;
 		*tbl = NULL;
-		return 0;
+		goto unlock;
 	}
 
 	p = env_vmalloc(dirty * sizeof(**tbl));
-	if (!p)
-		return -OCF_ERR_NO_MEM;
+	if (!p) {
+		ret = -OCF_ERR_NO_MEM;
+		goto unlock;
+	}
 
 	for (i = 0, j = 0; i < cache->device->collision_table_entries; i++) {
 		ocf_metadata_get_core_info(cache, i, &i_core_id, &core_line);
@@ -171,23 +176,31 @@ static int _ocf_mngt_get_sectors(ocf_cache_t cache, ocf_core_id_t core_id,
 		p[j].core_line = core_line;
 		p[j].core_id = i_core_id;
 		j++;
+
 		/* stop if all cachelines were found */
 		if (j == dirty)
 			break;
+
+		if ((i + 1) % 1000000 == 0) {
+			ocf_metadata_end_exclusive_access(
+					&cache->metadata.lock);
+			env_cond_resched();
+			ocf_metadata_start_exclusive_access(
+					&cache->metadata.lock);
+		}
 	}
 
 	ocf_core_log(core, log_debug,
 			"%u dirty cache lines to clean\n", j);
 
-	if (dirty != j) {
-		ocf_core_log(core, log_debug, "Wrong number of dirty "
-				"blocks for flushing (%u!=%u)\n", j, dirty);
-	}
-
 
 	*tbl = p;
 	*num = j;
-	return 0;
+
+unlock:
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+
+	return ret;
 }
 
 static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
@@ -201,7 +214,9 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	ocf_core_id_t core_id;
 	ocf_core_t core;
 	uint32_t i, j = 0, dirty = 0;
-	int step = 0;
+	int ret = 0;
+
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	/*
 	 * TODO: Create containers for each physical device, not for
@@ -210,7 +225,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	num = cache->conf_meta->core_count;
 	if (num == 0) {
 		*fcnum = 0;
-		return 0;
+		goto unlock;
 	}
 
 	core_revmap = env_vzalloc(sizeof(*core_revmap) * OCF_CORE_MAX);
@@ -221,7 +236,8 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	fc = env_vzalloc(sizeof(**fctbl) * num);
 	if (!fc) {
 		env_vfree(core_revmap);
-		return -OCF_ERR_NO_MEM;
+		ret = -OCF_ERR_NO_MEM;
+		goto unlock;
 	}
 
 	for_each_core(cache, core, core_id) {
@@ -246,7 +262,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 		env_vfree(core_revmap);
 		env_vfree(fc);
 		*fcnum = 0;
-		return 0;
+		goto unlock;
 	}
 
 	for (i = 0, j = 0; i < cache->device->collision_table_entries; i++) {
@@ -269,16 +285,21 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 		curr->iter++;
 
 		j++;
+
 		/* stop if all cachelines were found */
 		if (j == dirty)
 			break;
 
-		OCF_COND_RESCHED(step, 1000000)
+		if ((i + 1) % 1000000 == 0) {
+			ocf_metadata_end_exclusive_access(
+					&cache->metadata.lock);
+			env_cond_resched();
+			ocf_metadata_start_exclusive_access(
+					&cache->metadata.lock);
+		}
 	}
 
 	if (dirty != j) {
-		ocf_cache_log(cache, log_debug, "Wrong number of dirty "
-				"blocks (%u!=%u)\n", j, dirty);
 		for (i = 0; i < num; i++)
 			fc[i].count = fc[i].iter;
 	}
@@ -289,7 +310,10 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	env_vfree(core_revmap);
 	*fctbl = fc;
 	*fcnum = num;
-	return 0;
+
+unlock:
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	return ret;
 }
 
 static void _ocf_mngt_free_flush_containers(struct flush_container *fctbl,
@@ -495,23 +519,18 @@ static void _ocf_mngt_flush_core(
 		return;
 	}
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
-
 	ret = _ocf_mngt_get_sectors(cache, core_id,
 			&fc->flush_data, &fc->count);
 	if (ret) {
 		ocf_core_log(core, log_err, "Flushing operation aborted, "
 				"no memory\n");
 		env_vfree(fc);
-		ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 		complete(context, -OCF_ERR_NO_MEM);
 		return;
 	}
 
 	fc->core_id = core_id;
 	fc->iter = 0;
-
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	_ocf_mngt_flush_containers(context, fc, 1, complete);
 }
@@ -532,8 +551,6 @@ static void _ocf_mngt_flush_all_cores(
 
 	env_atomic_set(&cache->flush_in_progress, 1);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
-
 	/* Get all 'dirty' sectors for all cores */
 	ret = _ocf_mngt_get_flush_containers(cache, &fctbl, &fcnum);
 	if (ret) {
@@ -543,8 +560,6 @@ static void _ocf_mngt_flush_all_cores(
 		complete(context, ret);
 		return;
 	}
-
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	_ocf_mngt_flush_containers(context, fctbl, fcnum, complete);
 }
