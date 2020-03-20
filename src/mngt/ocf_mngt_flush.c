@@ -166,9 +166,6 @@ static int _ocf_mngt_get_sectors(ocf_cache_t cache, ocf_core_id_t core_id,
 		if (!metadata_test_dirty(cache, i))
 			continue;
 
-		if (ocf_cache_line_is_used(cache, i))
-			continue;
-
 		/* It's core_id cacheline and it's valid and it's dirty! */
 		p[j].cache_line = i;
 		p[j].core_line = core_line;
@@ -259,9 +256,6 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 			continue;
 
 		if (!metadata_test_dirty(cache, i))
-			continue;
-
-		if (ocf_cache_line_is_used(cache, i))
 			continue;
 
 		curr = &fc[core_revmap[core_id]];
