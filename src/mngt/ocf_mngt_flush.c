@@ -165,25 +165,20 @@ static int _ocf_mngt_get_sectors(ocf_cache_t cache, ocf_core_id_t core_id,
 		ocf_metadata_get_core_info(cache, line, &i_core_id,
 				&core_line);
 
-		if (i_core_id != core_id)
-			continue;
+		if (i_core_id == core_id &&
+				metadata_test_valid_any(cache, line) &&
+				metadata_test_dirty(cache, line)) {
+			/* It's valid and dirty target core cacheline */
+			elem->cache_line = line;
+			elem->core_line = core_line;
+			elem->core_id = i_core_id;
+			elem++;
+			dirty_found++;
 
-		if (!metadata_test_valid_any(cache, line))
-			continue;
-
-		if (!metadata_test_dirty(cache, line))
-			continue;
-
-		/* It's core_id cacheline and it's valid and it's dirty! */
-		elem->cache_line = line;
-		elem->core_line = core_line;
-		elem->core_id = i_core_id;
-		elem++;
-		dirty_found++;
-
-		/* stop if all cachelines were found */
-		if (dirty_found == dirty_total)
-			break;
+			/* stop if all cachelines were found */
+			if (dirty_found == dirty_total)
+				break;
+		}
 
 		if ((line + 1) % 1000000 == 0) {
 			ocf_metadata_end_exclusive_access(
@@ -272,26 +267,23 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	for (line = 0; line < cache->device->collision_table_entries; line++) {
 		ocf_metadata_get_core_info(cache, line, &core_id, &core_line);
 
-		if (!metadata_test_valid_any(cache, line))
-			continue;
+		if (metadata_test_valid_any(cache, line) &&
+				metadata_test_dirty(cache, line)) {
+			curr = &fc[core_revmap[core_id]];
 
-		if (!metadata_test_dirty(cache, line))
-			continue;
+			ENV_BUG_ON(curr->iter >= curr->count);
 
-		curr = &fc[core_revmap[core_id]];
+			/* It's core_id cacheline and it's valid and it's dirty! */
+			curr->flush_data[curr->iter].cache_line = line;
+			curr->flush_data[curr->iter].core_line = core_line;
+			curr->flush_data[curr->iter].core_id = core_id;
+			curr->iter++;
+			dirty_found++;
 
-		ENV_BUG_ON(curr->iter >= curr->count);
-
-		/* It's core_id cacheline and it's valid and it's dirty! */
-		curr->flush_data[curr->iter].cache_line = line;
-		curr->flush_data[curr->iter].core_line = core_line;
-		curr->flush_data[curr->iter].core_id = core_id;
-		curr->iter++;
-		dirty_found++;
-
-		/* stop if all cachelines were found */
-		if (dirty_found == dirty_total)
-			break;
+			/* stop if all cachelines were found */
+			if (dirty_found == dirty_total)
+				break;
+		}
 
 		if ((line + 1) % 1000000 == 0) {
 			ocf_metadata_end_exclusive_access(
