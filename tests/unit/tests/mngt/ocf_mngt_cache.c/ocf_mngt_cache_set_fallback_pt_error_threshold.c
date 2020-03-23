@@ -54,108 +54,124 @@ int __wrap_ocf_mngt_cache_set_fallback_pt(ocf_cache_t cache)
 
 static void ocf_mngt_cache_set_fallback_pt_error_threshold_test01(void **state)
 {
-	struct ocf_cache cache;
+	struct ocf_cache *cache;
 	int new_threshold;
 	int result;
 
 	print_test_description("Appropriate error code on invalid threshold value");
 
+	cache = test_malloc(sizeof(*cache));
+
 	new_threshold = -1;
 
-	result = ocf_mngt_cache_set_fallback_pt_error_threshold(&cache, new_threshold);
+	result = ocf_mngt_cache_set_fallback_pt_error_threshold(cache, new_threshold);
 
 	assert_int_equal(result, -OCF_ERR_INVAL);
 
 
 	new_threshold = 10000001;
 
-	result = ocf_mngt_cache_set_fallback_pt_error_threshold(&cache, new_threshold);
+	result = ocf_mngt_cache_set_fallback_pt_error_threshold(cache, new_threshold);
 
 	assert_int_equal(result, -OCF_ERR_INVAL);
+
+	test_free(cache);
 }
 
 static void ocf_mngt_cache_set_fallback_pt_error_threshold_test02(void **state)
 {
-	struct ocf_cache cache;
+	struct ocf_cache *cache;
 	int new_threshold;
 	int old_threshold;
 
 	print_test_description("Invalid new threshold value doesn't change current threshold");
 
+	cache = test_malloc(sizeof(*cache));
+
 	new_threshold = -1;
-	old_threshold = cache.fallback_pt_error_threshold = 1000;
+	old_threshold = cache->fallback_pt_error_threshold = 1000;
 
-	ocf_mngt_cache_set_fallback_pt_error_threshold(&cache, new_threshold);
+	ocf_mngt_cache_set_fallback_pt_error_threshold(cache, new_threshold);
 
-	assert_int_equal(cache.fallback_pt_error_threshold, old_threshold);
+	assert_int_equal(cache->fallback_pt_error_threshold, old_threshold);
 
 
 	new_threshold = 10000001;
-	old_threshold = cache.fallback_pt_error_threshold = 1000;
+	old_threshold = cache->fallback_pt_error_threshold = 1000;
 
-	ocf_mngt_cache_set_fallback_pt_error_threshold(&cache, new_threshold);
+	ocf_mngt_cache_set_fallback_pt_error_threshold(cache, new_threshold);
 
-	assert_int_equal(cache.fallback_pt_error_threshold, old_threshold);
+	assert_int_equal(cache->fallback_pt_error_threshold, old_threshold);
+
+	test_free(cache);
 }
 
 static void ocf_mngt_cache_set_fallback_pt_error_threshold_test03(void **state)
 {
-	struct ocf_cache cache;
+	struct ocf_cache *cache;
 	int new_threshold, old_threshold;
 
 	print_test_description("Setting new threshold value");
 
+	cache = test_malloc(sizeof(*cache));
+
 	new_threshold = 5000;
-	old_threshold = cache.fallback_pt_error_threshold = 1000;
+	old_threshold = cache->fallback_pt_error_threshold = 1000;
 
-	ocf_mngt_cache_set_fallback_pt_error_threshold(&cache, new_threshold);
+	ocf_mngt_cache_set_fallback_pt_error_threshold(cache, new_threshold);
 
-	assert_int_equal(cache.fallback_pt_error_threshold, new_threshold);
+	assert_int_equal(cache->fallback_pt_error_threshold, new_threshold);
 
 
 	new_threshold = 1000000;
-	old_threshold = cache.fallback_pt_error_threshold = 1000;
+	old_threshold = cache->fallback_pt_error_threshold = 1000;
 
-	ocf_mngt_cache_set_fallback_pt_error_threshold(&cache, new_threshold);
+	ocf_mngt_cache_set_fallback_pt_error_threshold(cache, new_threshold);
 
-	assert_int_equal(cache.fallback_pt_error_threshold, new_threshold);
+	assert_int_equal(cache->fallback_pt_error_threshold, new_threshold);
 
 
 	new_threshold = 0;
-	old_threshold = cache.fallback_pt_error_threshold = 1000;
+	old_threshold = cache->fallback_pt_error_threshold = 1000;
 
-	ocf_mngt_cache_set_fallback_pt_error_threshold(&cache, new_threshold);
+	ocf_mngt_cache_set_fallback_pt_error_threshold(cache, new_threshold);
 
-	assert_int_equal(cache.fallback_pt_error_threshold, new_threshold);
+	assert_int_equal(cache->fallback_pt_error_threshold, new_threshold);
+
+	test_free(cache);
 }
 
 static void ocf_mngt_cache_set_fallback_pt_error_threshold_test04(void **state)
 {
-	struct ocf_cache cache;
+	struct ocf_cache *cache;
 	int new_threshold;
 	int result;
 
 	print_test_description("Return appropriate value on success");
 
+	cache = test_malloc(sizeof(*cache));
+
 	new_threshold = 5000;
 
-	result = ocf_mngt_cache_set_fallback_pt_error_threshold(&cache, new_threshold);
+	result = ocf_mngt_cache_set_fallback_pt_error_threshold(cache, new_threshold);
 
 	assert_int_equal(result, 0);
 
 
 	new_threshold = 1000000;
 
-	result = ocf_mngt_cache_set_fallback_pt_error_threshold(&cache, new_threshold);
+	result = ocf_mngt_cache_set_fallback_pt_error_threshold(cache, new_threshold);
 
-	assert_int_equal(cache.fallback_pt_error_threshold, new_threshold);
+	assert_int_equal(cache->fallback_pt_error_threshold, new_threshold);
 
 
 	new_threshold = 0;
 
-	result = ocf_mngt_cache_set_fallback_pt_error_threshold(&cache, new_threshold);
+	result = ocf_mngt_cache_set_fallback_pt_error_threshold(cache, new_threshold);
 
 	assert_int_equal(result, 0);
+
+	test_free(cache);
 }
 
 int main(void)

@@ -104,21 +104,24 @@ static void _cache_mngt_set_cache_mode_test01(void **state)
 	struct ocf_superblock_config sb_config = {
 		.cache_mode = mode_old,
 	};
-	struct ocf_cache cache = {
-		.owner = &ctx,
-		.conf_meta = &sb_config,
-	};
+	struct ocf_cache *cache;
 	int result;
 
 	print_test_description("Invalid new mode produces appropirate error code");
 
+	cache = test_malloc(sizeof(*cache));
+	cache->owner = &ctx;
+	cache->conf_meta = &sb_config;
+
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 0);
 
-	result = _cache_mngt_set_cache_mode(&cache, mode_new);
+	result = _cache_mngt_set_cache_mode(cache, mode_new);
 
 	assert_int_equal(result, -OCF_ERR_INVAL);
-	assert_int_equal(cache.conf_meta->cache_mode, mode_old);
+	assert_int_equal(cache->conf_meta->cache_mode, mode_old);
+
+	test_free(cache);
 }
 
 static void _cache_mngt_set_cache_mode_test02(void **state)
@@ -131,14 +134,15 @@ static void _cache_mngt_set_cache_mode_test02(void **state)
 	struct ocf_superblock_config sb_config = {
 		.cache_mode = mode_old,
 	};
-	struct ocf_cache cache = {
-		.owner = &ctx,
-		.conf_meta = &sb_config,
-	};
+	struct ocf_cache *cache;
 	uint8_t flush = 0;
 	int result;
 
 	print_test_description("Attempt to set mode the same as previous");
+
+	cache = test_malloc(sizeof(*cache));
+	cache->owner = &ctx;
+	cache->conf_meta = &sb_config;
 
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
@@ -146,10 +150,12 @@ static void _cache_mngt_set_cache_mode_test02(void **state)
 	expect_function_call(__wrap_ocf_log_raw);
 	will_return(__wrap_ocf_log_raw, 0);
 
-	result = _cache_mngt_set_cache_mode(&cache, mode_new);
+	result = _cache_mngt_set_cache_mode(cache, mode_new);
 
 	assert_int_equal(result, 0);
-	assert_int_equal(cache.conf_meta->cache_mode, mode_old);
+	assert_int_equal(cache->conf_meta->cache_mode, mode_old);
+
+	test_free(cache);
 }
 
 static void _cache_mngt_set_cache_mode_test03(void **state)
@@ -162,15 +168,16 @@ static void _cache_mngt_set_cache_mode_test03(void **state)
 	struct ocf_superblock_config sb_config = {
 		.cache_mode = mode_old,
 	};
-	struct ocf_cache cache = {
-		.owner = &ctx,
-		.conf_meta = &sb_config,
-	};
+	struct ocf_cache *cache;
 	int result;
 	int i;
 
 	print_test_description("Old cache mode is write back. "
 		       "Setting new cache mode is succesfull");
+
+	cache = test_malloc(sizeof(*cache));
+	cache->owner = &ctx;
+	cache->conf_meta = &sb_config;
 
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
@@ -180,10 +187,12 @@ static void _cache_mngt_set_cache_mode_test03(void **state)
 	expect_function_call(__wrap_ocf_log_raw);
 	will_return(__wrap_ocf_log_raw, 0);
 
-	result = _cache_mngt_set_cache_mode(&cache, mode_new);
+	result = _cache_mngt_set_cache_mode(cache, mode_new);
 
 	assert_int_equal(result, 0);
-	assert_int_equal(cache.conf_meta->cache_mode, mode_new);
+	assert_int_equal(cache->conf_meta->cache_mode, mode_new);
+
+	test_free(cache);
 }
 
 static void _cache_mngt_set_cache_mode_test04(void **state)
@@ -196,14 +205,15 @@ static void _cache_mngt_set_cache_mode_test04(void **state)
 	struct ocf_superblock_config sb_config = {
 		.cache_mode = mode_old,
 	};
-	struct ocf_cache cache = {
-		.owner = &ctx,
-		.conf_meta = &sb_config,
-	};
+	struct ocf_cache *cache;
 	int result;
 	int i;
 
 	print_test_description("Mode changed successfully");
+
+	cache = test_malloc(sizeof(*cache));
+	cache->owner = &ctx;
+	cache->conf_meta = &sb_config;
 
 	expect_function_call(__wrap_ocf_cache_mode_is_valid);
 	will_return(__wrap_ocf_cache_mode_is_valid, 1);
@@ -211,10 +221,12 @@ static void _cache_mngt_set_cache_mode_test04(void **state)
 	expect_function_call(__wrap_ocf_log_raw);
 	will_return(__wrap_ocf_log_raw, 0);
 
-	result = _cache_mngt_set_cache_mode(&cache, mode_new);
+	result = _cache_mngt_set_cache_mode(cache, mode_new);
 
 	assert_int_equal(result, 0);
-	assert_int_equal(cache.conf_meta->cache_mode, mode_new);
+	assert_int_equal(cache->conf_meta->cache_mode, mode_new);
+
+	test_free(cache);
 }
 
 /*

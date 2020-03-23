@@ -105,19 +105,21 @@ static inline void setup_valid_config(struct ocf_mngt_io_class_config *cfg,
 
 static void ocf_mngt_io_classes_configure_test03(void **state)
 {
-	struct ocf_cache cache = {0};
+	struct ocf_cache *cache;
 	struct ocf_mngt_io_classes_config cfg = {0};
 	int result, i;
 
+	print_test_description("Remove all io classes");
+
+	cache = test_malloc(sizeof(*cache));
+
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
-		cache.user_parts[i].config =
+		cache->user_parts[i].config =
 				test_malloc(sizeof(struct ocf_user_part_config));
 	}
-	cache.device = 1;
+	cache->device = 1;
 
 	setup_valid_config(cfg.config, true);
-
-	print_test_description("Remove all io classes");
 
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
 		expect_function_call(__wrap__ocf_mngt_io_class_validate_cfg);
@@ -138,25 +140,29 @@ static void ocf_mngt_io_classes_configure_test03(void **state)
 
 	expect_function_call(__wrap_ocf_part_sort);
 
-	result = ocf_mngt_cache_io_classes_configure(&cache, &cfg);
+	result = ocf_mngt_cache_io_classes_configure(cache, &cfg);
 
 	assert_int_equal(result, 0);
 
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++)
-		test_free(cache.user_parts[i].config);
+		test_free(cache->user_parts[i].config);
+
+	test_free(cache);
 }
 
 static void ocf_mngt_io_classes_configure_test02(void **state)
 {
-	struct ocf_cache cache = {0};
+	struct ocf_cache *cache;
 	struct ocf_mngt_io_classes_config cfg = {0};
 	int result, i;
 
+	cache = test_malloc(sizeof(*cache));
+
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
-		cache.user_parts[i].config =
+		cache->user_parts[i].config =
 				test_malloc(sizeof(struct ocf_user_part_config));
 	}
-	cache.device = 1;
+	cache->device = 1;
 
 	setup_valid_config(cfg.config, false);
 
@@ -197,17 +203,19 @@ static void ocf_mngt_io_classes_configure_test02(void **state)
 
 	expect_function_call(__wrap_ocf_part_sort);
 
-	result = ocf_mngt_cache_io_classes_configure(&cache, &cfg);
+	result = ocf_mngt_cache_io_classes_configure(cache, &cfg);
 
 	assert_int_equal(result, 0);
 
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++)
-		test_free(cache.user_parts[i].config);
+		test_free(cache->user_parts[i].config);
+
+	test_free(cache);
 }
 
 static void ocf_mngt_io_classes_configure_test01(void **state)
 {
-	struct ocf_cache cache;
+	struct ocf_cache *cache;
 	struct ocf_mngt_io_classes_config cfg[OCF_IO_CLASS_MAX];
 	int error_code = -OCF_ERR_INVAL;
 	int result;
@@ -215,12 +223,16 @@ static void ocf_mngt_io_classes_configure_test01(void **state)
 	print_test_description("Invalid config - "
 		   "termination with error");
 
+	cache = test_malloc(sizeof(*cache));
+
 	expect_function_call(__wrap__ocf_mngt_io_class_validate_cfg);
 	will_return(__wrap__ocf_mngt_io_class_validate_cfg, error_code);
 
-	result = ocf_mngt_cache_io_classes_configure(&cache, &cfg);
+	result = ocf_mngt_cache_io_classes_configure(cache, &cfg);
 
 	assert_int_equal(result, error_code);
+
+	test_free(cache);
 }
 
 int main(void)
