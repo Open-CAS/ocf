@@ -103,20 +103,22 @@ static void cleaner_complete(ocf_cleaner_t cleaner, uint32_t interval)
 
 static void ocf_cleaner_run_test01(void **state)
 {
-	struct ocf_cache cache;
+	struct ocf_cache *cache;
 	ocf_part_id_t part_id;
 	uint32_t io_queue;
 	int result;
 
-	//Initialize needed structures.
-	cache.conf_meta = test_malloc(sizeof(struct ocf_superblock_config));
-	cache.conf_meta->cleaning_policy_type = ocf_cleaning_alru;
-
 	print_test_description("Parts are ready for cleaning - should perform cleaning"
 			" for each part");
 
+	//Initialize needed structures.
+	cache = test_malloc(sizeof(*cache));
+	cache->conf_meta = test_malloc(sizeof(struct ocf_superblock_config));
+	cache->conf_meta->cleaning_policy_type = ocf_cleaning_alru;
+
+
 	expect_function_call(__wrap_ocf_cleaner_get_cache);
-	will_return(__wrap_ocf_cleaner_get_cache, &cache);
+	will_return(__wrap_ocf_cleaner_get_cache, cache);
 
 	expect_function_call(__wrap_env_bit_test);
 	will_return(__wrap_env_bit_test, 1);
@@ -133,13 +135,14 @@ static void ocf_cleaner_run_test01(void **state)
 	expect_function_call(__wrap_cleaning_alru_perform_cleaning);
 	will_return(__wrap_cleaning_alru_perform_cleaning, 0);
 
-	ocf_cleaner_set_cmpl(&cache.cleaner, cleaner_complete);
+	ocf_cleaner_set_cmpl(&cache->cleaner, cleaner_complete);
 
-	ocf_cleaner_run(&cache.cleaner, 0xdeadbeef);
+	ocf_cleaner_run(&cache->cleaner, 0xdeadbeef);
 
 	/* Release allocated memory if allocated with test_* functions */
 
-	test_free(cache.conf_meta);
+	test_free(cache->conf_meta);
+	test_free(cache);
 }
 
 /*

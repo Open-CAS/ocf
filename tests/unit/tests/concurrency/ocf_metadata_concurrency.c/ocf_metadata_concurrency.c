@@ -35,13 +35,19 @@ void __wrap_ocf_metadata_hash_lock(struct ocf_metadata_lock *metadata_lock,
 static struct ocf_request *alloc_req()
 {
 	struct ocf_request *req;
-	struct ocf_cache *cache = malloc(sizeof(*cache));
+	struct ocf_cache *cache = test_malloc(sizeof(*cache));
 
-	req = malloc(sizeof(*req) + MAP_SIZE * sizeof(req->map[0]));
+	req = test_malloc(sizeof(*req) + MAP_SIZE * sizeof(req->map[0]));
 	req->map = req->__map;
 	req->cache = cache;
 
 	return req;
+}
+
+static void free_req(struct ocf_request *req)
+{
+	test_free(req->cache);
+	test_free(req);
 }
 
 static void _test_lock_order(struct ocf_request* req,
@@ -114,8 +120,7 @@ static void ocf_req_hash_lock_rd_test01(void **state)
 				 test_cases[i].expected_call.val, test_cases[i].expected_call.count);
 	}
 
-	free(req->cache);
-	free(req);
+	free_req(req);
 }
 
 int main(void)
