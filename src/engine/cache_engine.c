@@ -85,7 +85,7 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 		.write = ocf_discard,
 		.name = "Discard",
 	},
-	[OCF_IO_D2C_IF] =  {
+	[OCF_IO_D2C_IF] = {
 		.read = ocf_io_d2c,
 		.write = ocf_io_d2c,
 		.name = "Direct to core",
@@ -223,36 +223,51 @@ void ocf_seq_cutoff_update(ocf_core_t core, struct ocf_request *req)
 	core->seq_cutoff.bytes += req->byte_length;
 }
 
-ocf_cache_mode_t ocf_get_effective_cache_mode(ocf_cache_t cache,
-		ocf_core_t core, struct ocf_io *io)
+void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
+		ocf_core_t core, struct ocf_request *req)
 {
-	ocf_cache_mode_t mode;
+	if (req->d2c) {
+		req->cache_mode = ocf_req_cache_mode_d2c;
+		return;
+	}
 
-	if (cache->pt_unaligned_io && !ocf_req_is_4k(io->addr, io->bytes))
-		return ocf_cache_mode_pt;
+	if (ocf_fallback_pt_is_on(cache)){
+		req->cache_mode = ocf_req_cache_mode_pt;
+		return;
+	}
 
-	mode = ocf_part_get_cache_mode(cache,
-			ocf_part_class2id(cache, io->io_class));
-	if (!ocf_cache_mode_is_valid(mode))
-		mode = cache->conf_meta->cache_mode;
+	if (cache->pt_unaligned_io && !ocf_req_is_4k(req->byte_position,
+						     req->byte_length)) {
+		req->cache_mode = ocf_req_cache_mode_pt;
+		return;
+	}
 
-	if (ocf_seq_cutoff_check(core, io->dir, io->addr, io->bytes))
-		mode = ocf_cache_mode_pt;
+	if (ocf_seq_cutoff_check(core, req->rw, req->byte_position,
+				 req->byte_length)) {
+		req->cache_mode = ocf_req_cache_mode_pt;
+		req->seq_cutoff = 1;
+		return;
+	}
 
-	if (ocf_fallback_pt_is_on(cache))
-		mode = ocf_cache_mode_pt;
+	req->cache_mode = ocf_part_get_cache_mode(cache,
+				ocf_part_class2id(cache, req->part_id));
+	if (!ocf_cache_mode_is_valid(req->cache_mode))
+		req->cache_mode = cache->conf_meta->cache_mode;
 
-	return mode;
+	if (req->rw == OCF_WRITE &&
+	    ocf_req_cache_mode_has_lazy_write(req->cache_mode) &&
+	    ocf_req_set_dirty(req)) {
+		req->cache_mode = ocf_req_cache_mode_wt;
+	}
 }
 
-int ocf_engine_hndl_req(struct ocf_request *req,
-		ocf_req_cache_mode_t req_cache_mode)
+int ocf_engine_hndl_req(struct ocf_request *req)
 {
 	ocf_cache_t cache = req->cache;
 
 	OCF_CHECK_NULL(cache);
 
-	req->io_if = ocf_get_io_if(req_cache_mode);
+	req->io_if = ocf_get_io_if(req->cache_mode);
 	if (!req->io_if)
 		return -OCF_ERR_INVAL;
 
@@ -267,13 +282,12 @@ int ocf_engine_hndl_req(struct ocf_request *req,
 	return 0;
 }
 
-int ocf_engine_hndl_fast_req(struct ocf_request *req,
-		ocf_req_cache_mode_t req_cache_mode)
+int ocf_engine_hndl_fast_req(struct ocf_request *req)
 {
 	const struct ocf_io_if *io_if;
 	int ret;
 
-	io_if = ocf_get_io_if(req_cache_mode);
+	io_if = ocf_get_io_if(req->cache_mode);
 	if (!io_if)
 		return -OCF_ERR_INVAL;
 

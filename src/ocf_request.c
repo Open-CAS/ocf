@@ -303,6 +303,12 @@ void ocf_req_put(struct ocf_request *req)
 	ocf_queue_put(queue);
 }
 
+int ocf_req_set_dirty(struct ocf_request *req)
+{
+	req->dirty = !!ocf_refcnt_inc(&req->cache->refcnt.dirty);
+	return req->dirty ? 0 : -OCF_ERR_AGAIN;
+}
+
 void ocf_req_clear_info(struct ocf_request *req)
 {
 	ENV_BUG_ON(env_memset(&req->info, sizeof(req->info), 0));

@@ -8,6 +8,7 @@
 
 #include "ocf_env.h"
 #include "ocf_io_priv.h"
+#include "engine/cache_engine.h"
 
 struct ocf_req_allocator;
 
@@ -24,9 +25,6 @@ struct ocf_req_info {
 
 	uint32_t seq_req : 1;
 	/*!< Sequential cache request flag. */
-
-	uint32_t seq_cutoff : 1;
-	/*!< Sequential cut off set for this request */
 
 	uint32_t flush_metadata : 1;
 	/*!< This bit tells if metadata flushing is required */
@@ -149,6 +147,8 @@ struct ocf_request {
 	ctx_data_t *cp_data;
 	/*!< Copy of request data */
 
+	ocf_req_cache_mode_t cache_mode;
+
 	uint64_t byte_position;
 	/*!< LBA byte position of request in core domain */
 
@@ -184,6 +184,9 @@ struct ocf_request {
 
 	uint8_t master_io_req_type : 2;
 	/*!< Core device request context type */
+
+	uint8_t seq_cutoff : 1;
+	/*!< Sequential cut off set for this request */
 
 	log_sid_t sid;
 	/*!< Tracing sequence ID */
@@ -325,6 +328,8 @@ void ocf_req_clear_map(struct ocf_request *req);
  * @param req - OCF request
  */
 void ocf_req_hash(struct ocf_request *req);
+
+int ocf_req_set_dirty(struct ocf_request *req);
 
 /**
  * @brief Clear OCF request

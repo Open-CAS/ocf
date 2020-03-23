@@ -9,7 +9,6 @@
 #include "ocf_io_priv.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
-#include "ocf_request.h"
 #include "utils/utils_part.h"
 #include "ocf_request.h"
 #include "ocf_trace_priv.h"
@@ -165,12 +164,6 @@ static inline ocf_core_t ocf_volume_to_core(ocf_volume_t volume)
 	return core_volume->core;
 }
 
-static inline int ocf_io_set_dirty(struct ocf_request *req)
-{
-	req->dirty = !!ocf_refcnt_inc(&req->cache->refcnt.dirty);
-	return req->dirty ? 0 : -EBUSY;
-}
-
 static inline void dec_counter_if_req_was_dirty(struct ocf_request *req)
 {
 	if (!req->dirty)
@@ -223,10 +216,9 @@ static void ocf_req_complete(struct ocf_request *req, int error)
 	ocf_io_put(&req->ioi.io);
 }
 
-void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
+void ocf_core_volume_submit_io(struct ocf_io *io)
 {
 	struct ocf_request *req;
-	ocf_req_cache_mode_t req_cache_mode;
 	ocf_core_t core;
 	ocf_cache_t cache;
 	int ret;
@@ -251,25 +243,11 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 		return;
 	}
 
-	/* TODO: instead of casting ocf_cache_mode_t to ocf_req_cache_mode_t
-	   we can resolve IO interface here and get rid of the latter. */
-	req_cache_mode = cache_mode;
-
-	if (cache_mode == ocf_cache_mode_none)
-		req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
-
-	if (io->dir == OCF_WRITE &&
-			ocf_req_cache_mode_has_lazy_write(req_cache_mode) &&
-			ocf_io_set_dirty(req)) {
-		req_cache_mode = ocf_req_cache_mode_wt;
-	}
-
-	if (req->d2c)
-		req_cache_mode = ocf_req_cache_mode_d2c;
-
+	req->part_id = ocf_part_class2id(cache, io->io_class);
 	req->core = core;
 	req->complete = ocf_req_complete;
-	req->part_id = ocf_part_class2id(cache, io->io_class);
+
+	ocf_resolve_effective_cache_mode(cache, core, req);
 
 	ocf_seq_cutoff_update(core, req);
 
@@ -282,7 +260,7 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 
 	ocf_io_get(io);
 
-	ret = ocf_engine_hndl_req(req, req_cache_mode);
+	ret = ocf_engine_hndl_req(req);
 	if (ret) {
 		dec_counter_if_req_was_dirty(req);
 		ocf_io_end(io, ret);
@@ -292,7 +270,6 @@ void ocf_core_submit_io_mode(struct ocf_io *io, ocf_cache_mode_t cache_mode)
 int ocf_core_submit_io_fast(struct ocf_io *io)
 {
 	struct ocf_request *req;
-	ocf_req_cache_mode_t req_cache_mode;
 	struct ocf_event_io trace_event;
 	ocf_core_t core;
 	ocf_cache_t cache;
@@ -315,26 +292,29 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 		return 0;
 	}
 
+	if (req->d2c) {
+		dec_counter_if_req_was_dirty(req);
+		return -OCF_ERR_IO;
+	}
+
 	ret = ocf_req_alloc_map(req);
 	if (ret) {
 		ocf_io_end(io, -OCF_ERR_NO_MEM);
 		return 0;
 	}
 
-	req_cache_mode = ocf_get_effective_cache_mode(cache, core, io);
+	req->core = core;
+	req->complete = ocf_req_complete;
+	req->part_id = ocf_part_class2id(cache, io->io_class);
 
-	if (io->dir == OCF_WRITE &&
-			ocf_req_cache_mode_has_lazy_write(req_cache_mode) &&
-			ocf_io_set_dirty(req)) {
-		req_cache_mode = ocf_req_cache_mode_wt;
-	}
+	ocf_resolve_effective_cache_mode(cache, core, req);
 
-	switch (req_cache_mode) {
+	switch (req->cache_mode) {
 	case ocf_req_cache_mode_pt:
 		return -OCF_ERR_IO;
 	case ocf_req_cache_mode_wb:
 	case ocf_req_cache_mode_wo:
-		req_cache_mode = ocf_req_cache_mode_fast;
+		req->cache_mode = ocf_req_cache_mode_fast;
 		break;
 	default:
 		if (cache->use_submit_io_fast)
@@ -342,17 +322,8 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 		if (io->dir == OCF_WRITE)
 			return -OCF_ERR_IO;
 
-		req_cache_mode = ocf_req_cache_mode_fast;
+		req->cache_mode = ocf_req_cache_mode_fast;
 	}
-
-	if (req->d2c) {
-		dec_counter_if_req_was_dirty(req);
-		return -OCF_ERR_IO;
-	}
-
-	req->core = core;
-	req->complete = ocf_req_complete;
-	req->part_id = ocf_part_class2id(cache, io->io_class);
 
 	ocf_core_update_stats(core, io);
 
@@ -365,7 +336,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 
 	ocf_io_get(io);
 
-	fast = ocf_engine_hndl_fast_req(req, req_cache_mode);
+	fast = ocf_engine_hndl_fast_req(req);
 	if (fast != OCF_FAST_PATH_NO) {
 		ocf_trace_push(io->io_queue, &trace_event, sizeof(trace_event));
 		ocf_seq_cutoff_update(core, req);
@@ -376,11 +347,6 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 
 	ocf_io_put(io);
 	return -OCF_ERR_IO;
-}
-
-static void ocf_core_volume_submit_io(struct ocf_io *io)
-{
-	ocf_core_submit_io_mode(io, ocf_cache_mode_none);
 }
 
 static void ocf_core_volume_submit_flush(struct ocf_io *io)
