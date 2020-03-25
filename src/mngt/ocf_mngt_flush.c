@@ -180,7 +180,7 @@ static int _ocf_mngt_get_sectors(ocf_cache_t cache, ocf_core_id_t core_id,
 				break;
 		}
 
-		if ((line + 1) % 1000000 == 0) {
+		if ((line + 1) % 131072 == 0) {
 			ocf_metadata_end_exclusive_access(
 					&cache->metadata.lock);
 			env_cond_resched();
@@ -285,7 +285,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 				break;
 		}
 
-		if ((line + 1) % 1000000 == 0) {
+		if ((line + 1) % 131072 == 0) {
 			ocf_metadata_end_exclusive_access(
 					&cache->metadata.lock);
 			env_cond_resched();
