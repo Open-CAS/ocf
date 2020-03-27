@@ -116,7 +116,7 @@ const struct ocf_io_if *ocf_get_io_if(ocf_req_cache_mode_t req_cache_mode)
 	return cache_mode_io_if_map[req_cache_mode];
 }
 
-struct ocf_request *ocf_engine_pop_req(ocf_cache_t cache, ocf_queue_t q)
+struct ocf_request *ocf_engine_pop_req(ocf_queue_t q)
 {
 	unsigned long lock_flags = 0;
 	struct ocf_request *req;

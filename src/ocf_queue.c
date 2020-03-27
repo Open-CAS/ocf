@@ -86,13 +86,10 @@ void ocf_io_handle(struct ocf_io *io, void *opaque)
 void ocf_queue_run_single(ocf_queue_t q)
 {
 	struct ocf_request *io_req = NULL;
-	ocf_cache_t cache;
 
 	OCF_CHECK_NULL(q);
 
-	cache = q->cache;
-
-	io_req = ocf_engine_pop_req(cache, q);
+	io_req = ocf_engine_pop_req(q);
 
 	if (!io_req)
 		return;
