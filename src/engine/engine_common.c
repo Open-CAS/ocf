@@ -565,6 +565,11 @@ void ocf_engine_push_req_back(struct ocf_request *req, bool allow_sync)
 	ENV_BUG_ON(!req->io_queue);
 	q = req->io_queue;
 
+	if (!req->info.internal) {
+		env_atomic_set(&cache->last_access_ms,
+				env_ticks_to_msecs(env_get_tick_count()));
+	}
+
 	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
 
 	list_add_tail(&req->list, &q->io_list);
@@ -572,10 +577,9 @@ void ocf_engine_push_req_back(struct ocf_request *req, bool allow_sync)
 
 	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
 
-	if (!req->info.internal) {
-		env_atomic_set(&cache->last_access_ms,
-				env_ticks_to_msecs(env_get_tick_count()));
-	}
+	/* NOTE: do not dereference @req past this line, it might
+	 * be picked up by concurrent io thread and deallocated
+	 * at this point */
 
 	ocf_queue_kick(q, allow_sync);
 }
@@ -591,6 +595,11 @@ void ocf_engine_push_req_front(struct ocf_request *req, bool allow_sync)
 
 	q = req->io_queue;
 
+	if (!req->info.internal) {
+		env_atomic_set(&cache->last_access_ms,
+				env_ticks_to_msecs(env_get_tick_count()));
+	}
+
 	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
 
 	list_add(&req->list, &q->io_list);
@@ -598,10 +607,9 @@ void ocf_engine_push_req_front(struct ocf_request *req, bool allow_sync)
 
 	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
 
-	if (!req->info.internal) {
-		env_atomic_set(&cache->last_access_ms,
-				env_ticks_to_msecs(env_get_tick_count()));
-	}
+	/* NOTE: do not dereference @req past this line, it might
+	 * be picked up by concurrent io thread and deallocated
+	 * at this point */
 
 	ocf_queue_kick(q, allow_sync);
 }
