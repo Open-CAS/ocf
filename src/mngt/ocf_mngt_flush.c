@@ -47,6 +47,11 @@ struct ocf_mngt_cache_flush_context
 	/* target core */
 	ocf_core_t core;
 
+	struct {
+		bool lock : 1;
+		bool freeze : 1;
+	} flags;
+
 	/* management operation identifier */
 	enum {
 		flush_cache = 0,
@@ -87,22 +92,20 @@ static void _ocf_mngt_begin_flush(ocf_pipeline_t pipeline, void *priv,
 {
 	struct ocf_mngt_cache_flush_context *context = priv;
 	ocf_cache_t cache = context->cache;
+	int result;
 
 	/* FIXME: need mechanism for async waiting for outstanding flushes to
 	 * finish */
-	env_mutex_lock(&cache->flush_mutex);
+	result = env_mutex_trylock(&cache->flush_mutex);
+	if (result)
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_FLUSH_IN_PROGRESS);
+	context->flags.lock = true;
 
 	ocf_refcnt_freeze(&cache->refcnt.dirty);
+	context->flags.freeze = true;
 
 	ocf_refcnt_register_zero_cb(&cache->refcnt.dirty,
 			_ocf_mngt_begin_flush_complete, context);
-}
-
-static void _ocf_mngt_end_flush(ocf_cache_t cache)
-{
-	ocf_refcnt_unfreeze(&cache->refcnt.dirty);
-
-	env_mutex_unlock(&cache->flush_mutex);
 }
 
 bool ocf_mngt_core_is_dirty(ocf_core_t core)
@@ -606,7 +609,11 @@ static void _ocf_mngt_flush_finish(ocf_pipeline_t pipeline, void *priv,
 	ocf_cache_t cache = context->cache;
 	ocf_core_t core = context->core;
 
-	_ocf_mngt_end_flush(cache);
+	if (context->flags.freeze)
+		ocf_refcnt_unfreeze(&cache->refcnt.dirty);
+
+	if (context->flags.lock)
+		env_mutex_unlock(&cache->flush_mutex);
 
 	switch (context->op) {
 	case flush_cache:
