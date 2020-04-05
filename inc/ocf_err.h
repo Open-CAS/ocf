@@ -102,6 +102,9 @@ typedef enum {
 	/** Flushing of core interrupted */
 	OCF_ERR_FLUSHING_INTERRUPTED,
 
+	/** Another flushing operation in progress */
+	OCF_ERR_FLUSH_IN_PROGRESS,
+
 	/** Adding core to core pool failed */
 	OCF_ERR_CANNOT_ADD_CORE_TO_POOL,
 

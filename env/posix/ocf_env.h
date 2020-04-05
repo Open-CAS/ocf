@@ -226,6 +226,11 @@ static inline void env_mutex_lock(env_mutex *mutex)
 	ENV_BUG_ON(pthread_mutex_lock(&mutex->m));
 }
 
+static inline int env_mutex_trylock(env_mutex *mutex)
+{
+	return pthread_mutex_trylock(&mutex->m);
+}
+
 static inline int env_mutex_lock_interruptible(env_mutex *mutex)
 {
 	env_mutex_lock(mutex);
