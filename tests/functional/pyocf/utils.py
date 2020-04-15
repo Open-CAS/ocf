@@ -136,6 +136,10 @@ class Size:
     def sectors(self):
         return self.bytes // self._SECTOR_SIZE
 
+    @property
+    def blocks_4k(self):
+        return self.bytes // 4096
+
     def __str__(self):
         if self.bytes < self._KiB:
             return "{} B".format(self.B)
