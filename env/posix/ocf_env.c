@@ -7,18 +7,33 @@
 #include <sched.h>
 #include <execinfo.h>
 
-/* ALLOCATOR */
+/** @addtogroup ALLOCATOR
+ * @{
+ */
+
+/**
+ * @struct _env_allocator
+ * @brief template allocator struct
+ * @details contains:
+ * <tt>char *name</tt> - memory pool ID unique name 
+ * <tt>uint32_t item_size</tt> - size of specific item of memory pool
+ * <tt>env_atomic count</tt> - number of currently allocated items in pool
+ */
 struct _env_allocator {
-	/*!< Memory pool ID unique name */
 	char *name;
-
-	/*!< Size of specific item of memory pool */
 	uint32_t item_size;
-
-	/*!< Number of currently allocated items in pool */
 	env_atomic count;
 };
 
+/**
+ * @brief aligns allocator
+ *
+ * @param size bytes of memory to be allocated
+ * @param fmt_name unique name
+ * @param ... amount of currently allocated items in pool
+ *
+ * @retval nearest power of two equal or higher than size
+ */
 static inline size_t env_allocator_align(size_t size)
 {
 	if (size <= 2)
@@ -26,6 +41,14 @@ static inline size_t env_allocator_align(size_t size)
 	return (1ULL << 32) >> __builtin_clz(size - 1);
 }
 
+/**
+ * @struct _env_allocator_item
+ * @brief template allocator's item struct
+ * @details contains:
+ * <tt>uint32_t flags</tt> - memory management flags
+ * <tt>uint32_t cpu</tt> - size of specific item of memory pool
+ * <tt>char data[]</tt> - number of currently allocated items in pool
+ */
 struct _env_allocator_item {
 	uint32_t flags;
 	uint32_t cpu;
@@ -109,10 +132,21 @@ void env_allocator_destroy(env_allocator *allocator)
 		free(allocator);
 	}
 }
+/** @} */
 
-/* DEBUGING */
+/** @addtogroup DEBUGGING
+ * @{
+ */
+
+/**
+ * @def ENV_TRACE_DEPTH
+ * @brief default depth of tracing
+ */
 #define ENV_TRACE_DEPTH	16
 
+/**
+ * @brief prints names of recently called functions to stdout
+ */
 void env_stack_trace(void)
 {
 	void *trace[ENV_TRACE_DEPTH];
@@ -127,16 +161,35 @@ void env_stack_trace(void)
 	printf("<<<[stack trace]\n");
 	free(messages);
 }
+/** @} */
 
-/* CRC */
+/** @addtogroup CRC
+ * @{
+ */
+
 uint32_t env_crc32(uint32_t crc, uint8_t const *data, size_t len)
 {
 	return crc32(crc, data, len);
 }
+/** @} */
 
-/* EXECUTION CONTEXTS */
+/** @addtogroup EXECUTION_CONTEXTS
+ * @{
+ */
+
+/**
+ * @brief global pointer to execution context's mutex
+ */
 pthread_mutex_t *exec_context_mutex;
 
+/**
+ * @brief initiates execution context
+ *
+ * @bug assert if no contexts are available
+ * @bug assert if can't allocate space for contexts' mutexes
+ * @bug assert if contexts' mutexes can't be initiated
+ * 
+ */
 static void __attribute__((constructor)) init_execution_context(void)
 {
 	unsigned count = env_get_execution_context_count();
@@ -149,6 +202,14 @@ static void __attribute__((constructor)) init_execution_context(void)
 		ENV_BUG_ON(pthread_mutex_init(&exec_context_mutex[i], NULL));
 }
 
+/**
+ * @brief deinitiates execution context and frees its currently reserved space
+ *
+ * @bug assert if there's no available contexts
+ * @bug assert if no space is currently allocated for contexts' mutexes
+ * @bug assert if contexts' mutexes can't be destroyed
+ * 
+ */
 static void __attribute__((destructor)) deinit_execution_context(void)
 {
 	unsigned count = env_get_execution_context_count();
@@ -162,11 +223,6 @@ static void __attribute__((destructor)) deinit_execution_context(void)
 	free(exec_context_mutex);
 }
 
-/* get_execuction_context must assure that after the call finishes, the caller
- * will not get preempted from current execution context. For userspace env
- * we simulate this behavior by acquiring per execution context mutex. As a
- * result the caller might actually get preempted, but no other thread will
- * execute in this context by the time the caller puts current execution ctx. */
 unsigned env_get_execution_context(void)
 {
 	unsigned cpu;
@@ -190,3 +246,4 @@ unsigned env_get_execution_context_count(void)
 
 	return (num == -1) ? 0 : num;
 }
+/** @} */
