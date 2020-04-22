@@ -406,6 +406,8 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 		context->flags.clean_pol_added = true;
 	}
 
+	ocf_core_seq_cutoff_init(core);
+
 	/* When adding new core to cache, allocate stat counters */
 	core->counters =
 		env_zalloc(sizeof(*core->counters), ENV_MEM_NORMAL);
@@ -427,8 +429,10 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	core->opened = true;
 
 	/* Set default cache parameters for sequential */
-	core->conf_meta->seq_cutoff_policy = ocf_seq_cutoff_policy_default;
-	core->conf_meta->seq_cutoff_threshold = cfg->seq_cutoff_threshold;
+	env_atomic_set(&core->conf_meta->seq_cutoff_policy,
+			ocf_seq_cutoff_policy_default);
+	env_atomic_set(&core->conf_meta->seq_cutoff_threshold,
+			cfg->seq_cutoff_threshold);
 
 	/* Add core sequence number for atomic metadata matching */
 	core_sequence_no = _ocf_mngt_get_core_seq_no(cache);
@@ -855,7 +859,7 @@ int ocf_mngt_core_get_user_metadata(ocf_core_t core, void *data, size_t size)
 static int _cache_mngt_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx)
 {
 	uint32_t threshold = *(uint32_t*) cntx;
-	uint32_t threshold_old = core->conf_meta->seq_cutoff_threshold;
+	uint32_t threshold_old = ocf_core_get_seq_cutoff_threshold(core);
 
 	if (threshold_old == threshold) {
 		ocf_core_log(core, log_info,
@@ -863,7 +867,8 @@ static int _cache_mngt_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx
 				"already set\n", threshold);
 		return 0;
 	}
-	core->conf_meta->seq_cutoff_threshold = threshold;
+
+	env_atomic_set(&core->conf_meta->seq_cutoff_threshold, threshold);
 
 	ocf_core_log(core, log_info, "Changing sequential cutoff "
 			"threshold from %u to %u bytes successful\n",
@@ -916,7 +921,7 @@ static const char *_cache_mngt_seq_cutoff_policy_get_name(
 static int _cache_mngt_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
 {
 	ocf_seq_cutoff_policy policy = *(ocf_seq_cutoff_policy*) cntx;
-	uint32_t policy_old = core->conf_meta->seq_cutoff_policy;
+	uint32_t policy_old = ocf_core_get_seq_cutoff_policy(core);
 
 	if (policy_old == policy) {
 		ocf_core_log(core, log_info,
@@ -931,7 +936,7 @@ static int _cache_mngt_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
 		return -OCF_ERR_INVAL;
 	}
 
-	core->conf_meta->seq_cutoff_policy = policy;
+	env_atomic_set(&core->conf_meta->seq_cutoff_policy, policy);
 
 	ocf_core_log(core, log_info,
 			"Changing sequential cutoff policy from %s to %s\n",

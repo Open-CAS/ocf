@@ -106,12 +106,12 @@ int ocf_core_get(ocf_cache_t cache, ocf_core_id_t id, ocf_core_t *core)
 
 uint32_t ocf_core_get_seq_cutoff_threshold(ocf_core_t core)
 {
-	return core->conf_meta->seq_cutoff_threshold;
+	return env_atomic_read(&core->conf_meta->seq_cutoff_threshold);
 }
 
 ocf_seq_cutoff_policy ocf_core_get_seq_cutoff_policy(ocf_core_t core)
 {
-	return core->conf_meta->seq_cutoff_policy;
+	return env_atomic_read(&core->conf_meta->seq_cutoff_policy);
 }
 
 int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
@@ -249,7 +249,7 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 
 	ocf_resolve_effective_cache_mode(cache, core, req);
 
-	ocf_seq_cutoff_update(core, req);
+	ocf_core_seq_cutoff_update(core, req);
 
 	ocf_core_update_stats(core, io);
 
@@ -339,7 +339,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 	fast = ocf_engine_hndl_fast_req(req);
 	if (fast != OCF_FAST_PATH_NO) {
 		ocf_trace_push(io->io_queue, &trace_event, sizeof(trace_event));
-		ocf_seq_cutoff_update(core, req);
+		ocf_core_seq_cutoff_update(core, req);
 		return 0;
 	}
 

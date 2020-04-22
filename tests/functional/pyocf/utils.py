@@ -148,6 +148,61 @@ class Size:
         else:
             return "{} TiB".format(self.TiB)
 
+    def __repr__(self):
+        return f"Size({self.bytes})"
+
+    def __eq__(self, other):
+        return self.bytes == other.bytes
+
+    def __add__(self, other):
+        return Size(self.bytes + other.bytes)
+
+    def __sub__(self, other):
+        return Size(self.bytes - other.bytes)
+
+    def __mul__(self, other):
+        return Size(self.bytes * int(other))
+
+    def __truediv__(self, other):
+        return Size(self.bytes / int(other))
+
+    def __floordiv__(self, other):
+        return Size(self.bytes // int(other))
+
+    def __rmul__(self, other):
+        return Size(self.bytes * int(other))
+
+    def __rtruediv__(self, other):
+        return Size(int(other) / self.bytes)
+
+    def __rfloordiv__(self, other):
+        return Size(int(other) // self.bytes)
+
+    def __iadd__(self, other):
+        self.bytes += other.bytes
+
+        return self
+
+    def __isub__(self, other):
+        self.bytes -= other.bytes
+
+        return self
+
+    def __imul__(self, other):
+        self.bytes *= int(other)
+
+        return self
+
+    def __itruediv__(self, other):
+        self.bytes /= int(other)
+
+        return self
+
+    def __ifloordir__(self, other):
+        self.bytes //= int(other)
+
+        return self
+
 
 def print_structure(struct, indent=0):
     print(struct)

@@ -64,12 +64,7 @@ static inline bool ocf_req_cache_mode_has_lazy_write(ocf_req_cache_mode_t mode)
 					(ocf_cache_mode_t)mode);
 }
 
-void ocf_seq_cutoff_update(ocf_core_t core, struct ocf_request *req);
-
 bool ocf_fallback_pt_is_on(ocf_cache_t cache);
-
-bool ocf_seq_cutoff_check(ocf_core_t core, uint32_t dir, uint64_t addr,
-		uint64_t bytes);
 
 struct ocf_request *ocf_engine_pop_req(struct ocf_cache *cache,
 		struct ocf_queue *q);

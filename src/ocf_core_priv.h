@@ -10,6 +10,7 @@
 #include "ocf_env.h"
 #include "ocf_ctx_priv.h"
 #include "ocf_volume_priv.h"
+#include "ocf_seq_cutoff.h"
 
 #define ocf_core_log_prefix(core, lvl, prefix, fmt, ...) \
 	ocf_cache_log_prefix(ocf_core_get_cache(core), lvl, ".%s" prefix, \
@@ -38,10 +39,10 @@ struct ocf_core_meta_config {
 	ocf_seq_no_t seq_no;
 
 	/* Sequential cutoff threshold (in bytes) */
-	uint32_t seq_cutoff_threshold;
+	env_atomic seq_cutoff_threshold;
 
 	/* Sequential cutoff policy */
-	ocf_seq_cutoff_policy seq_cutoff_policy;
+	env_atomic seq_cutoff_policy;
 
 	/* core object size in bytes */
 	uint64_t length;
@@ -69,7 +70,6 @@ struct ocf_core_meta_runtime {
 	} part_counters[OCF_IO_CLASS_MAX];
 };
 
-
 struct ocf_core {
 	struct ocf_volume front_volume;
 	struct ocf_volume volume;
@@ -77,11 +77,7 @@ struct ocf_core {
 	struct ocf_core_meta_config *conf_meta;
 	struct ocf_core_meta_runtime *runtime_meta;
 
-	struct {
-		uint64_t last;
-		uint64_t bytes;
-		int rw;
-	} seq_cutoff;
+	struct ocf_seq_cutoff seq_cutoff;
 
 	env_atomic flushed;
 

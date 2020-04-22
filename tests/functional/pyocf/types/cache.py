@@ -287,6 +287,18 @@ class Cache:
         if status:
             raise OcfError("Error setting cache seq cut off policy", status)
 
+    def set_seq_cut_off_threshold(self, threshold: int):
+        self.write_lock()
+
+        status = self.owner.lib.ocf_mngt_core_set_seq_cutoff_threshold_all(
+            self.cache_handle, threshold
+        )
+
+        self.write_unlock()
+
+        if status:
+            raise OcfError("Error setting cache seq cut off policy", status)
+
     def configure_device(
         self, device, force=False, perform_test=True, cache_line_size=None
     ):
@@ -574,6 +586,8 @@ lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_cache_cleaning_set_policy.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.restype = c_int
+lib.ocf_mngt_core_set_seq_cutoff_threshold_all.argtypes = [c_void_p, c_uint32]
+lib.ocf_mngt_core_set_seq_cutoff_threshold_all.restype = c_int
 lib.ocf_stats_collect_cache.argtypes = [
     c_void_p,
     c_void_p,
