@@ -289,6 +289,8 @@ static void ocf_mngt_cache_try_add_core_insert(ocf_pipeline_t pipeline,
 	if (!(--cache->ocf_core_inactive_count))
 		env_bit_clear(ocf_cache_state_incomplete, &cache->cache_state);
 
+	ocf_core_seq_cutoff_init(core);
+
 	OCF_PL_NEXT_RET(pipeline);
 
 error_after_open:

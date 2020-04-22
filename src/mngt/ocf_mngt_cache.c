@@ -437,6 +437,8 @@ static int _ocf_mngt_init_instance_add_cores(
 			continue;
 		}
 
+		ocf_core_seq_cutoff_init(core);
+
 		hd_lines = ocf_bytes_2_lines(cache,
 				ocf_volume_get_length(&core->volume));
 
