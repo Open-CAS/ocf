@@ -204,7 +204,7 @@ static inline void _ocf_purge_cache_line_sec(struct ocf_cache *cache,
 }
 
 /**
- * @brief Purge cache line (remove completely, form collision, move to free
+ * @brief Purge cache line (remove completely, from collision, move to free
  * partition, from cleaning policy and eviction policy)
  *
  * @param req - OCF request to purge

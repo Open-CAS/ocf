@@ -181,6 +181,11 @@ void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		return;
 	}
 
+	if (req->core_line_count > cache->conf_meta->cachelines) {
+		req->cache_mode = ocf_req_cache_mode_pt;
+		return;
+	}
+
 	if (ocf_core_seq_cutoff_check(core, req)) {
 		req->cache_mode = ocf_req_cache_mode_pt;
 		req->seq_cutoff = 1;
