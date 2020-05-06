@@ -7,17 +7,19 @@
 #include "ocf_cache_priv.h"
 #include "ocf_priv.h"
 #include "ocf/ocf_debug.h"
+#include "utils/utils_cache_line.h"
 
 #define SEQ_CUTOFF_FULL_MARGIN \
                 (OCF_TO_EVICTION_MIN + OCF_PENDING_EVICTION_LIMIT)
 
-static inline bool ocf_seq_cutoff_is_on(ocf_cache_t cache)
+static inline bool ocf_seq_cutoff_is_on(ocf_cache_t cache,
+		struct ocf_request *req)
 {
 	if (!ocf_cache_is_device_attached(cache))
 		return false;
 
 	return (ocf_freelist_num_free(cache->freelist) <=
-			SEQ_CUTOFF_FULL_MARGIN);
+				SEQ_CUTOFF_FULL_MARGIN + req->core_line_count);
 }
 
 static int ocf_seq_cutoff_stream_cmp(struct ocf_rb_node *n1,
@@ -101,9 +103,8 @@ bool ocf_core_seq_cutoff_check(ocf_core_t core, struct ocf_request *req)
 	switch (policy) {
 		case ocf_seq_cutoff_policy_always:
 			break;
-
 		case ocf_seq_cutoff_policy_full:
-			if (ocf_seq_cutoff_is_on(cache))
+			if (ocf_seq_cutoff_is_on(cache, req))
 				break;
 			return false;
 
