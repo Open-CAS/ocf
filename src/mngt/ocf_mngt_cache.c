@@ -2075,7 +2075,7 @@ void ocf_mngt_cache_load(ocf_cache_t cache,
 
 	/* Load is not allowed in volatile metadata mode */
 	if (cache->metadata.is_volatile)
-		OCF_CMPL_RET(cache, priv, -EINVAL);
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
 	/* Load is not allowed with 'force' flag on */
 	if (cfg->force) {
