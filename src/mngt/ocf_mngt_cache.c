@@ -2077,6 +2077,13 @@ void ocf_mngt_cache_load(ocf_cache_t cache,
 	if (cache->metadata.is_volatile)
 		OCF_CMPL_RET(cache, priv, -EINVAL);
 
+	/* Load is not allowed with 'force' flag on */
+	if (cfg->force) {
+		ocf_cache_log(cache, log_err, "Using 'force' flag is forbidden "
+				"for load operation.");
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+	}
+
 	result = _ocf_mngt_cache_validate_device_cfg(cfg);
 	if (result)
 		OCF_CMPL_RET(cache, priv, result);
