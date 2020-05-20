@@ -28,7 +28,7 @@ struct ocf_atomic_metadata {
 	/** Set bit indicates that given sector is valid (is cached) */
 	uint32_t valid : 1;
 
-	/** Set bit indicates that sector i dirty */
+	/** Set bit indicates that sector is dirty */
 	uint32_t dirty : 1;
 } __attribute__((packed));
 

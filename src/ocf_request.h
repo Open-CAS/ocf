@@ -159,7 +159,7 @@ struct ocf_request {
 	/*! Last core line */
 
 	uint32_t byte_length;
-	/*!< Byte length of OCF reuqest */
+	/*!< Byte length of OCF request */
 
 	uint32_t core_line_count;
 	/*! Core line count */

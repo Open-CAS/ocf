@@ -392,6 +392,11 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 
 	OCF_CHECK_NULL(io);
 
+	if (io->bytes == 0) {
+		ocf_io_end(io, -OCF_ERR_INVAL);
+		return;
+	}
+
 	ret = ocf_core_validate_io(io);
 	if (ret < 0) {
 		ocf_io_end(io, ret);
