@@ -28,6 +28,7 @@ struct ocf_user_part_config {
 
 struct ocf_user_part_runtime {
 	uint32_t curr_size;
+	env_atomic valid_cnt;
 	uint32_t head;
 	struct eviction_policy eviction;
 	struct cleaning_policy cleaning;

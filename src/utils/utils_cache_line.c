@@ -37,6 +37,9 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 		env_atomic_dec(&core->runtime_meta->cached_clines);
 		env_atomic_dec(&core->runtime_meta->
 				part_counters[part_id].cached_clines);
+		env_atomic_dec(&cache->user_parts[part_id].runtime->valid_cnt);
+		env_atomic_dec(&core->runtime_meta->
+				part_counters[part_id].valid_cnt);
 	}
 
 	/* If we have waiters, do not remove cache line
@@ -93,6 +96,9 @@ void set_cache_line_valid(struct ocf_cache *cache, uint8_t start_bit,
 		env_atomic_inc(&req->core->runtime_meta->cached_clines);
 		env_atomic_inc(&req->core->runtime_meta->
 				part_counters[part_id].cached_clines);
+		env_atomic_inc(&cache->user_parts[part_id].runtime->valid_cnt);
+		env_atomic_inc(&req->core->runtime_meta->
+				part_counters[part_id].valid_cnt);
 	}
 }
 

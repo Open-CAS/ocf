@@ -40,8 +40,8 @@ struct ocf_io_class_info {
 
 	uint32_t max_size;
 		/*!< Maximum number of cache lines that might be assigned into
-		 * this IO class. If current size reach maximum size no more
-		 * allocation for this IO class takes place
+		 * this IO class. If current size reach maximum size then some
+		 * of ioclass's cachelines are evicted.
 		 */
 
 	uint8_t eviction_policy_type;

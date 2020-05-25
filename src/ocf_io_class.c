@@ -13,6 +13,7 @@ int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 		struct ocf_io_class_info *info)
 {
 	ocf_part_id_t part_id = io_class;
+	uint32_t cache_occupancy_total = 0;
 
 	OCF_CHECK_NULL(cache);
 
@@ -33,9 +34,14 @@ int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 		return -OCF_ERR_INVAL;
 	}
 
+	if (ocf_cache_is_device_attached(cache)) {
+		cache_occupancy_total = env_atomic_read(&cache->
+						user_parts[part_id].runtime->
+						valid_cnt);
+	}
+
 	info->priority = cache->user_parts[part_id].config->priority;
-	info->curr_size = ocf_cache_is_device_attached(cache) ?
-			cache->user_parts[part_id].runtime->curr_size : 0;
+	info->curr_size = cache_occupancy_total;
 	info->min_size = cache->user_parts[part_id].config->min_size;
 	info->max_size = cache->user_parts[part_id].config->max_size;
 

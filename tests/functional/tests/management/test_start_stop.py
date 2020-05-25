@@ -171,7 +171,7 @@ def test_stop(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, with_flush: bool):
     Check if cache is stopped properly in different modes with or without preceding flush operation.
     """
 
-    cache_device = Volume(Size.from_MiB(20))
+    cache_device = Volume(Size.from_MiB(25))
     core_device = Volume(Size.from_MiB(5))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
     core_exported = Core.using_device(core_device)

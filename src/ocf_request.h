@@ -188,6 +188,9 @@ struct ocf_request {
 	uint8_t seq_cutoff : 1;
 	/*!< Sequential cut off set for this request */
 
+	uint8_t part_evict : 1;
+	/* !< Some cachelines from request's partition must be evicted */
+
 	log_sid_t sid;
 	/*!< Tracing sequence ID */
 

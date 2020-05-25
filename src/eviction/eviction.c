@@ -42,12 +42,17 @@ static uint32_t ocf_evict_calculate(struct ocf_user_part *part,
 
 static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 		ocf_queue_t io_queue, const uint32_t evict_cline_no,
-		ocf_part_id_t target_part_id)
+		ocf_part_id_t target_part_id, bool part_evict)
 {
 	uint32_t to_evict = 0, evicted = 0;
 	struct ocf_user_part *part;
 	struct ocf_user_part *target_part = &cache->user_parts[target_part_id];
 	ocf_part_id_t part_id;
+
+	if (part_evict) {
+		return ocf_eviction_need_space(cache, io_queue,
+				target_part_id, evict_cline_no);
+	}
 
 	/* For each partition from the lowest priority to highest one */
 	for_each_part(cache, part, part_id) {
@@ -110,12 +115,13 @@ int space_managment_evict_do(struct ocf_cache *cache,
 	uint32_t free;
 
 	free = ocf_freelist_num_free(cache->freelist);
-	if (evict_cline_no <= free)
+	if (!req->part_evict && evict_cline_no <= free)
 		return LOOKUP_MAPPED;
+	else if (!req->part_evict)
+		evict_cline_no -= free;
 
-	evict_cline_no -= free;
 	evicted = ocf_evict_do(cache, req->io_queue, evict_cline_no,
-			req->part_id);
+			req->part_id, req->part_evict);
 
 	if (evict_cline_no <= evicted)
 		return LOOKUP_MAPPED;
