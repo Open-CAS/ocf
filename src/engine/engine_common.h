@@ -141,6 +141,19 @@ bool ocf_engine_map_all_sec_clean(struct ocf_request *req, uint32_t line)
 			start, end);
 }
 
+static inline
+bool ocf_engine_map_all_sec_valid(struct ocf_request *req, uint32_t line)
+{
+	uint8_t start = ocf_map_line_start_sector(req, line);
+	uint8_t end = ocf_map_line_end_sector(req, line);
+
+	if (req->map[line].status != LOOKUP_HIT)
+		return false;
+
+	return metadata_test_valid_sec(req->cache, req->map[line].coll_idx,
+			start, end);
+}
+
 /**
  * @brief Clean request (flush dirty data to the core device)
  *
