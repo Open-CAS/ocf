@@ -51,6 +51,7 @@ void ocf_engine_lookup_map_entry(struct ocf_cache *cache,
 	entry->status = LOOKUP_MISS;
 	entry->coll_idx = cache->device->collision_table_entries;
 	entry->core_line = core_line;
+	entry->core_id = core_id;
 
 	line = ocf_metadata_get_hash(cache, hash);
 
