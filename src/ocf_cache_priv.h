@@ -15,7 +15,6 @@
 #include "metadata/metadata_structs.h"
 #include "utils/utils_list.h"
 #include "utils/utils_pipeline.h"
-#include "utils/utils_refcnt.h"
 #include "utils/utils_async_lock.h"
 #include "ocf_stats_priv.h"
 #include "cleaning/cleaning.h"
@@ -79,14 +78,14 @@ struct ocf_cache {
 
 	struct {
 		/* cache get/put counter */
-		struct ocf_refcnt cache __attribute__((aligned(64)));
+		struct env_refcnt cache;
 		/* # of requests potentially dirtying cachelines */
-		struct ocf_refcnt dirty __attribute__((aligned(64)));
+		struct env_refcnt dirty;
 		/* # of requests accessing attached metadata, excluding
 		 * management reqs */
-		struct ocf_refcnt metadata __attribute__((aligned(64)));
+		struct env_refcnt metadata;
 		/* # of requests in d2c mode */
-		struct ocf_refcnt d2c;
+		struct env_refcnt d2c;
 	} refcnt;
 
 	struct {

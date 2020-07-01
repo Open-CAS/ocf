@@ -5,6 +5,8 @@
  */
 
 #include "ocf/ocf.h"
+#include "ocf_env.h"
+#include "ocf_env_refcnt.h"
 #include "ocf_mngt_common.h"
 #include "ocf_mngt_core_priv.h"
 #include "../ocf_priv.h"
@@ -20,8 +22,8 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_parallelize.h"
 #include "../utils/utils_pipeline.h"
-#include "../utils/utils_refcnt.h"
 #include "../utils/utils_async_lock.h"
+#include "../utils/utils_cleaner.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../concurrency/ocf_metadata_concurrency.h"
 #include "../ocf_lru.h"
@@ -188,7 +190,7 @@ static void __init_partitions(ocf_cache_t cache)
 
 	/* Add other partition to the cache and make it as dummy */
 	for (i_part = 0; i_part < OCF_USER_IO_CLASS_MAX; i_part++) {
-		ocf_refcnt_freeze(&cache->user_parts[i_part].cleaning.counter);
+		env_refcnt_freeze(&cache->user_parts[i_part].cleaning.counter);
 
 		if (i_part == PARTITION_DEFAULT)
 			continue;
@@ -217,21 +219,30 @@ static void _init_parts_attached(ocf_pipeline_t pipeline, void *priv,
 
 static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
 {
+	int result;
 	int i;
 
 	OCF_ASSERT_PLUGGED(cache);
 
-	ocf_refcnt_init(&cache->cleaner.refcnt);
+	result = env_refcnt_init(&cache->cleaner.refcnt, "cleaner",
+			sizeof("cleaner"));
+	if (result)
+		return result;
 
 	for (i = 0; i < ocf_cleaning_max; i++)
 		ocf_cleaning_setup(cache, i);
 
-	return ocf_cleaning_initialize(cache, cache->cleaner.policy, false);
+	result = ocf_cleaning_initialize(cache, cache->cleaner.policy, false);
+	if (result)
+		env_refcnt_deinit(&cache->cleaner.refcnt);
+
+	return result;
 }
 
 static void __deinit_cleaning_policy(ocf_cache_t cache)
 {
 	ocf_cleaning_deinitialize(cache);
+	env_refcnt_deinit(&cache->cleaner.refcnt);
 }
 
 static void __setup_promotion_policy(ocf_cache_t cache)
@@ -827,7 +838,8 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params,
 		char *new_cache_name)
 {
 	ocf_cache_t cache = env_vzalloc(sizeof(*cache));
-	int result;
+	int result = 0;
+	int i = 0;
 
 	if (!cache) {
 		ocf_log(params->ctx, log_err, "Failed to allocate cache %s\n",
@@ -843,13 +855,37 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params,
 		goto alloc_err;
 	}
 
+	result = env_refcnt_init(&cache->refcnt.cache, "cache", sizeof("cache"));
+	if (result)
+		goto lock_init_err;
+
+	result = env_refcnt_init(&cache->refcnt.dirty, "dirty", sizeof("dirty"));
+	if (result)
+		goto dirty_refcnt_err;
+
+	result = env_refcnt_init(&cache->refcnt.metadata, "metadata", sizeof("metadata"));
+	if (result)
+		goto metadata_refcnt_err;
+
+	result = env_refcnt_init(&cache->refcnt.d2c, "d2c", sizeof("d2c"));
+	if (result)
+		goto d2c_refcnt_err;
+
+        for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
+		result = env_refcnt_init(&cache->user_parts[i].cleaning.counter,
+			    "cleaning", sizeof("cleaning"));
+		if (result)
+			goto cleaning_refcnt_err;
+		env_atomic_set(&cache->user_parts[i].cleaning.cleaner_running, 0);
+	}
+
 	/* Lock cache during setup - this trylock should always succeed */
 	result = ocf_mngt_cache_trylock(cache);
 	if (result) {
 		ocf_log(params->ctx, log_crit,
 				"Failed to lock the newly created cache %s\n",
 				new_cache_name);
-		goto lock_init_err;
+		goto cleaning_refcnt_err;
 	}
 
 	if (env_mutex_init(&cache->flush_mutex)) {
@@ -869,7 +905,7 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params,
 		goto mutex_err;
 	}
 
-	result = !ocf_refcnt_inc(&cache->refcnt.cache);
+	result = !env_refcnt_inc(&cache->refcnt.cache);
 	if (result) {
 		ocf_log(params->ctx, log_crit,
 				"Failed to increment %s refcnt\n",
@@ -877,10 +913,8 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params,
 		goto cache_refcnt_inc_err;
 	}
 
-	/* start with freezed metadata ref counter to indicate detached device*/
-	ocf_refcnt_freeze(&cache->refcnt.metadata);
-
-	ocf_refcnt_init(&cache->refcnt.d2c);
+	/* start with frozen metadata ref counter to indicate detached device*/
+	env_refcnt_freeze(&cache->refcnt.metadata);
 
 	env_atomic_set(&(cache->last_access_ms),
 			env_ticks_to_msecs(env_get_tick_count()));
@@ -898,6 +932,17 @@ mutex_err:
 	env_mutex_destroy(&cache->flush_mutex);
 lock_err:
 	ocf_mngt_cache_unlock(cache);
+cleaning_refcnt_err:
+	for (; i >= 0; i--) {
+		env_refcnt_deinit(&cache->user_parts[i].cleaning.counter);
+	}
+	env_refcnt_deinit(&cache->refcnt.d2c);
+d2c_refcnt_err:
+	env_refcnt_deinit(&cache->refcnt.metadata);
+metadata_refcnt_err:
+	env_refcnt_deinit(&cache->refcnt.dirty);
+dirty_refcnt_err:
+	env_refcnt_deinit(&cache->refcnt.cache);
 lock_init_err:
 	ocf_mngt_cache_lock_deinit(cache);
 alloc_err:
@@ -1377,8 +1422,10 @@ static void _ocf_mngt_cleaning_populate_init_complete(void *priv, int error)
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	if (error)
+	if (error) {
+		env_refcnt_deinit(&cache->cleaner.refcnt);
 		OCF_PL_FINISH_RET(context->pipeline, error);
+	}
 
 	/* In initial cache state there is no dirty data, so all dirty data is
 	   considered to be flushed
@@ -1459,6 +1506,7 @@ uint64_t ocf_mngt_get_ram_needed(ocf_cache_t cache,
 static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
 		struct ocf_cache_mngt_init_params *params)
 {
+	int i;
 	ocf_cache_t cache = params->cache;
 
 	if (!params->flags.cache_alloc)
@@ -1470,6 +1518,14 @@ static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
 
 	if (params->flags.cache_locked)
 		ocf_mngt_cache_unlock(cache);
+
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++)
+		env_refcnt_deinit(&cache->user_parts[i].cleaning.counter);
+
+	env_refcnt_deinit(&cache->refcnt.d2c);
+	env_refcnt_deinit(&cache->refcnt.metadata);
+	env_refcnt_deinit(&cache->refcnt.dirty);
+	env_refcnt_deinit(&cache->refcnt.cache);
 
 	ocf_mngt_cache_lock_deinit(cache);
 
@@ -1925,7 +1981,7 @@ static void _ocf_mngt_attach_post_init(ocf_pipeline_t pipeline,
 	env_atomic_set(&cache->attach_pt, 1);
 
 	ocf_cleaner_refcnt_unfreeze(cache);
-	ocf_refcnt_unfreeze(&cache->refcnt.metadata);
+	env_refcnt_unfreeze(&cache->refcnt.metadata);
 
 	ocf_refcnt_freeze(&cache->refcnt.d2c);
 	ocf_refcnt_register_zero_cb(&cache->refcnt.d2c,
@@ -2094,8 +2150,8 @@ static void ocf_mngt_cache_stop_wait_metadata_io(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_unplug_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_refcnt_freeze(&cache->refcnt.metadata);
-	ocf_refcnt_register_zero_cb(&cache->refcnt.metadata,
+	env_refcnt_freeze(&cache->refcnt.metadata);
+	env_refcnt_register_zero_cb(&cache->refcnt.metadata,
 			ocf_mngt_cache_stop_wait_metadata_io_finish, context);
 }
 
@@ -2232,10 +2288,31 @@ static void ocf_mngt_cache_stop_put_io_queues(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+static void _ocf_mngt_cache_dealloc(void *priv)
+{
+	ocf_cache_t cache = priv;
+	ocf_ctx_t ctx;
+	unsigned i;
+
+	ctx = cache->owner;
+	ocf_metadata_deinit(cache);
+
+	env_refcnt_deinit(&cache->refcnt.cache);
+	env_refcnt_deinit(&cache->refcnt.dirty);
+	env_refcnt_deinit(&cache->refcnt.metadata);
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++)
+		env_refcnt_deinit(&cache->user_parts[i].cleaning.counter);
+
+	env_vfree(cache);
+	ocf_ctx_put(ctx);
+}
+
 static void ocf_mngt_cache_remove(ocf_ctx_t ctx, ocf_cache_t cache)
 {
 	/* Mark device uninitialized */
-	ocf_refcnt_freeze(&cache->refcnt.cache);
+	env_refcnt_freeze(&cache->refcnt.cache);
+	env_refcnt_register_zero_cb(&cache->refcnt.cache,
+			     _ocf_mngt_cache_dealloc, cache);
 
 	/* Deinitialize locks */
 	ocf_mngt_cache_lock_deinit(cache);
@@ -2264,7 +2341,7 @@ static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
 		ocf_mngt_cache_remove(context->ctx, cache);
 	} else {
 		/* undo metadata counter freeze */
-		ocf_refcnt_unfreeze(&cache->refcnt.metadata);
+		env_refcnt_unfreeze(&cache->refcnt.metadata);
 
 		env_bit_clear(ocf_cache_state_stopping, &cache->cache_state);
 		env_bit_set(ocf_cache_state_running, &cache->cache_state);
@@ -2421,7 +2498,7 @@ static void _ocf_mngt_standby_post_init(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_refcnt_unfreeze(&cache->refcnt.metadata);
+	env_refcnt_unfreeze(&cache->refcnt.metadata);
 
 	ocf_pipeline_next(pipeline);
 }
@@ -2494,8 +2571,8 @@ static void _ocf_mngt_standby_detach_wait_metadata_io(ocf_pipeline_t pipeline,
 	struct ocf_cache_standby_detach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_refcnt_freeze(&cache->refcnt.metadata);
-	ocf_refcnt_register_zero_cb(&cache->refcnt.metadata,
+	env_refcnt_freeze(&cache->refcnt.metadata);
+	env_refcnt_register_zero_cb(&cache->refcnt.metadata,
 			_ocf_mngt_standby_detach_wait_metadata_io_finish, context);
 }
 
@@ -2636,7 +2713,7 @@ static void _ocf_mngt_activate_handle_error(
 		ocf_volume_deinit(&cache->device->volume);
 
 	if (context->flags.metadata_frozen)
-		ocf_refcnt_unfreeze(&cache->refcnt.metadata);
+		env_refcnt_unfreeze(&cache->refcnt.metadata);
 }
 
 static void _ocf_mngt_cache_activate_finish(ocf_pipeline_t pipeline,
@@ -2761,7 +2838,7 @@ static void ocf_mngt_stop_standby_stop_prepare(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_unplug_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	context->close_volume = !ocf_refcnt_frozen(&cache->refcnt.metadata);
+	context->close_volume = !env_refcnt_frozen(&cache->refcnt.metadata);
 
 	ocf_pipeline_next(pipeline);
 }
@@ -2807,7 +2884,7 @@ static void ocf_mngt_cache_standby_deinit_cache_volume(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_unplug_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	if (!ocf_refcnt_frozen(&cache->refcnt.metadata)) {
+	if (!env_refcnt_frozen(&cache->refcnt.metadata)) {
 		ocf_volume_deinit(&cache->device->volume);
 
 		env_vfree(cache->device);
@@ -2967,7 +3044,7 @@ static void _ocf_mngt_cache_standby_activate(ocf_cache_t cache,
 	if (!ocf_cache_is_standby(cache))
 		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_CACHE_EXIST);
 
-	if (!ocf_refcnt_frozen(&cache->refcnt.metadata))
+	if (!env_refcnt_frozen(&cache->refcnt.metadata))
 		OCF_CMPL_RET(cache, priv1, priv2, OCF_ERR_STANDBY_ATTACHED);
 
 	result = ocf_pipeline_create(&pipeline, cache,
@@ -3335,7 +3412,7 @@ void ocf_mngt_cache_standby_detach(ocf_cache_t cache,
 	if (!ocf_cache_is_standby(cache))
 		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_EXIST);
 
-	if (ocf_refcnt_frozen(&cache->refcnt.metadata))
+	if (env_refcnt_frozen(&cache->refcnt.metadata))
 		OCF_CMPL_RET(priv, -OCF_ERR_INVAL);
 
 	_ocf_mngt_cache_standby_detach(cache, cmpl, priv);
@@ -3739,8 +3816,8 @@ static void ocf_mngt_cache_detach_stop_cache_io(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_unplug_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_refcnt_freeze(&cache->refcnt.metadata);
-	ocf_refcnt_register_zero_cb(&cache->refcnt.metadata,
+	env_refcnt_freeze(&cache->refcnt.metadata);
+	env_refcnt_register_zero_cb(&cache->refcnt.metadata,
 			ocf_mngt_cache_detach_stop_cache_io_finish, context);
 }
 
@@ -3814,7 +3891,7 @@ static void ocf_mngt_cache_detach_finish(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_unplug_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_refcnt_unfreeze(&cache->refcnt.dirty);
+	env_refcnt_unfreeze(&cache->refcnt.dirty);
 
 	if (!error) {
 		if (!context->cache_write_error) {
@@ -3888,7 +3965,7 @@ void ocf_mngt_cache_detach(ocf_cache_t cache,
 	context->cache = cache;
 
 	/* prevent dirty io */
-	ocf_refcnt_freeze(&cache->refcnt.dirty);
+	env_refcnt_freeze(&cache->refcnt.dirty);
 
 	ocf_pipeline_next(pipeline);
 }

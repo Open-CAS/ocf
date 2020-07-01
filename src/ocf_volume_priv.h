@@ -8,8 +8,8 @@
 #define __OCF_VOLUME_PRIV_H__
 
 #include "ocf_env.h"
+#include "ocf_env_refcnt.h"
 #include "ocf_io_priv.h"
-#include "utils/utils_refcnt.h"
 #include "utils/utils_io_allocator.h"
 
 struct ocf_volume_extended {
@@ -36,7 +36,7 @@ struct ocf_volume {
 	void *priv;
 	ocf_cache_t cache;
 	struct list_head core_pool_item;
-	struct ocf_refcnt refcnt __attribute__((aligned(64)));
+	struct env_refcnt refcnt;
 } __attribute__((aligned(64)));
 
 int ocf_volume_type_init(struct ocf_volume_type **type,

@@ -22,7 +22,6 @@
 #include "engine_flush.h"
 #include "engine_discard.h"
 #include "../utils/utils_user_part.h"
-#include "../utils/utils_refcnt.h"
 #include "../ocf_request.h"
 #include "../metadata/metadata.h"
 #include "../ocf_space.h"
