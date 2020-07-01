@@ -1,10 +1,11 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
+#include "ocf_env_refcnt.h"
 #include "ocf_mngt_common.h"
 #include "ocf_mngt_core_priv.h"
 #include "../ocf_priv.h"
@@ -137,19 +138,11 @@ void cache_mngt_core_remove_from_cache(ocf_core_t core)
 	if (!core->opened && --cache->ocf_core_inactive_count == 0)
 		env_bit_clear(ocf_cache_state_incomplete, &cache->cache_state);
 }
-
 void ocf_mngt_cache_put(ocf_cache_t cache)
 {
-	ocf_ctx_t ctx;
-
 	OCF_CHECK_NULL(cache);
 
-	if (ocf_refcnt_dec(&cache->refcnt.cache) == 0) {
-		ctx = cache->owner;
-		ocf_metadata_deinit(cache);
-		env_vfree(cache);
-		ocf_ctx_put(ctx);
-	}
+	env_refcnt_dec(&cache->refcnt.cache);
 }
 
 void __set_cleaning_policy(ocf_cache_t cache,
@@ -181,7 +174,7 @@ int ocf_mngt_cache_get_by_name(ocf_ctx_t ctx, const char *name, size_t name_len,
 
 	if (instance) {
 		/* if cache is either fully initialized or during recovery */
-		if (!ocf_refcnt_inc(&instance->refcnt.cache)) {
+		if (!env_refcnt_inc(&instance->refcnt.cache)) {
 			/* Cache not initialized yet */
 			instance = NULL;
 		}
@@ -358,7 +351,7 @@ bool ocf_mngt_cache_is_locked(ocf_cache_t cache)
 /* if cache is either fully initialized or during recovery */
 static bool _ocf_mngt_cache_try_get(ocf_cache_t cache)
 {
-	return !!ocf_refcnt_inc(&cache->refcnt.cache);
+	return env_refcnt_inc(&cache->refcnt.cache);
 }
 
 int ocf_mngt_cache_get(ocf_cache_t cache)

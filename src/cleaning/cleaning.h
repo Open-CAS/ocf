@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -9,8 +10,8 @@
 #include "alru_structs.h"
 #include "nop_structs.h"
 #include "acp_structs.h"
+#include "ocf_env_refcnt.h"
 #include "ocf/ocf_cleaner.h"
-#include "../utils/utils_refcnt.h"
 
 #define CLEANING_POLICY_CONFIG_BYTES 256
 #define CLEANING_POLICY_TYPE_MAX 4
@@ -40,7 +41,7 @@ struct cleaning_policy_meta {
 };
 
 struct ocf_cleaner {
-	struct ocf_refcnt refcnt __attribute__((aligned(64)));
+	struct env_refcnt refcnt;
 	ocf_cleaning_t policy;
 	void *cleaning_policy_context;
 	ocf_queue_t io_queue;

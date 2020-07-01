@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -22,7 +22,6 @@
 #include "engine_flush.h"
 #include "engine_discard.h"
 #include "../utils/utils_user_part.h"
-#include "../utils/utils_refcnt.h"
 #include "../ocf_request.h"
 #include "../metadata/metadata.h"
 #include "../ocf_space.h"

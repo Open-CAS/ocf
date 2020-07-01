@@ -1,10 +1,11 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
+#include "ocf_env_refcnt.h"
 #include "ocf_priv.h"
 #include "ocf_core_priv.h"
 #include "ocf_io_priv.h"
@@ -173,7 +174,7 @@ static inline void dec_counter_if_req_was_dirty(struct ocf_request *req)
 		return;
 
 	req->dirty = 0;
-	ocf_refcnt_dec(&req->cache->refcnt.dirty);
+	env_refcnt_dec(&req->cache->refcnt.dirty);
 }
 
 static inline int ocf_core_validate_io(ocf_io_t io)

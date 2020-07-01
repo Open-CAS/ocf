@@ -1,11 +1,12 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef __CLEANING_AGGRESSIVE_STRUCTS_H__
 #define __CLEANING_AGGRESSIVE_STRUCTS_H__
 
-#include "../utils/utils_cleaner.h"
+#include "ocf_env_headers.h"
 
 /* TODO: remove acp metadata */
 struct acp_cleaning_policy_meta {
