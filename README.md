@@ -47,8 +47,8 @@ SRCDIR and INCDIR are respectively your source and include directories, use foll
 commands to deploy OCF into your project:
 
 ~~~{.sh}
-make -C $OCFDIF src O=$SRCDIR
-make -C $OCFDIF inc O=$INCDIR
+make -C $OCFDIR src O=$SRCDIR
+make -C $OCFDIR inc O=$INCDIR
 ~~~
 
 By default this will not copy OCF source files but create symbolic links to them,
@@ -57,8 +57,8 @@ to copy OCF source files (e.g. you don't want to distribute whole OCF repository
 as your submodule) you can use following commands:
 
 ~~~{.sh}
-make -C $OCFDIF src O=$SRCDIR CMD=cp
-make -C $OCFDIF inc O=$INCDIR CMD=cp
+make -C $OCFDIR src O=$SRCDIR CMD=cp
+make -C $OCFDIR inc O=$INCDIR CMD=cp
 ~~~
 
 ## Examples
