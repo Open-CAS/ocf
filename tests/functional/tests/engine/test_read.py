@@ -1,4 +1,3 @@
-#
 # Copyright(c) 2019-2020 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 #
@@ -205,15 +204,17 @@ def print_test_case(
 # This data pattern is enforced by writing to exported object in the following order:
 #  1. writing entire workset with core patern in PT
 #  2. writing clean sectors with clean pattern in WT
-#  3. writing dirty sectors with dirty pattern in WO
+#  3. writing dirty sectors with dirty pattern in WB
 #
-# Then the verification is simply a matter of issuing a read in WO mode and verifying
-# that the expected pattern is read from each sector.
+# Then the verification is simply a matter of issuing a read in selected cache mode
+# and verifying  that the expected pattern is read from each sector.
+#
 
 
 @pytest.mark.parametrize("cacheline_size", CacheLineSize)
+@pytest.mark.parametrize("cache_mode", CacheMode)
 @pytest.mark.parametrize("rand_seed", [datetime.now()])
-def test_wo_read_data_consistency(pyocf_ctx, cacheline_size, rand_seed):
+def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed):
     CACHELINE_COUNT = 9
     SECTOR_SIZE = Size.from_sector(1).B
     CLS = cacheline_size // SECTOR_SIZE
@@ -339,7 +340,7 @@ def test_wo_read_data_consistency(pyocf_ctx, cacheline_size, rand_seed):
                 )
 
         # write dirty sectors
-        cache.change_cache_mode(cache_mode=CacheMode.WO)
+        cache.change_cache_mode(cache_mode=CacheMode.WB)
         for sec in sectors:
             region = sector_to_region(sec, region_start)
             if region_state[region] == SectorStatus.DIRTY:
@@ -351,6 +352,8 @@ def test_wo_read_data_consistency(pyocf_ctx, cacheline_size, rand_seed):
                     sec * SECTOR_SIZE,
                     IoDir.WRITE,
                 )
+
+        cache.change_cache_mode(cache_mode=cache_mode)
 
         core_device.reset_stats()
 
@@ -364,14 +367,14 @@ def test_wo_read_data_consistency(pyocf_ctx, cacheline_size, rand_seed):
         for start, end in io_ranges:
             print_test_case(region_start, region_state, start, end, SECTOR_COUNT, CLS)
 
-            # issue WO read
+            # issue read
             START = start * SECTOR_SIZE
             END = end * SECTOR_SIZE
             size = (end - start + 1) * SECTOR_SIZE
             assert 0 == io_to_exp_obj(
                 core, WORKSET_OFFSET + START, size, result_b, START, IoDir.READ
-            ), "error reading in WO mode: region_state={}, start={}, end={}, insert_order={}".format(
-                region_state, start, end, insert_order
+            ), "error reading in {}: region_state={}, start={}, end={}, insert_order={}".format(
+                cache_mode, region_state, start, end, insert_order
             )
 
             # verify read data
@@ -398,9 +401,10 @@ def test_wo_read_data_consistency(pyocf_ctx, cacheline_size, rand_seed):
                     sec, region_state, start, end, insert_order
                 )
 
-            # WO is not supposed to clean dirty data
-            assert (
-                core_device.get_stats()[IoDir.WRITE] == 0
-            ), "unexpected write to core device, region_state={}, start={}, end={}, insert_order = {}\n".format(
-                region_state, start, end, insert_order
-            )
+            if cache_mode == CacheMode.WO:
+                # WO is not supposed to clean dirty data
+                assert (
+                    core_device.get_stats()[IoDir.WRITE] == 0
+                ), "unexpected write to core device, region_state={}, start={}, end={}, insert_order = {}\n".format(
+                    region_state, start, end, insert_order
+                )
