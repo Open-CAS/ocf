@@ -18,9 +18,47 @@
 
 static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *req);
 
-static const struct ocf_io_if _io_if_wi_flush_metadata = {
+static const struct ocf_io_if _io_if_wi_update_metadata = {
 		.read = ocf_write_wi_update_and_flush_metadata,
 		.write = ocf_write_wi_update_and_flush_metadata,
+};
+
+int _ocf_write_wi_next_pass(struct ocf_request *req)
+{
+	ocf_req_unlock_wr(req);
+
+	if (ocf_engine_is_hit(req)) {
+		/* second pass not needed for hit -
+			mark it as completed */
+		req->wi_second_pass = true;
+	}
+
+	if (req->wi_second_pass) {
+		req->complete(req, req->error);
+		ocf_req_put(req);
+
+		return 0;
+	}
+
+	/* Perform second pass of write invalidate. It is necessary
+	   only if concurrent I/O had inserted target LBAs to cache after
+	   this request did traversation. These LBAs might have been
+	   written by this request behind the concurrent I/O's back,
+	   resulting in making these sectors effectively invalid.
+	   In this case we must update these sectors metadata to
+	   reflect this. However we won't know about this after we
+	   traverse the request again - hence calling ocf_write_wi
+	   again with req->wi_second_pass set to indicate that this
+	   is a second pass (core write should be skipped). */
+	req->wi_second_pass = true;
+	ocf_write_wi(req);
+
+	return 0;
+}
+
+static const struct ocf_io_if _io_if_wi_next_pass = {
+		.read = _ocf_write_wi_next_pass,
+		.write = _ocf_write_wi_next_pass,
 };
 
 static void _ocf_write_wi_io_flush_metadata(struct ocf_request *req, int error)
@@ -32,6 +70,13 @@ static void _ocf_write_wi_io_flush_metadata(struct ocf_request *req, int error)
 
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
+
+	if (!req->error && !req->wi_second_pass & ocf_engine_is_miss(req)) {
+		/* need another pass */
+		ocf_engine_push_req_front_if(req, &_io_if_wi_next_pass,
+				true);
+		return;
+	}
 
 	if (req->error)
 		ocf_engine_error(req, true, "Failed to write data to cache");
@@ -47,24 +92,27 @@ static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
 
+	if (!ocf_engine_mapped_count(req)) {
+		/* jump directly to next pass */
+		_ocf_write_wi_next_pass(req);
+		return 0;
+	}
+
+	/* There are mapped cache line, need to remove them */
+
 	env_atomic_set(&req->req_remaining, 1); /* One core IO */
 
-	if (ocf_engine_mapped_count(req)) {
-		/* There are mapped cache line, need to remove them */
+	ocf_req_hash_lock_wr(req); /*- Metadata WR access ---------------*/
 
-		ocf_req_hash_lock_wr(req); /*- Metadata WR access ---------------*/
+	/* Remove mapped cache lines from metadata */
+	ocf_purge_map_info(req);
 
-		/* Remove mapped cache lines from metadata */
-		ocf_purge_map_info(req);
+	ocf_req_hash_unlock_wr(req); /*- END Metadata WR access ---------*/
 
-		ocf_req_hash_unlock_wr(req); /*- END Metadata WR access ---------*/
-
-		if (req->info.flush_metadata) {
-			/* Request was dirty and need to flush metadata */
-			ocf_metadata_flush_do_asynch(cache, req,
-					_ocf_write_wi_io_flush_metadata);
-		}
-
+	if (req->info.flush_metadata) {
+		/* Request was dirty and need to flush metadata */
+		ocf_metadata_flush_do_asynch(cache, req,
+				_ocf_write_wi_io_flush_metadata);
 	}
 
 	_ocf_write_wi_io_flush_metadata(req, 0);
@@ -92,12 +140,12 @@ static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 
 		ocf_req_put(req);
 	} else {
-		ocf_engine_push_req_front_if(req, &_io_if_wi_flush_metadata,
+		ocf_engine_push_req_front_if(req, &_io_if_wi_update_metadata,
 				true);
 	}
 }
 
-static int _ocf_write_wi_do(struct ocf_request *req)
+static int _ocf_write_wi_core_read(struct ocf_request *req)
 {
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
@@ -127,9 +175,9 @@ static void _ocf_write_wi_on_resume(struct ocf_request *req)
 	ocf_engine_push_req_front(req, true);
 }
 
-static const struct ocf_io_if _io_if_wi_resume = {
-	.read = _ocf_write_wi_do,
-	.write = _ocf_write_wi_do,
+static const struct ocf_io_if _io_if_wi_core_read = {
+	.read = _ocf_write_wi_core_read,
+	.write = _ocf_write_wi_core_read,
 };
 
 int ocf_write_wi(struct ocf_request *req)
@@ -144,7 +192,9 @@ int ocf_write_wi(struct ocf_request *req)
 	ocf_req_get(req);
 
 	/* Set resume io_if */
-	req->io_if = &_io_if_wi_resume;
+	req->io_if = req->wi_second_pass ?
+			&_io_if_wi_update_metadata :
+			&_io_if_wi_core_read;
 
 	ocf_req_hash(req);
 	ocf_req_hash_lock_rd(req); /*- Metadata READ access, No eviction --------*/
@@ -163,7 +213,7 @@ int ocf_write_wi(struct ocf_request *req)
 
 	if (lock >= 0) {
 		if (lock == OCF_LOCK_ACQUIRED) {
-			_ocf_write_wi_do(req);
+			req->io_if->read(req);
 		} else {
 			/* WR lock was not acquired, need to wait for resume */
 			OCF_DEBUG_RQ(req, "NO LOCK");
