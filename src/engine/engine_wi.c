@@ -27,12 +27,6 @@ int _ocf_write_wi_next_pass(struct ocf_request *req)
 {
 	ocf_req_unlock_wr(req);
 
-	if (ocf_engine_is_hit(req)) {
-		/* second pass not needed for hit -
-			mark it as completed */
-		req->wi_second_pass = true;
-	}
-
 	if (req->wi_second_pass) {
 		req->complete(req, req->error);
 		ocf_req_put(req);
@@ -71,7 +65,7 @@ static void _ocf_write_wi_io_flush_metadata(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	if (!req->error && !req->wi_second_pass & ocf_engine_is_miss(req)) {
+	if (!req->error && !req->wi_second_pass && ocf_engine_is_miss(req)) {
 		/* need another pass */
 		ocf_engine_push_req_front_if(req, &_io_if_wi_next_pass,
 				true);
