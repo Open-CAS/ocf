@@ -17,6 +17,6 @@
 
 #define OCF_VERSION_MAIN 20
 #define OCF_VERSION_MAJOR 3
-#define OCF_VERSION_MINOR 0
+#define OCF_VERSION_MINOR 1
 
 #endif /* __OCF_ENV_HEADERS_H__ */
