@@ -53,6 +53,10 @@ static void add_lru_head(ocf_cache_t cache,
 		node->next = curr_head_index;
 		node->prev = end_marker;
 		curr_head->prev = collision_index;
+		node->hot = true;
+		if (!curr_head->hot)
+			list->last_hot = collision_index;
+		++list->num_hot;
 
 		list->head = collision_index;
 
@@ -76,6 +80,9 @@ static void remove_lru_list(ocf_cache_t cache,
 	is_head = (list->head == collision_index);
 	is_tail = (list->tail == collision_index);
 
+	if (node->hot)
+		--list->num_hot;
+
 	/* Set prev and next (even if not existent) */
 	next_lru_node = node->next;
 	prev_lru_node = node->prev;
@@ -89,6 +96,8 @@ static void remove_lru_list(ocf_cache_t cache,
 
 		list->head = end_marker;
 		list->tail = end_marker;
+		list->last_hot = end_marker;
+		ENV_BUG_ON(list->num_hot != 0);
 	}
 
 	/* Case 2: else if this collision_index is LRU head, but not tail,
@@ -102,7 +111,13 @@ static void remove_lru_list(ocf_cache_t cache,
 		next_node = &ocf_metadata_get_eviction_policy(cache,
 				next_lru_node)->lru;
 
+		if (list->last_hot == collision_index) {
+			ENV_BUG_ON(list->num_hot != 1);
+			list->last_hot = end_marker;
+		}
+
 		list->head = next_lru_node;
+
 		node->next = end_marker;
 		next_node->prev = end_marker;
 	}
@@ -117,6 +132,7 @@ static void remove_lru_list(ocf_cache_t cache,
 
 		list->tail = prev_lru_node;
 
+		ENV_BUG_ON(node->hot);
 		prev_node = &ocf_metadata_get_eviction_policy(cache,
 				prev_lru_node)->lru;
 
@@ -139,6 +155,11 @@ static void remove_lru_list(ocf_cache_t cache,
 		prev_node = &ocf_metadata_get_eviction_policy(cache,
 				prev_lru_node)->lru;
 
+		if (list->last_hot == collision_index) {
+			ENV_BUG_ON(list->num_hot == 0);
+			list->last_hot = prev_lru_node;
+		}
+
 		/* Update prev and next nodes */
 		prev_node->next = node->next;
 		next_node->prev = node->prev;
@@ -151,6 +172,58 @@ static void remove_lru_list(ocf_cache_t cache,
 	--list->num_nodes;
 }
 
+/* Restore LRU hotness invariants:
+ * 1. exactly list->num_nodes / OCF_LRU_HOT_RATIO first elements marked as hot
+ * 2. update num_hot and last_hot
+ * ... after list modifications.
+ * Assumes the only operations since last balancing were
+ *    (add=1 || delete=1) ^ set_hot=1
+ * (meaning standalone 'add' or 'delete', single 'add','delete' pair in any
+ * any order, or finally a single set_hot).
+ */
+static void balance_lru_list(ocf_cache_t cache,
+		struct ocf_lru_list *list)
+{
+	unsigned target_hot_count = list->num_nodes / OCF_LRU_HOT_RATIO;
+	struct lru_eviction_policy_meta *node;
+
+	if (target_hot_count == list->num_hot)
+		return;
+
+	if (list->num_hot == 0) {
+		node = &ocf_metadata_get_eviction_policy(cache,
+				list->head)->lru;
+		list->last_hot = list->head;
+		list->num_hot = 1;
+		node->hot = 1;
+		return;
+	}
+
+	ENV_BUG_ON(list->last_hot == end_marker);
+	node = &ocf_metadata_get_eviction_policy(cache,
+			list->last_hot)->lru;
+
+	if (target_hot_count > list->num_hot) {
+		++list->num_hot;
+		list->last_hot = node->next;
+		node = &ocf_metadata_get_eviction_policy(cache,
+				node->next)->lru;
+		node->hot = true;
+	} else {
+		if (list->last_hot == list->head) {
+			node->hot = false;
+			list->num_hot = 0;
+			list->last_hot = end_marker;
+		} else {
+			ENV_BUG_ON(node->prev == end_marker);
+			node->hot = false;
+			--list->num_hot;
+			list->last_hot = node->prev;
+		}
+	}
+}
+
+
 /*-- End of LRU functions*/
 
 void evp_lru_init_cline(ocf_cache_t cache, ocf_cache_line_t cline)
@@ -159,6 +232,7 @@ void evp_lru_init_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 
 	node = &ocf_metadata_get_eviction_policy(cache, cline)->lru;
 
+	node->hot = false;
 	node->prev = end_marker;
 	node->next = end_marker;
 }
@@ -188,6 +262,7 @@ void evp_lru_rm_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 
 	list = evp_get_cline_list(cache, cline);
 	remove_lru_list(cache, list, cline);
+	balance_lru_list(cache, list);
 }
 
 static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
@@ -459,8 +534,10 @@ void evp_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	struct ocf_lru_list *list;
 
 	node = &ocf_metadata_get_eviction_policy(cache, cline)->lru;
-	list = evp_get_cline_list(cache, cline);
+	if (node->hot)
+		return;
 
+	list = evp_get_cline_list(cache, cline);
 	if (node->next != end_marker ||
 			node->prev != end_marker ||
 			list->head == cline || list->tail == cline) {
@@ -469,6 +546,7 @@ void evp_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 
 	/* Update LRU */
 	add_lru_head(cache, list, cline);
+	balance_lru_list(cache, list);
 }
 
 static inline void _lru_init(struct ocf_lru_list *list)
@@ -476,6 +554,8 @@ static inline void _lru_init(struct ocf_lru_list *list)
 	list->num_nodes = 0;
 	list->head = end_marker;
 	list->tail = end_marker;
+	list->num_hot = 0;
+	list->last_hot = end_marker;
 }
 
 void evp_lru_init_evp(ocf_cache_t cache, struct ocf_user_part *part)
@@ -506,6 +586,7 @@ void evp_lru_clean_cline(ocf_cache_t cache, struct ocf_user_part *part,
 	OCF_METADATA_EVICTION_LOCK(cline);
 	remove_lru_list(cache, dirty_list, cline);
 	add_lru_head(cache, clean_list, cline);
+	balance_lru_list(cache, clean_list);
 	OCF_METADATA_EVICTION_UNLOCK(cline);
 }
 
@@ -522,6 +603,7 @@ void evp_lru_dirty_cline(ocf_cache_t cache, struct ocf_user_part *part,
 	OCF_METADATA_EVICTION_LOCK(cline);
 	remove_lru_list(cache, clean_list, cline);
 	add_lru_head(cache, dirty_list, cline);
+	balance_lru_list(cache, dirty_list);
 	OCF_METADATA_EVICTION_UNLOCK(cline);
 }
 
