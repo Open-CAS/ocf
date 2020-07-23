@@ -1275,8 +1275,7 @@ static void ocf_medatata_hash_check_crc_sb_config(ocf_pipeline_t pipeline,
 
 static void ocf_medatata_hash_check_crc_skip(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg,
-		bool skip_on_dirty_shutdown,
-		bool warning_only)
+		bool skip_on_dirty_shutdown)
 {
 	struct ocf_metadata_hash_context *context = priv;
 	int segment = ocf_pipeline_arg_get_int(arg);
@@ -1295,7 +1294,7 @@ static void ocf_medatata_hash_check_crc_skip(ocf_pipeline_t pipeline,
 
 	if (crc != sb_config->checksum[segment]) {
 		/* Checksum does not match */
-		if (warning_only) {
+		if (!sb_config->clean_shutdown) {
 			ocf_cache_log(cache, log_warn,
 					"Loading %s WARNING, invalid checksum",
 					ocf_metadata_hash_raw_names[segment]);
@@ -1313,19 +1312,13 @@ static void ocf_medatata_hash_check_crc_skip(ocf_pipeline_t pipeline,
 static void ocf_medatata_hash_check_crc(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	ocf_medatata_hash_check_crc_skip(pipeline, priv, arg, false, false);
+	ocf_medatata_hash_check_crc_skip(pipeline, priv, arg, false);
 }
 
 static void ocf_medatata_hash_check_crc_if_clean(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	ocf_medatata_hash_check_crc_skip(pipeline, priv, arg, true, false);
-}
-
-static void ocf_medatata_hash_check_crc_warning(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	ocf_medatata_hash_check_crc_skip(pipeline, priv, arg, false, true);
+	ocf_medatata_hash_check_crc_skip(pipeline, priv, arg, true);
 }
 
 static void ocf_medatata_hash_load_superblock_post(ocf_pipeline_t pipeline,
@@ -1459,7 +1452,7 @@ struct ocf_pipeline_properties ocf_metadata_hash_load_sb_pipeline_props = {
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_load_segment,
 				ocf_metadata_hash_load_sb_load_segment_args),
 		OCF_PL_STEP(ocf_medatata_hash_check_crc_sb_config),
-		OCF_PL_STEP_FOREACH(ocf_medatata_hash_check_crc_warning,
+		OCF_PL_STEP_FOREACH(ocf_medatata_hash_check_crc,
 				ocf_metadata_hash_load_sb_check_crc_args),
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_check_crc_if_clean,
 				ocf_metadata_hash_load_sb_check_crc_args_clean),
