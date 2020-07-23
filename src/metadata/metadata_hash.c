@@ -1293,10 +1293,16 @@ static void ocf_medatata_hash_check_crc_skip(ocf_pipeline_t pipeline,
 
 	if (crc != sb_config->checksum[segment]) {
 		/* Checksum does not match */
-		ocf_cache_log(cache, log_err,
-				"Loading %s ERROR, invalid checksum",
-				ocf_metadata_hash_raw_names[segment]);
-		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
+		if (!sb_config->clean_shutdown) {
+			ocf_cache_log(cache, log_warn,
+					"Loading %s WARNING, invalid checksum",
+					ocf_metadata_hash_raw_names[segment]);
+		} else {
+			ocf_cache_log(cache, log_err,
+					"Loading %s ERROR, invalid checksum",
+					ocf_metadata_hash_raw_names[segment]);
+			OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
+		}
 	}
 
 	ocf_pipeline_next(pipeline);

@@ -279,7 +279,10 @@ static void ocf_mngt_cache_try_add_core_insert(ocf_pipeline_t pipeline,
 	if (result)
 		OCF_PL_FINISH_RET(pipeline, result);
 
-	if (!ocf_volume_get_length(volume)) {
+	if (ocf_volume_get_length(volume) != core->conf_meta->length) {
+		ocf_cache_log(cache, log_err,
+				"Size of core volume doesn't match with"
+				" the size stored in cache metadata!");
 		result = -OCF_ERR_CORE_NOT_AVAIL;
 		goto error_after_open;
 	}

@@ -373,6 +373,7 @@ static int _ocf_mngt_init_instance_add_cores(
 	ocf_core_id_t core_id;
 	int ret = -1;
 	uint64_t hd_lines = 0;
+	uint64_t length;
 
 	OCF_ASSERT_PLUGGED(cache);
 
@@ -439,8 +440,15 @@ static int _ocf_mngt_init_instance_add_cores(
 
 		ocf_core_seq_cutoff_init(core);
 
-		hd_lines = ocf_bytes_2_lines(cache,
-				ocf_volume_get_length(&core->volume));
+		length = ocf_volume_get_length(&core->volume);
+		if (length != core->conf_meta->length) {
+			ocf_cache_log(cache, log_err,
+					"Size of core volume doesn't match with"
+					" the size stored in cache metadata!");
+			goto err;
+		}
+
+		hd_lines = ocf_bytes_2_lines(cache, length);
 
 		if (hd_lines) {
 			ocf_cache_log(cache, log_info,
