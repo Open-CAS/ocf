@@ -1289,7 +1289,7 @@ static void _ocf_mngt_attach_check_ram(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	ocf_cache_line_size_t line_size = ocf_line_size(cache);
+	ocf_cache_line_size_t line_size = context->metadata.line_size;
 	uint64_t volume_size = ocf_volume_get_length(&cache->device->volume);
 	uint64_t min_free_ram;
 	uint64_t free_ram;
@@ -1538,8 +1538,8 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 	.finish = _ocf_mngt_cache_attach_finish,
 	.steps = {
 		OCF_PL_STEP(_ocf_mngt_attach_cache_device),
-		OCF_PL_STEP(_ocf_mngt_attach_check_ram),
 		OCF_PL_STEP(_ocf_mngt_attach_load_properties),
+		OCF_PL_STEP(_ocf_mngt_attach_check_ram),
 		OCF_PL_STEP(_ocf_mngt_attach_prepare_metadata),
 		OCF_PL_STEP(_ocf_mngt_test_volume),
 		OCF_PL_STEP(_ocf_mngt_attach_load_superblock),
