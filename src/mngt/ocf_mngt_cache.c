@@ -1043,11 +1043,9 @@ static void _ocf_mngt_init_instance_init(struct ocf_cache_attach_context *contex
 	ocf_pipeline_next(context->pipeline);
 }
 
-uint64_t _ocf_mngt_calculate_ram_needed(ocf_cache_t cache,
-		ocf_volume_t cache_volume)
+uint64_t _ocf_mngt_calculate_ram_needed(ocf_cache_line_size_t line_size,
+		uint64_t volume_size)
 {
-	ocf_cache_line_size_t line_size = ocf_line_size(cache);
-	uint64_t volume_size = ocf_volume_get_length(cache_volume);
 	uint64_t const_data_size;
 	uint64_t cache_line_no;
 	uint64_t data_per_line;
@@ -1073,6 +1071,8 @@ int ocf_mngt_get_ram_needed(ocf_cache_t cache,
 {
 	ocf_volume_t volume;
 	ocf_volume_type_t type;
+	ocf_cache_line_size_t line_size;
+	uint64_t volume_size;
 	int result;
 
 	OCF_CHECK_NULL(cache);
@@ -1094,7 +1094,9 @@ int ocf_mngt_get_ram_needed(ocf_cache_t cache,
 		return result;
 	}
 
-	*ram_needed = _ocf_mngt_calculate_ram_needed(cache, volume);
+	line_size = ocf_line_size(cache);
+	volume_size = ocf_volume_get_length(volume);
+	*ram_needed = _ocf_mngt_calculate_ram_needed(line_size, volume_size);
 
 	ocf_volume_close(volume);
 	ocf_volume_destroy(volume);
@@ -1287,11 +1289,12 @@ static void _ocf_mngt_attach_check_ram(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
+	ocf_cache_line_size_t line_size = ocf_line_size(cache);
+	uint64_t volume_size = ocf_volume_get_length(&cache->device->volume);
 	uint64_t min_free_ram;
 	uint64_t free_ram;
 
-	min_free_ram = _ocf_mngt_calculate_ram_needed(cache,
-			&cache->device->volume);
+	min_free_ram = _ocf_mngt_calculate_ram_needed(line_size, volume_size);
 
 	free_ram = env_get_free_memory();
 
