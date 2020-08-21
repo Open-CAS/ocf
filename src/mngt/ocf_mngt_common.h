@@ -7,7 +7,7 @@
 #ifndef __OCF_MNGT_COMMON_H__
 #define __OCF_MNGT_COMMON_H__
 
-int cache_mngt_core_close(ocf_core_t core);
+void cache_mngt_core_deinit(ocf_core_t core);
 
 void cache_mngt_core_remove_from_meta(ocf_core_t core);
 

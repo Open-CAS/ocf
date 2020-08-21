@@ -1347,6 +1347,7 @@ static void ocf_medatata_hash_load_superblock_post(ocf_pipeline_t pipeline,
 
 		/* Initialize core volume */
 		ocf_volume_init(&core->volume, volume_type, &uuid, false);
+		core->has_volume = true;
 	}
 
 	/* Restore all dynamics items */
