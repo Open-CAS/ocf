@@ -1609,7 +1609,7 @@ static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache, bool attached)
 		cache_mngt_core_remove_from_cache(core);
 		if (attached)
 			cache_mngt_core_remove_from_cleaning_pol(core);
-		cache_mngt_core_close(core);
+		cache_mngt_core_deinit(core);
 		if (--no == 0)
 			break;
 	}

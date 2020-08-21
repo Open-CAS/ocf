@@ -378,6 +378,7 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	if (result)
 		OCF_PL_FINISH_RET(pipeline, result);
 
+	core->has_volume = true;
 	context->flags.volume_inited = true;
 
 	if (cfg->user_metadata.data && cfg->user_metadata.size > 0) {
@@ -621,7 +622,7 @@ static void _ocf_mngt_cache_remove_core(ocf_pipeline_t pipeline, void *priv,
 	}
 	cache_mngt_core_remove_from_meta(core);
 	cache_mngt_core_remove_from_cache(core);
-	cache_mngt_core_close(core);
+	cache_mngt_core_deinit(core);
 
 	/* Update super-block with core device removal */
 	ocf_metadata_flush_superblock(cache,
@@ -707,14 +708,16 @@ static void _ocf_mngt_cache_detach_core(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_remove_core_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_core_t core = context->core;
-	int status;
 
 	ocf_core_log(core, log_debug, "Detaching core\n");
 
-	status = cache_mngt_core_close(core);
+	if (!core->opened)
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_CORE_IN_INACTIVE_STATE);
 
-	if (status)
-		OCF_PL_FINISH_RET(pipeline, status);
+	ocf_volume_close(&core->front_volume);
+	ocf_volume_deinit(&core->front_volume);
+	ocf_volume_close(&core->volume);
+	core->opened = false;
 
 	cache->ocf_core_inactive_count++;
 	env_bit_set(ocf_cache_state_incomplete,
