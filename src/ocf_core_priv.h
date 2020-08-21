@@ -81,7 +81,9 @@ struct ocf_core {
 
 	env_atomic flushed;
 
-	/* This bit means that object is open */
+	/* This bit means that core volume is initialized */
+	uint32_t has_volume : 1;
+	/* This bit means that core volume is open */
 	uint32_t opened : 1;
 	/* This bit means that core is added into cache */
 	uint32_t added : 1;
