@@ -17,19 +17,18 @@
 #include "../engine/engine_common.h"
 
 /* Close if opened */
-int cache_mngt_core_close(ocf_core_t core)
+void cache_mngt_core_deinit(ocf_core_t core)
 {
-	if (!core->opened)
-		return -OCF_ERR_CORE_IN_INACTIVE_STATE;
+	if (core->opened) {
+		ocf_volume_close(&core->front_volume);
+		ocf_volume_deinit(&core->front_volume);
+		ocf_volume_close(&core->volume);
+	}
 
-	ocf_volume_close(&core->front_volume);
-	ocf_volume_deinit(&core->front_volume);
+	if (core->has_volume)
+		ocf_volume_deinit(&core->volume);
 
-	ocf_volume_close(&core->volume);
-	ocf_volume_deinit(&core->volume);
 	core->opened = false;
-
-	return 0;
 }
 
 /* Remove core from cleaning policy */
