@@ -12,6 +12,7 @@ struct ocf_request;
 #define LOOKUP_HIT 5
 #define LOOKUP_MISS 6
 #define LOOKUP_INSERTED 8
+#define LOOKUP_REMAPPED 9
 
 typedef enum {
 	/* modes inherited from user API */
