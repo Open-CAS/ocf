@@ -298,6 +298,8 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 			OCF_DEBUG_RQ(req, "Canceling cache line %u",
 					entry->coll_idx);
 
+			entry->status = LOOKUP_MISS;
+
 			ocf_metadata_start_collision_shared_access(cache,
 					entry->coll_idx);
 
