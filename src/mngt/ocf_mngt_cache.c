@@ -2033,7 +2033,10 @@ static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
 
 static int _ocf_mngt_cache_load_core_log(ocf_core_t core, void *cntx)
 {
-	ocf_core_log(core, log_info, "Successfully added\n");
+	if (ocf_core_state_active == ocf_core_get_state(core))
+		ocf_core_log(core, log_info, "Successfully added\n");
+	else
+		ocf_core_log(core, log_warn, "Failed to initialize\n");
 
 	return 0;
 }
