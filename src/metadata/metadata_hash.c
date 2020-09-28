@@ -10,6 +10,7 @@
 #include "metadata_status.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../utils/utils_cache_line.h"
+#include "../utils/utils_io.h"
 #include "../utils/utils_pipeline.h"
 #include "../ocf_def_priv.h"
 #include "../ocf_priv.h"
@@ -1580,6 +1581,29 @@ static void ocf_metadata_hash_flush_superblock_finish(ocf_pipeline_t pipeline,
 	ocf_pipeline_destroy(pipeline);
 }
 
+static void ocf_metadata_hash_flush_disk_end(void *priv, int error)
+{
+	struct ocf_metadata_hash_context *context = priv;
+	ocf_pipeline_t pipeline = context->pipeline;
+
+	if (error) {
+		OCF_PL_FINISH_RET(pipeline, error);
+		return;
+	}
+
+	ocf_pipeline_next(pipeline);
+}
+
+static void ocf_metadata_hash_flush_disk(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_metadata_hash_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_submit_volume_flush(ocf_cache_get_volume(cache),
+		ocf_metadata_hash_flush_disk_end, context);
+}
+
 struct ocf_pipeline_arg ocf_metadata_hash_flush_sb_calculate_crc_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_part_config),
 	OCF_PL_ARG_INT(metadata_segment_core_config),
@@ -1605,6 +1629,7 @@ struct ocf_pipeline_properties ocf_metadata_hash_flush_sb_pipeline_props = {
 				ocf_metadata_hash_flush_sb_calculate_crc_args),
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_flush_segment,
 				ocf_metadata_hash_flush_sb_flush_segment_args),
+		OCF_PL_STEP(ocf_metadata_hash_flush_disk),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
