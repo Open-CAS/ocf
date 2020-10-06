@@ -522,12 +522,12 @@ class Cache:
         if not self.started:
             raise Exception("Not started!")
 
-        self.get_and_write_lock()
+        self.write_lock()
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
         self.owner.lib.ocf_mngt_cache_save(self.cache_handle, c, None)
 
         c.wait()
-        self.put_and_write_unlock()
+        self.write_unlock()
 
         if c.results["error"]:
             raise OcfError("Failed saving cache", c.results["error"])
