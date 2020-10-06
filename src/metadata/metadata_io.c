@@ -223,7 +223,7 @@ static int metadata_io_restart_req(struct ocf_request *req)
 	io = ocf_new_cache_io(cache, req->io_queue,
 			PAGES_TO_BYTES(m_req->page),
 			PAGES_TO_BYTES(m_req->count),
-			m_req->req.rw, 0, 0);
+			m_req->req.rw, 0, m_req->asynch->flags);
 	if (!io) {
 		metadata_io_io_end(m_req, -OCF_ERR_NO_MEM);
 		return 0;
@@ -361,7 +361,7 @@ void metadata_io_req_complete(struct metadata_io_request *m_req)
  * Iterative write request asynchronously
  */
 static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
-		void *context, uint32_t page, uint32_t count,
+		void *context, uint32_t page, uint32_t count, int flags,
 		ocf_metadata_io_event_t io_hndl,
 		ocf_metadata_io_end_t compl_hndl)
 {
@@ -386,6 +386,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 	a_req->context = context;
 	a_req->page = page;
 	a_req->count = count;
+	a_req->flags = flags;
 
 	/* IO Requests initialization */
 	for (i = 0; i < req_count; i++) {
@@ -435,21 +436,21 @@ err:
 }
 
 int metadata_io_write_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
-		void *context, uint32_t page, uint32_t count,
+		void *context, uint32_t page, uint32_t count, int flags,
 		ocf_metadata_io_event_t fill_hndl,
 		ocf_metadata_io_end_t compl_hndl)
 {
 	return metadata_io_i_asynch(cache, queue, OCF_WRITE, context,
-			page, count, fill_hndl, compl_hndl);
+			page, count, flags, fill_hndl, compl_hndl);
 }
 
 int metadata_io_read_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
-		void *context, uint32_t page, uint32_t count,
+		void *context, uint32_t page, uint32_t count, int flags,
 		ocf_metadata_io_event_t drain_hndl,
 		ocf_metadata_io_end_t compl_hndl)
 {
 	return metadata_io_i_asynch(cache, queue, OCF_READ, context,
-			page, count, drain_hndl, compl_hndl);
+			page, count, flags, drain_hndl, compl_hndl);
 }
 
 int ocf_metadata_io_init(ocf_cache_t cache)

@@ -550,7 +550,7 @@ void raw_dynamic_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	context->priv = priv;
 
 	result = metadata_io_write_i_asynch(cache, cache->mngt_queue, context,
-			raw->ssd_pages_offset, raw->ssd_pages,
+			raw->ssd_pages_offset, raw->ssd_pages, 0,
 			raw_dynamic_flush_all_fill,
 			raw_dynamic_flush_all_complete);
 	if (result)

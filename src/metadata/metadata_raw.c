@@ -259,7 +259,7 @@ static void _raw_ram_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	context->priv = priv;
 
 	result = metadata_io_read_i_asynch(cache, cache->mngt_queue, context,
-			raw->ssd_pages_offset, raw->ssd_pages,
+			raw->ssd_pages_offset, raw->ssd_pages, 0,
 			_raw_ram_load_all_drain, _raw_ram_load_all_complete);
 	if (result)
 		_raw_ram_load_all_complete(cache, context, result);
@@ -331,7 +331,7 @@ static void _raw_ram_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	context->priv = priv;
 
 	result = metadata_io_write_i_asynch(cache, cache->mngt_queue, context,
-			raw->ssd_pages_offset, raw->ssd_pages,
+			raw->ssd_pages_offset, raw->ssd_pages, 0,
 			_raw_ram_flush_all_fill, _raw_ram_flush_all_complete);
 	if (result)
 		_raw_ram_flush_all_complete(cache, context, result);
@@ -536,6 +536,7 @@ static int _raw_ram_flush_do_asynch(ocf_cache_t cache,
 
 		result  |= metadata_io_write_i_asynch(cache, req->io_queue, ctx,
 				raw->ssd_pages_offset + start_page, count,
+				req->ioi.io.flags,
 				_raw_ram_flush_do_asynch_fill,
 				_raw_ram_flush_do_asynch_io_complete);
 

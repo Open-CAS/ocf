@@ -74,6 +74,7 @@ struct metadata_io_request_asynch {
 	env_atomic req_current;
 	uint32_t page;
 	uint32_t count;
+	int flags;
 	ocf_metadata_io_end_t on_complete;
 };
 
@@ -122,7 +123,7 @@ int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue,
  * @return 0 - No errors, otherwise error occurred
  */
 int metadata_io_write_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
-		void *context, uint32_t page, uint32_t count,
+		void *context, uint32_t page, uint32_t count, int flags,
 		ocf_metadata_io_event_t fill_hndl,
 		ocf_metadata_io_end_t compl_hndl);
 
@@ -140,7 +141,7 @@ int metadata_io_write_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
  * @return 0 - No errors, otherwise error occurred
  */
 int metadata_io_read_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
-		void *context, uint32_t page, uint32_t count,
+		void *context, uint32_t page, uint32_t count, int flags,
 		ocf_metadata_io_event_t drain_hndl,
 		ocf_metadata_io_end_t compl_hndl);
 
