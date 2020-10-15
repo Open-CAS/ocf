@@ -191,6 +191,9 @@ struct ocf_request {
 	uint8_t wi_second_pass : 1;
 	/*!< Set after first pass of WI write is completed */
 
+	uint8_t part_evict : 1;
+	/* !< Some cachelines from request's partition must be evicted */
+
 	log_sid_t sid;
 	/*!< Tracing sequence ID */
 
@@ -331,6 +334,40 @@ void ocf_req_clear_map(struct ocf_request *req);
  * @param req - OCF request
  */
 void ocf_req_hash(struct ocf_request *req);
+
+/**
+ * @brief Request should trigger eviction from it's target partition
+ *
+ * @param req - OCF request
+ */
+static inline void ocf_req_set_part_evict(struct ocf_request *req)
+{
+	req->part_evict = true;
+}
+
+/**
+ * @brief Request shouldn't trigger eviction from it's target partition
+ *
+ * @param req - OCF request
+ */
+static inline void ocf_req_clear_part_evict(struct ocf_request *req)
+{
+	req->part_evict = false;
+}
+
+/**
+ * @brief Check wheter request shouldn't trigger eviction from it's target
+ *  partition or any partition
+ *
+ * @param req - OCF request
+ * @return true - Eviciton should be triggered from request's target partition
+ * @return false - Eviction should be triggered with respect to eviction
+ * priority
+ */
+static inline bool ocf_req_part_evict(struct ocf_request *req)
+{
+	return req->part_evict;
+}
 
 int ocf_req_set_dirty(struct ocf_request *req);
 

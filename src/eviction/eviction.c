@@ -40,6 +40,22 @@ static uint32_t ocf_evict_calculate(struct ocf_user_part *part,
 	return to_evict;
 }
 
+static inline uint32_t ocf_evict_part_do(ocf_cache_t cache,
+		ocf_queue_t io_queue, const uint32_t evict_cline_no,
+		struct ocf_user_part *target_part)
+{
+	uint32_t to_evict = 0;
+
+	if (!evp_lru_can_evict(cache))
+		return 0;
+
+	to_evict = ocf_evict_calculate(&cache->user_parts[target_part_id],
+			evict_cline_no);
+
+	return ocf_eviction_need_space(cache, io_queue,
+			target_part, to_evict);
+}
+
 static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 		ocf_queue_t io_queue, const uint32_t evict_cline_no,
 		struct ocf_user_part *target_part)
@@ -109,12 +125,18 @@ int space_managment_evict_do(struct ocf_cache *cache,
 	uint32_t free;
 	struct ocf_user_part *req_part = &cache->user_parts[req->part_id];
 
-	free = ocf_freelist_num_free(cache->freelist);
-	if (evict_cline_no <= free)
-		return LOOKUP_MAPPED;
+	if (ocf_req_part_evict(req)) {
+		evicted = ocf_evict_part_do(cache, req->io_queue, evict_cline_no,
+				req_part);
+	} else {
+		free = ocf_freelist_num_free(cache->freelist);
+		if (evict_cline_no <= free)
+			return LOOKUP_MAPPED;
 
-	evict_cline_no -= free;
-	evicted = ocf_evict_do(cache, req->io_queue, evict_cline_no, req_part);
+		evict_cline_no -= free;
+
+		evicted = ocf_evict_do(cache, req->io_queue, evict_cline_no, req_part);
+	}
 
 	if (evict_cline_no <= evicted)
 		return LOOKUP_MAPPED;
