@@ -8,6 +8,7 @@
 
 #include "../ocf_request.h"
 #include "../engine/cache_engine.h"
+#include "../engine/engine_common.h"
 #include "../metadata/metadata_partition.h"
 
 void ocf_part_init(struct ocf_cache *cache);
@@ -72,7 +73,27 @@ static inline void ocf_part_sort(struct ocf_cache *cache)
 	ocf_lst_sort(&cache->lst_part);
 }
 
-static inline ocf_cache_mode_t ocf_part_get_cache_mode(struct ocf_cache *cache,
+static inline bool ocf_part_is_enabled(struct ocf_user_part *part)
+{
+	return part->config->max_size != 0;
+}
+
+#define OCF_PART_HAS_SPACE		0
+#define OCF_PART_IS_FULL		1
+#define OCF_PART_IS_DISABLED	2
+/**
+  * Check whether there is enough free cachelines to serve request. If partition
+  * occupancy limit is reached, `req->part_evict` is set to true. Otherwise
+  * flag is set to false and eviction from any partition should be triggered.
+  *
+  * @return
+  *		OCF_PART_HAS_SPACE when cachelines alloted successfully
+  *		OCF_PART_IS_FULL when need to evict some cachelines to serve request
+  *		OCF_PART_IS_DISABLED when caching for particular partition is disabled
+  */
+uint32_t ocf_part_check_space(struct ocf_request *req, uint32_t *to_evict);
+
+static inline ocf_cache_mode_t ocf_part_get_cache_mode(ocf_cache_t cache,
 		ocf_part_id_t part_id)
 {
 	if (part_id < OCF_IO_CLASS_MAX)

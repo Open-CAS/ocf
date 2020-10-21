@@ -190,3 +190,82 @@ void ocf_part_set_valid(struct ocf_cache *cache, ocf_part_id_t id,
 		}
 	}
 }
+
+static inline uint32_t ocf_part_evict_size(struct ocf_request *req)
+{
+	uint32_t needed_cache_lines, part_available, cache_lines_to_evict;
+	uint32_t part_occupancy, part_occupancy_debt;
+	struct ocf_user_part *target_part = &req->cache->user_parts[req->part_id];
+	uint32_t part_occupancy_limit =
+		ocf_part_get_max_size(req->cache, target_part);
+
+	needed_cache_lines = ocf_engine_repart_count(req) +
+		ocf_engine_unmapped_count(req);
+
+	part_occupancy = ocf_part_get_occupancy(target_part);
+
+	if (part_occupancy_limit >= part_occupancy) {
+		part_available = part_occupancy_limit - part_occupancy;
+		part_occupancy_debt = 0;
+	} else {
+		/* Occupancy is greater than occupancy limit. Evict missing number of
+		 * cachelines, but no more than single eviction limit */
+		part_occupancy_debt = min((uint32_t)OCF_PENDING_EVICTION_LIMIT,
+				part_occupancy - part_occupancy_limit);
+		part_available = 0;
+	}
+
+	if (ocf_freelist_num_free(req->cache->freelist) <
+			ocf_engine_unmapped_count(req)) {
+		/* Number of cachelines to insert greater than number of free
+		 * cachelines */
+		if (part_available >= needed_cache_lines) {
+			/* Cache is full, but target's part occupancy limit is not reached
+			   */
+			ocf_req_clear_part_evict(req);
+			cache_lines_to_evict = needed_cache_lines;
+		} else {
+			/* Cache is full and target part reached it's occupancy limit */
+			ocf_req_set_part_evict(req);
+			cache_lines_to_evict = needed_cache_lines - part_available;
+		}
+
+	} else if (part_available < needed_cache_lines) {
+		/* Enough of free cache lines, but partition reached it's occupancy
+		 * limit */
+		cache_lines_to_evict = needed_cache_lines - part_available;
+		ocf_req_set_part_evict(req);
+
+	} else if (part_available >= needed_cache_lines) {
+		/* Enough free cachelines available and they can be assigned to target
+		 * partition */
+		cache_lines_to_evict = 0;
+
+	}
+
+	return cache_lines_to_evict + part_occupancy_debt;
+}
+
+uint32_t ocf_part_check_space(struct ocf_request *req, uint32_t *to_evict)
+{
+	uint32_t ret = OCF_PART_IS_FULL;
+	uint32_t _to_evict;
+	struct ocf_user_part *target_part = &req->cache->user_parts[req->part_id];
+
+	if (!ocf_part_is_enabled(target_part) &&
+			ocf_part_get_occupancy(target_part) == 0) {
+		/* If partition is disabled, but has assigned cachelines, eviction has
+		 *  to be triggered */
+		return OCF_PART_IS_DISABLED;
+	}
+
+	_to_evict = ocf_part_evict_size(req);
+
+	if (_to_evict == 0)
+		ret = OCF_PART_HAS_SPACE;
+
+	if (to_evict)
+		*to_evict = _to_evict;
+
+	return ret;
+}
