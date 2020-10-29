@@ -136,17 +136,17 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 		/* Try set partition size */
 		if (_ocf_mngt_set_partition_size(cache, part_id, min, max)) {
 			ocf_cache_log(cache, log_info,
-				"Setting IO class size, id: %u, name: '%s' "
-				"[ ERROR ]\n", part_id, dest_part->config->name);
+				"Setting IO class size, id: %u, name: '%s', max size: %u"
+				" [ ERROR ]\n", part_id, dest_part->config->name, max);
 			return -OCF_ERR_INVAL;
 		}
 		ocf_part_set_prio(cache, dest_part, prio);
 		dest_part->config->cache_mode = cache_mode;
 
 		ocf_cache_log(cache, log_info,
-				"Updating unclassified IO class, id: "
-				"%u [ OK ]\n", part_id);
-
+				"Updating unclassified IO class, id: %u, name :'%s',"
+				"max size: %u [ OK ]\n",
+				part_id, dest_part->config->name, max);
 		return 0;
 	}
 
@@ -160,23 +160,23 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 	/* Try set partition size */
 	if (_ocf_mngt_set_partition_size(cache, part_id, min, max)) {
 		ocf_cache_log(cache, log_info,
-			"Setting IO class size, id: %u, name: '%s' "
-			"[ ERROR ]\n", part_id, dest_part->config->name);
+			"Setting IO class size, id: %u, name: '%s', max size %u"
+			"[ ERROR ]\n", part_id, dest_part->config->name, max);
 		return -OCF_ERR_INVAL;
 	}
 
 	if (ocf_part_is_valid(dest_part)) {
 		/* Updating existing */
 		ocf_cache_log(cache, log_info, "Updating existing IO "
-				"class, id: %u, name: '%s' [ OK ]\n",
-				part_id, dest_part->config->name);
+				"class, id: %u, name: '%s', max size %u [ OK ]\n",
+				part_id, dest_part->config->name, max);
 	} else {
 		/* Adding new */
 		ocf_part_set_valid(cache, part_id, true);
 
 		ocf_cache_log(cache, log_info, "Adding new IO class, "
-				"id: %u, name: '%s' [ OK ]\n", part_id,
-				dest_part->config->name);
+				"id: %u, name: '%s', max size %u [ OK ]\n", part_id,
+				dest_part->config->name, max);
 	}
 
 	ocf_part_set_prio(cache, dest_part, prio);
