@@ -83,10 +83,6 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 			/* It seams that no more partition for eviction */
 			break;
 		}
-		if (part_id == target_part->id) {
-			/* Omit targeted, evict from different first */
-			continue;
-		}
 		if (evicted >= evict_cline_no) {
 			/* Evicted requested number of cache line, stop */
 			goto out;
@@ -100,18 +96,6 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 
 		evicted += ocf_eviction_need_space(cache, io_queue,
 				part, to_evict);
-	}
-
-	if (!ocf_eviction_can_evict(cache))
-		goto out;
-
-	if (evicted < evict_cline_no) {
-		/* Now we can evict form targeted partition */
-		to_evict = ocf_evict_calculate(target_part, evict_cline_no);
-		if (to_evict) {
-			evicted += ocf_eviction_need_space(cache, io_queue,
-					target_part, to_evict);
-		}
 	}
 
 out:
