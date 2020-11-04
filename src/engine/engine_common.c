@@ -14,6 +14,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../ocf_request.h"
 #include "../utils/utils_cleaner.h"
+#include "../utils/utils_part.h"
 #include "../metadata/metadata.h"
 #include "../eviction/eviction.h"
 #include "../promotion/promotion.h"
@@ -409,15 +410,6 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	}
 }
 
-static int ocf_engine_evict(struct ocf_request *req)
-{
-	if (!ocf_engine_unmapped_count(req))
-		return 0;
-
-	return space_managment_evict_do(req->cache, req,
-			ocf_engine_unmapped_count(req));
-}
-
 static int lock_clines(struct ocf_request *req,
 		const struct ocf_engine_callbacks *engine_cbs)
 {
@@ -433,13 +425,139 @@ static int lock_clines(struct ocf_request *req,
 	}
 }
 
+static inline int ocf_prepare_clines_hit(struct ocf_request *req,
+		const struct ocf_engine_callbacks *engine_cbs)
+{
+	int lock_status = -OCF_ERR_NO_LOCK;
+	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
+	uint32_t clines_to_evict;
+	int res;
+
+	/* Cachelines are mapped in correct partition */
+	if (ocf_part_is_enabled(&req->cache->user_parts[req->part_id]) &&
+			!ocf_engine_needs_repart(req)) {
+		lock_status = lock_clines(req, engine_cbs);
+		ocf_req_hash_unlock_rd(req);
+		return lock_status;
+	}
+
+	res = ocf_part_check_space(req, &clines_to_evict);
+
+	if (res == OCF_PART_HAS_SPACE)
+		lock_status = lock_clines(req, engine_cbs);
+
+	/* Since target part is empty and disabled, request should be submited in
+	 * pass-through */
+	if (res == OCF_PART_IS_DISABLED)
+		ocf_req_set_mapping_error(req);
+
+	ocf_req_hash_unlock_rd(req);
+
+	if (res != OCF_PART_IS_FULL)
+		return lock_status;
+
+	ocf_metadata_start_exclusive_access(metadata_lock);
+	ocf_part_check_space(req, &clines_to_evict);
+
+	if (space_managment_evict_do(req->cache, req, clines_to_evict) ==
+			LOOKUP_MISS) {
+		ocf_req_set_mapping_error(req);
+		goto unlock;
+	}
+
+	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
+		/* Target part is disabled but had some cachelines assigned. Submit
+		 * request in pass-through after eviction has been made */
+		ocf_req_set_mapping_error(req);
+		goto unlock;
+	}
+
+	lock_status = lock_clines(req, engine_cbs);
+
+unlock:
+	ocf_metadata_end_exclusive_access(metadata_lock);
+
+	return lock_status;
+}
+
+static inline int ocf_prepare_clines_miss(struct ocf_request *req,
+		const struct ocf_engine_callbacks *engine_cbs)
+{
+	int lock_status = -OCF_ERR_NO_LOCK;
+	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
+	uint32_t clines_to_evict = 0;
+	int res;
+
+	/* Mapping must be performed holding (at least) hash-bucket write lock */
+	ocf_req_hash_lock_upgrade(req);
+
+	/* Verify whether partition occupancy threshold is not reached yet or cache
+	 * is not out of free cachelines */
+	res = ocf_part_check_space(req, &clines_to_evict);
+	if (res == OCF_PART_IS_DISABLED) {
+		ocf_req_set_mapping_error(req);
+		ocf_req_hash_unlock_wr(req);
+		return lock_status;
+	}
+
+	if (res == OCF_PART_HAS_SPACE) {
+		ocf_engine_map(req);
+		if (ocf_req_test_mapping_error(req)) {
+			goto eviction;
+		}
+
+		lock_status = lock_clines(req, engine_cbs);
+		if (lock_status < 0) {
+			/* Mapping succeeded, but we failed to acquire cacheline lock.
+			 * Don't try to evict, just return error to caller */
+			ocf_req_set_mapping_error(req);
+		}
+
+		ocf_req_hash_unlock_wr(req);
+		return lock_status;
+	}
+
+eviction:
+	ocf_req_hash_unlock_wr(req);
+	ocf_metadata_start_exclusive_access(metadata_lock);
+
+	ocf_part_check_space(req, &clines_to_evict);
+
+	if (space_managment_evict_do(req->cache, req, clines_to_evict) ==
+			LOOKUP_MISS) {
+		ocf_req_set_mapping_error(req);
+		goto unlock;
+	}
+
+	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
+		/* Partition is disabled but it had cachelines assigned. Now, that they
+		 * are evicted, don't try to map cachelines - we don't want to insert
+		 * new cachelines - the request should be submited in pass through mode
+		 * instead */
+		ocf_req_set_mapping_error(req);
+		goto unlock;
+	}
+
+	ocf_engine_map(req);
+	if (ocf_req_test_mapping_error(req))
+		goto unlock;
+
+	lock_status = lock_clines(req, engine_cbs);
+	if (lock_status < 0)
+		ocf_req_set_mapping_error(req);
+
+unlock:
+	ocf_metadata_end_exclusive_access(metadata_lock);
+
+	return lock_status;
+}
+
 int ocf_engine_prepare_clines(struct ocf_request *req,
 		const struct ocf_engine_callbacks *engine_cbs)
 {
 	bool mapped;
 	bool promote = true;
-	int lock = -ENOENT;
-	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
+	int lock = -OCF_ERR_NO_LOCK;
 
 	/* Calculate hashes for hash-bucket locking */
 	ocf_req_hash(req);
@@ -453,50 +571,19 @@ int ocf_engine_prepare_clines(struct ocf_request *req,
 	ocf_engine_traverse(req);
 
 	mapped = ocf_engine_is_mapped(req);
-	if (mapped) {
-		/* Request cachelines are already mapped, acquire cacheline
-		 * lock */
-		lock = lock_clines(req, engine_cbs);
-	} else {
-		/* check if request should promote cachelines */
-		promote = ocf_promotion_req_should_promote(
-				req->cache->promotion_policy, req);
-		if (!promote)
-			req->info.mapping_error = 1;
-	}
+	if (mapped)
+		return ocf_prepare_clines_hit(req, engine_cbs);
 
-	if (mapped || !promote) {
-		/* Will not attempt mapping - release hash bucket lock */
+	/* check if request should promote cachelines */
+	promote = ocf_promotion_req_should_promote(
+			req->cache->promotion_policy, req);
+	if (!promote) {
+		req->info.mapping_error = 1;
 		ocf_req_hash_unlock_rd(req);
-	} else {
-		/* Need to map (potentially evict) cachelines. Mapping must be
-		 * performed holding (at least) hash-bucket write lock */
-		ocf_req_hash_lock_upgrade(req);
-		ocf_engine_map(req);
-		if (!req->info.mapping_error)
-			lock = lock_clines(req, engine_cbs);
-		ocf_req_hash_unlock_wr(req);
-
-		if (req->info.mapping_error) {
-			/* Not mapped - evict cachelines under global exclusive
-			 * lock*/
-			ocf_metadata_start_exclusive_access(metadata_lock);
-
-			/* Now there is exclusive access for metadata. May
-			 * traverse once again and evict cachelines if needed.
-			 */
-			if (ocf_engine_evict(req) == LOOKUP_MAPPED)
-				ocf_engine_map(req);
-
-			if (!req->info.mapping_error)
-				lock = lock_clines(req, engine_cbs);
-
-			ocf_metadata_end_exclusive_access(metadata_lock);
-		}
+		return lock;
 	}
 
-
-	return lock;
+	return ocf_prepare_clines_miss(req, engine_cbs);
 }
 
 static int _ocf_engine_clean_getter(struct ocf_cache *cache,
