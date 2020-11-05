@@ -12,13 +12,15 @@ struct lru_eviction_policy_meta {
 	uint32_t next;
 } __attribute__((packed));
 
+struct ocf_lru_list {
+	uint32_t num_nodes;
+	uint32_t head;
+	uint32_t tail;
+};
+
 struct lru_eviction_policy {
-	int has_clean_nodes;
-	int has_dirty_nodes;
-	uint32_t dirty_head;
-	uint32_t dirty_tail;
-	uint32_t clean_head;
-	uint32_t clean_tail;
+	struct ocf_lru_list clean;
+	struct ocf_lru_list dirty;
 };
 
 #endif
