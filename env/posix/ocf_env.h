@@ -46,6 +46,7 @@
 #define min(a,b) MIN(a,b)
 
 #define ENV_PRIu64 "lu"
+#define ENV_PRId64 "ld"
 
 typedef uint8_t u8;
 typedef uint16_t u16;
