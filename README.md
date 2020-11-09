@@ -1,10 +1,10 @@
 # Open CAS Framework
 
-[![Build Status](https://open-cas-logs.s3.us-east-2.amazonaws.com/master-status/build/curr-badge.svg)](https://open-cas-logs.s3.us-east-2.amazonaws.com/master-status/build/build.html)
-[![Tests Status](https://open-cas-logs.s3.us-east-2.amazonaws.com/master-status/tests/curr-badge.svg)](https://open-cas-logs.s3.us-east-2.amazonaws.com/master-status/tests/index.html)
+[![Build Status](https://d1rxsi9lvcwnz5.cloudfront.net/master-status/build/curr-badge.svg)](https://d1rxsi9lvcwnz5.cloudfront.net/master-status/build/build.html)
+[![Tests Status](https://d1rxsi9lvcwnz5.cloudfront.net/master-status/tests/curr-badge.svg)](https://d1rxsi9lvcwnz5.cloudfront.net/master-status/tests/index.html)
 [![Coverity status](https://scan.coverity.com/projects/19083/badge.svg)](https://scan.coverity.com/projects/open-cas-ocf)
 [![codecov](https://codecov.io/gh/Open-CAS/ocf/branch/master/graph/badge.svg)](https://codecov.io/gh/Open-CAS/ocf)
-[![License](https://open-cas-logs.s3.us-east-2.amazonaws.com/master-status/license-badge.svg)](LICENSE)
+[![License](https://d1rxsi9lvcwnz5.cloudfront.net/master-status/license-badge.svg)](LICENSE)
 
 Open CAS Framework (OCF) is high performance block storage caching meta-library
 written in C. It's entirely platform and system independent, accessing system API
