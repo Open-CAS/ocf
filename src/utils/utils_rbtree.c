@@ -12,24 +12,19 @@ void ocf_rb_tree_init(struct ocf_rb_tree *tree, ocf_rb_tree_node_cmp_cb cmp)
 }
 
 static void ocf_rb_tree_update_parent(struct ocf_rb_tree *tree,
-		struct ocf_rb_node *node, struct ocf_rb_node *old_node,
+		struct ocf_rb_node *parent, struct ocf_rb_node *old_node,
 		struct ocf_rb_node *new_node)
 {
-	if (!node->parent)
-		tree->root = new_node;
-	else if (old_node == node->parent->left)
-		node->parent->left = new_node;
-	else if (old_node == node->parent->right)
-		node->parent->right = new_node;
-}
+	if (!parent) {
+		if (tree->root == old_node)
+			tree->root = new_node;
+		return;
+	}
 
-static void ocf_rb_tree_update_children(struct ocf_rb_node *node)
-{
-	if (node->left)
-		node->left->parent = node;
-
-	if (node->right)
-		node->right->parent = node;
+	if (parent->left == old_node)
+		parent->left = new_node;
+	else if (parent->right == old_node)
+		parent->right = new_node;
 }
 
 static void ocf_rb_tree_rotate_left(struct ocf_rb_tree *tree,
@@ -44,7 +39,7 @@ static void ocf_rb_tree_rotate_left(struct ocf_rb_tree *tree,
 
 	right->parent = node->parent;
 
-	ocf_rb_tree_update_parent(tree, node, node, right);
+	ocf_rb_tree_update_parent(tree, node->parent, node, right);
 
 	right->left = node;
 	node->parent = right;
@@ -62,7 +57,7 @@ static void ocf_rb_tree_rotate_right(struct ocf_rb_tree *tree,
 
 	left->parent = node->parent;
 
-	ocf_rb_tree_update_parent(tree, node, node, left);
+	ocf_rb_tree_update_parent(tree, node->parent, node, left);
 
 	left->right = node;
 	node->parent = left;
@@ -165,34 +160,51 @@ void ocf_rb_tree_insert(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 	ocf_rb_tree_fix_violation(tree, node);
 }
 
+static void ocf_rb_copy_node(struct ocf_rb_node *dst, struct ocf_rb_node *src)
+{
+	dst->red = src->red;
+	dst->left = src->left;
+	dst->right = src->right;
+	dst->parent = src->parent;
+}
+
+static void ocf_rb_tree_update_children(struct ocf_rb_node *node)
+{
+	if (node->left)
+		node->left->parent = node;
+
+	if (node->right)
+		node->right->parent = node;
+}
+
 static void ocf_rb_tree_swap(struct ocf_rb_tree *tree,
 		struct ocf_rb_node *node1, struct ocf_rb_node *node2)
 {
 	struct ocf_rb_node tmp;
 
-	if (node1->left == node2)
-		node1->left = node1;
-	else if (node1->right == node2)
-		node1->right = node1;
-	else if (node1->parent == node2)
-		node1->parent = node1;
+	ocf_rb_copy_node(&tmp, node1);
+	ocf_rb_copy_node(node1, node2);
+	ocf_rb_copy_node(node2, &tmp);
 
-	if (node2->left == node1)
-		node2->left = node2;
-	else if (node2->right == node1)
-		node2->right = node2;
-	else if (node2->parent == node1)
-		node2->parent = node2;
+	if (node1->parent == node1)
+		node1->parent = node2;
+	else if (node1->left == node1)
+		node1->left = node2;
+	else if (node1->right == node1)
+		node1->right = node2;
 
-	tmp = *node1;
-	*node1 = *node2;
-	*node2 = tmp;
-
-	ocf_rb_tree_update_parent(tree, node1, node2, node1);
-	ocf_rb_tree_update_parent(tree, node2, node1, node2);
+	if (node2->parent == node2)
+		node2->parent = node1;
+	else if (node2->left == node2)
+		node2->left = node1;
+	else if (node2->right == node2)
+		node2->right = node1;
 
 	ocf_rb_tree_update_children(node1);
 	ocf_rb_tree_update_children(node2);
+
+	ocf_rb_tree_update_parent(tree, node2->parent, node1, node2);
+	ocf_rb_tree_update_parent(tree, node1->parent, node2, node1);
 }
 
 static struct ocf_rb_node *ocf_rb_tree_successor(struct ocf_rb_node *node)
@@ -334,7 +346,8 @@ void ocf_rb_tree_remove(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 				else if (sibling)
 					sibling->red = true;
 
-				ocf_rb_tree_update_parent(tree, node, node, NULL);
+				ocf_rb_tree_update_parent(tree, node->parent,
+						node, NULL);
 			}
 			break;
 		}
@@ -346,7 +359,8 @@ void ocf_rb_tree_remove(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 			if (!node->red)
 				ocf_rb_tree_fix_double_black(tree, node);
 
-			ocf_rb_tree_update_parent(tree, node, node, NULL);
+			ocf_rb_tree_update_parent(tree, node->parent,
+					node, NULL);
 			break;
 		}
 
