@@ -359,38 +359,38 @@ bool ocf_rb_tree_can_update(struct ocf_rb_tree *tree,
                 struct ocf_rb_node *node, struct ocf_rb_node *new_node)
 {
         struct ocf_rb_node *iter = tree->root;
-        int cmp = 0;
+	int cmp = 0;
 
-        while (iter) {
-                if (iter == node)
-                        break;
+	while (iter) {
+		if (iter == node)
+			break;
 
-                cmp = tree->cmp(new_node, iter);
-                iter = (cmp < 0) ? iter->left : iter->right;
-        }
+		cmp = tree->cmp(new_node, iter);
+		iter = (cmp < 0) ? iter->left : iter->right;
+	}
 
-        if (!iter)
-                return false;
+	if (!iter)
+		return false;
 
-        cmp = tree->cmp(new_node, iter);
+	cmp = tree->cmp(new_node, iter);
 
-        if (cmp < 0) {
-                iter = ocf_rb_tree_predecessor(iter);
-                if (!iter)
-                        return true;
-                cmp = tree->cmp(new_node, iter);
-                return (cmp > 0);
-        }
+	if (cmp < 0) {
+		iter = ocf_rb_tree_predecessor(iter);
+		if (!iter)
+			return true;
+		cmp = tree->cmp(new_node, iter);
+		return (cmp > 0);
+	}
 
-        if (cmp > 0) {
-                iter = ocf_rb_tree_successor(iter);
-                if (!iter)
-                        return true;
-                cmp = tree->cmp(new_node, iter);
-                return (cmp < 0);
-        }
+	if (cmp > 0) {
+		iter = ocf_rb_tree_successor(iter);
+		if (!iter)
+			return true;
+		cmp = tree->cmp(new_node, iter);
+		return (cmp < 0);
+	}
 
-        return true;
+	return true;
 }
 
 struct ocf_rb_node *ocf_rb_tree_find(struct ocf_rb_tree *tree,
