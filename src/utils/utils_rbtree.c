@@ -134,8 +134,11 @@ void ocf_rb_tree_insert(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 	struct ocf_rb_node *iter, *new_iter;
 	int cmp;
 
+	INIT_LIST_HEAD(&node->list);
+
 	node->left = NULL;
 	node->right = NULL;
+	node->parent = NULL;
 
 	if (!tree->root) {
 		node->red = false;
@@ -147,7 +150,14 @@ void ocf_rb_tree_insert(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 	for (new_iter = tree->root; new_iter;) {
 		iter = new_iter;
 		cmp = tree->cmp(node, iter);
+		if (cmp == 0)
+			break;
 		new_iter = (cmp < 0) ? iter->left : iter->right;
+	}
+
+	if (cmp == 0) {
+		list_add_tail(&node->list, &iter->list);
+		return;
 	}
 
 	node->red = true;
@@ -330,7 +340,22 @@ void ocf_rb_tree_fix_double_black(struct ocf_rb_tree *tree,
 
 void ocf_rb_tree_remove(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 {
-	struct ocf_rb_node *sibling, *rep;
+	struct ocf_rb_node *sibling, *rep, *next;
+
+	if (!list_empty(&node->list)) {
+		/* Node list is not empty */
+		if (!node->parent && node != tree->root) {
+			/* Node is in the middle of the list -> just remove */
+			list_del(&node->list);
+			return;
+		}
+
+		/* Node is at head of the list -> need to make new head */
+		next = list_first_entry(&node->list, struct ocf_rb_node, list);
+		ocf_rb_tree_swap(tree, node, next);
+		list_del(&node->list);
+		return;
+	}
 
 	while (true) {
 		sibling = ocf_rb_tree_sibling(node);
@@ -374,6 +399,9 @@ bool ocf_rb_tree_can_update(struct ocf_rb_tree *tree,
 {
         struct ocf_rb_node *iter = tree->root;
 	int cmp = 0;
+
+	if (!list_empty(&node->list))
+		return false;
 
 	while (iter) {
 		if (iter == node)

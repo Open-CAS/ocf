@@ -13,6 +13,7 @@ struct ocf_rb_node {
 	struct ocf_rb_node *left;
 	struct ocf_rb_node *right;
 	struct ocf_rb_node *parent;
+	struct list_head list;
 };
 
 typedef int (*ocf_rb_tree_node_cmp_cb)(struct ocf_rb_node *n1,
