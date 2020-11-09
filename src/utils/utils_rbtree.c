@@ -5,10 +5,15 @@
 
 #include "utils_rbtree.h"
 
-void ocf_rb_tree_init(struct ocf_rb_tree *tree, ocf_rb_tree_node_cmp_cb cmp)
+static struct ocf_rb_node *ocf_rb_tree_list_find_first(
+		struct ocf_rb_node_list *node_list);
+
+void ocf_rb_tree_init(struct ocf_rb_tree *tree, ocf_rb_tree_node_cmp_cb cmp,
+		ocf_rb_tree_list_find_cb find)
 {
 	tree->root = NULL;
 	tree->cmp = cmp;
+	tree->find = find ?: ocf_rb_tree_list_find_first;
 }
 
 static void ocf_rb_tree_update_parent(struct ocf_rb_tree *tree,
@@ -435,10 +440,22 @@ bool ocf_rb_tree_can_update(struct ocf_rb_tree *tree,
 	return true;
 }
 
+static struct ocf_rb_node *ocf_rb_tree_list_find_first(
+		struct ocf_rb_node_list *node_list)
+{
+	struct ocf_rb_node *node;
+
+	ocf_rb_list_for_each_node(node_list, node)
+		return node;
+
+	return NULL;
+}
+
 struct ocf_rb_node *ocf_rb_tree_find(struct ocf_rb_tree *tree,
 		struct ocf_rb_node *node)
 {
 	struct ocf_rb_node *iter = tree->root;
+	struct ocf_rb_node_list node_list;
 	int cmp = 0;
 
 	while (iter) {
@@ -449,5 +466,11 @@ struct ocf_rb_node *ocf_rb_tree_find(struct ocf_rb_tree *tree,
 		iter = (cmp < 0) ? iter->left : iter->right;
 	}
 
+	if (!iter || list_empty(&iter->list))
+		return iter;
+
+	list_add_tail(&node_list.list, &iter->list);
+	iter = tree->find(&node_list);
+	list_del(&node_list.list);
 	return iter;
 }

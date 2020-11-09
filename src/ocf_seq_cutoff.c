@@ -52,7 +52,7 @@ void ocf_core_seq_cutoff_init(ocf_core_t core)
 
 	ocf_core_log(core, log_info, "Seqential cutoff init\n");
 	env_rwlock_init(&core->seq_cutoff.lock);
-	ocf_rb_tree_init(&core->seq_cutoff.tree, ocf_seq_cutoff_stream_cmp);
+	ocf_rb_tree_init(&core->seq_cutoff.tree, ocf_seq_cutoff_stream_cmp, NULL);
 	INIT_LIST_HEAD(&core->seq_cutoff.lru);
 
 	for (i = 0; i < OCF_SEQ_CUTOFF_MAX_STREAMS; i++) {
