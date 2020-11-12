@@ -13,9 +13,10 @@
 struct ocf_req_allocator;
 
 struct ocf_req_info {
-	/* Number of hits, invalid, misses. */
+	/* Number of hits, invalid, misses, reparts. */
 	unsigned int hit_no;
 	unsigned int invalid_no;
+	unsigned int re_part_no;
 
 	uint32_t dirty_all;
 	/*!< Number of dirty line in request*/

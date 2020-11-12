@@ -128,6 +128,7 @@ void ocf_engine_update_req_info(struct ocf_cache *cache,
 			 * Need to move this cache line into other partition
 			 */
 			_entry->re_part = req->info.re_part = true;
+			req->info.re_part_no++;
 		}
 
 		break;
