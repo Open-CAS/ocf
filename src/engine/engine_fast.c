@@ -69,7 +69,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	if (req->info.re_part) {
+	if (ocf_engine_needs_repart(req)) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
 		ocf_req_hash_lock_wr(req);

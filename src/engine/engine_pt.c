@@ -67,7 +67,7 @@ int ocf_read_pt_do(struct ocf_request *req)
 		return 0;
 	}
 
-	if (req->info.re_part) {
+	if (ocf_engine_needs_repart(req)) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
 		ocf_req_hash_lock_wr(req);

@@ -121,7 +121,7 @@ static inline void _ocf_write_wb_submit(struct ocf_request *req)
 	 * 3. Then continue processing request (flush metadata)
 	 */
 
-	if (req->info.re_part) {
+	if (ocf_engine_needs_repart(req)) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
 		ocf_req_hash_lock_wr(req);

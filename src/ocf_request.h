@@ -33,11 +33,6 @@ struct ocf_req_info {
 	uint32_t mapping_error : 1;
 	/*!< Core lines in this request were not mapped into cache */
 
-	uint32_t re_part : 1;
-	/*!< This bit indicate that in the request some cache lines
-	 * has to be moved to another partition
-	 */
-
 	uint32_t core_error : 1;
 	/*!< Error occured during I/O on core device */
 
