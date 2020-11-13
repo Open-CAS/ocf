@@ -50,6 +50,17 @@ static inline ocf_part_id_t ocf_part_class2id(ocf_cache_t cache, uint64_t class)
 	return PARTITION_DEFAULT;
 }
 
+static inline uint32_t ocf_part_get_occupancy(struct ocf_user_part *part)
+{
+	return part->runtime->curr_size;
+}
+
+static inline uint32_t ocf_part_get_max_size(ocf_cache_t cache,
+		ocf_part_id_t part_id)
+{
+	return cache->user_parts[part_id].config->max_size;
+}
+
 void ocf_part_move(struct ocf_request *req);
 
 #define for_each_part(cache, part, id) \
