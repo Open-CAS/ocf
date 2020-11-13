@@ -45,6 +45,21 @@ static int ocf_seq_cutoff_stream_cmp(struct ocf_rb_node *n1,
 	return 0;
 }
 
+static struct ocf_rb_node *ocf_seq_cutoff_stream_list_find(
+		struct ocf_rb_node_list *node_list)
+{
+	struct ocf_seq_cutoff_stream *stream, *max_stream = NULL;
+	struct ocf_rb_node *node;
+
+	ocf_rb_list_for_each_node(node_list, node) {
+		stream = container_of(node, struct ocf_seq_cutoff_stream, node);
+		if (!max_stream || stream->bytes > max_stream->bytes)
+			max_stream = stream;
+	}
+
+	return &max_stream->node;
+}
+
 void ocf_core_seq_cutoff_init(ocf_core_t core)
 {
 	struct ocf_seq_cutoff_stream *stream;
@@ -52,7 +67,8 @@ void ocf_core_seq_cutoff_init(ocf_core_t core)
 
 	ocf_core_log(core, log_info, "Seqential cutoff init\n");
 	env_rwlock_init(&core->seq_cutoff.lock);
-	ocf_rb_tree_init(&core->seq_cutoff.tree, ocf_seq_cutoff_stream_cmp);
+	ocf_rb_tree_init(&core->seq_cutoff.tree, ocf_seq_cutoff_stream_cmp,
+			ocf_seq_cutoff_stream_list_find);
 	INIT_LIST_HEAD(&core->seq_cutoff.lru);
 
 	for (i = 0; i < OCF_SEQ_CUTOFF_MAX_STREAMS; i++) {

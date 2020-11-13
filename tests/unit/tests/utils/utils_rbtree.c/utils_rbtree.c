@@ -77,7 +77,7 @@ void prepare(struct ocf_rb_tree *tree)
 {
 	int i;
 
-	ocf_rb_tree_init(tree, test_cmp);
+	ocf_rb_tree_init(tree, test_cmp, NULL);
 
 	for (i = 0; i < nodes_number; i++)
 		ocf_rb_tree_insert(tree, &nodes[i].tree);

@@ -5,31 +5,31 @@
 
 #include "utils_rbtree.h"
 
-void ocf_rb_tree_init(struct ocf_rb_tree *tree, ocf_rb_tree_node_cmp_cb cmp)
+static struct ocf_rb_node *ocf_rb_tree_list_find_first(
+		struct ocf_rb_node_list *node_list);
+
+void ocf_rb_tree_init(struct ocf_rb_tree *tree, ocf_rb_tree_node_cmp_cb cmp,
+		ocf_rb_tree_list_find_cb find)
 {
 	tree->root = NULL;
 	tree->cmp = cmp;
+	tree->find = find ?: ocf_rb_tree_list_find_first;
 }
 
 static void ocf_rb_tree_update_parent(struct ocf_rb_tree *tree,
-		struct ocf_rb_node *node, struct ocf_rb_node *old_node,
+		struct ocf_rb_node *parent, struct ocf_rb_node *old_node,
 		struct ocf_rb_node *new_node)
 {
-	if (!node->parent)
-		tree->root = new_node;
-	else if (old_node == node->parent->left)
-		node->parent->left = new_node;
-	else if (old_node == node->parent->right)
-		node->parent->right = new_node;
-}
+	if (!parent) {
+		if (tree->root == old_node)
+			tree->root = new_node;
+		return;
+	}
 
-static void ocf_rb_tree_update_children(struct ocf_rb_node *node)
-{
-	if (node->left)
-		node->left->parent = node;
-
-	if (node->right)
-		node->right->parent = node;
+	if (parent->left == old_node)
+		parent->left = new_node;
+	else if (parent->right == old_node)
+		parent->right = new_node;
 }
 
 static void ocf_rb_tree_rotate_left(struct ocf_rb_tree *tree,
@@ -44,7 +44,7 @@ static void ocf_rb_tree_rotate_left(struct ocf_rb_tree *tree,
 
 	right->parent = node->parent;
 
-	ocf_rb_tree_update_parent(tree, node, node, right);
+	ocf_rb_tree_update_parent(tree, node->parent, node, right);
 
 	right->left = node;
 	node->parent = right;
@@ -62,7 +62,7 @@ static void ocf_rb_tree_rotate_right(struct ocf_rb_tree *tree,
 
 	left->parent = node->parent;
 
-	ocf_rb_tree_update_parent(tree, node, node, left);
+	ocf_rb_tree_update_parent(tree, node->parent, node, left);
 
 	left->right = node;
 	node->parent = left;
@@ -139,8 +139,11 @@ void ocf_rb_tree_insert(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 	struct ocf_rb_node *iter, *new_iter;
 	int cmp;
 
+	INIT_LIST_HEAD(&node->list);
+
 	node->left = NULL;
 	node->right = NULL;
+	node->parent = NULL;
 
 	if (!tree->root) {
 		node->red = false;
@@ -152,7 +155,14 @@ void ocf_rb_tree_insert(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 	for (new_iter = tree->root; new_iter;) {
 		iter = new_iter;
 		cmp = tree->cmp(node, iter);
+		if (cmp == 0)
+			break;
 		new_iter = (cmp < 0) ? iter->left : iter->right;
+	}
+
+	if (cmp == 0) {
+		list_add_tail(&node->list, &iter->list);
+		return;
 	}
 
 	node->red = true;
@@ -165,34 +175,51 @@ void ocf_rb_tree_insert(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 	ocf_rb_tree_fix_violation(tree, node);
 }
 
+static void ocf_rb_copy_node(struct ocf_rb_node *dst, struct ocf_rb_node *src)
+{
+	dst->red = src->red;
+	dst->left = src->left;
+	dst->right = src->right;
+	dst->parent = src->parent;
+}
+
+static void ocf_rb_tree_update_children(struct ocf_rb_node *node)
+{
+	if (node->left)
+		node->left->parent = node;
+
+	if (node->right)
+		node->right->parent = node;
+}
+
 static void ocf_rb_tree_swap(struct ocf_rb_tree *tree,
 		struct ocf_rb_node *node1, struct ocf_rb_node *node2)
 {
 	struct ocf_rb_node tmp;
 
-	if (node1->left == node2)
-		node1->left = node1;
-	else if (node1->right == node2)
-		node1->right = node1;
-	else if (node1->parent == node2)
-		node1->parent = node1;
+	ocf_rb_copy_node(&tmp, node1);
+	ocf_rb_copy_node(node1, node2);
+	ocf_rb_copy_node(node2, &tmp);
 
-	if (node2->left == node1)
-		node2->left = node2;
-	else if (node2->right == node1)
-		node2->right = node2;
-	else if (node2->parent == node1)
-		node2->parent = node2;
+	if (node1->parent == node1)
+		node1->parent = node2;
+	else if (node1->left == node1)
+		node1->left = node2;
+	else if (node1->right == node1)
+		node1->right = node2;
 
-	tmp = *node1;
-	*node1 = *node2;
-	*node2 = tmp;
-
-	ocf_rb_tree_update_parent(tree, node1, node2, node1);
-	ocf_rb_tree_update_parent(tree, node2, node1, node2);
+	if (node2->parent == node2)
+		node2->parent = node1;
+	else if (node2->left == node2)
+		node2->left = node1;
+	else if (node2->right == node2)
+		node2->right = node1;
 
 	ocf_rb_tree_update_children(node1);
 	ocf_rb_tree_update_children(node2);
+
+	ocf_rb_tree_update_parent(tree, node2->parent, node1, node2);
+	ocf_rb_tree_update_parent(tree, node1->parent, node2, node1);
 }
 
 static struct ocf_rb_node *ocf_rb_tree_successor(struct ocf_rb_node *node)
@@ -318,7 +345,22 @@ void ocf_rb_tree_fix_double_black(struct ocf_rb_tree *tree,
 
 void ocf_rb_tree_remove(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 {
-	struct ocf_rb_node *sibling, *rep;
+	struct ocf_rb_node *sibling, *rep, *next;
+
+	if (!list_empty(&node->list)) {
+		/* Node list is not empty */
+		if (!node->parent && node != tree->root) {
+			/* Node is in the middle of the list -> just remove */
+			list_del(&node->list);
+			return;
+		}
+
+		/* Node is at head of the list -> need to make new head */
+		next = list_first_entry(&node->list, struct ocf_rb_node, list);
+		ocf_rb_tree_swap(tree, node, next);
+		list_del(&node->list);
+		return;
+	}
 
 	while (true) {
 		sibling = ocf_rb_tree_sibling(node);
@@ -334,7 +376,8 @@ void ocf_rb_tree_remove(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 				else if (sibling)
 					sibling->red = true;
 
-				ocf_rb_tree_update_parent(tree, node, node, NULL);
+				ocf_rb_tree_update_parent(tree, node->parent,
+						node, NULL);
 			}
 			break;
 		}
@@ -346,7 +389,8 @@ void ocf_rb_tree_remove(struct ocf_rb_tree *tree, struct ocf_rb_node *node)
 			if (!node->red)
 				ocf_rb_tree_fix_double_black(tree, node);
 
-			ocf_rb_tree_update_parent(tree, node, node, NULL);
+			ocf_rb_tree_update_parent(tree, node->parent,
+					node, NULL);
 			break;
 		}
 
@@ -359,44 +403,59 @@ bool ocf_rb_tree_can_update(struct ocf_rb_tree *tree,
                 struct ocf_rb_node *node, struct ocf_rb_node *new_node)
 {
         struct ocf_rb_node *iter = tree->root;
-        int cmp = 0;
+	int cmp = 0;
 
-        while (iter) {
-                if (iter == node)
-                        break;
+	if (!list_empty(&node->list))
+		return false;
 
-                cmp = tree->cmp(new_node, iter);
-                iter = (cmp < 0) ? iter->left : iter->right;
-        }
+	while (iter) {
+		if (iter == node)
+			break;
 
-        if (!iter)
-                return false;
+		cmp = tree->cmp(new_node, iter);
+		iter = (cmp < 0) ? iter->left : iter->right;
+	}
 
-        cmp = tree->cmp(new_node, iter);
+	if (!iter)
+		return false;
 
-        if (cmp < 0) {
-                iter = ocf_rb_tree_predecessor(iter);
-                if (!iter)
-                        return true;
-                cmp = tree->cmp(new_node, iter);
-                return (cmp > 0);
-        }
+	cmp = tree->cmp(new_node, iter);
 
-        if (cmp > 0) {
-                iter = ocf_rb_tree_successor(iter);
-                if (!iter)
-                        return true;
-                cmp = tree->cmp(new_node, iter);
-                return (cmp < 0);
-        }
+	if (cmp < 0) {
+		iter = ocf_rb_tree_predecessor(iter);
+		if (!iter)
+			return true;
+		cmp = tree->cmp(new_node, iter);
+		return (cmp > 0);
+	}
 
-        return true;
+	if (cmp > 0) {
+		iter = ocf_rb_tree_successor(iter);
+		if (!iter)
+			return true;
+		cmp = tree->cmp(new_node, iter);
+		return (cmp < 0);
+	}
+
+	return true;
+}
+
+static struct ocf_rb_node *ocf_rb_tree_list_find_first(
+		struct ocf_rb_node_list *node_list)
+{
+	struct ocf_rb_node *node;
+
+	ocf_rb_list_for_each_node(node_list, node)
+		return node;
+
+	return NULL;
 }
 
 struct ocf_rb_node *ocf_rb_tree_find(struct ocf_rb_tree *tree,
 		struct ocf_rb_node *node)
 {
 	struct ocf_rb_node *iter = tree->root;
+	struct ocf_rb_node_list node_list;
 	int cmp = 0;
 
 	while (iter) {
@@ -407,5 +466,11 @@ struct ocf_rb_node *ocf_rb_tree_find(struct ocf_rb_tree *tree,
 		iter = (cmp < 0) ? iter->left : iter->right;
 	}
 
+	if (!iter || list_empty(&iter->list))
+		return iter;
+
+	list_add_tail(&node_list.list, &iter->list);
+	iter = tree->find(&node_list);
+	list_del(&node_list.list);
 	return iter;
 }
