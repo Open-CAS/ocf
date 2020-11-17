@@ -6,7 +6,7 @@
 #ifndef __UTILS_RBTREE_H__
 #define __UTILS_RBTREE_H__
 
-#include "ocf/ocf.h"
+#include "../ocf_priv.h"
 
 struct ocf_rb_node {
 	bool red;
