@@ -2788,6 +2788,62 @@ static const struct ocf_metadata_iface metadata_hash_iface = {
 
 #include "metadata_bit.h"
 
+#define _ocf_metadata_funcs_5arg(what) \
+bool ocf_metadata_##what(struct ocf_cache *cache, \
+	 ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all) \
+{ \
+	switch (cache->metadata.settings.size) { \
+		case ocf_cache_line_size_4: \
+			return _ocf_metadata_##what##_u8(cache, line, start, stop, all); \
+		case ocf_cache_line_size_8: \
+			return _ocf_metadata_##what##_u16(cache, line, start, stop, all); \
+		case ocf_cache_line_size_16: \
+			return _ocf_metadata_##what##_u32(cache, line, start, stop, all); \
+		case ocf_cache_line_size_32: \
+			return _ocf_metadata_##what##_u64(cache, line, start, stop, all); \
+		case ocf_cache_line_size_64: \
+			return _ocf_metadata_##what##_u128(cache, line, start, stop, all); \
+		case ocf_cache_line_size_none: \
+		default: \
+			ENV_BUG_ON(1); \
+			return false; \
+	} \
+} \
+
+
+#define _ocf_metadata_funcs_4arg(what) \
+bool ocf_metadata_##what(struct ocf_cache *cache, \
+	 ocf_cache_line_t line, uint8_t start, uint8_t stop) \
+{ \
+	switch (cache->metadata.settings.size) { \
+		case ocf_cache_line_size_4: \
+			return _ocf_metadata_##what##_u8(cache, line, start, stop); \
+		case ocf_cache_line_size_8: \
+			return _ocf_metadata_##what##_u16(cache, line, start, stop); \
+		case ocf_cache_line_size_16: \
+			return _ocf_metadata_##what##_u32(cache, line, start, stop); \
+		case ocf_cache_line_size_32: \
+			return _ocf_metadata_##what##_u64(cache, line, start, stop); \
+		case ocf_cache_line_size_64: \
+			return _ocf_metadata_##what##_u128(cache, line, start, stop); \
+		case ocf_cache_line_size_none: \
+		default: \
+			ENV_BUG_ON(1); \
+			return false; \
+	} \
+} \
+
+#define _ocf_metadata_funcs(what) \
+	_ocf_metadata_funcs_5arg(test_##what) \
+	_ocf_metadata_funcs_4arg(test_out_##what) \
+	_ocf_metadata_funcs_4arg(clear_##what) \
+	_ocf_metadata_funcs_4arg(set_##what) \
+	_ocf_metadata_funcs_5arg(test_and_set_##what) \
+	_ocf_metadata_funcs_5arg(test_and_clear_##what)
+
+_ocf_metadata_funcs(dirty)
+_ocf_metadata_funcs(valid)
+
 static void ocf_metadata_hash_init_iface(struct ocf_cache *cache,
 		ocf_metadata_layout_t layout)
 {
@@ -2802,104 +2858,6 @@ static void ocf_metadata_hash_init_iface(struct ocf_cache *cache,
 	iface->layout = layout;
 
 	/* Initialize bit status function */
-
-	switch (cache->metadata.settings.size) {
-	case ocf_cache_line_size_4:
-		iface->test_dirty = _ocf_metadata_test_dirty_u8;
-		iface->test_out_dirty = _ocf_metadata_test_out_dirty_u8;
-		iface->clear_dirty = _ocf_metadata_clear_dirty_u8;
-		iface->set_dirty = _ocf_metadata_set_dirty_u8;
-		iface->test_and_set_dirty = _ocf_metadata_test_and_set_dirty_u8;
-		iface->test_and_clear_dirty =
-				_ocf_metadata_test_and_clear_dirty_u8;
-		iface->test_valid = _ocf_metadata_test_valid_u8;
-		iface->test_out_valid = _ocf_metadata_test_out_valid_u8;
-		iface->clear_valid = _ocf_metadata_clear_valid_u8;
-		iface->set_valid = _ocf_metadata_set_valid_u8;
-		iface->test_and_set_valid = _ocf_metadata_test_and_set_valid_u8;
-		iface->test_and_clear_valid =
-				_ocf_metadata_test_and_clear_valid_u8;
-		break;
-
-	case ocf_cache_line_size_8:
-		iface->test_dirty = _ocf_metadata_test_dirty_u16;
-		iface->test_out_dirty = _ocf_metadata_test_out_dirty_u16;
-		iface->clear_dirty = _ocf_metadata_clear_dirty_u16;
-		iface->set_dirty = _ocf_metadata_set_dirty_u16;
-		iface->test_and_set_dirty =
-				_ocf_metadata_test_and_set_dirty_u16;
-		iface->test_and_clear_dirty =
-				_ocf_metadata_test_and_clear_dirty_u16;
-		iface->test_valid = _ocf_metadata_test_valid_u16;
-		iface->test_out_valid = _ocf_metadata_test_out_valid_u16;
-		iface->clear_valid = _ocf_metadata_clear_valid_u16;
-		iface->set_valid = _ocf_metadata_set_valid_u16;
-		iface->test_and_set_valid =
-				_ocf_metadata_test_and_set_valid_u16;
-		iface->test_and_clear_valid =
-				_ocf_metadata_test_and_clear_valid_u16;
-		break;
-
-	case ocf_cache_line_size_16:
-		iface->test_dirty = _ocf_metadata_test_dirty_u32;
-		iface->test_out_dirty = _ocf_metadata_test_out_dirty_u32;
-		iface->clear_dirty = _ocf_metadata_clear_dirty_u32;
-		iface->set_dirty = _ocf_metadata_set_dirty_u32;
-		iface->test_and_set_dirty =
-				_ocf_metadata_test_and_set_dirty_u32;
-		iface->test_and_clear_dirty =
-				_ocf_metadata_test_and_clear_dirty_u32;
-		iface->test_valid = _ocf_metadata_test_valid_u32;
-		iface->test_out_valid = _ocf_metadata_test_out_valid_u32;
-		iface->clear_valid = _ocf_metadata_clear_valid_u32;
-		iface->set_valid = _ocf_metadata_set_valid_u32;
-		iface->test_and_set_valid =
-				_ocf_metadata_test_and_set_valid_u32;
-		iface->test_and_clear_valid =
-				_ocf_metadata_test_and_clear_valid_u32;
-		break;
-	case ocf_cache_line_size_32:
-		iface->test_dirty = _ocf_metadata_test_dirty_u64;
-		iface->test_out_dirty = _ocf_metadata_test_out_dirty_u64;
-		iface->clear_dirty = _ocf_metadata_clear_dirty_u64;
-		iface->set_dirty = _ocf_metadata_set_dirty_u64;
-		iface->test_and_set_dirty =
-				_ocf_metadata_test_and_set_dirty_u64;
-		iface->test_and_clear_dirty =
-				_ocf_metadata_test_and_clear_dirty_u64;
-		iface->test_valid = _ocf_metadata_test_valid_u64;
-		iface->test_out_valid = _ocf_metadata_test_out_valid_u64;
-		iface->clear_valid = _ocf_metadata_clear_valid_u64;
-		iface->set_valid = _ocf_metadata_set_valid_u64;
-		iface->test_and_set_valid =
-				_ocf_metadata_test_and_set_valid_u64;
-		iface->test_and_clear_valid =
-				_ocf_metadata_test_and_clear_valid_u64;
-		break;
-
-	case ocf_cache_line_size_64:
-		iface->test_dirty = _ocf_metadata_test_dirty_u128;
-		iface->test_out_dirty = _ocf_metadata_test_out_dirty_u128;
-		iface->clear_dirty = _ocf_metadata_clear_dirty_u128;
-		iface->set_dirty = _ocf_metadata_set_dirty_u128;
-		iface->test_and_set_dirty =
-				_ocf_metadata_test_and_set_dirty_u128;
-		iface->test_and_clear_dirty =
-				_ocf_metadata_test_and_clear_dirty_u128;
-		iface->test_valid = _ocf_metadata_test_valid_u128;
-		iface->test_out_valid = _ocf_metadata_test_out_valid_u128;
-		iface->clear_valid = _ocf_metadata_clear_valid_u128;
-		iface->set_valid = _ocf_metadata_set_valid_u128;
-		iface->test_and_set_valid =
-				_ocf_metadata_test_and_set_valid_u128;
-		iface->test_and_clear_valid =
-				_ocf_metadata_test_and_clear_valid_u128;
-		break;
-
-	default:
-		ENV_BUG();
-		break;
-	}
 }
 
 /*

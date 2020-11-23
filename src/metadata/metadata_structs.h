@@ -315,43 +315,6 @@ struct ocf_metadata_iface {
 	struct ocf_metadata_status*
 	(*wr_status_access)(struct ocf_cache *cache,
 			ocf_cache_line_t line);
-
-	bool (*test_dirty)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
-
-	bool (*test_out_dirty)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop);
-
-	bool (*clear_dirty)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop);
-
-	bool (*set_dirty)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop);
-
-	bool (*test_and_set_dirty)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
-
-	bool (*test_and_clear_dirty)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
-
-
-	bool (*test_valid)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
-
-	bool (*test_out_valid)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop);
-
-	bool (*clear_valid)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop);
-
-	bool (*set_valid)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop);
-
-	bool (*test_and_set_valid)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
-
-	bool (*test_and_clear_valid)(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
 };
 
 struct ocf_cache_line_settings {
