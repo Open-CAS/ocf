@@ -5,8 +5,89 @@
 
 #include "ocf/ocf.h"
 #include "metadata.h"
+#include "metadata_internal.h"
 #include "../utils/utils_part.h"
 
+void ocf_metadata_get_partition_info(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_part_id_t *part_id,
+		ocf_cache_line_t *next_line, ocf_cache_line_t *prev_line)
+{
+	const struct ocf_metadata_list_info *info;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
+
+	info = ocf_metadata_raw_rd_access(cache,
+			&(ctrl->raw_desc[metadata_segment_list_info]), line);
+
+	if (info) {
+		if (part_id)
+			*part_id = info->partition_id;
+		if (next_line)
+			*next_line = info->partition_next;
+		if (prev_line)
+			*prev_line = info->partition_prev;
+	} else {
+		ocf_metadata_error(cache);
+		if (part_id)
+			*part_id = PARTITION_DEFAULT;
+		if (next_line)
+			*next_line = cache->device->collision_table_entries;
+		if (prev_line)
+			*prev_line = cache->device->collision_table_entries;
+	}
+}
+
+void ocf_metadata_set_partition_next(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_cache_line_t next_line)
+{
+	struct ocf_metadata_list_info *info;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
+
+	info = ocf_metadata_raw_wr_access(cache,
+			&(ctrl->raw_desc[metadata_segment_list_info]), line);
+
+	if (info)
+		info->partition_next = next_line;
+	else
+		ocf_metadata_error(cache);
+}
+
+void ocf_metadata_set_partition_prev(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_cache_line_t prev_line)
+{
+	struct ocf_metadata_list_info *info;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
+
+	info = ocf_metadata_raw_wr_access(cache,
+			&(ctrl->raw_desc[metadata_segment_list_info]), line);
+
+	if (info)
+		info->partition_prev = prev_line;
+	else
+		ocf_metadata_error(cache);
+}
+
+void ocf_metadata_set_partition_info(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_part_id_t part_id,
+		ocf_cache_line_t next_line, ocf_cache_line_t prev_line)
+{
+	struct ocf_metadata_list_info *info;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
+
+	info = ocf_metadata_raw_wr_access(cache,
+			&(ctrl->raw_desc[metadata_segment_list_info]), line);
+
+	if (info) {
+		info->partition_id = part_id;
+		info->partition_next = next_line;
+		info->partition_prev = prev_line;
+	} else {
+		ocf_metadata_error(cache);
+	}
+}
 /* Sets the given collision_index as the new _head_ of the Partition list. */
 static void update_partition_head(struct ocf_cache *cache,
 		ocf_part_id_t part_id, ocf_cache_line_t line)

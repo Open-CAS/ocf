@@ -6,6 +6,8 @@
 #ifndef __METADATA_CORE_H__
 #define __METADATA_CORE_H__
 
+#include <ocf/ocf_types.h>
+
 void ocf_metadata_get_core_info(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_core_id_t *core_id,
 		uint64_t *core_sector);
