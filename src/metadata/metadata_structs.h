@@ -344,6 +344,9 @@ struct ocf_metadata {
 	const struct ocf_metadata_iface iface;
 		/*!< Metadata service interface */
 
+	ocf_metadata_layout_t layout;
+		/*!< Per-cacheline metadata layout */
+
 	void *priv;
 		/*!< Private data of metadata service interface */
 

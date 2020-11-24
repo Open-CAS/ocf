@@ -32,9 +32,6 @@
 
 #define METADATA_MEM_POOL(ctrl, section) ctrl->raw_desc[section].mem_pool
 
-static void ocf_metadata_hash_init_iface(struct ocf_cache *cache,
-		ocf_metadata_layout_t layout);
-
 #define OCF_METADATA_HASH_DIFF_MAX 1000
 
 enum {
@@ -900,6 +897,17 @@ static void ocf_metadata_hash_flush_unlock_collision_page(
 			page);
 }
 
+static void ocf_metadata_init_layout(struct ocf_cache *cache,
+		ocf_metadata_layout_t layout)
+{
+	ENV_BUG_ON(layout >= ocf_metadata_layout_max || layout < 0);
+
+	/* Initialize metadata location interface*/
+	if (cache->device->init_mode == ocf_init_mode_metadata_volatile)
+		layout = ocf_metadata_layout_seq;
+	cache->metadata.layout = layout;
+}
+
 /*
  * Initialize hash metadata interface
  */
@@ -940,7 +948,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	ctrl->mapping_size = ocf_metadata_status_sizeof(settings)
 		+ sizeof(struct ocf_metadata_map);
 
-	ocf_metadata_hash_init_iface(cache, layout);
+	ocf_metadata_init_layout(cache, layout);
 
 	/* Initial setup of dynamic size RAW containers */
 	for (i = metadata_segment_variable_size_start;
@@ -2553,10 +2561,7 @@ static ocf_cache_line_t ocf_metadata_hash_map_phy2lg_striping(
 ocf_cache_line_t ocf_metadata_map_lg2phy(
 		struct ocf_cache *cache, ocf_cache_line_t coll_idx)
 {
-	struct ocf_metadata_iface *iface = (struct ocf_metadata_iface *)
-			&cache->metadata.iface;
-
-	switch (iface->layout) {
+	switch (cache->metadata.layout) {
 	case ocf_metadata_layout_striping:
 		return ocf_metadata_hash_map_lg2phy_striping(
 				cache, coll_idx);
@@ -2572,10 +2577,7 @@ ocf_cache_line_t ocf_metadata_map_lg2phy(
 ocf_cache_line_t ocf_metadata_map_phy2lg(
 		struct ocf_cache *cache, ocf_cache_line_t cache_line)
 {
-	struct ocf_metadata_iface *iface = (struct ocf_metadata_iface *)
-			&cache->metadata.iface;
-
-	switch (iface->layout) {
+	switch (cache->metadata.layout) {
 	case ocf_metadata_layout_striping:
 		return ocf_metadata_hash_map_phy2lg_striping(
 				cache, cache_line);
@@ -2843,22 +2845,6 @@ bool ocf_metadata_##what(struct ocf_cache *cache, \
 
 _ocf_metadata_funcs(dirty)
 _ocf_metadata_funcs(valid)
-
-static void ocf_metadata_hash_init_iface(struct ocf_cache *cache,
-		ocf_metadata_layout_t layout)
-{
-	struct ocf_metadata_iface *iface = (struct ocf_metadata_iface *)
-			&cache->metadata.iface;
-
-	ENV_BUG_ON(layout >= ocf_metadata_layout_max || layout < 0);
-
-	/* Initialize metadata location interface*/
-	if (cache->device->init_mode == ocf_init_mode_metadata_volatile)
-		layout = ocf_metadata_layout_seq;
-	iface->layout = layout;
-
-	/* Initialize bit status function */
-}
 
 /*
  * Get metadata hash interface
