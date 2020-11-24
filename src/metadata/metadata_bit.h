@@ -58,7 +58,7 @@ static bool _ocf_metadata_test_##what##_##type(struct ocf_cache *cache, \
 	type mask = _get_mask_##type(start, stop); \
 \
 	struct ocf_metadata_hash_ctrl *ctrl = \
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv; \
+		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv; \
 \
 	struct ocf_metadata_raw *raw = \
 			&ctrl->raw_desc[metadata_segment_collision]; \
@@ -88,7 +88,7 @@ static bool _ocf_metadata_test_out_##what##_##type(struct ocf_cache *cache, \
 	type mask = _get_mask_##type(start, stop); \
 \
 	struct ocf_metadata_hash_ctrl *ctrl = \
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv; \
+		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv; \
 \
 	struct ocf_metadata_raw *raw = \
 			&ctrl->raw_desc[metadata_segment_collision]; \
@@ -110,7 +110,7 @@ static bool _ocf_metadata_clear_##what##_##type(struct ocf_cache *cache, \
 	type mask = _get_mask_##type(start, stop); \
 \
 	struct ocf_metadata_hash_ctrl *ctrl = \
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv; \
+		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv; \
 \
 	struct ocf_metadata_raw *raw = \
 			&ctrl->raw_desc[metadata_segment_collision]; \
@@ -135,7 +135,7 @@ static bool _ocf_metadata_set_##what##_##type(struct ocf_cache *cache, \
 	type mask = _get_mask_##type(start, stop); \
 \
 	struct ocf_metadata_hash_ctrl *ctrl = \
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv; \
+		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv; \
 \
 	struct ocf_metadata_raw *raw = \
 			&ctrl->raw_desc[metadata_segment_collision]; \
@@ -159,7 +159,7 @@ static bool _ocf_metadata_test_and_set_##what##_##type( \
 	type mask = _get_mask_##type(start, stop); \
 \
 	struct ocf_metadata_hash_ctrl *ctrl = \
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv; \
+		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv; \
 \
 	struct ocf_metadata_raw *raw = \
 			&ctrl->raw_desc[metadata_segment_collision]; \
@@ -194,7 +194,7 @@ static bool _ocf_metadata_test_and_clear_##what##_##type( \
 	type mask = _get_mask_##type(start, stop); \
 \
 	struct ocf_metadata_hash_ctrl *ctrl = \
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.iface_priv; \
+		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv; \
 \
 	struct ocf_metadata_raw *raw = \
 			&ctrl->raw_desc[metadata_segment_collision]; \
