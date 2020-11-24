@@ -2455,6 +2455,34 @@ static ocf_cache_line_t ocf_metadata_hash_map_phy2lg_seq(
 	return cache_line;
 }
 
+/**
+ * This function is mapping collision index to appropriate cache line
+ * (logical cache line to physical one mapping).
+ *
+ * It is necessary because we want to generate sequential workload with
+ * data to cache device.
+ *	Our collision list, for example, looks:
+ *			0 3 6 9
+ *			1 4 7 10
+ *			2 5 8
+ *	All collision index in each column is on the same page
+ *	on cache device. We don't want send request x times to the same
+ *	page. To don't do it we use collision index by row, but in this
+ *	case we can't use collision index directly as cache line,
+ *	because we will generate non sequential workload (we will write
+ *	pages: 0 -> 3 -> 6 ...). To map collision index in correct way
+ *	we use this function.
+ *
+ *	After use this function, collision index in the above array
+ *	corresponds with below cache line:
+ *			0 1 2 3
+ *			4 5 6 7
+ *			8 9 10
+ *
+ * @param cache - cache instance
+ * @param idx - index in collision list
+ * @return mapped cache line
+ */
 static ocf_cache_line_t ocf_metadata_hash_map_lg2phy_striping(
 		struct ocf_cache *cache, ocf_cache_line_t coll_idx)
 {
@@ -2480,6 +2508,14 @@ static ocf_cache_line_t ocf_metadata_hash_map_lg2phy_striping(
 	return cache_line;
 }
 
+/**
+ * @brief Map physical cache line on cache device to logical one
+ * @note This function is the inverse of map_coll_idx_to_cache_line
+ *
+ * @param cache Cache instance
+ * @param phy Physical cache line of cache device
+ * @return Logical cache line
+ */
 static ocf_cache_line_t ocf_metadata_hash_map_phy2lg_striping(
 		struct ocf_cache *cache, ocf_cache_line_t cache_line)
 {
@@ -2513,6 +2549,45 @@ static ocf_cache_line_t ocf_metadata_hash_map_phy2lg_striping(
 
 	return coll_idx;
 }
+
+ocf_cache_line_t ocf_metadata_map_lg2phy(
+		struct ocf_cache *cache, ocf_cache_line_t coll_idx)
+{
+	struct ocf_metadata_iface *iface = (struct ocf_metadata_iface *)
+			&cache->metadata.iface;
+
+	switch (iface->layout) {
+	case ocf_metadata_layout_striping:
+		return ocf_metadata_hash_map_lg2phy_striping(
+				cache, coll_idx);
+	case ocf_metadata_layout_seq:
+		return ocf_metadata_hash_map_lg2phy_seq(
+				cache, coll_idx);
+	default:
+		ENV_BUG();
+		return 0;
+	}
+}
+
+ocf_cache_line_t ocf_metadata_map_phy2lg(
+		struct ocf_cache *cache, ocf_cache_line_t cache_line)
+{
+	struct ocf_metadata_iface *iface = (struct ocf_metadata_iface *)
+			&cache->metadata.iface;
+
+	switch (iface->layout) {
+	case ocf_metadata_layout_striping:
+		return ocf_metadata_hash_map_phy2lg_striping(
+				cache, cache_line);
+	case ocf_metadata_layout_seq:
+		return ocf_metadata_hash_map_phy2lg_seq(
+				cache, cache_line);
+	default:
+		ENV_BUG();
+		return 0;
+	}
+}
+
 
 static void ocf_metadata_hash_set_collision_info(
 		struct ocf_cache *cache, ocf_cache_line_t line,
@@ -2720,7 +2795,7 @@ static const struct ocf_metadata_iface metadata_hash_iface = {
 	.init_hash_table = ocf_metadata_hash_init_hash_table,
 	.init_collision = ocf_metadata_hash_init_collision,
 
-	.layout_iface = NULL,
+	.layout = ocf_metadata_layout_default,
 	.pages = ocf_metadata_hash_pages,
 	.cachelines = ocf_metadata_hash_cachelines,
 	.size_of = ocf_metadata_hash_size_of,
@@ -2803,18 +2878,6 @@ static const struct ocf_metadata_iface metadata_hash_iface = {
 
 #include "metadata_bit.h"
 
-static const struct ocf_metadata_layout_iface layout_ifaces[ocf_metadata_layout_max] = {
-	[ocf_metadata_layout_striping] = {
-		.lg2phy = ocf_metadata_hash_map_lg2phy_striping,
-		.phy2lg = ocf_metadata_hash_map_phy2lg_striping
-	},
-	[ocf_metadata_layout_seq] = {
-		.lg2phy = ocf_metadata_hash_map_lg2phy_seq,
-		.phy2lg = ocf_metadata_hash_map_phy2lg_seq
-	}
-};
-
-
 static void ocf_metadata_hash_init_iface(struct ocf_cache *cache,
 		ocf_metadata_layout_t layout)
 {
@@ -2826,7 +2889,7 @@ static void ocf_metadata_hash_init_iface(struct ocf_cache *cache,
 	/* Initialize metadata location interface*/
 	if (cache->device->init_mode == ocf_init_mode_metadata_volatile)
 		layout = ocf_metadata_layout_seq;
-	iface->layout_iface = &layout_ifaces[layout];
+	iface->layout = layout;
 
 	/* Initialize bit status function */
 

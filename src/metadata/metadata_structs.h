@@ -26,53 +26,6 @@ enum ocf_metadata_shutdown_status {
 	ocf_metadata_detached = 2, /*!< Cache device detached */
 };
 
-/*
- * Metadata cache line location on pages interface
- */
-struct ocf_metadata_layout_iface {
-	/**
-	 * This function is mapping collision index to appropriate cache line
-	 * (logical cache line to physical one mapping).
-	 *
-	 * It is necessary because we want to generate sequential workload with
-	 * data to cache device.
-	 *	Our collision list, for example, looks:
-	 *			0 3 6 9
-	 *			1 4 7 10
-	 *			2 5 8
-	 *	All collision index in each column is on the same page
-	 *	on cache device. We don't want send request x times to the same
-	 *	page. To don't do it we use collision index by row, but in this
-	 *	case we can't use collision index directly as cache line,
-	 *	because we will generate non sequential workload (we will write
-	 *	pages: 0 -> 3 -> 6 ...). To map collision index in correct way
-	 *	we use this function.
-	 *
-	 *	After use this function, collision index in the above array
-	 *	corresponds with below cache line:
-	 *			0 1 2 3
-	 *			4 5 6 7
-	 *			8 9 10
-	 *
-	 * @param cache - cache instance
-	 * @param idx - index in collision list
-	 * @return mapped cache line
-	 */
-	ocf_cache_line_t (*lg2phy)(struct ocf_cache *cache,
-			ocf_cache_line_t coll_idx);
-
-	/**
-	 * @brief Map physical cache line on cache device to logical one
-	 * @note This function is the inverse of map_coll_idx_to_cache_line
-	 *
-	 * @param cache Cache instance
-	 * @param phy Physical cache line of cache device
-	 * @return Logical cache line
-	 */
-	ocf_cache_line_t (*phy2lg)(struct ocf_cache *cache,
-			ocf_cache_line_t phy);
-};
-
 /**
  * @brief Query cores completion callback
  *
@@ -126,9 +79,9 @@ struct ocf_metadata_iface {
 
 
 	/**
-	 * @brief Metadata cache line location on pages interface
+	 * @brief Per-cacheline metadata layout
 	 */
-	const struct ocf_metadata_layout_iface *layout_iface;
+	ocf_metadata_layout_t layout;
 
 	/**
 	 * @brief Initialize hash table

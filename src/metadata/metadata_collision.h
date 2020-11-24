@@ -38,19 +38,11 @@ struct ocf_metadata_map {
 		/*!<  Entry status structure e.g. valid, dirty...*/
 } __attribute__((packed));
 
-static inline ocf_cache_line_t ocf_metadata_map_lg2phy(
-		struct ocf_cache *cache, ocf_cache_line_t coll_idx)
-{
-	return cache->metadata.iface.layout_iface->lg2phy(cache,
-		    coll_idx);
-}
+ocf_cache_line_t ocf_metadata_map_lg2phy(
+		struct ocf_cache *cache, ocf_cache_line_t coll_idx);
 
-static inline ocf_cache_line_t ocf_metadata_map_phy2lg(
-		struct ocf_cache *cache, ocf_cache_line_t cache_line)
-{
-	return cache->metadata.iface.layout_iface->phy2lg(cache,
-		    cache_line);
-}
+ocf_cache_line_t ocf_metadata_map_phy2lg(
+		struct ocf_cache *cache, ocf_cache_line_t cache_line);
 
 static inline void ocf_metadata_set_collision_info(
 		struct ocf_cache *cache, ocf_cache_line_t line,
