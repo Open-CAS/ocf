@@ -2381,18 +2381,11 @@ void ocf_metadata_get_core_and_part_id(struct ocf_cache *cache,
 ocf_cache_line_t ocf_metadata_get_hash(struct ocf_cache *cache,
 		ocf_cache_line_t index)
 {
-	ocf_cache_line_t line = cache->device->collision_table_entries;
-	int result = 0;
 	struct ocf_metadata_hash_ctrl *ctrl
 		= (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
 
-	result = ocf_metadata_raw_get(cache,
-			&(ctrl->raw_desc[metadata_segment_hash]), index, &line);
-
-	if (result)
-		ocf_metadata_error(cache);
-
-	return line;
+	return *(ocf_cache_line_t *)ocf_metadata_raw_rd_access(cache,
+			&(ctrl->raw_desc[metadata_segment_hash]), index);
 }
 
 /*
@@ -2401,15 +2394,11 @@ ocf_cache_line_t ocf_metadata_get_hash(struct ocf_cache *cache,
 void ocf_metadata_set_hash(struct ocf_cache *cache, ocf_cache_line_t index,
 		ocf_cache_line_t line)
 {
-	int result = 0;
 	struct ocf_metadata_hash_ctrl *ctrl
 		= (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
 
-	result = ocf_metadata_raw_set(cache,
-			&(ctrl->raw_desc[metadata_segment_hash]), index, &line);
-
-	if (result)
-		ocf_metadata_error(cache);
+	*(ocf_cache_line_t *)ocf_metadata_raw_wr_access(cache,
+			&(ctrl->raw_desc[metadata_segment_hash]), index) = line;
 }
 
 /*******************************************************************************

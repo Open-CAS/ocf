@@ -117,12 +117,6 @@ struct raw_iface {
 
 	uint32_t (*page)(struct ocf_metadata_raw *raw, uint32_t entry);
 
-	int (*get)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-			uint32_t entry, void *data);
-
-	int (*set)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-			uint32_t entry, void *data);
-
 	void* (*access)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 			uint32_t entry);
 
@@ -215,21 +209,6 @@ static inline uint32_t ocf_metadata_raw_page(struct ocf_metadata_raw* raw,
 }
 
 /**
- * @brief Get specified element of metadata
- *
- * @param cache - Cache instance
- * @param raw - RAW descriptor
- * @param entry - Entry to be get
- * @param data - Data where metadata entry will be copied into
- * @return 0 - Operation success, otherwise error
- */
-static inline int ocf_metadata_raw_get(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, uint32_t entry, void *data)
-{
-	return raw->iface->get(cache, raw, entry, data);
-}
-
-/**
  * @brief Access specified element of metadata directly
  *
  * @param cache - Cache instance
@@ -257,21 +236,6 @@ static inline const void *ocf_metadata_raw_rd_access( ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, uint32_t entry)
 {
 	return raw->iface->access(cache, raw, entry);
-}
-
-/**
- * @brief Set specified element of metadata
- *
- * @param cache - Cache instance
- * @param raw - RAW descriptor
- * @param entry - Entry to be set
- * @param data - Data taht will be copied into metadata entry
- * @return 0 - Operation success, otherwise error
- */
-static inline int ocf_metadata_raw_set(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, uint32_t entry, void *data)
-{
-	return raw->iface->set(cache, raw, entry, data);
 }
 
 /**
