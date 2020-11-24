@@ -404,7 +404,7 @@ static void ocf_metadata_hash_raw_info(struct ocf_cache *cache,
 /*
  * Deinitialize hash metadata interface
  */
-static void ocf_metadata_hash_deinit_variable_size(struct ocf_cache *cache)
+void ocf_metadata_deinit_variable_size(struct ocf_cache *cache)
 {
 
 	int result = 0;
@@ -445,7 +445,7 @@ static inline void ocf_metadata_config_init(struct ocf_cache *cache,
 			ocf_metadata_status_sizeof(settings));
 }
 
-static void ocf_metadata_hash_deinit(struct ocf_cache *cache)
+void ocf_metadata_deinit_fixed_size(struct ocf_cache *cache)
 {
 	int result = 0;
 	uint32_t i;
@@ -515,7 +515,7 @@ static struct ocf_metadata_hash_ctrl *ocf_metadata_hash_ctrl_init(
 	return ctrl;
 }
 
-int ocf_metadata_hash_init(struct ocf_cache *cache,
+int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 		ocf_cache_line_size_t cache_line_size)
 {
 	struct ocf_metadata_hash_ctrl *ctrl = NULL;
@@ -550,7 +550,7 @@ int ocf_metadata_hash_init(struct ocf_cache *cache,
 	}
 
 	if (result) {
-		ocf_metadata_hash_deinit(cache);
+		ocf_metadata_deinit_fixed_size(cache);
 		return result;
 	}
 
@@ -828,7 +828,7 @@ exit:
 	return err;
 }
 
-void ocf_metadata_hash_query_cores(ocf_ctx_t owner, ocf_volume_t volume,
+void ocf_metadata_query_cores(ocf_ctx_t owner, ocf_volume_t volume,
 		struct ocf_volume_uuid *uuid, uint32_t count,
 		ocf_metadata_query_cores_end_t cmpl, void *priv)
 {
@@ -903,7 +903,7 @@ static void ocf_metadata_hash_flush_unlock_collision_page(
 /*
  * Initialize hash metadata interface
  */
-static int ocf_metadata_hash_init_variable_size(struct ocf_cache *cache,
+int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		uint64_t device_size, ocf_cache_line_size_t cache_line_size,
 		ocf_metadata_layout_t layout)
 {
@@ -1024,7 +1024,7 @@ finalize:
 		/*
 		 * Hash De-Init also contains RAW deinitialization
 		 */
-		ocf_metadata_hash_deinit_variable_size(cache);
+		ocf_metadata_deinit_variable_size(cache);
 		return result;
 	}
 
@@ -1080,7 +1080,7 @@ finalize:
 	if (result) {
 		ocf_cache_log(cache, log_err, "Failed to initialize attached "
 				"metadata concurrency\n");
-		ocf_metadata_hash_deinit_variable_size(cache);
+		ocf_metadata_deinit_variable_size(cache);
 		return  result;
 	}
 
@@ -1101,7 +1101,7 @@ static inline void _ocf_init_collision_entry(struct ocf_cache *cache,
 /*
  * Initialize collision table
  */
-static void ocf_metadata_hash_init_collision(struct ocf_cache *cache)
+void ocf_metadata_init_collision(struct ocf_cache *cache)
 {
 	unsigned int i;
 	unsigned int step = 0;
@@ -1115,7 +1115,7 @@ static void ocf_metadata_hash_init_collision(struct ocf_cache *cache)
 /*
  * Initialize hash table
  */
-static void ocf_metadata_hash_init_hash_table(struct ocf_cache *cache)
+void ocf_metadata_init_hash_table(struct ocf_cache *cache)
 {
 	unsigned int i;
 	unsigned int hash_table_entries = cache->device->hash_table_entries;
@@ -1135,7 +1135,7 @@ static void ocf_metadata_hash_init_hash_table(struct ocf_cache *cache)
 /*
  * Get count of pages that is dedicated for metadata
  */
-static ocf_cache_line_t ocf_metadata_hash_pages(struct ocf_cache *cache)
+ocf_cache_line_t ocf_metadata_get_pages_count(struct ocf_cache *cache)
 {
 	struct ocf_metadata_hash_ctrl *ctrl = NULL;
 
@@ -1149,7 +1149,7 @@ static ocf_cache_line_t ocf_metadata_hash_pages(struct ocf_cache *cache)
 /*
  * Get amount of cache lines
  */
-static ocf_cache_line_t ocf_metadata_hash_cachelines(
+ocf_cache_line_t ocf_metadata_get_cachelines_count(
 		struct ocf_cache *cache)
 {
 	struct ocf_metadata_hash_ctrl *ctrl = NULL;
@@ -1161,7 +1161,7 @@ static ocf_cache_line_t ocf_metadata_hash_cachelines(
 	return ctrl->cachelines;
 }
 
-static size_t ocf_metadata_hash_size_of(struct ocf_cache *cache)
+size_t ocf_metadata_size_of(struct ocf_cache *cache)
 {
 	uint32_t i = 0;
 	size_t size = 0;
@@ -1390,7 +1390,7 @@ static void ocf_metadata_hash_load_sb_restore(
 	}
 }
 
-static void ocf_metadata_hash_load_superblock_finish(ocf_pipeline_t pipeline,
+static void ocf_metadata_load_superblock_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
 	struct ocf_metadata_hash_context *context = priv;
@@ -1447,7 +1447,7 @@ struct ocf_pipeline_arg ocf_metadata_hash_load_sb_check_crc_args_clean[] = {
 
 struct ocf_pipeline_properties ocf_metadata_hash_load_sb_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_hash_context),
-	.finish = ocf_metadata_hash_load_superblock_finish,
+	.finish = ocf_metadata_load_superblock_finish,
 	.steps = {
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_store_segment,
 				ocf_metadata_hash_load_sb_store_segment_args),
@@ -1466,8 +1466,8 @@ struct ocf_pipeline_properties ocf_metadata_hash_load_sb_pipeline_props = {
 /*
  * Super Block - Load, This function has to prevent to pointers overwrite
  */
-static void ocf_metadata_hash_load_superblock(ocf_cache_t cache,
-		ocf_metadata_end_t cmpl, void *priv)
+void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
+		void *priv)
 {
 	struct ocf_metadata_hash_context *context;
 	ocf_pipeline_t pipeline;
@@ -1569,7 +1569,7 @@ static void ocf_medatata_hash_flush_segment(ocf_pipeline_t pipeline,
 			ocf_metadata_hash_generic_complete, context);
 }
 
-static void ocf_metadata_hash_flush_superblock_finish(ocf_pipeline_t pipeline,
+static void ocf_metadata_flush_superblock_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
 	struct ocf_metadata_hash_context *context = priv;
@@ -1622,7 +1622,7 @@ struct ocf_pipeline_arg ocf_metadata_hash_flush_sb_flush_segment_args[] = {
 
 struct ocf_pipeline_properties ocf_metadata_hash_flush_sb_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_hash_context),
-	.finish = ocf_metadata_hash_flush_superblock_finish,
+	.finish = ocf_metadata_flush_superblock_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_medatata_hash_flush_superblock_prepare),
 		OCF_PL_STEP(ocf_medatata_hash_calculate_crc_sb_config),
@@ -1638,7 +1638,7 @@ struct ocf_pipeline_properties ocf_metadata_hash_flush_sb_pipeline_props = {
 /*
  * Super Block - FLUSH
  */
-static void ocf_metadata_hash_flush_superblock(ocf_cache_t cache,
+void ocf_metadata_flush_superblock(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
 	struct ocf_metadata_hash_context *context;
@@ -1670,7 +1670,7 @@ static void ocf_metadata_hash_flush_superblock(ocf_cache_t cache,
  *
  * @return Operation status (0 success, otherwise error)
  */
-static void ocf_metadata_hash_set_shutdown_status(ocf_cache_t cache,
+void ocf_metadata_set_shutdown_status(ocf_cache_t cache,
 		enum ocf_metadata_shutdown_status shutdown_status,
 		ocf_metadata_end_t cmpl, void *priv)
 {
@@ -1694,14 +1694,14 @@ static void ocf_metadata_hash_set_shutdown_status(ocf_cache_t cache,
 	superblock->magic_number = CACHE_MAGIC_NUMBER;
 
 	/* Flush superblock */
-	ocf_metadata_hash_flush_superblock(cache, cmpl, priv);
+	ocf_metadata_flush_superblock(cache, cmpl, priv);
 }
 
 /*******************************************************************************
  * RESERVED AREA
  ******************************************************************************/
 
-static uint64_t ocf_metadata_hash_get_reserved_lba(
+uint64_t ocf_metadata_get_reserved_lba(
 		struct ocf_cache *cache)
 {
 	struct ocf_metadata_hash_ctrl *ctrl;
@@ -1733,7 +1733,7 @@ static void ocf_medatata_hash_flush_all_set_status(ocf_pipeline_t pipeline,
 	enum ocf_metadata_shutdown_status shutdown_status =
 			ocf_pipeline_arg_get_int(arg);
 
-	ocf_metadata_hash_set_shutdown_status(cache, shutdown_status,
+	ocf_metadata_set_shutdown_status(cache, shutdown_status,
 			ocf_medatata_hash_flush_all_set_status_complete,
 			context);
 }
@@ -1788,7 +1788,7 @@ struct ocf_pipeline_properties ocf_metadata_hash_flush_all_pipeline_props = {
 /*
  * Flush all metadata
  */
-static void ocf_metadata_hash_flush_all(ocf_cache_t cache,
+void ocf_metadata_flush_all(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
 	struct ocf_metadata_hash_context *context;
@@ -1815,7 +1815,7 @@ static void ocf_metadata_hash_flush_all(ocf_cache_t cache,
 /*
  * Flush specified cache line
  */
-static void ocf_metadata_hash_flush_mark(struct ocf_cache *cache,
+void ocf_metadata_flush_mark(struct ocf_cache *cache,
 		struct ocf_request *req, uint32_t map_idx, int to_state,
 		uint8_t start, uint8_t stop)
 {
@@ -1839,7 +1839,7 @@ static void ocf_metadata_hash_flush_mark(struct ocf_cache *cache,
 /*
  * Flush specified cache lines asynchronously
  */
-static void ocf_metadata_hash_flush_do_asynch(struct ocf_cache *cache,
+void ocf_metadata_flush_do_asynch(struct ocf_cache *cache,
 		struct ocf_request *req, ocf_req_end_t complete)
 {
 	int result = 0;
@@ -1910,7 +1910,7 @@ struct ocf_pipeline_properties ocf_metadata_hash_load_all_pipeline_props = {
 /*
  * Load all metadata
  */
-static void ocf_metadata_hash_load_all(ocf_cache_t cache,
+void ocf_metadata_load_all(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
 	struct ocf_metadata_hash_context *context;
@@ -2240,7 +2240,7 @@ static void _ocf_metadata_hash_load_recovery_atomic(ocf_cache_t cache,
 /*
  * Load for recovery - Load only data that is required for recovery procedure
  */
-static void ocf_metadata_hash_load_recovery(ocf_cache_t cache,
+void ocf_metadata_load_recovery(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
 	OCF_DEBUG_TRACE(cache);
@@ -2254,7 +2254,7 @@ static void ocf_metadata_hash_load_recovery(ocf_cache_t cache,
 /*******************************************************************************
  * Core Info
  ******************************************************************************/
-static void ocf_metadata_hash_get_core_info(struct ocf_cache *cache,
+void ocf_metadata_get_core_info(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_core_id_t *core_id,
 		uint64_t *core_sector)
 {
@@ -2279,7 +2279,7 @@ static void ocf_metadata_hash_get_core_info(struct ocf_cache *cache,
 	}
 }
 
-static void ocf_metadata_hash_set_core_info(struct ocf_cache *cache,
+void ocf_metadata_set_core_info(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_core_id_t core_id,
 		uint64_t core_sector)
 {
@@ -2298,8 +2298,8 @@ static void ocf_metadata_hash_set_core_info(struct ocf_cache *cache,
 	}
 }
 
-static ocf_core_id_t ocf_metadata_hash_get_core_id(
-		struct ocf_cache *cache, ocf_cache_line_t line)
+ocf_core_id_t ocf_metadata_get_core_id(struct ocf_cache *cache,
+		ocf_cache_line_t line)
 {
 	const struct ocf_metadata_map *collision;
 	struct ocf_metadata_hash_ctrl *ctrl =
@@ -2315,7 +2315,7 @@ static ocf_core_id_t ocf_metadata_hash_get_core_id(
 	return OCF_CORE_MAX;
 }
 
-static struct ocf_metadata_uuid *ocf_metadata_hash_get_core_uuid(
+struct ocf_metadata_uuid *ocf_metadata_get_core_uuid(
 		struct ocf_cache *cache, ocf_core_id_t core_id)
 {
 	struct ocf_metadata_uuid *muuid;
@@ -2335,9 +2335,9 @@ static struct ocf_metadata_uuid *ocf_metadata_hash_get_core_uuid(
  * Core and part id
  ******************************************************************************/
 
-static void ocf_metadata_hash_get_core_and_part_id(
-		struct ocf_cache *cache, ocf_cache_line_t line,
-		ocf_core_id_t *core_id, ocf_part_id_t *part_id)
+void ocf_metadata_get_core_and_part_id(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_core_id_t *core_id,
+		ocf_part_id_t *part_id)
 {
 	const struct ocf_metadata_map *collision;
 	const struct ocf_metadata_list_info *info;
@@ -2370,8 +2370,8 @@ static void ocf_metadata_hash_get_core_and_part_id(
 /*
  * Hash Table - Get
  */
-static ocf_cache_line_t ocf_metadata_hash_get_hash(
-		struct ocf_cache *cache, ocf_cache_line_t index)
+ocf_cache_line_t ocf_metadata_get_hash(struct ocf_cache *cache,
+		ocf_cache_line_t index)
 {
 	ocf_cache_line_t line = cache->device->collision_table_entries;
 	int result = 0;
@@ -2390,8 +2390,8 @@ static ocf_cache_line_t ocf_metadata_hash_get_hash(
 /*
  * Hash Table - Set
  */
-static void ocf_metadata_hash_set_hash(struct ocf_cache *cache,
-		ocf_cache_line_t index, ocf_cache_line_t line)
+void ocf_metadata_set_hash(struct ocf_cache *cache, ocf_cache_line_t index,
+		ocf_cache_line_t line)
 {
 	int result = 0;
 	struct ocf_metadata_hash_ctrl *ctrl
@@ -2411,8 +2411,8 @@ static void ocf_metadata_hash_set_hash(struct ocf_cache *cache,
 /*
  * Cleaning policy - Get
  */
-static struct cleaning_policy_meta *
-ocf_metadata_hash_get_cleaning_policy(struct ocf_cache *cache,
+struct cleaning_policy_meta *
+ocf_metadata_get_cleaning_policy(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
 	struct ocf_metadata_hash_ctrl *ctrl
@@ -2429,8 +2429,8 @@ ocf_metadata_hash_get_cleaning_policy(struct ocf_cache *cache,
 /*
  * Eviction policy - Get
  */
-static union eviction_policy_meta *
-ocf_metadata_hash_get_eviction_policy(struct ocf_cache *cache,
+union eviction_policy_meta *
+ocf_metadata_get_eviction_policy(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
 	struct ocf_metadata_hash_ctrl *ctrl
@@ -2588,10 +2588,9 @@ ocf_cache_line_t ocf_metadata_map_phy2lg(
 	}
 }
 
-
-static void ocf_metadata_hash_set_collision_info(
-		struct ocf_cache *cache, ocf_cache_line_t line,
-		ocf_cache_line_t next, ocf_cache_line_t prev)
+void ocf_metadata_set_collision_info(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_cache_line_t next,
+		ocf_cache_line_t prev)
 {
 	struct ocf_metadata_list_info *info;
 	struct ocf_metadata_hash_ctrl *ctrl =
@@ -2608,9 +2607,8 @@ static void ocf_metadata_hash_set_collision_info(
 	}
 }
 
-static void ocf_metadata_hash_set_collision_next(
-		struct ocf_cache *cache, ocf_cache_line_t line,
-		ocf_cache_line_t next)
+void ocf_metadata_set_collision_next(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_cache_line_t next)
 {
 	struct ocf_metadata_list_info *info;
 	struct ocf_metadata_hash_ctrl *ctrl =
@@ -2625,9 +2623,8 @@ static void ocf_metadata_hash_set_collision_next(
 		ocf_metadata_error(cache);
 }
 
-static void ocf_metadata_hash_set_collision_prev(
-		struct ocf_cache *cache, ocf_cache_line_t line,
-		ocf_cache_line_t prev)
+void ocf_metadata_set_collision_prev(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_cache_line_t prev)
 {
 	struct ocf_metadata_list_info *info;
 	struct ocf_metadata_hash_ctrl *ctrl =
@@ -2642,9 +2639,9 @@ static void ocf_metadata_hash_set_collision_prev(
 		ocf_metadata_error(cache);
 }
 
-static void ocf_metadata_hash_get_collision_info(
-		struct ocf_cache *cache, ocf_cache_line_t line,
-		ocf_cache_line_t *next, ocf_cache_line_t *prev)
+void ocf_metadata_get_collision_info(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_cache_line_t *next,
+		ocf_cache_line_t *prev)
 {
 	const struct ocf_metadata_list_info *info;
 	struct ocf_metadata_hash_ctrl *ctrl =
@@ -2669,7 +2666,7 @@ static void ocf_metadata_hash_get_collision_info(
 	}
 }
 
-void ocf_metadata_hash_start_collision_shared_access(struct ocf_cache *cache,
+void ocf_metadata_start_collision_shared_access(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
 	struct ocf_metadata_hash_ctrl *ctrl =
@@ -2681,7 +2678,7 @@ void ocf_metadata_hash_start_collision_shared_access(struct ocf_cache *cache,
 	ocf_collision_start_shared_access(&cache->metadata.lock, page);
 }
 
-void ocf_metadata_hash_end_collision_shared_access(struct ocf_cache *cache,
+void ocf_metadata_end_collision_shared_access(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
 	struct ocf_metadata_hash_ctrl *ctrl =
@@ -2697,10 +2694,9 @@ void ocf_metadata_hash_end_collision_shared_access(struct ocf_cache *cache,
  *  Partition
  ******************************************************************************/
 
-static void ocf_metadata_hash_get_partition_info(
-		struct ocf_cache *cache, ocf_cache_line_t line,
-		ocf_part_id_t *part_id, ocf_cache_line_t *next_line,
-		ocf_cache_line_t *prev_line)
+void ocf_metadata_get_partition_info(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_part_id_t *part_id,
+		ocf_cache_line_t *next_line, ocf_cache_line_t *prev_line)
 {
 	const struct ocf_metadata_list_info *info;
 	struct ocf_metadata_hash_ctrl *ctrl =
@@ -2727,9 +2723,8 @@ static void ocf_metadata_hash_get_partition_info(
 	}
 }
 
-static void ocf_metadata_hash_set_partition_next(
-		struct ocf_cache *cache, ocf_cache_line_t line,
-		ocf_cache_line_t next_line)
+void ocf_metadata_set_partition_next(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_cache_line_t next_line)
 {
 	struct ocf_metadata_list_info *info;
 	struct ocf_metadata_hash_ctrl *ctrl =
@@ -2744,9 +2739,8 @@ static void ocf_metadata_hash_set_partition_next(
 		ocf_metadata_error(cache);
 }
 
-static void ocf_metadata_hash_set_partition_prev(
-		struct ocf_cache *cache, ocf_cache_line_t line,
-		ocf_cache_line_t prev_line)
+void ocf_metadata_set_partition_prev(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_cache_line_t prev_line)
 {
 	struct ocf_metadata_list_info *info;
 	struct ocf_metadata_hash_ctrl *ctrl =
@@ -2761,10 +2755,9 @@ static void ocf_metadata_hash_set_partition_prev(
 		ocf_metadata_error(cache);
 }
 
-static void ocf_metadata_hash_set_partition_info(
-		struct ocf_cache *cache, ocf_cache_line_t line,
-		ocf_part_id_t part_id, ocf_cache_line_t next_line,
-		ocf_cache_line_t prev_line)
+void ocf_metadata_set_partition_info(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_part_id_t part_id,
+		ocf_cache_line_t next_line, ocf_cache_line_t prev_line)
 {
 	struct ocf_metadata_list_info *info;
 	struct ocf_metadata_hash_ctrl *ctrl =
@@ -2787,89 +2780,6 @@ static void ocf_metadata_hash_set_partition_info(
  ******************************************************************************/
 
 static const struct ocf_metadata_iface metadata_hash_iface = {
-	.init = ocf_metadata_hash_init,
-	.deinit = ocf_metadata_hash_deinit,
-	.query_cores = ocf_metadata_hash_query_cores,
-	.init_variable_size = ocf_metadata_hash_init_variable_size,
-	.deinit_variable_size = ocf_metadata_hash_deinit_variable_size,
-	.init_hash_table = ocf_metadata_hash_init_hash_table,
-	.init_collision = ocf_metadata_hash_init_collision,
-
-	.layout = ocf_metadata_layout_default,
-	.pages = ocf_metadata_hash_pages,
-	.cachelines = ocf_metadata_hash_cachelines,
-	.size_of = ocf_metadata_hash_size_of,
-
-	/*
-	 * Load all, flushing all, etc...
-	 */
-	.flush_all = ocf_metadata_hash_flush_all,
-	.flush_mark = ocf_metadata_hash_flush_mark,
-	.flush_do_asynch = ocf_metadata_hash_flush_do_asynch,
-	.load_all = ocf_metadata_hash_load_all,
-	.load_recovery = ocf_metadata_hash_load_recovery,
-
-	/*
-	 * Super Block
-	 */
-	.set_shutdown_status = ocf_metadata_hash_set_shutdown_status,
-	.flush_superblock = ocf_metadata_hash_flush_superblock,
-	.load_superblock = ocf_metadata_hash_load_superblock,
-
-	/*
-	 * Reserved area
-	 */
-	.get_reserved_lba = ocf_metadata_hash_get_reserved_lba,
-
-	/*
-	 * Core Info
-	 */
-	.set_core_info = ocf_metadata_hash_set_core_info,
-	.get_core_info = ocf_metadata_hash_get_core_info,
-	.get_core_id = ocf_metadata_hash_get_core_id,
-	.get_core_uuid  = ocf_metadata_hash_get_core_uuid,
-
-	/*
-	 * Core and part id
-	 */
-
-	.get_core_and_part_id = ocf_metadata_hash_get_core_and_part_id,
-
-	/*
-	 * Collision Info
-	 */
-	.get_collision_info = ocf_metadata_hash_get_collision_info,
-	.set_collision_info = ocf_metadata_hash_set_collision_info,
-	.set_collision_next = ocf_metadata_hash_set_collision_next,
-	.set_collision_prev = ocf_metadata_hash_set_collision_prev,
-	.start_collision_shared_access =
-			ocf_metadata_hash_start_collision_shared_access,
-	.end_collision_shared_access =
-			ocf_metadata_hash_end_collision_shared_access,
-
-	/*
-	 * Partition Info
-	 */
-	.get_partition_info = ocf_metadata_hash_get_partition_info,
-	.set_partition_next = ocf_metadata_hash_set_partition_next,
-	.set_partition_prev = ocf_metadata_hash_set_partition_prev,
-	.set_partition_info = ocf_metadata_hash_set_partition_info,
-
-	/*
-	 * Hash Table
-	 */
-	.get_hash = ocf_metadata_hash_get_hash,
-	.set_hash = ocf_metadata_hash_set_hash,
-
-	/*
-	 * Cleaning Policy
-	 */
-	.get_cleaning_policy = ocf_metadata_hash_get_cleaning_policy,
-
-	/*
-	 * Eviction Policy
-	 */
-	.get_eviction_policy = ocf_metadata_hash_get_eviction_policy,
 };
 
 /*******************************************************************************

@@ -21,19 +21,23 @@
 #define OCF_DEBUG_TRACE(cache)
 #endif
 
+/* TODO: temporarily still in metadata_hash.c, definition will
+ be moved to this file */
+int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
+		ocf_cache_line_size_t cache_line_size);
+void ocf_metadata_deinit_fixed_size(struct ocf_cache *cache);
+void ocf_metadata_query_cores(ocf_ctx_t owner, ocf_volume_t volume,
+		struct ocf_volume_uuid *uuid, uint32_t count,
+		ocf_metadata_query_cores_end_t cmpl, void *priv);
+
 int ocf_metadata_init(struct ocf_cache *cache,
 		ocf_cache_line_size_t cache_line_size)
 {
-	struct ocf_metadata_iface *iface = (struct ocf_metadata_iface *)
-			&cache->metadata.iface;
 	int ret;
 
 	OCF_DEBUG_TRACE(cache);
 
-	ENV_BUG_ON(cache->metadata.iface_priv);
-
-	*iface = *metadata_hash_get_iface();
-	ret = cache->metadata.iface.init(cache, cache_line_size);
+	ret = ocf_metadata_init_fixed_size(cache, cache_line_size);
 	if (ret) {
 		ocf_metadata_io_deinit(cache);
 		return ret;
@@ -41,8 +45,7 @@ int ocf_metadata_init(struct ocf_cache *cache,
 
 	ret = ocf_metadata_concurrency_init(&cache->metadata.lock);
 	if (ret) {
-		if (cache->metadata.iface.deinit)
-			cache->metadata.iface.deinit(cache);
+		ocf_metadata_deinit_fixed_size(cache);
 
 		ocf_metadata_io_deinit(cache);
 		return ret;
@@ -51,51 +54,13 @@ int ocf_metadata_init(struct ocf_cache *cache,
 	return 0;
 }
 
-int ocf_metadata_init_variable_size(struct ocf_cache *cache, uint64_t device_size,
-		ocf_cache_line_size_t cache_line_size,
-		ocf_metadata_layout_t layout)
-{
-	OCF_DEBUG_TRACE(cache);
-	return cache->metadata.iface.init_variable_size(cache, device_size,
-			cache_line_size, layout);
-}
-
-void ocf_metadata_init_hash_table(struct ocf_cache *cache)
-{
-	OCF_DEBUG_TRACE(cache);
-	cache->metadata.iface.init_hash_table(cache);
-}
-
-void ocf_metadata_init_collision(struct ocf_cache *cache)
-{
-	OCF_DEBUG_TRACE(cache);
-	cache->metadata.iface.init_collision(cache);
-}
-
 void ocf_metadata_deinit(struct ocf_cache *cache)
 {
 	OCF_DEBUG_TRACE(cache);
 
-	if (cache->metadata.iface.deinit) {
-		cache->metadata.iface.deinit(cache);
-	}
-
+	ocf_metadata_deinit_fixed_size(cache);
 	ocf_metadata_concurrency_deinit(&cache->metadata.lock);
-
 	ocf_metadata_io_deinit(cache);
-}
-
-void ocf_metadata_deinit_variable_size(struct ocf_cache *cache)
-{
-	OCF_DEBUG_TRACE(cache);
-
-	if (cache->metadata.iface.deinit_variable_size)
-		cache->metadata.iface.deinit_variable_size(cache);
-}
-
-size_t ocf_metadata_size_of(struct ocf_cache *cache)
-{
-	return cache->metadata.iface.size_of(cache);
 }
 
 void ocf_metadata_error(struct ocf_cache *cache)
@@ -105,47 +70,6 @@ void ocf_metadata_error(struct ocf_cache *cache)
 
 	env_bit_clear(ocf_cache_state_running, &cache->cache_state);
 	cache->device->metadata_error = -1;
-}
-
-ocf_cache_line_t ocf_metadata_get_pages_count(struct ocf_cache *cache)
-{
-	return cache->metadata.iface.pages(cache);
-}
-
-ocf_cache_line_t ocf_metadata_get_cachelines_count(ocf_cache_t cache)
-{
-	return cache->metadata.iface.cachelines(cache);
-}
-
-void ocf_metadata_flush_all(ocf_cache_t cache,
-		ocf_metadata_end_t cmpl, void *priv)
-{
-	cache->metadata.iface.flush_all(cache, cmpl, priv);
-}
-
-void ocf_metadata_load_all(ocf_cache_t cache,
-		ocf_metadata_end_t cmpl, void *priv)
-{
-	cache->metadata.iface.load_all(cache, cmpl, priv);
-}
-
-void ocf_metadata_load_recovery(ocf_cache_t cache,
-		ocf_metadata_end_t cmpl, void *priv)
-{
-	cache->metadata.iface.load_recovery(cache, cmpl, priv);
-}
-
-void ocf_metadata_flush_mark(struct ocf_cache *cache, struct ocf_request *req,
-		uint32_t map_idx, int to_state, uint8_t start, uint8_t stop)
-{
-	cache->metadata.iface.flush_mark(cache, req, map_idx, to_state,
-			start, stop);
-}
-
-void ocf_metadata_flush_do_asynch(struct ocf_cache *cache,
-		struct ocf_request *req, ocf_req_end_t complete)
-{
-	cache->metadata.iface.flush_do_asynch(cache, req, complete);
 }
 
 struct ocf_metadata_read_sb_ctx;
@@ -374,7 +298,6 @@ void ocf_metadata_probe_cores(ocf_ctx_t ctx, ocf_volume_t volume,
 		ocf_metadata_probe_cores_end_t cmpl, void *priv)
 {
 	struct ocf_metadata_query_cores_context *context;
-	const struct ocf_metadata_iface *iface;
 
 	context = env_vzalloc(sizeof(*context));
 	if (!context)
@@ -383,8 +306,7 @@ void ocf_metadata_probe_cores(ocf_ctx_t ctx, ocf_volume_t volume,
 	context->cmpl = cmpl;
 	context->priv = priv;
 
-	iface = metadata_hash_get_iface();
-	iface->query_cores(ctx, volume, uuids, uuids_count,
+	ocf_metadata_query_cores(ctx, volume, uuids, uuids_count,
 			ocf_metadata_query_cores_end, context);
 }
 
