@@ -2778,13 +2778,6 @@ void ocf_metadata_set_partition_info(struct ocf_cache *cache,
 }
 
 /*******************************************************************************
- * Hash Metadata interface definition
- ******************************************************************************/
-
-static const struct ocf_metadata_iface metadata_hash_iface = {
-};
-
-/*******************************************************************************
  *  Bitmap status
  ******************************************************************************/
 
@@ -2845,11 +2838,3 @@ bool ocf_metadata_##what(struct ocf_cache *cache, \
 
 _ocf_metadata_funcs(dirty)
 _ocf_metadata_funcs(valid)
-
-/*
- * Get metadata hash interface
- */
-const struct ocf_metadata_iface *metadata_hash_get_iface(void)
-{
-	return &metadata_hash_iface;
-}

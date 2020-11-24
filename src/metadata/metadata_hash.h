@@ -41,11 +41,4 @@ enum ocf_metadata_segment {
 	metadata_segment_max,		/*!< MAX */
 };
 
-/**
- * @brief Get metadata interface implementation
- *
- * @return metadata interface
- */
-const struct ocf_metadata_iface *metadata_hash_get_iface(void);
-
 #endif /* METADATA_HASH_H_ */
