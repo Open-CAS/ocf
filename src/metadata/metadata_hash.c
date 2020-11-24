@@ -56,7 +56,7 @@ static inline size_t ocf_metadata_status_sizeof(
 /*
  * Hash metadata control structure
  */
-struct ocf_metadata_hash_ctrl {
+struct ocf_metadata_ctrl {
 	ocf_cache_line_t cachelines;
 	ocf_cache_line_t start_page;
 	ocf_cache_line_t count_pages;
@@ -68,7 +68,7 @@ struct ocf_metadata_hash_ctrl {
 /*
  * get entries for specified metadata hash type
  */
-static ocf_cache_line_t ocf_metadata_hash_get_entries(
+static ocf_cache_line_t ocf_metadata_get_entries(
 		enum ocf_metadata_segment type,
 		ocf_cache_line_t cache_lines)
 {
@@ -121,7 +121,7 @@ static ocf_cache_line_t ocf_metadata_hash_get_entries(
 /*
  * Get size of particular hash metadata type element
  */
-static int64_t ocf_metadata_hash_get_element_size(
+static int64_t ocf_metadata_get_element_size(
 		enum ocf_metadata_segment type,
 		const struct ocf_cache_line_settings *settings)
 {
@@ -202,7 +202,7 @@ static int64_t ocf_metadata_hash_get_element_size(
  * @return true - Accept unused sapce
  * @return false - unused space is not acceptable
  */
-static bool ocf_metadata_hash_calculate_exception_hndl(ocf_cache_t cache,
+static bool ocf_metadata_calculate_exception_hndl(ocf_cache_t cache,
 		int64_t unused_lines, int64_t device_lines)
 {
 	static bool warn;
@@ -232,9 +232,9 @@ static bool ocf_metadata_hash_calculate_exception_hndl(ocf_cache_t cache,
  * Algorithm to calculate amount of cache lines taking into account required
  * space for metadata
  */
-static int ocf_metadata_hash_calculate_metadata_size(
+static int ocf_metadata_calculate_metadata_size(
 		struct ocf_cache *cache,
-		struct ocf_metadata_hash_ctrl *ctrl,
+		struct ocf_metadata_ctrl *ctrl,
 		const struct ocf_cache_line_settings *settings)
 {
 	int64_t i_diff = 0, diff_lines = 0, cache_lines = ctrl->device_lines;
@@ -254,7 +254,7 @@ static int ocf_metadata_hash_calculate_metadata_size(
 
 			/* Setup number of entries */
 			raw->entries
-				= ocf_metadata_hash_get_entries(i, cache_lines);
+				= ocf_metadata_get_entries(i, cache_lines);
 
 			/*
 			 * Setup SSD location and size
@@ -274,7 +274,7 @@ static int ocf_metadata_hash_calculate_metadata_size(
 			/*
 			 * Never should be here but try handle this exception
 			 */
-			if (ocf_metadata_hash_calculate_exception_hndl(cache,
+			if (ocf_metadata_calculate_exception_hndl(cache,
 					diff_lines, ctrl->device_lines)) {
 				break;
 			}
@@ -327,7 +327,7 @@ static int ocf_metadata_hash_calculate_metadata_size(
 	return 0;
 }
 
-static const char * const ocf_metadata_hash_raw_names[] = {
+static const char * const ocf_metadata_segment_names[] = {
 		[metadata_segment_sb_config]		= "Super block config",
 		[metadata_segment_sb_runtime]		= "Super block runtime",
 		[metadata_segment_reserved]		= "Reserved",
@@ -346,8 +346,8 @@ static const char * const ocf_metadata_hash_raw_names[] = {
 /*
  * Debug info functions prints metadata and raw containers information
  */
-static void ocf_metadata_hash_raw_info(struct ocf_cache *cache,
-		struct ocf_metadata_hash_ctrl *ctrl)
+static void ocf_metadata_raw_info(struct ocf_cache *cache,
+		struct ocf_metadata_ctrl *ctrl)
 {
 	uint64_t capacity = 0;
 	uint64_t capacity_sum = 0;
@@ -358,7 +358,7 @@ static void ocf_metadata_hash_raw_info(struct ocf_cache *cache,
 		struct ocf_metadata_raw *raw = &(ctrl->raw_desc[i]);
 
 		OCF_DEBUG_PARAM(cache, "Raw : name            = %s",
-				ocf_metadata_hash_raw_names[i]);
+				ocf_metadata_segment_names[i]);
 		OCF_DEBUG_PARAM(cache, "    : metadata type   = %u", i);
 		OCF_DEBUG_PARAM(cache, "    : raw type        = %u",
 				raw->raw_type);
@@ -391,11 +391,11 @@ static void ocf_metadata_hash_raw_info(struct ocf_cache *cache,
 		}
 
 		OCF_DEBUG_PARAM(cache, "%s capacity %llu %s",
-			ocf_metadata_hash_raw_names[i], capacity, unit);
+			ocf_metadata_segment_names[i], capacity, unit);
 	}
 }
 #else
-#define ocf_metadata_hash_raw_info(cache, ctrl)
+#define ocf_metadata_raw_info(cache, ctrl)
 #endif
 
 /*
@@ -407,7 +407,7 @@ void ocf_metadata_deinit_variable_size(struct ocf_cache *cache)
 	int result = 0;
 	uint32_t i = 0;
 
-	struct ocf_metadata_hash_ctrl *ctrl = (struct ocf_metadata_hash_ctrl *)
+	struct ocf_metadata_ctrl *ctrl = (struct ocf_metadata_ctrl *)
 			cache->metadata.priv;
 
 	OCF_DEBUG_TRACE(cache);
@@ -447,7 +447,7 @@ void ocf_metadata_deinit_fixed_size(struct ocf_cache *cache)
 	int result = 0;
 	uint32_t i;
 
-	struct ocf_metadata_hash_ctrl *ctrl = (struct ocf_metadata_hash_ctrl *)
+	struct ocf_metadata_ctrl *ctrl = (struct ocf_metadata_ctrl *)
 			cache->metadata.priv;
 
 	for (i = 0; i < metadata_segment_fixed_size_max; i++) {
@@ -462,10 +462,10 @@ void ocf_metadata_deinit_fixed_size(struct ocf_cache *cache)
 		ENV_BUG();
 }
 
-static struct ocf_metadata_hash_ctrl *ocf_metadata_hash_ctrl_init(
+static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(
 		bool metadata_volatile)
 {
-	struct ocf_metadata_hash_ctrl *ctrl = NULL;
+	struct ocf_metadata_ctrl *ctrl = NULL;
 	uint32_t page = 0;
 	uint32_t i = 0;
 
@@ -490,11 +490,11 @@ static struct ocf_metadata_hash_ctrl *ocf_metadata_hash_ctrl_init(
 
 		/* Entry size configuration */
 		raw->entry_size
-			= ocf_metadata_hash_get_element_size(i, NULL);
+			= ocf_metadata_get_element_size(i, NULL);
 		raw->entries_in_page = PAGE_SIZE / raw->entry_size;
 
 		/* Setup number of entries */
-		raw->entries = ocf_metadata_hash_get_entries(i, 0);
+		raw->entries = ocf_metadata_get_entries(i, 0);
 
 		/*
 		 * Setup SSD location and size
@@ -515,7 +515,7 @@ static struct ocf_metadata_hash_ctrl *ocf_metadata_hash_ctrl_init(
 int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 		ocf_cache_line_size_t cache_line_size)
 {
-	struct ocf_metadata_hash_ctrl *ctrl = NULL;
+	struct ocf_metadata_ctrl *ctrl = NULL;
 	struct ocf_metadata *metadata = &cache->metadata;
 	struct ocf_cache_line_settings *settings =
 		(struct ocf_cache_line_settings *)&metadata->settings;
@@ -534,7 +534,7 @@ int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 
 	ocf_metadata_config_init(cache, settings, cache_line_size);
 
-	ctrl = ocf_metadata_hash_ctrl_init(metadata->is_volatile);
+	ctrl = ocf_metadata_ctrl_init(metadata->is_volatile);
 	if (!ctrl)
 		return -OCF_ERR_NO_MEM;
 	metadata->priv = ctrl;
@@ -615,7 +615,7 @@ struct query_cores_context
 };
 
 /* copy next metadata entry from data to memory buffer */
-static void ocf_metadata_hash_query_cores_data_read(ocf_ctx_t ctx,
+static void ocf_metadata_query_cores_data_read(ocf_ctx_t ctx,
 		struct query_cores_data *data,
 		void *buf, uint32_t size)
 {
@@ -666,7 +666,7 @@ static void ocf_metadata_query_cores_end(struct query_cores_context *context,
 
 	/* read valid cores from core config segment */
 	for (i = 0; i < OCF_CORE_MAX; i++) {
-		ocf_metadata_hash_query_cores_data_read(ctx,
+		ocf_metadata_query_cores_data_read(ctx,
 				&context->data.core_config,
 				&core_config, sizeof(core_config));
 		if (core_config.valid) {
@@ -679,7 +679,7 @@ static void ocf_metadata_query_cores_end(struct query_cores_context *context,
 	out_cores = OCF_MIN(core_count, context->params.uuids_count);
 	for (i = 0, core_idx = 0; i < OCF_CORE_MAX && core_idx < out_cores;
 			i++) {
-		ocf_metadata_hash_query_cores_data_read(ctx,
+		ocf_metadata_query_cores_data_read(ctx,
 				&context->data.core_uuids,
 				muuid, sizeof(*muuid));
 
@@ -767,7 +767,7 @@ int ocf_metadata_query_cores_segment_io(
 		ocf_ctx_t owner,
 		ocf_volume_t volume,
 		enum ocf_metadata_segment segment,
-		struct ocf_metadata_hash_ctrl *ctrl,
+		struct ocf_metadata_ctrl *ctrl,
 		struct query_cores_data *segment_data)
 {
 	uint32_t pages_left;
@@ -829,7 +829,7 @@ void ocf_metadata_query_cores(ocf_ctx_t owner, ocf_volume_t volume,
 		struct ocf_volume_uuid *uuid, uint32_t count,
 		ocf_metadata_query_cores_end_t cmpl, void *priv)
 {
-	struct ocf_metadata_hash_ctrl *ctrl = NULL;
+	struct ocf_metadata_ctrl *ctrl = NULL;
 	struct query_cores_context *context;
 	int err;
 
@@ -849,7 +849,7 @@ void ocf_metadata_query_cores(ocf_ctx_t owner, ocf_volume_t volume,
 	context->params.uuids_count = count;
 	env_atomic_set(&context->count, 1);
 
-	ctrl = ocf_metadata_hash_ctrl_init(false);
+	ctrl = ocf_metadata_ctrl_init(false);
 	if (!ctrl) {
 		err = -OCF_ERR_NO_MEM;
 		goto exit;
@@ -880,7 +880,7 @@ exit:
 	ocf_metadata_query_cores_end(context, err);
 }
 
-static void ocf_metadata_hash_flush_lock_collision_page(struct ocf_cache *cache,
+static void ocf_metadata_flush_lock_collision_page(struct ocf_cache *cache,
 		struct ocf_metadata_raw *raw, uint32_t page)
 
 {
@@ -888,7 +888,7 @@ static void ocf_metadata_hash_flush_lock_collision_page(struct ocf_cache *cache,
 			page);
 }
 
-static void ocf_metadata_hash_flush_unlock_collision_page(
+static void ocf_metadata_flush_unlock_collision_page(
 		struct ocf_cache *cache, struct ocf_metadata_raw *raw,
 		uint32_t page)
 
@@ -918,7 +918,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	int result = 0;
 	uint32_t i = 0;
 	ocf_cache_line_t line;
-	struct ocf_metadata_hash_ctrl *ctrl = NULL;
+	struct ocf_metadata_ctrl *ctrl = NULL;
 	struct ocf_cache_line_settings *settings =
 		(struct ocf_cache_line_settings *)&cache->metadata.settings;
 	ocf_flush_page_synch_t lock_page, unlock_page;
@@ -969,11 +969,11 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 
 		/* Entry size configuration */
 		raw->entry_size
-			= ocf_metadata_hash_get_element_size(i, settings);
+			= ocf_metadata_get_element_size(i, settings);
 		raw->entries_in_page = PAGE_SIZE / raw->entry_size;
 	}
 
-	if (0 != ocf_metadata_hash_calculate_metadata_size(cache, ctrl,
+	if (0 != ocf_metadata_calculate_metadata_size(cache, ctrl,
 			settings)) {
 		return -1;
 	}
@@ -990,9 +990,9 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 			i < metadata_segment_max; i++) {
 		if (i == metadata_segment_collision) {
 			lock_page =
-				ocf_metadata_hash_flush_lock_collision_page;
+				ocf_metadata_flush_lock_collision_page;
 			unlock_page =
-				ocf_metadata_hash_flush_unlock_collision_page;
+				ocf_metadata_flush_unlock_collision_page;
 		} else {
 			lock_page = unlock_page = NULL;
 		}
@@ -1006,22 +1006,22 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 
 	for (i = 0; i < metadata_segment_max; i++) {
 		ocf_cache_log(cache, log_info, "%s offset : %llu kiB\n",
-				ocf_metadata_hash_raw_names[i],
+				ocf_metadata_segment_names[i],
 				ctrl->raw_desc[i].ssd_pages_offset
 				* PAGE_SIZE / KiB);
 		if (i == metadata_segment_sb_config) {
 			ocf_cache_log(cache, log_info, "%s size : %lu B\n",
-				ocf_metadata_hash_raw_names[i],
+				ocf_metadata_segment_names[i],
 				offsetof(struct ocf_superblock_config, checksum)
 				+ sizeof(((struct ocf_superblock_config *)0)
 						->checksum));
 		} else if (i == metadata_segment_sb_runtime) {
 			ocf_cache_log(cache, log_info, "%s size : %lu B\n",
-				ocf_metadata_hash_raw_names[i],
+				ocf_metadata_segment_names[i],
 				sizeof(struct ocf_superblock_runtime));
 		} else {
 			ocf_cache_log(cache, log_info, "%s size : %llu kiB\n",
-					ocf_metadata_hash_raw_names[i],
+					ocf_metadata_segment_names[i],
 					ctrl->raw_desc[i].ssd_pages
 					* PAGE_SIZE / KiB);
 		}
@@ -1049,7 +1049,7 @@ finalize:
 	cache->conf_meta->cachelines = ctrl->cachelines;
 	cache->conf_meta->line_size = cache_line_size;
 
-	ocf_metadata_hash_raw_info(cache, ctrl);
+	ocf_metadata_raw_info(cache, ctrl);
 
 	ocf_cache_log(cache, log_info, "Cache line size: %llu kiB\n",
 			settings->size / KiB);
@@ -1145,11 +1145,11 @@ void ocf_metadata_init_hash_table(struct ocf_cache *cache)
  */
 ocf_cache_line_t ocf_metadata_get_pages_count(struct ocf_cache *cache)
 {
-	struct ocf_metadata_hash_ctrl *ctrl = NULL;
+	struct ocf_metadata_ctrl *ctrl = NULL;
 
 	OCF_DEBUG_TRACE(cache);
 
-	ctrl = (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	return ctrl->count_pages;
 }
@@ -1160,11 +1160,11 @@ ocf_cache_line_t ocf_metadata_get_pages_count(struct ocf_cache *cache)
 ocf_cache_line_t ocf_metadata_get_cachelines_count(
 		struct ocf_cache *cache)
 {
-	struct ocf_metadata_hash_ctrl *ctrl = NULL;
+	struct ocf_metadata_ctrl *ctrl = NULL;
 
 	OCF_DEBUG_TRACE(cache);
 
-	ctrl = (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	return ctrl->cachelines;
 }
@@ -1173,11 +1173,11 @@ size_t ocf_metadata_size_of(struct ocf_cache *cache)
 {
 	uint32_t i = 0;
 	size_t size = 0;
-	struct ocf_metadata_hash_ctrl *ctrl = NULL;
+	struct ocf_metadata_ctrl *ctrl = NULL;
 
 	OCF_DEBUG_TRACE(cache);
 
-	ctrl = (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	/*
 	 * Get size of all RAW metadata container
@@ -1199,7 +1199,7 @@ size_t ocf_metadata_size_of(struct ocf_cache *cache)
  * Super Block
  ******************************************************************************/
 
-struct ocf_metadata_hash_context {
+struct ocf_metadata_context {
 	ocf_metadata_end_t cmpl;
 	void *priv;
 	ocf_pipeline_t pipeline;
@@ -1207,9 +1207,9 @@ struct ocf_metadata_hash_context {
 	struct ocf_metadata_raw segment_copy[metadata_segment_fixed_size_max];
 };
 
-static void ocf_metadata_hash_generic_complete(void *priv, int error)
+static void ocf_metadata_generic_complete(void *priv, int error)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
 }
@@ -1217,27 +1217,27 @@ static void ocf_metadata_hash_generic_complete(void *priv, int error)
 static void ocf_medatata_hash_load_segment(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	int segment = ocf_pipeline_arg_get_int(arg);
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_ctrl *ctrl;
 	ocf_cache_t cache = context->cache;
 
-	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 
 	ocf_metadata_raw_load_all(cache, &ctrl->raw_desc[segment],
-			ocf_metadata_hash_generic_complete, context);
+			ocf_metadata_generic_complete, context);
 }
 
 static void ocf_medatata_hash_store_segment(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	int segment = ocf_pipeline_arg_get_int(arg);
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_ctrl *ctrl;
 	ocf_cache_t cache = context->cache;
 	int error;
 
-	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 
 	context->segment_copy[segment].mem_pool =
 		env_malloc(ctrl->raw_desc[segment].mem_pool_limit, ENV_MEM_NORMAL);
@@ -1259,14 +1259,14 @@ static void ocf_medatata_hash_store_segment(ocf_pipeline_t pipeline,
 static void ocf_medatata_hash_check_crc_sb_config(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_context *context = priv;
+	struct ocf_metadata_ctrl *ctrl;
 	struct ocf_superblock_config *sb_config;
 	ocf_cache_t cache = context->cache;
 	int segment = metadata_segment_sb_config;
 	uint32_t crc;
 
-	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 
 	crc = env_crc32(0, (void *)sb_config,
@@ -1276,7 +1276,7 @@ static void ocf_medatata_hash_check_crc_sb_config(ocf_pipeline_t pipeline,
 		/* Checksum does not match */
 		ocf_cache_log(cache, log_err,
 				"Loading %s ERROR, invalid checksum",
-				ocf_metadata_hash_raw_names[segment]);
+				ocf_metadata_segment_names[segment]);
 		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
 	}
 
@@ -1286,14 +1286,14 @@ static void ocf_medatata_hash_check_crc_sb_config(ocf_pipeline_t pipeline,
 static void ocf_medatata_hash_check_crc_skip(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg, bool skip_on_dirty_shutdown)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	int segment = ocf_pipeline_arg_get_int(arg);
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_ctrl *ctrl;
 	struct ocf_superblock_config *sb_config;
 	ocf_cache_t cache = context->cache;
 	uint32_t crc;
 
-	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 
 	if (!sb_config->clean_shutdown && skip_on_dirty_shutdown)
@@ -1306,11 +1306,11 @@ static void ocf_medatata_hash_check_crc_skip(ocf_pipeline_t pipeline,
 		if (!sb_config->clean_shutdown) {
 			ocf_cache_log(cache, log_warn,
 					"Loading %s WARNING, invalid checksum",
-					ocf_metadata_hash_raw_names[segment]);
+					ocf_metadata_segment_names[segment]);
 		} else {
 			ocf_cache_log(cache, log_err,
 					"Loading %s ERROR, invalid checksum",
-					ocf_metadata_hash_raw_names[segment]);
+					ocf_metadata_segment_names[segment]);
 			OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
 		}
 	}
@@ -1333,8 +1333,8 @@ static void ocf_medatata_hash_check_crc_if_clean(ocf_pipeline_t pipeline,
 static void ocf_medatata_hash_load_superblock_post(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_context *context = priv;
+	struct ocf_metadata_ctrl *ctrl;
 	struct ocf_superblock_config *sb_config;
 	ocf_cache_t cache = context->cache;
 	struct ocf_metadata_uuid *muuid;
@@ -1343,7 +1343,7 @@ static void ocf_medatata_hash_load_superblock_post(ocf_pipeline_t pipeline,
 	ocf_core_t core;
 	ocf_core_id_t core_id;
 
-	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 
 	for_each_core_metadata(cache, core, core_id) {
@@ -1376,14 +1376,14 @@ static void ocf_medatata_hash_load_superblock_post(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void ocf_metadata_hash_load_sb_restore(
-		struct ocf_metadata_hash_context *context)
+static void ocf_metadata_load_sb_restore(
+		struct ocf_metadata_context *context)
 {
 	ocf_cache_t cache = context->cache;
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_ctrl *ctrl;
 	int segment, error;
 
-	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 
 	for (segment = metadata_segment_sb_config;
 			segment < metadata_segment_fixed_size_max; segment++) {
@@ -1401,14 +1401,14 @@ static void ocf_metadata_hash_load_sb_restore(
 static void ocf_metadata_load_superblock_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	int segment;
 
 	if (error) {
 		ocf_cache_log(cache, log_err, "Metadata read FAILURE\n");
 		ocf_metadata_error(cache);
-		ocf_metadata_hash_load_sb_restore(context);
+		ocf_metadata_load_sb_restore(context);
 	}
 
 	for (segment = metadata_segment_sb_config;
@@ -1421,7 +1421,7 @@ static void ocf_metadata_load_superblock_finish(ocf_pipeline_t pipeline,
 	ocf_pipeline_destroy(pipeline);
 }
 
-struct ocf_pipeline_arg ocf_metadata_hash_load_sb_store_segment_args[] = {
+struct ocf_pipeline_arg ocf_metadata_load_sb_store_segment_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_config),
 	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
 	OCF_PL_ARG_INT(metadata_segment_part_config),
@@ -1430,7 +1430,7 @@ struct ocf_pipeline_arg ocf_metadata_hash_load_sb_store_segment_args[] = {
 	OCF_PL_ARG_TERMINATOR(),
 };
 
-struct ocf_pipeline_arg ocf_metadata_hash_load_sb_load_segment_args[] = {
+struct ocf_pipeline_arg ocf_metadata_load_sb_load_segment_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_config),
 	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
 	OCF_PL_ARG_INT(metadata_segment_part_config),
@@ -1440,32 +1440,32 @@ struct ocf_pipeline_arg ocf_metadata_hash_load_sb_load_segment_args[] = {
 	OCF_PL_ARG_TERMINATOR(),
 };
 
-struct ocf_pipeline_arg ocf_metadata_hash_load_sb_check_crc_args[] = {
+struct ocf_pipeline_arg ocf_metadata_load_sb_check_crc_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_part_config),
 	OCF_PL_ARG_INT(metadata_segment_core_config),
 	OCF_PL_ARG_INT(metadata_segment_core_uuid),
 	OCF_PL_ARG_TERMINATOR(),
 };
 
-struct ocf_pipeline_arg ocf_metadata_hash_load_sb_check_crc_args_clean[] = {
+struct ocf_pipeline_arg ocf_metadata_load_sb_check_crc_args_clean[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
 	OCF_PL_ARG_INT(metadata_segment_part_runtime),
 	OCF_PL_ARG_TERMINATOR(),
 };
 
-struct ocf_pipeline_properties ocf_metadata_hash_load_sb_pipeline_props = {
-	.priv_size = sizeof(struct ocf_metadata_hash_context),
+struct ocf_pipeline_properties ocf_metadata_load_sb_pipeline_props = {
+	.priv_size = sizeof(struct ocf_metadata_context),
 	.finish = ocf_metadata_load_superblock_finish,
 	.steps = {
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_store_segment,
-				ocf_metadata_hash_load_sb_store_segment_args),
+				ocf_metadata_load_sb_store_segment_args),
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_load_segment,
-				ocf_metadata_hash_load_sb_load_segment_args),
+				ocf_metadata_load_sb_load_segment_args),
 		OCF_PL_STEP(ocf_medatata_hash_check_crc_sb_config),
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_check_crc,
-				ocf_metadata_hash_load_sb_check_crc_args),
+				ocf_metadata_load_sb_check_crc_args),
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_check_crc_if_clean,
-				ocf_metadata_hash_load_sb_check_crc_args_clean),
+				ocf_metadata_load_sb_check_crc_args_clean),
 		OCF_PL_STEP(ocf_medatata_hash_load_superblock_post),
 		OCF_PL_STEP_TERMINATOR(),
 	},
@@ -1477,16 +1477,16 @@ struct ocf_pipeline_properties ocf_metadata_hash_load_sb_pipeline_props = {
 void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
 		void *priv)
 {
-	struct ocf_metadata_hash_context *context;
+	struct ocf_metadata_context *context;
 	ocf_pipeline_t pipeline;
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_ctrl *ctrl;
 	struct ocf_superblock_config *sb_config;
 	struct ocf_superblock_runtime *sb_runtime;
 	int result;
 
 	OCF_DEBUG_TRACE(cache);
 
-	ctrl = (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
 	ENV_BUG_ON(!ctrl);
 
 	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
@@ -1496,7 +1496,7 @@ void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
 	ENV_BUG_ON(!sb_runtime);
 
 	result = ocf_pipeline_create(&pipeline, cache,
-			&ocf_metadata_hash_load_sb_pipeline_props);
+			&ocf_metadata_load_sb_pipeline_props);
 	if (result)
 		OCF_CMPL_RET(priv, result);
 
@@ -1513,7 +1513,7 @@ void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
 static void ocf_medatata_hash_flush_superblock_prepare(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
@@ -1530,12 +1530,12 @@ static void ocf_medatata_hash_flush_superblock_prepare(ocf_pipeline_t pipeline,
 static void ocf_medatata_hash_calculate_crc_sb_config(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_context *context = priv;
+	struct ocf_metadata_ctrl *ctrl;
 	struct ocf_superblock_config *sb_config;
 	ocf_cache_t cache = context->cache;
 
-	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 
 	sb_config->checksum[metadata_segment_sb_config] = env_crc32(0,
@@ -1548,13 +1548,13 @@ static void ocf_medatata_hash_calculate_crc_sb_config(ocf_pipeline_t pipeline,
 static void ocf_medatata_hash_calculate_crc(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	int segment = ocf_pipeline_arg_get_int(arg);
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_ctrl *ctrl;
 	struct ocf_superblock_config *sb_config;
 	ocf_cache_t cache = context->cache;
 
-	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 
 	sb_config->checksum[segment] = ocf_metadata_raw_checksum(cache,
@@ -1566,21 +1566,21 @@ static void ocf_medatata_hash_calculate_crc(ocf_pipeline_t pipeline,
 static void ocf_medatata_hash_flush_segment(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	int segment = ocf_pipeline_arg_get_int(arg);
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_ctrl *ctrl;
 	ocf_cache_t cache = context->cache;
 
-	ctrl = (struct ocf_metadata_hash_ctrl *)cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 
 	ocf_metadata_raw_flush_all(cache, &ctrl->raw_desc[segment],
-			ocf_metadata_hash_generic_complete, context);
+			ocf_metadata_generic_complete, context);
 }
 
 static void ocf_metadata_flush_superblock_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	if (error)
@@ -1590,9 +1590,9 @@ static void ocf_metadata_flush_superblock_finish(ocf_pipeline_t pipeline,
 	ocf_pipeline_destroy(pipeline);
 }
 
-static void ocf_metadata_hash_flush_disk_end(void *priv, int error)
+static void ocf_metadata_flush_disk_end(void *priv, int error)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_pipeline_t pipeline = context->pipeline;
 
 	if (error) {
@@ -1603,24 +1603,24 @@ static void ocf_metadata_hash_flush_disk_end(void *priv, int error)
 	ocf_pipeline_next(pipeline);
 }
 
-static void ocf_metadata_hash_flush_disk(ocf_pipeline_t pipeline,
+static void ocf_metadata_flush_disk(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	ocf_submit_volume_flush(ocf_cache_get_volume(cache),
-		ocf_metadata_hash_flush_disk_end, context);
+		ocf_metadata_flush_disk_end, context);
 }
 
-struct ocf_pipeline_arg ocf_metadata_hash_flush_sb_calculate_crc_args[] = {
+struct ocf_pipeline_arg ocf_metadata_flush_sb_calculate_crc_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_part_config),
 	OCF_PL_ARG_INT(metadata_segment_core_config),
 	OCF_PL_ARG_INT(metadata_segment_core_uuid),
 	OCF_PL_ARG_TERMINATOR(),
 };
 
-struct ocf_pipeline_arg ocf_metadata_hash_flush_sb_flush_segment_args[] = {
+struct ocf_pipeline_arg ocf_metadata_flush_sb_flush_segment_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_config),
 	OCF_PL_ARG_INT(metadata_segment_part_config),
 	OCF_PL_ARG_INT(metadata_segment_core_config),
@@ -1628,17 +1628,17 @@ struct ocf_pipeline_arg ocf_metadata_hash_flush_sb_flush_segment_args[] = {
 	OCF_PL_ARG_TERMINATOR(),
 };
 
-struct ocf_pipeline_properties ocf_metadata_hash_flush_sb_pipeline_props = {
-	.priv_size = sizeof(struct ocf_metadata_hash_context),
+struct ocf_pipeline_properties ocf_metadata_flush_sb_pipeline_props = {
+	.priv_size = sizeof(struct ocf_metadata_context),
 	.finish = ocf_metadata_flush_superblock_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_medatata_hash_flush_superblock_prepare),
 		OCF_PL_STEP(ocf_medatata_hash_calculate_crc_sb_config),
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_calculate_crc,
-				ocf_metadata_hash_flush_sb_calculate_crc_args),
+				ocf_metadata_flush_sb_calculate_crc_args),
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_flush_segment,
-				ocf_metadata_hash_flush_sb_flush_segment_args),
-		OCF_PL_STEP(ocf_metadata_hash_flush_disk),
+				ocf_metadata_flush_sb_flush_segment_args),
+		OCF_PL_STEP(ocf_metadata_flush_disk),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
@@ -1649,14 +1649,14 @@ struct ocf_pipeline_properties ocf_metadata_hash_flush_sb_pipeline_props = {
 void ocf_metadata_flush_superblock(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	struct ocf_metadata_hash_context *context;
+	struct ocf_metadata_context *context;
 	ocf_pipeline_t pipeline;
 	int result;
 
 	OCF_DEBUG_TRACE(cache);
 
 	result = ocf_pipeline_create(&pipeline, cache,
-			&ocf_metadata_hash_flush_sb_pipeline_props);
+			&ocf_metadata_flush_sb_pipeline_props);
 	if (result)
 		OCF_CMPL_RET(priv, result);
 
@@ -1682,7 +1682,7 @@ void ocf_metadata_set_shutdown_status(ocf_cache_t cache,
 		enum ocf_metadata_shutdown_status shutdown_status,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_ctrl *ctrl;
 	struct ocf_superblock_config *superblock;
 
 	OCF_DEBUG_TRACE(cache);
@@ -1690,7 +1690,7 @@ void ocf_metadata_set_shutdown_status(ocf_cache_t cache,
 	/*
 	 * Get metadata hash service control structure
 	 */
-	ctrl = (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	/*
 	 * Get super block
@@ -1712,11 +1712,11 @@ void ocf_metadata_set_shutdown_status(ocf_cache_t cache,
 uint64_t ocf_metadata_get_reserved_lba(
 		struct ocf_cache *cache)
 {
-	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_ctrl *ctrl;
 
 	OCF_DEBUG_TRACE(cache);
 
-	ctrl = (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
 	return ctrl->raw_desc[metadata_segment_reserved].ssd_pages_offset *
 			PAGE_SIZE;
 }
@@ -1728,7 +1728,7 @@ uint64_t ocf_metadata_get_reserved_lba(
 static void ocf_medatata_hash_flush_all_set_status_complete(
 		void *priv, int error)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
 }
@@ -1736,7 +1736,7 @@ static void ocf_medatata_hash_flush_all_set_status_complete(
 static void ocf_medatata_hash_flush_all_set_status(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	enum ocf_metadata_shutdown_status shutdown_status =
 			ocf_pipeline_arg_get_int(arg);
@@ -1746,10 +1746,10 @@ static void ocf_medatata_hash_flush_all_set_status(ocf_pipeline_t pipeline,
 			context);
 }
 
-static void ocf_metadata_hash_flush_all_finish(ocf_pipeline_t pipeline,
+static void ocf_metadata_flush_all_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	if (error) {
@@ -1765,7 +1765,7 @@ out:
 	ocf_pipeline_destroy(pipeline);
 }
 
-struct ocf_pipeline_arg ocf_metadata_hash_flush_all_args[] = {
+struct ocf_pipeline_arg ocf_metadata_flush_all_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
 	OCF_PL_ARG_INT(metadata_segment_part_runtime),
 	OCF_PL_ARG_INT(metadata_segment_core_runtime),
@@ -1777,16 +1777,16 @@ struct ocf_pipeline_arg ocf_metadata_hash_flush_all_args[] = {
 	OCF_PL_ARG_TERMINATOR(),
 };
 
-struct ocf_pipeline_properties ocf_metadata_hash_flush_all_pipeline_props = {
-	.priv_size = sizeof(struct ocf_metadata_hash_context),
-	.finish = ocf_metadata_hash_flush_all_finish,
+struct ocf_pipeline_properties ocf_metadata_flush_all_pipeline_props = {
+	.priv_size = sizeof(struct ocf_metadata_context),
+	.finish = ocf_metadata_flush_all_finish,
 	.steps = {
 		OCF_PL_STEP_ARG_INT(ocf_medatata_hash_flush_all_set_status,
 				ocf_metadata_dirty_shutdown),
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_flush_segment,
-				ocf_metadata_hash_flush_all_args),
+				ocf_metadata_flush_all_args),
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_calculate_crc,
-				ocf_metadata_hash_flush_all_args),
+				ocf_metadata_flush_all_args),
 		OCF_PL_STEP_ARG_INT(ocf_medatata_hash_flush_all_set_status,
 				ocf_metadata_clean_shutdown),
 		OCF_PL_STEP_TERMINATOR(),
@@ -1799,14 +1799,14 @@ struct ocf_pipeline_properties ocf_metadata_hash_flush_all_pipeline_props = {
 void ocf_metadata_flush_all(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	struct ocf_metadata_hash_context *context;
+	struct ocf_metadata_context *context;
 	ocf_pipeline_t pipeline;
 	int result;
 
 	OCF_DEBUG_TRACE(cache);
 
 	result = ocf_pipeline_create(&pipeline, cache,
-			&ocf_metadata_hash_flush_all_pipeline_props);
+			&ocf_metadata_flush_all_pipeline_props);
 	if (result)
 		OCF_CMPL_RET(priv, result);
 
@@ -1827,11 +1827,11 @@ void ocf_metadata_flush_mark(struct ocf_cache *cache,
 		struct ocf_request *req, uint32_t map_idx, int to_state,
 		uint8_t start, uint8_t stop)
 {
-	struct ocf_metadata_hash_ctrl *ctrl = NULL;
+	struct ocf_metadata_ctrl *ctrl = NULL;
 
 	OCF_DEBUG_TRACE(cache);
 
-	ctrl = (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	/*
 	 * Mark all required metadata elements to make given metadata cache
@@ -1851,11 +1851,11 @@ void ocf_metadata_flush_do_asynch(struct ocf_cache *cache,
 		struct ocf_request *req, ocf_req_end_t complete)
 {
 	int result = 0;
-	struct ocf_metadata_hash_ctrl *ctrl = NULL;
+	struct ocf_metadata_ctrl *ctrl = NULL;
 
 	OCF_DEBUG_TRACE(cache);
 
-	ctrl = (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	/*
 	 * Flush all required metadata elements to make given metadata cache
@@ -1874,10 +1874,10 @@ void ocf_metadata_flush_do_asynch(struct ocf_cache *cache,
 	}
 }
 
-static void ocf_metadata_hash_load_all_finish(ocf_pipeline_t pipeline,
+static void ocf_metadata_load_all_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	if (error) {
@@ -1893,7 +1893,7 @@ out:
 	ocf_pipeline_destroy(pipeline);
 }
 
-struct ocf_pipeline_arg ocf_metadata_hash_load_all_args[] = {
+struct ocf_pipeline_arg ocf_metadata_load_all_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_core_runtime),
 	OCF_PL_ARG_INT(metadata_segment_cleaning),
 	OCF_PL_ARG_INT(metadata_segment_eviction),
@@ -1903,14 +1903,14 @@ struct ocf_pipeline_arg ocf_metadata_hash_load_all_args[] = {
 	OCF_PL_ARG_TERMINATOR(),
 };
 
-struct ocf_pipeline_properties ocf_metadata_hash_load_all_pipeline_props = {
-	.priv_size = sizeof(struct ocf_metadata_hash_context),
-	.finish = ocf_metadata_hash_load_all_finish,
+struct ocf_pipeline_properties ocf_metadata_load_all_pipeline_props = {
+	.priv_size = sizeof(struct ocf_metadata_context),
+	.finish = ocf_metadata_load_all_finish,
 	.steps = {
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_load_segment,
-				ocf_metadata_hash_load_all_args),
+				ocf_metadata_load_all_args),
 		OCF_PL_STEP_FOREACH(ocf_medatata_hash_check_crc,
-				ocf_metadata_hash_load_all_args),
+				ocf_metadata_load_all_args),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
@@ -1921,14 +1921,14 @@ struct ocf_pipeline_properties ocf_metadata_hash_load_all_pipeline_props = {
 void ocf_metadata_load_all(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	struct ocf_metadata_hash_context *context;
+	struct ocf_metadata_context *context;
 	ocf_pipeline_t pipeline;
 	int result;
 
 	OCF_DEBUG_TRACE(cache);
 
 	result = ocf_pipeline_create(&pipeline, cache,
-			&ocf_metadata_hash_load_all_pipeline_props);
+			&ocf_metadata_load_all_pipeline_props);
 	if (result)
 		OCF_CMPL_RET(priv, result);
 
@@ -2010,7 +2010,7 @@ static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
 static void _recovery_rebuild_metadata(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	bool dirty_only = ocf_pipeline_arg_get_int(arg);
 	ocf_cache_t cache = context->cache;
 	ocf_cache_line_t cline;
@@ -2045,10 +2045,10 @@ static void _recovery_rebuild_metadata(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void ocf_metadata_hash_load_recovery_legacy_finish(
+static void ocf_metadata_load_recovery_legacy_finish(
 		ocf_pipeline_t pipeline, void *priv, int error)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	if (error) {
@@ -2066,9 +2066,9 @@ out:
 }
 
 struct ocf_pipeline_properties
-ocf_metadata_hash_load_recovery_legacy_pl_props = {
-	.priv_size = sizeof(struct ocf_metadata_hash_context),
-	.finish = ocf_metadata_hash_load_recovery_legacy_finish,
+ocf_metadata_load_recovery_legacy_pl_props = {
+	.priv_size = sizeof(struct ocf_metadata_context),
+	.finish = ocf_metadata_load_recovery_legacy_finish,
 	.steps = {
 		OCF_PL_STEP_ARG_INT(ocf_medatata_hash_load_segment,
 				metadata_segment_collision),
@@ -2077,17 +2077,17 @@ ocf_metadata_hash_load_recovery_legacy_pl_props = {
 	},
 };
 
-static void _ocf_metadata_hash_load_recovery_legacy(ocf_cache_t cache,
+static void _ocf_metadata_load_recovery_legacy(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	struct ocf_metadata_hash_context *context;
+	struct ocf_metadata_context *context;
 	ocf_pipeline_t pipeline;
 	int result;
 
 	OCF_DEBUG_TRACE(cache);
 
 	result = ocf_pipeline_create(&pipeline, cache,
-			&ocf_metadata_hash_load_recovery_legacy_pl_props);
+			&ocf_metadata_load_recovery_legacy_pl_props);
 	if (result)
 		OCF_CMPL_RET(priv, result);
 
@@ -2101,7 +2101,7 @@ static void _ocf_metadata_hash_load_recovery_legacy(ocf_cache_t cache,
 	ocf_pipeline_next(pipeline);
 }
 
-static ocf_core_id_t _ocf_metadata_hash_find_core_by_seq(
+static ocf_core_id_t _ocf_metadata_find_core_by_seq(
 		struct ocf_cache *cache, ocf_seq_no_t seq_no)
 {
 	ocf_core_t core;
@@ -2118,18 +2118,18 @@ static ocf_core_id_t _ocf_metadata_hash_find_core_by_seq(
 	return core_id;
 }
 
-static void ocf_metadata_hash_load_atomic_metadata_complete(
+static void ocf_metadata_load_atomic_metadata_complete(
 		ocf_cache_t cache, void *priv, int error)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
 }
 
-static int ocf_metadata_hash_load_atomic_metadata_drain(void *priv,
+static int ocf_metadata_load_atomic_metadata_drain(void *priv,
 		uint64_t sector_addr, uint32_t sector_no, ctx_data_t *data)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	struct ocf_atomic_metadata meta;
 	ocf_cache_line_t line = 0;
@@ -2150,7 +2150,7 @@ static int ocf_metadata_hash_load_atomic_metadata_drain(void *priv,
 		core_line = meta.core_line;
 
 		/* Look for core with sequence number same as cache line */
-		core_id = _ocf_metadata_hash_find_core_by_seq(
+		core_id = _ocf_metadata_find_core_by_seq(
 				cache, core_seq_no);
 
 		if (pos == 0)
@@ -2176,13 +2176,13 @@ static int ocf_metadata_hash_load_atomic_metadata_drain(void *priv,
 static void ocf_medatata_hash_load_atomic_metadata(
 		ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	int result;
 
 	result = metadata_io_read_i_atomic(cache, cache->mngt_queue,
-			context, ocf_metadata_hash_load_atomic_metadata_drain,
-			ocf_metadata_hash_load_atomic_metadata_complete);
+			context, ocf_metadata_load_atomic_metadata_drain,
+			ocf_metadata_load_atomic_metadata_complete);
 	if (result) {
 		ocf_metadata_error(cache);
 		ocf_cache_log(cache, log_err,
@@ -2191,10 +2191,10 @@ static void ocf_medatata_hash_load_atomic_metadata(
 	}
 }
 
-static void ocf_metadata_hash_load_recovery_atomic_finish(
+static void ocf_metadata_load_recovery_atomic_finish(
 		ocf_pipeline_t pipeline, void *priv, int error)
 {
-	struct ocf_metadata_hash_context *context = priv;
+	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	if (error) {
@@ -2208,9 +2208,9 @@ static void ocf_metadata_hash_load_recovery_atomic_finish(
 }
 
 struct ocf_pipeline_properties
-ocf_metadata_hash_load_recovery_atomic_pl_props = {
-	.priv_size = sizeof(struct ocf_metadata_hash_context),
-	.finish = ocf_metadata_hash_load_recovery_atomic_finish,
+ocf_metadata_load_recovery_atomic_pl_props = {
+	.priv_size = sizeof(struct ocf_metadata_context),
+	.finish = ocf_metadata_load_recovery_atomic_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_medatata_hash_load_atomic_metadata),
 		OCF_PL_STEP_ARG_INT(_recovery_rebuild_metadata, false),
@@ -2221,17 +2221,17 @@ ocf_metadata_hash_load_recovery_atomic_pl_props = {
 /*
  * RAM Implementation - Load all metadata elements from SSD
  */
-static void _ocf_metadata_hash_load_recovery_atomic(ocf_cache_t cache,
+static void _ocf_metadata_load_recovery_atomic(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	struct ocf_metadata_hash_context *context;
+	struct ocf_metadata_context *context;
 	ocf_pipeline_t pipeline;
 	int result;
 
 	OCF_DEBUG_TRACE(cache);
 
 	result = ocf_pipeline_create(&pipeline, cache,
-			&ocf_metadata_hash_load_recovery_atomic_pl_props);
+			&ocf_metadata_load_recovery_atomic_pl_props);
 	if (result)
 		OCF_CMPL_RET(priv, result);
 
@@ -2254,9 +2254,9 @@ void ocf_metadata_load_recovery(ocf_cache_t cache,
 	OCF_DEBUG_TRACE(cache);
 
 	if (ocf_volume_is_atomic(&cache->device->volume))
-		_ocf_metadata_hash_load_recovery_atomic(cache, cmpl, priv);
+		_ocf_metadata_load_recovery_atomic(cache, cmpl, priv);
 	else
-		_ocf_metadata_hash_load_recovery_legacy(cache, cmpl, priv);
+		_ocf_metadata_load_recovery_legacy(cache, cmpl, priv);
 }
 
 /*******************************************************************************
@@ -2267,8 +2267,8 @@ void ocf_metadata_get_core_info(struct ocf_cache *cache,
 		uint64_t *core_sector)
 {
 	const struct ocf_metadata_map *collision;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	collision = ocf_metadata_raw_rd_access(cache,
 			&(ctrl->raw_desc[metadata_segment_collision]), line);
@@ -2292,8 +2292,8 @@ void ocf_metadata_set_core_info(struct ocf_cache *cache,
 		uint64_t core_sector)
 {
 	struct ocf_metadata_map *collision;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	collision = ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_collision]), line);
@@ -2310,8 +2310,8 @@ ocf_core_id_t ocf_metadata_get_core_id(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
 	const struct ocf_metadata_map *collision;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	collision = ocf_metadata_raw_rd_access(cache,
 			&(ctrl->raw_desc[metadata_segment_collision]), line);
@@ -2327,8 +2327,8 @@ struct ocf_metadata_uuid *ocf_metadata_get_core_uuid(
 		struct ocf_cache *cache, ocf_core_id_t core_id)
 {
 	struct ocf_metadata_uuid *muuid;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	muuid = ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_core_uuid]), core_id);
@@ -2349,8 +2349,8 @@ void ocf_metadata_get_core_and_part_id(struct ocf_cache *cache,
 {
 	const struct ocf_metadata_map *collision;
 	const struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	collision = ocf_metadata_raw_rd_access(cache,
 			&(ctrl->raw_desc[metadata_segment_collision]), line);
@@ -2381,8 +2381,8 @@ void ocf_metadata_get_core_and_part_id(struct ocf_cache *cache,
 ocf_cache_line_t ocf_metadata_get_hash(struct ocf_cache *cache,
 		ocf_cache_line_t index)
 {
-	struct ocf_metadata_hash_ctrl *ctrl
-		= (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl
+		= (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	return *(ocf_cache_line_t *)ocf_metadata_raw_rd_access(cache,
 			&(ctrl->raw_desc[metadata_segment_hash]), index);
@@ -2394,8 +2394,8 @@ ocf_cache_line_t ocf_metadata_get_hash(struct ocf_cache *cache,
 void ocf_metadata_set_hash(struct ocf_cache *cache, ocf_cache_line_t index,
 		ocf_cache_line_t line)
 {
-	struct ocf_metadata_hash_ctrl *ctrl
-		= (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl
+		= (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	*(ocf_cache_line_t *)ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_hash]), index) = line;
@@ -2412,8 +2412,8 @@ struct cleaning_policy_meta *
 ocf_metadata_get_cleaning_policy(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	struct ocf_metadata_hash_ctrl *ctrl
-		= (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl
+		= (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	return ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_cleaning]), line);
@@ -2430,8 +2430,8 @@ union eviction_policy_meta *
 ocf_metadata_get_eviction_policy(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	struct ocf_metadata_hash_ctrl *ctrl
-		= (struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl
+		= (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	return ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_eviction]), line);
@@ -2440,13 +2440,13 @@ ocf_metadata_get_eviction_policy(struct ocf_cache *cache,
 /*******************************************************************************
  *  Collision
  ******************************************************************************/
-static ocf_cache_line_t ocf_metadata_hash_map_lg2phy_seq(
+static ocf_cache_line_t ocf_metadata_map_lg2phy_seq(
 		struct ocf_cache *cache, ocf_cache_line_t coll_idx)
 {
 	return coll_idx;
 }
 
-static ocf_cache_line_t ocf_metadata_hash_map_phy2lg_seq(
+static ocf_cache_line_t ocf_metadata_map_phy2lg_seq(
 		struct ocf_cache *cache, ocf_cache_line_t cache_line)
 {
 	return cache_line;
@@ -2480,12 +2480,12 @@ static ocf_cache_line_t ocf_metadata_hash_map_phy2lg_seq(
  * @param idx - index in collision list
  * @return mapped cache line
  */
-static ocf_cache_line_t ocf_metadata_hash_map_lg2phy_striping(
+static ocf_cache_line_t ocf_metadata_map_lg2phy_striping(
 		struct ocf_cache *cache, ocf_cache_line_t coll_idx)
 {
 	ocf_cache_line_t cache_line = 0, offset = 0;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 	unsigned int entries_in_page =
 		ctrl->raw_desc[metadata_segment_collision].entries_in_page;
 	unsigned int pages =
@@ -2513,13 +2513,13 @@ static ocf_cache_line_t ocf_metadata_hash_map_lg2phy_striping(
  * @param phy Physical cache line of cache device
  * @return Logical cache line
  */
-static ocf_cache_line_t ocf_metadata_hash_map_phy2lg_striping(
+static ocf_cache_line_t ocf_metadata_map_phy2lg_striping(
 		struct ocf_cache *cache, ocf_cache_line_t cache_line)
 {
 	ocf_cache_line_t coll_idx = 0;
 
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	struct ocf_metadata_raw *raw =
 		&ctrl->raw_desc[metadata_segment_collision];
@@ -2552,10 +2552,10 @@ ocf_cache_line_t ocf_metadata_map_lg2phy(
 {
 	switch (cache->metadata.layout) {
 	case ocf_metadata_layout_striping:
-		return ocf_metadata_hash_map_lg2phy_striping(
+		return ocf_metadata_map_lg2phy_striping(
 				cache, coll_idx);
 	case ocf_metadata_layout_seq:
-		return ocf_metadata_hash_map_lg2phy_seq(
+		return ocf_metadata_map_lg2phy_seq(
 				cache, coll_idx);
 	default:
 		ENV_BUG();
@@ -2568,10 +2568,10 @@ ocf_cache_line_t ocf_metadata_map_phy2lg(
 {
 	switch (cache->metadata.layout) {
 	case ocf_metadata_layout_striping:
-		return ocf_metadata_hash_map_phy2lg_striping(
+		return ocf_metadata_map_phy2lg_striping(
 				cache, cache_line);
 	case ocf_metadata_layout_seq:
-		return ocf_metadata_hash_map_phy2lg_seq(
+		return ocf_metadata_map_phy2lg_seq(
 				cache, cache_line);
 	default:
 		ENV_BUG();
@@ -2584,8 +2584,8 @@ void ocf_metadata_set_collision_info(struct ocf_cache *cache,
 		ocf_cache_line_t prev)
 {
 	struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	info = ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
@@ -2602,8 +2602,8 @@ void ocf_metadata_set_collision_next(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_cache_line_t next)
 {
 	struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	info = ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
@@ -2618,8 +2618,8 @@ void ocf_metadata_set_collision_prev(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_cache_line_t prev)
 {
 	struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	info = ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
@@ -2635,8 +2635,8 @@ void ocf_metadata_get_collision_info(struct ocf_cache *cache,
 		ocf_cache_line_t *prev)
 {
 	const struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	ENV_BUG_ON(NULL == next && NULL == prev);
 
@@ -2660,8 +2660,8 @@ void ocf_metadata_get_collision_info(struct ocf_cache *cache,
 void ocf_metadata_start_collision_shared_access(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 	struct ocf_metadata_raw *raw =
 			&ctrl->raw_desc[metadata_segment_collision];
 	uint32_t page = ocf_metadata_raw_page(raw, line);
@@ -2672,8 +2672,8 @@ void ocf_metadata_start_collision_shared_access(struct ocf_cache *cache,
 void ocf_metadata_end_collision_shared_access(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 	struct ocf_metadata_raw *raw =
 			&ctrl->raw_desc[metadata_segment_collision];
 	uint32_t page = ocf_metadata_raw_page(raw, line);
@@ -2690,8 +2690,8 @@ void ocf_metadata_get_partition_info(struct ocf_cache *cache,
 		ocf_cache_line_t *next_line, ocf_cache_line_t *prev_line)
 {
 	const struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	info = ocf_metadata_raw_rd_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
@@ -2718,8 +2718,8 @@ void ocf_metadata_set_partition_next(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_cache_line_t next_line)
 {
 	struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	info = ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
@@ -2734,8 +2734,8 @@ void ocf_metadata_set_partition_prev(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_cache_line_t prev_line)
 {
 	struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	info = ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
@@ -2751,8 +2751,8 @@ void ocf_metadata_set_partition_info(struct ocf_cache *cache,
 		ocf_cache_line_t next_line, ocf_cache_line_t prev_line)
 {
 	struct ocf_metadata_list_info *info;
-	struct ocf_metadata_hash_ctrl *ctrl =
-		(struct ocf_metadata_hash_ctrl *) cache->metadata.priv;
+	struct ocf_metadata_ctrl *ctrl =
+		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	info = ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
