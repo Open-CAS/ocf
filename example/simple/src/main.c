@@ -5,6 +5,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <string.h>
 #include <ocf/ocf.h>
 #include "data.h"
 #include "ctx.h"
