@@ -58,11 +58,11 @@ struct eviction_policy_ops {
 extern struct eviction_policy_ops evict_policy_ops[ocf_eviction_max];
 
 /*
- * Deallocates space from low priority partitions.
+ * Deallocates space according to eviction priorities.
  *
- * Returns -1 on error
- * or the destination partition ID for the free buffers
- * (it matches label and is part of the object (#core_id) IO group)
+ * @returns:
+ * 'LOOKUP_HIT' if evicted enough cachelines to serve @req
+ * 'LOOKUP_MISS' otherwise
  */
 int space_managment_evict_do(ocf_cache_t cache,
 		struct ocf_request *req, uint32_t evict_cline_no);
