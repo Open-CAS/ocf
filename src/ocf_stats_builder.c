@@ -229,15 +229,9 @@ static void _ocf_stats_part_fill(ocf_cache_t cache, ocf_part_id_t part_id,
 			_lines4k(stats->occupancy_clines, cache_line_size),
 			_lines4k(cache_size, cache_line_size));
 
-		if (part_id == PARTITION_DEFAULT) {
-			_set(&usage->free,
-				_lines4k(stats->free_clines, cache_line_size),
-				_lines4k(cache_size, cache_line_size));
-		} else {
-			_set(&usage->free,
-				_lines4k(0, cache_line_size),
-				_lines4k(0, cache_line_size));
-		}
+		_set(&usage->free,
+			_lines4k(stats->free_clines, cache_line_size),
+			_lines4k(cache_size, cache_line_size));
 
 		_set(&usage->clean,
 			_lines4k(stats->occupancy_clines - stats->dirty_clines,
