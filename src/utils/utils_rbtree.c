@@ -192,6 +192,10 @@ static void ocf_rb_tree_update_children(struct ocf_rb_node *node)
 		node->right->parent = node;
 }
 
+/*
+ * Note: When swapping with out-of-tree element, the tree member must go
+ * as node1 and out-of-tree item as node2.
+ */
 static void ocf_rb_tree_swap(struct ocf_rb_tree *tree,
 		struct ocf_rb_node *node1, struct ocf_rb_node *node2)
 {
@@ -218,8 +222,8 @@ static void ocf_rb_tree_swap(struct ocf_rb_tree *tree,
 	ocf_rb_tree_update_children(node1);
 	ocf_rb_tree_update_children(node2);
 
-	ocf_rb_tree_update_parent(tree, node2->parent, node1, node2);
 	ocf_rb_tree_update_parent(tree, node1->parent, node2, node1);
+	ocf_rb_tree_update_parent(tree, node2->parent, node1, node2);
 }
 
 static struct ocf_rb_node *ocf_rb_tree_successor(struct ocf_rb_node *node)
