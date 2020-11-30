@@ -73,7 +73,7 @@ void ocf_core_seq_cutoff_init(ocf_core_t core)
 
 	for (i = 0; i < OCF_SEQ_CUTOFF_MAX_STREAMS; i++) {
 		stream = &core->seq_cutoff.streams[i];
-		stream->last = 0;
+		stream->last = 4096 * i;
 		stream->bytes = 0;
 		stream->rw = 0;
 		ocf_rb_tree_insert(&core->seq_cutoff.tree, &stream->node);
