@@ -12,7 +12,7 @@
  */
 
 #include "ocf_types.h"
-#include "ocf_env.h"
+#include "ocf_env_headers.h"
 #include "ocf/ocf_err.h"
 
 struct ocf_io;
@@ -154,18 +154,7 @@ struct ocf_volume_properties {
  *
  * @return Zero when success, othewise error
  */
-static inline int ocf_uuid_set_str(ocf_uuid_t uuid, char *str)
-{
-	size_t len = env_strnlen(str, OCF_VOLUME_UUID_MAX_SIZE);
-
-	if (len >= OCF_VOLUME_UUID_MAX_SIZE)
-		return -OCF_ERR_INVAL;
-
-	uuid->data = str;
-	uuid->size = len + 1;
-
-	return 0;
-}
+int ocf_uuid_set_str(ocf_uuid_t uuid, char *str);
 
 /**
  * @brief Obtain string from UUID
