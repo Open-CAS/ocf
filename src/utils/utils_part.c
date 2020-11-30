@@ -142,7 +142,7 @@ void ocf_part_move(struct ocf_request *req)
 		ocf_metadata_add_to_partition(cache, id_new, line);
 
 		/* Add to new eviction */
-		ocf_eviction_init_cache_line(cache, line, id_new);
+		ocf_eviction_init_cache_line(cache, line);
 		ocf_eviction_set_hot_cache_line(cache, line);
 
 		/* Check if cache line is dirty. If yes then need to change

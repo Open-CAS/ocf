@@ -38,8 +38,6 @@ struct ocf_user_part_runtime {
 struct ocf_lru_iter {
 	/* cache object */
 	ocf_cache_t cache;
-	/* target partition id */
-	ocf_part_id_t part_id;
 	/* target partition */
 	struct ocf_user_part *part;
 	/* per-partition cacheline iterator */
@@ -56,6 +54,8 @@ struct ocf_lru_iter {
 struct ocf_user_part {
 	struct ocf_user_part_config *config;
 	struct ocf_user_part_runtime *runtime;
+	struct ocf_refcnt cleaning;
+	ocf_part_id_t id;
 
 	struct ocf_lru_iter eviction_clean_iter;
 	uint32_t next_eviction_list;

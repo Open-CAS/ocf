@@ -122,8 +122,6 @@ struct ocf_cache {
 		/* # of requests accessing attached metadata, excluding
 		 * management reqs */
 		struct ocf_refcnt metadata;
-		/* # of forced cleaning requests (eviction path) */
-		struct ocf_refcnt cleaning[OCF_IO_CLASS_MAX];
 	} refcnt;
 
 	uint32_t fallback_pt_error_threshold;

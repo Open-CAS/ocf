@@ -266,7 +266,7 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 			*cache_line);
 	ocf_metadata_end_collision_shared_access(cache, *cache_line);
 
-	ocf_eviction_init_cache_line(cache, *cache_line, part_id);
+	ocf_eviction_init_cache_line(cache, *cache_line);
 
 	/* Update LRU:: Move this node to head of lru list. */
 	ocf_eviction_set_hot_cache_line(cache, *cache_line);
