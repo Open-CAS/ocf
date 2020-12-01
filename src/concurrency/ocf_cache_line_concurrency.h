@@ -153,6 +153,9 @@ void ocf_req_unlock_entry(struct ocf_cache *cache,
  */
 void ocf_cache_line_unlock_rd(struct ocf_cache *cache, ocf_cache_line_t line);
 
+
+void ocf_cache_line_unlock_wr(struct ocf_cache *cache, ocf_cache_line_t line);
+
 /**
  * @brief Attempt to lock cache line for read
  *
@@ -164,4 +167,5 @@ void ocf_cache_line_unlock_rd(struct ocf_cache *cache, ocf_cache_line_t line);
  */
 bool ocf_cache_line_try_lock_rd(struct ocf_cache *cache, ocf_cache_line_t line);
 
+bool ocf_cache_line_try_lock_wr(struct ocf_cache *cache, ocf_cache_line_t line);
 #endif /* OCF_CONCURRENCY_H_ */
