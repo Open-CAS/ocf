@@ -1127,6 +1127,24 @@ bool ocf_cache_line_are_waiters(struct ocf_cache *cache,
 	return are;
 }
 
+/* NOTE: it is caller responsibility to assure that noone acquires
+ * a lock in background */
+bool ocf_cache_line_is_locked_exclusively(struct ocf_cache *cache,
+		ocf_cache_line_t line)
+{
+	struct ocf_cache_line_concurrency *c = cache->device->concurrency.cache_line;
+	env_atomic *access = &c->access[line];
+	int val = env_atomic_read(access);
+
+	ENV_BUG_ON(val == OCF_CACHE_LINE_ACCESS_IDLE);
+
+	if (ocf_cache_line_are_waiters(cache,line))
+		return false;
+
+	return val == OCF_CACHE_LINE_ACCESS_ONE_RD ||
+			val == OCF_CACHE_LINE_ACCESS_WR;
+}
+
 /*
  *
  */
