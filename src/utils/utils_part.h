@@ -56,10 +56,31 @@ static inline uint32_t ocf_part_get_occupancy(struct ocf_user_part *part)
 	return part->runtime->curr_size;
 }
 
-static inline uint32_t ocf_part_get_max_size(ocf_cache_t cache,
-		ocf_part_id_t part_id)
+static inline uint32_t ocf_part_get_min_size(ocf_cache_t cache,
+		struct ocf_user_part *part)
 {
-	return cache->user_parts[part_id].config->max_size;
+	uint64_t ioclass_size;
+
+	ioclass_size = part->config->min_size * cache->conf_meta->cachelines;
+
+	ioclass_size /= 100;
+
+	return (uint32_t)ioclass_size;
+}
+
+
+static inline uint32_t ocf_part_get_max_size(ocf_cache_t cache,
+		struct ocf_user_part *part)
+{
+	uint64_t ioclass_size, max_size, cache_size;
+
+	max_size = part->config->max_size;
+	cache_size = cache->conf_meta->cachelines;
+
+	ioclass_size =  max_size * cache_size;
+	ioclass_size = OCF_DIV_ROUND_UP(ioclass_size, 100);
+
+	return (uint32_t)ioclass_size;
 }
 
 void ocf_part_move(struct ocf_request *req);

@@ -43,6 +43,9 @@ int ocf_mngt_add_partition_to_cache(struct ocf_cache *cache,
 	if (cache->user_parts[part_id].config->flags.valid)
 		return -OCF_ERR_INVAL;
 
+	if (min_size > max_size)
+		return -OCF_ERR_INVAL;
+
 	if (max_size > PARTITION_SIZE_MAX)
 		return -OCF_ERR_INVAL;
 
@@ -87,8 +90,7 @@ static int _ocf_mngt_set_partition_size(struct ocf_cache *cache,
 	if (min > max)
 		return -OCF_ERR_INVAL;
 
-	if (_ocf_mngt_count_parts_min_size(cache) + min
-			>= cache->device->collision_table_entries) {
+	if (_ocf_mngt_count_parts_min_size(cache) + min > PARTITION_SIZE_MAX) {
 		/* Illegal configuration in which sum of all min_sizes exceeds
 		 * cache size.
 		 */
@@ -136,7 +138,7 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 		/* Try set partition size */
 		if (_ocf_mngt_set_partition_size(cache, part_id, min, max)) {
 			ocf_cache_log(cache, log_info,
-				"Setting IO class size, id: %u, name: '%s', max size: %u"
+				"Setting IO class size, id: %u, name: '%s', max size: %u%%"
 				" [ ERROR ]\n", part_id, dest_part->config->name, max);
 			return -OCF_ERR_INVAL;
 		}
@@ -145,7 +147,7 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 
 		ocf_cache_log(cache, log_info,
 				"Updating unclassified IO class, id: %u, name :'%s',"
-				"max size: %u [ OK ]\n",
+				"max size: %u%% [ OK ]\n",
 				part_id, dest_part->config->name, max);
 		return 0;
 	}
@@ -160,7 +162,7 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 	/* Try set partition size */
 	if (_ocf_mngt_set_partition_size(cache, part_id, min, max)) {
 		ocf_cache_log(cache, log_info,
-			"Setting IO class size, id: %u, name: '%s', max size %u"
+			"Setting IO class size, id: %u, name: '%s', max size %u%%"
 			"[ ERROR ]\n", part_id, dest_part->config->name, max);
 		return -OCF_ERR_INVAL;
 	}
@@ -168,14 +170,14 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 	if (ocf_part_is_valid(dest_part)) {
 		/* Updating existing */
 		ocf_cache_log(cache, log_info, "Updating existing IO "
-				"class, id: %u, name: '%s', max size %u [ OK ]\n",
+				"class, id: %u, name: '%s', max size %u%% [ OK ]\n",
 				part_id, dest_part->config->name, max);
 	} else {
 		/* Adding new */
 		ocf_part_set_valid(cache, part_id, true);
 
 		ocf_cache_log(cache, log_info, "Adding new IO class, "
-				"id: %u, name: '%s', max size %u [ OK ]\n", part_id,
+				"id: %u, name: '%s', max size %u%% [ OK ]\n", part_id,
 				dest_part->config->name, max);
 	}
 

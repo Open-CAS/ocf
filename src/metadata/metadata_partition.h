@@ -11,7 +11,7 @@
 
 #define PARTITION_DEFAULT		0
 #define PARTITION_INVALID		((ocf_part_id_t)-1)
-#define PARTITION_SIZE_MAX		((ocf_cache_line_t)-1)
+#define PARTITION_SIZE_MAX		100
 
 static inline void ocf_metadata_get_partition_info(
 		struct ocf_cache *cache, ocf_cache_line_t line,

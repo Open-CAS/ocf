@@ -20,10 +20,14 @@ struct eviction_policy_ops evict_policy_ops[ocf_eviction_max] = {
 	},
 };
 
-static uint32_t ocf_evict_calculate(struct ocf_user_part *part,
-		uint32_t to_evict, bool roundup)
+static uint32_t ocf_evict_calculate(ocf_cache_t cache,
+		struct ocf_user_part *part, uint32_t to_evict, bool roundup)
 {
-	if (part->runtime->curr_size <= part->config->min_size) {
+
+	uint32_t curr_part_size = ocf_part_get_occupancy(part);
+	uint32_t min_part_size = ocf_part_get_min_size(cache, part);
+
+	if (curr_part_size <= min_part_size) {
 		/*
 		 * Cannot evict from this partition because current size
 		 * is less than minimum size
@@ -34,8 +38,8 @@ static uint32_t ocf_evict_calculate(struct ocf_user_part *part,
 	if (roundup && to_evict < OCF_TO_EVICTION_MIN)
 		to_evict = OCF_TO_EVICTION_MIN;
 
-	if (to_evict > (part->runtime->curr_size - part->config->min_size))
-		to_evict = part->runtime->curr_size - part->config->min_size;
+	if (to_evict > (curr_part_size - min_part_size))
+		to_evict = curr_part_size - min_part_size;
 
 	return to_evict;
 }
@@ -49,8 +53,8 @@ static inline uint32_t ocf_evict_part_do(ocf_cache_t cache,
 	if (!evp_lru_can_evict(cache))
 		return 0;
 
-	to_evict = ocf_evict_calculate(&cache->user_parts[target_part_id],
-			evict_cline_no, false);
+	to_evict = ocf_evict_calculate(cache, target_part, evict_cline_no,
+			false);
 
 	return ocf_eviction_need_space(cache, io_queue,
 			target_part, to_evict);
@@ -88,7 +92,8 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 			goto out;
 		}
 
-		to_evict = ocf_evict_calculate(part, evict_cline_no, true);
+		to_evict = ocf_evict_calculate(cache, part, evict_cline_no,
+				true);
 		if (to_evict == 0) {
 			/* No cache lines to evict for this partition */
 			continue;
