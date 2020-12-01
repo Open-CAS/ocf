@@ -397,7 +397,6 @@ static inline bool __lock_cache_line_wr(struct ocf_cache_line_concurrency *c,
 {
 	struct __waiter *waiter;
 	bool locked = false;
-	bool waiting = false;
 	unsigned long flags = 0;
 
 	if (__try_lock_wr(c, line)) {
@@ -407,13 +406,13 @@ static inline bool __lock_cache_line_wr(struct ocf_cache_line_concurrency *c,
 		return true;
 	}
 
-	waiter = NULL;
-	if (cb) {
-		/* Need to create waiter */
-		waiter = env_allocator_new(c->allocator);
-		if (!waiter)
-			return false;
-	}
+	if (!cb)
+		return false;
+
+	/* allocate waiter */
+	waiter = env_allocator_new(c->allocator);
+	if (!waiter)
+		return false;
 
 	__lock_waiters_list(c, line, flags);
 
@@ -423,7 +422,7 @@ static inline bool __lock_cache_line_wr(struct ocf_cache_line_concurrency *c,
 	if (__try_lock_wr(c, line)) {
 		/* Look get */
 		locked = true;
-	} else if (cb) {
+	} else {
 		/* Setup waiters filed */
 		waiter->line = line;
 		waiter->ctx = ctx;
@@ -434,17 +433,16 @@ static inline bool __lock_cache_line_wr(struct ocf_cache_line_concurrency *c,
 
 		/* Add to waiters list */
 		__add_waiter(c, line, waiter);
-		waiting = true;
 	}
 
 	__unlock_waiters_list(c, line, flags);
 
-	if (locked && cb)
+	if (locked) {
 		_req_on_lock(ctx, cb, ctx_id, line, OCF_WRITE);
-	if (!waiting && waiter)
 		env_allocator_del(c->allocator, waiter);
+	}
 
-	return locked || waiting;
+	return true;
 }
 
 /*
