@@ -207,7 +207,7 @@ struct ocf_engine_callbacks
  * @param req OCF request
  *
  * @returns eviction status
- * @retval LOOKUP_MAPPED successfully evicted required number of cachelines
+ * @retval LOOKUP_INSERTED successfully evicted required number of cachelines
  * @retval LOOKUP_MISS eviction failure
  */
 int ocf_engine_prepare_clines(struct ocf_request *req,

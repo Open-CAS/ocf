@@ -111,14 +111,14 @@ int space_managment_evict_do(struct ocf_cache *cache,
 
 	free = ocf_freelist_num_free(cache->freelist);
 	if (evict_cline_no <= free)
-		return LOOKUP_MAPPED;
+		return LOOKUP_INSERTED;
 
 	evict_cline_no -= free;
 	evicted = ocf_evict_do(cache, req->io_queue, evict_cline_no,
 			req->part_id);
 
 	if (evict_cline_no <= evicted)
-		return LOOKUP_MAPPED;
+		return LOOKUP_INSERTED;
 
 	req->info.mapping_error |= true;
 	return LOOKUP_MISS;
