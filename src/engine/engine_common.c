@@ -136,7 +136,7 @@ void ocf_engine_update_req_info(struct ocf_cache *cache,
 	case LOOKUP_MISS:
 		req->info.seq_req = false;
 		break;
-	case LOOKUP_MAPPED:
+	case LOOKUP_INSERTED:
 		break;
 	default:
 		ENV_BUG();
@@ -297,7 +297,7 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 		case LOOKUP_MISS:
 			break;
 
-		case LOOKUP_MAPPED:
+		case LOOKUP_INSERTED:
 			OCF_DEBUG_RQ(req, "Canceling cache line %u",
 					entry->coll_idx);
 
@@ -328,7 +328,7 @@ static void ocf_engine_map(struct ocf_request *req)
 	uint32_t i;
 	struct ocf_map_info *entry;
 	uint64_t core_line;
-	int status = LOOKUP_MAPPED;
+	int status = LOOKUP_INSERTED;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
 	if (!ocf_engine_unmapped_count(req))
