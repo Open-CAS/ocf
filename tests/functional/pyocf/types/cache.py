@@ -431,6 +431,21 @@ class Cache:
         if c.results["error"]:
             raise OcfError("Attaching cache device failed", c.results["error"])
 
+    def detach_device(self):
+        self.write_lock()
+
+        c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
+
+        self.owner.lib.ocf_mngt_cache_detach(
+            self.cache_handle, c, None
+        )
+
+        c.wait()
+        self.write_unlock()
+
+        if c.results["error"]:
+            raise OcfError("Attaching cache device failed", c.results["error"])
+
     def load_cache(self, device):
         self.configure_device(device)
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
