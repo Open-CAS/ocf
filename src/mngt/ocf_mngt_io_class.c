@@ -31,6 +31,8 @@ int ocf_mngt_add_partition_to_cache(struct ocf_cache *cache,
 		uint32_t max_size, uint8_t priority, bool valid)
 {
 	uint32_t size;
+	struct ocf_lst_entry *iter;
+	uint32_t iter_id;
 
 	if (!name)
 		return -OCF_ERR_INVAL;
@@ -49,6 +51,14 @@ int ocf_mngt_add_partition_to_cache(struct ocf_cache *cache,
 		ocf_cache_log(cache, log_info,
 				"Name of the partition is too long\n");
 		return -OCF_ERR_INVAL;
+	}
+
+	for_each_lst(&cache->lst_part, iter, iter_id) {
+		if (iter_id == part_id) {
+			ocf_cache_log(cache, log_err,
+					"Part with id %hu already exists\n", part_id);
+			return -OCF_ERR_INVAL;
+		}
 	}
 
 	size = sizeof(cache->user_parts[part_id].config->name);
