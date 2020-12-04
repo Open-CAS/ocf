@@ -93,6 +93,7 @@ struct ocf_cache_add_core_context {
 		bool volume_opened : 1;
 		bool clean_pol_added : 1;
 		bool counters_allocated : 1;
+		bool cutoff_initialized: 1;
 	} flags;
 };
 
@@ -128,6 +129,9 @@ static void _ocf_mngt_cache_add_core_handle_error(
 			cleaning_policy_ops[clean_type].remove_core(cache,
 					core_id);
 	}
+
+	if (context->flags.cutoff_initialized)
+		ocf_core_seq_cutoff_deinit(core);
 
 	if (context->flags.volume_opened)
 		ocf_volume_close(volume);
@@ -292,8 +296,6 @@ static void ocf_mngt_cache_try_add_core_insert(ocf_pipeline_t pipeline,
 	if (!(--cache->ocf_core_inactive_count))
 		env_bit_clear(ocf_cache_state_incomplete, &cache->cache_state);
 
-	ocf_core_seq_cutoff_init(core);
-
 	OCF_PL_NEXT_RET(pipeline);
 
 error_after_open:
@@ -412,7 +414,10 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 		context->flags.clean_pol_added = true;
 	}
 
-	ocf_core_seq_cutoff_init(core);
+	result = ocf_core_seq_cutoff_init(core);
+	if (result)
+		OCF_PL_FINISH_RET(pipeline, result);
+	context->flags.cutoff_initialized = true;
 
 	/* When adding new core to cache, allocate stat counters */
 	core->counters =

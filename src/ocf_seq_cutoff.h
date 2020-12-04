@@ -26,7 +26,9 @@ struct ocf_seq_cutoff {
 	struct list_head lru;
 };
 
-void ocf_core_seq_cutoff_init(ocf_core_t core);
+int ocf_core_seq_cutoff_init(ocf_core_t core);
+
+void ocf_core_seq_cutoff_deinit(ocf_core_t core);
 
 bool ocf_core_seq_cutoff_check(ocf_core_t core, struct ocf_request *req);
 

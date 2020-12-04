@@ -77,7 +77,7 @@ struct ocf_core {
 	struct ocf_core_meta_config *conf_meta;
 	struct ocf_core_meta_runtime *runtime_meta;
 
-	struct ocf_seq_cutoff seq_cutoff;
+	struct ocf_seq_cutoff *seq_cutoff;
 
 	env_atomic flushed;
 

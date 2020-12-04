@@ -60,25 +60,38 @@ static struct ocf_rb_node *ocf_seq_cutoff_stream_list_find(
 	return &max_stream->node;
 }
 
-void ocf_core_seq_cutoff_init(ocf_core_t core)
+int ocf_core_seq_cutoff_init(ocf_core_t core)
 {
 	struct ocf_seq_cutoff_stream *stream;
 	int i;
 
 	ocf_core_log(core, log_info, "Seqential cutoff init\n");
-	env_rwlock_init(&core->seq_cutoff.lock);
-	ocf_rb_tree_init(&core->seq_cutoff.tree, ocf_seq_cutoff_stream_cmp,
+
+	core->seq_cutoff = env_vmalloc(sizeof(*core->seq_cutoff));
+	if (!core->seq_cutoff)
+		return -OCF_ERR_NO_MEM;
+
+	env_rwlock_init(&core->seq_cutoff->lock);
+	ocf_rb_tree_init(&core->seq_cutoff->tree, ocf_seq_cutoff_stream_cmp,
 			ocf_seq_cutoff_stream_list_find);
-	INIT_LIST_HEAD(&core->seq_cutoff.lru);
+	INIT_LIST_HEAD(&core->seq_cutoff->lru);
 
 	for (i = 0; i < OCF_SEQ_CUTOFF_MAX_STREAMS; i++) {
-		stream = &core->seq_cutoff.streams[i];
+		stream = &core->seq_cutoff->streams[i];
 		stream->last = 4096 * i;
 		stream->bytes = 0;
 		stream->rw = 0;
-		ocf_rb_tree_insert(&core->seq_cutoff.tree, &stream->node);
-		list_add_tail(&stream->list, &core->seq_cutoff.lru);
+		ocf_rb_tree_insert(&core->seq_cutoff->tree, &stream->node);
+		list_add_tail(&stream->list, &core->seq_cutoff->lru);
 	}
+
+	return 0;
+}
+
+void ocf_core_seq_cutoff_deinit(ocf_core_t core)
+{
+	env_rwlock_destroy(&core->seq_cutoff->lock);
+	env_vfree(core->seq_cutoff);
 }
 
 void ocf_dbg_get_seq_cutoff_status(ocf_core_t core,
@@ -93,15 +106,15 @@ void ocf_dbg_get_seq_cutoff_status(ocf_core_t core,
 
 	threshold = ocf_core_get_seq_cutoff_threshold(core);
 
-	env_rwlock_read_lock(&core->seq_cutoff.lock);
-	list_for_each_entry(stream, &core->seq_cutoff.lru, list) {
+	env_rwlock_read_lock(&core->seq_cutoff->lock);
+	list_for_each_entry(stream, &core->seq_cutoff->lru, list) {
 		status->streams[i].last = stream->last;
 		status->streams[i].bytes = stream->bytes;
 		status->streams[i].rw = stream->rw;
 		status->streams[i].active = (stream->bytes >= threshold);
 		i++;
 	}
-	env_rwlock_read_unlock(&core->seq_cutoff.lock);
+	env_rwlock_read_unlock(&core->seq_cutoff->lock);
 }
 
 bool ocf_core_seq_cutoff_check(ocf_core_t core, struct ocf_request *req)
@@ -131,14 +144,14 @@ bool ocf_core_seq_cutoff_check(ocf_core_t core, struct ocf_request *req)
 			return false;
 	}
 
-	env_rwlock_read_lock(&core->seq_cutoff.lock);
-	node = ocf_rb_tree_find(&core->seq_cutoff.tree, &item.node);
+	env_rwlock_read_lock(&core->seq_cutoff->lock);
+	node = ocf_rb_tree_find(&core->seq_cutoff->tree, &item.node);
 	if (node) {
 		stream = container_of(node, struct ocf_seq_cutoff_stream, node);
 		if (stream->bytes + req->byte_length >= threshold)
 			result = true;
 	}
-	env_rwlock_read_unlock(&core->seq_cutoff.lock);
+	env_rwlock_read_unlock(&core->seq_cutoff->lock);
 
 	return result;
 }
@@ -157,29 +170,29 @@ void ocf_core_seq_cutoff_update(ocf_core_t core, struct ocf_request *req)
 		return;
 
 	/* Update last accessed position and bytes counter */
-	env_rwlock_write_lock(&core->seq_cutoff.lock);
-	node = ocf_rb_tree_find(&core->seq_cutoff.tree, &item.node);
+	env_rwlock_write_lock(&core->seq_cutoff->lock);
+	node = ocf_rb_tree_find(&core->seq_cutoff->tree, &item.node);
 	if (node) {
 		stream = container_of(node, struct ocf_seq_cutoff_stream, node);
 		item.last = req->byte_position + req->byte_length;
-		can_update = ocf_rb_tree_can_update(&core->seq_cutoff.tree,
+		can_update = ocf_rb_tree_can_update(&core->seq_cutoff->tree,
 				node, &item.node);
 		stream->last = req->byte_position + req->byte_length;
 		stream->bytes += req->byte_length;
 		if (!can_update) {
-			ocf_rb_tree_remove(&core->seq_cutoff.tree, node);
-			ocf_rb_tree_insert(&core->seq_cutoff.tree, node);
+			ocf_rb_tree_remove(&core->seq_cutoff->tree, node);
+			ocf_rb_tree_insert(&core->seq_cutoff->tree, node);
 		}
-		list_move_tail(&stream->list, &core->seq_cutoff.lru);
+		list_move_tail(&stream->list, &core->seq_cutoff->lru);
 	} else {
-		stream = list_first_entry(&core->seq_cutoff.lru,
+		stream = list_first_entry(&core->seq_cutoff->lru,
 				struct ocf_seq_cutoff_stream, list);
-		ocf_rb_tree_remove(&core->seq_cutoff.tree, &stream->node);
+		ocf_rb_tree_remove(&core->seq_cutoff->tree, &stream->node);
 		stream->rw = req->rw;
 		stream->last = req->byte_position + req->byte_length;
 		stream->bytes = req->byte_length;
-		ocf_rb_tree_insert(&core->seq_cutoff.tree, &stream->node);
-		list_move_tail(&stream->list, &core->seq_cutoff.lru);
+		ocf_rb_tree_insert(&core->seq_cutoff->tree, &stream->node);
+		list_move_tail(&stream->list, &core->seq_cutoff->lru);
 	}
-	env_rwlock_write_unlock(&core->seq_cutoff.lock);
+	env_rwlock_write_unlock(&core->seq_cutoff->lock);
 }
