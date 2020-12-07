@@ -381,6 +381,16 @@ static inline void ocf_req_clear(struct ocf_request *req)
 	env_atomic_set(&req->req_remaining, 0);
 }
 
+static inline void ocf_req_set_mapping_error(struct ocf_request *req)
+{
+	req->info.mapping_error = true;
+}
+
+static inline bool ocf_req_test_mapping_error(struct ocf_request *req)
+{
+	return req->info.mapping_error;
+}
+
 /**
  * @brief Return OCF request reference count
  *

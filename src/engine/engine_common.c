@@ -256,7 +256,7 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 	ocf_cleaning_t clean_policy_type;
 
 	if (!ocf_freelist_get_cache_line(cache->freelist, cache_line)) {
-		req->info.mapping_error = 1;
+		ocf_req_set_mapping_error(req);
 		return;
 	}
 
@@ -336,7 +336,7 @@ static void ocf_engine_map(struct ocf_request *req)
 
 	if (ocf_engine_unmapped_count(req) >
 			ocf_freelist_num_free(cache->freelist)) {
-		req->info.mapping_error = 1;
+		ocf_req_set_mapping_error(req);
 		return;
 	}
 
@@ -355,7 +355,7 @@ static void ocf_engine_map(struct ocf_request *req)
 			ocf_engine_map_cache_line(req, entry->core_line,
 					entry->hash, &entry->coll_idx);
 
-			if (req->info.mapping_error) {
+			if (ocf_req_test_mapping_error(req)) {
 				/*
 				 * Eviction error (mapping error), need to
 				 * clean, return and do pass through
@@ -377,7 +377,7 @@ static void ocf_engine_map(struct ocf_request *req)
 
 	}
 
-	if (!req->info.mapping_error) {
+	if (!ocf_req_test_mapping_error(req)) {
 		/* request has been inserted into cache - purge it from promotion
 		 * policy */
 		ocf_promotion_req_purge(cache->promotion_policy, req);
@@ -578,7 +578,7 @@ int ocf_engine_prepare_clines(struct ocf_request *req,
 	promote = ocf_promotion_req_should_promote(
 			req->cache->promotion_policy, req);
 	if (!promote) {
-		req->info.mapping_error = 1;
+		ocf_req_set_mapping_error(req);
 		ocf_req_hash_unlock_rd(req);
 		return lock;
 	}

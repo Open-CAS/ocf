@@ -243,7 +243,7 @@ int ocf_read_generic(struct ocf_request *req)
 
 	lock = ocf_engine_prepare_clines(req, &_rd_engine_callbacks);
 
-	if (!req->info.mapping_error) {
+	if (!ocf_req_test_mapping_error(req)) {
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* Lock was not acquired, need to wait for resume */

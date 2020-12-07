@@ -189,7 +189,7 @@ int ocf_write_wb(struct ocf_request *req)
 
 	lock = ocf_engine_prepare_clines(req, &_wb_engine_callbacks);
 
-	if (!req->info.mapping_error) {
+	if (!ocf_req_test_mapping_error(req)) {
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* WR lock was not acquired, need to wait for resume */

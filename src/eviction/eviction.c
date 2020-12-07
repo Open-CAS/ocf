@@ -125,6 +125,6 @@ int space_managment_evict_do(struct ocf_cache *cache,
 	if (evict_cline_no <= evicted)
 		return LOOKUP_MAPPED;
 
-	req->info.mapping_error |= true;
+	ocf_req_set_mapping_error(req);
 	return LOOKUP_MISS;
 }
