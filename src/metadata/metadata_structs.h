@@ -257,46 +257,20 @@ struct ocf_metadata_iface {
 	 *
 	 * @param[in] cache - Cache instance
 	 * @param[in] line - cache line for which eviction policy is requested
-	 * @param[out] eviction_policy - Eviction policy
+	 * @return eviction policy metadata
 	 */
-	void (*get_eviction_policy)(struct ocf_cache *cache,
-			ocf_cache_line_t line,
-			union eviction_policy_meta *eviction_policy);
-
-	/**
-	 * @brief Set eviction policy
-	 *
-	 * @param[in] cache - Cache instance
-	 * @param[in] line - Eviction policy values which will be stored in
-	 * metadata service
-	 * @param[out] eviction_policy - Eviction policy
-	 */
-	void (*set_eviction_policy)(struct ocf_cache *cache,
-			ocf_cache_line_t line,
-			union eviction_policy_meta *eviction_policy);
+	union eviction_policy_meta *(*get_eviction_policy)(
+			struct ocf_cache *cache, ocf_cache_line_t line);
 
 	/**
 	 * @brief Get cleaning policy
 	 *
 	 * @param[in] cache - Cache instance
 	 * @param[in] line - cache line for which cleaning policy is requested
-	 * @param[out] cleaning_policy - Cleaning policy
+	 * @return cleaning_policy metadata
 	 */
-	 void (*get_cleaning_policy)(struct ocf_cache *cache,
-			ocf_cache_line_t line,
-			struct cleaning_policy_meta *cleaning_policy);
-
-	/**
-	 * @brief Set cleaning policy
-	 *
-	 * @param[in] cache - Cache instance
-	 * @param[in] line
-	 * @param[in] cleaning_policy - Cleaning policy values which will be
-	 * stored in metadata service
-	 */
-	void (*set_cleaning_policy)(struct ocf_cache *cache,
-			ocf_cache_line_t line,
-			struct cleaning_policy_meta *cleaning_policy);
+	struct cleaning_policy_meta *(*get_cleaning_policy)(
+			struct ocf_cache *cache, ocf_cache_line_t line);
 
 	/**
 	 * @brief Get hash table for specified index

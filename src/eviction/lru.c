@@ -23,14 +23,12 @@ static void add_lru_head(ocf_cache_t cache,
 		unsigned int collision_index)
 
 {
-	union eviction_policy_meta eviction;
 	struct lru_eviction_policy_meta *node;
 	unsigned int curr_head_index;
 
 	ENV_BUG_ON(collision_index == end_marker);
 
-	ocf_metadata_get_evicition_policy(cache, collision_index, &eviction);
-	node = &eviction.lru;
+	node = &ocf_metadata_get_eviction_policy(cache, collision_index)->lru;
 
 	/* First node to be added/ */
 	if (!list->num_nodes)  {
@@ -41,11 +39,7 @@ static void add_lru_head(ocf_cache_t cache,
 		node->prev = end_marker;
 
 		list->num_nodes = 1;
-
-		ocf_metadata_set_evicition_policy(cache, collision_index,
-				&eviction);
 	} else {
-		union eviction_policy_meta eviction_curr_head;
 		struct lru_eviction_policy_meta *curr_head;
 
 		/* Not the first node to be added. */
@@ -53,9 +47,8 @@ static void add_lru_head(ocf_cache_t cache,
 
 		ENV_BUG_ON(curr_head_index == end_marker);
 
-		ocf_metadata_get_evicition_policy(cache, curr_head_index,
-						&eviction_curr_head);
-		curr_head = &eviction_curr_head.lru;
+		curr_head = &ocf_metadata_get_eviction_policy(cache,
+				curr_head_index)->lru;
 
 		node->next = curr_head_index;
 		node->prev = end_marker;
@@ -64,11 +57,6 @@ static void add_lru_head(ocf_cache_t cache,
 		list->head = collision_index;
 
 		++list->num_nodes;
-
-		ocf_metadata_set_evicition_policy(cache, curr_head_index,
-				&eviction_curr_head);
-		ocf_metadata_set_evicition_policy(cache, collision_index,
-				&eviction);
 	}
 }
 
@@ -79,13 +67,11 @@ static void remove_lru_list(ocf_cache_t cache,
 {
 	int is_head = 0, is_tail = 0;
 	uint32_t prev_lru_node, next_lru_node;
-	union eviction_policy_meta eviction;
 	struct lru_eviction_policy_meta *node;
 
 	ENV_BUG_ON(collision_index == end_marker);
 
-	ocf_metadata_get_evicition_policy(cache, collision_index, &eviction);
-	node = &eviction.lru;
+	node = &ocf_metadata_get_eviction_policy(cache, collision_index)->lru;
 
 	is_head = (list->head == collision_index);
 	is_tail = (list->tail == collision_index);
@@ -101,9 +87,6 @@ static void remove_lru_list(ocf_cache_t cache,
 		node->next = end_marker;
 		node->prev = end_marker;
 
-		ocf_metadata_set_evicition_policy(cache, collision_index,
-				&eviction);
-
 		list->head = end_marker;
 		list->tail = end_marker;
 	}
@@ -112,69 +95,49 @@ static void remove_lru_list(ocf_cache_t cache,
 	 * update head and return
 	 */
 	else if (is_head) {
-		union eviction_policy_meta eviction_next;
 		struct lru_eviction_policy_meta *next_node;
 
 		ENV_BUG_ON(next_lru_node == end_marker);
 
-		ocf_metadata_get_evicition_policy(cache, next_lru_node,
-				&eviction_next);
-		next_node = &eviction_next.lru;
+		next_node = &ocf_metadata_get_eviction_policy(cache,
+				next_lru_node)->lru;
 
 		list->head = next_lru_node;
 		node->next = end_marker;
 		next_node->prev = end_marker;
-
-		ocf_metadata_set_evicition_policy(cache, collision_index,
-				&eviction);
-
-		ocf_metadata_set_evicition_policy(cache, next_lru_node,
-				&eviction_next);
 	}
 
 	/* Case 3: else if this collision_index is LRU tail, but not head,
 	 * update tail and return
 	 */
 	else if (is_tail) {
-		union eviction_policy_meta eviction_prev;
 		struct lru_eviction_policy_meta *prev_node;
 
 		ENV_BUG_ON(prev_lru_node == end_marker);
 
 		list->tail = prev_lru_node;
 
-		ocf_metadata_get_evicition_policy(cache, prev_lru_node,
-				&eviction_prev);
-		prev_node = &eviction_prev.lru;
+		prev_node = &ocf_metadata_get_eviction_policy(cache,
+				prev_lru_node)->lru;
 
 		node->prev = end_marker;
 		prev_node->next = end_marker;
-
-		ocf_metadata_set_evicition_policy(cache, collision_index,
-				&eviction);
-
-		ocf_metadata_set_evicition_policy(cache, prev_lru_node,
-				&eviction_prev);
 	}
 
 	/* Case 4: else this collision_index is a middle node. There is no
 	 * change to the head and the tail pointers.
 	 */
 	else {
-		union eviction_policy_meta eviction_prev;
-		union eviction_policy_meta eviction_next;
 		struct lru_eviction_policy_meta *prev_node;
 		struct lru_eviction_policy_meta *next_node;
 
 		ENV_BUG_ON(next_lru_node == end_marker);
 		ENV_BUG_ON(prev_lru_node == end_marker);
 
-		ocf_metadata_get_evicition_policy(cache, next_lru_node,
-				&eviction_next);
-		next_node = &eviction_next.lru;
-		ocf_metadata_get_evicition_policy(cache, prev_lru_node,
-				&eviction_prev);
-		prev_node = &eviction_prev.lru;
+		next_node = &ocf_metadata_get_eviction_policy(cache,
+				next_lru_node)->lru;
+		prev_node = &ocf_metadata_get_eviction_policy(cache,
+				prev_lru_node)->lru;
 
 		/* Update prev and next nodes */
 		prev_node->next = node->next;
@@ -183,13 +146,6 @@ static void remove_lru_list(ocf_cache_t cache,
 		/* Update the given node */
 		node->next = end_marker;
 		node->prev = end_marker;
-
-		ocf_metadata_set_evicition_policy(cache, collision_index,
-				&eviction);
-		ocf_metadata_set_evicition_policy(cache, next_lru_node,
-				&eviction_next);
-		ocf_metadata_set_evicition_policy(cache, prev_lru_node,
-				&eviction_prev);
 	}
 
 	--list->num_nodes;
@@ -199,16 +155,12 @@ static void remove_lru_list(ocf_cache_t cache,
 
 void evp_lru_init_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
-	union eviction_policy_meta eviction;
 	struct lru_eviction_policy_meta *node;
 
-	ocf_metadata_get_evicition_policy(cache, cline, &eviction);
-	node = &eviction.lru;
+	node = &ocf_metadata_get_eviction_policy(cache, cline)->lru;
 
 	node->prev = end_marker;
 	node->next = end_marker;
-
-	ocf_metadata_set_evicition_policy(cache, cline, &eviction);
 }
 
 
@@ -236,14 +188,12 @@ static void evp_lru_clean_end(void *private_data, int error)
 static int evp_lru_clean_getter(ocf_cache_t cache,
 		void *getter_context, uint32_t item, ocf_cache_line_t *line)
 {
-	union eviction_policy_meta eviction;
 	struct ocf_cleaner_attribs *attribs = getter_context;
 	ocf_cache_line_t prev_cline, curr_cline = attribs->getter_item;
 
 	while (curr_cline != end_marker) {
-		ocf_metadata_get_evicition_policy(cache, curr_cline,
-				&eviction);
-		prev_cline = eviction.lru.prev;
+		prev_cline = ocf_metadata_get_eviction_policy(cache,
+				curr_cline)->lru.prev;
 
 		/* Prevent evicting already locked items */
 		if (ocf_cache_line_is_used(cache, curr_cline)) {
@@ -351,7 +301,6 @@ uint32_t evp_lru_req_clines(ocf_cache_t cache, ocf_queue_t io_queue,
 	uint32_t i;
 	ocf_cache_line_t curr_cline, prev_cline;
 	struct ocf_user_part *part = &cache->user_parts[part_id];
-	union eviction_policy_meta eviction;
 
 	if (cline_no == 0)
 		return 0;
@@ -366,9 +315,8 @@ uint32_t evp_lru_req_clines(ocf_cache_t cache, ocf_queue_t io_queue,
 		if (curr_cline == end_marker)
 			break;
 
-		ocf_metadata_get_evicition_policy(cache, curr_cline,
-				&eviction);
-		prev_cline = eviction.lru.prev;
+		prev_cline = ocf_metadata_get_eviction_policy(cache,
+				curr_cline)->lru.prev;
 
 		/* Prevent evicting already locked items */
 		if (ocf_cache_line_is_used(cache, curr_cline)) {
@@ -414,13 +362,11 @@ void evp_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, cline);
 	struct ocf_user_part *part = &cache->user_parts[part_id];
-	union eviction_policy_meta eviction;
 	struct lru_eviction_policy_meta *node;
 	int cline_dirty;
 	struct ocf_lru_list *list;
 
-	ocf_metadata_get_evicition_policy(cache, cline, &eviction);
-	node = &eviction.lru;
+	node = &ocf_metadata_get_eviction_policy(cache, cline)->lru;
 
 	cline_dirty = metadata_test_dirty(cache, cline);
 	list = cline_dirty ?
