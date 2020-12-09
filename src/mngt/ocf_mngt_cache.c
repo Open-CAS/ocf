@@ -352,6 +352,9 @@ static void _ocf_mngt_close_all_uninitialized_cores(
 
 		--j;
 
+		if (cache->core[i].seq_cutoff)
+			ocf_core_seq_cutoff_deinit(&cache->core[i]);
+
 		env_free(cache->core[i].counters);
 		cache->core[i].counters = NULL;
 
@@ -438,7 +441,9 @@ static int _ocf_mngt_init_instance_add_cores(
 			continue;
 		}
 
-		ocf_core_seq_cutoff_init(core);
+		ret = ocf_core_seq_cutoff_init(core);
+		if (ret < 0)
+			goto err;
 
 		length = ocf_volume_get_length(&core->volume);
 		if (length != core->conf_meta->length) {
