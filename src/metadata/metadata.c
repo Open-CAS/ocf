@@ -394,7 +394,6 @@ static void ocf_metadata_raw_info(struct ocf_cache *cache,
 void ocf_metadata_deinit_variable_size(struct ocf_cache *cache)
 {
 
-	int result = 0;
 	uint32_t i = 0;
 
 	struct ocf_metadata_ctrl *ctrl = (struct ocf_metadata_ctrl *)
@@ -409,8 +408,7 @@ void ocf_metadata_deinit_variable_size(struct ocf_cache *cache)
 	 */
 	for (i = metadata_segment_variable_size_start;
 			i < metadata_segment_max; i++) {
-		result |= ocf_metadata_raw_deinit(cache,
-				&(ctrl->raw_desc[i]));
+		ocf_metadata_segment_destroy(cache, ctrl->segment[i]);
 	}
 }
 
@@ -440,10 +438,15 @@ static void ocf_metadata_deinit_fixed_size(struct ocf_cache *cache)
 	struct ocf_metadata_ctrl *ctrl = (struct ocf_metadata_ctrl *)
 			cache->metadata.priv;
 
+	struct ocf_metadata_segment *superblock =
+		ctrl->segment[metadata_segment_sb_config];
+
 	for (i = 0; i < metadata_segment_fixed_size_max; i++) {
-		result |= ocf_metadata_raw_deinit(cache,
-				&(ctrl->raw_desc[i]));
+		if (i != metadata_segment_sb_config)
+			ocf_metadata_segment_destroy(cache, ctrl->segment[i]);
 	}
+
+	ocf_metadata_superblock_destroy(cache, superblock);
 
 	env_vfree(ctrl);
 	cache->metadata.priv = NULL;
@@ -513,6 +516,7 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 	struct ocf_core_meta_runtime *core_meta_runtime;
 	struct ocf_user_part_config *part_config;
 	struct ocf_user_part_runtime *part_runtime;
+	struct ocf_metadata_segment *superblock;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
 	uint32_t i = 0;
@@ -529,9 +533,25 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 		return -OCF_ERR_NO_MEM;
 	metadata->priv = ctrl;
 
+	result = ocf_metadata_superblock_init(
+			&ctrl->segment[metadata_segment_sb_config], cache,
+			&ctrl->raw_desc[metadata_segment_sb_config]);
+	if (result) {
+		ocf_metadata_deinit_fixed_size(cache);
+		return result;
+	}
+
+	superblock = ctrl->segment[metadata_segment_sb_config];
+
 	for (i = 0; i < metadata_segment_fixed_size_max; i++) {
-		result |= ocf_metadata_raw_init(cache, NULL, NULL,
-				&(ctrl->raw_desc[i]));
+		if (i == metadata_segment_sb_config)
+			continue;
+		result |= ocf_metadata_segment_init(
+				&ctrl->segment[i],
+				cache,
+				&ctrl->raw_desc[i],
+				NULL, NULL,
+				superblock);
 		if (result)
 			break;
 	}
@@ -609,6 +629,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		(struct ocf_cache_line_settings *)&cache->metadata.settings;
 	ocf_flush_page_synch_t lock_page, unlock_page;
 	uint64_t device_lines;
+	struct ocf_metadata_segment *superblock;
 
 	OCF_DEBUG_TRACE(cache);
 
@@ -669,6 +690,8 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	OCF_DEBUG_PARAM(cache, "Metadata end pages = %u", ctrl->start_page
 			+ ctrl->count_pages);
 
+	superblock = ctrl->segment[metadata_segment_sb_config];
+
 	/*
 	 * Initialize all dynamic size  RAW types
 	 */
@@ -683,8 +706,12 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 			lock_page = unlock_page = NULL;
 		}
 
-		result |= ocf_metadata_raw_init(cache, lock_page, unlock_page,
-				&(ctrl->raw_desc[i]));
+		result |= ocf_metadata_segment_init(
+				&ctrl->segment[i],
+				cache,
+				&ctrl->raw_desc[i],
+				lock_page, unlock_page,
+				superblock);
 
 		if (result)
 			goto finalize;
@@ -991,6 +1018,7 @@ void ocf_metadata_flush_all(ocf_cache_t cache,
 	context->priv = priv;
 	context->pipeline = pipeline;
 	context->cache = cache;
+	context->ctrl = cache->metadata.priv;
 
 	ocf_pipeline_next(pipeline);
 }
@@ -1113,6 +1141,7 @@ void ocf_metadata_load_all(ocf_cache_t cache,
 	context->priv = priv;
 	context->pipeline = pipeline;
 	context->cache = cache;
+	context->ctrl = cache->metadata.priv;
 
 	ocf_pipeline_next(pipeline);
 }
@@ -1272,6 +1301,7 @@ static void _ocf_metadata_load_recovery_legacy(ocf_cache_t cache,
 	context->priv = priv;
 	context->pipeline = pipeline;
 	context->cache = cache;
+	context->ctrl = cache->metadata.priv;
 
 	ocf_pipeline_next(pipeline);
 }
@@ -1416,6 +1446,7 @@ static void _ocf_metadata_load_recovery_atomic(ocf_cache_t cache,
 	context->priv = priv;
 	context->pipeline = pipeline;
 	context->cache = cache;
+	context->ctrl = cache->metadata.priv;
 
 	ocf_pipeline_next(pipeline);
 }

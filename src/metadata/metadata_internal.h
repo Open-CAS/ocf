@@ -8,6 +8,7 @@
 
 #include <ocf/ocf_def.h>
 #include "../ocf_cache_priv.h"
+#include "metadata_segment.h"
 #include "metadata_segment_id.h"
 #include "metadata_raw.h"
 
@@ -23,6 +24,7 @@ struct ocf_metadata_ctrl {
 	uint32_t device_lines;
 	size_t mapping_size;
 	struct ocf_metadata_raw raw_desc[metadata_segment_max];
+	struct ocf_metadata_segment *segment[metadata_segment_max];
 };
 
 struct ocf_metadata_context {
@@ -30,6 +32,7 @@ struct ocf_metadata_context {
 	void *priv;
 	ocf_pipeline_t pipeline;
 	ocf_cache_t cache;
+	struct ocf_metadata_ctrl *ctrl;
 	struct ocf_metadata_raw segment_copy[metadata_segment_fixed_size_max];
 };
 

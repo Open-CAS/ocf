@@ -6,6 +6,8 @@
 #ifndef __METADATA_RAW_H__
 #define __METADATA_RAW_H__
 
+#include "metadata_segment_id.h"
+
 /**
  * @file metadata_raw.h
  * @brief Metadata RAW container implementation
@@ -305,5 +307,10 @@ static inline void _raw_bug_on(struct ocf_metadata_raw *raw, uint32_t entry)
 #define MAX_STACK_TAB_SIZE 32
 
 int _raw_ram_flush_do_page_cmp(const void *item1, const void *item2);
+
+static inline void *ocf_metadata_raw_get_mem(struct ocf_metadata_raw *raw)
+{
+	return raw->mem_pool;
+}
 
 #endif /* METADATA_RAW_H_ */
