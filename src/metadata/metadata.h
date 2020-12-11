@@ -12,7 +12,7 @@
 #include "metadata_cleaning_policy.h"
 #include "metadata_eviction_policy.h"
 #include "metadata_partition.h"
-#include "metadata_hash.h"
+#include "metadata_segment_id.h"
 #include "metadata_superblock.h"
 #include "metadata_status.h"
 #include "metadata_collision.h"

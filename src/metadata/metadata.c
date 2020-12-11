@@ -7,11 +7,11 @@
 
 #include "metadata.h"
 #include "metadata_collision.h"
-#include "metadata_hash.h"
+#include "metadata_segment_id.h"
 #include "metadata_internal.h"
 #include "metadata_io.h"
 #include "metadata_raw.h"
-#include "metadata_segment_ops.h"
+#include "metadata_segment.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../ocf_def_priv.h"
 #include "../ocf_freelist.h"
@@ -59,7 +59,7 @@ static inline size_t ocf_metadata_status_sizeof(
  * get entries for specified metadata hash type
  */
 static ocf_cache_line_t ocf_metadata_get_entries(
-		enum ocf_metadata_segment type,
+		enum ocf_metadata_segment_id type,
 		ocf_cache_line_t cache_lines)
 {
 	ENV_BUG_ON(type >= metadata_segment_variable_size_start && cache_lines == 0);
@@ -112,7 +112,7 @@ static ocf_cache_line_t ocf_metadata_get_entries(
  * Get size of particular hash metadata type element
  */
 static int64_t ocf_metadata_get_element_size(
-		enum ocf_metadata_segment type,
+		enum ocf_metadata_segment_id type,
 		const struct ocf_cache_line_settings *settings)
 {
 	int64_t size = 0;
@@ -1952,7 +1952,7 @@ int ocf_metadata_query_cores_segment_io(
 		 struct query_cores_context *context,
 		ocf_ctx_t owner,
 		ocf_volume_t volume,
-		enum ocf_metadata_segment segment,
+		enum ocf_metadata_segment_id segment,
 		struct ocf_metadata_ctrl *ctrl,
 		struct query_cores_data *segment_data)
 {

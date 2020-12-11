@@ -7,6 +7,7 @@
 #define __METADATA_SUPERBLOCK_H__
 
 #include <ocf/ocf_def.h>
+#include "metadata_segment.h"
 
 #define CACHE_MAGIC_NUMBER	0x187E1CA6
 

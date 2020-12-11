@@ -8,7 +8,7 @@
 
 #include <ocf/ocf_def.h>
 #include "../ocf_cache_priv.h"
-#include "metadata_hash.h"
+#include "metadata_segment_id.h"
 #include "metadata_raw.h"
 
 #define METADATA_MEM_POOL(ctrl, section) ctrl->raw_desc[section].mem_pool

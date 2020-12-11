@@ -57,7 +57,7 @@ struct ocf_metadata_raw {
 	/**
 	 * @name Metadata and RAW types
 	 */
-	enum ocf_metadata_segment metadata_segment; /*!< Metadata segment */
+	enum ocf_metadata_segment_id metadata_segment; /*!< Metadata segment */
 	enum ocf_metadata_raw_type raw_type; /*!< RAW implementation type */
 
 	/**

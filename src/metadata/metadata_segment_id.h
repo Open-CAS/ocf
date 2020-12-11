@@ -15,7 +15,7 @@
 /**
  * @brief Metada hash elements type
  */
-enum ocf_metadata_segment {
+enum ocf_metadata_segment_id {
 	metadata_segment_sb_config = 0,	/*!< Super block conf */
 	metadata_segment_sb_runtime,	/*!< Super block runtime */
 	metadata_segment_reserved,	/*!< Reserved space on disk */
