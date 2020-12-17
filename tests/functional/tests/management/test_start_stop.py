@@ -346,7 +346,7 @@ def test_start_cache_huge_device(pyocf_ctx_log_buffer, cls):
 
     cache_device = HugeDevice(Size.from_MiB(20))
 
-    with pytest.raises(OcfError, match="OCF_ERR_START_CACHE_FAIL"):
+    with pytest.raises(OcfError, match="OCF_ERR_INVAL_CACHE_DEV"):
         cache = Cache.start_on_device(cache_device, cache_line_size=cls, metadata_volatile=True)
 
     assert any(

@@ -392,11 +392,12 @@ struct ocf_mngt_cache_device_config {
 	bool open_cores;
 
 	/**
-	 * @brief Ignore warnings and start cache
+	 * @brief Ignore warnings and initialize new cache instance
 	 *
-	 * @note It will force starting cache despite the:
-	 *	- overwrite dirty shutdown of previous cache
-	 *	- ignore cache with dirty shutdown and reinitialize cache
+	 * If set to true, it will force initializing new cache despite the
+	 * existing metadata from previous cache instance.
+	 *
+	 * @note This flag is not allowed when loading existing cache instance.
 	 */
 	bool force;
 
