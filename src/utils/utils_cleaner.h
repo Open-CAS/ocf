@@ -19,7 +19,8 @@
  * @retval Non-zero Means skip this cache line and do not clean it
  */
 typedef int (*ocf_cleaner_get_item)(struct ocf_cache *cache,
-		void *getter_context, uint32_t item, ocf_cache_line_t *line);
+		void *getter_context, uint32_t item,
+		ocf_cache_line_t *line);
 
 /**
  * @brief Cleaning attributes for clean request

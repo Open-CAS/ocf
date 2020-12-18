@@ -177,7 +177,7 @@ static void __init_partitions(ocf_cache_t cache)
 
 	/* Add other partition to the cache and make it as dummy */
 	for (i_part = 0; i_part < OCF_IO_CLASS_MAX; i_part++) {
-		ocf_refcnt_freeze(&cache->refcnt.cleaning[i_part]);
+		ocf_refcnt_freeze(&cache->user_parts[i_part].cleaning);
 
 		if (i_part == PARTITION_DEFAULT)
 			continue;
@@ -191,14 +191,15 @@ static void __init_partitions(ocf_cache_t cache)
 
 static void __init_partitions_attached(ocf_cache_t cache)
 {
+	struct ocf_user_part *part;
 	ocf_part_id_t part_id;
 
 	for (part_id = 0; part_id < OCF_IO_CLASS_MAX; part_id++) {
-		cache->user_parts[part_id].runtime->head =
-				cache->device->collision_table_entries;
-		cache->user_parts[part_id].runtime->curr_size = 0;
+		part = &cache->user_parts[part_id];
 
-		ocf_eviction_initialize(cache, part_id);
+		part->runtime->head = cache->device->collision_table_entries;
+		part->runtime->curr_size = 0;
+		ocf_eviction_initialize(cache, part);
 	}
 }
 

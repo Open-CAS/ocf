@@ -49,4 +49,11 @@
 /* call conditional reschedule with default interval */
 #define OCF_COND_RESCHED_DEFAULT(cnt) OCF_COND_RESCHED(cnt, 1000000)
 
+static inline unsigned long long
+ocf_rotate_right(unsigned long long bits, unsigned shift, unsigned width)
+{
+	return ((bits >> shift) | (bits << (width - shift))) &
+		((1ULL << width) - 1);
+}
+
 #endif

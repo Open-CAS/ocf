@@ -14,6 +14,10 @@
 #define OCF_TO_EVICTION_MIN 128UL
 #define OCF_PENDING_EVICTION_LIMIT 512UL
 
+#define OCF_NUM_EVICTION_LISTS 32
+
+struct ocf_user_part;
+
 struct eviction_policy {
 	union {
 		struct lru_eviction_policy lru;
@@ -37,17 +41,16 @@ struct eviction_policy_ops {
 			ocf_cache_line_t cline);
 	bool (*can_evict)(ocf_cache_t cache);
 	uint32_t (*req_clines)(ocf_cache_t cache,
-			ocf_queue_t io_queue, ocf_part_id_t part_id,
+			ocf_queue_t io_queue, struct ocf_user_part *part,
 			uint32_t cline_no);
 	void (*hot_cline)(ocf_cache_t cache,
 			ocf_cache_line_t cline);
-	void (*init_evp)(ocf_cache_t cache,
-			ocf_part_id_t part_id);
+	void (*init_evp)(ocf_cache_t cache, struct ocf_user_part *part);
 	void (*dirty_cline)(ocf_cache_t cache,
-			ocf_part_id_t part_id,
+			struct ocf_user_part *part,
 			uint32_t cline_no);
 	void (*clean_cline)(ocf_cache_t cache,
-			ocf_part_id_t part_id,
+			struct ocf_user_part *part,
 			uint32_t cline_no);
 	const char *name;
 };

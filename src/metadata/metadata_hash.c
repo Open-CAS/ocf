@@ -563,6 +563,7 @@ int ocf_metadata_hash_init(struct ocf_cache *cache,
 	for (i = 0; i < OCF_IO_CLASS_MAX + 1; i++) {
 		cache->user_parts[i].config = &part_config[i];
 		cache->user_parts[i].runtime = &part_runtime[i];
+		cache->user_parts[i].id = i;
 	}
 
 	/* Set core metadata */
@@ -1949,7 +1950,7 @@ static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
 	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,
 			cache_line);
 
-	ocf_eviction_init_cache_line(cache, cache_line, part_id);
+	ocf_eviction_init_cache_line(cache, cache_line);
 
 	ocf_eviction_set_hot_cache_line(cache, cache_line);
 

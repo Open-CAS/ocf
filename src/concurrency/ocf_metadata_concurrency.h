@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include "../ocf_cache_priv.h"
+#include "../eviction/eviction.h"
 
 #ifndef __OCF_METADATA_CONCURRENCY_H__
 #define __OCF_METADATA_CONCURRENCY_H__
@@ -22,16 +23,48 @@ void ocf_metadata_concurrency_attached_deinit(
 		struct ocf_metadata_lock *metadata_lock);
 
 static inline void ocf_metadata_eviction_lock(
-		struct ocf_metadata_lock *metadata_lock)
+		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
 {
-	env_spinlock_lock(&metadata_lock->eviction);
+	env_spinlock_lock(&metadata_lock->eviction[ev_list]);
 }
 
 static inline void ocf_metadata_eviction_unlock(
+		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
+{
+	env_spinlock_unlock(&metadata_lock->eviction[ev_list]);
+}
+
+static inline void ocf_metadata_eviction_lock_all(
 		struct ocf_metadata_lock *metadata_lock)
 {
-	env_spinlock_unlock(&metadata_lock->eviction);
+	uint32_t i;
+
+	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
+		ocf_metadata_eviction_lock(metadata_lock, i);
 }
+
+static inline void ocf_metadata_eviction_unlock_all(
+		struct ocf_metadata_lock *metadata_lock)
+{
+	uint32_t i;
+
+	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
+		ocf_metadata_eviction_unlock(metadata_lock, i);
+}
+
+#define OCF_METADATA_EVICTION_LOCK(cline) \
+		ocf_metadata_eviction_lock(&cache->metadata.lock, \
+				cline % OCF_NUM_EVICTION_LISTS)
+
+#define OCF_METADATA_EVICTION_UNLOCK(cline) \
+		ocf_metadata_eviction_unlock(&cache->metadata.lock, \
+				cline % OCF_NUM_EVICTION_LISTS)
+
+#define OCF_METADATA_EVICTION_LOCK_ALL() \
+	ocf_metadata_eviction_lock_all(&cache->metadata.lock)
+
+#define OCF_METADATA_EVICTION_UNLOCK_ALL() \
+	ocf_metadata_eviction_unlock_all(&cache->metadata.lock)
 
 static inline void ocf_metadata_partition_lock(
 		struct ocf_metadata_lock *metadata_lock,
@@ -46,12 +79,6 @@ static inline void ocf_metadata_partition_unlock(
 {
 	env_spinlock_unlock(&metadata_lock->partition[part_id]);
 }
-
-#define OCF_METADATA_EVICTION_LOCK() \
-		ocf_metadata_eviction_lock(&cache->metadata.lock)
-
-#define OCF_METADATA_EVICTION_UNLOCK() \
-		ocf_metadata_eviction_unlock(&cache->metadata.lock)
 
 void ocf_metadata_start_exclusive_access(
 		struct ocf_metadata_lock *metadata_lock);

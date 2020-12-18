@@ -1017,7 +1017,7 @@ void ocf_cleaner_refcnt_freeze(ocf_cache_t cache)
 	ocf_part_id_t part_id;
 
 	for_each_part(cache, curr_part, part_id)
-		ocf_refcnt_freeze(&cache->refcnt.cleaning[part_id]);
+		ocf_refcnt_freeze(&curr_part->cleaning);
 }
 
 void ocf_cleaner_refcnt_unfreeze(ocf_cache_t cache)
@@ -1026,7 +1026,7 @@ void ocf_cleaner_refcnt_unfreeze(ocf_cache_t cache)
 	ocf_part_id_t part_id;
 
 	for_each_part(cache, curr_part, part_id)
-		ocf_refcnt_unfreeze(&cache->refcnt.cleaning[part_id]);
+		ocf_refcnt_unfreeze(&curr_part->cleaning);
 }
 
 static void ocf_cleaner_refcnt_register_zero_cb_finish(void *priv)
@@ -1050,7 +1050,7 @@ void ocf_cleaner_refcnt_register_zero_cb(ocf_cache_t cache,
 
 	for_each_part(cache, curr_part, part_id) {
 		env_atomic_inc(&ctx->waiting);
-		ocf_refcnt_register_zero_cb(&cache->refcnt.cleaning[part_id],
+		ocf_refcnt_register_zero_cb(&curr_part->cleaning,
 				ocf_cleaner_refcnt_register_zero_cb_finish, ctx);
 	}
 

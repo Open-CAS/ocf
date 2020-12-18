@@ -42,11 +42,10 @@ static uint32_t ocf_evict_calculate(struct ocf_user_part *part,
 
 static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 		ocf_queue_t io_queue, const uint32_t evict_cline_no,
-		ocf_part_id_t target_part_id)
+		struct ocf_user_part *target_part)
 {
 	uint32_t to_evict = 0, evicted = 0;
 	struct ocf_user_part *part;
-	struct ocf_user_part *target_part = &cache->user_parts[target_part_id];
 	ocf_part_id_t part_id;
 
 	/* For each partition from the lowest priority to highest one */
@@ -68,7 +67,7 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 			/* It seams that no more partition for eviction */
 			break;
 		}
-		if (part_id == target_part_id) {
+		if (part_id == target_part->id) {
 			/* Omit targeted, evict from different first */
 			continue;
 		}
@@ -84,7 +83,7 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 		}
 
 		evicted += ocf_eviction_need_space(cache, io_queue,
-				part_id, to_evict);
+				part, to_evict);
 	}
 
 	if (!ocf_eviction_can_evict(cache))
@@ -95,7 +94,7 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 		to_evict = ocf_evict_calculate(target_part, evict_cline_no);
 		if (to_evict) {
 			evicted += ocf_eviction_need_space(cache, io_queue,
-					target_part_id, to_evict);
+					target_part, to_evict);
 		}
 	}
 
@@ -108,14 +107,14 @@ int space_managment_evict_do(struct ocf_cache *cache,
 {
 	uint32_t evicted;
 	uint32_t free;
+	struct ocf_user_part *req_part = &cache->user_parts[req->part_id];
 
 	free = ocf_freelist_num_free(cache->freelist);
 	if (evict_cline_no <= free)
 		return LOOKUP_MAPPED;
 
 	evict_cline_no -= free;
-	evicted = ocf_evict_do(cache, req->io_queue, evict_cline_no,
-			req->part_id);
+	evicted = ocf_evict_do(cache, req->io_queue, evict_cline_no, req_part);
 
 	if (evict_cline_no <= evicted)
 		return LOOKUP_MAPPED;

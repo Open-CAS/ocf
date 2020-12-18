@@ -16,7 +16,7 @@
  * @note This operation is called under WR metadata lock
  */
 static inline void ocf_eviction_init_cache_line(struct ocf_cache *cache,
-		ocf_cache_line_t line, ocf_part_id_t part_id)
+		ocf_cache_line_t line)
 {
 	uint8_t type;
 
@@ -36,12 +36,11 @@ static inline void ocf_eviction_purge_cache_line(
 	ENV_BUG_ON(type >= ocf_eviction_max);
 
 	if (likely(evict_policy_ops[type].rm_cline)) {
-		OCF_METADATA_EVICTION_LOCK();
+		OCF_METADATA_EVICTION_LOCK(line);
 		evict_policy_ops[type].rm_cline(cache, line);
-		OCF_METADATA_EVICTION_UNLOCK();
+		OCF_METADATA_EVICTION_UNLOCK(line);
 	}
 }
-
 
 static inline bool ocf_eviction_can_evict(struct ocf_cache *cache)
 {
@@ -54,7 +53,8 @@ static inline bool ocf_eviction_can_evict(struct ocf_cache *cache)
 }
 
 static inline uint32_t ocf_eviction_need_space(struct ocf_cache *cache,
-		ocf_queue_t io_queue, ocf_part_id_t part_id, uint32_t clines)
+		ocf_queue_t io_queue, struct ocf_user_part *part,
+		uint32_t clines)
 {
 	uint8_t type;
 	uint32_t result = 0;
@@ -69,7 +69,7 @@ static inline uint32_t ocf_eviction_need_space(struct ocf_cache *cache,
 		 * eviction lock.
 		 */
 		result = evict_policy_ops[type].req_clines(cache, io_queue,
-				part_id, clines);
+				part, clines);
 	}
 
 	return result;
@@ -83,23 +83,23 @@ static inline void ocf_eviction_set_hot_cache_line(
 	ENV_BUG_ON(type >= ocf_eviction_max);
 
 	if (likely(evict_policy_ops[type].hot_cline)) {
-		OCF_METADATA_EVICTION_LOCK();
+		OCF_METADATA_EVICTION_LOCK(line);
 		evict_policy_ops[type].hot_cline(cache, line);
-		OCF_METADATA_EVICTION_UNLOCK();
+		OCF_METADATA_EVICTION_UNLOCK(line);
 	}
 }
 
 static inline void ocf_eviction_initialize(struct ocf_cache *cache,
-		ocf_part_id_t part_id)
+		struct ocf_user_part *part)
 {
 	uint8_t type = cache->conf_meta->eviction_policy_type;
 
 	ENV_BUG_ON(type >= ocf_eviction_max);
 
 	if (likely(evict_policy_ops[type].init_evp)) {
-		OCF_METADATA_EVICTION_LOCK();
-		evict_policy_ops[type].init_evp(cache, part_id);
-		OCF_METADATA_EVICTION_UNLOCK();
+		OCF_METADATA_EVICTION_LOCK_ALL();
+		evict_policy_ops[type].init_evp(cache, part);
+		OCF_METADATA_EVICTION_UNLOCK_ALL();
 	}
 }
 

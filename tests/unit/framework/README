@@ -9,3 +9,9 @@ GENERATING NEW TEST
 
 RUNNING SINGLE TEST
 	Executable tests files are stored by default in 'UT_dir/build/sources_to_test_repository/'
+
+REQUIREMENTS FOR BUILD:
+- cmocka
+- cmake
+- ctags (Exuberant version)
+- nm, gcc, make
