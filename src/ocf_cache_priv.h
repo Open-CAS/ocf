@@ -40,31 +40,6 @@ struct ocf_trace {
 	env_atomic64 trace_seq_ref;
 };
 
-/**
- * @brief Initialization mode of cache instance
- */
-enum ocf_mngt_cache_init_mode {
-	/**
-	 * @brief Set up an SSD as new caching device
-	 */
-	ocf_init_mode_init,
-
-	/**
-	 * @brief Set up an SSD as new caching device without saving cache
-	 * metadata on SSD.
-	 *
-	 * When using this initialization mode, after shutdown, loading cache
-	 * is not possible
-	 */
-	ocf_init_mode_metadata_volatile,
-
-	/**
-	 * @brief Load pre-existing SSD cache state and set all parameters
-	 *		to previous configurations
-	 */
-	ocf_init_mode_load,
-};
-
 /* Cache device */
 struct ocf_cache_device {
 	struct ocf_volume volume;
@@ -87,8 +62,6 @@ struct ocf_cache_device {
 	struct {
 		struct ocf_cache_line_concurrency *cache_line;
 	} concurrency;
-
-	enum ocf_mngt_cache_init_mode init_mode;
 
 	struct ocf_superblock_runtime *runtime_meta;
 };

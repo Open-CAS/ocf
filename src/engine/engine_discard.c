@@ -128,7 +128,7 @@ static void _ocf_discard_finish_step(struct ocf_request *req)
 
 	if (req->discard.handled < req->discard.nr_sects)
 		req->io_if = &_io_if_discard_step;
-	else if (req->cache->device->init_mode != ocf_init_mode_metadata_volatile)
+	else if (!req->cache->metadata.is_volatile)
 		req->io_if = &_io_if_discard_flush_cache;
 	else
 		req->io_if = &_io_if_discard_core;

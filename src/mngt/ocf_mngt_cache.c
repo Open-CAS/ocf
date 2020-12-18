@@ -94,9 +94,6 @@ struct ocf_cache_attach_context {
 	uint64_t volume_size;
 		/*!< size of the device in cache lines */
 
-	enum ocf_mngt_cache_init_mode init_mode;
-		/*!< cache init mode */
-
 	/**
 	 * @brief initialization state (in case of error, it is used to know
 	 * which assets have to be deallocated in premature exit from function
@@ -611,8 +608,6 @@ static void _ocf_mngt_attach_cache_device(ocf_pipeline_t pipeline,
 		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_NO_MEM);
 
 	context->flags.device_alloc = true;
-
-	cache->device->init_mode = context->init_mode;
 
 	/* Prepare UUID of cache volume */
 	type = ocf_ctx_get_volume_type(cache->owner, context->cfg.volume_type);
@@ -1829,12 +1824,6 @@ static void _ocf_mngt_cache_attach(ocf_cache_t cache,
 	context->cache = cache;
 	context->cfg = *cfg;
 
-	if (cache->metadata.is_volatile) {
-		context->init_mode = ocf_init_mode_metadata_volatile;
-	} else {
-		context->init_mode = ocf_init_mode_init;
-	}
-
 	OCF_PL_NEXT_RET(pipeline);
 }
 
@@ -1867,7 +1856,6 @@ static void _ocf_mngt_cache_load(ocf_cache_t cache,
 
 	context->cache = cache;
 	context->cfg = *cfg;
-	context->init_mode = ocf_init_mode_load;
 
 	OCF_PL_NEXT_RET(pipeline);
 }
