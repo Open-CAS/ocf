@@ -276,10 +276,7 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 		struct ocf_stats_io_class *stats)
 {
 	ocf_cache_t cache;
-	uint32_t cache_occupancy_total = 0;
 	struct ocf_counters_part *part_stat;
-	ocf_core_t i_core;
-	ocf_core_id_t i_core_id;
 
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(stats);
@@ -292,11 +289,6 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 	if (!ocf_part_is_valid(&cache->user_parts[part_id]))
 		return -OCF_ERR_IO_CLASS_NOT_EXIST;
 
-	for_each_core(cache, i_core, i_core_id) {
-		cache_occupancy_total += env_atomic_read(
-				&i_core->runtime_meta->cached_clines);
-	}
-
 	part_stat = &core->counters->part_counters[part_id];
 
 	stats->occupancy_clines = env_atomic_read(&core->runtime_meta->
@@ -304,8 +296,7 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 	stats->dirty_clines = env_atomic_read(&core->runtime_meta->
 			part_counters[part_id].dirty_clines);
 
-	stats->free_clines = cache->conf_meta->cachelines -
-			cache_occupancy_total;
+	stats->free_clines = 0;
 
 	copy_req_stats(&stats->read_reqs, &part_stat->read_reqs);
 	copy_req_stats(&stats->write_reqs, &part_stat->write_reqs);

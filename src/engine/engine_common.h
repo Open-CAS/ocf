@@ -48,6 +48,20 @@ static inline bool ocf_engine_is_hit(struct ocf_request *req)
 #define ocf_engine_is_miss(req) (!ocf_engine_is_hit(req))
 
 /**
+ * @brief Check if all the cache lines are assigned to a good partition
+ *
+ * @param req OCF request
+ *
+ * @retval true request's cache lines are assigned to a good partition
+ * @retval false some of the request's cache lines needs to be reassigned to
+ * a target partition
+ */
+static inline bool ocf_engine_needs_repart(struct ocf_request *req)
+{
+	return req->info.re_part_no > 0;
+}
+
+/**
  * @brief Check if all cache lines are mapped fully
  *
  * @param req OCF request
@@ -96,6 +110,18 @@ static inline uint32_t ocf_engine_mapped_count(struct ocf_request *req)
 static inline uint32_t ocf_engine_unmapped_count(struct ocf_request *req)
 {
 	return req->core_line_count - (req->info.hit_no + req->info.invalid_no);
+}
+
+/**
+ * @brief Get number of cache lines to repart
+ *
+ * @param req OCF request
+ *
+ * @retval Number of cache lines to repart
+ */
+static inline uint32_t ocf_engine_repart_count(struct ocf_request *req)
+{
+	return req->info.re_part_no;
 }
 
 /**

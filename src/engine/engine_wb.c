@@ -121,7 +121,7 @@ static inline void _ocf_write_wb_submit(struct ocf_request *req)
 	 * 3. Then continue processing request (flush metadata)
 	 */
 
-	if (req->info.re_part) {
+	if (ocf_engine_needs_repart(req)) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
 		ocf_req_hash_lock_wr(req);
@@ -189,7 +189,7 @@ int ocf_write_wb(struct ocf_request *req)
 
 	lock = ocf_engine_prepare_clines(req, &_wb_engine_callbacks);
 
-	if (!req->info.mapping_error) {
+	if (!ocf_req_test_mapping_error(req)) {
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* WR lock was not acquired, need to wait for resume */

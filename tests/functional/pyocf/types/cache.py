@@ -25,6 +25,7 @@ from ..ocf import OcfLib
 from .shared import (
     Uuid,
     OcfError,
+    OcfErrorCode,
     CacheLineSize,
     CacheLines,
     OcfCompletion,
@@ -34,6 +35,7 @@ from ..utils import Size, struct_to_dict
 from .core import Core
 from .queue import Queue
 from .stats.cache import CacheInfo
+from .ioclass import IoClassesInfo, IoClassInfo
 from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
 
 
@@ -73,6 +75,9 @@ class CacheDeviceConfig(Structure):
 class ConfValidValues:
     promotion_nhit_insertion_threshold_range = range(2, 1000)
     promotion_nhit_trigger_threshold_range = range(0, 100)
+
+
+CACHE_MODE_NONE = -1
 
 
 class CacheMode(IntEnum):
@@ -299,6 +304,93 @@ class Cache:
         if status:
             raise OcfError("Error setting cache seq cut off policy", status)
 
+    def get_partition_info(self, part_id: int):
+        ioclass_info = IoClassInfo()
+        self.read_lock()
+
+        status = self.owner.lib.ocf_cache_io_class_get_info(
+            self.cache_handle, part_id, byref(ioclass_info)
+        )
+
+        self.read_unlock()
+        if status:
+            raise OcfError("Error retriving ioclass info", status)
+
+        return {
+            "_name": ioclass_info._name.decode("ascii"),
+            "_cache_mode": ioclass_info._cache_mode,
+            "_priority": int(ioclass_info._priority),
+            "_curr_size": (ioclass_info._curr_size),
+            "_min_size": int(ioclass_info._min_size),
+            "_max_size": int(ioclass_info._max_size),
+            "_eviction_policy_type": int(ioclass_info._eviction_policy_type),
+            "_cleaning_policy_type": int(ioclass_info._cleaning_policy_type),
+        }
+
+    def add_partition(
+        self, part_id: int, name: str, min_size: int, max_size: int, priority: int, valid: bool
+    ):
+        self.write_lock()
+
+        _name = name.encode("ascii")
+
+        status = self.owner.lib.ocf_mngt_add_partition_to_cache(
+            self.cache_handle, part_id, _name, min_size, max_size, priority, valid
+        )
+
+        self.write_unlock()
+
+        if status:
+            raise OcfError("Error adding partition to cache", status)
+
+    def configure_partition(
+        self,
+        part_id: int,
+        name: str,
+        min_size: int,
+        max_size: int,
+        priority: int,
+        cache_mode=CACHE_MODE_NONE,
+    ):
+        ioclasses_info = IoClassesInfo()
+
+        self.read_lock()
+
+        for i in range(IoClassesInfo.MAX_IO_CLASSES):
+            ioclass_info = IoClassInfo()
+            status = self.owner.lib.ocf_cache_io_class_get_info(
+                self.cache_handle, i, byref(ioclass_info)
+            )
+            if status not in [0, -OcfErrorCode.OCF_ERR_IO_CLASS_NOT_EXIST]:
+                raise OcfError("Error retriving existing ioclass config", status)
+            ioclasses_info._config[i]._class_id = i
+            ioclasses_info._config[i]._name = (
+                ioclass_info._name if len(ioclass_info._name) > 0 else 0
+            )
+            ioclasses_info._config[i]._prio = ioclass_info._priority
+            ioclasses_info._config[i]._cache_mode = ioclass_info._cache_mode
+            ioclasses_info._config[i]._min_size = ioclass_info._min_size
+            ioclasses_info._config[i]._max_size = ioclass_info._max_size
+
+        self.read_unlock()
+
+        ioclasses_info._config[part_id]._name = name.encode("ascii")
+        ioclasses_info._config[part_id]._cache_mode = int(cache_mode)
+        ioclasses_info._config[part_id]._prio = priority
+        ioclasses_info._config[part_id]._min_size = min_size
+        ioclasses_info._config[part_id]._max_size = max_size
+
+        self.write_lock()
+
+        status = self.owner.lib.ocf_mngt_cache_io_classes_configure(
+            self.cache_handle, byref(ioclasses_info)
+        )
+
+        self.write_unlock()
+
+        if status:
+            raise OcfError("Error adding partition to cache", status)
+
     def configure_device(
         self, device, force=False, perform_test=True, cache_line_size=None
     ):
@@ -331,6 +423,21 @@ class Cache:
 
         device.owner.lib.ocf_mngt_cache_attach(
             self.cache_handle, byref(self.dev_cfg), c, None
+        )
+
+        c.wait()
+        self.write_unlock()
+
+        if c.results["error"]:
+            raise OcfError("Attaching cache device failed", c.results["error"])
+
+    def detach_device(self):
+        self.write_lock()
+
+        c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
+
+        self.owner.lib.ocf_mngt_cache_detach(
+            self.cache_handle, c, None
         )
 
         c.wait()
@@ -605,3 +712,17 @@ lib.ocf_mngt_cache_cleaning_set_param.argtypes = [
     c_uint32,
 ]
 lib.ocf_mngt_cache_cleaning_set_param.restype = c_int
+lib.ocf_cache_io_class_get_info.restype = c_int
+lib.ocf_cache_io_class_get_info.argtypes = [c_void_p, c_uint32, c_void_p]
+lib.ocf_mngt_add_partition_to_cache.restype = c_int
+lib.ocf_mngt_add_partition_to_cache.argtypes = [
+    c_void_p,
+    c_uint16,
+    c_char_p,
+    c_uint32,
+    c_uint32,
+    c_uint8,
+    c_bool,
+]
+lib.ocf_mngt_cache_io_classes_configure.restype = c_int
+lib.ocf_mngt_cache_io_classes_configure.argtypes = [c_void_p, c_void_p]

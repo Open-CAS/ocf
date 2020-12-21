@@ -69,7 +69,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	if (req->info.re_part) {
+	if (ocf_engine_needs_repart(req)) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
 		ocf_req_hash_lock_wr(req);
@@ -108,6 +108,7 @@ int ocf_read_fast(struct ocf_request *req)
 {
 	bool hit;
 	int lock = OCF_LOCK_NOT_ACQUIRED;
+	bool part_has_space = false;
 
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
@@ -124,14 +125,18 @@ int ocf_read_fast(struct ocf_request *req)
 	ocf_engine_traverse(req);
 
 	hit = ocf_engine_is_hit(req);
-	if (hit) {
+
+	if (ocf_part_check_space(req, NULL) == OCF_PART_HAS_SPACE)
+		part_has_space = true;
+
+	if (hit && part_has_space) {
 		ocf_io_start(&req->ioi.io);
 		lock = ocf_req_async_lock_rd(req, ocf_engine_on_resume);
 	}
 
 	ocf_req_hash_unlock_rd(req);
 
-	if (hit) {
+	if (hit && part_has_space) {
 		OCF_DEBUG_RQ(req, "Fast path success");
 
 		if (lock >= 0) {
@@ -154,10 +159,7 @@ int ocf_read_fast(struct ocf_request *req)
 	/* Put OCF request - decrease reference counter */
 	ocf_req_put(req);
 
-	if (hit)
-		return OCF_FAST_PATH_YES;
-	else
-		return OCF_FAST_PATH_NO;
+	return (hit && part_has_space) ? OCF_FAST_PATH_YES : OCF_FAST_PATH_NO;
 }
 
 /*  __          __   _ _         ______        _     _____      _   _
@@ -177,6 +179,7 @@ int ocf_write_fast(struct ocf_request *req)
 {
 	bool mapped;
 	int lock = OCF_LOCK_NOT_ACQUIRED;
+	int part_has_space = false;
 
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
@@ -193,14 +196,18 @@ int ocf_write_fast(struct ocf_request *req)
 	ocf_engine_traverse(req);
 
 	mapped = ocf_engine_is_mapped(req);
-	if (mapped) {
+
+	if (ocf_part_check_space(req, NULL) == OCF_PART_HAS_SPACE)
+		part_has_space = true;
+
+	if (mapped && part_has_space) {
 		ocf_io_start(&req->ioi.io);
 		lock = ocf_req_async_lock_wr(req, ocf_engine_on_resume);
 	}
 
 	ocf_req_hash_unlock_rd(req);
 
-	if (mapped) {
+	if (mapped && part_has_space) {
 		if (lock >= 0) {
 			OCF_DEBUG_RQ(req, "Fast path success");
 
@@ -223,6 +230,5 @@ int ocf_write_fast(struct ocf_request *req)
 	/* Put OCF request - decrease reference counter */
 	ocf_req_put(req);
 
-	return mapped ? OCF_FAST_PATH_YES : OCF_FAST_PATH_NO;
-
+	return (mapped && part_has_space) ?  OCF_FAST_PATH_YES : OCF_FAST_PATH_NO;
 }
