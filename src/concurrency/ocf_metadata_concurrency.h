@@ -158,6 +158,9 @@ bool _ocf_metadata_hash_trylock_wr(struct ocf_metadata_lock *metadata_lock,
 void _ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
 
+bool ocf_req_hash_in_range(struct ocf_request *req,
+		ocf_core_id_t core_id, uint64_t core_line);
+
 /* lock entire request in deadlock-free manner */
 void ocf_req_hash_lock_rd(struct ocf_request *req);
 void ocf_req_hash_unlock_rd(struct ocf_request *req);
