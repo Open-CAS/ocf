@@ -578,6 +578,7 @@ static int _ocf_cleaner_fire_core(struct ocf_request *req)
 {
 	uint32_t i;
 	struct ocf_map_info *iter;
+	ocf_cache_t cache = req->cache;
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -596,7 +597,15 @@ static int _ocf_cleaner_fire_core(struct ocf_request *req)
 		if (iter->status == LOOKUP_MISS)
 			continue;
 
+		ocf_metadata_hash_lock_rd(&cache->metadata.lock,
+				req->map[i].core_id,
+				req->map[i].core_line);
+
 		_ocf_cleaner_core_submit_io(req, iter);
+
+		ocf_metadata_hash_unlock_rd(&cache->metadata.lock,
+				req->map[i].core_id,
+				req->map[i].core_line);
 	}
 
 	/* Protect IO completion race */
