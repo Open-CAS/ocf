@@ -140,9 +140,22 @@ void ocf_metadata_hash_lock_rd(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
 void ocf_metadata_hash_unlock_rd(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
+
+/* caller must hold global metadata read lock */
+bool _ocf_metadata_hash_trylock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+void _ocf_metadata_hash_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+
 void ocf_metadata_hash_lock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
 void ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+
+/* caller must hold global metadata read lock */
+bool _ocf_metadata_hash_trylock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+void _ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
 
 /* lock entire request in deadlock-free manner */

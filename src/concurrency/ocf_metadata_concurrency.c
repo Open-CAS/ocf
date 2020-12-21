@@ -198,7 +198,7 @@ void ocf_metadata_hash_unlock(struct ocf_metadata_lock *metadata_lock,
 		ENV_BUG();
 }
 
-int ocf_metadata_hash_try_lock(struct ocf_metadata_lock *metadata_lock,
+static int ocf_metadata_hash_try_lock(struct ocf_metadata_lock *metadata_lock,
 		ocf_cache_line_t hash, int rw)
 {
 	int result = -1;
@@ -215,10 +215,8 @@ int ocf_metadata_hash_try_lock(struct ocf_metadata_lock *metadata_lock,
 		ENV_BUG();
 	}
 
-	if (!result)
-		return -1;
 
-	return 0;
+	return result;
 }
 
 /* NOTE: attempt to acquire hash lock for multiple core lines may end up
@@ -232,6 +230,25 @@ void ocf_metadata_hash_lock_rd(struct ocf_metadata_lock *metadata_lock,
 
 	ocf_metadata_start_shared_access(metadata_lock);
 	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_RD);
+}
+
+bool _ocf_metadata_hash_trylock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	return (0 == ocf_metadata_hash_try_lock(metadata_lock, hash,
+				OCF_METADATA_RD));
+}
+
+void _ocf_metadata_hash_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_RD);
 }
 
 void ocf_metadata_hash_unlock_rd(struct ocf_metadata_lock *metadata_lock,
@@ -252,6 +269,25 @@ void ocf_metadata_hash_lock_wr(struct ocf_metadata_lock *metadata_lock,
 
 	ocf_metadata_start_shared_access(metadata_lock);
 	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_WR);
+}
+
+bool _ocf_metadata_hash_trylock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	return (0 == ocf_metadata_hash_try_lock(metadata_lock, hash,
+				OCF_METADATA_WR));
+}
+
+void _ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_WR);
 }
 
 void ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
