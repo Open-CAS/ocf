@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2020 Intel Corporation
+ * Copyright(c) 2012-2018 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -320,7 +320,6 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 	/* Update metadata */
 	for (i = 0; i < req->core_line_count; i++, iter++) {
 		if (iter->status == LOOKUP_MISS)
@@ -333,8 +332,12 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 
 		cache_line = iter->coll_idx;
 
+		ocf_metadata_hash_lock_wr(&cache->metadata.lock,
+				req->map[i].core_id,
+				req->map[i].core_line);
+
 		if (!metadata_test_dirty(cache, cache_line))
-			continue;
+			goto unlock;
 
 		ocf_metadata_get_core_and_part_id(cache, cache_line,
 				&core_id, &req->part_id);
@@ -342,11 +345,14 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 
 		set_cache_line_clean(cache, 0, ocf_line_end_sector(cache), req,
 				i);
+unlock:
+		ocf_metadata_hash_unlock_wr(&cache->metadata.lock,
+				req->map[i].core_id,
+				req->map[i].core_line);
+
 	}
 
 	ocf_metadata_flush_do_asynch(cache, req, _ocf_cleaner_metadata_io_end);
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
-
 	return 0;
 }
 
