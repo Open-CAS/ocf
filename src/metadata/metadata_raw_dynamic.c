@@ -4,7 +4,7 @@
  */
 
 #include "metadata.h"
-#include "metadata_hash.h"
+#include "metadata_segment_id.h"
 #include "metadata_raw.h"
 #include "metadata_raw_dynamic.h"
 #include "metadata_io.h"
@@ -232,39 +232,6 @@ uint32_t raw_dynamic_page(struct ocf_metadata_raw *raw, uint32_t entry)
 	ENV_BUG_ON(entry >= raw->entries);
 
 	return _RAW_DYNAMIC_PAGE(raw, entry);
-}
-
-/*
-* RAM DYNAMIC Implementation - Get
-*/
-int raw_dynamic_get(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		uint32_t entry, void *data)
-{
-	void *item = _raw_dynamic_get_item(cache, raw, entry);
-
-	if (!item) {
-		ENV_BUG_ON(env_memset(data, raw->entry_size, 0));
-		ocf_metadata_error(cache);
-		return -1;
-	}
-
-	return env_memcpy(data, raw->entry_size, item, raw->entry_size);
-}
-
-/*
-* RAM DYNAMIC Implementation - Set
-*/
-int raw_dynamic_set(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		uint32_t entry, void *data)
-{
-	void *item = _raw_dynamic_get_item(cache, raw, entry);
-
-	if (!item) {
-		ocf_metadata_error(cache);
-		return -1;
-	}
-
-	return env_memcpy(item, raw->entry_size, data, raw->entry_size);
 }
 
 /*

@@ -6,6 +6,8 @@
 #ifndef __METADATA_RAW_H__
 #define __METADATA_RAW_H__
 
+#include "metadata_segment_id.h"
+
 /**
  * @file metadata_raw.h
  * @brief Metadata RAW container implementation
@@ -57,7 +59,7 @@ struct ocf_metadata_raw {
 	/**
 	 * @name Metadata and RAW types
 	 */
-	enum ocf_metadata_segment metadata_segment; /*!< Metadata segment */
+	enum ocf_metadata_segment_id metadata_segment; /*!< Metadata segment */
 	enum ocf_metadata_raw_type raw_type; /*!< RAW implementation type */
 
 	/**
@@ -116,12 +118,6 @@ struct raw_iface {
 			struct ocf_metadata_raw *raw);
 
 	uint32_t (*page)(struct ocf_metadata_raw *raw, uint32_t entry);
-
-	int (*get)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-			uint32_t entry, void *data);
-
-	int (*set)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-			uint32_t entry, void *data);
 
 	void* (*access)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 			uint32_t entry);
@@ -215,21 +211,6 @@ static inline uint32_t ocf_metadata_raw_page(struct ocf_metadata_raw* raw,
 }
 
 /**
- * @brief Get specified element of metadata
- *
- * @param cache - Cache instance
- * @param raw - RAW descriptor
- * @param entry - Entry to be get
- * @param data - Data where metadata entry will be copied into
- * @return 0 - Operation success, otherwise error
- */
-static inline int ocf_metadata_raw_get(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, uint32_t entry, void *data)
-{
-	return raw->iface->get(cache, raw, entry, data);
-}
-
-/**
  * @brief Access specified element of metadata directly
  *
  * @param cache - Cache instance
@@ -257,21 +238,6 @@ static inline const void *ocf_metadata_raw_rd_access( ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, uint32_t entry)
 {
 	return raw->iface->access(cache, raw, entry);
-}
-
-/**
- * @brief Set specified element of metadata
- *
- * @param cache - Cache instance
- * @param raw - RAW descriptor
- * @param entry - Entry to be set
- * @param data - Data taht will be copied into metadata entry
- * @return 0 - Operation success, otherwise error
- */
-static inline int ocf_metadata_raw_set(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, uint32_t entry, void *data)
-{
-	return raw->iface->set(cache, raw, entry, data);
 }
 
 /**
@@ -341,5 +307,10 @@ static inline void _raw_bug_on(struct ocf_metadata_raw *raw, uint32_t entry)
 #define MAX_STACK_TAB_SIZE 32
 
 int _raw_ram_flush_do_page_cmp(const void *item1, const void *item2);
+
+static inline void *ocf_metadata_raw_get_mem(struct ocf_metadata_raw *raw)
+{
+	return raw->mem_pool;
+}
 
 #endif /* METADATA_RAW_H_ */

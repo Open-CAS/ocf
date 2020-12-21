@@ -4,7 +4,7 @@
  */
 
 #include "metadata.h"
-#include "metadata_hash.h"
+#include "metadata_segment_id.h"
 #include "metadata_raw.h"
 #include "metadata_io.h"
 #include "metadata_raw_atomic.h"
@@ -165,17 +165,6 @@ uint32_t _raw_ram_page(struct ocf_metadata_raw *raw, uint32_t entry)
 }
 
 /*
- * RAM Implementation - Get entry
- */
-static int _raw_ram_get(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		uint32_t entry, void *data)
-{
-	ENV_BUG_ON(!_raw_is_valid(raw, entry));
-
-	return _RAW_RAM_GET(raw, entry, data);
-}
-
-/*
  * RAM Implementation - Read only entry access
  */
 static void *_raw_ram_access(ocf_cache_t cache,
@@ -184,17 +173,6 @@ static void *_raw_ram_access(ocf_cache_t cache,
 	ENV_BUG_ON(!_raw_is_valid(raw, entry));
 
 	return _RAW_RAM_ADDR(raw, entry);
-}
-
-/*
- * RAM Implementation - Set Entry
- */
-static int _raw_ram_set(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		uint32_t entry, void *data)
-{
-	ENV_BUG_ON(!_raw_is_valid(raw, entry));
-
-	return _RAW_RAM_SET(raw, entry, data);
 }
 
 struct _raw_ram_load_all_context {
@@ -568,8 +546,6 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_on_ssd		= _raw_ram_size_on_ssd,
 		.checksum		= _raw_ram_checksum,
 		.page			= _raw_ram_page,
-		.get			= _raw_ram_get,
-		.set			= _raw_ram_set,
 		.access			= _raw_ram_access,
 		.load_all		= _raw_ram_load_all,
 		.flush_all		= _raw_ram_flush_all,
@@ -583,8 +559,6 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_on_ssd		= raw_dynamic_size_on_ssd,
 		.checksum		= raw_dynamic_checksum,
 		.page			= raw_dynamic_page,
-		.get			= raw_dynamic_get,
-		.set			= raw_dynamic_set,
 		.access			= raw_dynamic_access,
 		.load_all		= raw_dynamic_load_all,
 		.flush_all		= raw_dynamic_flush_all,
@@ -598,8 +572,6 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_on_ssd		= raw_volatile_size_on_ssd,
 		.checksum		= raw_volatile_checksum,
 		.page			= _raw_ram_page,
-		.get			= _raw_ram_get,
-		.set			= _raw_ram_set,
 		.access			= _raw_ram_access,
 		.load_all		= raw_volatile_load_all,
 		.flush_all		= raw_volatile_flush_all,
@@ -613,8 +585,6 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_on_ssd		= _raw_ram_size_on_ssd,
 		.checksum		= _raw_ram_checksum,
 		.page			= _raw_ram_page,
-		.get			= _raw_ram_get,
-		.set			= _raw_ram_set,
 		.access			= _raw_ram_access,
 		.load_all		= _raw_ram_load_all,
 		.flush_all		= _raw_ram_flush_all,

@@ -7,6 +7,7 @@
 #define __METADATA_SUPERBLOCK_H__
 
 #include <ocf/ocf_def.h>
+#include "metadata_segment.h"
 
 #define CACHE_MAGIC_NUMBER	0x187E1CA6
 
@@ -63,24 +64,37 @@ struct ocf_superblock_runtime {
 	uint32_t cleaning_thread_access;
 };
 
-static inline void ocf_metadata_set_shutdown_status(ocf_cache_t cache,
+struct ocf_metadata_ctrl;
+
+void ocf_metadata_set_shutdown_status(ocf_cache_t cache,
 		enum ocf_metadata_shutdown_status shutdown_status,
-		ocf_metadata_end_t cmpl, void *priv)
-{
-	cache->metadata.iface.set_shutdown_status(cache, shutdown_status,
-			cmpl, priv);
-}
+		ocf_metadata_end_t cmpl, void *priv);
 
-static inline void ocf_metadata_load_superblock(ocf_cache_t cache,
-		ocf_metadata_end_t cmpl, void *priv)
-{
-	cache->metadata.iface.load_superblock(cache, cmpl, priv);
-}
+void ocf_metadata_load_superblock(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv);
 
-static inline void ocf_metadata_flush_superblock(ocf_cache_t cache,
-		ocf_metadata_end_t cmpl, void *priv)
-{
-	cache->metadata.iface.flush_superblock(cache, cmpl, priv);
-}
+void ocf_metadata_flush_superblock(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv);
+
+int ocf_metadata_superblock_init(
+		struct ocf_metadata_segment **self,
+		struct ocf_cache *cache,
+		struct ocf_metadata_raw *raw);
+
+void ocf_metadata_superblock_destroy(
+		struct ocf_cache *cache,
+		struct ocf_metadata_segment *self);
+
+uint32_t ocf_metadata_superblock_get_checksum(
+		struct ocf_metadata_segment *self,
+		enum ocf_metadata_segment_id segment);
+
+void ocf_metadata_superblock_set_checksum(
+		struct ocf_metadata_segment *self,
+		enum ocf_metadata_segment_id segment,
+		uint32_t csum);
+
+bool ocf_metadata_superblock_get_clean_shutdown(
+		struct ocf_metadata_segment *self);
 
 #endif /* METADATA_SUPERBLOCK_H_ */

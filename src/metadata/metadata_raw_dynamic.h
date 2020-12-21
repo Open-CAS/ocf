@@ -48,18 +48,6 @@ uint32_t raw_dynamic_checksum(ocf_cache_t cache,
 uint32_t raw_dynamic_page(struct ocf_metadata_raw *raw, uint32_t entry);
 
 /*
- * RAW DYNAMIC - Get specified entry
- */
-int raw_dynamic_get(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		uint32_t entry, void *data);
-
-/*
- * RAW DYNAMIC - Set specified entry
- */
-int raw_dynamic_set(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		uint32_t entry, void *data);
-
-/*
  * RAW DYNAMIC - Write access for specified entry
  */
 void *raw_dynamic_access(ocf_cache_t cache,

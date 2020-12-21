@@ -12,7 +12,7 @@
 #include "metadata_cleaning_policy.h"
 #include "metadata_eviction_policy.h"
 #include "metadata_partition.h"
-#include "metadata_hash.h"
+#include "metadata_segment_id.h"
 #include "metadata_superblock.h"
 #include "metadata_status.h"
 #include "metadata_collision.h"
@@ -170,10 +170,7 @@ void ocf_metadata_load_recovery(ocf_cache_t cache,
  *
  * @param cache Cache instance
  */
-static inline uint64_t ocf_metadata_get_reserved_lba(ocf_cache_t cache)
-{
-	return cache->metadata.iface.get_reserved_lba(cache);
-}
+uint64_t ocf_metadata_get_reserved_lba(ocf_cache_t cache);
 
 /*
  * NOTE Hash table is specific for hash table metadata service implementation
@@ -182,23 +179,11 @@ static inline uint64_t ocf_metadata_get_reserved_lba(ocf_cache_t cache)
  * temporary defined in this file.
  */
 
-static inline ocf_cache_line_t
-ocf_metadata_get_hash(struct ocf_cache *cache, ocf_cache_line_t index)
-{
-	return cache->metadata.iface.get_hash(cache, index);
-}
+ocf_cache_line_t
+ocf_metadata_get_hash(struct ocf_cache *cache, ocf_cache_line_t index);
 
-static inline void ocf_metadata_set_hash(struct ocf_cache *cache,
-		ocf_cache_line_t index, ocf_cache_line_t line)
-{
-	cache->metadata.iface.set_hash(cache, index, line);
-}
-
-static inline ocf_cache_line_t ocf_metadata_entries_hash(
-		struct ocf_cache *cache)
-{
-	return cache->metadata.iface.entries_hash(cache);
-}
+void ocf_metadata_set_hash(struct ocf_cache *cache,
+		ocf_cache_line_t index, ocf_cache_line_t line);
 
 struct ocf_metadata_load_properties {
 	enum ocf_metadata_shutdown_status shutdown_status;
