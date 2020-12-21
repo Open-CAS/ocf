@@ -6,6 +6,7 @@
 #include "eviction.h"
 #include "ops.h"
 #include "../utils/utils_part.h"
+#include "../engine/engine_common.h"
 
 struct eviction_policy_ops evict_policy_ops[ocf_eviction_max] = {
 	[ocf_eviction_lru] = {
@@ -16,12 +17,13 @@ struct eviction_policy_ops evict_policy_ops[ocf_eviction_max] = {
 		.init_evp = evp_lru_init_evp,
 		.dirty_cline = evp_lru_dirty_cline,
 		.clean_cline = evp_lru_clean_cline,
+		.flush_dirty = evp_lru_clean,
 		.name = "lru",
 	},
 };
 
 static uint32_t ocf_evict_calculate(ocf_cache_t cache,
-		struct ocf_user_part *part, uint32_t to_evict, bool roundup)
+		struct ocf_user_part *part, uint32_t to_evict)
 {
 
 	uint32_t curr_part_size = ocf_part_get_occupancy(part);
@@ -35,37 +37,40 @@ static uint32_t ocf_evict_calculate(ocf_cache_t cache,
 		return 0;
 	}
 
-	if (roundup && to_evict < OCF_TO_EVICTION_MIN)
-		to_evict = OCF_TO_EVICTION_MIN;
-
 	if (to_evict > (curr_part_size - min_part_size))
 		to_evict = curr_part_size - min_part_size;
 
 	return to_evict;
 }
 
-static inline uint32_t ocf_evict_part_do(ocf_cache_t cache,
-		ocf_queue_t io_queue, const uint32_t evict_cline_no,
+static inline uint32_t ocf_evict_part_do(struct ocf_request *req,
 		struct ocf_user_part *target_part)
 {
+	uint32_t unmapped = ocf_engine_unmapped_count(req);
 	uint32_t to_evict = 0;
 
-	if (!evp_lru_can_evict(cache))
+	if (!evp_lru_can_evict(req->cache))
 		return 0;
 
-	to_evict = ocf_evict_calculate(cache, target_part, evict_cline_no,
-			false);
+	to_evict = ocf_evict_calculate(req->cache, target_part, unmapped);
 
-	return ocf_eviction_need_space(cache, io_queue,
-			target_part, to_evict);
+	if (to_evict < unmapped) {
+		/* cannot evict enough cachelines to map request,
+		   so no purpose in evicting anything */
+		return 0;
+	}
+
+	return ocf_eviction_need_space(req->cache, req, target_part, to_evict);
 }
 
-static inline uint32_t ocf_evict_do(ocf_cache_t cache,
-		ocf_queue_t io_queue, const uint32_t evict_cline_no,
-		struct ocf_user_part *target_part)
+static inline uint32_t ocf_evict_do(struct ocf_request *req)
 {
 	uint32_t to_evict = 0, evicted = 0;
 	struct ocf_user_part *part;
+	ocf_part_id_t target_part_id = req->part_id;
+	ocf_cache_t cache = req->cache;
+	uint32_t evict_cline_no = ocf_engine_unmapped_count(req);
+	struct ocf_user_part *target_part = &cache->user_parts[target_part_id];
 	ocf_part_id_t part_id;
 	bool oversized = true;
 
@@ -94,15 +99,14 @@ repeat:
 		if (oversized && ocf_part_overflow_size(cache, part) == 0)
 			continue;
 
-		to_evict = ocf_evict_calculate(cache, part, evict_cline_no,
-				true);
+		to_evict = ocf_evict_calculate(cache, part, evict_cline_no -
+				evicted);
 		if (to_evict == 0) {
 			/* No cache lines to evict for this partition */
 			continue;
 		}
 
-		evicted += ocf_eviction_need_space(cache, io_queue,
-				part, to_evict);
+		evicted += ocf_eviction_need_space(cache, req, part, to_evict);
 
 		if (evicted >= evict_cline_no) {
 			/* Evicted requested number of cache line, stop */
@@ -120,27 +124,19 @@ out:
 	return evicted;
 }
 
-int space_managment_evict_do(struct ocf_cache *cache,
-		struct ocf_request *req, uint32_t evict_cline_no)
+int space_managment_evict_do(struct ocf_request *req)
 {
+	uint32_t needed = ocf_engine_unmapped_count(req);
 	uint32_t evicted;
-	uint32_t free;
-	struct ocf_user_part *req_part = &cache->user_parts[req->part_id];
+	struct ocf_user_part *req_part = &req->cache->user_parts[req->part_id];
 
 	if (ocf_req_part_evict(req)) {
-		evicted = ocf_evict_part_do(cache, req->io_queue, evict_cline_no,
-				req_part);
+		evicted = ocf_evict_part_do(req, req_part);
 	} else {
-		free = ocf_freelist_num_free(cache->freelist);
-		if (evict_cline_no <= free)
-			return LOOKUP_INSERTED;
-
-		evict_cline_no -= free;
-
-		evicted = ocf_evict_do(cache, req->io_queue, evict_cline_no, req_part);
+		evicted = ocf_evict_do(req);
 	}
 
-	if (evict_cline_no <= evicted)
+	if (needed <= evicted)
 		return LOOKUP_INSERTED;
 
 	ocf_req_set_mapping_error(req);

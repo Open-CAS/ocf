@@ -38,15 +38,16 @@ struct ocf_cleaner_attribs {
 	void *cmpl_context; /*!< Completion context of cleaning requester */
 	void (*cmpl_fn)(void *priv, int error); /*!< Completion function of requester */
 
-	ocf_cleaner_get_item getter;
+	ocf_cleaner_get_item get;
 		/*!< Getter for collecting cache lines which will be cleaned */
+	ocf_cleaner_put_item put;
+		/*!< Free resources acquired in get */
 	void *getter_context;
 		/*!< Context for getting cache lines */
-	uint32_t getter_item;
-		/*!< Additional variable that can be used by cleaner caller
+       uint32_t getter_item;
+		/*!< Additional variable that can be used by cleaner call
 		 * to iterate over items
 		 */
-
 	ocf_queue_t io_queue;
 };
 

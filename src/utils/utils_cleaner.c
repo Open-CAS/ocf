@@ -865,7 +865,6 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	env_atomic_inc(&master->master_remaining);
 
 	for (i = 0; i < count; i++) {
-
 		/* when request hasn't yet been allocated or is just issued */
 		if (!req) {
 			if (max > count - i) {
@@ -890,13 +889,18 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 			break;
 		}
 
-		if (attribs->getter(cache, attribs->getter_context,
+		if (attribs->get(cache, attribs->getter_context,
 				i, &cache_line)) {
 			OCF_DEBUG_MSG(cache, "Skip");
 			continue;
 		}
 
-		/* when line already cleaned - rare condition under heavy
+		/* Get mapping info */
+		ocf_metadata_get_core_info(cache, cache_line, &core_id,
+				&core_sector);
+
+
+		/* when line already cleaned - rare condition under h
 		 * I/O workload.
 		 */
 		if (!metadata_test_dirty(cache, cache_line)) {
@@ -915,9 +919,8 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 			continue;
 		}
 
-		/* Get mapping info */
-		ocf_metadata_get_core_info(cache, cache_line, &core_id,
-				&core_sector);
+		if (attribs->put)
+			attribs->put(cache, attribs->getter_context, i);
 
 		if (unlikely(!cache->core[core_id].opened)) {
 			OCF_DEBUG_MSG(cache, "Core object inactive");
@@ -941,6 +944,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 			i_out = 0;
 			req  = NULL;
 		}
+
 	}
 
 	if (req) {
@@ -972,7 +976,8 @@ int ocf_cleaner_do_flush_data_async(struct ocf_cache *cache,
 		struct flush_data *flush, uint32_t count,
 		struct ocf_cleaner_attribs *attribs)
 {
-	attribs->getter = _ocf_cleaner_do_flush_data_getter;
+	attribs->get = _ocf_cleaner_do_flush_data_getter;
+	attribs->put = NULL;
 	attribs->getter_context = flush;
 	attribs->count = count;
 
@@ -1032,7 +1037,7 @@ void ocf_cleaner_refcnt_freeze(ocf_cache_t cache)
 	ocf_part_id_t part_id;
 
 	for_each_part(cache, curr_part, part_id)
-		ocf_refcnt_freeze(&curr_part->cleaning);
+		ocf_refcnt_freeze(&curr_part->cleaning.counter);
 }
 
 void ocf_cleaner_refcnt_unfreeze(ocf_cache_t cache)
@@ -1041,7 +1046,7 @@ void ocf_cleaner_refcnt_unfreeze(ocf_cache_t cache)
 	ocf_part_id_t part_id;
 
 	for_each_part(cache, curr_part, part_id)
-		ocf_refcnt_unfreeze(&curr_part->cleaning);
+		ocf_refcnt_unfreeze(&curr_part->cleaning.counter);
 }
 
 static void ocf_cleaner_refcnt_register_zero_cb_finish(void *priv)
@@ -1065,7 +1070,7 @@ void ocf_cleaner_refcnt_register_zero_cb(ocf_cache_t cache,
 
 	for_each_part(cache, curr_part, part_id) {
 		env_atomic_inc(&ctx->waiting);
-		ocf_refcnt_register_zero_cb(&curr_part->cleaning,
+		ocf_refcnt_register_zero_cb(&curr_part->cleaning.counter,
 				ocf_cleaner_refcnt_register_zero_cb_finish, ctx);
 	}
 

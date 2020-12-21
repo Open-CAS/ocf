@@ -33,9 +33,13 @@ struct ocf_user_part_runtime {
 	struct cleaning_policy cleaning;
 };
 
+typedef bool ( *_lru_hash_locked_pfn)(void *context,
+		ocf_core_id_t core_id, uint64_t core_line);
+
 /* Iterator state, visiting all eviction lists within a partition
    in round robin order */
-struct ocf_lru_iter {
+struct ocf_lru_iter
+{
 	/* cache object */
 	ocf_cache_t cache;
 	/* target partition */
@@ -49,17 +53,39 @@ struct ocf_lru_iter {
 	uint32_t num_avail_evps;
 	/* current eviction list index */
 	uint32_t evp;
+	/* callback to determine whether given hash bucket is already
+	 * locked by the caller */
+	_lru_hash_locked_pfn hash_locked;
+	/* hash_locked private data */
+	void *context;
+	/* 1 if iterating over clean lists, 0 if over dirty */
+	bool clean : 1;
+	/* 1 if cacheline is to be locked for write, 0 if for read*/
+	bool cl_lock_write : 1;
+	/* 1 if hash bucker is to be locked for write, 0 if for read*/
+	bool hash_lock_write : 1;
+	/* caller requires exclusive access to cacheline */
+	bool exclusive : 1;
+};
+
+#define OCF_EVICTION_CLEAN_SIZE 32U
+
+struct ocf_part_cleaning_ctx {
+	struct ocf_lru_iter iter;
+	env_atomic64  next_lru;
+	struct ocf_refcnt counter;
+	struct flush_data data[OCF_EVICTION_CLEAN_SIZE];
 };
 
 struct ocf_user_part {
 	struct ocf_user_part_config *config;
 	struct ocf_user_part_runtime *runtime;
-	struct ocf_refcnt cleaning;
 	ocf_part_id_t id;
 
-	struct ocf_lru_iter eviction_clean_iter;
-	uint32_t next_eviction_list;
-	struct ocf_lst_entry lst_valid;
+	env_atomic64 curr_evp;
+	struct ocf_part_cleaning_ctx cleaning;
+
+        struct ocf_lst_entry lst_valid;
 };
 
 
