@@ -13,7 +13,7 @@ struct ocf_freelist;
 typedef struct ocf_freelist *ocf_freelist_t;
 
 /* Init / deinit freelist runtime structures */
-ocf_freelist_t ocf_freelist_init(struct ocf_cache *cache);
+int ocf_freelist_init(ocf_freelist_t *freelist, struct ocf_cache *cache);
 void ocf_freelist_deinit(ocf_freelist_t freelist);
 
 /* Assign unused cachelines to freelist */

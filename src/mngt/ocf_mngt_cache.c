@@ -995,9 +995,9 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 
 	context->flags.attached_metadata_inited = true;
 
-	cache->freelist = ocf_freelist_init(cache);
-	if (!cache->freelist)
-		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_START_CACHE_FAIL);
+	ret = ocf_freelist_init(&cache->freelist, cache);
+	if (ret)
+		OCF_PL_FINISH_RET(pipeline, ret);
 
 	context->flags.freelist_inited = true;
 
