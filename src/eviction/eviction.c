@@ -67,7 +67,9 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 	uint32_t to_evict = 0, evicted = 0;
 	struct ocf_user_part *part;
 	ocf_part_id_t part_id;
+	bool oversized = true;
 
+repeat:
 	/* For each partition from the lowest priority to highest one */
 	for_each_part(cache, part, part_id) {
 
@@ -87,10 +89,10 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 			/* It seams that no more partition for eviction */
 			break;
 		}
-		if (evicted >= evict_cline_no) {
-			/* Evicted requested number of cache line, stop */
-			goto out;
-		}
+
+		/* in first loop iteration only consider overflown partitions */
+		if (oversized && ocf_part_overflow_size(cache, part) == 0)
+			continue;
 
 		to_evict = ocf_evict_calculate(cache, part, evict_cline_no,
 				true);
@@ -101,6 +103,17 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 
 		evicted += ocf_eviction_need_space(cache, io_queue,
 				part, to_evict);
+
+		if (evicted >= evict_cline_no) {
+			/* Evicted requested number of cache line, stop */
+			goto out;
+		}
+
+	}
+
+	if (oversized) {
+		oversized = false;
+		goto repeat;
 	}
 
 out:
