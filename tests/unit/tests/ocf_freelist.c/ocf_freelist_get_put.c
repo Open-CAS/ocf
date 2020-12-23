@@ -122,7 +122,7 @@ static void ocf_freelist_get_cache_line_get_fast(void **state)
 	will_return_maybe(__wrap_env_get_execution_context_count, num_ctxts);
 	will_return_maybe(__wrap_metadata_test_valid_any, false);
 
-	freelist = ocf_freelist_init(NULL);
+	ocf_freelist_init(&freelist, NULL);
 
 	ocf_freelist_populate(freelist, num_cls);
 
@@ -224,7 +224,7 @@ static void ocf_freelist_get_cache_line_get_slow(void **state)
 	/* always return exec ctx 0 */
 	will_return_maybe(__wrap_env_get_execution_context, 0);
 
-	freelist = ocf_freelist_init(NULL);
+	ocf_freelist_init(&freelist, NULL);
 
 	ocf_freelist_populate(freelist, num_cls);
 
@@ -308,7 +308,7 @@ static void ocf_freelist_get_cache_line_put(void **state)
 	will_return_maybe(__wrap_env_get_execution_context_count, num_ctxts);
 	will_return_maybe(__wrap_metadata_test_valid_any, false);
 
-	freelist = ocf_freelist_init(NULL);
+	ocf_freelist_init(&freelist, NULL);
 
 	ocf_freelist_populate(freelist, num_cls);
 

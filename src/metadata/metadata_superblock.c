@@ -116,7 +116,7 @@ static void ocf_metadata_check_crc_sb_config(ocf_pipeline_t pipeline,
 	if (crc != sb_config->checksum[segment]) {
 		/* Checksum does not match */
 		ocf_cache_log(cache, log_err,
-				"Loading %s ERROR, invalid checksum",
+				"Loading %s ERROR, invalid checksum\n",
 				ocf_metadata_segment_names[segment]);
 		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
 	}

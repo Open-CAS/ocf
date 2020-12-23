@@ -610,7 +610,7 @@ static void ocf_metadata_init_layout(struct ocf_cache *cache,
 	ENV_BUG_ON(layout >= ocf_metadata_layout_max || layout < 0);
 
 	/* Initialize metadata location interface*/
-	if (cache->device->init_mode == ocf_init_mode_metadata_volatile)
+	if (cache->metadata.is_volatile)
 		layout = ocf_metadata_layout_seq;
 	cache->metadata.layout = layout;
 }
@@ -668,7 +668,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		/* Default type for metadata RAW container */
 		raw->raw_type = metadata_raw_type_ram;
 
-		if (cache->device->init_mode == ocf_init_mode_metadata_volatile) {
+		if (cache->metadata.is_volatile) {
 			raw->raw_type = metadata_raw_type_volatile;
 		} else if (i == metadata_segment_collision &&
 				ocf_volume_is_atomic(&cache->device->volume)) {

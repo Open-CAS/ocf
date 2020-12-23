@@ -365,48 +365,53 @@ void ocf_freelist_put_cache_line(ocf_freelist_t freelist,
 	env_put_execution_context(ctx);
 }
 
-ocf_freelist_t ocf_freelist_init(struct ocf_cache *cache)
+int ocf_freelist_init(ocf_freelist_t *freelist, struct ocf_cache *cache)
 {
 	uint32_t num;
 	int i;
-	ocf_freelist_t freelist;
+	int result;
+	ocf_freelist_t tmp_freelist;
 	ocf_cache_line_t line_entries = ocf_metadata_collision_table_entries(
 						cache);
 
-	freelist = env_vzalloc(sizeof(*freelist));
-	if (!freelist)
-		return NULL;
+	tmp_freelist = env_vzalloc(sizeof(*tmp_freelist));
+	if (!tmp_freelist)
+		return -OCF_ERR_NO_MEM;
 
 	num = env_get_execution_context_count();
 
-	freelist->cache = cache;
-	freelist->count = num;
-	env_atomic64_set(&freelist->total_free, 0);
-	freelist->lock = env_vzalloc(sizeof(freelist->lock[0]) * num);
-	freelist->part = env_vzalloc(sizeof(freelist->part[0]) * num);
+	tmp_freelist->cache = cache;
+	tmp_freelist->count = num;
+	env_atomic64_set(&tmp_freelist->total_free, 0);
+	tmp_freelist->lock = env_vzalloc(sizeof(tmp_freelist->lock[0]) * num);
+	tmp_freelist->part = env_vzalloc(sizeof(tmp_freelist->part[0]) * num);
 
-	if (!freelist->lock || !freelist->part)
+	if (!tmp_freelist->lock || !tmp_freelist->part) {
+		result = -OCF_ERR_NO_MEM;
 		goto free_allocs;
-
-	for (i = 0; i < num; i++) {
-		if (env_spinlock_init(&freelist->lock[i]))
-			goto spinlock_err;
-
-		freelist->part[i].head = line_entries;
-		freelist->part[i].tail = line_entries;
-		env_atomic64_set(&freelist->part[i].curr_size, 0);
 	}
 
-	return freelist;
+	for (i = 0; i < num; i++) {
+		result = env_spinlock_init(&tmp_freelist->lock[i]);
+		if (result)
+			goto spinlock_err;
+
+		tmp_freelist->part[i].head = line_entries;
+		tmp_freelist->part[i].tail = line_entries;
+		env_atomic64_set(&tmp_freelist->part[i].curr_size, 0);
+	}
+
+	*freelist = tmp_freelist;
+	return 0;
 
 spinlock_err:
 	while (i--)
-		env_spinlock_destroy(&freelist->lock[i]);
+		env_spinlock_destroy(&tmp_freelist->lock[i]);
 free_allocs:
-	env_vfree(freelist->lock);
-	env_vfree(freelist->part);
-	env_vfree(freelist);
-	return NULL;
+	env_vfree(tmp_freelist->lock);
+	env_vfree(tmp_freelist->part);
+	env_vfree(tmp_freelist);
+	return result;
 }
 
 void ocf_freelist_deinit(ocf_freelist_t freelist)

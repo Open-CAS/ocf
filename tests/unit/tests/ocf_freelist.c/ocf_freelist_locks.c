@@ -136,7 +136,7 @@ static void ocf_freelist_get_put_locks(void **state)
 	/* simulate context 1 for the entire test duration */
 	will_return_maybe(__wrap_env_get_execution_context, 1);
 
-	freelist = ocf_freelist_init(NULL);
+	ocf_freelist_init(&freelist, NULL);
 
 	ocf_freelist_populate(freelist, num_cls);
 

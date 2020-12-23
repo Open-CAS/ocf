@@ -76,7 +76,7 @@ static void ocf_freelist_populate_test01(void **state)
 	will_return_maybe(__wrap_env_get_execution_context_count, num_ctxts);
 	will_return_maybe(__wrap_metadata_test_valid_any, false);
 
-	freelist = ocf_freelist_init(NULL);
+	ocf_freelist_init(&freelist, NULL);
 
 	expect_set_info(0, PARTITION_INVALID, 1      , num_cls);
 	expect_set_info(1, PARTITION_INVALID, 2      , 0);
@@ -104,7 +104,7 @@ static void ocf_freelist_populate_test02(void **state)
 	will_return_maybe(__wrap_ocf_metadata_collision_table_entries, num_cls);
 	will_return_maybe(__wrap_env_get_execution_context_count, num_ctxts);
 
-	freelist = ocf_freelist_init(NULL);
+	ocf_freelist_init(&freelist, NULL);
 
 	/* simulate only cachelines 2, 3, 4, 7 invalid */
 	will_return(__wrap_metadata_test_valid_any, true);

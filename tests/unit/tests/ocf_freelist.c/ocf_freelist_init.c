@@ -50,7 +50,7 @@ static void ocf_freelist_init_test01(void **state)
 	expect_function_call(__wrap_env_get_execution_context_count);
 	will_return(__wrap_env_get_execution_context_count, num_ctxts);
 
-	freelist = ocf_freelist_init(cache);
+	ocf_freelist_init(&freelist, cache);
 	assert(freelist != NULL);
 
 	ocf_freelist_deinit(freelist);
