@@ -432,6 +432,10 @@ static int _ocf_mngt_init_instance_add_cores(
 		if (!core->counters)
 			goto err;
 
+		ret = ocf_core_seq_cutoff_init(core);
+		if (ret < 0)
+			goto err;
+
 		if (!core->opened) {
 			env_bit_set(ocf_cache_state_incomplete,
 					&cache->cache_state);
@@ -441,10 +445,6 @@ static int _ocf_mngt_init_instance_add_cores(
 					", core added as inactive\n", core_id);
 			continue;
 		}
-
-		ret = ocf_core_seq_cutoff_init(core);
-		if (ret < 0)
-			goto err;
 
 		length = ocf_volume_get_length(&core->volume);
 		if (length != core->conf_meta->length) {
