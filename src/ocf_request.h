@@ -9,6 +9,7 @@
 #include "ocf_env.h"
 #include "ocf_io_priv.h"
 #include "engine/cache_engine.h"
+#include "metadata/metadata_structs.h"
 
 struct ocf_req_allocator;
 
@@ -189,6 +190,9 @@ struct ocf_request {
 
 	uint8_t part_evict : 1;
 	/* !< Some cachelines from request's partition must be evicted */
+
+	uint8_t lock_idx : OCF_METADATA_GLOBAL_LOCK_IDX_BITS;
+	/* !< Selected global metadata read lock */
 
 	log_sid_t sid;
 	/*!< Tracing sequence ID */

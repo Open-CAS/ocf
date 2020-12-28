@@ -9,7 +9,6 @@
 #include "ocf/ocf.h"
 #include "lru.h"
 #include "lru_structs.h"
-#include "../ocf_request.h"
 
 #define OCF_TO_EVICTION_MIN 128UL
 #define OCF_PENDING_EVICTION_LIMIT 512UL
@@ -17,6 +16,7 @@
 #define OCF_NUM_EVICTION_LISTS 32
 
 struct ocf_user_part;
+struct ocf_request;
 
 struct eviction_policy {
 	union {

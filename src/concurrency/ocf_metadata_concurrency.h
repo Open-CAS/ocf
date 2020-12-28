@@ -4,12 +4,18 @@
  */
 #include "../ocf_cache_priv.h"
 #include "../eviction/eviction.h"
+#include "../ocf_queue_priv.h"
 
 #ifndef __OCF_METADATA_CONCURRENCY_H__
 #define __OCF_METADATA_CONCURRENCY_H__
 
 #define OCF_METADATA_RD 0
 #define OCF_METADATA_WR 1
+
+static inline unsigned ocf_metadata_concurrency_next_idx(ocf_queue_t q)
+{
+	return q->lock_idx++ % OCF_NUM_GLOBAL_META_LOCKS;
+}
 
 int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock);
 
@@ -90,13 +96,16 @@ void ocf_metadata_end_exclusive_access(
 		struct ocf_metadata_lock *metadata_lock);
 
 int ocf_metadata_try_start_shared_access(
-		struct ocf_metadata_lock *metadata_lock);
+		struct ocf_metadata_lock *metadata_lock,
+		unsigned lock_idx);
 
 void ocf_metadata_start_shared_access(
-		struct ocf_metadata_lock *metadata_lock);
+		struct ocf_metadata_lock *metadata_lock,
+		unsigned lock_idx);
 
 void ocf_metadata_end_shared_access(
-		struct ocf_metadata_lock *metadata_lock);
+		struct ocf_metadata_lock *metadata_lock,
+		unsigned lock_idx);
 
 static inline void ocf_metadata_status_bits_lock(
 		struct ocf_metadata_lock *metadata_lock, int rw)
@@ -137,14 +146,19 @@ static inline void ocf_metadata_status_bits_unlock(
 				OCF_METADATA_WR)
 
 void ocf_hb_cline_prot_lock_rd(struct ocf_metadata_lock *metadata_lock,
-		uint32_t core_id, uint64_t core_line);
+		uint32_t lock_idx, uint32_t core_id, uint64_t core_line);
 void ocf_hb_cline_prot_unlock_rd(struct ocf_metadata_lock *metadata_lock,
-		uint32_t core_id, uint64_t core_line);
+		uint32_t lock_idx, uint32_t core_id, uint64_t core_line);
+
+void ocf_hb_cline_prot_lock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t lock_idx, uint32_t core_id, uint64_t core_line);
+void ocf_hb_cline_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t lock_idx, uint32_t core_id, uint64_t core_line);
 
 void ocf_hb_id_prot_lock_wr(struct ocf_metadata_lock *metadata_lock,
-		ocf_cache_line_t hash);
+		unsigned lock_idx, ocf_cache_line_t hash);
 void ocf_hb_id_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,
-		ocf_cache_line_t hash);
+		unsigned lock_idx, ocf_cache_line_t hash);
 
 /* caller must hold global metadata read lock */
 bool ocf_hb_cline_naked_trylock_rd(struct ocf_metadata_lock *metadata_lock,
@@ -152,12 +166,6 @@ bool ocf_hb_cline_naked_trylock_rd(struct ocf_metadata_lock *metadata_lock,
 void ocf_hb_cline_naked_unlock_rd(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
 
-void ocf_hb_cline_prot_lock_wr(struct ocf_metadata_lock *metadata_lock,
-		uint32_t core_id, uint64_t core_line);
-void ocf_hb_cline_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,
-		uint32_t core_id, uint64_t core_line);
-
-/* caller must hold global metadata read lock */
 bool ocf_hb_cline_naked_trylock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
 void ocf_hb_cline_naked_unlock_wr(struct ocf_metadata_lock *metadata_lock,
