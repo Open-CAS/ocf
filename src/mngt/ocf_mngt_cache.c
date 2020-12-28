@@ -2344,11 +2344,11 @@ ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache)
 {
 	ocf_promotion_t result;
 
-	ocf_metadata_start_shared_access(&cache->metadata.lock);
+	ocf_metadata_start_shared_access(&cache->metadata.lock, 0);
 
 	result = cache->conf_meta->promotion_policy_type;
 
-	ocf_metadata_end_shared_access(&cache->metadata.lock);
+	ocf_metadata_end_shared_access(&cache->metadata.lock, 0);
 
 	return result;
 }
@@ -2358,11 +2358,11 @@ int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, ocf_promotion_t type,
 {
 	int result;
 
-	ocf_metadata_start_shared_access(&cache->metadata.lock);
+	ocf_metadata_start_shared_access(&cache->metadata.lock, 0);
 
 	result = ocf_promotion_get_param(cache, type, param_id, param_value);
 
-	ocf_metadata_end_shared_access(&cache->metadata.lock);
+	ocf_metadata_end_shared_access(&cache->metadata.lock, 0);
 
 	return result;
 }

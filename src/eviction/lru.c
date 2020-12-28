@@ -522,7 +522,7 @@ void evp_lru_clean(ocf_cache_t cache, struct ocf_user_part *part,
 		return;
 	}
 
-	ocf_metadata_start_shared_access(&cache->metadata.lock);
+	ocf_metadata_start_shared_access(&cache->metadata.lock, 0);
 
 	OCF_METADATA_EVICTION_LOCK_ALL();
 
@@ -534,7 +534,7 @@ void evp_lru_clean(ocf_cache_t cache, struct ocf_user_part *part,
 	ocf_cleaner_fire(cache, &attribs);
 	OCF_METADATA_EVICTION_UNLOCK_ALL();
 
-	ocf_metadata_end_shared_access(&cache->metadata.lock);
+	ocf_metadata_end_shared_access(&cache->metadata.lock, 0);
 }
 
 bool evp_lru_can_evict(ocf_cache_t cache)

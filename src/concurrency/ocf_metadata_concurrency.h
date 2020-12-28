@@ -90,13 +90,16 @@ void ocf_metadata_end_exclusive_access(
 		struct ocf_metadata_lock *metadata_lock);
 
 int ocf_metadata_try_start_shared_access(
-		struct ocf_metadata_lock *metadata_lock);
+		struct ocf_metadata_lock *metadata_lock,
+		uint64_t core_line);
 
 void ocf_metadata_start_shared_access(
-		struct ocf_metadata_lock *metadata_lock);
+		struct ocf_metadata_lock *metadata_lock,
+		uint64_t core_line);
 
 void ocf_metadata_end_shared_access(
-		struct ocf_metadata_lock *metadata_lock);
+		struct ocf_metadata_lock *metadata_lock,
+		uint64_t core_line);
 
 static inline void ocf_metadata_status_bits_lock(
 		struct ocf_metadata_lock *metadata_lock, int rw)

@@ -11,6 +11,7 @@ int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 	int err = 0;
 	unsigned evp_iter;
 	unsigned part_iter;
+	unsigned global_iter;
 
 	for (evp_iter = 0; evp_iter < OCF_NUM_EVICTION_LISTS; evp_iter++) {
 		err = env_spinlock_init(&metadata_lock->eviction[evp_iter]);
@@ -20,22 +21,29 @@ int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 
 	env_rwlock_init(&metadata_lock->status);
 
-	err = env_rwsem_init(&metadata_lock->global);
-	if (err)
-		goto rwsem_err;
+	for (global_iter = 0; global_iter < OCF_NUM_GLOBAL_META_LOCKS;
+			global_iter++) {
+		err = env_rwsem_init(&metadata_lock->global[global_iter]);
+		if (err)
+			goto global_err;
+	}
 
 	for (part_iter = 0; part_iter < OCF_IO_CLASS_MAX; part_iter++) {
 		err = env_spinlock_init(&metadata_lock->partition[part_iter]);
 		if (err)
-			goto spinlocks_err;
+			goto partition_err;
 	}
 
 	return err;
 
-spinlocks_err:
+partition_err:
 	while (part_iter--)
 		env_spinlock_destroy(&metadata_lock->partition[part_iter]);
-rwsem_err:
+
+global_err:
+	while (global_iter--)
+		env_rwsem_destroy(&metadata_lock->global[global_iter]);
+
 	env_rwlock_destroy(&metadata_lock->status);
 
 eviction_err:
@@ -55,8 +63,10 @@ void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock)
 	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
 		env_spinlock_destroy(&metadata_lock->eviction[i]);
 
+	for (i = 0; i < OCF_NUM_GLOBAL_META_LOCKS; i++)
+		env_rwsem_destroy(&metadata_lock->global[i]);
+
 	env_rwlock_destroy(&metadata_lock->status);
-	env_rwsem_destroy(&metadata_lock->global);
 }
 
 int ocf_metadata_concurrency_attached_init(
@@ -140,36 +150,62 @@ void ocf_metadata_concurrency_attached_deinit(
 void ocf_metadata_start_exclusive_access(
 		struct ocf_metadata_lock *metadata_lock)
 {
-        env_rwsem_down_write(&metadata_lock->global);
+	unsigned i;
+
+	for (i = 0; i < OCF_NUM_GLOBAL_META_LOCKS; i++) {
+		env_rwsem_down_write(&metadata_lock->global[i]);
+	}
 }
 
 int ocf_metadata_try_start_exclusive_access(
 		struct ocf_metadata_lock *metadata_lock)
 {
-	return env_rwsem_down_write_trylock(&metadata_lock->global);
+	unsigned i;
+	int error;
+
+	for (i = 0; i < OCF_NUM_GLOBAL_META_LOCKS; i++) {
+		error =  env_rwsem_down_write_trylock(&metadata_lock->global[i]);
+		if (error)
+			break;
+	}
+
+	if (error) {
+		while (i--) {
+			env_rwsem_up_write(&metadata_lock->global[i]);
+		}
+	}
+
+	return error;
 }
 
 void ocf_metadata_end_exclusive_access(
 		struct ocf_metadata_lock *metadata_lock)
 {
-        env_rwsem_up_write(&metadata_lock->global);
+	unsigned i;
+
+	for (i = OCF_NUM_GLOBAL_META_LOCKS; i > 0; i--)
+	        env_rwsem_up_write(&metadata_lock->global[i - 1]);
 }
 
 void ocf_metadata_start_shared_access(
-		struct ocf_metadata_lock *metadata_lock)
+		struct ocf_metadata_lock *metadata_lock,
+		uint64_t core_line)
+		
 {
-        env_rwsem_down_read(&metadata_lock->global);
+        env_rwsem_down_read(&metadata_lock->global[core_line % OCF_NUM_GLOBAL_META_LOCKS]);
 }
 
 int ocf_metadata_try_start_shared_access(
-		struct ocf_metadata_lock *metadata_lock)
+		struct ocf_metadata_lock *metadata_lock,
+		uint64_t core_line)
 {
-	return env_rwsem_down_read_trylock(&metadata_lock->global);
+	return env_rwsem_down_read_trylock(&metadata_lock->global[core_line % OCF_NUM_GLOBAL_META_LOCKS]);
 }
 
-void ocf_metadata_end_shared_access(struct ocf_metadata_lock *metadata_lock)
+void ocf_metadata_end_shared_access(struct ocf_metadata_lock *metadata_lock,
+		uint64_t core_line)
 {
-        env_rwsem_up_read(&metadata_lock->global);
+        env_rwsem_up_read(&metadata_lock->global[core_line % OCF_NUM_GLOBAL_META_LOCKS]);
 }
 
 void ocf_metadata_hash_lock(struct ocf_metadata_lock *metadata_lock,
@@ -228,7 +264,7 @@ void ocf_metadata_hash_lock_rd(struct ocf_metadata_lock *metadata_lock,
 	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
 			core_line, core_id);
 
-	ocf_metadata_start_shared_access(metadata_lock);
+	ocf_metadata_start_shared_access(metadata_lock, core_line);
 	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_RD);
 }
 
@@ -258,7 +294,7 @@ void ocf_metadata_hash_unlock_rd(struct ocf_metadata_lock *metadata_lock,
 			core_line, core_id);
 
 	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_RD);
-	ocf_metadata_end_shared_access(metadata_lock);
+	ocf_metadata_end_shared_access(metadata_lock, core_line);
 }
 
 void ocf_metadata_hash_lock_wr(struct ocf_metadata_lock *metadata_lock,
@@ -267,7 +303,7 @@ void ocf_metadata_hash_lock_wr(struct ocf_metadata_lock *metadata_lock,
 	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
 			core_line, core_id);
 
-	ocf_metadata_start_shared_access(metadata_lock);
+	ocf_metadata_start_shared_access(metadata_lock, core_line);
 	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_WR);
 }
 
@@ -297,7 +333,7 @@ void ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 			core_line, core_id);
 
 	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_WR);
-	ocf_metadata_end_shared_access(metadata_lock);
+	ocf_metadata_end_shared_access(metadata_lock, core_line);
 }
 
 /* number of hash entries */
@@ -372,7 +408,7 @@ void ocf_req_hash_lock_rd(struct ocf_request *req)
 {
 	ocf_cache_line_t hash;
 
-	ocf_metadata_start_shared_access(&req->cache->metadata.lock);
+	ocf_metadata_start_shared_access(&req->cache->metadata.lock, req->core_line_first);
 	for_each_req_hash_asc(req, hash) {
 		ocf_metadata_hash_lock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_RD);
@@ -387,14 +423,14 @@ void ocf_req_hash_unlock_rd(struct ocf_request *req)
 		ocf_metadata_hash_unlock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_RD);
 	}
-	ocf_metadata_end_shared_access(&req->cache->metadata.lock);
+	ocf_metadata_end_shared_access(&req->cache->metadata.lock, req->core_line_first);
 }
 
 void ocf_req_hash_lock_wr(struct ocf_request *req)
 {
 	ocf_cache_line_t hash;
 
-	ocf_metadata_start_shared_access(&req->cache->metadata.lock);
+	ocf_metadata_start_shared_access(&req->cache->metadata.lock, req->core_line_first);
 	for_each_req_hash_asc(req, hash) {
 		ocf_metadata_hash_lock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_WR);
@@ -423,7 +459,7 @@ void ocf_req_hash_unlock_wr(struct ocf_request *req)
 		ocf_metadata_hash_unlock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_WR);
 	}
-	ocf_metadata_end_shared_access(&req->cache->metadata.lock);
+	ocf_metadata_end_shared_access(&req->cache->metadata.lock, req->core_line_first);
 }
 
 void ocf_collision_start_shared_access(struct ocf_metadata_lock *metadata_lock,
