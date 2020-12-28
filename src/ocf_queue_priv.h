@@ -31,6 +31,8 @@ struct ocf_queue {
 
 	const struct ocf_queue_ops *ops;
 
+	struct ocf_seq_cutoff *seq_cutoff;
+
 	void *priv;
 };
 

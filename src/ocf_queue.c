@@ -44,6 +44,13 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 	tmp_queue->cache = cache;
 	tmp_queue->ops = ops;
 
+	result = ocf_queue_seq_cutoff_init(tmp_queue);
+	if (result) {
+		ocf_mngt_cache_put(cache);
+		env_free(tmp_queue);
+		return result;
+	}
+
 	list_add(&tmp_queue->list, &cache->io_queues);
 
 	*queue = tmp_queue;
@@ -65,6 +72,7 @@ void ocf_queue_put(ocf_queue_t queue)
 	if (env_atomic_dec_return(&queue->ref_count) == 0) {
 		list_del(&queue->list);
 		queue->ops->stop(queue);
+		ocf_queue_seq_cutoff_deinit(queue);
 		ocf_mngt_cache_put(queue->cache);
 		env_spinlock_destroy(&queue->io_list_lock);
 		env_free(queue);

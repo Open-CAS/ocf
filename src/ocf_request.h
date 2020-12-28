@@ -182,6 +182,9 @@ struct ocf_request {
 	uint8_t master_io_req_type : 2;
 	/*!< Core device request context type */
 
+	uint8_t seq_cutoff_core : 1;
+	/*!< Sequential cut off stream promoted to core level */
+
 	uint8_t seq_cutoff : 1;
 	/*!< Sequential cut off set for this request */
 

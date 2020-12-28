@@ -114,6 +114,11 @@ ocf_seq_cutoff_policy ocf_core_get_seq_cutoff_policy(ocf_core_t core)
 	return env_atomic_read(&core->conf_meta->seq_cutoff_policy);
 }
 
+uint32_t ocf_core_get_seq_cutoff_promotion_count(ocf_core_t core)
+{
+	return env_atomic_read(&core->conf_meta->seq_cutoff_promo_count);
+}
+
 int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
 		bool only_opened)
 {

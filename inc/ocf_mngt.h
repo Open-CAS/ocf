@@ -42,6 +42,9 @@ struct ocf_mngt_core_config {
 	uint32_t seq_cutoff_threshold;
 		/*!< Sequential cutoff threshold (in bytes) */
 
+	uint32_t seq_cutoff_promotion_count;
+		/*!< Sequential cutoff promotion request count */
+
 	struct {
 		void *data;
 		size_t size;
@@ -61,6 +64,7 @@ static inline void ocf_mngt_core_config_set_default(
 {
 	cfg->try_add = false;
 	cfg->seq_cutoff_threshold = 1024;
+	cfg->seq_cutoff_promotion_count = 8;
 	cfg->user_metadata.data = NULL;
 	cfg->user_metadata.size = 0;
 }
@@ -1009,6 +1013,47 @@ int ocf_mngt_core_set_seq_cutoff_policy_all(ocf_cache_t cache,
  */
 int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
 		ocf_seq_cutoff_policy *policy);
+
+/**
+ * @brief Set core sequential cutoff promotion request count
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
+ * @param[in] core Core handle
+ * @param[in] thresh promotion request count
+ *
+ * @retval 0 Sequential cutoff promotion requets count has been set successfully
+ * @retval Non-zero Error occured and request count hasn't been updated
+ */
+int ocf_mngt_core_set_seq_cutoff_promotion_count(ocf_core_t core,
+		uint32_t count);
+
+/**
+ * @brief Set sequential cutoff promotion request count for all cores in cache
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
+ * @param[in] cache Cache handle
+ * @param[in] count promotion request count
+ *
+ * @retval 0 Sequential cutoff promotion request count has been set successfully
+ * @retval Non-zero Error occured and request count hasn't been updated
+ */
+int ocf_mngt_core_set_seq_cutoff_promotion_count_all(ocf_cache_t cache,
+		uint32_t count);
+/**
+ * @brief Get core sequential cutoff promotion threshold
+ *
+ * @param[in] core Core handle
+ * @param[out] count promotion request count
+ *
+ * @retval 0 Sequential cutoff promotion request count has been get successfully
+ * @retval Non-zero Error occured
+ */
+int ocf_mngt_core_get_seq_cutoff_promotion_count(ocf_core_t core,
+		uint32_t *count);
 
 /**
  * @brief Set cache fallback Pass Through error threshold
