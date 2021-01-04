@@ -180,8 +180,9 @@ int ocf_write_wt(struct ocf_request *req)
 
 	/* Set resume io_if */
 	req->io_if = &_io_if_wt_resume;
+	req->engine_cbs = &_wt_engine_callbacks;
 
-	lock = ocf_engine_prepare_clines(req, &_wt_engine_callbacks);
+	lock = ocf_engine_prepare_clines(req);
 
 	if (!ocf_req_test_mapping_error(req)) {
 		if (lock >= 0) {
