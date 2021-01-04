@@ -305,7 +305,7 @@ static void evp_lru_clean(ocf_cache_t cache, ocf_queue_t io_queue,
 {
 	struct ocf_refcnt *counter = &part->cleaning;
 	struct ocf_cleaner_attribs attribs = {
-		.cache_line_lock = true,
+		.lock_cacheline = true,
 		.do_sort = true,
 
 		.cmpl_context = &part->eviction_clean_iter,

@@ -573,7 +573,7 @@ void ocf_engine_clean(struct ocf_request *req)
 {
 	/* Initialize attributes for cleaner */
 	struct ocf_cleaner_attribs attribs = {
-			.cache_line_lock = false,
+			.lock_cacheline = false,
 
 			.cmpl_context = req,
 			.cmpl_fn = _ocf_engine_clean_end,

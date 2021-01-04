@@ -46,7 +46,7 @@ static struct ocf_request *_ocf_cleaner_alloc_req(struct ocf_cache *cache,
 		return NULL;
 
 	req->info.internal = true;
-	req->info.cleaner_cache_line_lock = attribs->cache_line_lock;
+	req->info.cleaner_cache_line_lock = attribs->lock_cacheline;
 
 	/* Allocate pages for cleaning IO */
 	req->data = ctx_data_alloc(cache->owner,

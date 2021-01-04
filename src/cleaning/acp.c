@@ -488,7 +488,7 @@ static void _acp_flush(struct acp_context *acp)
 	struct ocf_cleaner_attribs attribs = {
 		.cmpl_context = acp,
 		.cmpl_fn = _acp_flush_end,
-		.cache_line_lock = false,
+		.lock_cacheline = false,
 		.do_sort = false,
 		.io_queue = cache->cleaner.io_queue,
 	};
