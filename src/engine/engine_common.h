@@ -124,6 +124,12 @@ static inline uint32_t ocf_engine_repart_count(struct ocf_request *req)
 	return req->info.re_part_no;
 }
 
+static inline uint32_t ocf_engine_is_sequential(struct ocf_request *req)
+{
+	return req->info.hit_no + req->info.insert_no == req->core_line_count
+			&& req->info.seq_no == req->core_line_count - 1;
+}
+
 /**
  * @brief Get number of IOs to perform cache read or write
  *
@@ -133,7 +139,7 @@ static inline uint32_t ocf_engine_repart_count(struct ocf_request *req)
  */
 static inline uint32_t ocf_engine_io_count(struct ocf_request *req)
 {
-	return req->info.seq_req ? 1 : req->core_line_count;
+	return ocf_engine_is_sequential(req) ? 1 : req->core_line_count;
 }
 
 static inline

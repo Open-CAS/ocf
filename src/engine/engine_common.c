@@ -99,12 +99,14 @@ void ocf_engine_update_req_info(struct ocf_cache *cache,
 	uint8_t start_sector = 0;
 	uint8_t end_sector = ocf_line_end_sector(cache);
 	struct ocf_map_info *_entry = &(req->map[entry]);
+	uint8_t status = _entry->status;
+	ocf_cache_line_t prev_ph, curr_ph;
 
 	start_sector = ocf_map_line_start_sector(req, entry);
 	end_sector = ocf_map_line_end_sector(req, entry);
 
 	/* Handle return value */
-	switch (_entry->status) {
+	switch (status) {
 	case LOOKUP_HIT:
 		if (metadata_test_valid_sec(cache, _entry->coll_idx,
 				start_sector, end_sector)) {
@@ -122,37 +124,36 @@ void ocf_engine_update_req_info(struct ocf_cache *cache,
 				start_sector, end_sector))
 				req->info.dirty_all++;
 		}
-
-		if (req->part_id != ocf_metadata_get_partition_id(cache,
-				_entry->coll_idx)) {
-			/*
-			 * Need to move this cache line into other partition
-			 */
-			_entry->re_part = true;
-			req->info.re_part_no++;
-		}
-
 		break;
 	case LOOKUP_MISS:
-		req->info.seq_req = false;
 		break;
 	case LOOKUP_INSERTED:
 	case LOOKUP_REMAPPED:
+		req->info.insert_no++;
 		break;
 	default:
 		ENV_BUG();
 		break;
 	}
 
-	/* Check if cache hit is sequential */
-	if (req->info.seq_req && entry) {
-		if (ocf_metadata_map_lg2phy(cache,
-			(req->map[entry - 1].coll_idx)) + 1 !=
-			ocf_metadata_map_lg2phy(cache,
-			_entry->coll_idx)) {
-			req->info.seq_req = false;
-		}
+	if ((status == LOOKUP_HIT || status == LOOKUP_REMAPPED) &&
+			req->part_id != ocf_metadata_get_partition_id(cache,
+					_entry->coll_idx)) {
+		/*
+		 * Need to move this cache line into other partition
+		 */
+		_entry->re_part = true;
+		req->info.re_part_no++;
 	}
+
+	if (status == LOOKUP_MISS || entry == 0)
+		return;
+
+	/* Check if cacheline is sequential */
+	curr_ph = ocf_metadata_map_lg2phy(cache, _entry->coll_idx);
+	prev_ph = ocf_metadata_map_lg2phy(cache, req->map[entry - 1].coll_idx);
+	if (curr_ph == prev_ph + 1)
+		req->info.seq_no++;
 }
 
 void ocf_engine_traverse(struct ocf_request *req)
@@ -166,7 +167,6 @@ void ocf_engine_traverse(struct ocf_request *req)
 	OCF_DEBUG_TRACE(req->cache);
 
 	ocf_req_clear_info(req);
-	req->info.seq_req = true;
 
 	for (i = 0, core_line = req->core_line_first;
 			core_line <= req->core_line_last; core_line++, i++) {
@@ -177,8 +177,6 @@ void ocf_engine_traverse(struct ocf_request *req)
 				core_line);
 
 		if (entry->status != LOOKUP_HIT) {
-			req->info.seq_req = false;
-
 			/* There is miss then lookup for next map entry */
 			OCF_DEBUG_PARAM(cache, "Miss, core line = %llu",
 					entry->core_line);
@@ -194,8 +192,8 @@ void ocf_engine_traverse(struct ocf_request *req)
 		ocf_engine_update_req_info(cache, req, i);
 	}
 
-	OCF_DEBUG_PARAM(cache, "Sequential - %s", req->info.seq_req ?
-			"Yes" : "No");
+	OCF_DEBUG_PARAM(cache, "Sequential - %s", ocf_engine_is_sequential(req)
+			? "Yes" : "No");
 }
 
 int ocf_engine_check(struct ocf_request *req)
@@ -210,22 +208,18 @@ int ocf_engine_check(struct ocf_request *req)
 	OCF_DEBUG_TRACE(req->cache);
 
 	ocf_req_clear_info(req);
-	req->info.seq_req = true;
 
 	for (i = 0, core_line = req->core_line_first;
 			core_line <= req->core_line_last; core_line++, i++) {
 
 		struct ocf_map_info *entry = &(req->map[i]);
 
-		if (entry->status == LOOKUP_MISS) {
-			req->info.seq_req = false;
+		if (entry->status == LOOKUP_MISS)
 			continue;
-		}
 
 		if (_ocf_engine_check_map_entry(cache, entry, core_id)) {
 			/* Mapping is invalid */
 			entry->invalid = true;
-			req->info.seq_req = false;
 
 			OCF_DEBUG_PARAM(cache, "Invalid, Cache line %u",
 					entry->coll_idx);
@@ -241,8 +235,8 @@ int ocf_engine_check(struct ocf_request *req)
 		}
 	}
 
-	OCF_DEBUG_PARAM(cache, "Sequential - %s", req->info.seq_req ?
-			"Yes" : "No");
+	OCF_DEBUG_PARAM(cache, "Sequential - %s", ocf_engine_is_sequential(req)
+			? "Yes" : "No");
 
 	return result;
 }
@@ -343,7 +337,6 @@ static void ocf_engine_map(struct ocf_request *req)
 	}
 
 	ocf_req_clear_info(req);
-	req->info.seq_req = true;
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -385,8 +378,8 @@ static void ocf_engine_map(struct ocf_request *req)
 		ocf_promotion_req_purge(cache->promotion_policy, req);
 	}
 
-	OCF_DEBUG_PARAM(req->cache, "Sequential - %s", req->info.seq_req ?
-			"Yes" : "No");
+	OCF_DEBUG_PARAM(req->cache, "Sequential - %s",
+			ocf_engine_is_sequential(req) ? "Yes" : "No");
 }
 
 static void _ocf_engine_clean_end(void *private_data, int error)

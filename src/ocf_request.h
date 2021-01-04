@@ -17,15 +17,14 @@ struct ocf_req_info {
 	unsigned int hit_no;
 	unsigned int invalid_no;
 	unsigned int re_part_no;
+	unsigned int seq_no;
+	unsigned int insert_no;
 
 	uint32_t dirty_all;
 	/*!< Number of dirty line in request*/
 
 	uint32_t dirty_any;
 	/*!< Indicates that at least one request is dirty */
-
-	uint32_t seq_req : 1;
-	/*!< Sequential cache request flag. */
 
 	uint32_t flush_metadata : 1;
 	/*!< This bit tells if metadata flushing is required */
