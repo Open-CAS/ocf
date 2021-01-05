@@ -6,7 +6,7 @@
 #include "utils_rbtree.h"
 
 static struct ocf_rb_node *ocf_rb_tree_list_find_first(
-		struct ocf_rb_node_list *node_list);
+		struct list_head *node_list);
 
 void ocf_rb_tree_init(struct ocf_rb_tree *tree, ocf_rb_tree_node_cmp_cb cmp,
 		ocf_rb_tree_list_find_cb find)
@@ -445,21 +445,15 @@ bool ocf_rb_tree_can_update(struct ocf_rb_tree *tree,
 }
 
 static struct ocf_rb_node *ocf_rb_tree_list_find_first(
-		struct ocf_rb_node_list *node_list)
+		struct list_head *node_list)
 {
-	struct ocf_rb_node *node;
-
-	ocf_rb_list_for_each_node(node_list, node)
-		return node;
-
-	return NULL;
+	return list_entry(node_list, struct ocf_rb_node, list);
 }
 
 struct ocf_rb_node *ocf_rb_tree_find(struct ocf_rb_tree *tree,
 		struct ocf_rb_node *node)
 {
 	struct ocf_rb_node *iter = tree->root;
-	struct ocf_rb_node_list node_list;
 	int cmp = 0;
 
 	while (iter) {
@@ -473,8 +467,5 @@ struct ocf_rb_node *ocf_rb_tree_find(struct ocf_rb_tree *tree,
 	if (!iter || list_empty(&iter->list))
 		return iter;
 
-	list_add_tail(&node_list.list, &iter->list);
-	iter = tree->find(&node_list);
-	list_del(&node_list.list);
-	return iter;
+	return tree->find(&iter->list);
 }
