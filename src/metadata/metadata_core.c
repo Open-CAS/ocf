@@ -20,19 +20,13 @@ void ocf_metadata_get_core_info(struct ocf_cache *cache,
 
 	collision = ocf_metadata_raw_rd_access(cache,
 			&(ctrl->raw_desc[metadata_segment_collision]), line);
-	if (collision) {
-		if (core_id)
-			*core_id = collision->core_id;
-		if (core_sector)
-			*core_sector = collision->core_line;
-	} else {
-		ocf_metadata_error(cache);
 
-		if (core_id)
-			*core_id = OCF_CORE_MAX;
-		if (core_sector)
-			*core_sector = ULLONG_MAX;
-	}
+	ENV_BUG_ON(!collision);
+
+	if (core_id)
+		*core_id = collision->core_id;
+	if (core_sector)
+		*core_sector = collision->core_line;
 }
 
 void ocf_metadata_set_core_info(struct ocf_cache *cache,
