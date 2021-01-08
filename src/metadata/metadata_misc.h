@@ -21,8 +21,11 @@ static inline ocf_cache_line_t ocf_metadata_hash_func(ocf_cache_t cache,
 			% entries);
 }
 
-void ocf_metadata_sparse_cache_line(struct ocf_cache *cache,
+void ocf_metadata_remove_cache_line(struct ocf_cache *cache,
 		ocf_cache_line_t cache_line);
+
+void ocf_metadata_sparse_cache_line(struct ocf_cache *cache,
+		uint32_t cache_line);
 
 int ocf_metadata_sparse_range(struct ocf_cache *cache, int core_id,
 			uint64_t start_byte, uint64_t end_byte);
