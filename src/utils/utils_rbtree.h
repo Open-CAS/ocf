@@ -16,18 +16,11 @@ struct ocf_rb_node {
 	struct list_head list;
 };
 
-struct ocf_rb_node_list {
-	struct list_head list;
-};
-
-#define ocf_rb_list_for_each_node(node_list, node) \
-	list_for_each_entry(node, &node_list->list, list)
-
 typedef int (*ocf_rb_tree_node_cmp_cb)(struct ocf_rb_node *n1,
 		struct ocf_rb_node *n2);
 
 typedef struct ocf_rb_node *(*ocf_rb_tree_list_find_cb)(
-		struct ocf_rb_node_list *node_list);
+		struct list_head *node_list);
 
 struct ocf_rb_tree {
 	struct ocf_rb_node *root;

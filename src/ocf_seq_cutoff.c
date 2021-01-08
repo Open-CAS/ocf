@@ -46,14 +46,16 @@ static int ocf_seq_cutoff_stream_cmp(struct ocf_rb_node *n1,
 }
 
 static struct ocf_rb_node *ocf_seq_cutoff_stream_list_find(
-		struct ocf_rb_node_list *node_list)
+		struct list_head *node_list)
 {
 	struct ocf_seq_cutoff_stream *stream, *max_stream = NULL;
 	struct ocf_rb_node *node;
 
-	ocf_rb_list_for_each_node(node_list, node) {
+	node = list_entry(node_list, struct ocf_rb_node, list);
+	max_stream = container_of(node, struct ocf_seq_cutoff_stream, node);
+	list_for_each_entry(node, node_list, list) {
 		stream = container_of(node, struct ocf_seq_cutoff_stream, node);
-		if (!max_stream || stream->bytes > max_stream->bytes)
+		if (stream->bytes > max_stream->bytes)
 			max_stream = stream;
 	}
 
