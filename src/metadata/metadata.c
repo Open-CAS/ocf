@@ -1485,18 +1485,12 @@ void ocf_metadata_get_core_and_part_id(struct ocf_cache *cache,
 	info =  ocf_metadata_raw_rd_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
 
-	if (collision && info) {
-		if (core_id)
-			*core_id = collision->core_id;
-		if (part_id)
-			*part_id = info->partition_id;
-	} else {
-		ocf_metadata_error(cache);
-		if (core_id)
-			*core_id = OCF_CORE_MAX;
-		if (part_id)
-			*part_id = PARTITION_DEFAULT;
-	}
+	ENV_BUG_ON(!collision || !info);
+
+	if (core_id)
+		*core_id = collision->core_id;
+	if (part_id)
+		*part_id = info->partition_id;
 }
 /*******************************************************************************
  * Hash Table

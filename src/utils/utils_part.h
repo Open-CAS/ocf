@@ -61,7 +61,8 @@ static inline uint32_t ocf_part_get_min_size(ocf_cache_t cache,
 {
 	uint64_t ioclass_size;
 
-	ioclass_size = part->config->min_size * cache->conf_meta->cachelines;
+	ioclass_size = (uint64_t)part->config->min_size *
+		(uint64_t)cache->conf_meta->cachelines;
 
 	ioclass_size /= 100;
 
