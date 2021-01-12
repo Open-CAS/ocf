@@ -2450,7 +2450,7 @@ struct ocf_mngt_cache_detach_context {
 	struct ocf_cleaner_wait_context cleaner_wait;
 };
 
-static void ocf_mngt_cache_detach_flush_cmpl(ocf_cache_t cache,
+static void ocf_mngt_cache_detach_purge_cmpl(ocf_cache_t cache,
 		void *priv, int error)
 {
 	struct ocf_mngt_cache_detach_context *context = priv;
@@ -2458,13 +2458,13 @@ static void ocf_mngt_cache_detach_flush_cmpl(ocf_cache_t cache,
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
 }
 
-static void ocf_mngt_cache_detach_flush(ocf_pipeline_t pipeline,
+static void ocf_mngt_cache_detach_purge(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_detach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_mngt_cache_flush(cache, ocf_mngt_cache_detach_flush_cmpl, context);
+	ocf_mngt_cache_purge(cache, ocf_mngt_cache_detach_purge_cmpl, context);
 }
 
 static void ocf_mngt_cache_detach_stop_cache_io_finish(void *priv)
@@ -2578,7 +2578,7 @@ struct ocf_pipeline_properties ocf_mngt_cache_detach_pipeline_properties = {
 	.priv_size = sizeof(struct ocf_mngt_cache_detach_context),
 	.finish = ocf_mngt_cache_detach_finish,
 	.steps = {
-		OCF_PL_STEP(ocf_mngt_cache_detach_flush),
+		OCF_PL_STEP(ocf_mngt_cache_detach_purge),
 		OCF_PL_STEP(ocf_mngt_cache_detach_stop_cache_io),
 		OCF_PL_STEP(ocf_mngt_cache_detach_stop_cleaner_io),
 		OCF_PL_STEP(ocf_mngt_cache_detach_update_metadata),
