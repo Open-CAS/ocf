@@ -161,4 +161,23 @@ void ocf_cache_line_unlock_rd(struct ocf_cache *cache, ocf_cache_line_t line);
  */
 bool ocf_cache_line_try_lock_rd(struct ocf_cache *cache, ocf_cache_line_t line);
 
+/**
+ * @brief Release cache line write lock
+ *
+ * @param cache - OCF cache instance
+ * @param line - Cache line to be unlocked
+ */
+void ocf_cache_line_unlock_wr(struct ocf_cache *cache, ocf_cache_line_t line);
+
+/**
+ * @brief Attempt to lock cache line for write
+ *
+ * @param cache - OCF cache instance
+ * @param line - Cache line to be checked for waiters
+ *
+ * @retval true - write lock successfully acquired
+ * @retval false - failed to acquire write lock
+ */
+bool ocf_cache_line_try_lock_wr(struct ocf_cache *cache, ocf_cache_line_t line);
+
 #endif /* OCF_CONCURRENCY_H_ */

@@ -1157,3 +1157,17 @@ void ocf_cache_line_unlock_rd(struct ocf_cache *cache, ocf_cache_line_t line)
 	__unlock_cache_line_rd(c, line);
 }
 
+bool ocf_cache_line_try_lock_wr(struct ocf_cache *cache, ocf_cache_line_t line)
+{
+	struct ocf_cache_line_concurrency *c = cache->device->concurrency.cache_line;
+	return __lock_cache_line_wr(c, line, NULL, NULL, 0);
+}
+
+void ocf_cache_line_unlock_wr(struct ocf_cache *cache, ocf_cache_line_t line)
+{
+	struct ocf_cache_line_concurrency *c = cache->device->concurrency.cache_line;
+
+	OCF_DEBUG_RQ(cache, "Cache line = %u", line);
+
+	__unlock_cache_line_wr(c, line);
+}
