@@ -91,8 +91,8 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 /* the caller must hold the relevant cache block concurrency reader lock
  * and the metadata lock
  */
-void ocf_metadata_sparse_cache_line(struct ocf_cache *cache,
-		uint32_t cache_line)
+void ocf_metadata_remove_cache_line(struct ocf_cache *cache,
+		ocf_cache_line_t cache_line)
 {
 	ocf_part_id_t partition_id =
 			ocf_metadata_get_partition_id(cache, cache_line);
@@ -104,8 +104,8 @@ void ocf_metadata_sparse_cache_line(struct ocf_cache *cache,
 	ocf_freelist_put_cache_line(cache->freelist, cache_line);
 }
 
-static void _ocf_metadata_sparse_cache_line(struct ocf_cache *cache,
-		uint32_t cache_line)
+void ocf_metadata_sparse_cache_line(struct ocf_cache *cache,
+		ocf_cache_line_t cache_line)
 {
 	ocf_metadata_start_collision_shared_access(cache, cache_line);
 
@@ -127,5 +127,5 @@ int ocf_metadata_sparse_range(struct ocf_cache *cache, int core_id,
 			  uint64_t start_byte, uint64_t end_byte)
 {
 	return ocf_metadata_actor(cache, PARTITION_INVALID, core_id,
-		start_byte, end_byte, _ocf_metadata_sparse_cache_line);
+		start_byte, end_byte, ocf_metadata_sparse_cache_line);
 }

@@ -221,6 +221,34 @@ int ocf_metadata_hash_try_lock(struct ocf_metadata_lock *metadata_lock,
 	return 0;
 }
 
+void ocf_metadata_lock_hash_rd(struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash)
+{
+	ocf_metadata_start_shared_access(metadata_lock);
+	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_RD);
+}
+
+void ocf_metadata_unlock_hash_rd(struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash)
+{
+	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_RD);
+	ocf_metadata_end_shared_access(metadata_lock);
+}
+
+void ocf_metadata_lock_hash_wr(struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash)
+{
+	ocf_metadata_start_shared_access(metadata_lock);
+	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_WR);
+}
+
+void ocf_metadata_unlock_hash_wr(struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash)
+{
+	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_WR);
+	ocf_metadata_end_shared_access(metadata_lock);
+}
+
 /* NOTE: attempt to acquire hash lock for multiple core lines may end up
  * in deadlock. In order to hash lock multiple core lines safely, use
  * ocf_req_hash_lock_* functions */

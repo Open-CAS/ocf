@@ -54,41 +54,51 @@ void cache_mngt_core_remove_from_cleaning_pol(ocf_core_t core)
 /* Deinitialize core metadata in attached metadata */
 void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 {
-	int retry = 1;
-	uint64_t core_size = 0;
-	ocf_cleaning_t clean_pol_type;
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	ocf_core_id_t core_id = ocf_core_get_id(core);
+	ocf_core_id_t iter_core_id;
+	ocf_cache_line_t curr_cline, prev_cline;
+	uint32_t hash, num_hash = cache->device->hash_table_entries;
 
-	core_size = ocf_volume_get_length(&core->volume);
-	if (!core_size)
-		core_size = ~0ULL;
+	for (hash = 0; hash < num_hash;) {
+		prev_cline = cache->device->collision_table_entries;
+		ocf_metadata_lock_hash_wr(&cache->metadata.lock, hash);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+		curr_cline = ocf_metadata_get_hash(cache, hash);
+		while (curr_cline != cache->device->collision_table_entries) {
+			ocf_metadata_get_core_info(cache, curr_cline, &iter_core_id,
+					NULL);
 
-	clean_pol_type = cache->conf_meta->cleaning_policy_type;
-	while (retry) {
-		retry = 0;
-		if (cleaning_policy_ops[clean_pol_type].purge_range) {
-			retry = cleaning_policy_ops[clean_pol_type].purge_range(cache,
-					core_id, 0, core_size);
+			if (iter_core_id != core_id) {
+				/* `prev_cline` is a pointer to last not sparsed cacheline in
+				 * current hash */
+				prev_cline = curr_cline;
+				curr_cline = ocf_metadata_get_collision_next(cache, curr_cline);
+				continue;
+			}
+
+			if (!ocf_cache_line_try_lock_wr(cache, curr_cline))
+				break;
+
+			if (metadata_test_dirty(cache, curr_cline))
+				ocf_purge_cleaning_policy(cache, curr_cline);
+			ocf_metadata_sparse_cache_line(cache, curr_cline);
+
+			ocf_cache_line_unlock_wr(cache, curr_cline);
+
+			if (prev_cline != cache->device->collision_table_entries)
+				curr_cline = ocf_metadata_get_collision_next(cache, prev_cline);
+			else
+				curr_cline = ocf_metadata_get_hash(cache, hash);
 		}
+		ocf_metadata_unlock_hash_wr(&cache->metadata.lock, hash);
 
-		if (!retry) {
-			/* Remove from collision_table and Partition. Put in FREELIST */
-			retry = ocf_metadata_sparse_range(cache, core_id, 0,
-					core_size);
-		}
-
-		if (retry) {
-			ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+		/* Check whether all the cachelines from the hash bucket were sparsed */
+		if (curr_cline == cache->device->collision_table_entries)
+			hash++;
+		else
 			env_msleep(100);
-			ocf_metadata_start_exclusive_access(
-					&cache->metadata.lock);
-		}
 	}
-
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 }
 
 /* Mark core as removed in metadata */
