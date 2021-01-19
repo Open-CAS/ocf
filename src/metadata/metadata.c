@@ -1025,6 +1025,23 @@ void ocf_metadata_flush_all(ocf_cache_t cache,
 }
 
 /*
+ * Flush collision metadata
+ */
+void ocf_metadata_flush_collision(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv)
+{
+	struct ocf_metadata_ctrl *ctrl;
+	struct ocf_metadata_raw *raw;
+
+	OCF_DEBUG_TRACE(cache);
+
+	ctrl = cache->metadata.priv;
+	raw = &ctrl->raw_desc[metadata_segment_collision];
+
+	ocf_metadata_raw_flush_all(cache, raw, cmpl, priv);
+}
+
+/*
  * Flush specified cache line
  */
 void ocf_metadata_flush_mark(struct ocf_cache *cache,
