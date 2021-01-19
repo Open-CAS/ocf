@@ -124,6 +124,16 @@ void ocf_metadata_flush_all(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv);
 
 /**
+ * @brief Flush metadata collision segment
+ *
+ * @param cache - Cache instance
+ * @param cmpl - Completion callback
+ * @param priv - Completion context
+ */
+void ocf_metadata_flush_collision(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv);
+
+/**
  * @brief Mark specified cache line to be flushed
  *
  * @param[in] cache - Cache instance
