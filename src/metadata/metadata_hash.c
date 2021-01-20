@@ -1788,6 +1788,25 @@ static void ocf_metadata_hash_flush_all(ocf_cache_t cache,
 }
 
 /*
+ * Flush collision metadata
+ */
+void ocf_metadata_hash_flush_collision(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv)
+{
+	struct ocf_metadata_hash_ctrl *ctrl;
+	struct ocf_metadata_raw *raw;
+
+	OCF_DEBUG_TRACE(cache);
+
+	ctrl = cache->metadata.iface_priv;
+	raw = &ctrl->raw_desc[metadata_segment_collision];
+
+	ocf_metadata_raw_flush_all(cache, raw, cmpl, priv);
+}
+
+
+
+/*
  * Flush specified cache line
  */
 static void ocf_metadata_hash_flush_mark(struct ocf_cache *cache,
@@ -2752,6 +2771,7 @@ static const struct ocf_metadata_iface metadata_hash_iface = {
 	 * Load all, flushing all, etc...
 	 */
 	.flush_all = ocf_metadata_hash_flush_all,
+	.flush_collision = ocf_metadata_hash_flush_collision,
 	.flush_mark = ocf_metadata_hash_flush_mark,
 	.flush_do_asynch = ocf_metadata_hash_flush_do_asynch,
 	.load_all = ocf_metadata_hash_load_all,

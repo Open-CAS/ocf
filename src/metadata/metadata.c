@@ -125,6 +125,14 @@ void ocf_metadata_flush_all(ocf_cache_t cache,
 	ocf_metadata_end_shared_access(&cache->metadata.lock);
 }
 
+void ocf_metadata_flush_collision(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv)
+{
+	ocf_metadata_start_shared_access(&cache->metadata.lock);
+	cache->metadata.iface.flush_collision(cache, cmpl, priv);
+	ocf_metadata_end_shared_access(&cache->metadata.lock);
+}
+
 void ocf_metadata_load_all(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {

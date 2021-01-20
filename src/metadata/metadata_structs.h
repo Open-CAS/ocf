@@ -213,6 +213,16 @@ struct ocf_metadata_iface {
 			ocf_metadata_end_t cmpl, void *priv);
 
 	/**
+	 * @brief Flush collision metadata into cache cache
+	 *
+	 * @param[in] cache - Cache instance
+	 * @param[in] cmpl - Completion callback
+	 * @param[in] priv - Completion callback context
+	 */
+	void (*flush_collision)(ocf_cache_t cache,
+			ocf_metadata_end_t cmpl, void *priv);
+
+	/**
 	 * @brief Mark specified cache line to be flushed
 	 *
 	 * @param[in] cache - Cache instance
