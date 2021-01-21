@@ -340,8 +340,10 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 				&core_id, &req->part_id);
 		req->core = &cache->core[core_id];
 
+		ocf_metadata_start_collision_shared_access(cache, cache_line);
 		set_cache_line_clean(cache, 0, ocf_line_end_sector(cache), req,
 				i);
+		ocf_metadata_end_collision_shared_access(cache, cache_line);
 	}
 
 	ocf_metadata_flush_do_asynch(cache, req, _ocf_cleaner_metadata_io_end);
