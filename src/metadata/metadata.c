@@ -2121,9 +2121,6 @@ static void ocf_metadata_probe_cmpl(struct ocf_metadata_read_sb_ctx *context)
 	if (superblock->magic_number != CACHE_MAGIC_NUMBER)
 		OCF_CMPL_RET(priv, -OCF_ERR_NO_METADATA, NULL);
 
-	if (METADATA_VERSION() != superblock->metadata_version)
-		OCF_CMPL_RET(priv, -OCF_ERR_METADATA_VER, NULL);
-
 	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown)
 		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, NULL);
 
@@ -2133,6 +2130,10 @@ static void ocf_metadata_probe_cmpl(struct ocf_metadata_read_sb_ctx *context)
 	status.clean_shutdown = (superblock->clean_shutdown !=
 			ocf_metadata_dirty_shutdown);
 	status.cache_dirty = (superblock->dirty_flushed == DIRTY_NOT_FLUSHED);
+
+	if (METADATA_VERSION() != superblock->metadata_version)
+		OCF_CMPL_RET(priv, -OCF_ERR_METADATA_VER, &status);
+
 	env_strncpy(status.cache_name, OCF_CACHE_NAME_SIZE, superblock->name,
 			OCF_CACHE_NAME_SIZE);
 
