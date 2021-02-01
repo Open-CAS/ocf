@@ -2,8 +2,7 @@
  * <tested_file_path>src/engine/engine_common.c</tested_file_path>
  * <tested_function>ocf_prepare_clines_hit</tested_function>
  * <functions_to_leave>
- *	INSERT HERE LIST OF FUNCTIONS YOU WANT TO LEAVE
- *	ONE FUNCTION PER LINE
+	 ocf_req_force_pt
  * </functions_to_leave>
  */
 

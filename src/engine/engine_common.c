@@ -36,6 +36,12 @@ void ocf_engine_error(struct ocf_request *req,
 	}
 }
 
+static inline void ocf_req_force_pt(struct ocf_request *req)
+{
+	ocf_req_set_mapping_error(req);
+	req->force_pt = true;
+}
+
 void ocf_engine_lookup_map_entry(struct ocf_cache *cache,
 		struct ocf_map_info *entry, ocf_core_id_t core_id,
 		uint64_t core_line)
@@ -449,7 +455,7 @@ static inline int ocf_prepare_clines_hit(struct ocf_request *req,
 	/* Since target part is empty and disabled, request should be submited in
 	 * pass-through */
 	if (res == OCF_PART_IS_DISABLED)
-		ocf_req_set_mapping_error(req);
+		ocf_req_force_pt(req);
 
 	ocf_req_hash_unlock_rd(req);
 
@@ -461,14 +467,14 @@ static inline int ocf_prepare_clines_hit(struct ocf_request *req,
 
 	if (space_managment_evict_do(req->cache, req, clines_to_evict) ==
 			LOOKUP_MISS) {
-		ocf_req_set_mapping_error(req);
+		ocf_req_force_pt(req);
 		goto unlock;
 	}
 
 	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
 		/* Target part is disabled but had some cachelines assigned. Submit
 		 * request in pass-through after eviction has been made */
-		ocf_req_set_mapping_error(req);
+		ocf_req_force_pt(req);
 		goto unlock;
 	}
 
@@ -495,7 +501,7 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req,
 	 * is not out of free cachelines */
 	res = ocf_part_check_space(req, &clines_to_evict);
 	if (res == OCF_PART_IS_DISABLED) {
-		ocf_req_set_mapping_error(req);
+		ocf_req_force_pt(req);
 		ocf_req_hash_unlock_wr(req);
 		return lock_status;
 	}
@@ -510,7 +516,7 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req,
 		if (lock_status < 0) {
 			/* Mapping succeeded, but we failed to acquire cacheline lock.
 			 * Don't try to evict, just return error to caller */
-			ocf_req_set_mapping_error(req);
+			ocf_req_force_pt(req);
 		}
 
 		ocf_req_hash_unlock_wr(req);
@@ -525,7 +531,7 @@ eviction:
 
 	if (space_managment_evict_do(req->cache, req, clines_to_evict) ==
 			LOOKUP_MISS) {
-		ocf_req_set_mapping_error(req);
+		ocf_req_force_pt(req);
 		goto unlock;
 	}
 
@@ -534,7 +540,7 @@ eviction:
 		 * are evicted, don't try to map cachelines - we don't want to insert
 		 * new cachelines - the request should be submited in pass through mode
 		 * instead */
-		ocf_req_set_mapping_error(req);
+		ocf_req_force_pt(req);
 		goto unlock;
 	}
 
@@ -544,7 +550,7 @@ eviction:
 
 	lock_status = lock_clines(req, engine_cbs);
 	if (lock_status < 0)
-		ocf_req_set_mapping_error(req);
+		ocf_req_force_pt(req);
 
 unlock:
 	ocf_metadata_end_exclusive_access(metadata_lock);
@@ -578,7 +584,7 @@ int ocf_engine_prepare_clines(struct ocf_request *req,
 	promote = ocf_promotion_req_should_promote(
 			req->cache->promotion_policy, req);
 	if (!promote) {
-		ocf_req_set_mapping_error(req);
+		ocf_req_force_pt(req);
 		ocf_req_hash_unlock_rd(req);
 		return lock;
 	}

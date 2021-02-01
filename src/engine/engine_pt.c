@@ -99,6 +99,17 @@ static const struct ocf_io_if _io_if_pt_resume = {
 	.write = ocf_read_pt_do,
 };
 
+static inline bool ocf_req_can_use_cache(struct ocf_request *req)
+{
+	if (req->force_pt)
+		return false;
+
+	if (!req->seq_cutoff || !ocf_engine_is_dirty_all(req))
+		return false;
+
+	return true;
+}
+
 int ocf_read_pt(struct ocf_request *req)
 {
 	bool use_cache = false;
@@ -120,7 +131,7 @@ int ocf_read_pt(struct ocf_request *req)
 	/* Traverse request to check if there are mapped cache lines */
 	ocf_engine_traverse(req);
 
-	if (req->seq_cutoff && ocf_engine_is_dirty_all(req)) {
+	if (ocf_req_can_use_cache(req)) {
 		use_cache = true;
 	} else {
 		if (ocf_engine_mapped_count(req)) {

@@ -184,6 +184,9 @@ struct ocf_request {
 	uint8_t seq_cutoff : 1;
 	/*!< Sequential cut off set for this request */
 
+	uint8_t force_pt : 1;
+	/*!< Froce request to be submitted in pass-through mode */
+
 	uint8_t wi_second_pass : 1;
 	/*!< Set after first pass of WI write is completed */
 
