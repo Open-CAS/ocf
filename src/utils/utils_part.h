@@ -100,20 +100,29 @@ static inline bool ocf_part_is_enabled(struct ocf_user_part *part)
 	return part->config->max_size != 0;
 }
 
-#define OCF_PART_HAS_SPACE		0
-#define OCF_PART_IS_FULL		1
-#define OCF_PART_IS_DISABLED	2
-/**
-  * Check whether there is enough free cachelines to serve request. If partition
-  * occupancy limit is reached, `req->part_evict` is set to true. Otherwise
-  * flag is set to false and eviction from any partition should be triggered.
-  *
-  * @return
-  *		OCF_PART_HAS_SPACE when cachelines alloted successfully
-  *		OCF_PART_IS_FULL when need to evict some cachelines to serve request
-  *		OCF_PART_IS_DISABLED when caching for particular partition is disabled
-  */
-uint32_t ocf_part_check_space(struct ocf_request *req, uint32_t *to_evict);
+static inline uint32_t ocf_part_overflow_size(struct ocf_cache *cache,
+		struct ocf_user_part *part)
+{
+	uint32_t part_occupancy = ocf_part_get_occupancy(part);
+	uint32_t part_occupancy_limit = ocf_part_get_max_size(cache, part);
+
+	if (part_occupancy > part_occupancy_limit)
+		return part_occupancy - part_occupancy_limit;
+
+	return 0;
+}
+
+static inline bool ocf_part_has_space(struct ocf_request *req)
+{
+	struct ocf_user_part *target_part = &req->cache->user_parts[req->part_id];
+	uint64_t part_occupancy_limit =
+		ocf_part_get_max_size(req->cache, target_part);
+	uint64_t needed_cache_lines = ocf_engine_repart_count(req) +
+		ocf_engine_unmapped_count(req);
+	uint64_t part_occupancy = ocf_part_get_occupancy(target_part);
+
+	return (part_occupancy + needed_cache_lines <= part_occupancy_limit);
+}
 
 static inline ocf_cache_mode_t ocf_part_get_cache_mode(ocf_cache_t cache,
 		ocf_part_id_t part_id)

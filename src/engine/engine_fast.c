@@ -108,7 +108,7 @@ int ocf_read_fast(struct ocf_request *req)
 {
 	bool hit;
 	int lock = OCF_LOCK_NOT_ACQUIRED;
-	bool part_has_space = false;
+	bool part_has_space;
 
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
@@ -126,8 +126,7 @@ int ocf_read_fast(struct ocf_request *req)
 
 	hit = ocf_engine_is_hit(req);
 
-	if (ocf_part_check_space(req, NULL) == OCF_PART_HAS_SPACE)
-		part_has_space = true;
+	part_has_space = ocf_part_has_space(req);
 
 	if (hit && part_has_space) {
 		ocf_io_start(&req->ioi.io);
@@ -197,8 +196,7 @@ int ocf_write_fast(struct ocf_request *req)
 
 	mapped = ocf_engine_is_mapped(req);
 
-	if (ocf_part_check_space(req, NULL) == OCF_PART_HAS_SPACE)
-		part_has_space = true;
+	part_has_space = ocf_part_has_space(req);
 
 	if (mapped && part_has_space) {
 		ocf_io_start(&req->ioi.io);
