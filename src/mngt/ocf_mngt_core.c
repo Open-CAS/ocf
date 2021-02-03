@@ -353,7 +353,7 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	ocf_seq_no_t core_sequence_no;
 	ocf_cleaning_t clean_type;
 	uint64_t length;
-	int result = 0;
+	int i, result = 0;
 
 	ocf_cache_log(cache, log_debug, "Inserting core %s\n", cfg->name);
 
@@ -432,6 +432,13 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	env_atomic_set(&core->runtime_meta->cached_clines, 0);
 	env_atomic_set(&core->runtime_meta->dirty_clines, 0);
 	env_atomic64_set(&core->runtime_meta->dirty_since, 0);
+
+	for (i = 0; i != OCF_IO_CLASS_MAX; i++) {
+		env_atomic_set(&core->runtime_meta->
+				part_counters[i].cached_clines, 0);
+		env_atomic_set(&core->runtime_meta->
+				part_counters[i].dirty_clines, 0);
+	}
 
 	/* In metadata mark data this core was added into cache */
 	env_bit_set(core_id, cache->conf_meta->valid_core_bitmap);
