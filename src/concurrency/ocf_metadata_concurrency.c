@@ -215,10 +215,8 @@ int ocf_metadata_hash_try_lock(struct ocf_metadata_lock *metadata_lock,
 		ENV_BUG();
 	}
 
-	if (!result)
-		return -1;
 
-	return 0;
+	return result;
 }
 
 void ocf_metadata_lock_hash_rd(struct ocf_metadata_lock *metadata_lock,
