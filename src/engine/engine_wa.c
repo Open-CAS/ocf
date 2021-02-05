@@ -23,12 +23,12 @@ int ocf_write_wa(struct ocf_request *req)
 
 	ocf_req_hash(req);
 
-	ocf_req_hash_lock_rd(req); /*- Metadata RD access -----------------------*/
+	ocf_hb_req_prot_lock_rd(req); /*- Metadata RD access -----------------------*/
 
 	/* Traverse request to check if there are mapped cache lines */
 	ocf_engine_traverse(req);
 
-	ocf_req_hash_unlock_rd(req); /*- END Metadata RD access -----------------*/
+	ocf_hb_req_prot_unlock_rd(req); /*- END Metadata RD access -----------------*/
 
 	if (ocf_engine_is_hit(req)) {
 		ocf_req_clear(req);

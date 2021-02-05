@@ -1,6 +1,6 @@
 /*
  * <tested_file_path>src/concurrency/ocf_metadata_concurrency.c</tested_file_path>
- * <tested_function>ocf_req_hash_lock_rd</tested_function>
+ * <tested_function>ocf_hb_req_prot_lock_rd</tested_function>
  * <functions_to_leave>
  *	INSERT HERE LIST OF FUNCTIONS YOU WANT TO LEAVE
  *	ONE FUNCTION PER LINE
@@ -23,7 +23,7 @@
 
 #include "concurrency/ocf_metadata_concurrency.c/ocf_metadata_concurrency_generated_wraps.c"
 
-void __wrap_ocf_metadata_hash_lock(struct ocf_metadata_lock *metadata_lock,
+void __wrap_ocf_hb_id_naked_lock(struct ocf_metadata_lock *metadata_lock,
 		ocf_cache_line_t hash, int rw)
 {
 	check_expected(hash);
@@ -62,15 +62,15 @@ static void _test_lock_order(struct ocf_request* req,
 		req->map[i].hash = hash[i];
 
 	for (i = 0; i < expected_call_count; i++) {
-		expect_function_call(__wrap_ocf_metadata_hash_lock);
-		expect_value(__wrap_ocf_metadata_hash_lock, hash, expected_call[i]);
+		expect_function_call(__wrap_ocf_hb_id_naked_lock);
+		expect_value(__wrap_ocf_hb_id_naked_lock, hash, expected_call[i]);
 	}
 
-	 ocf_req_hash_lock_rd(req);
+	 ocf_hb_req_prot_lock_rd(req);
 
 }
 
-static void ocf_req_hash_lock_rd_test01(void **state)
+static void ocf_hb_req_prot_lock_rd_test01(void **state)
 {
 	struct ocf_request *req = alloc_req();
 	struct {
@@ -126,10 +126,10 @@ static void ocf_req_hash_lock_rd_test01(void **state)
 int main(void)
 {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test(ocf_req_hash_lock_rd_test01)
+		cmocka_unit_test(ocf_hb_req_prot_lock_rd_test01)
 	};
 
-	print_message("Unit test for ocf_req_hash_lock_rd\n");
+	print_message("Unit test for ocf_hb_req_prot_lock_rd\n");
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }

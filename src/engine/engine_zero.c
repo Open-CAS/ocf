@@ -23,12 +23,12 @@ static int ocf_zero_purge(struct ocf_request *req)
 	} else {
 		/* There are mapped cache line, need to remove them */
 
-		ocf_req_hash_lock_wr(req); /*- Metadata WR access ---------------*/
+		ocf_hb_req_prot_lock_wr(req); /*- Metadata WR access ---------------*/
 
 		/* Remove mapped cache lines from metadata */
 		ocf_purge_map_info(req);
 
-		ocf_req_hash_unlock_wr(req); /*- END Metadata WR access ---------*/
+		ocf_hb_req_prot_unlock_wr(req); /*- END Metadata WR access ---------*/
 	}
 
 	ocf_req_unlock_wr(req);

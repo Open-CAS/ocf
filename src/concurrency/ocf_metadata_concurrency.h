@@ -136,32 +136,39 @@ static inline void ocf_metadata_status_bits_unlock(
 		ocf_metadata_status_bits_unlock(&cache->metadata.lock, \
 				OCF_METADATA_WR)
 
-/* lock/unlock single hash */
-void ocf_metadata_lock_hash_rd(struct ocf_metadata_lock *metadata_lock,
+void ocf_hb_cline_prot_lock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+void ocf_hb_cline_prot_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+
+void ocf_hb_id_prot_lock_wr(struct ocf_metadata_lock *metadata_lock,
 		ocf_cache_line_t hash);
-void ocf_metadata_unlock_hash_rd(struct ocf_metadata_lock *metadata_lock,
-		ocf_cache_line_t hash);
-void ocf_metadata_lock_hash_wr(struct ocf_metadata_lock *metadata_lock,
-		ocf_cache_line_t hash);
-void ocf_metadata_unlock_hash_wr(struct ocf_metadata_lock *metadata_lock,
+void ocf_hb_id_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 		ocf_cache_line_t hash);
 
-/* lock/unlock single hash provided core id and core line */
-void ocf_metadata_hash_lock_rd(struct ocf_metadata_lock *metadata_lock,
+/* caller must hold global metadata read lock */
+bool ocf_hb_cline_naked_trylock_rd(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
-void ocf_metadata_hash_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+void ocf_hb_cline_naked_unlock_rd(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
-void ocf_metadata_hash_lock_wr(struct ocf_metadata_lock *metadata_lock,
+
+void ocf_hb_cline_prot_lock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
-void ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+void ocf_hb_cline_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+
+/* caller must hold global metadata read lock */
+bool ocf_hb_cline_naked_trylock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line);
+void ocf_hb_cline_naked_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
 
 /* lock entire request in deadlock-free manner */
-void ocf_req_hash_lock_rd(struct ocf_request *req);
-void ocf_req_hash_unlock_rd(struct ocf_request *req);
-void ocf_req_hash_lock_wr(struct ocf_request *req);
-void ocf_req_hash_unlock_wr(struct ocf_request *req);
-void ocf_req_hash_lock_upgrade(struct ocf_request *req);
+void ocf_hb_req_prot_lock_rd(struct ocf_request *req);
+void ocf_hb_req_prot_unlock_rd(struct ocf_request *req);
+void ocf_hb_req_prot_lock_wr(struct ocf_request *req);
+void ocf_hb_req_prot_unlock_wr(struct ocf_request *req);
+void ocf_hb_req_prot_lock_upgrade(struct ocf_request *req);
 
 /* collision table page lock interface */
 void ocf_collision_start_shared_access(struct ocf_metadata_lock *metadata_lock,

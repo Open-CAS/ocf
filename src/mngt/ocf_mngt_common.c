@@ -62,7 +62,7 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 
 	for (hash = 0; hash < num_hash;) {
 		prev_cline = cache->device->collision_table_entries;
-		ocf_metadata_lock_hash_wr(&cache->metadata.lock, hash);
+		ocf_hb_id_prot_lock_wr(&cache->metadata.lock, hash);
 
 		curr_cline = ocf_metadata_get_hash(cache, hash);
 		while (curr_cline != cache->device->collision_table_entries) {
@@ -91,7 +91,7 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 			else
 				curr_cline = ocf_metadata_get_hash(cache, hash);
 		}
-		ocf_metadata_unlock_hash_wr(&cache->metadata.lock, hash);
+		ocf_hb_id_prot_unlock_wr(&cache->metadata.lock, hash);
 
 		/* Check whether all the cachelines from the hash bucket were sparsed */
 		if (curr_cline == cache->device->collision_table_entries)

@@ -151,12 +151,12 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 
 	if (ocf_engine_is_miss(req)) {
 		if (req->info.dirty_any) {
-			ocf_req_hash_lock_rd(req);
+			ocf_hb_req_prot_lock_rd(req);
 
 			/* Request is dirty need to clean request */
 			ocf_engine_clean(req);
 
-			ocf_req_hash_unlock_rd(req);
+			ocf_hb_req_prot_unlock_rd(req);
 
 			/* We need to clean request before processing, return */
 			ocf_req_put(req);
@@ -164,25 +164,25 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 			return 0;
 		}
 
-		ocf_req_hash_lock_rd(req);
+		ocf_hb_req_prot_lock_rd(req);
 
 		/* Set valid status bits map */
 		ocf_set_valid_map_info(req);
 
-		ocf_req_hash_unlock_rd(req);
+		ocf_hb_req_prot_unlock_rd(req);
 	}
 
 	if (ocf_engine_needs_repart(req)) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
-		ocf_req_hash_lock_wr(req);
+		ocf_hb_req_prot_lock_wr(req);
 
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
 		ocf_part_move(req);
 
-		ocf_req_hash_unlock_wr(req);
+		ocf_hb_req_prot_unlock_wr(req);
 	}
 
 	OCF_DEBUG_RQ(req, "Submit");

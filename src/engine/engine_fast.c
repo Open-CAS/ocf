@@ -72,14 +72,14 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 	if (ocf_engine_needs_repart(req)) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
-		ocf_req_hash_lock_wr(req);
+		ocf_hb_req_prot_lock_wr(req);
 
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
 		ocf_part_move(req);
 
-		ocf_req_hash_unlock_wr(req);
+		ocf_hb_req_prot_unlock_wr(req);
 	}
 
 	/* Submit IO */
@@ -119,7 +119,7 @@ int ocf_read_fast(struct ocf_request *req)
 	/*- Metadata RD access -----------------------------------------------*/
 
 	ocf_req_hash(req);
-	ocf_req_hash_lock_rd(req);
+	ocf_hb_req_prot_lock_rd(req);
 
 	/* Traverse request to cache if there is hit */
 	ocf_engine_traverse(req);
@@ -133,7 +133,7 @@ int ocf_read_fast(struct ocf_request *req)
 		lock = ocf_req_async_lock_rd(req, ocf_engine_on_resume);
 	}
 
-	ocf_req_hash_unlock_rd(req);
+	ocf_hb_req_prot_unlock_rd(req);
 
 	if (hit && part_has_space) {
 		OCF_DEBUG_RQ(req, "Fast path success");
@@ -189,7 +189,7 @@ int ocf_write_fast(struct ocf_request *req)
 	/*- Metadata RD access -----------------------------------------------*/
 
 	ocf_req_hash(req);
-	ocf_req_hash_lock_rd(req);
+	ocf_hb_req_prot_lock_rd(req);
 
 	/* Traverse request to cache if there is hit */
 	ocf_engine_traverse(req);
@@ -203,7 +203,7 @@ int ocf_write_fast(struct ocf_request *req)
 		lock = ocf_req_async_lock_wr(req, ocf_engine_on_resume);
 	}
 
-	ocf_req_hash_unlock_rd(req);
+	ocf_hb_req_prot_unlock_rd(req);
 
 	if (mapped && part_has_space) {
 		if (lock >= 0) {

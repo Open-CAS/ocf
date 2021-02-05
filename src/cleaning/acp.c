@@ -386,7 +386,7 @@ static ocf_cache_line_t _acp_trylock_dirty(struct ocf_cache *cache,
 	struct ocf_map_info info;
 	bool locked = false;
 
-	ocf_metadata_hash_lock_rd(&cache->metadata.lock, core_id, core_line);
+	ocf_hb_cline_prot_lock_rd(&cache->metadata.lock, core_id, core_line);
 
 	ocf_engine_lookup_map_entry(cache, &info, core_id,
 			core_line);
@@ -397,7 +397,7 @@ static ocf_cache_line_t _acp_trylock_dirty(struct ocf_cache *cache,
 		locked = true;
 	}
 
-	ocf_metadata_hash_unlock_rd(&cache->metadata.lock, core_id, core_line);
+	ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock, core_id, core_line);
 
 	return locked ? info.coll_idx : cache->device->collision_table_entries;
 }

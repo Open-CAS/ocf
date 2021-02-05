@@ -155,14 +155,12 @@ void ocf_metadata_end_exclusive_access(
         env_rwsem_up_write(&metadata_lock->global);
 }
 
-void ocf_metadata_start_shared_access(
-		struct ocf_metadata_lock *metadata_lock)
+void ocf_metadata_start_shared_access(struct ocf_metadata_lock *metadata_lock)
 {
         env_rwsem_down_read(&metadata_lock->global);
 }
 
-int ocf_metadata_try_start_shared_access(
-		struct ocf_metadata_lock *metadata_lock)
+int ocf_metadata_try_start_shared_access(struct ocf_metadata_lock *metadata_lock)
 {
 	return env_rwsem_down_read_trylock(&metadata_lock->global);
 }
@@ -172,7 +170,15 @@ void ocf_metadata_end_shared_access(struct ocf_metadata_lock *metadata_lock)
         env_rwsem_up_read(&metadata_lock->global);
 }
 
-void ocf_metadata_hash_lock(struct ocf_metadata_lock *metadata_lock,
+/* NOTE: Calling 'naked' lock/unlock requires caller to hold global metadata
+	 shared (aka read) lock
+   NOTE: Using 'naked' variants to lock multiple hash buckets is prone to
+	 deadlocks if not locking in the the order of increasing hash bucket
+	 number. Preffered way to lock multiple hash buckets is to use
+	 request lock rountines ocf_req_hash_(un)lock_(rd/wr).
+*/
+static inline void ocf_hb_id_naked_lock(
+		struct ocf_metadata_lock *metadata_lock,
 		ocf_cache_line_t hash, int rw)
 {
 	ENV_BUG_ON(hash >= metadata_lock->num_hash_entries);
@@ -185,7 +191,8 @@ void ocf_metadata_hash_lock(struct ocf_metadata_lock *metadata_lock,
 		ENV_BUG();
 }
 
-void ocf_metadata_hash_unlock(struct ocf_metadata_lock *metadata_lock,
+static inline void ocf_hb_id_naked_unlock(
+		struct ocf_metadata_lock *metadata_lock,
 		ocf_cache_line_t hash, int rw)
 {
 	ENV_BUG_ON(hash >= metadata_lock->num_hash_entries);
@@ -198,7 +205,7 @@ void ocf_metadata_hash_unlock(struct ocf_metadata_lock *metadata_lock,
 		ENV_BUG();
 }
 
-int ocf_metadata_hash_try_lock(struct ocf_metadata_lock *metadata_lock,
+static int ocf_hb_id_naked_trylock(struct ocf_metadata_lock *metadata_lock,
 		ocf_cache_line_t hash, int rw)
 {
 	int result = -1;
@@ -219,75 +226,116 @@ int ocf_metadata_hash_try_lock(struct ocf_metadata_lock *metadata_lock,
 	return result;
 }
 
-void ocf_metadata_lock_hash_rd(struct ocf_metadata_lock *metadata_lock,
-		ocf_cache_line_t hash)
-{
-	ocf_metadata_start_shared_access(metadata_lock);
-	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_RD);
-}
-
-void ocf_metadata_unlock_hash_rd(struct ocf_metadata_lock *metadata_lock,
-		ocf_cache_line_t hash)
-{
-	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_RD);
-	ocf_metadata_end_shared_access(metadata_lock);
-}
-
-void ocf_metadata_lock_hash_wr(struct ocf_metadata_lock *metadata_lock,
-		ocf_cache_line_t hash)
-{
-	ocf_metadata_start_shared_access(metadata_lock);
-	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_WR);
-}
-
-void ocf_metadata_unlock_hash_wr(struct ocf_metadata_lock *metadata_lock,
-		ocf_cache_line_t hash)
-{
-	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_WR);
-	ocf_metadata_end_shared_access(metadata_lock);
-}
-
-/* NOTE: attempt to acquire hash lock for multiple core lines may end up
- * in deadlock. In order to hash lock multiple core lines safely, use
- * ocf_req_hash_lock_* functions */
-void ocf_metadata_hash_lock_rd(struct ocf_metadata_lock *metadata_lock,
+bool ocf_hb_cline_naked_trylock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line)
 {
 	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
 			core_line, core_id);
 
-	ocf_metadata_start_shared_access(metadata_lock);
-	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_RD);
+	return (0 == ocf_hb_id_naked_trylock(metadata_lock, hash,
+				OCF_METADATA_WR));
 }
 
-void ocf_metadata_hash_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+bool ocf_hb_cline_naked_trylock_rd(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line)
 {
 	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
 			core_line, core_id);
 
-	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_RD);
+	return (0 == ocf_hb_id_naked_trylock(metadata_lock, hash,
+				OCF_METADATA_RD));
+}
+
+void ocf_hb_cline_naked_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	ocf_hb_id_naked_unlock(metadata_lock, hash, OCF_METADATA_RD);
+}
+
+void ocf_hb_cline_naked_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	ocf_hb_id_naked_unlock(metadata_lock, hash, OCF_METADATA_WR);
+}
+
+/* common part of protected hash bucket lock routines */
+static inline void ocf_hb_id_prot_lock_common(
+		struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash, int rw)
+{
+	ocf_metadata_start_shared_access(metadata_lock);
+	ocf_hb_id_naked_lock(metadata_lock, hash, rw);
+}
+
+/* common part of protected hash bucket unlock routines */
+static inline void ocf_hb_id_prot_unlock_common(
+		struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash, int rw)
+{
+	ocf_hb_id_naked_unlock(metadata_lock, hash, rw);
 	ocf_metadata_end_shared_access(metadata_lock);
 }
 
-void ocf_metadata_hash_lock_wr(struct ocf_metadata_lock *metadata_lock,
+/* NOTE: caller can lock at most one hash bucket at a time using protected
+	variants of lock routines. */
+void ocf_hb_cline_prot_lock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line)
 {
 	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
 			core_line, core_id);
 
-	ocf_metadata_start_shared_access(metadata_lock);
-	ocf_metadata_hash_lock(metadata_lock, hash, OCF_METADATA_WR);
+	ocf_hb_id_prot_lock_common(metadata_lock, hash,
+			OCF_METADATA_WR);
 }
 
-void ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+void ocf_hb_cline_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line)
 {
 	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
 			core_line, core_id);
 
-	ocf_metadata_hash_unlock(metadata_lock, hash, OCF_METADATA_WR);
-	ocf_metadata_end_shared_access(metadata_lock);
+	ocf_hb_id_prot_unlock_common(metadata_lock, hash,
+			OCF_METADATA_WR);
+}
+
+void ocf_hb_cline_prot_lock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	ocf_hb_id_prot_lock_common(metadata_lock, hash,
+			OCF_METADATA_RD);
+}
+
+void ocf_hb_cline_prot_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+		uint32_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(metadata_lock->cache,
+			core_line, core_id);
+
+	ocf_hb_id_prot_unlock_common(metadata_lock, hash,
+			OCF_METADATA_RD);
+}
+
+void ocf_hb_hash_prot_lock_wr(struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash)
+{
+	ocf_hb_id_prot_lock_common(metadata_lock, hash,
+			OCF_METADATA_WR);
+}
+
+void ocf_hb_hash_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash)
+{
+	ocf_hb_id_prot_unlock_common(metadata_lock, hash,
+			OCF_METADATA_WR);
 }
 
 /* number of hash entries */
@@ -340,59 +388,59 @@ void ocf_metadata_hash_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 	for (hash = _MIN_HASH(req); hash <= _MAX_HASH(req); \
 			hash = _HASH_NEXT(req, hash))
 
-void ocf_req_hash_lock_rd(struct ocf_request *req)
+void ocf_hb_req_prot_lock_rd(struct ocf_request *req)
 {
 	ocf_cache_line_t hash;
 
 	ocf_metadata_start_shared_access(&req->cache->metadata.lock);
 	for_each_req_hash_asc(req, hash) {
-		ocf_metadata_hash_lock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_lock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_RD);
 	}
 }
 
-void ocf_req_hash_unlock_rd(struct ocf_request *req)
+void ocf_hb_req_prot_unlock_rd(struct ocf_request *req)
 {
 	ocf_cache_line_t hash;
 
 	for_each_req_hash_asc(req, hash) {
-		ocf_metadata_hash_unlock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_unlock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_RD);
 	}
 	ocf_metadata_end_shared_access(&req->cache->metadata.lock);
 }
 
-void ocf_req_hash_lock_wr(struct ocf_request *req)
+void ocf_hb_req_prot_lock_wr(struct ocf_request *req)
 {
 	ocf_cache_line_t hash;
 
 	ocf_metadata_start_shared_access(&req->cache->metadata.lock);
 	for_each_req_hash_asc(req, hash) {
-		ocf_metadata_hash_lock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_lock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_WR);
 	}
 }
 
-void ocf_req_hash_lock_upgrade(struct ocf_request *req)
+void ocf_hb_req_prot_lock_upgrade(struct ocf_request *req)
 {
 	ocf_cache_line_t hash;
 
 	for_each_req_hash_asc(req, hash) {
-		ocf_metadata_hash_unlock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_unlock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_RD);
 	}
 	for_each_req_hash_asc(req, hash) {
-		ocf_metadata_hash_lock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_lock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_WR);
 	}
 }
 
-void ocf_req_hash_unlock_wr(struct ocf_request *req)
+void ocf_hb_req_prot_unlock_wr(struct ocf_request *req)
 {
 	ocf_cache_line_t hash;
 
 	for_each_req_hash_asc(req, hash) {
-		ocf_metadata_hash_unlock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_unlock(&req->cache->metadata.lock, hash,
 				OCF_METADATA_WR);
 	}
 	ocf_metadata_end_shared_access(&req->cache->metadata.lock);

@@ -56,10 +56,10 @@ int ocf_read_pt_do(struct ocf_request *req)
 	ocf_req_get(req);
 
 	if (req->info.dirty_any) {
-		ocf_req_hash_lock_rd(req);
+		ocf_hb_req_prot_lock_rd(req);
 		/* Need to clean, start it */
 		ocf_engine_clean(req);
-		ocf_req_hash_unlock_rd(req);
+		ocf_hb_req_prot_unlock_rd(req);
 
 		/* Do not processing, because first we need to clean request */
 		ocf_req_put(req);
@@ -70,14 +70,14 @@ int ocf_read_pt_do(struct ocf_request *req)
 	if (ocf_engine_needs_repart(req)) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
-		ocf_req_hash_lock_wr(req);
+		ocf_hb_req_prot_lock_wr(req);
 
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
 		ocf_part_move(req);
 
-		ocf_req_hash_unlock_wr(req);
+		ocf_hb_req_prot_unlock_wr(req);
 	}
 
 	/* Submit read IO to the core */
@@ -115,7 +115,7 @@ int ocf_read_pt(struct ocf_request *req)
 	req->io_if = &_io_if_pt_resume;
 
 	ocf_req_hash(req);
-	ocf_req_hash_lock_rd(req);
+	ocf_hb_req_prot_lock_rd(req);
 
 	/* Traverse request to check if there are mapped cache lines */
 	ocf_engine_traverse(req);
@@ -134,7 +134,7 @@ int ocf_read_pt(struct ocf_request *req)
 		}
 	}
 
-	ocf_req_hash_unlock_rd(req);
+	ocf_hb_req_prot_unlock_rd(req);
 
 	if (use_cache) {
 		/*
