@@ -34,6 +34,17 @@ static inline void ocf_metadata_eviction_wr_unlock(
 	env_rwlock_write_unlock(&metadata_lock->eviction[ev_list]);
 }
 
+static inline void ocf_metadata_eviction_rd_lock(
+		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
+{
+	env_rwlock_read_lock(&metadata_lock->eviction[ev_list]);
+}
+
+static inline void ocf_metadata_eviction_rd_unlock(
+		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
+{
+	env_rwlock_read_unlock(&metadata_lock->eviction[ev_list]);
+}
 static inline void ocf_metadata_eviction_wr_lock_all(
 		struct ocf_metadata_lock *metadata_lock)
 {
@@ -59,6 +70,15 @@ static inline void ocf_metadata_eviction_wr_unlock_all(
 #define OCF_METADATA_EVICTION_WR_UNLOCK(cline) \
 		ocf_metadata_eviction_wr_unlock(&cache->metadata.lock, \
 				cline % OCF_NUM_EVICTION_LISTS)
+
+#define OCF_METADATA_EVICTION_RD_LOCK(cline) \
+		ocf_metadata_eviction_rd_lock(&cache->metadata.lock, \
+				cline % OCF_NUM_EVICTION_LISTS)
+
+#define OCF_METADATA_EVICTION_RD_UNLOCK(cline) \
+		ocf_metadata_eviction_rd_unlock(&cache->metadata.lock, \
+				cline % OCF_NUM_EVICTION_LISTS)
+
 
 #define OCF_METADATA_EVICTION_WR_LOCK_ALL() \
 	ocf_metadata_eviction_wr_lock_all(&cache->metadata.lock)
