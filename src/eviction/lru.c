@@ -532,12 +532,21 @@ void evp_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
 	struct lru_eviction_policy_meta *node;
 	struct ocf_lru_list *list;
+	bool hot;
 
 	node = &ocf_metadata_get_eviction_policy(cache, cline)->lru;
-	if (node->hot)
+
+	OCF_METADATA_EVICTION_RD_LOCK(cline);
+	hot = node->hot;
+	OCF_METADATA_EVICTION_RD_UNLOCK(cline);
+
+	if (hot)
 		return;
 
 	list = evp_get_cline_list(cache, cline);
+
+	OCF_METADATA_EVICTION_WR_LOCK(cline);
+
 	if (node->next != end_marker ||
 			node->prev != end_marker ||
 			list->head == cline || list->tail == cline) {
@@ -547,6 +556,8 @@ void evp_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	/* Update LRU */
 	add_lru_head(cache, list, cline);
 	balance_lru_list(cache, list);
+
+	OCF_METADATA_EVICTION_WR_UNLOCK(cline);
 }
 
 static inline void _lru_init(struct ocf_lru_list *list)
