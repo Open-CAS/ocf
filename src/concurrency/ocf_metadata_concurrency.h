@@ -22,49 +22,49 @@ int ocf_metadata_concurrency_attached_init(
 void ocf_metadata_concurrency_attached_deinit(
 		struct ocf_metadata_lock *metadata_lock);
 
-static inline void ocf_metadata_eviction_lock(
+static inline void ocf_metadata_eviction_wr_lock(
 		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
 {
-	env_spinlock_lock(&metadata_lock->eviction[ev_list]);
+	env_rwlock_write_lock(&metadata_lock->eviction[ev_list]);
 }
 
-static inline void ocf_metadata_eviction_unlock(
+static inline void ocf_metadata_eviction_wr_unlock(
 		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
 {
-	env_spinlock_unlock(&metadata_lock->eviction[ev_list]);
+	env_rwlock_write_unlock(&metadata_lock->eviction[ev_list]);
 }
 
-static inline void ocf_metadata_eviction_lock_all(
+static inline void ocf_metadata_eviction_wr_lock_all(
 		struct ocf_metadata_lock *metadata_lock)
 {
 	uint32_t i;
 
 	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
-		ocf_metadata_eviction_lock(metadata_lock, i);
+		ocf_metadata_eviction_wr_lock(metadata_lock, i);
 }
 
-static inline void ocf_metadata_eviction_unlock_all(
+static inline void ocf_metadata_eviction_wr_unlock_all(
 		struct ocf_metadata_lock *metadata_lock)
 {
 	uint32_t i;
 
 	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
-		ocf_metadata_eviction_unlock(metadata_lock, i);
+		ocf_metadata_eviction_wr_unlock(metadata_lock, i);
 }
 
-#define OCF_METADATA_EVICTION_LOCK(cline) \
-		ocf_metadata_eviction_lock(&cache->metadata.lock, \
+#define OCF_METADATA_EVICTION_WR_LOCK(cline) \
+		ocf_metadata_eviction_wr_lock(&cache->metadata.lock, \
 				cline % OCF_NUM_EVICTION_LISTS)
 
-#define OCF_METADATA_EVICTION_UNLOCK(cline) \
-		ocf_metadata_eviction_unlock(&cache->metadata.lock, \
+#define OCF_METADATA_EVICTION_WR_UNLOCK(cline) \
+		ocf_metadata_eviction_wr_unlock(&cache->metadata.lock, \
 				cline % OCF_NUM_EVICTION_LISTS)
 
-#define OCF_METADATA_EVICTION_LOCK_ALL() \
-	ocf_metadata_eviction_lock_all(&cache->metadata.lock)
+#define OCF_METADATA_EVICTION_WR_LOCK_ALL() \
+	ocf_metadata_eviction_wr_lock_all(&cache->metadata.lock)
 
-#define OCF_METADATA_EVICTION_UNLOCK_ALL() \
-	ocf_metadata_eviction_unlock_all(&cache->metadata.lock)
+#define OCF_METADATA_EVICTION_WR_UNLOCK_ALL() \
+	ocf_metadata_eviction_wr_unlock_all(&cache->metadata.lock)
 
 static inline void ocf_metadata_partition_lock(
 		struct ocf_metadata_lock *metadata_lock,

@@ -578,12 +578,12 @@ void evp_lru_clean_cline(ocf_cache_t cache, struct ocf_user_part *part,
 	clean_list = evp_lru_get_list(part, ev_list, true);
 	dirty_list = evp_lru_get_list(part, ev_list, false);
 
-	OCF_METADATA_EVICTION_LOCK(cline);
+	OCF_METADATA_EVICTION_WR_LOCK(cline);
 	remove_lru_list(cache, dirty_list, cline);
 	balance_lru_list(cache, dirty_list);
 	add_lru_head(cache, clean_list, cline);
 	balance_lru_list(cache, clean_list);
-	OCF_METADATA_EVICTION_UNLOCK(cline);
+	OCF_METADATA_EVICTION_WR_UNLOCK(cline);
 }
 
 void evp_lru_dirty_cline(ocf_cache_t cache, struct ocf_user_part *part,
@@ -596,11 +596,11 @@ void evp_lru_dirty_cline(ocf_cache_t cache, struct ocf_user_part *part,
 	clean_list = evp_lru_get_list(part, ev_list, true);
 	dirty_list = evp_lru_get_list(part, ev_list, false);
 
-	OCF_METADATA_EVICTION_LOCK(cline);
+	OCF_METADATA_EVICTION_WR_LOCK(cline);
 	remove_lru_list(cache, clean_list, cline);
 	balance_lru_list(cache, clean_list);
 	add_lru_head(cache, dirty_list, cline);
 	balance_lru_list(cache, dirty_list);
-	OCF_METADATA_EVICTION_UNLOCK(cline);
+	OCF_METADATA_EVICTION_WR_UNLOCK(cline);
 }
 
