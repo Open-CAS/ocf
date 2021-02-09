@@ -37,7 +37,6 @@ enum ocf_req_size {
 
 struct ocf_req_allocator {
 	env_allocator *allocator[ocf_req_size_max];
-	size_t size[ocf_req_size_max];
 };
 
 static inline size_t ocf_req_sizeof_map(struct ocf_request *req)
@@ -67,6 +66,7 @@ int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
 	int i;
 	struct ocf_req_allocator *req;
 	char name[ALLOCATOR_NAME_MAX] = { '\0' };
+	ssize_t size;
 
 	OCF_DEBUG_TRACE(cache);
 
@@ -78,20 +78,20 @@ int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
 		goto err;
 
 	for (i = 0; i < ARRAY_SIZE(req->allocator); i++) {
-		req->size[i] = ocf_req_sizeof(1 << i);
+		size = ocf_req_sizeof(1 << i);
 
 		if (snprintf(name, sizeof(name), ALLOCATOR_NAME_FMT,
 				(1 << i)) < 0) {
 			goto err;
 		}
 
-		req->allocator[i] = env_allocator_create(req->size[i], name);
+		req->allocator[i] = env_allocator_create(size, name);
 
 		if (!req->allocator[i])
 			goto err;
 
 		OCF_DEBUG_PARAM(cache, "New request allocator, lines = %u, "
-				"size = %lu", 1 << i, req->size[i]);
+				"size = %lu", 1 << i, size);
 	}
 
 	return 0;
