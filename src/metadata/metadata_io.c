@@ -179,10 +179,11 @@ int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue, void *priv,
 static void metadata_io_req_fill(struct metadata_io_request *m_req)
 {
 	ocf_cache_t cache = m_req->cache;
+	struct metadata_io_request_asynch *a_req = m_req->asynch;
 	int i;
 
 	for (i = 0; i < m_req->count; i++) {
-		m_req->on_meta_fill(cache, m_req->data,
+		a_req->on_meta_fill(cache, m_req->data,
 			m_req->page + i, m_req->context);
 	}
 }
@@ -190,10 +191,11 @@ static void metadata_io_req_fill(struct metadata_io_request *m_req)
 static void metadata_io_req_drain(struct metadata_io_request *m_req)
 {
 	ocf_cache_t cache = m_req->cache;
+	struct metadata_io_request_asynch *a_req = m_req->asynch;
 	int i;
 
 	for (i = 0; i < m_req->count; i++) {
-		m_req->on_meta_drain(cache, m_req->data,
+		a_req->on_meta_drain(cache, m_req->data,
 			m_req->page + i, m_req->context);
 	}
 }
@@ -389,6 +391,8 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 	a_req->page = page;
 	a_req->count = count;
 	a_req->flags = flags;
+	a_req->on_meta_fill = io_hndl;
+	a_req->on_meta_drain = io_hndl;
 
 	/* IO Requests initialization */
 	for (i = 0; i < req_count; i++) {
@@ -397,8 +401,6 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 		m_req->asynch = a_req;
 		m_req->cache = cache;
 		m_req->context = context;
-		m_req->on_meta_fill = io_hndl;
-		m_req->on_meta_drain = io_hndl;
 		m_req->req.io_if = &metadata_io_restart_if;
 		m_req->req.io_queue = queue;
 		m_req->req.cache = cache;
