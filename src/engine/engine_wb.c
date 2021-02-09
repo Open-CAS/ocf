@@ -13,6 +13,7 @@
 #include "../ocf_request.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
+#include "../utils/utils_request.h"
 #include "../utils/utils_part.h"
 #include "../concurrency/ocf_concurrency.h"
 
@@ -42,6 +43,8 @@ static void _ocf_write_wb_update_bits(struct ocf_request *req)
 
 		ocf_req_hash_unlock_wr(req);
 	}
+
+	ocf_req_set_cleaning_hot(req);
 }
 
 static void _ocf_write_wb_io_flush_metadata(struct ocf_request *req, int error)
