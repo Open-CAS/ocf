@@ -6,7 +6,7 @@
 #include "utils_cache_line.h"
 #include "../promotion/promotion.h"
 
-static inline void ocf_cleaning_set_hot_cache_line(struct ocf_cache *cache,
+void ocf_cleaning_set_hot_cache_line(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
 	ocf_cleaning_t cleaning_type = cache->conf_meta->cleaning_policy_type;
