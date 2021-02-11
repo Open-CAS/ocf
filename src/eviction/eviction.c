@@ -60,50 +60,89 @@ static inline uint32_t ocf_evict_part_do(ocf_cache_t cache,
 			target_part, to_evict);
 }
 
-static inline uint32_t ocf_evict_do(ocf_cache_t cache,
-		ocf_queue_t io_queue, const uint32_t evict_cline_no,
-		struct ocf_user_part *target_part)
+static inline uint32_t ocf_evict_partitions(ocf_cache_t cache,
+		ocf_queue_t io_queue, uint32_t evict_cline_no,
+		bool overflown_only, uint32_t max_priority)
 {
 	uint32_t to_evict = 0, evicted = 0;
 	struct ocf_user_part *part;
 	ocf_part_id_t part_id;
+	unsigned overflow_size;
 
 	/* For each partition from the lowest priority to highest one */
 	for_each_part(cache, part, part_id) {
-
 		if (!ocf_eviction_can_evict(cache))
 			goto out;
 
 		/*
 		 * Check stop and continue conditions
 		 */
-		if (target_part->config->priority > part->config->priority) {
+		if (max_priority > part->config->priority) {
 			/*
-			 * iterate partition have higher priority, do not evict
+			 * iterate partition have higher priority,
+			 * do not evict
 			 */
 			break;
 		}
 		if (!part->config->flags.eviction) {
-			/* It seams that no more partition for eviction */
+			/* no more partitions available for viction
+			 */
 			break;
 		}
-		if (evicted >= evict_cline_no) {
-			/* Evicted requested number of cache line, stop */
-			goto out;
+
+		if (overflown_only) {
+			overflow_size = ocf_part_overflow_size(cache, part);
+			if (overflow_size == 0)
+				continue;
 		}
 
-		to_evict = ocf_evict_calculate(cache, part, evict_cline_no,
-				true);
+		to_evict = ocf_evict_calculate(cache, part,
+				evict_cline_no - evicted, true);
 		if (to_evict == 0) {
 			/* No cache lines to evict for this partition */
 			continue;
 		}
 
+		if (overflown_only)
+			to_evict = OCF_MIN(to_evict, overflow_size);
+
 		evicted += ocf_eviction_need_space(cache, io_queue,
 				part, to_evict);
+
+		if (evicted >= evict_cline_no) {
+			/* Evicted requested number of cache line, stop
+			 */
+			goto out;
+		}
+
 	}
 
 out:
+	return evicted;
+}
+
+static inline uint32_t ocf_evict_do(ocf_cache_t cache,
+		ocf_queue_t io_queue, uint32_t evict_cline_no,
+		struct ocf_user_part *target_part)
+{
+	uint32_t evicted;
+
+	/* First attempt to evict overflown partitions in order to
+	 * achieve configured maximum size. Ignoring partitions
+	 * priority in this case, as overflown partitions should
+	 * free its cachelines regardless of destination partition
+	 * priority. */
+	evicted = ocf_evict_partitions(cache, io_queue, evict_cline_no,
+		true, OCF_IO_CLASS_PRIO_HIGHEST);
+	if (evicted >= evict_cline_no)
+		return evicted;
+	/* Not enough cachelines in overflown partitions. Go through
+	 * partitions with priority <= target partition and attempt
+	 * to evict from those. */
+	evict_cline_no -= evicted;
+	evicted += ocf_evict_partitions(cache, io_queue, evict_cline_no,
+		false, target_part->config->priority);
+
 	return evicted;
 }
 

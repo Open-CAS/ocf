@@ -44,8 +44,7 @@ void __wrap_ocf_req_hash_unlock_wr(struct ocf_request *req)
 {
 }
 
-uint32_t __wrap_ocf_part_check_space(struct ocf_request *req,
-		uint32_t *to_evict)
+uint32_t __wrap_ocf_part_has_space(struct ocf_request *req)
 {
 	return mock();
 }
@@ -98,7 +97,7 @@ static void ocf_prepare_clines_miss_test01(void **state)
 {
 	struct ocf_request req = {};
 	print_test_description("Target part is disabled and empty\n");
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_DISABLED);
+	will_return(__wrap_ocf_part_is_enabled, false);
 	expect_function_call(__wrap_ocf_req_set_mapping_error);
 	assert_int_equal(ocf_prepare_clines_miss(&req, NULL), -OCF_ERR_NO_LOCK);
 }
@@ -107,13 +106,8 @@ static void ocf_prepare_clines_miss_test02(void **state)
 {
 	struct ocf_request req = {};
 	print_test_description("Target part is disabled but has cachelines assigned.\n");
-	print_test_description("\tTrigger eviction and mark mapping error\n");
+	print_test_description("\tMark mapping error\n");
 
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
-
-	expect_function_call(__wrap_space_managment_evict_do);
-	will_return(__wrap_space_managment_evict_do, LOOKUP_MAPPED);
 	will_return(__wrap_ocf_part_is_enabled, false);
 	expect_function_call(__wrap_ocf_req_set_mapping_error);
 
@@ -126,12 +120,12 @@ static void ocf_prepare_clines_miss_test03(void **state)
 	print_test_description("Target part is enabled but doesn't have enough space.\n");
 	print_test_description("\tEviction is ok and cachelines lock is acquired.\n");
 
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
+	will_return(__wrap_ocf_part_is_enabled, true);
+	will_return(__wrap_ocf_part_has_space, false);
 
+	will_return(__wrap_ocf_part_has_space, false);
 	expect_function_call(__wrap_space_managment_evict_do);
 	will_return(__wrap_space_managment_evict_do, LOOKUP_MAPPED);
-	will_return(__wrap_ocf_part_is_enabled, true);
 
 	expect_function_call(__wrap_ocf_engine_map);
 
@@ -149,9 +143,10 @@ static void ocf_prepare_clines_miss_test04(void **state)
 	print_test_description("Target part is enabled but doesn't have enough space.\n");
 	print_test_description("\tEviction failed\n");
 
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
+	will_return(__wrap_ocf_part_is_enabled, true);
+	will_return(__wrap_ocf_part_has_space, false);
 
+	will_return(__wrap_ocf_part_has_space, false);
 	expect_function_call(__wrap_space_managment_evict_do);
 	will_return(__wrap_space_managment_evict_do, LOOKUP_MISS);
 	expect_function_call(__wrap_ocf_req_set_mapping_error);
@@ -165,8 +160,8 @@ static void ocf_prepare_clines_miss_test05(void **state)
 	print_test_description("Target part is enabled but doesn't have enough space.\n");
 	print_test_description("Eviction is ok, but mapping failed.\n");
 
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
+	will_return(__wrap_ocf_part_has_space, false);
+	will_return(__wrap_ocf_part_has_space, false);
 
 	expect_function_call(__wrap_space_managment_evict_do);
 	will_return(__wrap_space_managment_evict_do, LOOKUP_HIT);
@@ -185,8 +180,8 @@ static void ocf_prepare_clines_miss_test06(void **state)
 	print_test_description("Target part is enabled but doesn't have enough space.\n");
 	print_test_description("Eviction and mapping were ok, but failed to lock cachelines.\n");
 
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
+	will_return(__wrap_ocf_part_has_space, false);
+	will_return(__wrap_ocf_part_has_space, false);
 
 	expect_function_call(__wrap_space_managment_evict_do);
 	will_return(__wrap_space_managment_evict_do, LOOKUP_HIT);
@@ -210,8 +205,8 @@ static void ocf_prepare_clines_miss_test07(void **state)
 	print_test_description("Target part is enabled but doesn't have enough space.\n");
 	print_test_description("Eviction and mapping were ok, lock not acquired.\n");
 
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
-	will_return(__wrap_ocf_part_check_space, OCF_PART_IS_FULL);
+	will_return(__wrap_ocf_part_has_space, false);
+	will_return(__wrap_ocf_part_has_space, false);
 
 	expect_function_call(__wrap_space_managment_evict_do);
 	will_return(__wrap_space_managment_evict_do, LOOKUP_HIT);
@@ -233,7 +228,8 @@ static void ocf_prepare_clines_miss_test08(void **state)
 	print_test_description("Target part is enabled has enough space.\n");
 	print_test_description("\tMapping and cacheline lock are both ok\n");
 
-	will_return(__wrap_ocf_part_check_space, OCF_PART_HAS_SPACE);
+	will_return(__wrap_ocf_part_is_enabled, true);
+	will_return(__wrap_ocf_part_has_space, true);
 
 	expect_function_call(__wrap_ocf_engine_map);
 	will_return(__wrap_ocf_req_test_mapping_error, false);

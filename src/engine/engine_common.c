@@ -430,55 +430,50 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req,
 {
 	int lock_status = -OCF_ERR_NO_LOCK;
 	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
-	uint32_t clines_to_evict = 0;
-	int res;
+
+	/* requests to disabled partitions go in pass-through */
+	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
+		ocf_req_set_mapping_error(req);
+		ocf_req_hash_unlock_rd(req);
+		return lock_status;
+	}
+
+	if (!ocf_part_has_space(req)) {
+		ocf_req_hash_unlock_rd(req);
+		goto eviction;
+	}
 
 	/* Mapping must be performed holding (at least) hash-bucket write lock */
 	ocf_req_hash_lock_upgrade(req);
 
-	/* Verify whether partition occupancy threshold is not reached yet or cache
-	 * is not out of free cachelines */
-	res = ocf_part_check_space(req, &clines_to_evict);
-	if (res == OCF_PART_IS_DISABLED) {
-		ocf_req_set_mapping_error(req);
-		ocf_req_hash_unlock_wr(req);
-		return lock_status;
-	}
+	ocf_engine_map(req);
 
-	if (res == OCF_PART_HAS_SPACE) {
-		ocf_engine_map(req);
-		if (ocf_req_test_mapping_error(req)) {
-			goto eviction;
-		}
-
+	if (!ocf_req_test_mapping_error(req)) {
 		lock_status = lock_clines(req, engine_cbs);
 		if (lock_status < 0) {
 			/* Mapping succeeded, but we failed to acquire cacheline lock.
 			 * Don't try to evict, just return error to caller */
 			ocf_req_set_mapping_error(req);
 		}
-
 		ocf_req_hash_unlock_wr(req);
 		return lock_status;
 	}
 
-eviction:
 	ocf_req_hash_unlock_wr(req);
+
+eviction:
 	ocf_metadata_start_exclusive_access(metadata_lock);
 
-	ocf_part_check_space(req, &clines_to_evict);
+	/* repeat traversation to pick up latest metadata status */
+	ocf_engine_traverse(req);
 
-	if (space_managment_evict_do(req->cache, req, clines_to_evict) ==
-			LOOKUP_MISS) {
-		ocf_req_set_mapping_error(req);
-		goto unlock;
-	}
+	if (!ocf_part_has_space(req))
+		ocf_req_set_part_evict(req);
+	else
+		ocf_req_clear_part_evict(req);
 
-	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
-		/* Partition is disabled but it had cachelines assigned. Now, that they
-		 * are evicted, don't try to map cachelines - we don't want to insert
-		 * new cachelines - the request should be submited in pass through mode
-		 * instead */
+	if (space_managment_evict_do(req->cache, req,
+			ocf_engine_unmapped_count(req)) == LOOKUP_MISS) {
 		ocf_req_set_mapping_error(req);
 		goto unlock;
 	}
