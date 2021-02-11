@@ -125,6 +125,9 @@ typedef enum {
 
 	/** Device does not meet requirements */
 	OCF_ERR_INVAL_CACHE_DEV,
+
+	/** Core device is in active state */
+	OCF_ERR_CORE_IN_ACTIVE_STATE,
 } ocf_error_t;
 
 #endif /* __OCF_ERR_H__ */
