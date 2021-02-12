@@ -1192,8 +1192,9 @@ static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
 		env_atomic_inc(&core->runtime_meta->dirty_clines);
 		env_atomic_inc(&core->runtime_meta->
 				part_counters[part_id].dirty_clines);
-		env_atomic64_cmpxchg(&core->runtime_meta->dirty_since,
-				0, env_get_tick_count());
+		if (!env_atomic64_read(&core->runtime_meta->dirty_since))
+			env_atomic64_cmpxchg(&core->runtime_meta->dirty_since, 0,
+					env_ticks_to_secs(env_get_tick_count()));
 	}
 }
 

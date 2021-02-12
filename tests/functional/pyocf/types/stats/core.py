@@ -15,7 +15,7 @@ class CoreInfo(Structure):
         ("core_size_bytes", c_uint64),
         ("dirty", c_uint32),
         ("flushed", c_uint32),
-        ("dirty_for", c_uint32),
+        ("dirty_for", c_uint64),
         ("seq_cutoff_threshold", c_uint32),
         ("seq_cutoff_policy", c_uint32),
     ]

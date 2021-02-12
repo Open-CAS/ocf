@@ -156,8 +156,10 @@ void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
 			/*
 			 * If this is first dirty cline set dirty timestamp
 			 */
-			env_atomic64_cmpxchg(&req->core->runtime_meta->dirty_since,
-					0, env_get_tick_count());
+			if (!env_atomic64_read(&req->core->runtime_meta->dirty_since))
+				env_atomic64_cmpxchg(
+					&req->core->runtime_meta->dirty_since, 0,
+					env_ticks_to_secs(env_get_tick_count()));
 
 			/*
 			 * Update the number of dirty cached data for that

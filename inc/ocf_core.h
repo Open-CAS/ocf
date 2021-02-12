@@ -32,7 +32,7 @@ struct ocf_core_info {
 	};
 
 	/** How long core is dirty in seconds unit */
-	uint32_t dirty_for;
+	uint64_t dirty_for;
 
 	/** Sequential cutoff threshold (in bytes) */
 	uint32_t seq_cutoff_threshold;
