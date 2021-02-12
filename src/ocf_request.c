@@ -8,6 +8,7 @@
 #include "ocf_cache_priv.h"
 #include "ocf_queue_priv.h"
 #include "utils/utils_cache_line.h"
+#include "utils/utils_log_allocator.h"
 
 #define OCF_UTILS_RQ_DEBUG 0
 
@@ -35,10 +36,6 @@ enum ocf_req_size {
 	ocf_req_size_max,
 };
 
-struct ocf_req_allocator {
-	env_allocator *allocator[ocf_req_size_max];
-};
-
 static inline size_t ocf_req_sizeof_map(struct ocf_request *req)
 {
 	uint32_t lines = req->core_line_count;
@@ -63,89 +60,34 @@ static inline size_t ocf_req_sizeof(uint32_t lines)
 
 int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
 {
-	int i;
-	struct ocf_req_allocator *req;
-	char name[ALLOCATOR_NAME_MAX] = { '\0' };
-	ssize_t size;
-
-	OCF_DEBUG_TRACE(cache);
-
-	ocf_ctx->resources.req = env_zalloc(sizeof(*(ocf_ctx->resources.req)),
-			ENV_MEM_NORMAL);
-	req = ocf_ctx->resources.req;
-
-	if (!req)
-		goto err;
-
-	for (i = 0; i < ARRAY_SIZE(req->allocator); i++) {
-		size = ocf_req_sizeof(1 << i);
-
-		if (snprintf(name, sizeof(name), ALLOCATOR_NAME_FMT,
-				(1 << i)) < 0) {
-			goto err;
-		}
-
-		req->allocator[i] = env_allocator_create(size, name);
-
-		if (!req->allocator[i])
-			goto err;
-
-		OCF_DEBUG_PARAM(cache, "New request allocator, lines = %u, "
-				"size = %lu", 1 << i, size);
-	}
+	ocf_ctx->resources.req = ocf_log_allocator_init(ALLOCATOR_NAME_FMT,
+		ocf_req_size_max, ocf_req_sizeof);
+	if (ocf_ctx->resources.req == NULL)
+		return -1;
 
 	return 0;
-
-err:
-	ocf_req_allocator_deinit(ocf_ctx);
-	return -1;
 }
 
 void ocf_req_allocator_deinit(struct ocf_ctx *ocf_ctx)
 {
-	int i;
-	struct ocf_req_allocator *req;
-
-	OCF_DEBUG_TRACE(cache);
-
-
-	if (!ocf_ctx->resources.req)
-		return;
-
-	req = ocf_ctx->resources.req;
-
-	for (i = 0; i < ARRAY_SIZE(req->allocator); i++) {
-		if (req->allocator[i]) {
-			env_allocator_destroy(req->allocator[i]);
-			req->allocator[i] = NULL;
-		}
-	}
-
-	env_free(req);
+	ocf_log_allocator_deinit(ocf_ctx->resources.req);
 	ocf_ctx->resources.req = NULL;
 }
 
 static inline env_allocator *_ocf_req_get_allocator_1(
 	struct ocf_cache *cache)
 {
-	return cache->owner->resources.req->allocator[0];
+	struct ocf_ctx *ocf_ctx = cache->owner;
+
+	return ocf_log_allocator_get_1(ocf_ctx->resources.req);
 }
 
 static env_allocator *_ocf_req_get_allocator(
 	struct ocf_cache *cache, uint32_t count)
 {
 	struct ocf_ctx *ocf_ctx = cache->owner;
-	unsigned int idx = 31 - __builtin_clz(count);
 
-	if (__builtin_ffs(count) <= idx)
-		idx++;
-
-	ENV_BUG_ON(count == 0);
-
-	if (idx >= ocf_req_size_max)
-		return NULL;
-
-	return ocf_ctx->resources.req->allocator[idx];
+	return ocf_log_allocator_get(ocf_ctx->resources.req, count);
 }
 
 struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,

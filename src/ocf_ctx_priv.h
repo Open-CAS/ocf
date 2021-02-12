@@ -10,6 +10,7 @@
 #include "ocf/ocf_ctx.h"
 #include "ocf_logger_priv.h"
 #include "ocf_volume_priv.h"
+#include "utils/utils_log_allocator.h"
 
 #define OCF_VOLUME_TYPE_MAX 8
 
@@ -30,7 +31,7 @@ struct ocf_ctx {
 	} core_pool;
 
 	struct {
-		struct ocf_req_allocator *req;
+		struct ocf_log_allocator *req;
 	} resources;
 };
 
