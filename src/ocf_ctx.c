@@ -11,6 +11,7 @@
 #include "ocf_logger_priv.h"
 #include "ocf_core_priv.h"
 #include "mngt/ocf_mngt_core_pool_priv.h"
+#include "metadata/metadata_io.h"
 
 /*
  *
@@ -177,6 +178,10 @@ int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 	if (ret)
 		goto err_logger;
 
+	ret = ocf_metadata_io_ctx_init(ocf_ctx);
+	if (ret)
+		goto err_mio;
+
 	ret = ocf_core_volume_type_init(ocf_ctx);
 	if (ret)
 		goto err_utils;
@@ -188,6 +193,8 @@ int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 	return 0;
 
 err_utils:
+	ocf_metadata_io_ctx_deinit(ocf_ctx);
+err_mio:
 	ocf_req_allocator_deinit(ocf_ctx);
 err_logger:
 	ocf_logger_close(&ocf_ctx->logger);

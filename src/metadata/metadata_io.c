@@ -12,6 +12,7 @@
 #include "../utils/utils_io.h"
 #include "../ocf_request.h"
 #include "../ocf_def_priv.h"
+#include "../utils/utils_log_allocator.h"
 
 #define OCF_METADATA_IO_DEBUG 0
 
@@ -44,6 +45,20 @@ struct metadata_io_read_i_atomic_context {
 	ocf_metadata_io_end_t compl_hndl;
 	void *priv;
 };
+
+enum ocf_mio_size {
+	ocf_mio_size_1 = 0,
+	ocf_mio_size_2,
+	ocf_mio_size_4,
+	ocf_mio_size_8,
+	ocf_mio_size_16,
+	ocf_mio_size_32,
+	ocf_mio_size_64,
+	ocf_mio_size_max,
+};
+
+#define METADATA_IO_REQS_LIMIT (1 << ocf_mio_size_64)
+
 
 static void metadata_io_read_i_atomic_complete(
 		struct metadata_io_read_i_atomic_context *context, int error)
@@ -297,9 +312,11 @@ void metadata_io_req_end(struct metadata_io_request *m_req)
 void metadata_io_req_finalize(struct metadata_io_request *m_req)
 {
 	struct metadata_io_request_asynch *a_req = m_req->asynch;
+	env_allocator *allocator = ocf_log_allocator_get(
+		m_req->cache->owner->resources.mio, a_req->req_count);
 
 	if (env_atomic_dec_return(&a_req->req_active) == 0)
-		env_free(a_req);
+		env_allocator_del(allocator, a_req);
 }
 
 static uint32_t metadata_io_max_page(ocf_cache_t cache)
@@ -373,13 +390,17 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 	uint32_t io_count = OCF_DIV_ROUND_UP(count, max_count);
 	uint32_t req_count = OCF_MIN(io_count, METADATA_IO_REQS_LIMIT);
 	int i;
+	env_allocator *allocator;
+	struct ocf_log_allocator *mio_allocator = cache->owner->resources.mio;
 
 	if (count == 0)
 		return 0;
 
-	a_req = env_zalloc(sizeof(*a_req), ENV_MEM_NOIO);
-	if (!a_req)
-		return -OCF_ERR_NO_MEM;
+
+	allocator = ocf_log_allocator_get(mio_allocator, req_count);
+	ENV_BUG_ON(!allocator);
+
+	a_req = env_allocator_new(allocator);
 
 	env_atomic_set(&a_req->req_remaining, 1);
 	env_atomic_set(&a_req->req_active, 1);
@@ -388,6 +409,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 	a_req->context = context;
 	a_req->page = page;
 	a_req->count = count;
+	a_req->req_count = req_count;
 	a_req->flags = flags;
 	a_req->on_meta_fill = io_hndl;
 	a_req->on_meta_drain = io_hndl;
@@ -425,14 +447,15 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 		compl_hndl(cache, context, a_req->error);
 
 	if (env_atomic_dec_return(&a_req->req_active) == 0)
-		env_free(a_req);
+		env_allocator_del(allocator, a_req);
 
 	return 0;
 
 err:
 	while (i--)
 		ctx_data_free(cache->owner, a_req->reqs[i].data);
-	env_free(a_req);
+
+	env_allocator_del(allocator, a_req);
 
 	return -OCF_ERR_NO_MEM;
 }
@@ -453,6 +476,34 @@ int metadata_io_read_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 {
 	return metadata_io_i_asynch(cache, queue, OCF_READ, context,
 			page, count, flags, drain_hndl, compl_hndl);
+}
+
+static size_t ocf_metadata_io_sizeof(uint32_t child_requests)
+{
+	size_t size = sizeof(struct metadata_io_request_asynch) +
+		(child_requests * sizeof(struct metadata_io_request));
+
+	ENV_BUG_ON(child_requests == 0);
+	return size;
+}
+
+#define ALLOCATOR_NAME_FMT "ocf_mio_%u"
+
+int ocf_metadata_io_ctx_init(struct ocf_ctx *ocf_ctx)
+{
+	ocf_ctx->resources.mio = ocf_log_allocator_init(ALLOCATOR_NAME_FMT,
+		ocf_mio_size_max, ocf_metadata_io_sizeof);
+	if (ocf_ctx->resources.mio == NULL)
+		return -1;
+
+	return 0;
+}
+
+
+void ocf_metadata_io_ctx_deinit(struct ocf_ctx *ocf_ctx)
+{
+	ocf_log_allocator_deinit(ocf_ctx->resources.mio);
+	ocf_ctx->resources.mio = NULL;
 }
 
 int ocf_metadata_io_init(ocf_cache_t cache)

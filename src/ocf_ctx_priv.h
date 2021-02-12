@@ -32,6 +32,7 @@ struct ocf_ctx {
 
 	struct {
 		struct ocf_log_allocator *req;
+		struct ocf_log_allocator *mio;
 	} resources;
 };
 
