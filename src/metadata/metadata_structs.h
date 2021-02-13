@@ -47,9 +47,14 @@ struct ocf_cache_line_settings {
 #define OCF_METADATA_GLOBAL_LOCK_IDX_BITS 2
 #define OCF_NUM_GLOBAL_META_LOCKS (1 << (OCF_METADATA_GLOBAL_LOCK_IDX_BITS))
 
+struct ocf_metadata_global_lock {
+	env_rwsem sem;
+} __attribute__((aligned(64)));
+
 struct ocf_metadata_lock
 {
-	env_rwsem global[OCF_NUM_GLOBAL_META_LOCKS]; /*!< global metadata lock (GML) */
+	struct ocf_metadata_global_lock global[OCF_NUM_GLOBAL_META_LOCKS];
+			/*!< global metadata lock (GML) */
 	env_rwlock status; /*!< Fast lock for status bits */
 	env_spinlock eviction[OCF_NUM_EVICTION_LISTS]; /*!< Fast lock for eviction policy */
 	env_rwsem *hash; /*!< Hash bucket locks */

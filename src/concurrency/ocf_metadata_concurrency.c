@@ -24,7 +24,7 @@ int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 
 	for (global_iter = 0; global_iter < OCF_NUM_GLOBAL_META_LOCKS;
 			global_iter++) {
-		err = env_rwsem_init(&metadata_lock->global[global_iter]);
+		err = env_rwsem_init(&metadata_lock->global[global_iter].sem);
 		if (err)
 			goto global_err;
 	}
@@ -43,7 +43,7 @@ partition_err:
 
 global_err:
 	while (global_iter--)
-		env_rwsem_destroy(&metadata_lock->global[global_iter]);
+		env_rwsem_destroy(&metadata_lock->global[global_iter].sem);
 
 	env_rwlock_destroy(&metadata_lock->status);
 
@@ -65,7 +65,7 @@ void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock)
 		env_spinlock_destroy(&metadata_lock->eviction[i]);
 
 	for (i = 0; i < OCF_NUM_GLOBAL_META_LOCKS; i++)
-		env_rwsem_destroy(&metadata_lock->global[i]);
+		env_rwsem_destroy(&metadata_lock->global[i].sem);
 
 	env_rwlock_destroy(&metadata_lock->status);
 }
@@ -154,7 +154,7 @@ void ocf_metadata_start_exclusive_access(
 	unsigned i;
 
 	for (i = 0; i < OCF_NUM_GLOBAL_META_LOCKS; i++) {
-		env_rwsem_down_write(&metadata_lock->global[i]);
+		env_rwsem_down_write(&metadata_lock->global[i].sem);
 	}
 }
 
@@ -165,14 +165,14 @@ int ocf_metadata_try_start_exclusive_access(
 	int error;
 
 	for (i = 0; i < OCF_NUM_GLOBAL_META_LOCKS; i++) {
-		error =  env_rwsem_down_write_trylock(&metadata_lock->global[i]);
+		error =  env_rwsem_down_write_trylock(&metadata_lock->global[i].sem);
 		if (error)
 			break;
 	}
 
 	if (error) {
 		while (i--) {
-			env_rwsem_up_write(&metadata_lock->global[i]);
+			env_rwsem_up_write(&metadata_lock->global[i].sem);
 		}
 	}
 
@@ -185,7 +185,7 @@ void ocf_metadata_end_exclusive_access(
 	unsigned i;
 
 	for (i = OCF_NUM_GLOBAL_META_LOCKS; i > 0; i--)
-	        env_rwsem_up_write(&metadata_lock->global[i - 1]);
+	        env_rwsem_up_write(&metadata_lock->global[i - 1].sem);
 }
 
 /* lock_idx determines which of underlying R/W locks is acquired for read. The goal
@@ -199,20 +199,20 @@ void ocf_metadata_start_shared_access(
 		struct ocf_metadata_lock *metadata_lock,
 		unsigned lock_idx)
 {
-        env_rwsem_down_read(&metadata_lock->global[lock_idx]);
+        env_rwsem_down_read(&metadata_lock->global[lock_idx].sem);
 }
 
 int ocf_metadata_try_start_shared_access(
 		struct ocf_metadata_lock *metadata_lock,
 		unsigned lock_idx)
 {
-	return env_rwsem_down_read_trylock(&metadata_lock->global[lock_idx]);
+	return env_rwsem_down_read_trylock(&metadata_lock->global[lock_idx].sem);
 }
 
 void ocf_metadata_end_shared_access(struct ocf_metadata_lock *metadata_lock,
 		unsigned lock_idx)
 {
-        env_rwsem_up_read(&metadata_lock->global[lock_idx]);
+        env_rwsem_up_read(&metadata_lock->global[lock_idx].sem);
 }
 
 /* NOTE: Calling 'naked' lock/unlock requires caller to hold global metadata
