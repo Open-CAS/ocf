@@ -71,7 +71,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
         handled by cache. It should no longer be tracked by OCF, because of request in step 3. which
         overflowed the OCF handling structure)
     """
-    MAX_STREAMS = 256
+    MAX_STREAMS = 128
     TEST_STREAMS = MAX_STREAMS + 1  # Number of streams used by test - one more than OCF can track
     core_size = Size.from_MiB(200)
     threshold = Size.from_KiB(4)
@@ -91,7 +91,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     streams.remove(non_active_stream)
 
     cache = Cache.start_on_device(Volume(Size.from_MiB(200)), cache_mode=CacheMode.WT)
-    core = Core.using_device(Volume(core_size))
+    core = Core.using_device(Volume(core_size), seq_cutoff_promotion_count=1)
 
     cache.add_core(core)
 

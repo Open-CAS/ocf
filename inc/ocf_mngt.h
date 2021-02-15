@@ -1021,7 +1021,7 @@ int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
  *            use function ocf_mngt_cache_save().
  *
  * @param[in] core Core handle
- * @param[in] thresh promotion request count
+ * @param[in] count promotion request count
  *
  * @retval 0 Sequential cutoff promotion requets count has been set successfully
  * @retval Non-zero Error occured and request count hasn't been updated

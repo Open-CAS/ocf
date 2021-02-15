@@ -45,6 +45,7 @@ class CoreConfig(Structure):
         ("_volume_type", c_uint8),
         ("_try_add", c_bool),
         ("_seq_cutoff_threshold", c_uint32),
+        ("_seq_cutoff_promotion_count", c_uint32),
         ("_user_metadata", UserMetadata),
     ]
 
@@ -52,6 +53,7 @@ class CoreConfig(Structure):
 class Core:
     DEFAULT_ID = 4096
     DEFAULT_SEQ_CUTOFF_THRESHOLD = 1024 * 1024
+    DEFAULT_SEQ_CUTOFF_PROMOTION_COUNT = 8
 
     def __init__(
         self,
@@ -59,6 +61,7 @@ class Core:
         try_add: bool,
         name: str = "core",
         seq_cutoff_threshold: int = DEFAULT_SEQ_CUTOFF_THRESHOLD,
+        seq_cutoff_promotion_count: int = DEFAULT_SEQ_CUTOFF_PROMOTION_COUNT,
     ):
         self.cache = None
         self.device = device
@@ -76,6 +79,7 @@ class Core:
             _volume_type=self.device.type_id,
             _try_add=try_add,
             _seq_cutoff_threshold=seq_cutoff_threshold,
+            _seq_cutoff_promotion_count=seq_cutoff_promotion_count,
             _user_metadata=UserMetadata(_data=None, _size=0),
         )
 
