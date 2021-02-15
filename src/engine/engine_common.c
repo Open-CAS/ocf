@@ -434,17 +434,17 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req,
 	/* requests to disabled partitions go in pass-through */
 	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
 		ocf_req_set_mapping_error(req);
-		ocf_req_hash_unlock_rd(req);
+		ocf_hb_req_prot_unlock_rd(req);
 		return lock_status;
 	}
 
 	if (!ocf_part_has_space(req)) {
-		ocf_req_hash_unlock_rd(req);
+		ocf_hb_req_prot_unlock_rd(req);
 		goto eviction;
 	}
 
 	/* Mapping must be performed holding (at least) hash-bucket write lock */
-	ocf_req_hash_lock_upgrade(req);
+	ocf_hb_req_prot_lock_upgrade(req);
 
 	ocf_engine_map(req);
 
@@ -455,11 +455,11 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req,
 			 * Don't try to evict, just return error to caller */
 			ocf_req_set_mapping_error(req);
 		}
-		ocf_req_hash_unlock_wr(req);
+		ocf_hb_req_prot_unlock_wr(req);
 		return lock_status;
 	}
 
-	ocf_req_hash_unlock_wr(req);
+	ocf_hb_req_prot_unlock_wr(req);
 
 eviction:
 	ocf_metadata_start_exclusive_access(metadata_lock);
@@ -505,7 +505,7 @@ int ocf_engine_prepare_clines(struct ocf_request *req,
 	/* Read-lock hash buckets associated with request target core & LBAs
 	 * (core lines) to assure that cache mapping for these core lines does
 	 * not change during traversation */
-	ocf_req_hash_lock_rd(req);
+	ocf_hb_req_prot_lock_rd(req);
 
 	/* Traverse to check if request is mapped fully */
 	ocf_engine_traverse(req);
@@ -513,7 +513,7 @@ int ocf_engine_prepare_clines(struct ocf_request *req,
 	mapped = ocf_engine_is_mapped(req);
 	if (mapped) {
 		lock = lock_clines(req, engine_cbs);
-		ocf_req_hash_unlock_rd(req);
+		ocf_hb_req_prot_unlock_rd(req);
 		return lock;
 	}
 
@@ -522,7 +522,7 @@ int ocf_engine_prepare_clines(struct ocf_request *req,
 			req->cache->promotion_policy, req);
 	if (!promote) {
 		ocf_req_set_mapping_error(req);
-		ocf_req_hash_unlock_rd(req);
+		ocf_hb_req_prot_unlock_rd(req);
 		return lock;
 	}
 
@@ -676,11 +676,11 @@ static int _ocf_engine_refresh(struct ocf_request *req)
 	int result;
 
 	/* Check under metadata RD lock */
-	ocf_req_hash_lock_rd(req);
+	ocf_hb_req_prot_lock_rd(req);
 
 	result = ocf_engine_check(req);
 
-	ocf_req_hash_unlock_rd(req);
+	ocf_hb_req_prot_unlock_rd(req);
 
 	if (result == 0) {
 

@@ -304,6 +304,7 @@ void ocf_metadata_remove_from_collision(struct ocf_cache *cache,
 			OCF_CORE_MAX, ULLONG_MAX);
 }
 
+/* must be called under global metadata read(shared) lock */
 void ocf_metadata_start_collision_shared_access(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
@@ -316,6 +317,7 @@ void ocf_metadata_start_collision_shared_access(struct ocf_cache *cache,
 	ocf_collision_start_shared_access(&cache->metadata.lock, page);
 }
 
+/* must be called under  global metadata read(shared) lock */
 void ocf_metadata_end_collision_shared_access(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {

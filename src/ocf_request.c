@@ -6,7 +6,7 @@
 #include "ocf/ocf.h"
 #include "ocf_request.h"
 #include "ocf_cache_priv.h"
-#include "ocf_queue_priv.h"
+#include "concurrency/ocf_metadata_concurrency.h"
 #include "utils/utils_cache_line.h"
 
 #define OCF_UTILS_RQ_DEBUG 0
@@ -204,6 +204,8 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	req->discard.sector = BYTES_TO_SECTORS(addr);
 	req->discard.nr_sects = BYTES_TO_SECTORS(bytes);
 	req->discard.handled = 0;
+
+	req->lock_idx = ocf_metadata_concurrency_next_idx(queue);
 
 	return req;
 }

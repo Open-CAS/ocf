@@ -96,12 +96,12 @@ static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *req)
 
 	env_atomic_set(&req->req_remaining, 1); /* One core IO */
 
-	ocf_req_hash_lock_wr(req); /*- Metadata WR access ---------------*/
+	ocf_hb_req_prot_lock_wr(req); /*- Metadata WR access ---------------*/
 
 	/* Remove mapped cache lines from metadata */
 	ocf_purge_map_info(req);
 
-	ocf_req_hash_unlock_wr(req); /*- END Metadata WR access ---------*/
+	ocf_hb_req_prot_unlock_wr(req); /*- END Metadata WR access ---------*/
 
 	if (req->info.flush_metadata) {
 		/* Request was dirty and need to flush metadata */
@@ -191,7 +191,7 @@ int ocf_write_wi(struct ocf_request *req)
 			&_io_if_wi_core_write;
 
 	ocf_req_hash(req);
-	ocf_req_hash_lock_rd(req); /*- Metadata READ access, No eviction --------*/
+	ocf_hb_req_prot_lock_rd(req); /*- Metadata READ access, No eviction --------*/
 
 	/* Travers to check if request is mapped fully */
 	ocf_engine_traverse(req);
@@ -203,7 +203,7 @@ int ocf_write_wi(struct ocf_request *req)
 		lock = OCF_LOCK_ACQUIRED;
 	}
 
-	ocf_req_hash_unlock_rd(req); /*- END Metadata READ access----------------*/
+	ocf_hb_req_prot_unlock_rd(req); /*- END Metadata READ access----------------*/
 
 	if (lock >= 0) {
 		if (lock == OCF_LOCK_ACQUIRED) {

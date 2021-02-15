@@ -170,7 +170,7 @@ int _ocf_discard_step_do(struct ocf_request *req)
 	if (ocf_engine_mapped_count(req)) {
 		/* There are mapped cache line, need to remove them */
 
-		ocf_req_hash_lock_wr(req);
+		ocf_hb_req_prot_lock_wr(req);
 
 		/* Remove mapped cache lines from metadata */
 		ocf_purge_map_info(req);
@@ -181,16 +181,16 @@ int _ocf_discard_step_do(struct ocf_request *req)
 					_ocf_discard_step_complete);
 		}
 
-		ocf_req_hash_unlock_wr(req);
+		ocf_hb_req_prot_unlock_wr(req);
 	}
 
-	ocf_req_hash_lock_rd(req);
+	ocf_hb_req_prot_lock_rd(req);
 
 	/* Even if no cachelines are mapped they could be tracked in promotion
 	 * policy. RD lock suffices. */
 	ocf_promotion_req_purge(req->cache->promotion_policy, req);
 
-	ocf_req_hash_unlock_rd(req);
+	ocf_hb_req_prot_unlock_rd(req);
 
 	OCF_DEBUG_RQ(req, "Discard");
 	_ocf_discard_step_complete(req, 0);
@@ -228,7 +228,7 @@ static int _ocf_discard_step(struct ocf_request *req)
 			0));
 
 	ocf_req_hash(req);
-	ocf_req_hash_lock_rd(req);
+	ocf_hb_req_prot_lock_rd(req);
 
 	/* Travers to check if request is mapped fully */
 	ocf_engine_traverse(req);
@@ -240,7 +240,7 @@ static int _ocf_discard_step(struct ocf_request *req)
 		lock = OCF_LOCK_ACQUIRED;
 	}
 
-	ocf_req_hash_unlock_rd(req);
+	ocf_hb_req_prot_unlock_rd(req);
 
 	if (lock >= 0) {
 		if (OCF_LOCK_ACQUIRED == lock) {

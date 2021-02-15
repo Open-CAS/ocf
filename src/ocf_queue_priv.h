@@ -18,6 +18,9 @@ struct ocf_queue {
 	struct list_head io_list;
 	env_spinlock io_list_lock;
 
+	/* per-queue free running global metadata lock index */
+	unsigned lock_idx;
+
 	/* Tracing reference counter */
 	env_atomic64 trace_ref_cntr;
 

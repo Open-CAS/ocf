@@ -215,9 +215,11 @@ static int metadata_io_restart_req(struct ocf_request *req)
 
 	/* Fill with the latest metadata. */
 	if (m_req->req.rw == OCF_WRITE) {
-		ocf_metadata_start_shared_access(&cache->metadata.lock);
+		ocf_metadata_start_shared_access(&cache->metadata.lock,
+				m_req->page % OCF_NUM_GLOBAL_META_LOCKS);
 		metadata_io_req_fill(m_req);
-		ocf_metadata_end_shared_access(&cache->metadata.lock);
+		ocf_metadata_end_shared_access(&cache->metadata.lock,
+				 m_req->page % OCF_NUM_GLOBAL_META_LOCKS);
 	}
 
 	io = ocf_new_cache_io(cache, req->io_queue,

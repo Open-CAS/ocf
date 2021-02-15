@@ -28,20 +28,20 @@ static const struct ocf_io_if _io_if_wb_resume = {
 static void _ocf_write_wb_update_bits(struct ocf_request *req)
 {
 	if (ocf_engine_is_miss(req)) {
-		ocf_req_hash_lock_rd(req);
+		ocf_hb_req_prot_lock_rd(req);
 		/* Update valid status bits */
 		ocf_set_valid_map_info(req);
 
-		ocf_req_hash_unlock_rd(req);
+		ocf_hb_req_prot_unlock_rd(req);
 	}
 
 	if (!ocf_engine_is_dirty_all(req)) {
-		ocf_req_hash_lock_wr(req);
+		ocf_hb_req_prot_lock_wr(req);
 
 		/* set dirty bits, and mark if metadata flushing is required */
 		ocf_set_dirty_map_info(req);
 
-		ocf_req_hash_unlock_wr(req);
+		ocf_hb_req_prot_unlock_wr(req);
 	}
 
 	ocf_req_set_cleaning_hot(req);
@@ -127,14 +127,14 @@ static inline void _ocf_write_wb_submit(struct ocf_request *req)
 	if (ocf_engine_needs_repart(req)) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
-		ocf_req_hash_lock_wr(req);
+		ocf_hb_req_prot_lock_wr(req);
 
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
 		ocf_part_move(req);
 
-		ocf_req_hash_unlock_wr(req);
+		ocf_hb_req_prot_unlock_wr(req);
 	}
 
 	OCF_DEBUG_RQ(req, "Submit Data");
