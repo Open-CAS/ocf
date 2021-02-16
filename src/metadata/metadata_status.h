@@ -29,16 +29,12 @@ bool ocf_metadata_test_and_clear_valid(struct ocf_cache *cache, ocf_cache_line_t
 static inline void metadata_init_status_bits(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	OCF_METADATA_BITS_LOCK_WR();
-
 	ocf_metadata_clear_dirty(cache, line,
 			cache->metadata.settings.sector_start,
 			cache->metadata.settings.sector_end);
 	ocf_metadata_clear_valid(cache, line,
 			cache->metadata.settings.sector_start,
 			cache->metadata.settings.sector_end);
-
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 
 static inline bool metadata_test_dirty_all(struct ocf_cache *cache,
@@ -46,11 +42,9 @@ static inline bool metadata_test_dirty_all(struct ocf_cache *cache,
 {
 	bool test;
 
-	OCF_METADATA_BITS_LOCK_RD();
 	test = ocf_metadata_test_dirty(cache, line,
 		cache->metadata.settings.sector_start,
 		cache->metadata.settings.sector_end, true);
-	OCF_METADATA_BITS_UNLOCK_RD();
 
 	return test;
 }
@@ -60,11 +54,9 @@ static inline bool metadata_test_dirty(struct ocf_cache *cache,
 {
 	bool test;
 
-	OCF_METADATA_BITS_LOCK_RD();
 	test = ocf_metadata_test_dirty(cache, line,
 		cache->metadata.settings.sector_start,
 		cache->metadata.settings.sector_end, false);
-	OCF_METADATA_BITS_UNLOCK_RD();
 
 	return test;
 }
@@ -72,49 +64,33 @@ static inline bool metadata_test_dirty(struct ocf_cache *cache,
 static inline void metadata_set_dirty(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	OCF_METADATA_BITS_LOCK_WR();
 	ocf_metadata_set_dirty(cache, line,
 			cache->metadata.settings.sector_start,
 			cache->metadata.settings.sector_end);
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 
 static inline void metadata_clear_dirty(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	OCF_METADATA_BITS_LOCK_WR();
 	ocf_metadata_clear_dirty(cache, line,
 			cache->metadata.settings.sector_start,
 			cache->metadata.settings.sector_end);
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 
 static inline bool metadata_test_and_clear_dirty(
 		struct ocf_cache *cache, ocf_cache_line_t line)
 {
-	bool test;
-
-	OCF_METADATA_BITS_LOCK_WR();
-	test =	ocf_metadata_test_and_clear_dirty(cache, line,
+	return ocf_metadata_test_and_clear_dirty(cache, line,
 			cache->metadata.settings.sector_start,
 			cache->metadata.settings.sector_end, false);
-	OCF_METADATA_BITS_UNLOCK_WR();
-
-	return test;
 }
 
 static inline bool metadata_test_and_set_dirty(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	bool test;
-
-	OCF_METADATA_BITS_LOCK_WR();
-	test =	ocf_metadata_test_and_set_dirty(cache, line,
+	return ocf_metadata_test_and_set_dirty(cache, line,
 			cache->metadata.settings.sector_start,
 			cache->metadata.settings.sector_end, false);
-	OCF_METADATA_BITS_UNLOCK_WR();
-
-	return test;
 }
 
 /*******************************************************************************
@@ -124,27 +100,15 @@ static inline bool metadata_test_and_set_dirty(struct ocf_cache *cache,
 static inline bool metadata_test_dirty_sec(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t start, uint8_t stop)
 {
-	bool test;
-
-	OCF_METADATA_BITS_LOCK_RD();
-	test = ocf_metadata_test_dirty(cache, line,
+	return ocf_metadata_test_dirty(cache, line,
 			start, stop, false);
-	OCF_METADATA_BITS_UNLOCK_RD();
-
-	return test;
 }
 
 static inline bool metadata_test_dirty_all_sec(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t start, uint8_t stop)
 {
-	bool test;
-
-	OCF_METADATA_BITS_LOCK_RD();
-	test = ocf_metadata_test_dirty(cache, line,
+	return ocf_metadata_test_dirty(cache, line,
 			start, stop, true);
-	OCF_METADATA_BITS_UNLOCK_RD();
-
-	return test;
 }
 
 static inline bool metadata_test_dirty_one(struct ocf_cache *cache,
@@ -156,59 +120,39 @@ static inline bool metadata_test_dirty_one(struct ocf_cache *cache,
 static inline bool metadata_test_dirty_out_sec(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t start, uint8_t stop)
 {
-	bool test;
-
-	OCF_METADATA_BITS_LOCK_RD();
-	test = ocf_metadata_test_out_dirty(cache, line, start, stop);
-	OCF_METADATA_BITS_UNLOCK_RD();
-
-	return test;
+	return ocf_metadata_test_out_dirty(cache, line, start, stop);
 }
 
 static inline void metadata_set_dirty_sec(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t start, uint8_t stop)
 {
-	OCF_METADATA_BITS_LOCK_WR();
 	ocf_metadata_set_dirty(cache, line, start, stop);
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 
 static inline void metadata_clear_dirty_sec(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t start, uint8_t stop)
 {
-	OCF_METADATA_BITS_LOCK_WR();
 	ocf_metadata_clear_dirty(cache, line, start, stop);
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 
 static inline void metadata_set_dirty_sec_one(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t pos)
 {
-	OCF_METADATA_BITS_LOCK_WR();
 	ocf_metadata_set_dirty(cache, line, pos, pos);
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 
 static inline void metadata_clear_dirty_sec_one(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t pos)
 {
-	OCF_METADATA_BITS_LOCK_WR();
 	ocf_metadata_clear_dirty(cache, line, pos, pos);
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 
 static inline bool metadata_test_and_clear_dirty_sec(
 		struct ocf_cache *cache, ocf_cache_line_t line,
 		uint8_t start, uint8_t stop)
 {
-	bool test = false;
-
-	OCF_METADATA_BITS_LOCK_WR();
-	test = ocf_metadata_test_and_clear_dirty(cache, line,
+	return ocf_metadata_test_and_clear_dirty(cache, line,
 			start, stop, false);
-	OCF_METADATA_BITS_UNLOCK_WR();
-
-	return test;
 }
 
 /*
@@ -223,14 +167,10 @@ static inline bool metadata_clear_dirty_sec_changed(
 {
 	bool sec_changed;
 
-	OCF_METADATA_BITS_LOCK_WR();
-
 	sec_changed = ocf_metadata_test_dirty(cache, line,
 			start, stop, false);
 	*line_is_clean = !ocf_metadata_clear_dirty(cache, line,
 			start, stop);
-
-	OCF_METADATA_BITS_UNLOCK_WR();
 
 	return sec_changed;
 }
@@ -247,12 +187,10 @@ static inline bool metadata_set_dirty_sec_changed(
 {
 	bool sec_changed;
 
-	OCF_METADATA_BITS_LOCK_WR();
 	sec_changed = !ocf_metadata_test_dirty(cache, line,
 			start, stop, true);
 	*line_was_dirty = ocf_metadata_set_dirty(cache, line, start,
 			stop);
-	OCF_METADATA_BITS_UNLOCK_WR();
 
 	return sec_changed;
 }
@@ -264,77 +202,49 @@ static inline bool metadata_set_dirty_sec_changed(
 static inline bool metadata_test_valid_any(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	bool test;
-
-	OCF_METADATA_BITS_LOCK_RD();
-	test = ocf_metadata_test_valid(cache, line,
+	return ocf_metadata_test_valid(cache, line,
 		cache->metadata.settings.sector_start,
 		cache->metadata.settings.sector_end, false);
-	OCF_METADATA_BITS_UNLOCK_RD();
-
-	return test;
 }
 
 static inline bool metadata_test_valid(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	bool test;
-
-	OCF_METADATA_BITS_LOCK_RD();
-	test = ocf_metadata_test_valid(cache, line,
+	return ocf_metadata_test_valid(cache, line,
 		cache->metadata.settings.sector_start,
 		cache->metadata.settings.sector_end, true);
-	OCF_METADATA_BITS_UNLOCK_RD();
-
-	return test;
 }
 
 static inline void metadata_set_valid(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	OCF_METADATA_BITS_LOCK_WR();
 	ocf_metadata_set_valid(cache, line,
 			cache->metadata.settings.sector_start,
 			cache->metadata.settings.sector_end);
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 
 static inline void metadata_clear_valid(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	OCF_METADATA_BITS_LOCK_WR();
 	ocf_metadata_clear_valid(cache, line,
 			cache->metadata.settings.sector_start,
 			cache->metadata.settings.sector_end);
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 
 static inline bool metadata_test_and_clear_valid(
 		struct ocf_cache *cache, ocf_cache_line_t line)
 {
-	bool test = false;
-
-	OCF_METADATA_BITS_LOCK_WR();
-	test =	ocf_metadata_test_and_clear_valid(cache, line,
+	return ocf_metadata_test_and_clear_valid(cache, line,
 			cache->metadata.settings.sector_start,
 			cache->metadata.settings.sector_end, true);
-	OCF_METADATA_BITS_UNLOCK_WR();
-
-	return test;
 }
 
 static inline bool metadata_test_and_set_valid(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	bool test = false;
-
-	OCF_METADATA_BITS_LOCK_WR();
-	test =	ocf_metadata_test_and_set_valid(cache, line,
+	return ocf_metadata_test_and_set_valid(cache, line,
 			cache->metadata.settings.sector_start,
 			cache->metadata.settings.sector_end, true);
-	OCF_METADATA_BITS_UNLOCK_WR();
-
-	return test;
 }
 
 /*******************************************************************************
@@ -344,28 +254,16 @@ static inline bool metadata_test_and_set_valid(struct ocf_cache *cache,
 static inline bool metadata_test_valid_sec(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t start, uint8_t stop)
 {
-	bool test;
-
-	OCF_METADATA_BITS_LOCK_RD();
-	test = ocf_metadata_test_valid(cache, line,
+	return ocf_metadata_test_valid(cache, line,
 			start, stop, true);
-	OCF_METADATA_BITS_UNLOCK_RD();
-
-	return test;
 }
 
 static inline bool metadata_test_valid_any_out_sec(
 		struct ocf_cache *cache, ocf_cache_line_t line,
 		uint8_t start, uint8_t stop)
 {
-	bool test = false;
-
-	OCF_METADATA_BITS_LOCK_RD();
-	test = ocf_metadata_test_out_valid(cache, line,
+	return ocf_metadata_test_out_valid(cache, line,
 			start, stop);
-	OCF_METADATA_BITS_UNLOCK_RD();
-
-	return test;
 }
 
 static inline bool metadata_test_valid_one(struct ocf_cache *cache,
@@ -385,38 +283,26 @@ static inline bool metadata_set_valid_sec_changed(
 		struct ocf_cache *cache, ocf_cache_line_t line,
 		uint8_t start, uint8_t stop)
 {
-	bool was_any_valid;
-
-	OCF_METADATA_BITS_LOCK_WR();
-	was_any_valid = ocf_metadata_set_valid(cache, line,
+	return !ocf_metadata_set_valid(cache, line,
 			start, stop);
-	OCF_METADATA_BITS_UNLOCK_WR();
-
-	return !was_any_valid;
 }
 
 static inline void metadata_clear_valid_sec(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t start, uint8_t stop)
 {
-	OCF_METADATA_BITS_LOCK_WR();
 	ocf_metadata_clear_valid(cache, line, start, stop);
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 
 static inline void metadata_clear_valid_sec_one(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t pos)
 {
-	OCF_METADATA_BITS_LOCK_WR();
 	ocf_metadata_clear_valid(cache, line, pos, pos);
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 
 static inline void metadata_set_valid_sec_one(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t pos)
 {
-	OCF_METADATA_BITS_LOCK_WR();
 	ocf_metadata_set_valid(cache, line, pos, pos);
-	OCF_METADATA_BITS_UNLOCK_WR();
 }
 /*
  * Marks given cache line's bits as invalid
@@ -431,16 +317,12 @@ static inline bool metadata_clear_valid_sec_changed(
 {
 	bool was_any_valid;
 
-	OCF_METADATA_BITS_LOCK_WR();
-
 	was_any_valid = ocf_metadata_test_valid(cache, line,
 			cache->metadata.settings.sector_start,
 			cache->metadata.settings.sector_end, false);
 
 	*is_valid = ocf_metadata_clear_valid(cache, line,
 			start, stop);
-
-	OCF_METADATA_BITS_UNLOCK_WR();
 
 	return was_any_valid && !*is_valid;
 }
