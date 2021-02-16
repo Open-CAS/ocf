@@ -164,12 +164,12 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 			return 0;
 		}
 
-		ocf_hb_req_prot_lock_rd(req);
+		ocf_hb_req_prot_lock_wr(req);
 
 		/* Set valid status bits map */
 		ocf_set_valid_map_info(req);
 
-		ocf_hb_req_prot_unlock_rd(req);
+		ocf_hb_req_prot_unlock_wr(req);
 	}
 
 	if (ocf_engine_needs_repart(req)) {
