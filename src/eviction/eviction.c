@@ -62,7 +62,7 @@ static inline uint32_t ocf_evict_part_do(ocf_cache_t cache,
 
 static inline uint32_t ocf_evict_partitions(ocf_cache_t cache,
 		ocf_queue_t io_queue, uint32_t evict_cline_no,
-		bool overflown_only, uint32_t max_priority)
+		bool overflown_only, int16_t max_priority)
 {
 	uint32_t to_evict = 0, evicted = 0;
 	struct ocf_user_part *part;
@@ -84,8 +84,9 @@ static inline uint32_t ocf_evict_partitions(ocf_cache_t cache,
 			 */
 			break;
 		}
-		if (!part->config->flags.eviction) {
-			/* no more partitions available for viction
+		if (!overflown_only && !part->config->flags.eviction) {
+			/* If partition is overflown it should be evcited
+			 * even if its pinned
 			 */
 			break;
 		}
@@ -132,8 +133,9 @@ static inline uint32_t ocf_evict_do(ocf_cache_t cache,
 	 * priority in this case, as overflown partitions should
 	 * free its cachelines regardless of destination partition
 	 * priority. */
+
 	evicted = ocf_evict_partitions(cache, io_queue, evict_cline_no,
-		true, OCF_IO_CLASS_PRIO_HIGHEST);
+		true, OCF_IO_CLASS_PRIO_PINNED);
 	if (evicted >= evict_cline_no)
 		return evicted;
 	/* Not enough cachelines in overflown partitions. Go through
