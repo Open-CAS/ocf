@@ -56,7 +56,7 @@ struct ocf_metadata_lock
 	struct ocf_metadata_global_lock global[OCF_NUM_GLOBAL_META_LOCKS];
 			/*!< global metadata lock (GML) */
 	env_rwlock status; /*!< Fast lock for status bits */
-	env_spinlock eviction[OCF_NUM_EVICTION_LISTS]; /*!< Fast lock for eviction policy */
+	env_rwlock eviction[OCF_NUM_EVICTION_LISTS]; /*!< Fast lock for eviction policy */
 	env_rwsem *hash; /*!< Hash bucket locks */
 	env_rwsem *collision_pages; /*!< Collision table page locks */
 	env_spinlock partition[OCF_IO_CLASS_MAX]; /* partition lock */
