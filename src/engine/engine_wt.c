@@ -34,7 +34,8 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 		ocf_engine_invalidate(req);
 	} else {
 		/* Unlock reqest from WRITE access */
-		ocf_req_unlock_wr(req);
+		ocf_req_unlock_wr(req->cache->device->concurrency.cache_line,
+				req);
 
 		/* Complete request */
 		req->complete(req, req->info.core_error ? req->error : 0);

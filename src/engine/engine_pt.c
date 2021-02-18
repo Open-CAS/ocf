@@ -34,7 +34,7 @@ static void _ocf_read_pt_complete(struct ocf_request *req, int error)
 	/* Complete request */
 	req->complete(req, req->error);
 
-	ocf_req_unlock_rd(req);
+	ocf_req_unlock_rd(req->cache->device->concurrency.cache_line, req);
 
 	/* Release OCF request */
 	ocf_req_put(req);
@@ -127,7 +127,10 @@ int ocf_read_pt(struct ocf_request *req)
 			/* There are mapped cache line,
 			 * lock request for READ access
 			 */
-			lock = ocf_req_async_lock_rd(req, ocf_engine_on_resume);
+			lock = ocf_req_async_lock_rd(
+					req->cache->device->concurrency.
+							cache_line,
+					req, ocf_engine_on_resume);
 		} else {
 			/* No mapped cache lines, no need to get lock */
 			lock = OCF_LOCK_ACQUIRED;

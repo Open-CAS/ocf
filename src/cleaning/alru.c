@@ -682,8 +682,11 @@ static bool block_is_busy(struct ocf_cache *cache,
 	if (!cache->core[core_id].opened)
 		return true;
 
-	if (ocf_cache_line_is_used(cache, cache_line))
+	if (ocf_cache_line_is_used(
+			cache->device->concurrency.cache_line,
+			cache_line)) {
 		return true;
+	}
 
 	return false;
 }
