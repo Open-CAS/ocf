@@ -79,17 +79,16 @@ int ocf_cache_line_concurrency_init(struct ocf_cache *cache)
 
 	OCF_DEBUG_TRACE(cache);
 
-	c = env_vmalloc(sizeof(*c));
+	c = env_vzalloc(sizeof(*c));
 	if (!c) {
 		error = __LINE__;
-		goto ocf_cache_line_concurrency_init;
+		goto exit_err;
 	}
 
 	error = env_rwsem_init(&c->lock);
 	if (error) {
-		env_vfree(c);
 		error = __LINE__;
-		goto ocf_cache_line_concurrency_init;
+		goto rwsem_err;
 	}
 
 	cache->device->concurrency.cache_line = c;
@@ -100,27 +99,29 @@ int ocf_cache_line_concurrency_init(struct ocf_cache *cache)
 
 	if (!c->access) {
 		error = __LINE__;
-		goto ocf_cache_line_concurrency_init;
+		goto allocation_err;
 	}
 
 	if (snprintf(name, sizeof(name), ALLOCATOR_NAME_FMT,
 			ocf_cache_get_name(cache)) < 0) {
 		error = __LINE__;
-		goto ocf_cache_line_concurrency_init;
+		goto allocation_err;
 	}
 
 	c->allocator = env_allocator_create(sizeof(struct __waiter), name);
 	if (!c->allocator) {
 		error = __LINE__;
-		goto ocf_cache_line_concurrency_init;
+		goto allocation_err;
 	}
 
 	/* Init concurrency control table */
 	for (i = 0; i < _WAITERS_LIST_ENTRIES; i++) {
 		INIT_LIST_HEAD(&c->waiters_lsts[i].head);
 		error = env_spinlock_init(&c->waiters_lsts[i].lock);
-		if (error)
+		if (error) {
+			error = __LINE__;
 			goto spinlock_err;
+		}
 	}
 
 	return 0;
@@ -128,13 +129,24 @@ int ocf_cache_line_concurrency_init(struct ocf_cache *cache)
 spinlock_err:
 	while (i--)
 		env_spinlock_destroy(&c->waiters_lsts[i].lock);
-ocf_cache_line_concurrency_init:
+
+allocation_err:
+	if (c->allocator)
+		env_allocator_destroy(c->allocator);
+
+	if (c->access)
+		OCF_REALLOC_DEINIT(&c->access, &c->access_limit);
+
+rwsem_err:
+	env_rwsem_destroy(&c->lock);
+
+exit_err:
 	ocf_cache_log(cache, log_err, "Cannot initialize cache concurrency, "
 			"ERROR %d", error);
+	if (c)
+		env_vfree(c);
 
-	if (cache->device->concurrency.cache_line)
-		ocf_cache_line_concurrency_deinit(cache);
-
+	cache->device->concurrency.cache_line = NULL;
 	return -1;
 }
 
