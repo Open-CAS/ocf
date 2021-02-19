@@ -127,44 +127,6 @@ void ocf_metadata_end_shared_access(
 		struct ocf_metadata_lock *metadata_lock,
 		unsigned lock_idx);
 
-static inline void ocf_metadata_status_bits_lock(
-		struct ocf_metadata_lock *metadata_lock, int rw)
-{
-	if (rw == OCF_METADATA_WR)
-		env_rwlock_write_lock(&metadata_lock->status);
-	else if (rw == OCF_METADATA_RD)
-		env_rwlock_read_lock(&metadata_lock->status);
-	else
-		ENV_BUG();
-}
-
-static inline void ocf_metadata_status_bits_unlock(
-		struct ocf_metadata_lock *metadata_lock, int rw)
-{
-	if (rw == OCF_METADATA_WR)
-		env_rwlock_write_unlock(&metadata_lock->status);
-	else if (rw == OCF_METADATA_RD)
-		env_rwlock_read_unlock(&metadata_lock->status);
-	else
-		ENV_BUG();
-}
-
-#define OCF_METADATA_BITS_LOCK_RD() \
-		ocf_metadata_status_bits_lock(&cache->metadata.lock, \
-				OCF_METADATA_RD)
-
-#define OCF_METADATA_BITS_UNLOCK_RD() \
-		ocf_metadata_status_bits_unlock(&cache->metadata.lock, \
-				OCF_METADATA_RD)
-
-#define OCF_METADATA_BITS_LOCK_WR() \
-		ocf_metadata_status_bits_lock(&cache->metadata.lock, \
-				OCF_METADATA_WR)
-
-#define OCF_METADATA_BITS_UNLOCK_WR() \
-		ocf_metadata_status_bits_unlock(&cache->metadata.lock, \
-				OCF_METADATA_WR)
-
 void ocf_hb_cline_prot_lock_rd(struct ocf_metadata_lock *metadata_lock,
 		uint32_t lock_idx, uint32_t core_id, uint64_t core_line);
 void ocf_hb_cline_prot_unlock_rd(struct ocf_metadata_lock *metadata_lock,

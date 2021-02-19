@@ -97,39 +97,36 @@ static inline void _ocf_write_wt_submit(struct ocf_request *req)
 
 static void _ocf_write_wt_update_bits(struct ocf_request *req)
 {
-	if (ocf_engine_is_miss(req)) {
-		ocf_hb_req_prot_lock_rd(req);
+	bool miss = ocf_engine_is_miss(req);
+	bool dirty_any = req->info.dirty_any;
+	bool repart = ocf_engine_needs_repart(req);
 
+	if (!miss && !dirty_any && !repart)
+		return;
+
+	ocf_hb_req_prot_lock_wr(req);
+
+	if (miss) {
 		/* Update valid status bits */
 		ocf_set_valid_map_info(req);
-
-		ocf_hb_req_prot_unlock_rd(req);
 	}
 
-	if (req->info.dirty_any) {
-		ocf_hb_req_prot_lock_wr(req);
-
-		/* Writes goes to SDD and HDD, need to update status bits from
-		 * dirty to clean
+	if (dirty_any) {
+		/* Writes goes to both cache and core, need to update
+		 * status bits from dirty to clean
 		 */
-
 		ocf_set_clean_map_info(req);
-
-		ocf_hb_req_prot_unlock_wr(req);
 	}
 
-	if (ocf_engine_needs_repart(req)) {
+	if (repart) {
 		OCF_DEBUG_RQ(req, "Re-Part");
-
-		ocf_hb_req_prot_lock_wr(req);
-
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
 		ocf_part_move(req);
-
-		ocf_hb_req_prot_unlock_wr(req);
 	}
+
+	ocf_hb_req_prot_unlock_wr(req);
 }
 
 static int _ocf_write_wt_do(struct ocf_request *req)
