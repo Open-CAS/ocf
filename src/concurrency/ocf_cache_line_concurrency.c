@@ -69,14 +69,12 @@ struct ocf_cache_line_concurrency {
 #define ALLOCATOR_NAME_MAX (sizeof(ALLOCATOR_NAME_FMT) + OCF_CACHE_NAME_SIZE)
 
 int ocf_cache_line_concurrency_init(struct ocf_cache_line_concurrency **self,
-		ocf_cache_t cache)
+		unsigned num_clines, ocf_cache_t cache)
 {
 	uint32_t i;
 	int error = 0;
 	struct ocf_cache_line_concurrency *c;
 	char name[ALLOCATOR_NAME_MAX];
-	ocf_cache_line_t line_entries = ocf_metadata_collision_table_entries(
-						cache);
 
 	OCF_DEBUG_TRACE(cache);
 
@@ -87,7 +85,7 @@ int ocf_cache_line_concurrency_init(struct ocf_cache_line_concurrency **self,
 	}
 
 	c->cache = cache;
-	c->num_clines = line_entries;
+	c->num_clines = num_clines;
 
 	error = env_rwsem_init(&c->lock);
 	if (error) {
@@ -96,7 +94,7 @@ int ocf_cache_line_concurrency_init(struct ocf_cache_line_concurrency **self,
 	}
 
 	OCF_REALLOC_INIT(&c->access, &c->access_limit);
-	OCF_REALLOC_CP(&c->access, sizeof(c->access[0]), line_entries,
+	OCF_REALLOC_CP(&c->access, sizeof(c->access[0]), num_clines,
 		&c->access_limit);
 
 	if (!c->access) {
