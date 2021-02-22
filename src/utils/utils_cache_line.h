@@ -69,6 +69,9 @@ static inline uint64_t ocf_lines_2_bytes(struct ocf_cache *cache,
 	return lines * ocf_line_size(cache);
 }
 
+void ocf_cleaning_set_hot_cache_line(struct ocf_cache *cache,
+		ocf_cache_line_t line);
+
 /**
  * @brief Set cache line invalid
  *
