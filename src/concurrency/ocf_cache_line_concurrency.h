@@ -20,12 +20,13 @@ struct ocf_cache_line_concurrency;
  * @brief Initialize OCF cache concurrency module
  *
  * @param self - cacheline concurrency private data
+ * @param num_clines - cachelines count
  * @param cache - OCF cache instance
 
  * @return 0 - Initialization successful, otherwise ERROR
  */
 int ocf_cache_line_concurrency_init(struct ocf_cache_line_concurrency **self,
-		struct ocf_cache *cache);
+		unsigned num_clines, struct ocf_cache *cache);
 
 /**
  * @biref De-Initialize  OCF cache concurrency module

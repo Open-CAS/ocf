@@ -4,6 +4,7 @@
  */
 
 #include "ocf_concurrency.h"
+#include "../metadata/metadata.h"
 
 int ocf_concurrency_init(struct ocf_cache *cache)
 {
@@ -11,6 +12,7 @@ int ocf_concurrency_init(struct ocf_cache *cache)
 
 	result = ocf_cache_line_concurrency_init(
 			&cache->device->concurrency.cache_line,
+			ocf_metadata_collision_table_entries(cache),
 			cache);
 
 	if (result)
@@ -23,6 +25,5 @@ void ocf_concurrency_deinit(struct ocf_cache *cache)
 {
 	ocf_cache_line_concurrency_deinit(
 			&cache->device->concurrency.cache_line);
-
 }
 
