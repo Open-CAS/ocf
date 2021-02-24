@@ -25,7 +25,7 @@ static const struct ocf_io_if _io_if_wi_update_metadata = {
 
 int _ocf_write_wi_next_pass(struct ocf_request *req)
 {
-	ocf_req_unlock_wr(req);
+	ocf_req_unlock_wr(req->cache->device->concurrency.cache_line, req);
 
 	if (req->wi_second_pass) {
 		req->complete(req, req->error);
@@ -75,7 +75,7 @@ static void _ocf_write_wi_io_flush_metadata(struct ocf_request *req, int error)
 	if (req->error)
 		ocf_engine_error(req, true, "Failed to write data to cache");
 
-	ocf_req_unlock_wr(req);
+	ocf_req_unlock_wr(req->cache->device->concurrency.cache_line, req);
 
 	req->complete(req, req->error);
 
@@ -128,7 +128,8 @@ static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 	OCF_DEBUG_RQ(req, "Completion");
 
 	if (req->error) {
-		ocf_req_unlock_wr(req);
+		ocf_req_unlock_wr(req->cache->device->concurrency.cache_line,
+			req);
 
 		req->complete(req, req->error);
 
@@ -198,7 +199,9 @@ int ocf_write_wi(struct ocf_request *req)
 
 	if (ocf_engine_mapped_count(req)) {
 		/* Some cache line are mapped, lock request for WRITE access */
-		lock = ocf_req_async_lock_wr(req, _ocf_write_wi_on_resume);
+		lock = ocf_req_async_lock_wr(
+				req->cache->device->concurrency.cache_line,
+				req, _ocf_write_wi_on_resume);
 	} else {
 		lock = OCF_LOCK_ACQUIRED;
 	}

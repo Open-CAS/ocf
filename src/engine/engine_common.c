@@ -396,7 +396,8 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 		req->error |= error;
 
 		/* End request and do not processing */
-		ocf_req_unlock(req);
+		ocf_req_unlock(req->cache->device->concurrency.cache_line,
+				req);
 
 		/* Complete request */
 		req->complete(req, error);
@@ -414,12 +415,14 @@ static int lock_clines(struct ocf_request *req,
 		const struct ocf_engine_callbacks *engine_cbs)
 {
 	enum ocf_engine_lock_type lock_type = engine_cbs->get_lock_type(req);
+	struct ocf_cache_line_concurrency *c =
+			req->cache->device->concurrency.cache_line;
 
 	switch (lock_type) {
 	case ocf_engine_lock_write:
-		return ocf_req_async_lock_wr(req, engine_cbs->resume);
+		return ocf_req_async_lock_wr(c, req, engine_cbs->resume);
 	case ocf_engine_lock_read:
-		return ocf_req_async_lock_rd(req, engine_cbs->resume);
+		return ocf_req_async_lock_rd(c, req, engine_cbs->resume);
 	default:
 		return OCF_LOCK_ACQUIRED;
 	}
@@ -703,7 +706,8 @@ static int _ocf_engine_refresh(struct ocf_request *req)
 		req->complete(req, req->error);
 
 		/* Release WRITE lock of request */
-		ocf_req_unlock(req);
+		ocf_req_unlock(req->cache->device->concurrency.cache_line,
+			req);
 
 		/* Release OCF request */
 		ocf_req_put(req);

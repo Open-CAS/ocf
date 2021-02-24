@@ -396,9 +396,10 @@ static ocf_cache_line_t _acp_trylock_dirty(struct ocf_cache *cache,
 			core_line);
 
 	if (info.status == LOOKUP_HIT &&
-			metadata_test_dirty(cache, info.coll_idx) &&
-			ocf_cache_line_try_lock_rd(cache, info.coll_idx)) {
-		locked = true;
+			metadata_test_dirty(cache, info.coll_idx)) {
+		locked = ocf_cache_line_try_lock_rd(
+				cache->device->concurrency.cache_line,
+				info.coll_idx);
 	}
 
 	ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock, lock_idx, core_id,
@@ -472,7 +473,9 @@ static void _acp_flush_end(void *priv, int error)
 	config = (void *)&cache->conf_meta->cleaning[ocf_cleaning_acp].data;
 
 	for (i = 0; i < flush->size; i++) {
-		ocf_cache_line_unlock_rd(cache, flush->data[i].cache_line);
+		ocf_cache_line_unlock_rd(
+				cache->device->concurrency.cache_line,
+				flush->data[i].cache_line);
 		ACP_DEBUG_END(acp, flush->data[i].cache_line);
 	}
 

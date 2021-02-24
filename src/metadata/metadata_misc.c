@@ -51,6 +51,8 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 	ocf_cache_line_t i, next_i;
 	uint64_t start_line, end_line;
 	int ret = 0;
+	struct ocf_cache_line_concurrency *c =
+			cache->device->concurrency.cache_line;
 
 	start_line = ocf_bytes_2_lines(cache, start_byte);
 	end_line = ocf_bytes_2_lines(cache, end_byte);
@@ -63,7 +65,7 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 
 			if (_is_cache_line_acting(cache, i, core_id,
 					start_line, end_line)) {
-				if (ocf_cache_line_is_used(cache, i))
+				if (ocf_cache_line_is_used(c, i))
 					ret = -OCF_ERR_AGAIN;
 				else
 					actor(cache, i);
@@ -75,7 +77,7 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 		for (i = 0; i < cache->device->collision_table_entries; ++i) {
 			if (_is_cache_line_acting(cache, i, core_id,
 					start_line, end_line)) {
-				if (ocf_cache_line_is_used(cache, i))
+				if (ocf_cache_line_is_used(c, i))
 					ret = -OCF_ERR_AGAIN;
 				else
 					actor(cache, i);

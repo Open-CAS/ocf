@@ -64,7 +64,7 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
 		ocf_engine_invalidate(req);
 	} else {
-		ocf_req_unlock(req);
+		ocf_req_unlock(cache->device->concurrency.cache_line, req);
 
 		/* put the request at the last point of the completion path */
 		ocf_req_put(req);
