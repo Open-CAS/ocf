@@ -179,6 +179,46 @@ def test_neg_set_alru_param(pyocf_ctx, cm, cls):
             cache.set_cleaning_policy_param(CleaningPolicy.ALRU, i, 1)
 
 
+def get_alru_param_valid_rage(param_id):
+    if param_id == AlruParams.WAKE_UP_TIME:
+        return ConfValidValues.cleaning_alru_wake_up_time_range
+    elif param_id == AlruParams.STALE_BUFFER_TIME:
+        return ConfValidValues.cleaning_alru_staleness_time_range
+    elif param_id == AlruParams.FLUSH_MAX_BUFFERS:
+        return ConfValidValues.cleaning_alru_flush_max_buffers_range
+    elif param_id == AlruParams.ACTIVITY_THRESHOLD:
+        return ConfValidValues.cleaning_alru_activity_threshold_range
+
+
+@pytest.mark.parametrize("cm", CacheMode)
+@pytest.mark.parametrize("cls", CacheLineSize)
+@pytest.mark.parametrize("param", AlruParams)
+@pytest.mark.security
+def test_neg_set_alru_param_value(pyocf_ctx, cm, cls, param):
+    """
+    Test whether it is possible to set invalid value to any of alru cleaning policy params
+    :param pyocf_ctx: basic pyocf context fixture
+    :param cm: cache mode we start with
+    :param cls: cache line size we start with
+    :param param: alru parameter to fuzz
+    :return:
+    """
+    # Start cache device
+    cache_device = Volume(S.from_MiB(30))
+    cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
+
+    cache.set_cleaning_policy(CleaningPolicy.ALRU)
+
+    # Set to invalid alru param value and check if failed
+    valid_range = get_alru_param_valid_rage(param)
+    for i in RandomGenerator(DefaultRanges.UINT32):
+        if i in valid_range:
+            continue
+        with pytest.raises(OcfError, match="Error setting cleaning policy param"):
+            cache.set_cleaning_policy_param(CleaningPolicy.ALRU, param, i)
+            print("\n" + i)
+
+
 @pytest.mark.parametrize("cm", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.security
