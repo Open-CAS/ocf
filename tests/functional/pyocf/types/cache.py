@@ -76,6 +76,14 @@ class ConfValidValues:
     promotion_nhit_insertion_threshold_range = range(2, 1000)
     promotion_nhit_trigger_threshold_range = range(0, 100)
 
+    cleaning_alru_wake_up_time_range = range(0, 3600)
+    cleaning_alru_staleness_time_range = range(1, 3600)
+    cleaning_alru_flush_max_buffers_range = range(1, 10000)
+    cleaning_alru_activity_threshold_range = range(0, 1000000)
+
+    cleaning_acp_wake_up_time_range = range(0, 10000)
+    cleaning_acp_flush_max_buffers_range = range(1, 10000)
+
 
 CACHE_MODE_NONE = -1
 
