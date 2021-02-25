@@ -31,6 +31,7 @@ struct ocf_ctx {
 
 	struct {
 		struct env_mpool *req;
+		struct env_mpool *mio;
 	} resources;
 };
 
