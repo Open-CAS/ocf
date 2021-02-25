@@ -239,7 +239,7 @@ def test_neg_set_acp_param(pyocf_ctx, cm, cls):
         if i in [item.value for item in AcpParams]:
             continue
         with pytest.raises(OcfError, match="Error setting cleaning policy param"):
-            cache.set_cleaning_policy_param(CleaningPolicy.ALRU, i, 1)
+            cache.set_cleaning_policy_param(CleaningPolicy.ACP, i, 1)
 
 
 def get_acp_param_valid_rage(param_id):
