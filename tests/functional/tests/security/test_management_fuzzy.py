@@ -242,6 +242,42 @@ def test_neg_set_acp_param(pyocf_ctx, cm, cls):
             cache.set_cleaning_policy_param(CleaningPolicy.ALRU, i, 1)
 
 
+def get_acp_param_valid_rage(param_id):
+    if param_id == AcpParams.WAKE_UP_TIME:
+        return ConfValidValues.cleaning_acp_wake_up_time_range
+    elif param_id == AcpParams.FLUSH_MAX_BUFFERS:
+        return ConfValidValues.cleaning_acp_flush_max_buffers_range
+
+
+@pytest.mark.parametrize("cm", CacheMode)
+@pytest.mark.parametrize("cls", CacheLineSize)
+@pytest.mark.parametrize("param", AcpParams)
+@pytest.mark.security
+def test_neg_set_acp_param_value(pyocf_ctx, cm, cls, param):
+    """
+    Test whether it is possible to set invalid value to any of acp cleaning policy params
+    :param pyocf_ctx: basic pyocf context fixture
+    :param cm: cache mode we start with
+    :param cls: cache line size we start with
+    :param param: acp parameter to fuzz
+    :return:
+    """
+    # Start cache device
+    cache_device = Volume(S.from_MiB(30))
+    cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
+
+    cache.set_cleaning_policy(CleaningPolicy.ACP)
+
+    # Set to invalid acp param value and check if failed
+    valid_range = get_acp_param_valid_rage(param)
+    for i in RandomGenerator(DefaultRanges.UINT32):
+        if i in valid_range:
+            continue
+        with pytest.raises(OcfError, match="Error setting cleaning policy param"):
+            cache.set_cleaning_policy_param(CleaningPolicy.ACP, param, i)
+            print("\n" + i)
+
+
 @pytest.mark.parametrize("cm", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.security
