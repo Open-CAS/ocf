@@ -166,9 +166,6 @@ struct ocf_request {
 	uint32_t core_line_count;
 	/*! Core line count */
 
-	uint32_t alloc_core_line_count;
-	/*! Core line count for which request was initially allocated */
-
 	int error;
 	/*!< This filed indicates an error for OCF request */
 

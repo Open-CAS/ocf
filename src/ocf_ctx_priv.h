@@ -30,7 +30,7 @@ struct ocf_ctx {
 	} core_pool;
 
 	struct {
-		struct ocf_req_allocator *req;
+		struct env_mpool *req;
 	} resources;
 };
 
