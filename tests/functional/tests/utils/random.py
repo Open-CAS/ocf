@@ -28,6 +28,7 @@ class Range:
 
 class DefaultRanges(Range, enum.Enum):
     UINT8 = 0, c_uint8(-1).value
+    INT16 = int(-c_uint16(-1).value / 2) - 1, int(c_uint16(-1).value / 2)
     UINT16 = 0, c_uint16(-1).value
     UINT32 = 0, c_uint32(-1).value
     UINT64 = 0, c_uint64(-1).value
