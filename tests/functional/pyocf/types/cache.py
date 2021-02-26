@@ -387,7 +387,7 @@ class Cache:
 
         self.read_unlock()
 
-        ioclasses_info._config[part_id]._name = name.encode("ascii")
+        ioclasses_info._config[part_id]._name = name.encode("utf-8")
         ioclasses_info._config[part_id]._cache_mode = int(cache_mode)
         ioclasses_info._config[part_id]._prio = priority
         ioclasses_info._config[part_id]._max_size = max_size
