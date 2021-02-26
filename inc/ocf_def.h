@@ -176,6 +176,8 @@ typedef enum {
 } ocf_cache_mode_t;
 
 #define OCF_SEQ_CUTOFF_MAX_STREAMS 256
+#define OCF_SEQ_CUTOFF_MIN_THRESHOLD 1
+#define OCF_SEQ_CUTOFF_MAX_THRESHOLD 4194181
 
 typedef enum {
 	ocf_seq_cutoff_policy_always = 0,

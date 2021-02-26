@@ -898,6 +898,13 @@ static int _cache_mngt_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx
 	uint32_t threshold = *(uint32_t*) cntx;
 	uint32_t threshold_old = ocf_core_get_seq_cutoff_threshold(core);
 
+	if (threshold < OCF_SEQ_CUTOFF_MIN_THRESHOLD ||
+			threshold > OCF_SEQ_CUTOFF_MAX_THRESHOLD) {
+		ocf_core_log(core, log_info,
+				"Invalid sequential cutoff threshold!\n");
+		return -OCF_ERR_INVAL;
+	}
+
 	if (threshold_old == threshold) {
 		ocf_core_log(core, log_info,
 				"Sequential cutoff threshold %u bytes is "
