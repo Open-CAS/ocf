@@ -256,6 +256,13 @@ static int _ocf_mngt_io_class_validate_cfg(ocf_cache_t cache,
 		return -OCF_ERR_INVAL;
 	}
 
+	if (cfg->max_size < PARTITION_SIZE_MIN ||
+			cfg->max_size > PARTITION_SIZE_MAX) {
+		ocf_cache_log(cache, log_info,
+				"Invalid value of the partition max size\n");
+		return -OCF_ERR_INVAL;
+	}
+
 	return 0;
 }
 

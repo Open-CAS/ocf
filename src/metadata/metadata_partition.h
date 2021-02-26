@@ -11,6 +11,7 @@
 
 #define PARTITION_DEFAULT		0
 #define PARTITION_INVALID		((ocf_part_id_t)-1)
+#define PARTITION_SIZE_MIN		0
 #define PARTITION_SIZE_MAX		100
 
 void ocf_metadata_get_partition_info(
