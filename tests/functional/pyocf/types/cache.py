@@ -86,6 +86,11 @@ class ConfValidValues:
 
     seq_cutoff_threshold_rage = range(1, 4194181)
 
+    ioclass_id_range = range(0, 32)
+    ioclass_priority_range = range(-1, 255)
+    ioclass_min_size_range = range(0, 100)
+    ioclass_max_size_range = range(0, 100)
+
 
 CACHE_MODE_NONE = -1
 
