@@ -162,6 +162,18 @@ class Core:
 
         self.cache.write_unlock()
 
+    def set_seq_cut_off_threshold(self, threshold):
+        self.cache.write_lock()
+
+        status = self.cache.owner.lib.ocf_mngt_core_set_seq_cutoff_threshold(
+            self.handle, threshold
+        )
+        if status:
+            self.cache.write_unlock()
+            raise OcfError("Error setting core seq cut off policy threshold", status)
+
+        self.cache.write_unlock()
+
     def reset_stats(self):
         self.cache.owner.lib.ocf_core_stats_initialize(self.handle)
 
@@ -211,6 +223,8 @@ lib.ocf_core_get_volume.argtypes = [c_void_p]
 lib.ocf_core_get_volume.restype = c_void_p
 lib.ocf_mngt_core_set_seq_cutoff_policy.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy.restype = c_int
+lib.ocf_mngt_core_set_seq_cutoff_threshold.argtypes = [c_void_p, c_uint32]
+lib.ocf_mngt_core_set_seq_cutoff_threshold.restype = c_int
 lib.ocf_stats_collect_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c_void_p]
 lib.ocf_stats_collect_core.restype = c_int
 lib.ocf_core_get_info.argtypes = [c_void_p, c_void_p]
