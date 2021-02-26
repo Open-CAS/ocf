@@ -84,6 +84,8 @@ class ConfValidValues:
     cleaning_acp_wake_up_time_range = range(0, 10000)
     cleaning_acp_flush_max_buffers_range = range(1, 10000)
 
+    seq_cutoff_threshold_rage = range(1, 4194181)
+
 
 CACHE_MODE_NONE = -1
 
@@ -310,7 +312,7 @@ class Cache:
         self.write_unlock()
 
         if status:
-            raise OcfError("Error setting cache seq cut off policy", status)
+            raise OcfError("Error setting cache seq cut off policy threshold", status)
 
     def get_partition_info(self, part_id: int):
         ioclass_info = IoClassInfo()
