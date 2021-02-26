@@ -129,6 +129,71 @@ def test_neg_cache_set_seq_cut_off_policy(pyocf_ctx, cm, cls):
 @pytest.mark.parametrize("cm", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.security
+def test_neg_cache_set_seq_cut_off_threshold(pyocf_ctx, cm, cls):
+    """
+    Test whether it is possible to change cache seq cut-off threshold to invalid value
+    :param pyocf_ctx: basic pyocf context fixture
+    :param cm: cache mode we start with
+    :param cls: cache line size we start with
+    :return:
+    """
+    # Start cache device
+    cache_device = Volume(S.from_MiB(30))
+    cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
+
+    # Create 2 core devices
+    core_device1 = Volume(S.from_MiB(10))
+    core1 = Core.using_device(core_device1, name="core1")
+    core_device2 = Volume(S.from_MiB(10))
+    core2 = Core.using_device(core_device2, name="core2")
+
+    # Add cores
+    cache.add_core(core1)
+    cache.add_core(core2)
+
+    # Change cache seq cut off policy to invalid one and check if failed
+    for i in RandomGenerator(DefaultRanges.UINT32):
+        if i in ConfValidValues.seq_cutoff_threshold_rage:
+            continue
+        with pytest.raises(OcfError, match="Error setting cache seq cut off policy threshold"):
+            cache.set_seq_cut_off_threshold(i)
+            print("\n" + i)
+
+
+@pytest.mark.parametrize("cm", CacheMode)
+@pytest.mark.parametrize("cls", CacheLineSize)
+@pytest.mark.security
+def test_neg_core_set_seq_cut_off_threshold(pyocf_ctx, cm, cls):
+    """
+    Test whether it is possible to change core seq cut-off threshold to invalid value
+    :param pyocf_ctx: basic pyocf context fixture
+    :param cm: cache mode we start with
+    :param cls: cache line size we start with
+    :return:
+    """
+    # Start cache device
+    cache_device = Volume(S.from_MiB(30))
+    cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
+
+    # Create core device
+    core_device = Volume(S.from_MiB(10))
+    core = Core.using_device(core_device, name="core")
+
+    # Add core
+    cache.add_core(core)
+
+    # Change core seq cut off policy to invalid one and check if failed
+    for i in RandomGenerator(DefaultRanges.UINT32):
+        if i in ConfValidValues.seq_cutoff_threshold_rage:
+            continue
+        with pytest.raises(OcfError, match="Error setting core seq cut off policy threshold"):
+            core.set_seq_cut_off_threshold(i)
+            print("\n" + i)
+
+
+@pytest.mark.parametrize("cm", CacheMode)
+@pytest.mark.parametrize("cls", CacheLineSize)
+@pytest.mark.security
 def test_neg_core_set_seq_cut_off_policy(pyocf_ctx, cm, cls):
     """
     Test whether it is possible to change core seq cut-off policy to invalid value
