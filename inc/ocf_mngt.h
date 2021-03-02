@@ -863,11 +863,6 @@ struct ocf_mngt_io_class_config {
 	ocf_cache_mode_t cache_mode;
 
 	/**
-	 * @brief IO class minimum size
-	 */
-	uint32_t min_size;
-
-	/**
 	 * @brief IO class maximum size
 	 */
 	uint32_t max_size;

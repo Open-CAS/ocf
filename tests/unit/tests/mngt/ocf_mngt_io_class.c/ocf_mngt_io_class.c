@@ -98,7 +98,6 @@ static inline void setup_valid_config(struct ocf_mngt_io_class_config *cfg,
 		cfg[i].name = remove ? NULL : "test_io_class_name" ;
 		cfg[i].prio = i;
 		cfg[i].cache_mode = ocf_cache_mode_pt;
-		cfg[i].min_size = 2*i;
 		cfg[i].max_size = 20*i;
 	}
 }

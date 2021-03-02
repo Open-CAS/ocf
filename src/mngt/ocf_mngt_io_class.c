@@ -116,7 +116,7 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 	const char *name = cfg->name;
 	int16_t prio = cfg->prio;
 	ocf_cache_mode_t cache_mode = cfg->cache_mode;
-	uint32_t min = cfg->min_size;
+	uint32_t min = 0;
 	uint32_t max = cfg->max_size;
 
 	OCF_CHECK_NULL(cache->device);
