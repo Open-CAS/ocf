@@ -45,6 +45,7 @@ def test_neg_change_cache_mode(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error changing cache mode"):
             cache.change_cache_mode(i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -68,6 +69,7 @@ def test_neg_set_cleaning_policy(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error changing cleaning policy"):
             cache.set_cleaning_policy(i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -93,6 +95,7 @@ def test_neg_attach_cls(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Attaching cache device failed"):
             cache.attach_device(cache_device, cache_line_size=i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -126,6 +129,7 @@ def test_neg_cache_set_seq_cut_off_policy(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error setting cache seq cut off policy"):
             cache.set_seq_cut_off_policy(i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -159,7 +163,7 @@ def test_neg_cache_set_seq_cut_off_threshold(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error setting cache seq cut off policy threshold"):
             cache.set_seq_cut_off_threshold(i)
-            print("\n" + i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -190,7 +194,7 @@ def test_neg_core_set_seq_cut_off_threshold(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error setting core seq cut off policy threshold"):
             core.set_seq_cut_off_threshold(i)
-            print("\n" + i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -221,6 +225,7 @@ def test_neg_core_set_seq_cut_off_policy(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error setting core seq cut off policy"):
             core.set_seq_cut_off_policy(i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -244,6 +249,7 @@ def test_neg_set_alru_param(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error setting cleaning policy param"):
             cache.set_cleaning_policy_param(CleaningPolicy.ALRU, i, 1)
+            print(f"\n{i}")
 
 
 def get_alru_param_valid_rage(param_id):
@@ -283,7 +289,7 @@ def test_neg_set_alru_param_value(pyocf_ctx, cm, cls, param):
             continue
         with pytest.raises(OcfError, match="Error setting cleaning policy param"):
             cache.set_cleaning_policy_param(CleaningPolicy.ALRU, param, i)
-            print("\n" + i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -307,6 +313,7 @@ def test_neg_set_acp_param(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error setting cleaning policy param"):
             cache.set_cleaning_policy_param(CleaningPolicy.ACP, i, 1)
+            print(f"\n{i}")
 
 
 def get_acp_param_valid_rage(param_id):
@@ -342,7 +349,7 @@ def test_neg_set_acp_param_value(pyocf_ctx, cm, cls, param):
             continue
         with pytest.raises(OcfError, match="Error setting cleaning policy param"):
             cache.set_cleaning_policy_param(CleaningPolicy.ACP, param, i)
-            print("\n" + i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -366,6 +373,7 @@ def test_neg_set_promotion_policy(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error setting promotion policy"):
             cache.set_promotion_policy(i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -394,6 +402,7 @@ def test_neg_set_nhit_promotion_policy_param(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error setting promotion policy parameter"):
             cache.set_promotion_policy_param(PromotionPolicy.NHIT, i, 1)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -425,6 +434,7 @@ def test_neg_set_nhit_promotion_policy_param_trigger(pyocf_ctx, cm, cls):
             cache.set_promotion_policy_param(
                 PromotionPolicy.NHIT, NhitParams.TRIGGER_THRESHOLD, i
             )
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -456,6 +466,7 @@ def test_neg_set_nhit_promotion_policy_param_threshold(pyocf_ctx, cm, cls):
             cache.set_promotion_policy_param(
                 PromotionPolicy.NHIT, NhitParams.INSERTION_THRESHOLD, i
             )
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -485,7 +496,7 @@ def test_neg_set_ioclass_max_size(pyocf_ctx, cm, cls):
                 priority=0,
                 cache_mode=CACHE_MODE_NONE,
             )
-            print("\n" + i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -515,7 +526,7 @@ def test_neg_set_ioclass_priority(pyocf_ctx, cm, cls):
                 priority=i,
                 cache_mode=CACHE_MODE_NONE,
             )
-            print("\n" + i)
+            print(f"\n{i}")
 
 
 @pytest.mark.parametrize("cm", CacheMode)
@@ -541,7 +552,7 @@ def test_neg_set_ioclass_cache_mode(pyocf_ctx, cm, cls):
             cache.configure_partition(
                 part_id=1, name="unclassified", max_size=100, priority=1, cache_mode=i
             )
-            print("\n" + i)
+            print(f"\n{i}")
 
 
 @pytest.mark.security
