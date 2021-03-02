@@ -66,14 +66,14 @@ class RandomGenerator:
 
 
 class RandomStringGenerator:
-    def __init__(self, len_range=Range(0, 20), count=700):
+    def __init__(self, len_range=Range(0, 20), count=700, extra_chars=[]):
         with open("config/random.cfg") as f:
             self.random = random.Random(int(f.read()))
-        self.generator = self.__string_generator(len_range)
+        self.generator = self.__string_generator(len_range, extra_chars)
         self.count = count
         self.n = 0
 
-    def __string_generator(self, len_range):
+    def __string_generator(self, len_range, extra_chars):
         while True:
             for t in [string.digits,
                       string.ascii_letters + string.digits,
@@ -81,7 +81,8 @@ class RandomStringGenerator:
                       string.ascii_uppercase,
                       string.printable,
                       string.punctuation,
-                      string.hexdigits]:
+                      string.hexdigits,
+                      *extra_chars]:
                 yield ''.join(random.choice(t) for _ in range(
                     self.random.randint(len_range.min, len_range.max)
                 ))
