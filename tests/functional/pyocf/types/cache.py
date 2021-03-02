@@ -357,7 +357,6 @@ class Cache:
         self,
         part_id: int,
         name: str,
-        min_size: int,
         max_size: int,
         priority: int,
         cache_mode=CACHE_MODE_NONE,
@@ -379,7 +378,6 @@ class Cache:
             )
             ioclasses_info._config[i]._prio = ioclass_info._priority
             ioclasses_info._config[i]._cache_mode = ioclass_info._cache_mode
-            ioclasses_info._config[i]._min_size = ioclass_info._min_size
             ioclasses_info._config[i]._max_size = ioclass_info._max_size
 
         self.read_unlock()
@@ -387,7 +385,6 @@ class Cache:
         ioclasses_info._config[part_id]._name = name.encode("ascii")
         ioclasses_info._config[part_id]._cache_mode = int(cache_mode)
         ioclasses_info._config[part_id]._prio = priority
-        ioclasses_info._config[part_id]._min_size = min_size
         ioclasses_info._config[part_id]._max_size = max_size
 
         self.write_lock()
