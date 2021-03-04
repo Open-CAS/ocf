@@ -213,7 +213,9 @@ static int _ocf_cleaner_cache_line_lock(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	return ocf_req_async_lock_rd(req, _ocf_cleaner_on_resume);
+	return ocf_req_async_lock_rd(
+			req->cache->device->concurrency.cache_line,
+			req, _ocf_cleaner_on_resume);
 }
 
 /*
@@ -224,7 +226,8 @@ static void _ocf_cleaner_cache_line_unlock(struct ocf_request *req)
 {
 	if (req->info.cleaner_cache_line_lock) {
 		OCF_DEBUG_TRACE(req->cache);
-		ocf_req_unlock(req);
+		ocf_req_unlock(req->cache->device->concurrency.cache_line,
+				req);
 	}
 }
 

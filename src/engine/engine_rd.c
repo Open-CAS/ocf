@@ -24,6 +24,9 @@
 
 static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 {
+	struct ocf_cache_line_concurrency *c =
+			req->cache->device->concurrency.cache_line;
+
 	if (error)
 		req->error |= error;
 
@@ -41,8 +44,7 @@ static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 			ocf_core_stats_cache_error_update(req->core, OCF_READ);
 			ocf_engine_push_req_front_pt(req);
 		} else {
-
-			ocf_req_unlock(req);
+			ocf_req_unlock(c, req);
 
 			/* Complete request */
 			req->complete(req, req->error);

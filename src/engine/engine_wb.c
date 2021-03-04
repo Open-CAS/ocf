@@ -60,7 +60,7 @@ static void _ocf_write_wb_io_flush_metadata(struct ocf_request *req, int error)
 	if (req->error)
 		ocf_engine_error(req, true, "Failed to write data to cache");
 
-	ocf_req_unlock_wr(req);
+	ocf_req_unlock_wr(req->cache->device->concurrency.cache_line, req);
 
 	req->complete(req, req->error);
 
