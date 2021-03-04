@@ -26,7 +26,6 @@ class IoClassConfig(Structure):
         ("_name", c_char_p),
         ("_prio", c_uint16),
         ("_cache_mode", c_int),
-        ("_min_size", c_uint32),
         ("_max_size", c_uint32),
     ]
 

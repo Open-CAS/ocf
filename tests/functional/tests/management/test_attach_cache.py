@@ -51,7 +51,7 @@ def test_attach_different_size(
     cache.add_core(core)
 
     cache.configure_partition(
-        part_id=1, name="test_part", min_size=0, max_size=50, priority=1
+        part_id=1, name="test_part", max_size=50, priority=1
     )
 
     cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)

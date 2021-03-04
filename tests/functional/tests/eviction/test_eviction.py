@@ -93,14 +93,12 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     cache.configure_partition(
         part_id=test_ioclass_id,
         name="default_ioclass",
-        min_size=0,
         max_size=100,
         priority=1,
     )
     cache.configure_partition(
         part_id=pinned_ioclass_id,
         name="pinned_ioclass",
-        min_size=0,
         max_size=pinned_ioclass_max_occupancy,
         priority=-1,
     )

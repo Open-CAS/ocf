@@ -28,6 +28,7 @@ class Range:
 
 class DefaultRanges(Range, enum.Enum):
     UINT8 = 0, c_uint8(-1).value
+    INT16 = int(-c_uint16(-1).value / 2) - 1, int(c_uint16(-1).value / 2)
     UINT16 = 0, c_uint16(-1).value
     UINT32 = 0, c_uint32(-1).value
     UINT64 = 0, c_uint64(-1).value
@@ -65,14 +66,14 @@ class RandomGenerator:
 
 
 class RandomStringGenerator:
-    def __init__(self, len_range=Range(0, 20), count=700):
+    def __init__(self, len_range=Range(0, 20), count=700, extra_chars=[]):
         with open("config/random.cfg") as f:
             self.random = random.Random(int(f.read()))
-        self.generator = self.__string_generator(len_range)
+        self.generator = self.__string_generator(len_range, extra_chars)
         self.count = count
         self.n = 0
 
-    def __string_generator(self, len_range):
+    def __string_generator(self, len_range, extra_chars):
         while True:
             for t in [string.digits,
                       string.ascii_letters + string.digits,
@@ -80,7 +81,8 @@ class RandomStringGenerator:
                       string.ascii_uppercase,
                       string.printable,
                       string.punctuation,
-                      string.hexdigits]:
+                      string.hexdigits,
+                      *extra_chars]:
                 yield ''.join(random.choice(t) for _ in range(
                     self.random.randint(len_range.min, len_range.max)
                 ))

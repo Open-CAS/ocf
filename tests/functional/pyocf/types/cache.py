@@ -76,6 +76,21 @@ class ConfValidValues:
     promotion_nhit_insertion_threshold_range = range(2, 1000)
     promotion_nhit_trigger_threshold_range = range(0, 100)
 
+    cleaning_alru_wake_up_time_range = range(0, 3600)
+    cleaning_alru_staleness_time_range = range(1, 3600)
+    cleaning_alru_flush_max_buffers_range = range(1, 10000)
+    cleaning_alru_activity_threshold_range = range(0, 1000000)
+
+    cleaning_acp_wake_up_time_range = range(0, 10000)
+    cleaning_acp_flush_max_buffers_range = range(1, 10000)
+
+    seq_cutoff_threshold_rage = range(1, 4194181)
+
+    ioclass_id_range = range(0, 32)
+    ioclass_priority_range = range(-1, 255)
+    ioclass_min_size_range = range(0, 100)
+    ioclass_max_size_range = range(0, 100)
+
 
 CACHE_MODE_NONE = -1
 
@@ -302,7 +317,7 @@ class Cache:
         self.write_unlock()
 
         if status:
-            raise OcfError("Error setting cache seq cut off policy", status)
+            raise OcfError("Error setting cache seq cut off policy threshold", status)
 
     def get_partition_info(self, part_id: int):
         ioclass_info = IoClassInfo()
@@ -347,7 +362,6 @@ class Cache:
         self,
         part_id: int,
         name: str,
-        min_size: int,
         max_size: int,
         priority: int,
         cache_mode=CACHE_MODE_NONE,
@@ -369,15 +383,13 @@ class Cache:
             )
             ioclasses_info._config[i]._prio = ioclass_info._priority
             ioclasses_info._config[i]._cache_mode = ioclass_info._cache_mode
-            ioclasses_info._config[i]._min_size = ioclass_info._min_size
             ioclasses_info._config[i]._max_size = ioclass_info._max_size
 
         self.read_unlock()
 
-        ioclasses_info._config[part_id]._name = name.encode("ascii")
+        ioclasses_info._config[part_id]._name = name.encode("utf-8")
         ioclasses_info._config[part_id]._cache_mode = int(cache_mode)
         ioclasses_info._config[part_id]._prio = priority
-        ioclasses_info._config[part_id]._min_size = min_size
         ioclasses_info._config[part_id]._max_size = max_size
 
         self.write_lock()
