@@ -396,28 +396,26 @@ static void ocf_engine_map(struct ocf_request *req)
 
 		ocf_engine_lookup_map_entry(cache, entry, core_id, core_line);
 
-		if (entry->status != LOOKUP_HIT) {
+		/* attempt mapping only if no mapping error previously,
+		 * otherwise continue the loop anyway to have request fully
+		 * traversed after map()
+		 */
+		if (entry->status != LOOKUP_HIT &&
+				!ocf_req_test_mapping_error(req)) {
 			ocf_engine_map_cache_line(req, i);
-
-			if (ocf_req_test_mapping_error(req)) {
-				/*
-				 * Eviction error (mapping error), need to
-				 * clean, return and do pass through
-				 */
-				OCF_DEBUG_RQ(req, "Eviction ERROR when mapping");
-				ocf_engine_map_hndl_error(cache, req);
-				break;
-			}
-
-			entry->status = LOOKUP_INSERTED;
+			if (!ocf_req_test_mapping_error(req))
+				entry->status = LOOKUP_INSERTED;
 		}
+
+		if (entry->status != LOOKUP_MISS)
+			ocf_engine_update_req_info(cache, req, i);
 
 		OCF_DEBUG_PARAM(req->cache,
 			"%s, cache line %u, core line = %llu",
-			entry->status == LOOKUP_HIT ? "Hit" : "Map",
+			entry->status == LOOKUP_HIT ? "Hit" :
+				entry->status == LOOKUP_MISS : "Miss" :
+						"Insert",
 			entry->coll_idx, entry->core_line);
-
-		ocf_engine_update_req_info(cache, req, i);
 	}
 
 	if (!ocf_req_test_mapping_error(req)) {
@@ -493,12 +491,14 @@ static int lock_clines(struct ocf_request *req)
 	}
 }
 
+/* Attempt to map cachelines marked as LOOKUP_MISS by evicting from cache.
+ * Caller must assure that request map info is up to date (request
+ * is traversed).
+ */
 static inline int ocf_prepare_clines_evict(struct ocf_request *req)
 {
 	int lock_status = -OCF_ERR_NO_LOCK;
 	bool part_has_space;
-
-	ocf_engine_traverse(req);
 
 	part_has_space = ocf_part_has_space(req);
 	if (!part_has_space) {
@@ -532,8 +532,10 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req)
 		return lock_status;
 	}
 
-	if (!ocf_part_has_space(req))
+	if (!ocf_part_has_space(req)) {
+		ocf_engine_traverse(req);
 		return ocf_prepare_clines_evict(req);
+	}
 
 	ocf_engine_map(req);
 	if (!ocf_req_test_mapping_error(req)) {
@@ -546,6 +548,11 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req)
 		return lock_status;
 	}
 
+	/* Request mapping failed, but it is fully traversed as a side
+	 * effect of ocf_engine_map(), so no need to repeat the traversation
+	 * before eviction.
+	 * */
+	req->info.mapping_error = false;
 	return ocf_prepare_clines_evict(req);
 }
 
