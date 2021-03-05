@@ -26,7 +26,7 @@ typedef int (*ocf_cleaner_get_item)(struct ocf_cache *cache,
  * @brief Cleaning attributes for clean request
  */
 struct ocf_cleaner_attribs {
-	uint8_t  cache_line_lock : 1;	/*!< Clean under cache line lock */
+	uint8_t  lock_cacheline : 1;	/*!< Cleaner to lock cachelines on its own */
 
 	uint8_t  do_sort : 1;	/*!< Sort cache lines which will be cleaned */
 
