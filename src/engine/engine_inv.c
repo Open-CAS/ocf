@@ -31,7 +31,7 @@ static void _ocf_invalidate_req(struct ocf_request *req, int error)
 	if (req->error)
 		ocf_engine_error(req, true, "Failed to flush metadata to cache");
 
-	ocf_req_unlock(req->cache->device->concurrency.cache_line, req);
+	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
 	/* Put OCF request - decrease reference counter */
 	ocf_req_put(req);

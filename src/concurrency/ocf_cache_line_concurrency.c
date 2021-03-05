@@ -1130,7 +1130,8 @@ bool ocf_cache_line_are_waiters(struct ocf_cache_line_concurrency *c,
 bool ocf_cache_line_is_locked_exclusively(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	struct ocf_cache_line_concurrency *c = cache->device->concurrency.cache_line;
+	struct ocf_cache_line_concurrency *c =
+			ocf_cache_line_concurrency(cache);
 	env_atomic *access = &c->access[line];
 	int val = env_atomic_read(access);
 

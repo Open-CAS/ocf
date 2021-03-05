@@ -357,8 +357,7 @@ static int evp_lru_clean_getter(ocf_cache_t cache, void *getter_context,
 			break;
 
 		/* Prevent evicting already locked items */
-		if (ocf_cache_line_is_used(
-				cache->device->concurrency.cache_line,
+		if (ocf_cache_line_is_used(ocf_cache_line_concurrency(cache),
 				cline)) {
 			continue;
 		}
@@ -492,8 +491,7 @@ uint32_t evp_lru_req_clines(ocf_cache_t cache, ocf_queue_t io_queue,
 			break;
 
 		/* Prevent evicting already locked items */
-		if (ocf_cache_line_is_used(
-				cache->device->concurrency.cache_line,
+		if (ocf_cache_line_is_used(ocf_cache_line_concurrency(cache),
 				cline)) {
 			continue;
 		}

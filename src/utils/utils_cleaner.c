@@ -213,8 +213,7 @@ static int _ocf_cleaner_cache_line_lock(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	return ocf_req_async_lock_rd(
-			req->cache->device->concurrency.cache_line,
+	return ocf_req_async_lock_rd(ocf_cache_line_concurrency(req->cache),
 			req, _ocf_cleaner_on_resume);
 }
 

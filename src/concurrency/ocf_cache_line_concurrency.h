@@ -202,4 +202,16 @@ void ocf_cache_line_unlock_wr(struct ocf_cache_line_concurrency *c,
 bool ocf_cache_line_try_lock_wr(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line);
 
+/**
+ * @brief Get cacheline concurrency context
+ *
+ * @param cache - cache instance
+ * @return cacheline concurrency context
+ */
+static inline struct ocf_cache_line_concurrency *
+ocf_cache_line_concurrency(ocf_cache_t cache)
+{
+	return cache->device->concurrency.cache_line;
+}
+
 #endif /* OCF_CONCURRENCY_H_ */

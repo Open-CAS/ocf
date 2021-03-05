@@ -147,7 +147,7 @@ static void _ocf_discard_step_complete(struct ocf_request *req, int error)
 	OCF_DEBUG_RQ(req, "Completion");
 
 	/* Release WRITE lock of request */
-	ocf_req_unlock_wr(req->cache->device->concurrency.cache_line, req);
+	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
 	if (req->error) {
 		ocf_metadata_error(req->cache);
@@ -236,7 +236,7 @@ static int _ocf_discard_step(struct ocf_request *req)
 	if (ocf_engine_mapped_count(req)) {
 		/* Some cache line are mapped, lock request for WRITE access */
 		lock = ocf_req_async_lock_wr(
-				cache->device->concurrency.cache_line,
+				ocf_cache_line_concurrency(cache),
 				req, _ocf_discard_on_resume);
 	} else {
 		lock = OCF_LOCK_ACQUIRED;

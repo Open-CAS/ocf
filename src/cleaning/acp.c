@@ -398,7 +398,7 @@ static ocf_cache_line_t _acp_trylock_dirty(struct ocf_cache *cache,
 	if (info.status == LOOKUP_HIT &&
 			metadata_test_dirty(cache, info.coll_idx)) {
 		locked = ocf_cache_line_try_lock_rd(
-				cache->device->concurrency.cache_line,
+				ocf_cache_line_concurrency(cache),
 				info.coll_idx);
 	}
 
@@ -474,7 +474,7 @@ static void _acp_flush_end(void *priv, int error)
 
 	for (i = 0; i < flush->size; i++) {
 		ocf_cache_line_unlock_rd(
-				cache->device->concurrency.cache_line,
+				ocf_cache_line_concurrency(cache),
 				flush->data[i].cache_line);
 		ACP_DEBUG_END(acp, flush->data[i].cache_line);
 	}
