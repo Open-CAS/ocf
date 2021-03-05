@@ -323,7 +323,6 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 	/* Update metadata */
 	for (i = 0; i < req->core_line_count; i++, iter++) {
 		if (iter->status == LOOKUP_MISS)
@@ -336,22 +335,29 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 
 		cache_line = iter->coll_idx;
 
-		if (!metadata_test_dirty(cache, cache_line))
-			continue;
+		ocf_hb_cline_prot_lock_wr(&cache->metadata.lock,
+				req->lock_idx, req->map[i].core_id,
+				req->map[i].core_line);
 
-		ocf_metadata_get_core_and_part_id(cache, cache_line,
-				&core_id, &req->part_id);
-		req->core = &cache->core[core_id];
+		if (metadata_test_dirty(cache, cache_line)) {
+			ocf_metadata_get_core_and_part_id(cache, cache_line,
+					&core_id, &req->part_id);
+			req->core = &cache->core[core_id];
 
-		ocf_metadata_start_collision_shared_access(cache, cache_line);
-		set_cache_line_clean(cache, 0, ocf_line_end_sector(cache), req,
-				i);
-		ocf_metadata_end_collision_shared_access(cache, cache_line);
+			ocf_metadata_start_collision_shared_access(cache,
+					cache_line);
+			set_cache_line_clean(cache, 0,
+					ocf_line_end_sector(cache), req, i);
+			ocf_metadata_end_collision_shared_access(cache,
+					cache_line);
+		}
+
+		ocf_hb_cline_prot_unlock_wr(&cache->metadata.lock,
+				req->lock_idx, req->map[i].core_id,
+				req->map[i].core_line);
 	}
 
 	ocf_metadata_flush_do_asynch(cache, req, _ocf_cleaner_metadata_io_end);
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
-
 	return 0;
 }
 
