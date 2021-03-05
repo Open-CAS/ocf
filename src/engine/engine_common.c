@@ -93,20 +93,58 @@ static inline int _ocf_engine_check_map_entry(struct ocf_cache *cache,
 		return -1;
 }
 
-void ocf_engine_update_req_info(struct ocf_cache *cache,
-		struct ocf_request *req, uint32_t entry)
+/* Returns true if core lines on index 'entry' and 'entry + 1' within the request
+ * are physically contiguous.
+ */
+static inline bool ocf_engine_clines_phys_cont(struct ocf_request *req,
+		uint32_t entry)
+{
+	struct ocf_map_info *entry1, *entry2;
+	ocf_cache_line_t phys1, phys2;
+
+	entry1 = &req->map[entry];
+	entry2 = &req->map[entry + 1];
+
+	if (entry1->status == LOOKUP_MISS || entry2->status == LOOKUP_MISS)
+		return false;
+
+	phys1 = ocf_metadata_map_lg2phy(req->cache, entry1->coll_idx);
+	phys2 = ocf_metadata_map_lg2phy(req->cache, entry2->coll_idx);
+
+	return phys1 < phys2 && phys1 + 1 == phys2;
+}
+
+void ocf_engine_patch_req_info(struct ocf_cache *cache,
+		struct ocf_request *req, uint32_t idx)
+{
+	struct ocf_map_info *entry = &req->map[idx];
+
+	ENV_BUG_ON(entry->status != LOOKUP_REMAPPED);
+
+	req->info.insert_no++;
+
+	if (idx > 0 && ocf_engine_clines_phys_cont(req, idx - 1))
+		req->info.seq_no++;
+	if (idx + 1 < req->core_line_count &&
+			ocf_engine_clines_phys_cont(req, idx)) {
+		req->info.seq_no++;
+	}
+}
+
+static void ocf_engine_update_req_info(struct ocf_cache *cache,
+		struct ocf_request *req, uint32_t idx)
 {
 	uint8_t start_sector = 0;
 	uint8_t end_sector = ocf_line_end_sector(cache);
-	struct ocf_map_info *_entry = &(req->map[entry]);
+	struct ocf_map_info *entry = &(req->map[idx]);
 
-	start_sector = ocf_map_line_start_sector(req, entry);
-	end_sector = ocf_map_line_end_sector(req, entry);
+	start_sector = ocf_map_line_start_sector(req, idx);
+	end_sector = ocf_map_line_end_sector(req, idx);
 
 	/* Handle return value */
-	switch (_entry->status) {
+	switch (entry->status) {
 	case LOOKUP_HIT:
-		if (metadata_test_valid_sec(cache, _entry->coll_idx,
+		if (metadata_test_valid_sec(cache, entry->coll_idx,
 				start_sector, end_sector)) {
 			req->info.hit_no++;
 		} else {
@@ -114,45 +152,41 @@ void ocf_engine_update_req_info(struct ocf_cache *cache,
 		}
 
 		/* Check request is dirty */
-		if (metadata_test_dirty(cache, _entry->coll_idx)) {
+		if (metadata_test_dirty(cache, entry->coll_idx)) {
 			req->info.dirty_any++;
 
 			/* Check if cache line is fully dirty */
-			if (metadata_test_dirty_all_sec(cache, _entry->coll_idx,
+			if (metadata_test_dirty_all_sec(cache, entry->coll_idx,
 				start_sector, end_sector))
 				req->info.dirty_all++;
 		}
 
 		if (req->part_id != ocf_metadata_get_partition_id(cache,
-				_entry->coll_idx)) {
+				entry->coll_idx)) {
 			/*
 			 * Need to move this cache line into other partition
 			 */
-			_entry->re_part = true;
+			entry->re_part = true;
 			req->info.re_part_no++;
 		}
 
 		break;
-	case LOOKUP_MISS:
-		req->info.seq_req = false;
-		break;
 	case LOOKUP_INSERTED:
-	case LOOKUP_REMAPPED:
+		req->info.insert_no++;
+	case LOOKUP_MISS:
 		break;
+	case LOOKUP_REMAPPED:
+		/* remapped cachelines are to be updated via
+		 * ocf_engine_patch_req_info()
+		 */
 	default:
 		ENV_BUG();
 		break;
 	}
 
 	/* Check if cache hit is sequential */
-	if (req->info.seq_req && entry) {
-		if (ocf_metadata_map_lg2phy(cache,
-			(req->map[entry - 1].coll_idx)) + 1 !=
-			ocf_metadata_map_lg2phy(cache,
-			_entry->coll_idx)) {
-			req->info.seq_req = false;
-		}
-	}
+	if (idx > 0 && ocf_engine_clines_phys_cont(req, idx - 1))
+		req->info.seq_no++;
 }
 
 void ocf_engine_traverse(struct ocf_request *req)
@@ -166,7 +200,6 @@ void ocf_engine_traverse(struct ocf_request *req)
 	OCF_DEBUG_TRACE(req->cache);
 
 	ocf_req_clear_info(req);
-	req->info.seq_req = true;
 
 	for (i = 0, core_line = req->core_line_first;
 			core_line <= req->core_line_last; core_line++, i++) {
@@ -177,8 +210,6 @@ void ocf_engine_traverse(struct ocf_request *req)
 				core_line);
 
 		if (entry->status != LOOKUP_HIT) {
-			req->info.seq_req = false;
-
 			/* There is miss then lookup for next map entry */
 			OCF_DEBUG_PARAM(cache, "Miss, core line = %llu",
 					entry->core_line);
@@ -194,8 +225,8 @@ void ocf_engine_traverse(struct ocf_request *req)
 		ocf_engine_update_req_info(cache, req, i);
 	}
 
-	OCF_DEBUG_PARAM(cache, "Sequential - %s", req->info.seq_req ?
-			"Yes" : "No");
+	OCF_DEBUG_PARAM(cache, "Sequential - %s", ocf_engine_is_sequential(req)
+			? "Yes" : "No");
 }
 
 int ocf_engine_check(struct ocf_request *req)
@@ -210,7 +241,6 @@ int ocf_engine_check(struct ocf_request *req)
 	OCF_DEBUG_TRACE(req->cache);
 
 	ocf_req_clear_info(req);
-	req->info.seq_req = true;
 
 	for (i = 0, core_line = req->core_line_first;
 			core_line <= req->core_line_last; core_line++, i++) {
@@ -218,14 +248,12 @@ int ocf_engine_check(struct ocf_request *req)
 		struct ocf_map_info *entry = &(req->map[i]);
 
 		if (entry->status == LOOKUP_MISS) {
-			req->info.seq_req = false;
 			continue;
 		}
 
 		if (_ocf_engine_check_map_entry(cache, entry, core_id)) {
 			/* Mapping is invalid */
 			entry->invalid = true;
-			req->info.seq_req = false;
 
 			OCF_DEBUG_PARAM(cache, "Invalid, Cache line %u",
 					entry->coll_idx);
@@ -241,8 +269,8 @@ int ocf_engine_check(struct ocf_request *req)
 		}
 	}
 
-	OCF_DEBUG_PARAM(cache, "Sequential - %s", req->info.seq_req ?
-			"Yes" : "No");
+	OCF_DEBUG_PARAM(cache, "Sequential - %s", ocf_engine_is_sequential(req)
+			? "Yes" : "No");
 
 	return result;
 }
@@ -343,7 +371,6 @@ static void ocf_engine_map(struct ocf_request *req)
 	}
 
 	ocf_req_clear_info(req);
-	req->info.seq_req = true;
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -385,8 +412,8 @@ static void ocf_engine_map(struct ocf_request *req)
 		ocf_promotion_req_purge(cache->promotion_policy, req);
 	}
 
-	OCF_DEBUG_PARAM(req->cache, "Sequential - %s", req->info.seq_req ?
-			"Yes" : "No");
+	OCF_DEBUG_PARAM(req->cache, "Sequential - %s",
+			ocf_engine_is_sequential(req) ? "Yes" : "No");
 }
 
 static void _ocf_engine_clean_end(void *private_data, int error)
