@@ -275,32 +275,20 @@ int ocf_engine_check(struct ocf_request *req)
 	return result;
 }
 
-static void ocf_engine_map_cache_line(struct ocf_request *req,
-		uint64_t core_line, unsigned int hash_index,
-		ocf_cache_line_t *cache_line)
+void ocf_map_cache_line(struct ocf_request *req,
+		unsigned int idx, ocf_cache_line_t cache_line)
 {
-	struct ocf_cache *cache = req->cache;
+	ocf_cache_t cache = req->cache;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
-	ocf_part_id_t part_id = req->part_id;
 	ocf_cleaning_t clean_policy_type;
-
-	if (!ocf_freelist_get_cache_line(cache->freelist, cache_line)) {
-		ocf_req_set_mapping_error(req);
-		return;
-	}
-
-	ocf_metadata_add_to_partition(cache, part_id, *cache_line);
+	unsigned int hash_index = req->map[idx].hash;
+	uint64_t core_line = req->core_line_first + idx;
 
 	/* Add the block to the corresponding collision list */
-	ocf_metadata_start_collision_shared_access(cache, *cache_line);
+	ocf_metadata_start_collision_shared_access(cache, cache_line);
 	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,
-			*cache_line);
-	ocf_metadata_end_collision_shared_access(cache, *cache_line);
-
-	ocf_eviction_init_cache_line(cache, *cache_line);
-
-	/* Update LRU:: Move this node to head of lru list. */
-	ocf_eviction_set_hot_cache_line(cache, *cache_line);
+			cache_line);
+	ocf_metadata_end_collision_shared_access(cache, cache_line);
 
 	/* Update dirty cache-block list */
 	clean_policy_type = cache->conf_meta->cleaning_policy_type;
@@ -309,7 +297,30 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 
 	if (cleaning_policy_ops[clean_policy_type].init_cache_block != NULL)
 		cleaning_policy_ops[clean_policy_type].
-				init_cache_block(cache, *cache_line);
+				init_cache_block(cache, cache_line);
+
+	req->map[idx].coll_idx = cache_line;
+}
+
+
+static void ocf_engine_map_cache_line(struct ocf_request *req,
+		unsigned int idx)
+{
+	struct ocf_cache *cache = req->cache;
+	ocf_cache_line_t cache_line;
+
+	if (!ocf_freelist_get_cache_line(cache->freelist, &cache_line)) {
+		req->info.mapping_error = 1;
+		return;
+	}
+
+	ocf_metadata_add_to_partition(cache, req->part_id, cache_line);
+
+	ocf_map_cache_line(req, idx, cache_line);
+
+	/* Update LRU:: Move this node to head of lru list. */
+	ocf_eviction_init_cache_line(cache, cache_line);
+	ocf_eviction_set_hot_cache_line(cache, cache_line);
 }
 
 static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
@@ -358,7 +369,6 @@ static void ocf_engine_map(struct ocf_request *req)
 	uint32_t i;
 	struct ocf_map_info *entry;
 	uint64_t core_line;
-	int status = LOOKUP_INSERTED;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
 	if (!ocf_engine_unmapped_count(req))
@@ -381,8 +391,7 @@ static void ocf_engine_map(struct ocf_request *req)
 		ocf_engine_lookup_map_entry(cache, entry, core_id, core_line);
 
 		if (entry->status != LOOKUP_HIT) {
-			ocf_engine_map_cache_line(req, entry->core_line,
-					entry->hash, &entry->coll_idx);
+			ocf_engine_map_cache_line(req, i);
 
 			if (ocf_req_test_mapping_error(req)) {
 				/*
@@ -394,7 +403,7 @@ static void ocf_engine_map(struct ocf_request *req)
 				break;
 			}
 
-			entry->status = status;
+			entry->status = LOOKUP_INSERTED;
 		}
 
 		OCF_DEBUG_PARAM(req->cache,
