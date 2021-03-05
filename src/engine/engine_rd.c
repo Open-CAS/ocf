@@ -242,8 +242,9 @@ int ocf_read_generic(struct ocf_request *req)
 
 	/* Set resume call backs */
 	req->io_if = &_io_if_read_generic_resume;
+	req->engine_cbs = &_rd_engine_callbacks;
 
-	lock = ocf_engine_prepare_clines(req, &_rd_engine_callbacks);
+	lock = ocf_engine_prepare_clines(req);
 
 	if (!ocf_req_test_mapping_error(req)) {
 		if (lock >= 0) {

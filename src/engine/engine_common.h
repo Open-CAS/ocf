@@ -245,8 +245,7 @@ struct ocf_engine_callbacks
  * @retval LOOKUP_INSERTED successfully evicted required number of cachelines
  * @retval LOOKUP_MISS eviction failure
  */
-int ocf_engine_prepare_clines(struct ocf_request *req,
-		const struct ocf_engine_callbacks *engine_cbs);
+int ocf_engine_prepare_clines(struct ocf_request *req);
 
 /**
  * @brief Traverse OCF request (lookup cache)

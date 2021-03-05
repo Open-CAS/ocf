@@ -103,6 +103,8 @@ struct ocf_request {
 	struct ocf_io_internal ioi;
 	/*!< OCF IO associated with request */
 
+	const struct ocf_engine_callbacks *engine_cbs;
+
 	env_atomic ref_count;
 	/*!< Reference usage count, once OCF request reaches zero it
 	 * will be de-initialed. Get/Put method are intended to modify

@@ -449,25 +449,24 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	}
 }
 
-static int lock_clines(struct ocf_request *req,
-		const struct ocf_engine_callbacks *engine_cbs)
+static int _lock_clines(struct ocf_request *req)
 {
-	enum ocf_engine_lock_type lock_type = engine_cbs->get_lock_type(req);
 	struct ocf_cache_line_concurrency *c =
 			req->cache->device->concurrency.cache_line;
+	enum ocf_engine_lock_type lock_type =
+		req->engine_cbs->get_lock_type(req);
 
 	switch (lock_type) {
 	case ocf_engine_lock_write:
-		return ocf_req_async_lock_wr(c, req, engine_cbs->resume);
+		return ocf_req_async_lock_wr(c, req, req->engine_cbs->resume);
 	case ocf_engine_lock_read:
-		return ocf_req_async_lock_rd(c, req, engine_cbs->resume);
+		return ocf_req_async_lock_rd(c, req, req->engine_cbs->resume);
 	default:
 		return OCF_LOCK_ACQUIRED;
 	}
 }
 
-static inline int ocf_prepare_clines_miss(struct ocf_request *req,
-		const struct ocf_engine_callbacks *engine_cbs)
+static inline int ocf_prepare_clines_miss(struct ocf_request *req)
 {
 	int lock_status = -OCF_ERR_NO_LOCK;
 	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
@@ -490,7 +489,7 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req,
 	ocf_engine_map(req);
 
 	if (!ocf_req_test_mapping_error(req)) {
-		lock_status = lock_clines(req, engine_cbs);
+		lock_status = _lock_clines(req);
 		if (lock_status < 0) {
 			/* Mapping succeeded, but we failed to acquire cacheline lock.
 			 * Don't try to evict, just return error to caller */
@@ -523,7 +522,7 @@ eviction:
 	if (ocf_req_test_mapping_error(req))
 		goto unlock;
 
-	lock_status = lock_clines(req, engine_cbs);
+	lock_status = _lock_clines(req);
 	if (lock_status < 0)
 		ocf_req_set_mapping_error(req);
 
@@ -533,8 +532,7 @@ unlock:
 	return lock_status;
 }
 
-int ocf_engine_prepare_clines(struct ocf_request *req,
-		const struct ocf_engine_callbacks *engine_cbs)
+int ocf_engine_prepare_clines(struct ocf_request *req)
 {
 	bool mapped;
 	bool promote = true;
@@ -553,7 +551,7 @@ int ocf_engine_prepare_clines(struct ocf_request *req,
 
 	mapped = ocf_engine_is_mapped(req);
 	if (mapped) {
-		lock = lock_clines(req, engine_cbs);
+		lock = _lock_clines(req);
 		ocf_hb_req_prot_unlock_rd(req);
 		return lock;
 	}
@@ -567,7 +565,7 @@ int ocf_engine_prepare_clines(struct ocf_request *req,
 		return lock;
 	}
 
-	return ocf_prepare_clines_miss(req, engine_cbs);
+	return ocf_prepare_clines_miss(req);
 }
 
 static int _ocf_engine_clean_getter(struct ocf_cache *cache,
