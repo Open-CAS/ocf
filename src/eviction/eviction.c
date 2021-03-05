@@ -161,7 +161,7 @@ int space_managment_evict_do(struct ocf_cache *cache,
 	} else {
 		free = ocf_freelist_num_free(cache->freelist);
 		if (evict_cline_no <= free)
-			return LOOKUP_MAPPED;
+			return LOOKUP_INSERTED;
 
 		evict_cline_no -= free;
 
@@ -169,7 +169,7 @@ int space_managment_evict_do(struct ocf_cache *cache,
 	}
 
 	if (evict_cline_no <= evicted)
-		return LOOKUP_MAPPED;
+		return LOOKUP_INSERTED;
 
 	ocf_req_set_mapping_error(req);
 	return LOOKUP_MISS;
