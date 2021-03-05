@@ -169,7 +169,7 @@ static void __init_partitions(ocf_cache_t cache)
 
 	/* Add other partition to the cache and make it as dummy */
 	for (i_part = 0; i_part < OCF_IO_CLASS_MAX; i_part++) {
-		ocf_refcnt_freeze(&cache->user_parts[i_part].cleaning);
+		ocf_refcnt_freeze(&cache->user_parts[i_part].cleaning.counter);
 
 		if (i_part == PARTITION_DEFAULT)
 			continue;

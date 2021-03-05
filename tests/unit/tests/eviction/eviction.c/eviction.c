@@ -27,9 +27,9 @@ struct test_cache
 {
 	struct ocf_cache cache;
 	struct ocf_user_part_config part[OCF_IO_CLASS_MAX];
-	struct ocf_user_part upart[OCF_IO_CLASS_MAX];
 	uint32_t overflow[OCF_IO_CLASS_MAX];
 	uint32_t evictable[OCF_IO_CLASS_MAX];
+	uint32_t req_unmapped;
 };
 
 bool __wrap_ocf_eviction_can_evict(ocf_cache_t cache)
@@ -62,10 +62,12 @@ uint32_t __wrap_ocf_eviction_need_space(struct ocf_cache *cache,
 
 	tcache->overflow[part->id] -= overflown_consumed;
 	tcache->evictable[part->id] -= clines;
+	tcache->req_unmapped -= clines;
 
 	check_expected(part);
 	check_expected(clines);
 	function_called();
+
 	return mock();
 }
 
@@ -157,7 +159,7 @@ static struct ocf_lst_entry *_list_getter(
 {
 	struct test_cache* tcache = cache;
 
-	return &tcache->upart[idx].lst_valid;
+	return &tcache->cache.user_parts[idx].lst_valid;
 }
 
 static void init_part_list(struct test_cache *tcache)
@@ -165,23 +167,30 @@ static void init_part_list(struct test_cache *tcache)
 	unsigned i;
 
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
-		tcache->upart[i].id = i;
-		tcache->upart[i].config = &tcache->part[i];
-		tcache->upart[i].config->priority = i+1;
-		tcache->upart[i].config->flags.eviction = 1;
+		tcache->cache.user_parts[i].id = i;
+		tcache->cache.user_parts[i].config = &tcache->part[i];
+		tcache->cache.user_parts[i].config->priority = i+1;
+		tcache->cache.user_parts[i].config->flags.eviction = 1;
 	}
 
 	ocf_lst_init((ocf_cache_t)tcache, &tcache->cache.lst_part, OCF_IO_CLASS_MAX,
 			_list_getter, ocf_part_lst_cmp_valid);
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
-		ocf_lst_init_entry(&tcache->cache.lst_part, &tcache->upart[i].lst_valid);
+		ocf_lst_init_entry(&tcache->cache.lst_part, &tcache->cache.user_parts[i].lst_valid);
 		ocf_lst_add_tail(&tcache->cache.lst_part, i);
 	}
 }
 
+uint32_t __wrap_ocf_engine_unmapped_count(struct ocf_request *req)
+{
+	struct test_cache* tcache = (struct test_cache*)req->cache;
+
+	return tcache->req_unmapped;
+}
+
 #define _expect_evict_call(tcache, part_id, req_count, ret_count) \
 	do { \
-		expect_value(__wrap_ocf_eviction_need_space, part, &tcache.upart[part_id]); \
+		expect_value(__wrap_ocf_eviction_need_space, part, &tcache.cache.user_parts[part_id]); \
 		expect_value(__wrap_ocf_eviction_need_space, clines, req_count); \
 		expect_function_call(__wrap_ocf_eviction_need_space); \
 		will_return(__wrap_ocf_eviction_need_space, ret_count); \
@@ -190,6 +199,7 @@ static void init_part_list(struct test_cache *tcache)
 static void ocf_evict_do_test01(void **state)
 {
 	struct test_cache tcache = {};
+	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
 	unsigned evicted;
 
 	print_test_description("one IO class, no overflow\n");
@@ -197,16 +207,17 @@ static void ocf_evict_do_test01(void **state)
 	init_part_list(&tcache);
 
 	tcache.evictable[10] = 100;
+	tcache.req_unmapped = 50;
 
 	_expect_evict_call(tcache, 10, 50, 50);
-
-	evicted = ocf_evict_do((ocf_cache_t *)&tcache, NULL, 50, &tcache.upart[0]);
+	evicted = ocf_evict_do(&req);
 	assert_int_equal(evicted, 50);
 }
 
 static void ocf_evict_do_test02(void **state)
 {
 	struct test_cache tcache = {};
+	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
 	unsigned i;
 	unsigned evicted;
 
@@ -216,16 +227,18 @@ static void ocf_evict_do_test02(void **state)
 
 	tcache.evictable[10] = 100;
 	tcache.overflow[10] = 100;
+	tcache.req_unmapped = 50;
 
 	_expect_evict_call(tcache, 10, 50, 50);
 
-	evicted = ocf_evict_do((ocf_cache_t *)&tcache, NULL, 50, &tcache.upart[0]);
+	evicted = ocf_evict_do(&req);
 	assert_int_equal(evicted, 50);
 }
 
 static void ocf_evict_do_test03(void **state)
 {
 	struct test_cache tcache = {};
+	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
 	unsigned i;
 	unsigned evicted;
 
@@ -237,19 +250,21 @@ static void ocf_evict_do_test03(void **state)
 	tcache.evictable[12] = 100;
 	tcache.evictable[16] = 100;
 	tcache.evictable[17] = 100;
+	tcache.req_unmapped = 350;
 
 	_expect_evict_call(tcache, 10, 100, 100);
 	_expect_evict_call(tcache, 12, 100, 100);
 	_expect_evict_call(tcache, 16, 100, 100);
 	_expect_evict_call(tcache, 17, 50, 50);
 
-	evicted = ocf_evict_do((ocf_cache_t *)&tcache, NULL, 350, &tcache.upart[0]);
+	evicted = ocf_evict_do(&req);
 	assert_int_equal(evicted, 350);
 }
 
 static void ocf_evict_do_test04(void **state)
 {
 	struct test_cache tcache = {};
+	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
 	unsigned i;
 	unsigned evicted;
 
@@ -266,6 +281,7 @@ static void ocf_evict_do_test04(void **state)
 	tcache.evictable[17] = 100;
 	tcache.evictable[18] = 100;
 	tcache.overflow[18] = 100;
+	tcache.req_unmapped = 580;
 
 	_expect_evict_call(tcache, 12, 40, 40);
 	_expect_evict_call(tcache, 14, 100, 100);
@@ -275,7 +291,7 @@ static void ocf_evict_do_test04(void **state)
 	_expect_evict_call(tcache, 16, 100, 100);
 	_expect_evict_call(tcache, 17, 80, 80);
 
-	evicted = ocf_evict_do((ocf_cache_t *)&tcache, NULL, 580, &tcache.upart[0]);
+	evicted = ocf_evict_do(&req);
 	assert_int_equal(evicted, 580);
 }
 int main(void)

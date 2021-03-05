@@ -27,6 +27,7 @@ typedef int (*ocf_cleaner_get_item)(struct ocf_cache *cache,
  */
 struct ocf_cleaner_attribs {
 	uint8_t  lock_cacheline : 1;	/*!< Cleaner to lock cachelines on its own */
+	uint8_t  lock_metadata : 1;	/*!< Cleaner to lock metadata on its own */
 
 	uint8_t  do_sort : 1;	/*!< Sort cache lines which will be cleaned */
 
@@ -40,7 +41,7 @@ struct ocf_cleaner_attribs {
 	void *getter_context;
 		/*!< Context for getting cache lines */
 	uint32_t getter_item;
-		/*!< Additional variable that can be used by cleaner caller
+		/*!< Additional variable that can be used by cleaner call
 		 * to iterate over items
 		 */
 

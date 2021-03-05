@@ -123,6 +123,15 @@ void ocf_engine_patch_req_info(struct ocf_cache *cache,
 
 	req->info.insert_no++;
 
+	if (req->part_id != ocf_metadata_get_partition_id(cache,
+			entry->coll_idx)) {
+		/*
+		 * Need to move this cache line into other partition
+		 */
+		entry->re_part = true;
+		req->info.re_part_no++;
+	}
+
 	if (idx > 0 && ocf_engine_clines_phys_cont(req, idx - 1))
 		req->info.seq_no++;
 	if (idx + 1 < req->core_line_count &&
@@ -172,13 +181,11 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 
 		break;
 	case LOOKUP_INSERTED:
+	case LOOKUP_REMAPPED:
 		req->info.insert_no++;
+		break;
 	case LOOKUP_MISS:
 		break;
-	case LOOKUP_REMAPPED:
-		/* remapped cachelines are to be updated via
-		 * ocf_engine_patch_req_info()
-		 */
 	default:
 		ENV_BUG();
 		break;
@@ -310,7 +317,7 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 	ocf_cache_line_t cache_line;
 
 	if (!ocf_freelist_get_cache_line(cache->freelist, &cache_line)) {
-		req->info.mapping_error = 1;
+		ocf_req_set_mapping_error(req);
 		return;
 	}
 
@@ -353,7 +360,6 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 
 			ocf_metadata_end_collision_shared_access(cache,
 					entry->coll_idx);
-
 			break;
 
 		default:
@@ -412,7 +418,6 @@ static void ocf_engine_map(struct ocf_request *req)
 			entry->coll_idx, entry->core_line);
 
 		ocf_engine_update_req_info(cache, req, i);
-
 	}
 
 	if (!ocf_req_test_mapping_error(req)) {
@@ -449,7 +454,30 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	}
 }
 
-static int _lock_clines(struct ocf_request *req)
+static void ocf_engine_evict(struct ocf_request *req)
+{
+	int status;
+
+	status = space_managment_evict_do(req);
+	if (status == LOOKUP_MISS) {
+		/* mark error */
+		ocf_req_set_mapping_error(req);
+
+		/* unlock cachelines locked during eviction */
+		ocf_req_unlock(ocf_cache_line_concurrency(req->cache),
+				req);
+
+		/* request cleaning */
+		ocf_req_set_clean_eviction(req);
+
+		/* unmap inserted and replaced cachelines */
+		ocf_engine_map_hndl_error(req->cache, req);
+	}
+
+	return;
+}
+
+static int lock_clines(struct ocf_request *req)
 {
 	struct ocf_cache_line_concurrency *c = ocf_cache_line_concurrency(req->cache);
 	enum ocf_engine_lock_type lock_type =
@@ -465,77 +493,69 @@ static int _lock_clines(struct ocf_request *req)
 	}
 }
 
+static inline int ocf_prepare_clines_evict(struct ocf_request *req)
+{
+	int lock_status = -OCF_ERR_NO_LOCK;
+	bool part_has_space;
+
+	ocf_engine_traverse(req);
+
+	part_has_space = ocf_part_has_space(req);
+	if (!part_has_space) {
+		/* adding more cachelines to target partition would overflow
+		   it - requesting eviction from target partition only */
+		ocf_req_set_part_evict(req);
+	} else {
+		/* evict from any partition */
+		ocf_req_clear_part_evict(req);
+	}
+
+	ocf_engine_evict(req);
+
+	if (!ocf_req_test_mapping_error(req)) {
+		ocf_promotion_req_purge(req->cache->promotion_policy, req);
+		lock_status = lock_clines(req);
+		if (lock_status < 0)
+			ocf_req_set_mapping_error(req);
+	}
+
+	return lock_status;
+}
+
 static inline int ocf_prepare_clines_miss(struct ocf_request *req)
 {
 	int lock_status = -OCF_ERR_NO_LOCK;
-	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
 
 	/* requests to disabled partitions go in pass-through */
 	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
 		ocf_req_set_mapping_error(req);
-		ocf_hb_req_prot_unlock_rd(req);
 		return lock_status;
 	}
 
-	if (!ocf_part_has_space(req)) {
-		ocf_hb_req_prot_unlock_rd(req);
-		goto eviction;
-	}
-
-	/* Mapping must be performed holding (at least) hash-bucket write lock */
-	ocf_hb_req_prot_lock_upgrade(req);
+	if (!ocf_part_has_space(req))
+		return ocf_prepare_clines_evict(req);
 
 	ocf_engine_map(req);
-
 	if (!ocf_req_test_mapping_error(req)) {
-		lock_status = _lock_clines(req);
+		lock_status = lock_clines(req);
 		if (lock_status < 0) {
 			/* Mapping succeeded, but we failed to acquire cacheline lock.
 			 * Don't try to evict, just return error to caller */
 			ocf_req_set_mapping_error(req);
 		}
-		ocf_hb_req_prot_unlock_wr(req);
 		return lock_status;
 	}
 
-	ocf_hb_req_prot_unlock_wr(req);
-
-eviction:
-	ocf_metadata_start_exclusive_access(metadata_lock);
-
-	/* repeat traversation to pick up latest metadata status */
-	ocf_engine_traverse(req);
-
-	if (!ocf_part_has_space(req))
-		ocf_req_set_part_evict(req);
-	else
-		ocf_req_clear_part_evict(req);
-
-	if (space_managment_evict_do(req->cache, req,
-			ocf_engine_unmapped_count(req)) == LOOKUP_MISS) {
-		ocf_req_set_mapping_error(req);
-		goto unlock;
-	}
-
-	ocf_engine_map(req);
-	if (ocf_req_test_mapping_error(req))
-		goto unlock;
-
-	lock_status = _lock_clines(req);
-	if (lock_status < 0)
-		ocf_req_set_mapping_error(req);
-
-unlock:
-	ocf_metadata_end_exclusive_access(metadata_lock);
-
-	return lock_status;
+	return ocf_prepare_clines_evict(req);
 }
 
 int ocf_engine_prepare_clines(struct ocf_request *req)
 {
+	struct ocf_user_part *part = &req->cache->user_parts[req->part_id];
 	bool mapped;
 	bool promote = true;
 	int lock = -OCF_ERR_NO_LOCK;
+	int result;
 
 	/* Calculate hashes for hash-bucket locking */
 	ocf_req_hash(req);
@@ -550,7 +570,7 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 
 	mapped = ocf_engine_is_mapped(req);
 	if (mapped) {
-		lock = _lock_clines(req);
+		lock = lock_clines(req);
 		ocf_hb_req_prot_unlock_rd(req);
 		return lock;
 	}
@@ -564,7 +584,17 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 		return lock;
 	}
 
-	return ocf_prepare_clines_miss(req);
+	/* Mapping must be performed holding (at least) hash-bucket write lock */
+	ocf_hb_req_prot_lock_upgrade(req);
+	result = ocf_prepare_clines_miss(req);
+	ocf_hb_req_prot_unlock_wr(req);
+
+	if (ocf_req_test_clean_eviction(req)) {
+		ocf_eviction_flush_dirty(req->cache, part, req->io_queue,
+				128);
+	}
+
+	return result;
 }
 
 static int _ocf_engine_clean_getter(struct ocf_cache *cache,
@@ -598,6 +628,7 @@ void ocf_engine_clean(struct ocf_request *req)
 	/* Initialize attributes for cleaner */
 	struct ocf_cleaner_attribs attribs = {
 			.lock_cacheline = false,
+			.lock_metadata = false,
 
 			.cmpl_context = req,
 			.cmpl_fn = _ocf_engine_clean_end,

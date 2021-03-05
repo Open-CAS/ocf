@@ -33,6 +33,9 @@ struct ocf_req_info {
 	uint32_t mapping_error : 1;
 	/*!< Core lines in this request were not mapped into cache */
 
+	uint32_t clean_eviction : 1;
+	/*!< Eviction failed, need to request cleaning */
+
 	uint32_t core_error : 1;
 	/*!< Error occured during I/O on core device */
 
@@ -104,6 +107,7 @@ struct ocf_request {
 	/*!< OCF IO associated with request */
 
 	const struct ocf_engine_callbacks *engine_cbs;
+	/*!< Engine owning the request */
 
 	env_atomic ref_count;
 	/*!< Reference usage count, once OCF request reaches zero it
@@ -394,6 +398,16 @@ static inline void ocf_req_set_mapping_error(struct ocf_request *req)
 static inline bool ocf_req_test_mapping_error(struct ocf_request *req)
 {
 	return req->info.mapping_error;
+}
+
+static inline void ocf_req_set_clean_eviction(struct ocf_request *req)
+{
+	req->info.clean_eviction = true;
+}
+
+static inline bool ocf_req_test_clean_eviction(struct ocf_request *req)
+{
+	return req->info.clean_eviction;
 }
 
 /**

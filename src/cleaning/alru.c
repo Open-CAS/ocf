@@ -816,6 +816,7 @@ void cleaning_alru_perform_cleaning(ocf_cache_t cache, ocf_cleaner_end_t cmpl)
 	fctx->attribs.cmpl_context = fctx;
 	fctx->attribs.cmpl_fn = alru_clean_complete;
 	fctx->attribs.lock_cacheline = true;
+	fctx->attribs.lock_metadata = false;
 	fctx->attribs.do_sort = true;
 	fctx->attribs.io_queue = cache->cleaner.io_queue;
 
