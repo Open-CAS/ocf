@@ -969,14 +969,18 @@ void ocf_req_unlock_rd(struct ocf_cache_line_concurrency *c, struct ocf_request 
 
 	for (i = 0; i < req->core_line_count; i++) {
 
+		ENV_BUG_ON(req->map[i].wr_locked);
+
 		if (req->map[i].status == LOOKUP_MISS) {
 			/* MISS nothing to lock */
 			continue;
 		}
 
+		if (!req->map[i].rd_locked)
+			continue;
+
 		line = req->map[i].coll_idx;
 
-		ENV_BUG_ON(!req->map[i].rd_locked);
 		ENV_BUG_ON(line >= c->num_clines);
 
 		__unlock_cache_line_rd(c, line);
@@ -995,15 +999,18 @@ void ocf_req_unlock_wr(struct ocf_cache_line_concurrency *c, struct ocf_request 
 	OCF_DEBUG_RQ(req, "Unlock");
 
 	for (i = 0; i < req->core_line_count; i++) {
+		ENV_BUG_ON(req->map[i].rd_locked);
 
 		if (req->map[i].status == LOOKUP_MISS) {
 			/* MISS nothing to lock */
 			continue;
 		}
 
+		if (!req->map[i].wr_locked)
+			continue;
+
 		line = req->map[i].coll_idx;
 
-		ENV_BUG_ON(!req->map[i].wr_locked);
 		ENV_BUG_ON(line >= c->num_clines);
 
 		__unlock_cache_line_wr(c, line);
@@ -1039,8 +1046,6 @@ void ocf_req_unlock(struct ocf_cache_line_concurrency *c, struct ocf_request *re
 		} else if (req->map[i].wr_locked) {
 			__unlock_cache_line_wr(c, line);
 			req->map[i].wr_locked = false;
-		} else {
-			ENV_BUG();
 		}
 	}
 }
@@ -1102,6 +1107,24 @@ bool ocf_cache_line_are_waiters(struct ocf_cache_line_concurrency *c,
 	__unlock_waiters_list(c, line, flags);
 
 	return are;
+}
+
+/* NOTE: it is caller responsibility to assure that noone acquires
+ * a lock in background */
+bool ocf_cache_line_is_locked_exclusively(struct ocf_cache *cache,
+		ocf_cache_line_t line)
+{
+	struct ocf_cache_line_concurrency *c = cache->device->concurrency.cache_line;
+	env_atomic *access = &c->access[line];
+	int val = env_atomic_read(access);
+
+	ENV_BUG_ON(val == OCF_CACHE_LINE_ACCESS_IDLE);
+
+	if (ocf_cache_line_are_waiters(c, line))
+		return false;
+
+	return val == OCF_CACHE_LINE_ACCESS_ONE_RD ||
+			val == OCF_CACHE_LINE_ACCESS_WR;
 }
 
 /*
