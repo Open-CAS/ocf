@@ -33,7 +33,7 @@ static void ocf_read_wo_cache_complete(struct ocf_request *req, int error)
 	if (req->error)
 		ocf_engine_error(req, true, "Failed to read data from cache");
 
-	ocf_req_unlock_rd(req->cache->device->concurrency.cache_line, req);
+	ocf_req_unlock_rd(ocf_cache_line_concurrency(req->cache), req);
 
 	/* Complete request */
 	req->complete(req, req->error);
@@ -169,8 +169,7 @@ static void _ocf_read_wo_core_complete(struct ocf_request *req, int error)
 	if (!req->info.dirty_any || req->error) {
 		OCF_DEBUG_RQ(req, "Completion");
 		req->complete(req, req->error);
-		ocf_req_unlock_rd(req->cache->device->concurrency.cache_line,
-				req);
+		ocf_req_unlock_rd(ocf_cache_line_concurrency(req->cache), req);
 		ocf_req_put(req);
 		return;
 	}
@@ -238,7 +237,7 @@ int ocf_read_wo(struct ocf_request *req)
 		 * lock request for READ access
 		 */
 		lock = ocf_req_async_lock_rd(
-				req->cache->device->concurrency.cache_line,
+				ocf_cache_line_concurrency(req->cache),
 				req, ocf_engine_on_resume);
 	}
 

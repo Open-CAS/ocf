@@ -112,6 +112,9 @@ static inline uint32_t ocf_engine_unmapped_count(struct ocf_request *req)
 	return req->core_line_count - (req->info.hit_no + req->info.invalid_no);
 }
 
+void ocf_map_cache_line(struct ocf_request *req,
+		unsigned int idx, ocf_cache_line_t cache_line);
+
 /**
  * @brief Get number of cache lines to repart
  *
@@ -124,6 +127,12 @@ static inline uint32_t ocf_engine_repart_count(struct ocf_request *req)
 	return req->info.re_part_no;
 }
 
+static inline uint32_t ocf_engine_is_sequential(struct ocf_request *req)
+{
+	return req->info.hit_no + req->info.insert_no == req->core_line_count
+			&& req->info.seq_no == req->core_line_count - 1;
+}
+
 /**
  * @brief Get number of IOs to perform cache read or write
  *
@@ -133,7 +142,7 @@ static inline uint32_t ocf_engine_repart_count(struct ocf_request *req)
  */
 static inline uint32_t ocf_engine_io_count(struct ocf_request *req)
 {
-	return req->info.seq_req ? 1 : req->core_line_count;
+	return ocf_engine_is_sequential(req) ? 1 : req->core_line_count;
 }
 
 static inline
@@ -233,11 +242,10 @@ struct ocf_engine_callbacks
  * @param req OCF request
  *
  * @returns eviction status
- * @retval LOOKUP_MAPPED successfully evicted required number of cachelines
+ * @retval LOOKUP_INSERTED successfully evicted required number of cachelines
  * @retval LOOKUP_MISS eviction failure
  */
-int ocf_engine_prepare_clines(struct ocf_request *req,
-		const struct ocf_engine_callbacks *engine_cbs);
+int ocf_engine_prepare_clines(struct ocf_request *req);
 
 /**
  * @brief Traverse OCF request (lookup cache)
@@ -262,12 +270,14 @@ void ocf_engine_traverse(struct ocf_request *req);
 int ocf_engine_check(struct ocf_request *req);
 
 /**
- * @brief Update OCF request info
+ * @brief Update OCF request info after evicting a cacheline
  *
+ * @param cache OCF cache instance
  * @param req OCF request
+ * @param idx cacheline index within the request
  */
-void ocf_engine_update_req_info(struct ocf_cache *cache,
-		struct ocf_request *req, uint32_t entry);
+void ocf_engine_patch_req_info(struct ocf_cache *cache,
+		struct ocf_request *req, uint32_t idx);
 
 /**
  * @brief Update OCF request block statistics for an exported object

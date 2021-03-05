@@ -31,7 +31,7 @@ static int ocf_zero_purge(struct ocf_request *req)
 		ocf_hb_req_prot_unlock_wr(req); /*- END Metadata WR access ---------*/
 	}
 
-	ocf_req_unlock_wr(req->cache->device->concurrency.cache_line, req);
+	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
 	req->complete(req, req->error);
 
@@ -153,7 +153,7 @@ void ocf_engine_zero_line(struct ocf_request *req)
 
 	/* Some cache line are mapped, lock request for WRITE access */
 	lock = ocf_req_async_lock_wr(
-			req->cache->device->concurrency.cache_line,
+			ocf_cache_line_concurrency(req->cache),
 			req, ocf_engine_on_resume);
 
 	if (lock >= 0) {

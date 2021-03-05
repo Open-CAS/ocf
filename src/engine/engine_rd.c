@@ -24,8 +24,8 @@
 
 static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 {
-	struct ocf_cache_line_concurrency *c =
-			req->cache->device->concurrency.cache_line;
+	struct ocf_cache_line_concurrency *c = ocf_cache_line_concurrency(
+			req->cache);
 
 	if (error)
 		req->error |= error;
@@ -242,8 +242,9 @@ int ocf_read_generic(struct ocf_request *req)
 
 	/* Set resume call backs */
 	req->io_if = &_io_if_read_generic_resume;
+	req->engine_cbs = &_rd_engine_callbacks;
 
-	lock = ocf_engine_prepare_clines(req, &_rd_engine_callbacks);
+	lock = ocf_engine_prepare_clines(req);
 
 	if (!ocf_req_test_mapping_error(req)) {
 		if (lock >= 0) {

@@ -103,7 +103,12 @@ void ocf_part_move(struct ocf_request *req)
 			continue;
 		}
 
-		if (entry->status != LOOKUP_HIT) {
+		/* Moving cachelines to another partition is needed only
+		 * for those already mapped before this request, which
+		 * indicates either HIT or REMAPPED.
+		 */
+		if (entry->status != LOOKUP_HIT &&
+				entry->status != LOOKUP_REMAPPED) {
 			/* No HIT */
 			continue;
 		}

@@ -9,8 +9,7 @@
 #include "ocf/ocf_debug.h"
 #include "utils/utils_cache_line.h"
 
-#define SEQ_CUTOFF_FULL_MARGIN \
-                (OCF_TO_EVICTION_MIN + OCF_PENDING_EVICTION_LIMIT)
+#define SEQ_CUTOFF_FULL_MARGIN OCF_PENDING_EVICTION_LIMIT
 
 static inline bool ocf_seq_cutoff_is_on(ocf_cache_t cache,
 		struct ocf_request *req)

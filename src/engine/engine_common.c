@@ -93,20 +93,67 @@ static inline int _ocf_engine_check_map_entry(struct ocf_cache *cache,
 		return -1;
 }
 
-void ocf_engine_update_req_info(struct ocf_cache *cache,
-		struct ocf_request *req, uint32_t entry)
+/* Returns true if core lines on index 'entry' and 'entry + 1' within the request
+ * are physically contiguous.
+ */
+static inline bool ocf_engine_clines_phys_cont(struct ocf_request *req,
+		uint32_t entry)
+{
+	struct ocf_map_info *entry1, *entry2;
+	ocf_cache_line_t phys1, phys2;
+
+	entry1 = &req->map[entry];
+	entry2 = &req->map[entry + 1];
+
+	if (entry1->status == LOOKUP_MISS || entry2->status == LOOKUP_MISS)
+		return false;
+
+	phys1 = ocf_metadata_map_lg2phy(req->cache, entry1->coll_idx);
+	phys2 = ocf_metadata_map_lg2phy(req->cache, entry2->coll_idx);
+
+	return phys1 < phys2 && phys1 + 1 == phys2;
+}
+
+void ocf_engine_patch_req_info(struct ocf_cache *cache,
+		struct ocf_request *req, uint32_t idx)
+{
+	struct ocf_map_info *entry = &req->map[idx];
+
+	ENV_BUG_ON(entry->status != LOOKUP_REMAPPED);
+
+	req->info.insert_no++;
+
+	if (req->part_id != ocf_metadata_get_partition_id(cache,
+			entry->coll_idx)) {
+		/*
+		 * Need to move this cache line into other partition
+		 */
+		entry->re_part = true;
+		req->info.re_part_no++;
+	}
+
+	if (idx > 0 && ocf_engine_clines_phys_cont(req, idx - 1))
+		req->info.seq_no++;
+	if (idx + 1 < req->core_line_count &&
+			ocf_engine_clines_phys_cont(req, idx)) {
+		req->info.seq_no++;
+	}
+}
+
+static void ocf_engine_update_req_info(struct ocf_cache *cache,
+		struct ocf_request *req, uint32_t idx)
 {
 	uint8_t start_sector = 0;
 	uint8_t end_sector = ocf_line_end_sector(cache);
-	struct ocf_map_info *_entry = &(req->map[entry]);
+	struct ocf_map_info *entry = &(req->map[idx]);
 
-	start_sector = ocf_map_line_start_sector(req, entry);
-	end_sector = ocf_map_line_end_sector(req, entry);
+	start_sector = ocf_map_line_start_sector(req, idx);
+	end_sector = ocf_map_line_end_sector(req, idx);
 
 	/* Handle return value */
-	switch (_entry->status) {
+	switch (entry->status) {
 	case LOOKUP_HIT:
-		if (metadata_test_valid_sec(cache, _entry->coll_idx,
+		if (metadata_test_valid_sec(cache, entry->coll_idx,
 				start_sector, end_sector)) {
 			req->info.hit_no++;
 		} else {
@@ -114,29 +161,30 @@ void ocf_engine_update_req_info(struct ocf_cache *cache,
 		}
 
 		/* Check request is dirty */
-		if (metadata_test_dirty(cache, _entry->coll_idx)) {
+		if (metadata_test_dirty(cache, entry->coll_idx)) {
 			req->info.dirty_any++;
 
 			/* Check if cache line is fully dirty */
-			if (metadata_test_dirty_all_sec(cache, _entry->coll_idx,
+			if (metadata_test_dirty_all_sec(cache, entry->coll_idx,
 				start_sector, end_sector))
 				req->info.dirty_all++;
 		}
 
 		if (req->part_id != ocf_metadata_get_partition_id(cache,
-				_entry->coll_idx)) {
+				entry->coll_idx)) {
 			/*
 			 * Need to move this cache line into other partition
 			 */
-			_entry->re_part = true;
+			entry->re_part = true;
 			req->info.re_part_no++;
 		}
 
 		break;
-	case LOOKUP_MISS:
-		req->info.seq_req = false;
+	case LOOKUP_INSERTED:
+	case LOOKUP_REMAPPED:
+		req->info.insert_no++;
 		break;
-	case LOOKUP_MAPPED:
+	case LOOKUP_MISS:
 		break;
 	default:
 		ENV_BUG();
@@ -144,17 +192,29 @@ void ocf_engine_update_req_info(struct ocf_cache *cache,
 	}
 
 	/* Check if cache hit is sequential */
-	if (req->info.seq_req && entry) {
-		if (ocf_metadata_map_lg2phy(cache,
-			(req->map[entry - 1].coll_idx)) + 1 !=
-			ocf_metadata_map_lg2phy(cache,
-			_entry->coll_idx)) {
-			req->info.seq_req = false;
+	if (idx > 0 && ocf_engine_clines_phys_cont(req, idx - 1))
+		req->info.seq_no++;
+}
+
+static void ocf_engine_set_hot(struct ocf_request *req)
+{
+	struct ocf_cache *cache = req->cache;
+	struct ocf_map_info *entry;
+	uint8_t status;
+	unsigned i;
+
+	for (i = 0; i < req->core_line_count; i++) {
+		entry = &(req->map[i]);
+		status = entry->status;
+
+		if (status == LOOKUP_HIT || status == LOOKUP_INSERTED) {
+			/* Update eviction (LRU) */
+			ocf_eviction_set_hot_cache_line(cache, entry->coll_idx);
 		}
 	}
 }
 
-void ocf_engine_traverse(struct ocf_request *req)
+static void ocf_engine_lookup(struct ocf_request *req)
 {
 	uint32_t i;
 	uint64_t core_line;
@@ -165,7 +225,6 @@ void ocf_engine_traverse(struct ocf_request *req)
 	OCF_DEBUG_TRACE(req->cache);
 
 	ocf_req_clear_info(req);
-	req->info.seq_req = true;
 
 	for (i = 0, core_line = req->core_line_first;
 			core_line <= req->core_line_last; core_line++, i++) {
@@ -176,8 +235,6 @@ void ocf_engine_traverse(struct ocf_request *req)
 				core_line);
 
 		if (entry->status != LOOKUP_HIT) {
-			req->info.seq_req = false;
-
 			/* There is miss then lookup for next map entry */
 			OCF_DEBUG_PARAM(cache, "Miss, core line = %llu",
 					entry->core_line);
@@ -187,14 +244,16 @@ void ocf_engine_traverse(struct ocf_request *req)
 		OCF_DEBUG_PARAM(cache, "Hit, cache line %u, core line = %llu",
 				entry->coll_idx, entry->core_line);
 
-		/* Update eviction (LRU) */
-		ocf_eviction_set_hot_cache_line(cache, entry->coll_idx);
-
 		ocf_engine_update_req_info(cache, req, i);
 	}
 
-	OCF_DEBUG_PARAM(cache, "Sequential - %s", req->info.seq_req ?
-			"Yes" : "No");
+	OCF_DEBUG_PARAM(cache, "Sequential - %s", ocf_engine_is_sequential(req)
+			? "Yes" : "No");
+}
+void ocf_engine_traverse(struct ocf_request *req)
+{
+	ocf_engine_lookup(req);
+	ocf_engine_set_hot(req);
 }
 
 int ocf_engine_check(struct ocf_request *req)
@@ -209,7 +268,6 @@ int ocf_engine_check(struct ocf_request *req)
 	OCF_DEBUG_TRACE(req->cache);
 
 	ocf_req_clear_info(req);
-	req->info.seq_req = true;
 
 	for (i = 0, core_line = req->core_line_first;
 			core_line <= req->core_line_last; core_line++, i++) {
@@ -217,14 +275,12 @@ int ocf_engine_check(struct ocf_request *req)
 		struct ocf_map_info *entry = &(req->map[i]);
 
 		if (entry->status == LOOKUP_MISS) {
-			req->info.seq_req = false;
 			continue;
 		}
 
 		if (_ocf_engine_check_map_entry(cache, entry, core_id)) {
 			/* Mapping is invalid */
 			entry->invalid = true;
-			req->info.seq_req = false;
 
 			OCF_DEBUG_PARAM(cache, "Invalid, Cache line %u",
 					entry->coll_idx);
@@ -240,38 +296,26 @@ int ocf_engine_check(struct ocf_request *req)
 		}
 	}
 
-	OCF_DEBUG_PARAM(cache, "Sequential - %s", req->info.seq_req ?
-			"Yes" : "No");
+	OCF_DEBUG_PARAM(cache, "Sequential - %s", ocf_engine_is_sequential(req)
+			? "Yes" : "No");
 
 	return result;
 }
 
-static void ocf_engine_map_cache_line(struct ocf_request *req,
-		uint64_t core_line, unsigned int hash_index,
-		ocf_cache_line_t *cache_line)
+void ocf_map_cache_line(struct ocf_request *req,
+		unsigned int idx, ocf_cache_line_t cache_line)
 {
-	struct ocf_cache *cache = req->cache;
+	ocf_cache_t cache = req->cache;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
-	ocf_part_id_t part_id = req->part_id;
 	ocf_cleaning_t clean_policy_type;
-
-	if (!ocf_freelist_get_cache_line(cache->freelist, cache_line)) {
-		ocf_req_set_mapping_error(req);
-		return;
-	}
-
-	ocf_metadata_add_to_partition(cache, part_id, *cache_line);
+	unsigned int hash_index = req->map[idx].hash;
+	uint64_t core_line = req->core_line_first + idx;
 
 	/* Add the block to the corresponding collision list */
-	ocf_metadata_start_collision_shared_access(cache, *cache_line);
+	ocf_metadata_start_collision_shared_access(cache, cache_line);
 	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,
-			*cache_line);
-	ocf_metadata_end_collision_shared_access(cache, *cache_line);
-
-	ocf_eviction_init_cache_line(cache, *cache_line);
-
-	/* Update LRU:: Move this node to head of lru list. */
-	ocf_eviction_set_hot_cache_line(cache, *cache_line);
+			cache_line);
+	ocf_metadata_end_collision_shared_access(cache, cache_line);
 
 	/* Update dirty cache-block list */
 	clean_policy_type = cache->conf_meta->cleaning_policy_type;
@@ -280,7 +324,29 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 
 	if (cleaning_policy_ops[clean_policy_type].init_cache_block != NULL)
 		cleaning_policy_ops[clean_policy_type].
-				init_cache_block(cache, *cache_line);
+				init_cache_block(cache, cache_line);
+
+	req->map[idx].coll_idx = cache_line;
+}
+
+
+static void ocf_engine_map_cache_line(struct ocf_request *req,
+		unsigned int idx)
+{
+	struct ocf_cache *cache = req->cache;
+	ocf_cache_line_t cache_line;
+
+	if (!ocf_freelist_get_cache_line(cache->freelist, &cache_line)) {
+		ocf_req_set_mapping_error(req);
+		return;
+	}
+
+	ocf_metadata_add_to_partition(cache, req->part_id, cache_line);
+
+	ocf_map_cache_line(req, idx, cache_line);
+
+	/* Update LRU:: Move this node to head of lru list. */
+	ocf_eviction_init_cache_line(cache, cache_line);
 }
 
 static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
@@ -297,7 +363,8 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 		case LOOKUP_MISS:
 			break;
 
-		case LOOKUP_MAPPED:
+		case LOOKUP_INSERTED:
+		case LOOKUP_REMAPPED:
 			OCF_DEBUG_RQ(req, "Canceling cache line %u",
 					entry->coll_idx);
 
@@ -312,7 +379,6 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 
 			ocf_metadata_end_collision_shared_access(cache,
 					entry->coll_idx);
-
 			break;
 
 		default:
@@ -328,7 +394,6 @@ static void ocf_engine_map(struct ocf_request *req)
 	uint32_t i;
 	struct ocf_map_info *entry;
 	uint64_t core_line;
-	int status = LOOKUP_MAPPED;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
 	if (!ocf_engine_unmapped_count(req))
@@ -341,7 +406,6 @@ static void ocf_engine_map(struct ocf_request *req)
 	}
 
 	ocf_req_clear_info(req);
-	req->info.seq_req = true;
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -351,30 +415,26 @@ static void ocf_engine_map(struct ocf_request *req)
 
 		ocf_engine_lookup_map_entry(cache, entry, core_id, core_line);
 
-		if (entry->status != LOOKUP_HIT) {
-			ocf_engine_map_cache_line(req, entry->core_line,
-					entry->hash, &entry->coll_idx);
-
-			if (ocf_req_test_mapping_error(req)) {
-				/*
-				 * Eviction error (mapping error), need to
-				 * clean, return and do pass through
-				 */
-				OCF_DEBUG_RQ(req, "Eviction ERROR when mapping");
-				ocf_engine_map_hndl_error(cache, req);
-				break;
-			}
-
-			entry->status = status;
+		/* attempt mapping only if no mapping error previously,
+		 * otherwise continue the loop anyway to have request fully
+		 * traversed after map()
+		 */
+		if (entry->status != LOOKUP_HIT &&
+				!ocf_req_test_mapping_error(req)) {
+			ocf_engine_map_cache_line(req, i);
+			if (!ocf_req_test_mapping_error(req))
+				entry->status = LOOKUP_INSERTED;
 		}
+
+		if (entry->status != LOOKUP_MISS)
+			ocf_engine_update_req_info(cache, req, i);
 
 		OCF_DEBUG_PARAM(req->cache,
 			"%s, cache line %u, core line = %llu",
-			entry->status == LOOKUP_HIT ? "Hit" : "Map",
+			entry->status == LOOKUP_HIT ? "Hit" :
+				entry->status == LOOKUP_MISS : "Miss" :
+						"Insert",
 			entry->coll_idx, entry->core_line);
-
-		ocf_engine_update_req_info(cache, req, i);
-
 	}
 
 	if (!ocf_req_test_mapping_error(req)) {
@@ -383,8 +443,8 @@ static void ocf_engine_map(struct ocf_request *req)
 		ocf_promotion_req_purge(cache->promotion_policy, req);
 	}
 
-	OCF_DEBUG_PARAM(req->cache, "Sequential - %s", req->info.seq_req ?
-			"Yes" : "No");
+	OCF_DEBUG_PARAM(req->cache, "Sequential - %s",
+			ocf_engine_is_sequential(req) ? "Yes" : "No");
 }
 
 static void _ocf_engine_clean_end(void *private_data, int error)
@@ -396,7 +456,7 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 		req->error |= error;
 
 		/* End request and do not processing */
-		ocf_req_unlock(req->cache->device->concurrency.cache_line,
+		ocf_req_unlock(ocf_cache_line_concurrency(req->cache),
 				req);
 
 		/* Complete request */
@@ -411,96 +471,117 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	}
 }
 
-static int lock_clines(struct ocf_request *req,
-		const struct ocf_engine_callbacks *engine_cbs)
+static void ocf_engine_evict(struct ocf_request *req)
 {
-	enum ocf_engine_lock_type lock_type = engine_cbs->get_lock_type(req);
-	struct ocf_cache_line_concurrency *c =
-			req->cache->device->concurrency.cache_line;
+	int status;
+
+	status = space_managment_evict_do(req);
+	if (status == LOOKUP_MISS) {
+		/* mark error */
+		ocf_req_set_mapping_error(req);
+
+		/* unlock cachelines locked during eviction */
+		ocf_req_unlock(ocf_cache_line_concurrency(req->cache),
+				req);
+
+		/* request cleaning */
+		ocf_req_set_clean_eviction(req);
+
+		/* unmap inserted and replaced cachelines */
+		ocf_engine_map_hndl_error(req->cache, req);
+	}
+
+	return;
+}
+
+static int lock_clines(struct ocf_request *req)
+{
+	struct ocf_cache_line_concurrency *c = ocf_cache_line_concurrency(req->cache);
+	enum ocf_engine_lock_type lock_type =
+		req->engine_cbs->get_lock_type(req);
 
 	switch (lock_type) {
 	case ocf_engine_lock_write:
-		return ocf_req_async_lock_wr(c, req, engine_cbs->resume);
+		return ocf_req_async_lock_wr(c, req, req->engine_cbs->resume);
 	case ocf_engine_lock_read:
-		return ocf_req_async_lock_rd(c, req, engine_cbs->resume);
+		return ocf_req_async_lock_rd(c, req, req->engine_cbs->resume);
 	default:
 		return OCF_LOCK_ACQUIRED;
 	}
 }
 
-static inline int ocf_prepare_clines_miss(struct ocf_request *req,
-		const struct ocf_engine_callbacks *engine_cbs)
+/* Attempt to map cachelines marked as LOOKUP_MISS by evicting from cache.
+ * Caller must assure that request map info is up to date (request
+ * is traversed).
+ */
+static inline int ocf_prepare_clines_evict(struct ocf_request *req)
 {
 	int lock_status = -OCF_ERR_NO_LOCK;
-	struct ocf_metadata_lock *metadata_lock = &req->cache->metadata.lock;
+	bool part_has_space;
+
+	part_has_space = ocf_part_has_space(req);
+	if (!part_has_space) {
+		/* adding more cachelines to target partition would overflow
+		   it - requesting eviction from target partition only */
+		ocf_req_set_part_evict(req);
+	} else {
+		/* evict from any partition */
+		ocf_req_clear_part_evict(req);
+	}
+
+	ocf_engine_evict(req);
+
+	if (!ocf_req_test_mapping_error(req)) {
+		ocf_promotion_req_purge(req->cache->promotion_policy, req);
+		lock_status = lock_clines(req);
+		if (lock_status < 0)
+			ocf_req_set_mapping_error(req);
+	}
+
+	return lock_status;
+}
+
+static inline int ocf_prepare_clines_miss(struct ocf_request *req)
+{
+	int lock_status = -OCF_ERR_NO_LOCK;
 
 	/* requests to disabled partitions go in pass-through */
 	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
 		ocf_req_set_mapping_error(req);
-		ocf_hb_req_prot_unlock_rd(req);
 		return lock_status;
 	}
 
 	if (!ocf_part_has_space(req)) {
-		ocf_hb_req_prot_unlock_rd(req);
-		goto eviction;
+		ocf_engine_lookup(req);
+		return ocf_prepare_clines_evict(req);
 	}
 
-	/* Mapping must be performed holding (at least) hash-bucket write lock */
-	ocf_hb_req_prot_lock_upgrade(req);
-
 	ocf_engine_map(req);
-
 	if (!ocf_req_test_mapping_error(req)) {
-		lock_status = lock_clines(req, engine_cbs);
+		lock_status = lock_clines(req);
 		if (lock_status < 0) {
 			/* Mapping succeeded, but we failed to acquire cacheline lock.
 			 * Don't try to evict, just return error to caller */
 			ocf_req_set_mapping_error(req);
 		}
-		ocf_hb_req_prot_unlock_wr(req);
 		return lock_status;
 	}
 
-	ocf_hb_req_prot_unlock_wr(req);
-
-eviction:
-	ocf_metadata_start_exclusive_access(metadata_lock);
-
-	/* repeat traversation to pick up latest metadata status */
-	ocf_engine_traverse(req);
-
-	if (!ocf_part_has_space(req))
-		ocf_req_set_part_evict(req);
-	else
-		ocf_req_clear_part_evict(req);
-
-	if (space_managment_evict_do(req->cache, req,
-			ocf_engine_unmapped_count(req)) == LOOKUP_MISS) {
-		ocf_req_set_mapping_error(req);
-		goto unlock;
-	}
-
-	ocf_engine_map(req);
-	if (ocf_req_test_mapping_error(req))
-		goto unlock;
-
-	lock_status = lock_clines(req, engine_cbs);
-	if (lock_status < 0)
-		ocf_req_set_mapping_error(req);
-
-unlock:
-	ocf_metadata_end_exclusive_access(metadata_lock);
-
-	return lock_status;
+	/* Request mapping failed, but it is fully traversed as a side
+	 * effect of ocf_engine_map(), so no need to repeat the traversation
+	 * before eviction.
+	 * */
+	req->info.mapping_error = false;
+	return ocf_prepare_clines_evict(req);
 }
 
-int ocf_engine_prepare_clines(struct ocf_request *req,
-		const struct ocf_engine_callbacks *engine_cbs)
+int ocf_engine_prepare_clines(struct ocf_request *req)
 {
+	struct ocf_user_part *part = &req->cache->user_parts[req->part_id];
 	bool mapped;
 	bool promote = true;
 	int lock = -OCF_ERR_NO_LOCK;
+	int result;
 
 	/* Calculate hashes for hash-bucket locking */
 	ocf_req_hash(req);
@@ -510,13 +591,14 @@ int ocf_engine_prepare_clines(struct ocf_request *req,
 	 * not change during traversation */
 	ocf_hb_req_prot_lock_rd(req);
 
-	/* Traverse to check if request is mapped fully */
-	ocf_engine_traverse(req);
+	/* check CL status */
+	ocf_engine_lookup(req);
 
 	mapped = ocf_engine_is_mapped(req);
 	if (mapped) {
-		lock = lock_clines(req, engine_cbs);
+		lock = lock_clines(req);
 		ocf_hb_req_prot_unlock_rd(req);
+		ocf_engine_set_hot(req);
 		return lock;
 	}
 
@@ -529,7 +611,20 @@ int ocf_engine_prepare_clines(struct ocf_request *req,
 		return lock;
 	}
 
-	return ocf_prepare_clines_miss(req, engine_cbs);
+	/* Mapping must be performed holding (at least) hash-bucket write lock */
+	ocf_hb_req_prot_lock_upgrade(req);
+	result = ocf_prepare_clines_miss(req);
+	ocf_hb_req_prot_unlock_wr(req);
+
+	if (ocf_req_test_clean_eviction(req)) {
+		ocf_eviction_flush_dirty(req->cache, part, req->io_queue,
+				128);
+	}
+
+	if (!ocf_req_test_mapping_error(req))
+		ocf_engine_set_hot(req);
+
+	return result;
 }
 
 static int _ocf_engine_clean_getter(struct ocf_cache *cache,
@@ -562,7 +657,8 @@ void ocf_engine_clean(struct ocf_request *req)
 {
 	/* Initialize attributes for cleaner */
 	struct ocf_cleaner_attribs attribs = {
-			.cache_line_lock = false,
+			.lock_cacheline = false,
+			.lock_metadata = false,
 
 			.cmpl_context = req,
 			.cmpl_fn = _ocf_engine_clean_end,
@@ -706,8 +802,7 @@ static int _ocf_engine_refresh(struct ocf_request *req)
 		req->complete(req, req->error);
 
 		/* Release WRITE lock of request */
-		ocf_req_unlock(req->cache->device->concurrency.cache_line,
-			req);
+		ocf_req_unlock(ocf_cache_line_concurrency(req->cache), req);
 
 		/* Release OCF request */
 		ocf_req_put(req);

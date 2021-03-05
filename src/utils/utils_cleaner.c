@@ -12,6 +12,7 @@
 #include "utils_part.h"
 #include "utils_io.h"
 #include "utils_cache_line.h"
+#include "../ocf_queue_priv.h"
 
 #define OCF_UTILS_CLEANER_DEBUG 0
 
@@ -46,7 +47,7 @@ static struct ocf_request *_ocf_cleaner_alloc_req(struct ocf_cache *cache,
 		return NULL;
 
 	req->info.internal = true;
-	req->info.cleaner_cache_line_lock = attribs->cache_line_lock;
+	req->info.cleaner_cache_line_lock = attribs->lock_cacheline;
 
 	/* Allocate pages for cleaning IO */
 	req->data = ctx_data_alloc(cache->owner,
@@ -213,8 +214,7 @@ static int _ocf_cleaner_cache_line_lock(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	return ocf_req_async_lock_rd(
-			req->cache->device->concurrency.cache_line,
+	return ocf_req_async_lock_rd(ocf_cache_line_concurrency(req->cache),
 			req, _ocf_cleaner_on_resume);
 }
 
@@ -323,7 +323,6 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 	/* Update metadata */
 	for (i = 0; i < req->core_line_count; i++, iter++) {
 		if (iter->status == LOOKUP_MISS)
@@ -336,22 +335,29 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 
 		cache_line = iter->coll_idx;
 
-		if (!metadata_test_dirty(cache, cache_line))
-			continue;
+		ocf_hb_cline_prot_lock_wr(&cache->metadata.lock,
+				req->lock_idx, req->map[i].core_id,
+				req->map[i].core_line);
 
-		ocf_metadata_get_core_and_part_id(cache, cache_line,
-				&core_id, &req->part_id);
-		req->core = &cache->core[core_id];
+		if (metadata_test_dirty(cache, cache_line)) {
+			ocf_metadata_get_core_and_part_id(cache, cache_line,
+					&core_id, &req->part_id);
+			req->core = &cache->core[core_id];
 
-		ocf_metadata_start_collision_shared_access(cache, cache_line);
-		set_cache_line_clean(cache, 0, ocf_line_end_sector(cache), req,
-				i);
-		ocf_metadata_end_collision_shared_access(cache, cache_line);
+			ocf_metadata_start_collision_shared_access(cache,
+					cache_line);
+			set_cache_line_clean(cache, 0,
+					ocf_line_end_sector(cache), req, i);
+			ocf_metadata_end_collision_shared_access(cache,
+					cache_line);
+		}
+
+		ocf_hb_cline_prot_unlock_wr(&cache->metadata.lock,
+				req->lock_idx, req->map[i].core_id,
+				req->map[i].core_line);
 	}
 
 	ocf_metadata_flush_do_asynch(cache, req, _ocf_cleaner_metadata_io_end);
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
-
 	return 0;
 }
 
@@ -577,6 +583,7 @@ static int _ocf_cleaner_fire_core(struct ocf_request *req)
 {
 	uint32_t i;
 	struct ocf_map_info *iter;
+	ocf_cache_t cache = req->cache;
 
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -595,7 +602,15 @@ static int _ocf_cleaner_fire_core(struct ocf_request *req)
 		if (iter->status == LOOKUP_MISS)
 			continue;
 
+		ocf_hb_cline_prot_lock_rd(&cache->metadata.lock,
+				req->lock_idx, req->map[i].core_id,
+				req->map[i].core_line);
+
 		_ocf_cleaner_core_submit_io(req, iter);
+
+		ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock,
+				req->lock_idx, req->map[i].core_id,
+				req->map[i].core_line);
 	}
 
 	/* Protect IO completion race */
@@ -833,6 +848,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	int err;
 	ocf_core_id_t core_id;
 	uint64_t core_sector;
+	bool skip;
 
 	/* Allocate master request */
 	master = _ocf_cleaner_alloc_master_req(cache, max, attribs);
@@ -855,7 +871,6 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	env_atomic_inc(&master->master_remaining);
 
 	for (i = 0; i < count; i++) {
-
 		/* when request hasn't yet been allocated or is just issued */
 		if (!req) {
 			if (max > count - i) {
@@ -886,12 +901,23 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 			continue;
 		}
 
+		/* Get mapping info */
+		ocf_metadata_get_core_info(cache, cache_line, &core_id,
+				&core_sector);
+
+		if (attribs->lock_metadata) {
+			ocf_hb_cline_prot_lock_rd(&cache->metadata.lock,
+					req->lock_idx, core_id, core_sector);
+		}
+
+		skip = false;
+
 		/* when line already cleaned - rare condition under heavy
 		 * I/O workload.
 		 */
 		if (!metadata_test_dirty(cache, cache_line)) {
 			OCF_DEBUG_MSG(cache, "Not dirty");
-			continue;
+			skip = true;
 		}
 
 		if (!metadata_test_valid_any(cache, cache_line)) {
@@ -902,12 +928,16 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 			 * Cache line (sector) cannot be dirty and not valid
 			 */
 			ENV_BUG();
-			continue;
+			skip = true;
 		}
 
-		/* Get mapping info */
-		ocf_metadata_get_core_info(cache, cache_line, &core_id,
-				&core_sector);
+		if (attribs->lock_metadata) {
+			ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock,
+					req->lock_idx, core_id, core_sector);
+		}
+
+		if (skip)
+			continue;
 
 		if (unlikely(!cache->core[core_id].opened)) {
 			OCF_DEBUG_MSG(cache, "Core object inactive");
@@ -931,6 +961,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 			i_out = 0;
 			req  = NULL;
 		}
+
 	}
 
 	if (req) {
@@ -1022,7 +1053,7 @@ void ocf_cleaner_refcnt_freeze(ocf_cache_t cache)
 	ocf_part_id_t part_id;
 
 	for_each_part(cache, curr_part, part_id)
-		ocf_refcnt_freeze(&curr_part->cleaning);
+		ocf_refcnt_freeze(&curr_part->cleaning.counter);
 }
 
 void ocf_cleaner_refcnt_unfreeze(ocf_cache_t cache)
@@ -1031,7 +1062,7 @@ void ocf_cleaner_refcnt_unfreeze(ocf_cache_t cache)
 	ocf_part_id_t part_id;
 
 	for_each_part(cache, curr_part, part_id)
-		ocf_refcnt_unfreeze(&curr_part->cleaning);
+		ocf_refcnt_unfreeze(&curr_part->cleaning.counter);
 }
 
 static void ocf_cleaner_refcnt_register_zero_cb_finish(void *priv)
@@ -1055,7 +1086,7 @@ void ocf_cleaner_refcnt_register_zero_cb(ocf_cache_t cache,
 
 	for_each_part(cache, curr_part, part_id) {
 		env_atomic_inc(&ctx->waiting);
-		ocf_refcnt_register_zero_cb(&curr_part->cleaning,
+		ocf_refcnt_register_zero_cb(&curr_part->cleaning.counter,
 				ocf_cleaner_refcnt_register_zero_cb_finish, ctx);
 	}
 

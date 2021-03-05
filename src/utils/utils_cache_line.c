@@ -44,8 +44,7 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 	 * only valid bits
 	 */
 	if (!is_valid && !ocf_cache_line_are_waiters(
-			cache->device->concurrency.cache_line,
-			line)) {
+			ocf_cache_line_concurrency(cache), line)) {
 		ocf_purge_eviction_policy(cache, line);
 		ocf_metadata_remove_cache_line(cache, line);
 	}

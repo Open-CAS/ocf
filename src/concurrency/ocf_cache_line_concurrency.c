@@ -710,9 +710,19 @@ static inline void __remove_line_from_waiters_list(struct ocf_cache_line_concurr
 	__unlock_waiters_list(c, line, flags);
 }
 
+static inline bool _ocf_req_needs_cl_lock(struct ocf_request *req, unsigned entry)
+{
+	/* Remapped cachelines are assigned cacheline lock individually
+	 * during eviction
+	 */
+	return req->map[entry].status != LOOKUP_MISS &&
+			req->map[entry].status != LOOKUP_REMAPPED;
+}
+
 /* Try to read-lock request without adding waiters. Function should be called
  * under read lock, multiple threads may attempt to acquire the lock
- * concurrently. */
+ * concurrently.
+ */
 static int _ocf_req_trylock_rd(struct ocf_cache_line_concurrency *c,
 		struct ocf_request *req)
 {
@@ -725,8 +735,8 @@ static int _ocf_req_trylock_rd(struct ocf_cache_line_concurrency *c,
 	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
 
 	for (i = 0; i < req->core_line_count; i++) {
-		if (req->map[i].status == LOOKUP_MISS) {
-			/* MISS nothing to lock */
+		if (!_ocf_req_needs_cl_lock(req, i)) {
+			/* nothing to lock */
 			continue;
 		}
 
@@ -750,6 +760,11 @@ static int _ocf_req_trylock_rd(struct ocf_cache_line_concurrency *c,
 	if (ret == OCF_LOCK_NOT_ACQUIRED) {
 		/* Request is not locked, discard acquired locks */
 		for (; i >= 0; i--) {
+			if (!_ocf_req_needs_cl_lock(req, i)) {
+				/* nothing to discard */
+				continue;
+			}
+
 			line = req->map[i].coll_idx;
 
 			if (req->map[i].rd_locked) {
@@ -781,8 +796,8 @@ static int _ocf_req_lock_rd(struct ocf_cache_line_concurrency *c,
 
 	for (i = 0; i < req->core_line_count; i++) {
 
-		if (req->map[i].status == LOOKUP_MISS) {
-			/* MISS nothing to lock */
+		if (!_ocf_req_needs_cl_lock(req, i)) {
+			/* nothing to lock */
 			env_atomic_dec(&req->lock_remaining);
 			continue;
 		}
@@ -808,6 +823,9 @@ static int _ocf_req_lock_rd(struct ocf_cache_line_concurrency *c,
 
 err:
 	for (; i >= 0; i--) {
+		if (!_ocf_req_needs_cl_lock(req, i))
+			continue;
+
 		__remove_line_from_waiters_list(c, req, i, req,
 				OCF_READ);
 	}
@@ -847,8 +865,8 @@ static int _ocf_req_trylock_wr(struct ocf_cache_line_concurrency *c,
 	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
 
 	for (i = 0; i < req->core_line_count; i++) {
-		if (req->map[i].status == LOOKUP_MISS) {
-			/* MISS nothing to lock */
+		if (!_ocf_req_needs_cl_lock(req, i)) {
+			/* nothing to lock */
 			continue;
 		}
 
@@ -872,6 +890,9 @@ static int _ocf_req_trylock_wr(struct ocf_cache_line_concurrency *c,
 	if (ret == OCF_LOCK_NOT_ACQUIRED) {
 		/* Request is not locked, discard acquired locks */
 		for (; i >= 0; i--) {
+			if (!_ocf_req_needs_cl_lock(req, i))
+				continue;
+
 			line = req->map[i].coll_idx;
 
 			if (req->map[i].wr_locked) {
@@ -904,8 +925,8 @@ static int _ocf_req_lock_wr(struct ocf_cache_line_concurrency *c,
 
 	for (i = 0; i < req->core_line_count; i++) {
 
-		if (req->map[i].status == LOOKUP_MISS) {
-			/* MISS nothing to lock */
+		if (!_ocf_req_needs_cl_lock(req, i)) {
+			/* nothing to lock */
 			env_atomic_dec(&req->lock_remaining);
 			continue;
 		}
@@ -931,6 +952,9 @@ static int _ocf_req_lock_wr(struct ocf_cache_line_concurrency *c,
 
 err:
 	for (; i >= 0; i--) {
+		if (!_ocf_req_needs_cl_lock(req, i))
+			continue;
+
 		__remove_line_from_waiters_list(c, req, i, req,
 				OCF_WRITE);
 	}
@@ -968,15 +992,16 @@ void ocf_req_unlock_rd(struct ocf_cache_line_concurrency *c, struct ocf_request 
 	OCF_DEBUG_RQ(req, "Unlock");
 
 	for (i = 0; i < req->core_line_count; i++) {
+		ENV_BUG_ON(req->map[i].wr_locked);
 
-		if (req->map[i].status == LOOKUP_MISS) {
-			/* MISS nothing to lock */
+		if (req->map[i].status == LOOKUP_MISS)
 			continue;
-		}
+
+		if (!req->map[i].rd_locked)
+			continue;
 
 		line = req->map[i].coll_idx;
 
-		ENV_BUG_ON(!req->map[i].rd_locked);
 		ENV_BUG_ON(line >= c->num_clines);
 
 		__unlock_cache_line_rd(c, line);
@@ -995,15 +1020,16 @@ void ocf_req_unlock_wr(struct ocf_cache_line_concurrency *c, struct ocf_request 
 	OCF_DEBUG_RQ(req, "Unlock");
 
 	for (i = 0; i < req->core_line_count; i++) {
+		ENV_BUG_ON(req->map[i].rd_locked);
 
-		if (req->map[i].status == LOOKUP_MISS) {
-			/* MISS nothing to lock */
+		if (req->map[i].status == LOOKUP_MISS)
 			continue;
-		}
+
+		if (!req->map[i].wr_locked)
+			continue;
 
 		line = req->map[i].coll_idx;
 
-		ENV_BUG_ON(!req->map[i].wr_locked);
 		ENV_BUG_ON(line >= c->num_clines);
 
 		__unlock_cache_line_wr(c, line);
@@ -1022,11 +1048,8 @@ void ocf_req_unlock(struct ocf_cache_line_concurrency *c, struct ocf_request *re
 	OCF_DEBUG_RQ(req, "Unlock");
 
 	for (i = 0; i < req->core_line_count; i++) {
-
-		if (req->map[i].status == LOOKUP_MISS) {
-			/* MISS nothing to lock */
+		if (req->map[i].status == LOOKUP_MISS)
 			continue;
-		}
 
 		line = req->map[i].coll_idx;
 		ENV_BUG_ON(line >= c->num_clines);
@@ -1039,8 +1062,6 @@ void ocf_req_unlock(struct ocf_cache_line_concurrency *c, struct ocf_request *re
 		} else if (req->map[i].wr_locked) {
 			__unlock_cache_line_wr(c, line);
 			req->map[i].wr_locked = false;
-		} else {
-			ENV_BUG();
 		}
 	}
 }
@@ -1102,6 +1123,25 @@ bool ocf_cache_line_are_waiters(struct ocf_cache_line_concurrency *c,
 	__unlock_waiters_list(c, line, flags);
 
 	return are;
+}
+
+/* NOTE: it is caller responsibility to assure that noone acquires
+ * a lock in background */
+bool ocf_cache_line_is_locked_exclusively(struct ocf_cache *cache,
+		ocf_cache_line_t line)
+{
+	struct ocf_cache_line_concurrency *c =
+			ocf_cache_line_concurrency(cache);
+	env_atomic *access = &c->access[line];
+	int val = env_atomic_read(access);
+
+	ENV_BUG_ON(val == OCF_CACHE_LINE_ACCESS_IDLE);
+
+	if (ocf_cache_line_are_waiters(c, line))
+		return false;
+
+	return val == OCF_CACHE_LINE_ACCESS_ONE_RD ||
+			val == OCF_CACHE_LINE_ACCESS_WR;
 }
 
 /*

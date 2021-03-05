@@ -10,6 +10,8 @@
  *  _lru_evp_set_empty
  *  _lru_evp_all_empty
  *  ocf_rotate_right
+ *  lru_iter_eviction_next
+ *  lru_iter_cleaning_next
  * </functions_to_leave>
  */
 
@@ -157,7 +159,26 @@ void write_test_case_description(void)
 		test_case++;
 	}
 
+	/* transform cacheline numbers so that they remain unique but have
+	 * assignment to list modulo OCF_NUM_EVICTION_LISTS */
+	for (test_case = 0; test_case < num_cases; test_case++) {
+		for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+			j = 0;
+			while (test_cases[j][i][test_case] != -1) {
+				test_cases[j][i][test_case] = test_cases[j][i][test_case] *
+						OCF_NUM_EVICTION_LISTS + i;
+				j++;
+			}
+		}
+	}
+
 #ifdef DEBUG
+	static bool desc_printed = false;
+
+	if (desc_printed)
+		return;
+	desc_printed = true;
+
 	for (test_case = 0; test_case < num_cases; test_case++) {
 		print_message("test case no %d\n", test_case);
 		for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
@@ -195,6 +216,11 @@ struct ocf_lru_list *__wrap_evp_lru_get_list(struct ocf_user_part *part,
 		list.tail = test_cases[i - 1][evp][current_case];
 		list.num_nodes = i;
 	}
+
+#ifdef DEBUG
+	print_message("list for case %u evp %u: head: %u tail %u elems %u\n",
+		current_case, evp, list.head, list.tail, list.num_nodes);
+#endif
 
 	return &list;
 }
@@ -245,6 +271,76 @@ union eviction_policy_meta *__wrap_ocf_metadata_get_eviction_policy(
 }
 
 
+void __wrap_add_lru_head(ocf_cache_t cache,
+		struct ocf_lru_list *list,
+		unsigned int collision_index)
+{
+	unsigned list_head = list->head;
+	unsigned i, j = collision_index % OCF_NUM_EVICTION_LISTS;
+
+	i = 1;
+	while (test_cases[i][j][current_case] != -1)
+		i++;
+
+	test_cases[i+1][j][current_case] = -1;
+
+	while (i--)
+		test_cases[i + 1][j][current_case] = test_cases[i][j][current_case];
+
+	test_cases[0][j][current_case] = collision_index;
+
+#ifdef DEBUG
+	print_message("case %u evp %u  head set to  %u\n", current_case, j, collision_index);
+#endif
+}
+
+
+void __wrap_remove_lru_list(ocf_cache_t cache,
+		struct ocf_lru_list *list,
+		unsigned int collision_index)
+{
+	bool found;
+	unsigned i, j;
+
+	found = false;
+	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
+	{
+		j = 0;
+
+		while (test_cases[j][i][current_case] != -1) {
+			if (!found && test_cases[j][i][current_case] == collision_index) {
+				assert_int_equal(test_cases[0][i][current_case], list->head);
+				found = true;
+			}
+			if (found)
+				test_cases[j][i][current_case] = test_cases[j+1][i][current_case];
+			j++;
+		}
+
+		if (found)
+			break;
+	}
+
+	assert(found);
+
+#ifdef DEBUG
+	print_message("case %u removed  %u from evp  %u\n", current_case, collision_index, i);
+#endif
+}
+
+bool __wrap__lru_lock(struct ocf_lru_iter *iter,
+		ocf_cache_line_t cache_line,
+		ocf_core_id_t *core_id, uint64_t *core_line)
+{
+	return true;
+}
+
+bool __wrap__lru_trylock_cacheline(struct ocf_lru_iter *iter,
+		ocf_cache_line_t cline)
+{
+	return true;
+}
+
 static void _lru_run_test(unsigned test_case)
 {
 	unsigned start_pos;
@@ -258,6 +354,8 @@ static void _lru_run_test(unsigned test_case)
 		unsigned pos[OCF_NUM_EVICTION_LISTS];
 		unsigned i;
 
+		write_test_case_description();
+
 		for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
 		{
 			pos[i] = -1;
@@ -265,12 +363,10 @@ static void _lru_run_test(unsigned test_case)
 				pos[i]++;
 		}
 
-		lru_iter_init(&iter, NULL, NULL, start_pos, false);
+		lru_iter_init(&iter, NULL, NULL, start_pos, false, false, false,
+				NULL, NULL);
 
 		do {
-			/* get cacheline from iterator */
-			cache_line = lru_iter_next(&iter);
-
 			/* check what is expected to be returned from iterator */
 			if (pos[curr_evp] == -1) {
 				i = 1;
@@ -293,6 +389,9 @@ static void _lru_run_test(unsigned test_case)
 						[curr_evp][test_case];
 				pos[curr_evp]--;
 			}
+
+			/* get cacheline from iterator */
+			cache_line = lru_iter_cleaning_next(&iter);
 
 			assert_int_equal(cache_line, expected_cache_line);
 
@@ -474,8 +573,6 @@ int main(void)
 	};
 
 	print_message("Unit test for lru_iter_next\n");
-
-	write_test_case_description();
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }

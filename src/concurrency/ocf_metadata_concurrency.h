@@ -142,16 +142,24 @@ void ocf_hb_id_prot_lock_wr(struct ocf_metadata_lock *metadata_lock,
 void ocf_hb_id_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 		unsigned lock_idx, ocf_cache_line_t hash);
 
-/* caller must hold global metadata read lock */
+/* Caller must hold global metadata read lock when acquiring naked hash bucket
+ * lock.
+ */
 bool ocf_hb_cline_naked_trylock_rd(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
 void ocf_hb_cline_naked_unlock_rd(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
-
 bool ocf_hb_cline_naked_trylock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
 void ocf_hb_cline_naked_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
+void ocf_hb_id_naked_lock_wr(struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash);
+void ocf_hb_id_naked_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash);
+
+bool ocf_req_hash_in_range(struct ocf_request *req,
+		ocf_core_id_t core_id, uint64_t core_line);
 
 /* lock entire request in deadlock-free manner */
 void ocf_hb_req_prot_lock_rd(struct ocf_request *req);

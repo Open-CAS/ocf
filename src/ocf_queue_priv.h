@@ -21,6 +21,9 @@ struct ocf_queue {
 	/* per-queue free running global metadata lock index */
 	unsigned lock_idx;
 
+	/* per-queue free running eviction list index */
+	unsigned eviction_idx;
+
 	/* Tracing reference counter */
 	env_atomic64 trace_ref_cntr;
 

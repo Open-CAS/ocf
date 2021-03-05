@@ -81,7 +81,7 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 			}
 
 			if (!ocf_cache_line_try_lock_wr(
-					cache->device->concurrency.cache_line,
+					ocf_cache_line_concurrency(cache),
 					curr_cline)) {
 				break;
 			}
@@ -90,7 +90,8 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 				ocf_purge_cleaning_policy(cache, curr_cline);
 			ocf_metadata_sparse_cache_line(cache, curr_cline);
 
-			ocf_cache_line_unlock_wr(cache->device->concurrency.cache_line,
+			ocf_cache_line_unlock_wr(
+					ocf_cache_line_concurrency(cache),
 					curr_cline);
 
 			if (prev_cline != cache->device->collision_table_entries)

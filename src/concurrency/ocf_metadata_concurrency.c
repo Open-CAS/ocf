@@ -423,6 +423,28 @@ void ocf_hb_id_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 	for (hash = _MIN_HASH(req); hash <= _MAX_HASH(req); \
 			hash = _HASH_NEXT(req, hash))
 
+/* Returns true if the the given LBA (determined by core_id
+ * and core_line) resolves to a hash value that is within the
+ * set of hashes for the given request (i.e. after the request
+ * hash bucket are locked, the given core line is hash bucket
+ * locked as well).
+ */
+bool ocf_req_hash_in_range(struct ocf_request *req,
+		ocf_core_id_t core_id, uint64_t core_line)
+{
+	ocf_cache_line_t hash = ocf_metadata_hash_func(
+			req->cache, core_line, core_id);
+
+	if (!_HAS_GAP(req)) {
+		return (hash >= _MIN_HASH(req) &&
+				hash <= _MAX_HASH(req));
+	}
+
+	return (hash >= _MIN_HASH(req) && hash <= _GAP_START(req)) ||
+		(hash > _GAP_START(req) + _GAP_VAL(req) &&
+				hash <=  _MAX_HASH(req));
+}
+
 void ocf_hb_req_prot_lock_rd(struct ocf_request *req)
 {
 	ocf_cache_line_t hash;

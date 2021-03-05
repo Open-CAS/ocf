@@ -52,7 +52,7 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 	uint64_t start_line, end_line;
 	int ret = 0;
 	struct ocf_cache_line_concurrency *c =
-			cache->device->concurrency.cache_line;
+			ocf_cache_line_concurrency(cache);
 
 	start_line = ocf_bytes_2_lines(cache, start_byte);
 	end_line = ocf_bytes_2_lines(cache, end_byte);

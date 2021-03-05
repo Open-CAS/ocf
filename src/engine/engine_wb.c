@@ -60,7 +60,7 @@ static void _ocf_write_wb_io_flush_metadata(struct ocf_request *req, int error)
 	if (req->error)
 		ocf_engine_error(req, true, "Failed to write data to cache");
 
-	ocf_req_unlock_wr(req->cache->device->concurrency.cache_line, req);
+	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
 	req->complete(req, req->error);
 
@@ -189,10 +189,11 @@ int ocf_write_wb(struct ocf_request *req)
 
 	/* Set resume io_if */
 	req->io_if = &_io_if_wb_resume;
+	req->engine_cbs = &_wb_engine_callbacks;
 
 	/* TODO: Handle fits into dirty */
 
-	lock = ocf_engine_prepare_clines(req, &_wb_engine_callbacks);
+	lock = ocf_engine_prepare_clines(req);
 
 	if (!ocf_req_test_mapping_error(req)) {
 		if (lock >= 0) {

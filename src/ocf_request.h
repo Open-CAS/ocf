@@ -18,6 +18,8 @@ struct ocf_req_info {
 	unsigned int hit_no;
 	unsigned int invalid_no;
 	unsigned int re_part_no;
+	unsigned int seq_no;
+	unsigned int insert_no;
 
 	uint32_t dirty_all;
 	/*!< Number of dirty line in request*/
@@ -25,14 +27,14 @@ struct ocf_req_info {
 	uint32_t dirty_any;
 	/*!< Indicates that at least one request is dirty */
 
-	uint32_t seq_req : 1;
-	/*!< Sequential cache request flag. */
-
 	uint32_t flush_metadata : 1;
 	/*!< This bit tells if metadata flushing is required */
 
 	uint32_t mapping_error : 1;
 	/*!< Core lines in this request were not mapped into cache */
+
+	uint32_t clean_eviction : 1;
+	/*!< Eviction failed, need to request cleaning */
 
 	uint32_t core_error : 1;
 	/*!< Error occured during I/O on core device */
@@ -103,6 +105,9 @@ struct ocf_req_discard_info {
 struct ocf_request {
 	struct ocf_io_internal ioi;
 	/*!< OCF IO associated with request */
+
+	const struct ocf_engine_callbacks *engine_cbs;
+	/*!< Engine owning the request */
 
 	env_atomic ref_count;
 	/*!< Reference usage count, once OCF request reaches zero it
@@ -393,6 +398,16 @@ static inline void ocf_req_set_mapping_error(struct ocf_request *req)
 static inline bool ocf_req_test_mapping_error(struct ocf_request *req)
 {
 	return req->info.mapping_error;
+}
+
+static inline void ocf_req_set_clean_eviction(struct ocf_request *req)
+{
+	req->info.clean_eviction = true;
+}
+
+static inline bool ocf_req_test_clean_eviction(struct ocf_request *req)
+{
+	return req->info.clean_eviction;
 }
 
 /**

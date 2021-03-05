@@ -147,6 +147,9 @@ bool ocf_cache_line_is_used(struct ocf_cache_line_concurrency *c,
 bool ocf_cache_line_are_waiters(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line);
 
+bool ocf_cache_line_is_locked_exclusively(struct ocf_cache *cache,
+		ocf_cache_line_t line);
+
 /**
  * @brief un_lock request map info entry from from write or read access.
  *
@@ -198,5 +201,17 @@ void ocf_cache_line_unlock_wr(struct ocf_cache_line_concurrency *c,
  */
 bool ocf_cache_line_try_lock_wr(struct ocf_cache_line_concurrency *c,
 		ocf_cache_line_t line);
+
+/**
+ * @brief Get cacheline concurrency context
+ *
+ * @param cache - cache instance
+ * @return cacheline concurrency context
+ */
+static inline struct ocf_cache_line_concurrency *
+ocf_cache_line_concurrency(ocf_cache_t cache)
+{
+	return cache->device->concurrency.cache_line;
+}
 
 #endif /* OCF_CONCURRENCY_H_ */
