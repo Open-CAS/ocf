@@ -196,7 +196,25 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 		req->info.seq_no++;
 }
 
-void ocf_engine_traverse(struct ocf_request *req)
+static void ocf_engine_set_hot(struct ocf_request *req)
+{
+	struct ocf_cache *cache = req->cache;
+	struct ocf_map_info *entry;
+	uint8_t status;
+	unsigned i;
+
+	for (i = 0; i < req->core_line_count; i++) {
+		entry = &(req->map[i]);
+		status = entry->status;
+
+		if (status == LOOKUP_HIT || status == LOOKUP_INSERTED) {
+			/* Update eviction (LRU) */
+			ocf_eviction_set_hot_cache_line(cache, entry->coll_idx);
+		}
+	}
+}
+
+static void ocf_engine_lookup(struct ocf_request *req)
 {
 	uint32_t i;
 	uint64_t core_line;
@@ -226,14 +244,16 @@ void ocf_engine_traverse(struct ocf_request *req)
 		OCF_DEBUG_PARAM(cache, "Hit, cache line %u, core line = %llu",
 				entry->coll_idx, entry->core_line);
 
-		/* Update eviction (LRU) */
-		ocf_eviction_set_hot_cache_line(cache, entry->coll_idx);
-
 		ocf_engine_update_req_info(cache, req, i);
 	}
 
 	OCF_DEBUG_PARAM(cache, "Sequential - %s", ocf_engine_is_sequential(req)
 			? "Yes" : "No");
+}
+void ocf_engine_traverse(struct ocf_request *req)
+{
+	ocf_engine_lookup(req);
+	ocf_engine_set_hot(req);
 }
 
 int ocf_engine_check(struct ocf_request *req)
@@ -327,7 +347,6 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 
 	/* Update LRU:: Move this node to head of lru list. */
 	ocf_eviction_init_cache_line(cache, cache_line);
-	ocf_eviction_set_hot_cache_line(cache, cache_line);
 }
 
 static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
@@ -533,7 +552,7 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req)
 	}
 
 	if (!ocf_part_has_space(req)) {
-		ocf_engine_traverse(req);
+		ocf_engine_lookup(req);
 		return ocf_prepare_clines_evict(req);
 	}
 
@@ -572,13 +591,14 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 	 * not change during traversation */
 	ocf_hb_req_prot_lock_rd(req);
 
-	/* Traverse to check if request is mapped fully */
-	ocf_engine_traverse(req);
+	/* check CL status */
+	ocf_engine_lookup(req);
 
 	mapped = ocf_engine_is_mapped(req);
 	if (mapped) {
 		lock = lock_clines(req);
 		ocf_hb_req_prot_unlock_rd(req);
+		ocf_engine_set_hot(req);
 		return lock;
 	}
 
@@ -600,6 +620,9 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 		ocf_eviction_flush_dirty(req->cache, part, req->io_queue,
 				128);
 	}
+
+	if (!ocf_req_test_mapping_error(req))
+		ocf_engine_set_hot(req);
 
 	return result;
 }
