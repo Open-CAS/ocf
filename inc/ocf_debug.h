@@ -12,7 +12,7 @@ struct ocf_dbg_seq_cutoff_status {
 		uint64_t bytes;
 		uint32_t rw : 1;
 		uint32_t active : 1;
-	} streams[OCF_SEQ_CUTOFF_MAX_STREAMS];
+	} streams[OCF_SEQ_CUTOFF_PERCORE_STREAMS];
 };
 
 void ocf_dbg_get_seq_cutoff_status(ocf_core_t core,

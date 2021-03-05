@@ -451,6 +451,8 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 			ocf_seq_cutoff_policy_default);
 	env_atomic_set(&core->conf_meta->seq_cutoff_threshold,
 			cfg->seq_cutoff_threshold);
+	env_atomic_set(&core->conf_meta->seq_cutoff_promo_count,
+			cfg->seq_cutoff_promotion_count);
 
 	/* Add core sequence number for atomic metadata matching */
 	core_sequence_no = _ocf_mngt_get_core_seq_no(cache);
@@ -1013,6 +1015,65 @@ int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
 	OCF_CHECK_NULL(policy);
 
 	*policy = ocf_core_get_seq_cutoff_policy(core);
+
+	return 0;
+}
+
+static int _cache_mngt_set_core_seq_cutoff_promo_count(ocf_core_t core,
+		void *cntx)
+{
+	uint32_t count = *(uint32_t*) cntx;
+	uint32_t count_old = ocf_core_get_seq_cutoff_promotion_count(core);
+
+	if (count < OCF_SEQ_CUTOFF_MIN_PROMOTION_COUNT ||
+			count > OCF_SEQ_CUTOFF_MAX_PROMOTION_COUNT) {
+		ocf_core_log(core, log_info,
+				"Invalid sequential cutoff promotion count!\n");
+		return -OCF_ERR_INVAL;
+	}
+
+
+	if (count_old == count) {
+		ocf_core_log(core, log_info,
+				"Sequential cutoff promotion count %u "
+				"bytes is already set\n", count);
+		return 0;
+	}
+
+	env_atomic_set(&core->conf_meta->seq_cutoff_promo_count, count);
+
+	ocf_core_log(core, log_info, "Changing sequential cutoff promotion"
+			"count from %u to %u bytes successful\n",
+			count_old, count);
+
+	return 0;
+}
+
+int ocf_mngt_core_set_seq_cutoff_promotion_count(ocf_core_t core,
+		uint32_t count)
+{
+	OCF_CHECK_NULL(core);
+
+	return _cache_mngt_set_core_seq_cutoff_promo_count(core, &count);
+}
+
+int ocf_mngt_core_set_seq_cutoff_promotion_count_all(ocf_cache_t cache,
+		uint32_t count)
+{
+	OCF_CHECK_NULL(cache);
+
+	return ocf_core_visit(cache,
+			_cache_mngt_set_core_seq_cutoff_promo_count,
+			&count, true);
+}
+
+int ocf_mngt_core_get_seq_cutoff_promotion_count(ocf_core_t core,
+		uint32_t *count)
+{
+	OCF_CHECK_NULL(core);
+	OCF_CHECK_NULL(count);
+
+	*count = ocf_core_get_seq_cutoff_promotion_count(core);
 
 	return 0;
 }

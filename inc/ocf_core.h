@@ -113,6 +113,15 @@ uint32_t ocf_core_get_seq_cutoff_threshold(ocf_core_t core);
 ocf_seq_cutoff_policy ocf_core_get_seq_cutoff_policy(ocf_core_t core);
 
 /**
+ * @brief Get sequential cutoff stream promotion req count of given core object
+ *
+ * @param[in] core Core object
+ *
+ * @retval Sequential cutoff stream promotion request count
+ */
+uint32_t ocf_core_get_seq_cutoff_promotion_count(ocf_core_t core);
+
+/**
  * @brief Get name of given core object
  *
  * @param[in] core Core object

@@ -11,6 +11,7 @@
 #include "utils/utils_part.h"
 #include "ocf_priv.h"
 #include "ocf_cache_priv.h"
+#include "ocf_queue_priv.h"
 #include "utils/utils_stats.h"
 
 ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache)
