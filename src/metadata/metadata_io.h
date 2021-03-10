@@ -45,37 +45,34 @@ struct metadata_io_request_asynch;
  * IO request context
  */
 struct metadata_io_request {
-	ocf_cache_t cache;
-	void *context;
-	uint32_t page;
-	uint32_t count;
-	ocf_metadata_io_event_t on_meta_fill;
-	ocf_metadata_io_event_t on_meta_drain;
-	ctx_data_t *data;
-	int error;
-	struct metadata_io_request_asynch *asynch;
-	env_atomic finished;
-
 	struct ocf_request req;
 	struct list_head list;
+	ocf_cache_t cache;
+	void *context;
+	ctx_data_t *data;
+	struct metadata_io_request_asynch *asynch;
+	env_atomic finished;
+	uint32_t page;
+	uint32_t count;
 };
-
-#define METADATA_IO_REQS_LIMIT 128
 
 /*
  * Asynchronous IO request context
  */
 struct metadata_io_request_asynch {
-	struct metadata_io_request reqs[METADATA_IO_REQS_LIMIT];
 	void *context;
-	int error;
 	env_atomic req_remaining;
 	env_atomic req_active;
 	env_atomic req_current;
+	ocf_metadata_io_event_t on_meta_fill;
+	ocf_metadata_io_event_t on_meta_drain;
+	ocf_metadata_io_end_t on_complete;
 	uint32_t page;
 	uint32_t count;
+	uint32_t alloc_req_count; /*< Number of allocated metadata_io_requests */
 	int flags;
-	ocf_metadata_io_end_t on_complete;
+	int error;
+	struct metadata_io_request reqs[];
 };
 
 void metadata_io_req_complete(struct metadata_io_request *m_req);
@@ -144,6 +141,16 @@ int metadata_io_read_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 		void *context, uint32_t page, uint32_t count, int flags,
 		ocf_metadata_io_event_t drain_hndl,
 		ocf_metadata_io_end_t compl_hndl);
+
+/**
+ * Initialize ocf_ctx related structures of metadata_io (mpool).
+ */
+int ocf_metadata_io_ctx_init(struct ocf_ctx *ocf_ctx);
+
+/**
+ * Deinitialize ocf_ctx related structures of metadata_io
+ */
+void ocf_metadata_io_ctx_deinit(struct ocf_ctx *ocf_ctx);
 
 /**
  * Function for initializing metadata io.
