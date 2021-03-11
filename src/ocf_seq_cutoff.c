@@ -305,7 +305,7 @@ void ocf_core_seq_cutoff_update(ocf_core_t core, struct ocf_request *req)
 	if (req->byte_length >= threshold)
 		promote = true;
 
-	if (promotion_count == 0)
+	if (promotion_count == 1)
 		promote = true;
 
 	if (req->seq_cutoff_core || promote) {
