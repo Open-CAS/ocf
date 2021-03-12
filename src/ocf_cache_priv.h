@@ -91,12 +91,12 @@ struct ocf_cache {
 
 	struct {
 		/* cache get/put counter */
-		struct ocf_refcnt cache;
+		struct ocf_refcnt cache __attribute__((aligned(64)));
 		/* # of requests potentially dirtying cachelines */
-		struct ocf_refcnt dirty;
+		struct ocf_refcnt dirty __attribute__((aligned(64)));
 		/* # of requests accessing attached metadata, excluding
 		 * management reqs */
-		struct ocf_refcnt metadata;
+		struct ocf_refcnt metadata __attribute__((aligned(64)));
 	} refcnt;
 
 	ocf_pipeline_t stop_pipeline;
