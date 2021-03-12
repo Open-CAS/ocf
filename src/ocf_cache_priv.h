@@ -81,11 +81,13 @@ struct ocf_cache {
 	struct ocf_lst lst_part;
 	struct ocf_user_part user_parts[OCF_IO_CLASS_MAX + 1];
 
-	struct ocf_metadata metadata;
-
 	ocf_freelist_t freelist;
 
 	ocf_eviction_t eviction_policy_init;
+
+	uint32_t fallback_pt_error_threshold;
+
+	struct ocf_metadata metadata;
 
 	struct {
 		/* cache get/put counter */
@@ -97,7 +99,10 @@ struct ocf_cache {
 		struct ocf_refcnt metadata;
 	} refcnt;
 
-	uint32_t fallback_pt_error_threshold;
+	ocf_pipeline_t stop_pipeline;
+
+	struct ocf_core core[OCF_CORE_MAX];
+
 	env_atomic fallback_pt_error_counter;
 
 	env_atomic pending_read_misses_list_blocked;
@@ -107,13 +112,10 @@ struct ocf_cache {
 
 	env_atomic pending_eviction_clines;
 
+	env_atomic flush_in_progress;
+
 	struct list_head io_queues;
 	ocf_queue_t mngt_queue;
-
-	uint16_t ocf_core_inactive_count;
-	struct ocf_core core[OCF_CORE_MAX];
-
-	env_atomic flush_in_progress;
 
 	struct ocf_cleaner cleaner;
 	struct ocf_metadata_updater metadata_updater;
@@ -121,11 +123,6 @@ struct ocf_cache {
 
 	struct ocf_async_lock lock;
 
-	/*
-	 * Most of the time this variable is set to 0, unless user requested
-	 * interruption of flushing process.
-	 */
-	int flushing_interrupted;
 	env_mutex flush_mutex;
 
 	struct {
@@ -133,15 +130,21 @@ struct ocf_cache {
 		uint32_t queue_unblock_size;
 	} backfill;
 
+	struct ocf_trace trace;
+
+	void *priv;
+
+	/*
+	 * Most of the time this variable is set to 0, unless user requested
+	 * interruption of flushing process.
+	 */
+	int flushing_interrupted;
+
+	uint16_t ocf_core_inactive_count;
+
 	bool pt_unaligned_io;
 
 	bool use_submit_io_fast;
-
-	struct ocf_trace trace;
-
-	ocf_pipeline_t stop_pipeline;
-
-	void *priv;
 };
 
 static inline ocf_core_t ocf_cache_get_core(ocf_cache_t cache,
