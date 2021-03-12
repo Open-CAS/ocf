@@ -33,7 +33,7 @@ struct ocf_volume {
 			/* true if reading discarded pages returns 0 */
 	} features;
 	struct ocf_refcnt refcnt;
-};
+} __attribute__((aligned(64)));
 
 int ocf_volume_type_init(struct ocf_volume_type **type,
 		const struct ocf_volume_properties *properties,
