@@ -23,15 +23,15 @@ struct ocf_volume_type {
 struct ocf_volume {
 	ocf_volume_type_t type;
 	struct ocf_volume_uuid uuid;
+	struct {
+		unsigned discard_zeroes:1;
+			/* true if reading discarded pages returns 0 */
+	} features;
 	bool opened;
 	bool uuid_copy;
 	void *priv;
 	ocf_cache_t cache;
 	struct list_head core_pool_item;
-	struct {
-		unsigned discard_zeroes:1;
-			/* true if reading discarded pages returns 0 */
-	} features;
 	struct ocf_refcnt refcnt __attribute__((aligned(64)));
 } __attribute__((aligned(64)));
 

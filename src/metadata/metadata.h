@@ -199,8 +199,8 @@ struct ocf_metadata_load_properties {
 	enum ocf_metadata_shutdown_status shutdown_status;
 	uint8_t dirty_flushed;
 	ocf_metadata_layout_t layout;
-	ocf_cache_line_size_t line_size;
 	ocf_cache_mode_t cache_mode;
+	ocf_cache_line_size_t line_size;
 	char *cache_name;
 };
 

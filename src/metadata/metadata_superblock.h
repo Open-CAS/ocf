@@ -20,6 +20,10 @@ struct ocf_superblock_config {
 	 * shouldn't change!! */
 	uint8_t clean_shutdown;
 	uint8_t dirty_flushed;
+
+	/* Current core sequence number */
+	ocf_core_id_t curr_core_seq_no;
+
 	uint32_t magic_number;
 
 	uint32_t metadata_version;
@@ -46,9 +50,6 @@ struct ocf_superblock_config {
 	struct promotion_policy_config promotion[PROMOTION_POLICY_TYPE_MAX];
 
 	ocf_eviction_t eviction_policy_type;
-
-	/* Current core sequence number */
-	ocf_core_id_t curr_core_seq_no;
 
 	/*
 	 * Checksum for each metadata region.

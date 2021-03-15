@@ -96,6 +96,7 @@ struct nhit_list_elem {
 };
 
 struct nhit_hash {
+	env_spinlock rb_pointer_lock;
 	ocf_cache_line_t hash_entries;
 	uint64_t rb_entries;
 
@@ -104,7 +105,6 @@ struct nhit_hash {
 
 	struct nhit_list_elem *ring_buffer;
 	uint64_t rb_pointer;
-	env_spinlock rb_pointer_lock;
 };
 
 static uint64_t calculate_hash_buckets(uint64_t hash_size)

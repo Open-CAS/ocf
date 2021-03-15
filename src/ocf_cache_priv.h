@@ -86,6 +86,7 @@ struct ocf_cache {
 	ocf_eviction_t eviction_policy_init;
 
 	uint32_t fallback_pt_error_threshold;
+	ocf_queue_t mngt_queue;
 
 	struct ocf_metadata metadata;
 
@@ -99,38 +100,31 @@ struct ocf_cache {
 		struct ocf_refcnt metadata __attribute__((aligned(64)));
 	} refcnt;
 
-	ocf_pipeline_t stop_pipeline;
-
 	struct ocf_core core[OCF_CORE_MAX];
+
+	ocf_pipeline_t stop_pipeline;
 
 	env_atomic fallback_pt_error_counter;
 
 	env_atomic pending_read_misses_list_blocked;
 	env_atomic pending_read_misses_list_count;
 
-	env_atomic last_access_ms;
-
 	env_atomic pending_eviction_clines;
 
 	env_atomic flush_in_progress;
+	env_mutex flush_mutex;
 
-	struct list_head io_queues;
-	ocf_queue_t mngt_queue;
+	struct ocf_metadata_updater metadata_updater;
 
 	struct ocf_cleaner cleaner;
-	struct ocf_metadata_updater metadata_updater;
+
+	struct list_head io_queues;
 	ocf_promotion_policy_t promotion_policy;
-
-	struct ocf_async_lock lock;
-
-	env_mutex flush_mutex;
 
 	struct {
 		uint32_t max_queue_size;
 		uint32_t queue_unblock_size;
 	} backfill;
-
-	struct ocf_trace trace;
 
 	void *priv;
 
@@ -145,6 +139,12 @@ struct ocf_cache {
 	bool pt_unaligned_io;
 
 	bool use_submit_io_fast;
+
+	struct ocf_trace trace;
+
+	struct ocf_async_lock lock;
+	// This should be on it's own cacheline ideally
+	env_atomic last_access_ms;
 };
 
 static inline ocf_core_t ocf_cache_get_core(ocf_cache_t cache,

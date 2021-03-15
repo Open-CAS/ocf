@@ -41,13 +41,13 @@ typedef int (*ocf_mlst_cmp)(struct ocf_cache *cache,
 struct ocf_lst {
 	struct ocf_lst_entry *head;
 	ocf_cache_line_t invalid;
-	ocf_mlst_getter getter;
-	ocf_mlst_cmp cmp;
-	struct ocf_cache *cache;
-
 	struct {
 		uint32_t active : 1;
 	} flags;
+
+	ocf_mlst_getter getter;
+	ocf_mlst_cmp cmp;
+	struct ocf_cache *cache;
 };
 
 static inline void ocf_lst_init_entry(struct ocf_lst *lst,

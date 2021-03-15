@@ -14,8 +14,6 @@ struct ocf_user_part_config {
 	char name[OCF_IO_CLASS_NAME_MAX];
 	uint32_t min_size;
 	uint32_t max_size;
-	int16_t priority;
-	ocf_cache_mode_t cache_mode;
 	struct {
 		uint8_t valid : 1;
 		uint8_t added : 1;
@@ -24,6 +22,8 @@ struct ocf_user_part_config {
 			* and means that can evict from this partition
 			*/
 	} flags;
+	int16_t priority;
+	ocf_cache_mode_t cache_mode;
 };
 
 struct ocf_user_part_runtime {
@@ -40,12 +40,12 @@ typedef bool ( *_lru_hash_locked_pfn)(struct ocf_request *req,
    in round robin order */
 struct ocf_lru_iter
 {
+	/* per-partition cacheline iterator */
+	ocf_cache_line_t curr_cline[OCF_NUM_EVICTION_LISTS];
 	/* cache object */
 	ocf_cache_t cache;
 	/* target partition */
 	struct ocf_user_part *part;
-	/* per-partition cacheline iterator */
-	ocf_cache_line_t curr_cline[OCF_NUM_EVICTION_LISTS];
 	/* available (non-empty) eviction list bitmap rotated so that current
 	   @evp is on the most significant bit */
 	unsigned long long next_avail_evp;
