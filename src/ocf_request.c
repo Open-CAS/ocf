@@ -206,8 +206,8 @@ void ocf_req_put(struct ocf_request *req)
 
 	if (!env_mpool_del(req->cache->owner->resources.req, req,
 				req->core_line_count)) {
-		env_mpool_del(req->cache->owner->resources.req, req, 1);
 		env_free(req->map);
+		env_mpool_del(req->cache->owner->resources.req, req, 1);
 	}
 
 	ocf_queue_put(queue);
