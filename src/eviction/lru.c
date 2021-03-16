@@ -683,6 +683,8 @@ uint32_t evp_lru_req_clines(struct ocf_request *req,
 
 		++req_idx;
 		++i;
+		/* Number of cachelines to evict have to match space in the request */
+		ENV_BUG_ON(req_idx == req->core_line_count && i != cline_no );
 	}
 
 	return i;
