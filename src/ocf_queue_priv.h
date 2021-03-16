@@ -36,7 +36,7 @@ struct ocf_queue {
 
 	env_atomic ref_count;
 	env_spinlock io_list_lock;
-};
+} __attribute__((__aligned__(64)));
 
 static inline void ocf_queue_kick(ocf_queue_t queue, bool allow_sync)
 {
