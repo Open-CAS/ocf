@@ -109,7 +109,8 @@ static inline uint32_t ocf_engine_mapped_count(struct ocf_request *req)
  */
 static inline uint32_t ocf_engine_unmapped_count(struct ocf_request *req)
 {
-	return req->core_line_count - (req->info.hit_no + req->info.invalid_no);
+	return req->core_line_count -
+		(req->info.hit_no + req->info.invalid_no + req->info.insert_no);
 }
 
 void ocf_map_cache_line(struct ocf_request *req,
