@@ -203,11 +203,16 @@ static void ocf_engine_set_hot(struct ocf_request *req)
 	uint8_t status;
 	unsigned i;
 
+	if (req->info.hit_no == 0 && req->info.invalid_no == 0) {
+		/* no previously mapped clines */
+		return;
+	}
+
 	for (i = 0; i < req->core_line_count; i++) {
 		entry = &(req->map[i]);
 		status = entry->status;
 
-		if (status == LOOKUP_HIT || status == LOOKUP_INSERTED) {
+		if (status == LOOKUP_HIT) {
 			/* Update eviction (LRU) */
 			ocf_eviction_set_hot_cache_line(cache, entry->coll_idx);
 		}
@@ -347,6 +352,7 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 
 	/* Update LRU:: Move this node to head of lru list. */
 	ocf_eviction_init_cache_line(cache, cache_line);
+	ocf_eviction_set_hot_cache_line(cache, cache_line);
 }
 
 static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
