@@ -402,6 +402,8 @@ static void ocf_engine_map(struct ocf_request *req)
 	uint64_t core_line;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
+	/* NOTE: request not refreshed after upgrading hash bucket lock.
+	 * ocf_engine_unmapped_count() is potentially not accurate. */
 	if (ocf_engine_unmapped_count(req) >
 			ocf_freelist_num_free(cache->freelist)) {
 		ocf_engine_lookup(req);
@@ -555,6 +557,10 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req)
 		return lock_status;
 	}
 
+	/* NOTE: ocf_part_has_space() below uses potentially stale request
+	 * statistics (collected before hash bucket lock had been upgraded).
+	 * It is ok since this check is opportunistic, as partition occupancy
+	 * is also subject to change. */
 	if (!ocf_part_has_space(req)) {
 		ocf_engine_lookup(req);
 		return ocf_prepare_clines_evict(req);
