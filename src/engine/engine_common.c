@@ -402,9 +402,6 @@ static void ocf_engine_map(struct ocf_request *req)
 	uint64_t core_line;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
-	if (!ocf_engine_unmapped_count(req))
-		return;
-
 	if (ocf_engine_unmapped_count(req) >
 			ocf_freelist_num_free(cache->freelist)) {
 		ocf_req_set_mapping_error(req);
