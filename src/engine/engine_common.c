@@ -203,11 +203,16 @@ static void ocf_engine_set_hot(struct ocf_request *req)
 	uint8_t status;
 	unsigned i;
 
+	if (req->info.hit_no == 0 && req->info.invalid_no == 0) {
+		/* no previously mapped clines */
+		return;
+	}
+
 	for (i = 0; i < req->core_line_count; i++) {
 		entry = &(req->map[i]);
 		status = entry->status;
 
-		if (status == LOOKUP_HIT || status == LOOKUP_INSERTED) {
+		if (status == LOOKUP_HIT) {
 			/* Update eviction (LRU) */
 			ocf_eviction_set_hot_cache_line(cache, entry->coll_idx);
 		}
@@ -347,6 +352,7 @@ static void ocf_engine_map_cache_line(struct ocf_request *req,
 
 	/* Update LRU:: Move this node to head of lru list. */
 	ocf_eviction_init_cache_line(cache, cache_line);
+	ocf_eviction_set_hot_cache_line(cache, cache_line);
 }
 
 static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
@@ -396,11 +402,11 @@ static void ocf_engine_map(struct ocf_request *req)
 	uint64_t core_line;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
-	if (!ocf_engine_unmapped_count(req))
-		return;
-
+	/* NOTE: request not refreshed after upgrading hash bucket lock.
+	 * ocf_engine_unmapped_count() is potentially not accurate. */
 	if (ocf_engine_unmapped_count(req) >
 			ocf_freelist_num_free(cache->freelist)) {
+		ocf_engine_lookup(req);
 		ocf_req_set_mapping_error(req);
 		return;
 	}
@@ -551,6 +557,10 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req)
 		return lock_status;
 	}
 
+	/* NOTE: ocf_part_has_space() below uses potentially stale request
+	 * statistics (collected before hash bucket lock had been upgraded).
+	 * It is ok since this check is opportunistic, as partition occupancy
+	 * is also subject to change. */
 	if (!ocf_part_has_space(req)) {
 		ocf_engine_lookup(req);
 		return ocf_prepare_clines_evict(req);
