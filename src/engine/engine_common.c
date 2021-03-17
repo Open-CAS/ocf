@@ -404,6 +404,7 @@ static void ocf_engine_map(struct ocf_request *req)
 
 	if (ocf_engine_unmapped_count(req) >
 			ocf_freelist_num_free(cache->freelist)) {
+		ocf_engine_lookup(req);
 		ocf_req_set_mapping_error(req);
 		return;
 	}
