@@ -33,7 +33,7 @@ struct ocf_user_part_runtime {
 	struct cleaning_policy cleaning;
 };
 
-typedef bool ( *_lru_hash_locked_pfn)(void *context,
+typedef bool ( *_lru_hash_locked_pfn)(struct ocf_request *req,
 		ocf_core_id_t core_id, uint64_t core_line);
 
 /* Iterator state, visiting all eviction lists within a partition
@@ -56,8 +56,8 @@ struct ocf_lru_iter
 	/* callback to determine whether given hash bucket is already
 	 * locked by the caller */
 	_lru_hash_locked_pfn hash_locked;
-	/* hash_locked private data */
-	void *context;
+	/* optional caller request */
+	struct ocf_request *req;
 	/* 1 if iterating over clean lists, 0 if over dirty */
 	bool clean : 1;
 	/* 1 if cacheline is to be locked for write, 0 if for read*/
