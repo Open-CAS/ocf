@@ -53,7 +53,7 @@ struct ocf_cache_info {
 		 * out of WB mode
 		 */
 
-	uint32_t dirty_for;
+	uint64_t dirty_for;
 		/*!< How long there are dirty cache lines (in seconds) */
 
 	ocf_cache_mode_t cache_mode;

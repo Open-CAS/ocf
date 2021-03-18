@@ -57,11 +57,11 @@ ocf_cache_mode_t ocf_cache_get_mode(ocf_cache_t cache)
 	return cache->conf_meta->cache_mode;
 }
 
-static uint32_t _calc_dirty_for(uint64_t dirty_since)
+static uint64_t _calc_dirty_for(uint64_t dirty_since)
 {
-	return dirty_since ?
-		(env_ticks_to_msecs(env_get_tick_count() - dirty_since) / 1000)
-		: 0;
+	uint64_t current_time = env_ticks_to_secs(env_get_tick_count());
+
+	return dirty_since ? (current_time - dirty_since) : 0;
 }
 
 int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
