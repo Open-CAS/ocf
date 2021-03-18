@@ -263,7 +263,8 @@ void evp_lru_rm_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 
 static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
 		struct ocf_user_part *part, uint32_t start_evp, bool clean,
-		bool cl_lock_write, _lru_hash_locked_pfn hash_locked, void *context)
+		bool cl_lock_write, _lru_hash_locked_pfn hash_locked,
+		struct ocf_request *req)
 {
 	uint32_t i;
 
@@ -280,7 +281,7 @@ static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
 	iter->clean = clean;
 	iter->cl_lock_write = cl_lock_write;
 	iter->hash_locked = hash_locked;
-	iter->context = context;
+	iter->req = req;
 
 	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
 		iter->curr_cline[i] = evp_lru_get_list(part, i, clean)->tail;
@@ -295,14 +296,6 @@ static inline void lru_iter_cleaning_init(struct ocf_lru_iter *iter,
 			NULL, NULL);
 }
 
-static bool _evp_lru_evict_hash_locked(void *context,
-		ocf_core_id_t core_id, uint64_t core_line)
-{
-	struct ocf_request *req = context;
-
-	return  ocf_req_hash_in_range(req, core_id, core_line);
-}
-
 static inline void lru_iter_eviction_init(struct ocf_lru_iter *iter,
 		ocf_cache_t cache, struct ocf_user_part *part,
 		uint32_t start_evp, bool cl_lock_write,
@@ -314,7 +307,7 @@ static inline void lru_iter_eviction_init(struct ocf_lru_iter *iter,
 	 * is already locked as part of request hash locking (to avoid attempt
 	 * to acquire the same hash bucket lock twice) */
 	lru_iter_init(iter, cache, part, start_evp, true, cl_lock_write,
-		_evp_lru_evict_hash_locked, req);
+		ocf_req_hash_in_range, req);
 }
 
 
@@ -375,8 +368,7 @@ static bool inline _lru_trylock_hash(struct ocf_lru_iter *iter,
 		ocf_core_id_t core_id, uint64_t core_line)
 {
 	if (iter->hash_locked != NULL && iter->hash_locked(
-				iter->context,
-				core_id, core_line)) {
+				iter->req, core_id, core_line)) {
 		return true;
 	}
 
@@ -389,8 +381,7 @@ static void inline _lru_unlock_hash(struct ocf_lru_iter *iter,
 		ocf_core_id_t core_id, uint64_t core_line)
 {
 	if (iter->hash_locked != NULL && iter->hash_locked(
-				iter->context,
-				core_id, core_line)) {
+				iter->req, core_id, core_line)) {
 		return;
 	}
 
@@ -404,11 +395,21 @@ static bool inline _lru_iter_evition_lock(struct ocf_lru_iter *iter,
 		ocf_core_id_t *core_id, uint64_t *core_line)
 
 {
+	struct ocf_request *req = iter->req;
+
 	if (!_lru_trylock_cacheline(iter, cache_line))
 		return false;
 
 	ocf_metadata_get_core_info(iter->cache, cache_line,
 		core_id, core_line);
+
+	/* avoid evicting current request target cachelines */
+	if (*core_id == ocf_core_get_id(req->core) &&
+			*core_line >= req->core_line_first &&
+			*core_line <= req->core_line_last) {
+		_lru_unlock_cacheline(iter, cache_line);
+		return false;
+	}
 
 	if (!_lru_trylock_hash(iter, *core_id, *core_line)) {
 		_lru_unlock_cacheline(iter, cache_line);
