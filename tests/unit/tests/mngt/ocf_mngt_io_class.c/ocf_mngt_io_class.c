@@ -95,7 +95,7 @@ static inline void setup_valid_config(struct ocf_mngt_io_class_config *cfg,
 	int i;
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
 		cfg[i].class_id = i;
-		cfg[i].name = remove ? NULL : "test_io_class_name" ;
+		cfg[i].name = remove ? NULL : i == 0 ? "unclassified" :"test_io_class_name" ;
 		cfg[i].prio = i;
 		cfg[i].cache_mode = ocf_cache_mode_pt;
 		cfg[i].max_size = 20*i;
@@ -161,6 +161,8 @@ static void ocf_mngt_io_classes_configure_test02(void **state)
 		cache->user_parts[i].config =
 				test_malloc(sizeof(struct ocf_user_part_config));
 	}
+
+	strcpy(cache->user_parts[0].config->name, "unclassified");
 	cache->device = 1;
 
 	setup_valid_config(cfg.config, false);
