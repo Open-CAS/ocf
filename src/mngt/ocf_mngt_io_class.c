@@ -137,7 +137,6 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 
 		if (env_strncmp(name, OCF_IO_CLASS_NAME_MAX,
 				dest_part->config->name, OCF_IO_CLASS_NAME_MAX)) {
-
 			ocf_cache_log(cache, log_err,
 				"Can't change classification rule of the default IO class"
 				" [ ERROR ]\n");
