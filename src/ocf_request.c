@@ -204,8 +204,10 @@ void ocf_req_put(struct ocf_request *req)
 	if (!req->d2c && req->io_queue != req->cache->mngt_queue)
 		ocf_refcnt_dec(&req->cache->refcnt.metadata);
 
-	if (!env_mpool_del(req->cache->owner->resources.req, req,
-				req->core_line_count)) {
+	if (req->map == req->__map) {
+		env_mpool_del(req->cache->owner->resources.req, req,
+				req->core_line_count);
+	} else {
 		env_free(req->map);
 		env_mpool_del(req->cache->owner->resources.req, req, 1);
 	}
