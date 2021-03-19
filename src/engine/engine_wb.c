@@ -44,9 +44,10 @@ static void _ocf_write_wb_update_bits(struct ocf_request *req)
 		/* set dirty bits, and mark if metadata flushing is required */
 		ocf_set_dirty_map_info(req);
 	}
-	ocf_hb_req_prot_unlock_wr(req);
 
 	ocf_req_set_cleaning_hot(req);
+
+	ocf_hb_req_prot_unlock_wr(req);
 }
 
 static void _ocf_write_wb_io_flush_metadata(struct ocf_request *req, int error)
