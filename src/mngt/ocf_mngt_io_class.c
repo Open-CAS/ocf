@@ -135,9 +135,17 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 	if (part_id == PARTITION_DEFAULT) {
 		/* Special behavior for default partition */
 
+		if (env_strncmp(name, OCF_IO_CLASS_NAME_MAX,
+				dest_part->config->name, OCF_IO_CLASS_NAME_MAX)) {
+			ocf_cache_log(cache, log_err,
+				"Can't change classification rule of the default IO class"
+				" [ ERROR ]\n");
+			return -OCF_ERR_INVAL;
+		}
+
 		/* Try set partition size */
 		if (_ocf_mngt_set_partition_size(cache, part_id, min, max)) {
-			ocf_cache_log(cache, log_info,
+			ocf_cache_log(cache, log_err,
 				"Setting IO class size, id: %u, name: '%s', max size: %u%%"
 				" [ ERROR ]\n", part_id, dest_part->config->name, max);
 			return -OCF_ERR_INVAL;
@@ -161,7 +169,7 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 
 	/* Try set partition size */
 	if (_ocf_mngt_set_partition_size(cache, part_id, min, max)) {
-		ocf_cache_log(cache, log_info,
+		ocf_cache_log(cache, log_err,
 			"Setting IO class size, id: %u, name: '%s', max size %u%%"
 			"[ ERROR ]\n", part_id, dest_part->config->name, max);
 		return -OCF_ERR_INVAL;

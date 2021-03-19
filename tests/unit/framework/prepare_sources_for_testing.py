@@ -146,6 +146,11 @@ class UnitTestsSourcesGenerator(object):
         wrap_file_path = wrap_file_path + "_generated_wraps.c"
         return wrap_file_path
 
+    def is_env_function(self, name):
+        prefixes = ["env", "bug", "memcpy", "memset", "memcmp", "strnlen", "strncmp", "strncpy"]
+
+        return list(filter(name.startswith, prefixes)) != []
+
     def prepare_autowraps(self, test_file_path, preprocessed_file_path):
         functions_to_wrap = self.get_functions_calls(
             self.get_sources_to_test_repo() + test_file_path)
@@ -160,10 +165,7 @@ class UnitTestsSourcesGenerator(object):
         with open(preprocessed_file_path) as f:
             code = f.readlines()
             for function in functions_to_wrap:
-                if function.startswith("env_") or function.startswith("bug") \
-                   or function.startswith("memcpy"):
-                    # added memcpy function to list of ignored functions
-                    # because this is macro
+                if self.is_env_function(function):
                     continue
                 for tag in tags_list:
                     if function in tag:
