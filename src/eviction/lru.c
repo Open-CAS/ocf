@@ -170,6 +170,7 @@ static void remove_lru_list(ocf_cache_t cache,
 		node->prev = end_marker;
 	}
 
+	node->hot = false;
 	--list->num_nodes;
 }
 
