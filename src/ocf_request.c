@@ -85,12 +85,16 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 		req = env_mpool_new(cache->owner->resources.req, 1);
 	}
 
-
 	if (unlikely(!req))
 		return NULL;
 
-	if (map_allocated)
+	if (map_allocated) {
 		req->map = req->__map;
+		req->alloc_core_line_count = core_line_count;
+	} else {
+		req->alloc_core_line_count = 1;
+	}
+
 
 	OCF_DEBUG_TRACE(cache);
 
@@ -204,13 +208,11 @@ void ocf_req_put(struct ocf_request *req)
 	if (!req->d2c && req->io_queue != req->cache->mngt_queue)
 		ocf_refcnt_dec(&req->cache->refcnt.metadata);
 
-	if (req->map == req->__map) {
-		env_mpool_del(req->cache->owner->resources.req, req,
-				req->core_line_count);
-	} else {
+	if (req->map != req->__map)
 		env_free(req->map);
-		env_mpool_del(req->cache->owner->resources.req, req, 1);
-	}
+
+	env_mpool_del(req->cache->owner->resources.req, req,
+			req->alloc_core_line_count);
 
 	ocf_queue_put(queue);
 }
