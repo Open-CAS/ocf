@@ -598,8 +598,8 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 	mapped = ocf_engine_is_mapped(req);
 	if (mapped) {
 		lock = lock_clines(req);
-		ocf_hb_req_prot_unlock_rd(req);
 		ocf_engine_set_hot(req);
+		ocf_hb_req_prot_unlock_rd(req);
 		return lock;
 	}
 
@@ -615,15 +615,14 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 	/* Mapping must be performed holding (at least) hash-bucket write lock */
 	ocf_hb_req_prot_lock_upgrade(req);
 	result = ocf_prepare_clines_miss(req);
+	if (!ocf_req_test_mapping_error(req))
+		ocf_engine_set_hot(req);
 	ocf_hb_req_prot_unlock_wr(req);
 
 	if (ocf_req_test_clean_eviction(req)) {
 		ocf_eviction_flush_dirty(req->cache, part, req->io_queue,
 				128);
 	}
-
-	if (!ocf_req_test_mapping_error(req))
-		ocf_engine_set_hot(req);
 
 	return result;
 }
