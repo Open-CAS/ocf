@@ -23,10 +23,10 @@ class IoClassInfo(Structure):
 class IoClassConfig(Structure):
     _fields_ = [
         ("_class_id", c_uint32),
-        ("_name", c_char_p),
-        ("_prio", c_uint16),
-        ("_cache_mode", c_int),
         ("_max_size", c_uint32),
+        ("_name", c_char_p),
+        ("_cache_mode", c_int),
+        ("_prio", c_uint16),
     ]
 
 
