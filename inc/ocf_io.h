@@ -84,16 +84,6 @@ struct ocf_io {
 	ocf_start_io_t start;
 
 	/**
-	 * @brief OCF IO handle function
-	 */
-	ocf_handle_io_t handle;
-
-	/**
-	 * @brief OCF IO completion function
-	 */
-	ocf_end_io_t end;
-
-	/**
 	 * @brief OCF IO private 1
 	 */
 	void *priv1;
@@ -102,6 +92,16 @@ struct ocf_io {
 	 * @brief OCF IO private 2
 	 */
 	void *priv2;
+
+	/**
+	 * @brief OCF IO handle function
+	 */
+	ocf_handle_io_t handle;
+
+	/**
+	 * @brief OCF IO completion function
+	 */
+	ocf_end_io_t end;
 };
 
 /**

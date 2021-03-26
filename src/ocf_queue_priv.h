@@ -11,12 +11,9 @@
 struct ocf_queue {
 	ocf_cache_t cache;
 
-	env_atomic io_no;
-
-	env_atomic ref_count;
+	void *priv;
 
 	struct list_head io_list;
-	env_spinlock io_list_lock;
 
 	/* per-queue free running global metadata lock index */
 	unsigned lock_idx;
@@ -24,20 +21,22 @@ struct ocf_queue {
 	/* per-queue free running eviction list index */
 	unsigned eviction_idx;
 
-	/* Tracing reference counter */
-	env_atomic64 trace_ref_cntr;
-
-	/* Tracing stop request */
-	env_atomic trace_stop;
+	struct ocf_seq_cutoff *seq_cutoff;
 
 	struct list_head list;
 
 	const struct ocf_queue_ops *ops;
 
-	struct ocf_seq_cutoff *seq_cutoff;
+	/* Tracing reference counter */
+	env_atomic64 trace_ref_cntr;
 
-	void *priv;
-};
+	/* Tracing stop request */
+	env_atomic trace_stop;
+	env_atomic io_no;
+
+	env_atomic ref_count;
+	env_spinlock io_list_lock;
+} __attribute__((__aligned__(64)));
 
 static inline void ocf_queue_kick(ocf_queue_t queue, bool allow_sync)
 {

@@ -37,8 +37,8 @@
 
 struct __waiter {
 	ocf_cache_line_t line;
-	void *ctx;
 	uint32_t ctx_id;
+	void *ctx;
 	ocf_req_async_lock_cb cb;
 	struct list_head item;
 	int rw;

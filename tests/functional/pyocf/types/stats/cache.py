@@ -19,6 +19,7 @@ class CacheInfo(Structure):
     _fields_ = [
         ("attached", c_bool),
         ("volume_type", c_uint8),
+        ("state", c_uint8),
         ("size", c_uint32),
         ("inactive", _Inactive),
         ("occupancy", c_uint32),
@@ -27,7 +28,6 @@ class CacheInfo(Structure):
         ("dirty_for", c_uint64),
         ("cache_mode", c_uint32),
         ("fallback_pt", _FallbackPt),
-        ("state", c_uint8),
         ("eviction_policy", c_uint32),
         ("cleaning_policy", c_uint32),
         ("promotion_policy", c_uint32),

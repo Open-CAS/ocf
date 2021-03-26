@@ -53,8 +53,8 @@ class VolumeOps(Structure):
         ("_submit_write_zeroes", SUBMIT_WRITE_ZEROES),
         ("_open", OPEN),
         ("_close", CLOSE),
-        ("_get_max_io_size", GET_MAX_IO_SIZE),
         ("_get_length", GET_LENGTH),
+        ("_get_max_io_size", GET_MAX_IO_SIZE),
     ]
 
 
@@ -64,9 +64,9 @@ class VolumeProperties(Structure):
         ("_io_priv_size", c_uint32),
         ("_volume_priv_size", c_uint32),
         ("_caps", VolumeCaps),
-        ("_ops", VolumeOps),
         ("_io_ops", IoOps),
         ("_deinit", c_char_p),
+        ("_ops", VolumeOps),
     ]
 
 

@@ -39,8 +39,6 @@
  * @brief Helpful struct to start cache
  */
 struct ocf_cache_mngt_init_params {
-	bool metadata_volatile;
-
 	ocf_ctx_t ctx;
 		/*!< OCF context */
 
@@ -49,6 +47,8 @@ struct ocf_cache_mngt_init_params {
 
 	uint8_t locked;
 		/*!< Keep cache locked */
+
+	bool metadata_volatile;
 
 	/**
 	 * @brief initialization state (in case of error, it is used to know

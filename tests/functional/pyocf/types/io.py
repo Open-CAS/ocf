@@ -43,10 +43,10 @@ class Io(Structure):
         ("_dir", c_uint32),
         ("_io_queue", c_void_p),
         ("_start", START),
-        ("_handle", HANDLE),
-        ("_end", END),
         ("_priv1", c_void_p),
         ("_priv2", c_void_p),
+        ("_handle", HANDLE),
+        ("_end", END),
     ]
 
     @classmethod

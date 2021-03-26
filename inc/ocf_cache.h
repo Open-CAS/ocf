@@ -27,6 +27,9 @@ struct ocf_cache_info {
 	uint8_t volume_type;
 		/*!< Cache volume type */
 
+	uint8_t state;
+		/*!< Cache state (running/flushing/stopping etc...) */
+
 	uint32_t size;
 		/*!< Actual cache size (in cache lines) */
 
@@ -68,9 +71,6 @@ struct ocf_cache_info {
 			/*!< Current cache mode is PT,
 			  set as a result of reaching IO error threshold */
 	} fallback_pt;
-
-	uint8_t state;
-		/*!< Cache state (running/flushing/stopping etc...) */
 
 	ocf_eviction_t eviction_policy;
 		/*!< Eviction policy selected */

@@ -106,9 +106,6 @@ struct ocf_request {
 	struct ocf_io_internal ioi;
 	/*!< OCF IO associated with request */
 
-	const struct ocf_engine_callbacks *engine_cbs;
-	/*!< Engine owning the request */
-
 	env_atomic ref_count;
 	/*!< Reference usage count, once OCF request reaches zero it
 	 * will be de-initialed. Get/Put method are intended to modify
@@ -127,6 +124,9 @@ struct ocf_request {
 
 	env_atomic master_remaining;
 	/*!< Atomic counter for core device */
+
+	const struct ocf_engine_callbacks *engine_cbs;
+	/*!< Engine owning the request */
 
 	ocf_cache_t cache;
 	/*!< Handle to cache instance */

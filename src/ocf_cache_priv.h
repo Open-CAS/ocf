@@ -81,57 +81,60 @@ struct ocf_cache {
 	struct ocf_lst lst_part;
 	struct ocf_user_part user_parts[OCF_IO_CLASS_MAX + 1];
 
-	struct ocf_metadata metadata;
-
 	ocf_freelist_t freelist;
 
 	ocf_eviction_t eviction_policy_init;
 
+	uint32_t fallback_pt_error_threshold;
+	ocf_queue_t mngt_queue;
+
+	struct ocf_metadata metadata;
+
 	struct {
 		/* cache get/put counter */
-		struct ocf_refcnt cache;
+		struct ocf_refcnt cache __attribute__((aligned(64)));
 		/* # of requests potentially dirtying cachelines */
-		struct ocf_refcnt dirty;
+		struct ocf_refcnt dirty __attribute__((aligned(64)));
 		/* # of requests accessing attached metadata, excluding
 		 * management reqs */
-		struct ocf_refcnt metadata;
+		struct ocf_refcnt metadata __attribute__((aligned(64)));
 	} refcnt;
 
-	uint32_t fallback_pt_error_threshold;
+	struct ocf_core core[OCF_CORE_MAX];
+
+	ocf_pipeline_t stop_pipeline;
+
 	env_atomic fallback_pt_error_counter;
 
 	env_atomic pending_read_misses_list_blocked;
 	env_atomic pending_read_misses_list_count;
 
-	env_atomic last_access_ms;
-
 	env_atomic pending_eviction_clines;
 
-	struct list_head io_queues;
-	ocf_queue_t mngt_queue;
-
-	uint16_t ocf_core_inactive_count;
-	struct ocf_core core[OCF_CORE_MAX];
-
 	env_atomic flush_in_progress;
+	env_mutex flush_mutex;
+
+	struct ocf_metadata_updater metadata_updater;
 
 	struct ocf_cleaner cleaner;
-	struct ocf_metadata_updater metadata_updater;
+
+	struct list_head io_queues;
 	ocf_promotion_policy_t promotion_policy;
 
-	struct ocf_async_lock lock;
+	struct {
+		uint32_t max_queue_size;
+		uint32_t queue_unblock_size;
+	} backfill;
+
+	void *priv;
 
 	/*
 	 * Most of the time this variable is set to 0, unless user requested
 	 * interruption of flushing process.
 	 */
 	int flushing_interrupted;
-	env_mutex flush_mutex;
 
-	struct {
-		uint32_t max_queue_size;
-		uint32_t queue_unblock_size;
-	} backfill;
+	uint16_t ocf_core_inactive_count;
 
 	bool pt_unaligned_io;
 
@@ -139,9 +142,9 @@ struct ocf_cache {
 
 	struct ocf_trace trace;
 
-	ocf_pipeline_t stop_pipeline;
-
-	void *priv;
+	struct ocf_async_lock lock;
+	// This should be on it's own cacheline ideally
+	env_atomic last_access_ms;
 };
 
 static inline ocf_core_t ocf_cache_get_core(ocf_cache_t cache,

@@ -17,22 +17,25 @@
  * @brief OCF main control structure
  */
 struct ocf_ctx {
-	const struct ocf_ctx_ops *ops;
-	const struct ocf_ctx_config *cfg;
-	struct ocf_logger logger;
 	struct ocf_volume_type *volume_type[OCF_VOLUME_TYPE_MAX];
-	env_atomic ref_count;
+
 	env_rmutex lock;
+	struct ocf_logger logger;
+
+	const struct ocf_ctx_ops *ops;
+	struct {
+		struct env_mpool *req;
+		struct env_mpool *mio;
+	} resources;
 	struct list_head caches;
 	struct {
 		struct list_head core_pool_head;
 		int core_pool_count;
 	} core_pool;
 
-	struct {
-		struct env_mpool *req;
-		struct env_mpool *mio;
-	} resources;
+
+	const struct ocf_ctx_config *cfg;
+	env_atomic ref_count;
 };
 
 #define ocf_log_prefix(ctx, lvl, prefix, fmt, ...) \

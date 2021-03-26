@@ -102,6 +102,15 @@ struct ocf_volume_ops {
 	void (*close)(ocf_volume_t volume);
 
 	/**
+	 * @brief Get volume length
+	 *
+	 * @param[in] volume Volume
+	 *
+	 * @return Volume length in bytes
+	 */
+	uint64_t (*get_length)(ocf_volume_t volume);
+
+	/**
 	 * @brief Get maximum io size
 	 *
 	 * @param[in] volume Volume
@@ -109,15 +118,6 @@ struct ocf_volume_ops {
 	 * @return Maximum io size in bytes
 	 */
 	unsigned int (*get_max_io_size)(ocf_volume_t volume);
-
-	/**
-	 * @brief Get volume length
-	 *
-	 * @param[in] volume Volume
-	 *
-	 * @return Volume lenght in bytes
-	 */
-	uint64_t (*get_length)(ocf_volume_t volume);
 };
 
 /**
@@ -136,14 +136,14 @@ struct ocf_volume_properties {
 	struct ocf_volume_caps caps;
 		/*!< Volume capabilities */
 
-	struct ocf_volume_ops ops;
-		/*!< Volume operations */
-
 	struct ocf_io_ops io_ops;
 		/*!< IO operations */
 
 	void (*deinit)(void);
 		/*!< Deinitialize volume type */
+
+	struct ocf_volume_ops ops;
+		/*!< Volume operations */
 };
 
 /**

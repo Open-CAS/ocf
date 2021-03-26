@@ -852,14 +852,14 @@ struct ocf_mngt_io_class_config {
 	uint32_t class_id;
 
 	/**
+	 * @brief IO class maximum size
+	 */
+	uint32_t max_size;
+
+	/**
 	 * @brief IO class name
 	 */
 	const char *name;
-
-	/**
-	 * @brief IO class eviction priority
-	 */
-	int16_t prio;
 
 	/**
 	 * @brief IO class cache mode
@@ -867,9 +867,9 @@ struct ocf_mngt_io_class_config {
 	ocf_cache_mode_t cache_mode;
 
 	/**
-	 * @brief IO class maximum size
+	 * @brief IO class eviction priority
 	 */
-	uint32_t max_size;
+	int16_t prio;
 };
 
 struct ocf_mngt_io_classes_config {
