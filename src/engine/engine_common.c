@@ -402,15 +402,6 @@ static void ocf_engine_map(struct ocf_request *req)
 	uint64_t core_line;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
 
-	/* NOTE: request not refreshed after upgrading hash bucket lock.
-	 * ocf_engine_unmapped_count() is potentially not accurate. */
-	if (ocf_engine_unmapped_count(req) >
-			ocf_freelist_num_free(cache->freelist)) {
-		ocf_engine_lookup(req);
-		ocf_req_set_mapping_error(req);
-		return;
-	}
-
 	ocf_req_clear_info(req);
 
 	OCF_DEBUG_TRACE(req->cache);
