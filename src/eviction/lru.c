@@ -525,7 +525,6 @@ static int evp_lru_clean_get(ocf_cache_t cache, void *getter_context,
 	if (ctx->cline[idx] == end_marker)
 		return -1;
 
-	ENV_BUG_ON(!metadata_test_dirty(ctx->cache, ctx->cline[idx]));
 	*line = ctx->cline[idx];
 
 	return 0;
