@@ -150,9 +150,13 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 	start_sector = ocf_map_line_start_sector(req, idx);
 	end_sector = ocf_map_line_end_sector(req, idx);
 
+	ENV_BUG_ON(entry->status != LOOKUP_HIT &&
+			entry->status != LOOKUP_MISS &&
+			entry->status != LOOKUP_REMAPPED &&
+			entry->status != LOOKUP_INSERTED);
+
 	/* Handle return value */
-	switch (entry->status) {
-	case LOOKUP_HIT:
+	if (entry->status == LOOKUP_HIT) {
 		if (metadata_test_valid_sec(cache, entry->coll_idx,
 				start_sector, end_sector)) {
 			req->info.hit_no++;
@@ -169,7 +173,9 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 				start_sector, end_sector))
 				req->info.dirty_all++;
 		}
+	}
 
+	if (entry->status == LOOKUP_HIT || entry->status == LOOKUP_REMAPPED) {
 		if (req->part_id != ocf_metadata_get_partition_id(cache,
 				entry->coll_idx)) {
 			/*
@@ -178,17 +184,12 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 			entry->re_part = true;
 			req->info.re_part_no++;
 		}
+	}
 
-		break;
-	case LOOKUP_INSERTED:
-	case LOOKUP_REMAPPED:
+
+	if (entry->status == LOOKUP_INSERTED ||
+			entry->status == LOOKUP_REMAPPED) {
 		req->info.insert_no++;
-		break;
-	case LOOKUP_MISS:
-		break;
-	default:
-		ENV_BUG();
-		break;
 	}
 
 	/* Check if cache hit is sequential */
