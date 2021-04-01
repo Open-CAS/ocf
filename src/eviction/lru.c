@@ -11,6 +11,7 @@
 #include "../concurrency/ocf_concurrency.h"
 #include "../mngt/ocf_mngt_common.h"
 #include "../engine/engine_zero.h"
+#include "../ocf_cache_priv.h"
 #include "../ocf_request.h"
 #include "../engine/engine_common.h"
 
@@ -615,6 +616,7 @@ uint32_t evp_lru_req_clines(struct ocf_request *req,
 	ocf_cache_line_t cline;
 	uint64_t core_line;
 	ocf_core_id_t core_id;
+	ocf_core_t core;
 	ocf_cache_t cache = req->cache;
 	bool cl_write_lock =
 		(req->engine_cbs->get_lock_type(req) ==	ocf_engine_lock_write);
@@ -666,11 +668,12 @@ uint32_t evp_lru_req_clines(struct ocf_request *req,
 		ocf_metadata_end_collision_shared_access(
 				cache, cline);
 
-		_lru_unlock_hash(&iter, core_id, core_line);
-
-		env_atomic_dec(&req->core->runtime_meta->cached_clines);
-		env_atomic_dec(&req->core->runtime_meta->
+		core = ocf_cache_get_core(cache, core_id);
+		env_atomic_dec(&core->runtime_meta->cached_clines);
+		env_atomic_dec(&core->runtime_meta->
 				part_counters[part->id].cached_clines);
+
+		_lru_unlock_hash(&iter, core_id, core_line);
 
 		ocf_map_cache_line(req, req_idx, cline);
 
