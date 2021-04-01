@@ -31,6 +31,12 @@ static int ocf_seq_cutoff_stream_cmp(struct ocf_rb_node *n1,
 	struct ocf_seq_cutoff_stream *stream2 = container_of(n2,
 			struct ocf_seq_cutoff_stream, node);
 
+	if (stream1->valid < stream2->valid)
+		return -1;
+
+	if (stream1->valid > stream2->valid)
+		return 1;
+
 	if (stream1->rw < stream2->rw)
 		return -1;
 
@@ -54,12 +60,8 @@ static struct ocf_rb_node *ocf_seq_cutoff_stream_list_find(
 
 	node = list_entry(node_list, struct ocf_rb_node, list);
 	stream = container_of(node, struct ocf_seq_cutoff_stream, node);
-	if (stream->valid)
-		max_stream = stream;
 	list_for_each_entry(node, node_list, list) {
 		stream = container_of(node, struct ocf_seq_cutoff_stream, node);
-		if (!stream->valid)
-			continue;
 		if (!max_stream)
 			max_stream = stream;
 		if (stream->bytes > max_stream->bytes)
@@ -161,7 +163,7 @@ static bool ocf_core_seq_cutoff_base_check(struct ocf_seq_cutoff *seq_cutoff,
 		struct ocf_seq_cutoff_stream **out_stream)
 {
 	struct ocf_seq_cutoff_stream item = {
-		.last = addr, .rw = rw
+		.last = addr, .rw = rw, .valid = true
 	};
 	struct ocf_seq_cutoff_stream *stream;
 	struct ocf_rb_node *node;
@@ -229,7 +231,7 @@ static struct ocf_seq_cutoff_stream *ocf_core_seq_cutoff_base_update(
 		uint64_t addr, uint32_t len, int rw, bool insert)
 {
 	struct ocf_seq_cutoff_stream item = {
-		.last = addr, .rw = rw
+		.last = addr, .rw = rw, .valid = true
 	};
 	struct ocf_seq_cutoff_stream *stream;
 	struct ocf_rb_node *node;
