@@ -920,7 +920,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 			skip = true;
 		}
 
-		if (!metadata_test_valid_any(cache, cache_line)) {
+		if (!skip && !metadata_test_valid_any(cache, cache_line)) {
 			OCF_DEBUG_MSG(cache, "No any valid");
 
 			/*
