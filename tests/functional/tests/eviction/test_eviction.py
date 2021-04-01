@@ -21,16 +21,42 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.parametrize("cls", CacheLineSize)
+@pytest.mark.parametrize("mode", [CacheMode.WT])
+def test_eviction_two_cores(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
+    """Test if eviction works correctly when remapping cachelines between distinct cores."""
+    cache_device = Volume(Size.from_MiB(20))
+
+    core_device1 = Volume(Size.from_MiB(40))
+    core_device2 = Volume(Size.from_MiB(40))
+    cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
+    cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)
+    cache_size = cache.get_stats()["conf"]["size"]
+    core_exported1 = Core.using_device(core_device1, name="core1")
+    core_exported2 = Core.using_device(core_device2, name="core2")
+    cache.add_core(core_exported1)
+    cache.add_core(core_exported2)
+
+    valid_io_size = Size.from_B(cache_size.B)
+    test_data = Data(valid_io_size)
+    send_io(core_exported1, test_data)
+    send_io(core_exported2, test_data)
+
+    stats1 = core_exported1.get_stats()
+    stats2 = core_exported2.get_stats()
+    # IO to the second core should evict all the data from the first core
+    assert stats1["usage"]["occupancy"]["value"] == 0
+    assert stats2["usage"]["occupancy"]["value"] == valid_io_size.blocks_4k
+
+
+@pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", [CacheMode.WT, CacheMode.WB, CacheMode.WO])
 def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
-    """Test if eviction does not occur when IO greater than cache size is submitted.
-    """
+    """Test if eviction does not occur when IO greater than cache size is submitted."""
     cache_device = Volume(Size.from_MiB(20))
 
     core_device = Volume(Size.from_MiB(5))
-    cache = Cache.start_on_device(cache_device, cache_mode=mode,
-                                  cache_line_size=cls)
-    cache_size = cache.get_stats()['conf']['size']
+    cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
+    cache_size = cache.get_stats()["conf"]["size"]
     core_exported = Core.using_device(core_device)
     cache.add_core(core_exported)
     cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)
@@ -40,11 +66,12 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
     send_io(core_exported, test_data)
 
     stats = core_exported.cache.get_stats()
-    first_block_sts = stats['block']
-    first_usage_sts = stats['usage']
-    pt_writes_first = stats['req']['wr_pt']
-    assert stats["usage"]["occupancy"]["value"] == (valid_io_size.B / Size.from_KiB(4).B),\
-        "Occupancy after first IO"
+    first_block_sts = stats["block"]
+    first_usage_sts = stats["usage"]
+    pt_writes_first = stats["req"]["wr_pt"]
+    assert stats["usage"]["occupancy"]["value"] == (
+        valid_io_size.B / Size.from_KiB(4).B
+    ), "Occupancy after first IO"
     prev_writes_to_core = stats["block"]["core_volume_wr"]["value"]
 
     # Anything below 5 MiB is a valid size (less than core device size)
@@ -59,20 +86,21 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
         # Flush first write
         cache.flush()
     stats = core_exported.cache.get_stats()
-    second_block_sts = stats['block']
-    second_usage_sts = stats['usage']
-    pt_writes_second = stats['req']['wr_pt']
+    second_block_sts = stats["block"]
+    second_usage_sts = stats["usage"]
+    pt_writes_second = stats["req"]["wr_pt"]
 
     # Second write shouldn't affect cache and should go directly to core.
     # Cache occupancy shouldn't change
     # Second IO should go in PT
-    assert first_usage_sts['occupancy'] == \
-        second_usage_sts['occupancy']
-    assert pt_writes_first['value'] == 0
-    assert pt_writes_second['value'] == 1
-    assert second_block_sts['cache_volume_wr']['value'] == valid_io_size.blocks_4k
-    assert second_block_sts['core_volume_wr']['value'] == valid_io_size.blocks_4k + \
-        io_size_bigger_than_cache.blocks_4k
+    assert first_usage_sts["occupancy"] == second_usage_sts["occupancy"]
+    assert pt_writes_first["value"] == 0
+    assert pt_writes_second["value"] == 1
+    assert second_block_sts["cache_volume_wr"]["value"] == valid_io_size.blocks_4k
+    assert (
+        second_block_sts["core_volume_wr"]["value"]
+        == valid_io_size.blocks_4k + io_size_bigger_than_cache.blocks_4k
+    )
 
 
 @pytest.mark.parametrize("cls", CacheLineSize)
