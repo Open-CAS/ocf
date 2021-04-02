@@ -63,32 +63,32 @@ typedef void (*ocf_req_async_lock_cb)(struct ocf_request *req);
  *
  * @param c - cacheline concurrency private data
  * @param req - OCF request
- * @param cb - async lock acquisition callback
+ * @param cmpl - async lock acquisition callback
  *
  * @returns lock acquisition status or negative error code in case of internal
  *		error
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- * added into waiting list. When lock will be acquired @cb cllback be called
+ * added into waiting list. When lock will be acquired @cmpl cllback be called
  */
 int ocf_req_async_lock_wr(struct ocf_cache_line_concurrency *c,
-		struct ocf_request *req, ocf_req_async_lock_cb cb);
+		struct ocf_request *req, ocf_req_async_lock_cb cmpl);
 
 /**
  * @brief Lock OCF request for read access (Lock all cache lines in map info)
  *
  * @param c - cacheline concurrency private data
  * @param req - OCF request
- * @param cb - async lock acquisition callback
+ * @param cmpl - async lock acquisition callback
  *
  * @returns lock acquisition status or negative error code in case of internal
  *		error
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- * added into waiting list. When lock will be acquired @cb callback be called
+ * added into waiting list. When lock will be acquired @cmpl callback be called
  */
 int ocf_req_async_lock_rd(struct ocf_cache_line_concurrency *c,
-		struct ocf_request *req, ocf_req_async_lock_cb cb);
+		struct ocf_request *req, ocf_req_async_lock_cb cmpl);
 
 /**
  * @brief Unlock OCF request from write access
