@@ -346,7 +346,7 @@ static inline bool _lru_evp_all_empty(struct ocf_lru_iter *iter)
 static bool inline _lru_trylock_cacheline(struct ocf_lru_iter *iter,
 		ocf_cache_line_t cline)
 {
-	struct ocf_cache_line_concurrency *c =
+	struct ocf_alock *c =
 			ocf_cache_line_concurrency(iter->cache);
 
 	return iter->cl_lock_write ?
@@ -357,7 +357,7 @@ static bool inline _lru_trylock_cacheline(struct ocf_lru_iter *iter,
 static void inline _lru_unlock_cacheline(struct ocf_lru_iter *iter,
 		ocf_cache_line_t cline)
 {
-	struct ocf_cache_line_concurrency *c =
+	struct ocf_alock *c =
 			ocf_cache_line_concurrency(iter->cache);
 
 	if (iter->cl_lock_write)
