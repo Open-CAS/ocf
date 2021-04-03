@@ -6,15 +6,12 @@
 #ifndef OCF_CACHE_CONCURRENCY_H_
 #define OCF_CACHE_CONCURRENCY_H_
 
-/**
- * @file utils_req.h
- * @brief OCF cache concurrency module
- */
+#include "../utils/utils_alock.h"
 
 /**
- * @brief OCF cache concurrency module handle
+ * @file ocf_cache_line_concurrency.h
+ * @brief OCF cache concurrency module
  */
-struct ocf_alock;
 
 /**
  * @brief Initialize OCF cache concurrency module
@@ -54,9 +51,6 @@ uint32_t ocf_cache_line_concurrency_suspended_no(struct ocf_alock *c);
  * @return Memory footprint of cache concurrency module
  */
 size_t ocf_cache_line_concurrency_size_of(ocf_cache_t cache);
-
-/* async request cacheline lock acquisition callback */
-typedef void (*ocf_req_async_lock_cb)(struct ocf_request *req);
 
 /**
  * @brief Lock OCF request for write access (Lock all cache lines in map info)
