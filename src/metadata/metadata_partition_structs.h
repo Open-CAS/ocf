@@ -44,7 +44,7 @@ struct ocf_lru_iter
 	/* cache object */
 	ocf_cache_t cache;
 	/* cacheline concurrency */
-	struct ocf_cache_line_concurrency *c;
+	struct ocf_alock *c;
 	/* target partition */
 	struct ocf_part_runtime *part;
 	/* available (non-empty) eviction list bitmap rotated so that current

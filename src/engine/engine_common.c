@@ -410,16 +410,15 @@ static void ocf_engine_evict(struct ocf_request *req)
 
 static int lock_clines(struct ocf_request *req)
 {
-	struct ocf_cache_line_concurrency *c = ocf_cache_line_concurrency(
-			req->cache);
+	struct ocf_alock *c = ocf_cache_line_concurrency(req->cache);
 	int lock_type = OCF_WRITE;
 
 	if (req->rw == OCF_READ && ocf_engine_is_hit(req))
 		lock_type = OCF_READ;
 
 	return lock_type == OCF_WRITE ?
-		ocf_req_async_lock_wr(c, req, req->engine_cbs->resume) :
-		ocf_req_async_lock_rd(c, req, req->engine_cbs->resume);
+			ocf_req_async_lock_wr(c, req, req->engine_cbs->resume) :
+			ocf_req_async_lock_rd(c, req, req->engine_cbs->resume);
 }
 
 /* Attempt to map cachelines marked as LOOKUP_MISS by evicting from cache.

@@ -59,7 +59,7 @@ struct ocf_cache_device {
 	uint64_t metadata_offset;
 
 	struct {
-		struct ocf_cache_line_concurrency *cache_line;
+		struct ocf_alock *cache_line;
 	} concurrency;
 
 	struct ocf_superblock_runtime *runtime_meta;

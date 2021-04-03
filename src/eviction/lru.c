@@ -978,7 +978,7 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 	uint32_t step = 0;
 	uint64_t start_line, end_line;
 	int ret = 0;
-	struct ocf_cache_line_concurrency *c = ocf_cache_line_concurrency(cache);
+	struct ocf_alock *c = ocf_cache_line_concurrency(cache);
 	int clean;
 	struct ocf_lru_list *list;
 	struct ocf_part_runtime *part;
