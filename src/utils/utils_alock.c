@@ -631,7 +631,7 @@ static inline void ocf_alock_waitlist_remove_entry(struct ocf_alock *alock,
 	struct ocf_alock_lock_cbs *cbs,
 	struct ocf_request *req, int i, int rw)
 {
-	ocf_cache_line_t entry = req->map[i].coll_idx;
+	ocf_cache_line_t entry = cbs->line_get_entry(req, i);
 	uint32_t idx = _WAITERS_LIST_ITEM(entry);
 	struct ocf_alock_waiters_list *lst = &alock->waiters_lsts[idx];
 	struct list_head *iter, *next;
@@ -681,7 +681,7 @@ static int ocf_alock_lock_rd_fast(struct ocf_alock *alock,
 			continue;
 		}
 
-		entry = req->map[i].coll_idx;
+		entry = cbs->line_get_entry(req, i);
 		ENV_BUG_ON(entry >= alock->num_entries);
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_READ));
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_WRITE));
@@ -706,7 +706,7 @@ static int ocf_alock_lock_rd_fast(struct ocf_alock *alock,
 				continue;
 			}
 
-			entry = req->map[i].coll_idx;
+			entry = cbs->line_get_entry(req, i);
 
 			if (cbs->line_is_locked(req, i, OCF_READ)) {
 				ocf_alock_unlock_one_rd(alock, cbs, entry);
@@ -743,7 +743,7 @@ static int ocf_alock_lock_rd_slow(struct ocf_alock *alock,
 			continue;
 		}
 
-		entry = req->map[i].coll_idx;
+		entry = cbs->line_get_entry(req, i);
 		ENV_BUG_ON(entry >= alock->num_entries);
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_READ));
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_WRITE));
@@ -812,7 +812,7 @@ static int ocf_alock_lock_wr_fast(struct ocf_alock *alock,
 			continue;
 		}
 
-		entry = req->map[i].coll_idx;
+		entry = cbs->line_get_entry(req, i);
 		ENV_BUG_ON(entry >= alock->num_entries);
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_READ));
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_WRITE));
@@ -835,7 +835,7 @@ static int ocf_alock_lock_wr_fast(struct ocf_alock *alock,
 			if (!cbs->line_needs_lock(req, i))
 				continue;
 
-			entry = req->map[i].coll_idx;
+			entry = cbs->line_get_entry(req, i);
 
 			if (cbs->line_is_locked(req, i, OCF_WRITE)) {
 				ocf_alock_unlock_one_wr(alock, cbs, entry);
@@ -874,7 +874,7 @@ static int ocf_alock_lock_wr_slow(struct ocf_alock *alock,
 			continue;
 		}
 
-		entry = req->map[i].coll_idx;
+		entry = cbs->line_get_entry(req, i);
 		ENV_BUG_ON(entry >= alock->num_entries);
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_READ));
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_WRITE));
@@ -941,7 +941,7 @@ void ocf_alock_unlock_rd(struct ocf_alock *alock,
 		if (!cbs->line_is_locked(req, i, OCF_READ))
 			continue;
 
-		entry = req->map[i].coll_idx;
+		entry = cbs->line_get_entry(req, i);
 
 		ENV_BUG_ON(entry >= alock->num_entries);
 
@@ -968,7 +968,7 @@ void ocf_alock_unlock_wr(struct ocf_alock *alock,
 		if (!cbs->line_is_locked(req, i, OCF_WRITE))
 			continue;
 
-		entry = req->map[i].coll_idx;
+		entry = cbs->line_get_entry(req, i);
 
 		ENV_BUG_ON(entry >= alock->num_entries);
 
@@ -990,7 +990,7 @@ void ocf_alock_unlock(struct ocf_alock *alock,
 		if (!cbs->line_is_acting(req, i))
 			continue;
 
-		entry = req->map[i].coll_idx;
+		entry = cbs->line_get_entry(req, i);
 		ENV_BUG_ON(entry >= alock->num_entries);
 
 		if (cbs->line_is_locked(req, i, OCF_READ) &&
@@ -1010,16 +1010,18 @@ void ocf_alock_unlock_one(struct ocf_alock *alock,
 		struct ocf_alock_lock_cbs *cbs,
 		struct ocf_request *req, uint32_t idx)
 {
+	ocf_cache_line_t entry = cbs->line_get_entry(req, idx);
+
 	ENV_BUG_ON(!cbs->line_is_acting(req, idx));
 
 	if (cbs->line_is_locked(req, idx, OCF_READ) &&
 			cbs->line_is_locked(req, idx, OCF_WRITE)) {
 		ENV_BUG();
 	} else if (cbs->line_is_locked(req, idx, OCF_READ)) {
-		ocf_alock_unlock_one_rd(alock, cbs, req->map[idx].coll_idx);
+		ocf_alock_unlock_one_rd(alock, cbs, entry);
 		cbs->line_mark_locked(req, idx, OCF_READ, false);
 	} else if (cbs->line_is_locked(req, idx, OCF_WRITE)) {
-		ocf_alock_unlock_one_wr(alock, cbs, req->map[idx].coll_idx);
+		ocf_alock_unlock_one_wr(alock, cbs, entry);
 		cbs->line_mark_locked(req, idx, OCF_WRITE, false);
 	} else {
 		ENV_BUG();
