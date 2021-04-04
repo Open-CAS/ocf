@@ -38,7 +38,7 @@
 #define _WAITERS_LIST_ITEM(cache_line) ((cache_line) % _WAITERS_LIST_ENTRIES)
 
 struct ocf_alock_waiter {
-	ocf_cache_line_t line;
+	ocf_cache_line_t entry;
 	uint32_t idx;
 	struct ocf_request *req;
 	ocf_req_async_lock_cb cmpl;
@@ -175,22 +175,22 @@ size_t ocf_alock_size(unsigned num_entries)
 }
 
 static inline bool ocf_alock_waitlist_is_empty_locked(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
 	bool are = false;
 	struct list_head *iter;
-	uint32_t idx = _WAITERS_LIST_ITEM(line);
+	uint32_t idx = _WAITERS_LIST_ITEM(entry);
 	struct ocf_alock_waiters_list *lst = &alock->waiters_lsts[idx];
 	struct ocf_alock_waiter *waiter;
 
-	/* If list empty that means there are no waiters on cache line */
+	/* If list empty that means there are no waiters on cache entry */
 	if (list_empty(&lst->head))
 		return true;
 
 	list_for_each(iter, &lst->head) {
 		waiter = list_entry(iter, struct ocf_alock_waiter, item);
 
-		if (waiter->line == line) {
+		if (waiter->entry == entry) {
 			are = true;
 			break;
 		}
@@ -200,34 +200,34 @@ static inline bool ocf_alock_waitlist_is_empty_locked(struct ocf_alock *alock,
 }
 
 static inline void ocf_alock_waitlist_add(struct ocf_alock *alock,
-		ocf_cache_line_t line, struct ocf_alock_waiter *waiter)
+		ocf_cache_line_t entry, struct ocf_alock_waiter *waiter)
 {
-	uint32_t idx = _WAITERS_LIST_ITEM(line);
+	uint32_t idx = _WAITERS_LIST_ITEM(entry);
 	struct ocf_alock_waiters_list *lst = &alock->waiters_lsts[idx];
 
 	list_add_tail(&waiter->item, &lst->head);
 }
 
 
-#define ocf_alock_waitlist_lock(cncrrncy, line, flags) \
+#define ocf_alock_waitlist_lock(cncrrncy, entry, flags) \
 	do { \
-		uint32_t list = _WAITERS_LIST_ITEM(line); \
-		struct ocf_alock_waiters_list *lst = &cncrrncy->waiters_lsts[list]; \
+		uint32_t idx = _WAITERS_LIST_ITEM(entry); \
+		struct ocf_alock_waiters_list *lst = &cncrrncy->waiters_lsts[idx]; \
 		env_spinlock_lock_irqsave(&lst->lock, flags); \
 	} while (0)
 
-#define ocf_alock_waitlist_unlock(cncrrncy, line, flags) \
+#define ocf_alock_waitlist_unlock(cncrrncy, entry, flags) \
 	do { \
-		uint32_t list = _WAITERS_LIST_ITEM(line); \
-		struct ocf_alock_waiters_list *lst = &cncrrncy->waiters_lsts[list]; \
+		uint32_t idx = _WAITERS_LIST_ITEM(entry); \
+		struct ocf_alock_waiters_list *lst = &cncrrncy->waiters_lsts[idx]; \
 		env_spinlock_unlock_irqrestore(&lst->lock, flags); \
 	} while (0)
 
 
 bool ocf_alock_trylock_entry_wr(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
-	env_atomic *access = &alock->access[line];
+	env_atomic *access = &alock->access[entry];
 	int prev = env_atomic_cmpxchg(access, OCF_CACHE_LINE_ACCESS_IDLE,
 			OCF_CACHE_LINE_ACCESS_WR);
 
@@ -238,9 +238,9 @@ bool ocf_alock_trylock_entry_wr(struct ocf_alock *alock,
 }
 
 static inline bool ocf_alock_trylock_entry_rd_idle(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
-	env_atomic *access = &alock->access[line];
+	env_atomic *access = &alock->access[entry];
 	int prev = env_atomic_cmpxchg(access, OCF_CACHE_LINE_ACCESS_IDLE,
 			OCF_CACHE_LINE_ACCESS_ONE_RD);
 
@@ -248,26 +248,26 @@ static inline bool ocf_alock_trylock_entry_rd_idle(struct ocf_alock *alock,
 }
 
 static inline bool ocf_alock_trylock_entry_rd(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
-	env_atomic *access = &alock->access[line];
+	env_atomic *access = &alock->access[entry];
 
 	return !!env_atomic_add_unless(access, 1, OCF_CACHE_LINE_ACCESS_WR);
 }
 
 static inline void ocf_alock_unlock_entry_wr(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
-	env_atomic *access = &alock->access[line];
+	env_atomic *access = &alock->access[entry];
 
 	ENV_BUG_ON(env_atomic_read(access) != OCF_CACHE_LINE_ACCESS_WR);
 	env_atomic_set(access, OCF_CACHE_LINE_ACCESS_IDLE);
 }
 
 static inline void ocf_alock_unlock_entry_rd(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
-	env_atomic *access = &alock->access[line];
+	env_atomic *access = &alock->access[entry];
 
 	ENV_BUG_ON(env_atomic_read(access) == 0);
 	ENV_BUG_ON(env_atomic_read(access) == OCF_CACHE_LINE_ACCESS_WR);
@@ -275,18 +275,18 @@ static inline void ocf_alock_unlock_entry_rd(struct ocf_alock *alock,
 }
 
 static inline bool ocf_alock_trylock_entry_wr2wr(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
-	env_atomic *access = &alock->access[line];
+	env_atomic *access = &alock->access[entry];
 
 	ENV_BUG_ON(env_atomic_read(access) != OCF_CACHE_LINE_ACCESS_WR);
 	return true;
 }
 
 static inline bool ocf_alock_trylock_entry_wr2rd(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
-	env_atomic *access = &alock->access[line];
+	env_atomic *access = &alock->access[entry];
 
 	ENV_BUG_ON(env_atomic_read(access) != OCF_CACHE_LINE_ACCESS_WR);
 	env_atomic_set(access, OCF_CACHE_LINE_ACCESS_ONE_RD);
@@ -294,9 +294,9 @@ static inline bool ocf_alock_trylock_entry_wr2rd(struct ocf_alock *alock,
 }
 
 static inline bool ocf_alock_trylock_entry_rd2wr(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
-	env_atomic *access = &alock->access[line];
+	env_atomic *access = &alock->access[entry];
 
 	int v = env_atomic_read(access);
 
@@ -310,9 +310,9 @@ static inline bool ocf_alock_trylock_entry_rd2wr(struct ocf_alock *alock,
 }
 
 static inline bool ocf_alock_trylock_entry_rd2rd(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
-	env_atomic *access = &alock->access[line];
+	env_atomic *access = &alock->access[entry];
 
 	int v = env_atomic_read(access);
 
@@ -326,7 +326,7 @@ static void ocf_alock_entry_locked(struct ocf_alock *alock,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl)
 {
 	if (env_atomic_dec_return(&req->lock_remaining) == 0) {
-		/* All cache line locked, resume request */
+		/* All cache entry locked, resume request */
 		OCF_DEBUG_RQ(req, "Resume");
 		ENV_BUG_ON(!cmpl);
 		env_atomic_dec(&alock->waiting);
@@ -336,7 +336,7 @@ static void ocf_alock_entry_locked(struct ocf_alock *alock,
 
 static inline bool ocf_alock_lock_one_wr(struct ocf_alock *alock,
 		struct ocf_alock_lock_cbs *cbs,
-		const ocf_cache_line_t line, ocf_req_async_lock_cb cmpl,
+		const ocf_cache_line_t entry, ocf_req_async_lock_cb cmpl,
 		void *req, uint32_t idx)
 {
 	struct ocf_alock_waiter *waiter;
@@ -345,7 +345,7 @@ static inline bool ocf_alock_lock_one_wr(struct ocf_alock *alock,
 
 	ENV_BUG_ON(!cmpl);
 
-	if (ocf_alock_trylock_entry_wr(alock, line)) {
+	if (ocf_alock_trylock_entry_wr(alock, entry)) {
 		/* lock was not owned by anyone */
 		cbs->line_mark_locked(req, idx, OCF_WRITE, true);
 		ocf_alock_entry_locked(alock, req, cmpl);
@@ -356,16 +356,16 @@ static inline bool ocf_alock_lock_one_wr(struct ocf_alock *alock,
 	if (!waiter)
 		return false;
 
-	ocf_alock_waitlist_lock(alock, line, flags);
+	ocf_alock_waitlist_lock(alock, entry, flags);
 
-	/* At the moment list is protected, double check if the cache line is
+	/* At the moment list is protected, double check if the cache entry is
 	 * unlocked
 	 */
-	if (ocf_alock_trylock_entry_wr(alock, line))
+	if (ocf_alock_trylock_entry_wr(alock, entry))
 		goto unlock;
 
 	/* Setup waiters filed */
-	waiter->line = line;
+	waiter->entry = entry;
 	waiter->req = req;
 	waiter->idx = idx;
 	waiter->cmpl = cmpl;
@@ -373,11 +373,11 @@ static inline bool ocf_alock_lock_one_wr(struct ocf_alock *alock,
 	INIT_LIST_HEAD(&waiter->item);
 
 	/* Add to waiters list */
-	ocf_alock_waitlist_add(alock, line, waiter);
+	ocf_alock_waitlist_add(alock, entry, waiter);
 	waiting = true;
 
 unlock:
-	ocf_alock_waitlist_unlock(alock, line, flags);
+	ocf_alock_waitlist_unlock(alock, entry, flags);
 
 	if (!waiting) {
 		cbs->line_mark_locked(req, idx, OCF_WRITE, true);
@@ -389,12 +389,12 @@ unlock:
 }
 
 /*
- * Attempt to lock cache line for read.
- * In case cache line is locked,  attempt to add caller on wait list.
+ * Attempt to lock cache entry for read.
+ * In case cache entry is locked,  attempt to add caller on wait list.
  */
 static inline bool ocf_alock_lock_one_rd(struct ocf_alock *alock,
 		struct ocf_alock_lock_cbs *cbs,
-		const ocf_cache_line_t line, ocf_req_async_lock_cb cmpl,
+		const ocf_cache_line_t entry, ocf_req_async_lock_cb cmpl,
 		void *req, uint32_t idx)
 {
 	struct ocf_alock_waiter *waiter;
@@ -403,7 +403,7 @@ static inline bool ocf_alock_lock_one_rd(struct ocf_alock *alock,
 
 	ENV_BUG_ON(!cmpl);
 
-	if( ocf_alock_trylock_entry_rd_idle(alock, line)) {
+	if( ocf_alock_trylock_entry_rd_idle(alock, entry)) {
 		/* lock was not owned by anyone */
 		cbs->line_mark_locked(req, idx, OCF_READ, true);
 		ocf_alock_entry_locked(alock, req, cmpl);
@@ -415,20 +415,20 @@ static inline bool ocf_alock_lock_one_rd(struct ocf_alock *alock,
 		return false;
 
 	/* Lock waiters list */
-	ocf_alock_waitlist_lock(alock, line, flags);
+	ocf_alock_waitlist_lock(alock, entry, flags);
 
-	if (!ocf_alock_waitlist_is_empty_locked(alock, line)) {
+	if (!ocf_alock_waitlist_is_empty_locked(alock, entry)) {
 		/* No waiters at the moment */
 
 		/* Check if read lock can be obtained */
-		if (ocf_alock_trylock_entry_rd(alock, line)) {
-			/* Cache line locked */
+		if (ocf_alock_trylock_entry_rd(alock, entry)) {
+			/* Cache entry locked */
 			goto unlock;
 		}
 	}
 
 	/* Setup waiters field */
-	waiter->line = line;
+	waiter->entry = entry;
 	waiter->req = req;
 	waiter->idx = idx;
 	waiter->cmpl = cmpl;
@@ -436,11 +436,11 @@ static inline bool ocf_alock_lock_one_rd(struct ocf_alock *alock,
 	INIT_LIST_HEAD(&waiter->item);
 
 	/* Add to waiters list */
-	ocf_alock_waitlist_add(alock, line, waiter);
+	ocf_alock_waitlist_add(alock, entry, waiter);
 	waiting = true;
 
 unlock:
-	ocf_alock_waitlist_unlock(alock, line, flags);
+	ocf_alock_waitlist_unlock(alock, entry, flags);
 
 	if (!waiting) {
 		cbs->line_mark_locked(req, idx, OCF_READ, true);
@@ -453,13 +453,13 @@ unlock:
 
 static inline void ocf_alock_unlock_one_rd_common(struct ocf_alock *alock,
 		struct ocf_alock_lock_cbs *cbs,
-		const ocf_cache_line_t line)
+		const ocf_cache_line_t entry)
 {
 	bool locked = false;
 	bool exchanged = true;
 	uint32_t i = 0;
 
-	uint32_t idx = _WAITERS_LIST_ITEM(line);
+	uint32_t idx = _WAITERS_LIST_ITEM(entry);
 	struct ocf_alock_waiters_list *lst = &alock->waiters_lsts[idx];
 	struct ocf_alock_waiter *waiter;
 
@@ -476,21 +476,21 @@ static inline void ocf_alock_unlock_one_rd_common(struct ocf_alock *alock,
 	list_for_each_safe(iter, next, &lst->head) {
 		waiter = list_entry(iter, struct ocf_alock_waiter, item);
 
-		if (line != waiter->line)
+		if (entry != waiter->entry)
 			continue;
 
 		if (exchanged) {
 			if (waiter->rw == OCF_WRITE)
-				locked = ocf_alock_trylock_entry_rd2wr(alock, line);
+				locked = ocf_alock_trylock_entry_rd2wr(alock, entry);
 			else if (waiter->rw == OCF_READ)
-				locked = ocf_alock_trylock_entry_rd2rd(alock, line);
+				locked = ocf_alock_trylock_entry_rd2rd(alock, entry);
 			else
 				ENV_BUG();
 		} else {
 			if (waiter->rw == OCF_WRITE)
-				locked = ocf_alock_trylock_entry_wr(alock, line);
+				locked = ocf_alock_trylock_entry_wr(alock, entry);
 			else if (waiter->rw == OCF_READ)
-				locked = ocf_alock_trylock_entry_rd(alock, line);
+				locked = ocf_alock_trylock_entry_rd(alock, entry);
 			else
 				ENV_BUG();
 		}
@@ -515,40 +515,40 @@ static inline void ocf_alock_unlock_one_rd_common(struct ocf_alock *alock,
 		/* No exchange, no waiters on the list, unlock and return
 		 * WR -> IDLE
 		 */
-		ocf_alock_unlock_entry_rd(alock, line);
+		ocf_alock_unlock_entry_rd(alock, entry);
 	}
 }
 
 bool ocf_alock_trylock_one_rd(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
-	return ocf_alock_trylock_entry_rd_idle(alock, line);
+	return ocf_alock_trylock_entry_rd_idle(alock, entry);
 }
 
 void ocf_alock_unlock_one_rd(struct ocf_alock *alock,
 		struct ocf_alock_lock_cbs *cbs,
-		const ocf_cache_line_t line)
+		const ocf_cache_line_t entry)
 {
 	unsigned long flags = 0;
 
-	OCF_DEBUG_RQ(alock->cache, "Cache line = %u", line);
+	OCF_DEBUG_RQ(alock->cache, "Cache entry = %u", entry);
 
 	/* Lock waiters list */
-	ocf_alock_waitlist_lock(alock, line, flags);
-	ocf_alock_unlock_one_rd_common(alock, cbs, line);
-	ocf_alock_waitlist_unlock(alock, line, flags);
+	ocf_alock_waitlist_lock(alock, entry, flags);
+	ocf_alock_unlock_one_rd_common(alock, cbs, entry);
+	ocf_alock_waitlist_unlock(alock, entry, flags);
 }
 
 
 static inline void ocf_alock_unlock_one_wr_common(struct ocf_alock *alock,
 		struct ocf_alock_lock_cbs *cbs,
-		const ocf_cache_line_t line)
+		const ocf_cache_line_t entry)
 {
 	uint32_t i = 0;
 	bool locked = false;
 	bool exchanged = true;
 
-	uint32_t idx = _WAITERS_LIST_ITEM(line);
+	uint32_t idx = _WAITERS_LIST_ITEM(entry);
 	struct ocf_alock_waiters_list *lst = &alock->waiters_lsts[idx];
 	struct ocf_alock_waiter *waiter;
 
@@ -565,21 +565,21 @@ static inline void ocf_alock_unlock_one_wr_common(struct ocf_alock *alock,
 	list_for_each_safe(iter, next, &lst->head) {
 		waiter = list_entry(iter, struct ocf_alock_waiter, item);
 
-		if (line != waiter->line)
+		if (entry != waiter->entry)
 			continue;
 
 		if (exchanged) {
 			if (waiter->rw == OCF_WRITE)
-				locked = ocf_alock_trylock_entry_wr2wr(alock, line);
+				locked = ocf_alock_trylock_entry_wr2wr(alock, entry);
 			else if (waiter->rw == OCF_READ)
-				locked = ocf_alock_trylock_entry_wr2rd(alock, line);
+				locked = ocf_alock_trylock_entry_wr2rd(alock, entry);
 			else
 				ENV_BUG();
 		} else {
 			if (waiter->rw == OCF_WRITE)
-				locked = ocf_alock_trylock_entry_wr(alock, line);
+				locked = ocf_alock_trylock_entry_wr(alock, entry);
 			else if (waiter->rw == OCF_READ)
-				locked = ocf_alock_trylock_entry_rd(alock, line);
+				locked = ocf_alock_trylock_entry_rd(alock, entry);
 			else
 				ENV_BUG();
 		}
@@ -604,26 +604,26 @@ static inline void ocf_alock_unlock_one_wr_common(struct ocf_alock *alock,
 		/* No exchange, no waiters on the list, unlock and return
 		 * WR -> IDLE
 		 */
-		ocf_alock_unlock_entry_wr(alock, line);
+		ocf_alock_unlock_entry_wr(alock, entry);
 	}
 }
 
 void ocf_alock_unlock_one_wr(struct ocf_alock *alock,
 		struct ocf_alock_lock_cbs *cbs,
-		const ocf_cache_line_t line)
+		const ocf_cache_line_t entry)
 {
 	unsigned long flags = 0;
 
-	OCF_DEBUG_RQ(alock->cache, "Cache line = %u", line);
+	OCF_DEBUG_RQ(alock->cache, "Cache entry = %u", entry);
 
 	/* Lock waiters list */
-	ocf_alock_waitlist_lock(alock, line, flags);
-	ocf_alock_unlock_one_wr_common(alock, cbs, line);
-	ocf_alock_waitlist_unlock(alock, line, flags);
+	ocf_alock_waitlist_lock(alock, entry, flags);
+	ocf_alock_unlock_one_wr_common(alock, cbs, entry);
+	ocf_alock_waitlist_unlock(alock, entry, flags);
 }
 
 /*
- * Safely remove cache line lock waiter from waiting list.
+ * Safely remove cache entry lock waiter from waiting list.
  * Request can be assigned with lock asynchronously at any point of time,
  * so need to check lock state under a common lock.
  */
@@ -631,20 +631,20 @@ static inline void ocf_alock_waitlist_remove_entry(struct ocf_alock *alock,
 	struct ocf_alock_lock_cbs *cbs,
 	struct ocf_request *req, int i, int rw)
 {
-	ocf_cache_line_t line = req->map[i].coll_idx;
-	uint32_t idx = _WAITERS_LIST_ITEM(line);
+	ocf_cache_line_t entry = req->map[i].coll_idx;
+	uint32_t idx = _WAITERS_LIST_ITEM(entry);
 	struct ocf_alock_waiters_list *lst = &alock->waiters_lsts[idx];
 	struct list_head *iter, *next;
 	struct ocf_alock_waiter *waiter;
 	unsigned long flags = 0;
 
-	ocf_alock_waitlist_lock(alock, line, flags);
+	ocf_alock_waitlist_lock(alock, entry, flags);
 
 	if (cbs->line_is_locked(req, i, rw)) {
 		if (rw == OCF_READ)
-			ocf_alock_unlock_one_rd_common(alock, cbs, line);
+			ocf_alock_unlock_one_rd_common(alock, cbs, entry);
 		else
-			ocf_alock_unlock_one_wr_common(alock, cbs, line);
+			ocf_alock_unlock_one_wr_common(alock, cbs, entry);
 		cbs->line_mark_locked(req, i, rw, false);
 	} else {
 		list_for_each_safe(iter, next, &lst->head) {
@@ -656,7 +656,7 @@ static inline void ocf_alock_waitlist_remove_entry(struct ocf_alock *alock,
 		}
 	}
 
-	ocf_alock_waitlist_unlock(alock, line, flags);
+	ocf_alock_waitlist_unlock(alock, entry, flags);
 }
 
 /* Try to read-lock request without adding waiters. Function should be called
@@ -668,7 +668,7 @@ static int ocf_alock_lock_rd_fast(struct ocf_alock *alock,
 		struct ocf_request *req)
 {
 	int32_t i;
-	ocf_cache_line_t line;
+	ocf_cache_line_t entry;
 	int ret = OCF_LOCK_ACQUIRED;
 
 	OCF_DEBUG_RQ(req, "Lock");
@@ -681,18 +681,18 @@ static int ocf_alock_lock_rd_fast(struct ocf_alock *alock,
 			continue;
 		}
 
-		line = req->map[i].coll_idx;
-		ENV_BUG_ON(line >= alock->num_entries);
+		entry = req->map[i].coll_idx;
+		ENV_BUG_ON(entry >= alock->num_entries);
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_READ));
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_WRITE));
 
-		if( ocf_alock_trylock_entry_rd_idle(alock, line)) {
-			/* cache line locked */
+		if( ocf_alock_trylock_entry_rd_idle(alock, entry)) {
+			/* cache entry locked */
 			cbs->line_mark_locked(req, i, OCF_READ, true);
 		} else {
 			/* Not possible to lock all cachelines */
 			ret = OCF_LOCK_NOT_ACQUIRED;
-			OCF_DEBUG_RQ(req, "NO Lock, cache line = %u", line);
+			OCF_DEBUG_RQ(req, "NO Lock, cache entry = %u", entry);
 			break;
 		}
 	}
@@ -706,10 +706,10 @@ static int ocf_alock_lock_rd_fast(struct ocf_alock *alock,
 				continue;
 			}
 
-			line = req->map[i].coll_idx;
+			entry = req->map[i].coll_idx;
 
 			if (cbs->line_is_locked(req, i, OCF_READ)) {
-				ocf_alock_unlock_one_rd(alock, cbs, line);
+				ocf_alock_unlock_one_rd(alock, cbs, entry);
 				cbs->line_mark_locked(req, i, OCF_READ, false);
 			}
 		}
@@ -727,7 +727,7 @@ static int ocf_alock_lock_rd_slow(struct ocf_alock *alock,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl)
 {
 	int32_t i;
-	ocf_cache_line_t line;
+	ocf_cache_line_t entry;
 	int ret = OCF_LOCK_NOT_ACQUIRED;
 
 	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
@@ -743,12 +743,12 @@ static int ocf_alock_lock_rd_slow(struct ocf_alock *alock,
 			continue;
 		}
 
-		line = req->map[i].coll_idx;
-		ENV_BUG_ON(line >= alock->num_entries);
+		entry = req->map[i].coll_idx;
+		ENV_BUG_ON(entry >= alock->num_entries);
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_READ));
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_WRITE));
 
-		if (!ocf_alock_lock_one_rd(alock, cbs, line, cmpl, req, i)) {
+		if (!ocf_alock_lock_one_rd(alock, cbs, entry, cmpl, req, i)) {
 			/* lock not acquired and not added to wait list */
 			ret = -OCF_ERR_NO_MEM;
 			goto err;
@@ -801,7 +801,7 @@ static int ocf_alock_lock_wr_fast(struct ocf_alock *alock,
 		struct ocf_request *req)
 {
 	int32_t i;
-	ocf_cache_line_t line;
+	ocf_cache_line_t entry;
 	int ret = OCF_LOCK_ACQUIRED;
 
 	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
@@ -812,18 +812,18 @@ static int ocf_alock_lock_wr_fast(struct ocf_alock *alock,
 			continue;
 		}
 
-		line = req->map[i].coll_idx;
-		ENV_BUG_ON(line >= alock->num_entries);
+		entry = req->map[i].coll_idx;
+		ENV_BUG_ON(entry >= alock->num_entries);
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_READ));
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_WRITE));
 
-		if (ocf_alock_trylock_entry_wr(alock, line)) {
-			/* cache line locked */
+		if (ocf_alock_trylock_entry_wr(alock, entry)) {
+			/* cache entry locked */
 			cbs->line_mark_locked(req, i, OCF_WRITE, true);
 		} else {
 			/* Not possible to lock all cachelines */
 			ret = OCF_LOCK_NOT_ACQUIRED;
-			OCF_DEBUG_RQ(req, "NO Lock, cache line = %u", line);
+			OCF_DEBUG_RQ(req, "NO Lock, cache entry = %u", entry);
 			break;
 		}
 	}
@@ -835,10 +835,10 @@ static int ocf_alock_lock_wr_fast(struct ocf_alock *alock,
 			if (!cbs->line_needs_lock(req, i))
 				continue;
 
-			line = req->map[i].coll_idx;
+			entry = req->map[i].coll_idx;
 
 			if (cbs->line_is_locked(req, i, OCF_WRITE)) {
-				ocf_alock_unlock_one_wr(alock, cbs, line);
+				ocf_alock_unlock_one_wr(alock, cbs, entry);
 				cbs->line_mark_locked(req, i, OCF_WRITE, false);
 			}
 		}
@@ -856,7 +856,7 @@ static int ocf_alock_lock_wr_slow(struct ocf_alock *alock,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl)
 {
 	int32_t i;
-	ocf_cache_line_t line;
+	ocf_cache_line_t entry;
 	int ret = OCF_LOCK_NOT_ACQUIRED;
 
 	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
@@ -874,12 +874,12 @@ static int ocf_alock_lock_wr_slow(struct ocf_alock *alock,
 			continue;
 		}
 
-		line = req->map[i].coll_idx;
-		ENV_BUG_ON(line >= alock->num_entries);
+		entry = req->map[i].coll_idx;
+		ENV_BUG_ON(entry >= alock->num_entries);
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_READ));
 		ENV_BUG_ON(cbs->line_is_locked(req, i, OCF_WRITE));
 
-		if (!ocf_alock_lock_one_wr(alock, cbs, line, cmpl, req, i)) {
+		if (!ocf_alock_lock_one_wr(alock, cbs, entry, cmpl, req, i)) {
 			/* lock not acquired and not added to wait list */
 			ret = -OCF_ERR_NO_MEM;
 			goto err;
@@ -928,7 +928,7 @@ void ocf_alock_unlock_rd(struct ocf_alock *alock,
 		struct ocf_request *req)
 {
 	int32_t i;
-	ocf_cache_line_t line;
+	ocf_cache_line_t entry;
 
 	OCF_DEBUG_RQ(req, "Unlock");
 
@@ -941,11 +941,11 @@ void ocf_alock_unlock_rd(struct ocf_alock *alock,
 		if (!cbs->line_is_locked(req, i, OCF_READ))
 			continue;
 
-		line = req->map[i].coll_idx;
+		entry = req->map[i].coll_idx;
 
-		ENV_BUG_ON(line >= alock->num_entries);
+		ENV_BUG_ON(entry >= alock->num_entries);
 
-		ocf_alock_unlock_one_rd(alock, cbs, line);
+		ocf_alock_unlock_one_rd(alock, cbs, entry);
 		cbs->line_mark_locked(req, i, OCF_READ, false);
 	}
 }
@@ -955,7 +955,7 @@ void ocf_alock_unlock_wr(struct ocf_alock *alock,
 		struct ocf_request *req)
 {
 	int32_t i;
-	ocf_cache_line_t line;
+	ocf_cache_line_t entry;
 
 	OCF_DEBUG_RQ(req, "Unlock");
 
@@ -968,11 +968,11 @@ void ocf_alock_unlock_wr(struct ocf_alock *alock,
 		if (!cbs->line_is_locked(req, i, OCF_WRITE))
 			continue;
 
-		line = req->map[i].coll_idx;
+		entry = req->map[i].coll_idx;
 
-		ENV_BUG_ON(line >= alock->num_entries);
+		ENV_BUG_ON(entry >= alock->num_entries);
 
-		ocf_alock_unlock_one_wr(alock, cbs, line);
+		ocf_alock_unlock_one_wr(alock, cbs, entry);
 		cbs->line_mark_locked(req, i, OCF_WRITE, false);
 	}
 }
@@ -982,7 +982,7 @@ void ocf_alock_unlock(struct ocf_alock *alock,
 		struct ocf_request *req)
 {
 	int32_t i;
-	ocf_cache_line_t line;
+	ocf_cache_line_t entry;
 
 	OCF_DEBUG_RQ(req, "Unlock");
 
@@ -990,17 +990,17 @@ void ocf_alock_unlock(struct ocf_alock *alock,
 		if (!cbs->line_is_acting(req, i))
 			continue;
 
-		line = req->map[i].coll_idx;
-		ENV_BUG_ON(line >= alock->num_entries);
+		entry = req->map[i].coll_idx;
+		ENV_BUG_ON(entry >= alock->num_entries);
 
 		if (cbs->line_is_locked(req, i, OCF_READ) &&
 				cbs->line_is_locked(req, i, OCF_WRITE)) {
 			ENV_BUG();
 		} else if (cbs->line_is_locked(req, i, OCF_READ)) {
-			ocf_alock_unlock_one_rd(alock, cbs, line);
+			ocf_alock_unlock_one_rd(alock, cbs, entry);
 			cbs->line_mark_locked(req, i, OCF_READ, false);
 		} else if (cbs->line_is_locked(req, i, OCF_WRITE)) {
-			ocf_alock_unlock_one_wr(alock, cbs, line);
+			ocf_alock_unlock_one_wr(alock, cbs, entry);
 			cbs->line_mark_locked(req, i, OCF_WRITE, false);
 		}
 	}
@@ -1008,49 +1008,49 @@ void ocf_alock_unlock(struct ocf_alock *alock,
 
 void ocf_alock_unlock_one(struct ocf_alock *alock,
 		struct ocf_alock_lock_cbs *cbs,
-		struct ocf_request *req, uint32_t entry)
+		struct ocf_request *req, uint32_t idx)
 {
-	ENV_BUG_ON(!cbs->line_is_acting(req, entry));
+	ENV_BUG_ON(!cbs->line_is_acting(req, idx));
 
-	if (cbs->line_is_locked(req, entry, OCF_READ) &&
-			cbs->line_is_locked(req, entry, OCF_WRITE)) {
+	if (cbs->line_is_locked(req, idx, OCF_READ) &&
+			cbs->line_is_locked(req, idx, OCF_WRITE)) {
 		ENV_BUG();
-	} else if (cbs->line_is_locked(req, entry, OCF_READ)) {
-		ocf_alock_unlock_one_rd(alock, cbs, req->map[entry].coll_idx);
-		cbs->line_mark_locked(req, entry, OCF_READ, false);
-	} else if (cbs->line_is_locked(req, entry, OCF_WRITE)) {
-		ocf_alock_unlock_one_wr(alock, cbs, req->map[entry].coll_idx);
-		cbs->line_mark_locked(req, entry, OCF_WRITE, false);
+	} else if (cbs->line_is_locked(req, idx, OCF_READ)) {
+		ocf_alock_unlock_one_rd(alock, cbs, req->map[idx].coll_idx);
+		cbs->line_mark_locked(req, idx, OCF_READ, false);
+	} else if (cbs->line_is_locked(req, idx, OCF_WRITE)) {
+		ocf_alock_unlock_one_wr(alock, cbs, req->map[idx].coll_idx);
+		cbs->line_mark_locked(req, idx, OCF_WRITE, false);
 	} else {
 		ENV_BUG();
 	}
 }
 
 bool ocf_cache_line_is_used(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
-	ENV_BUG_ON(line >= alock->num_entries);
+	ENV_BUG_ON(entry >= alock->num_entries);
 
-	if (env_atomic_read(&(alock->access[line])))
+	if (env_atomic_read(&(alock->access[entry])))
 		return true;
 
-	return !ocf_alock_waitlist_is_empty(alock, line);
+	return !ocf_alock_waitlist_is_empty(alock, entry);
 }
 
 bool ocf_alock_waitlist_is_empty(struct ocf_alock *alock,
-		ocf_cache_line_t line)
+		ocf_cache_line_t entry)
 {
 	bool empty;
 	unsigned long flags = 0;
 
-	ENV_BUG_ON(line >= alock->num_entries);
+	ENV_BUG_ON(entry >= alock->num_entries);
 
 	/* Lock waiters list */
-	ocf_alock_waitlist_lock(alock, line, flags);
+	ocf_alock_waitlist_lock(alock, entry, flags);
 
-	empty = ocf_alock_waitlist_is_empty_locked(alock, line);
+	empty = ocf_alock_waitlist_is_empty_locked(alock, entry);
 
-	ocf_alock_waitlist_unlock(alock, line, flags);
+	ocf_alock_waitlist_unlock(alock, entry, flags);
 
 	return empty;
 }
