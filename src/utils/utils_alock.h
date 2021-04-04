@@ -42,14 +42,14 @@ struct ocf_alock_lock_cbs
 };
 
 bool ocf_alock_trylock_one_rd(struct ocf_alock *alock,
-		ocf_cache_line_t line);
+		ocf_cache_line_t entry);
 
 void ocf_alock_unlock_one_rd(struct ocf_alock *alock,
 		struct ocf_alock_lock_cbs *cbs,
-		const ocf_cache_line_t line);
+		const ocf_cache_line_t entry);
 
 bool ocf_alock_trylock_entry_wr(struct ocf_alock *alock,
-		ocf_cache_line_t line);
+		ocf_cache_line_t entry);
 
 void ocf_alock_unlock_one_wr(struct ocf_alock *alock,
 		struct ocf_alock_lock_cbs *cbs,
@@ -76,10 +76,10 @@ void ocf_alock_unlock(struct ocf_alock *alock,
 		struct ocf_request *req);
 
 bool ocf_alock_waitlist_is_empty(struct ocf_alock *alock,
-		ocf_cache_line_t line);
+		ocf_cache_line_t entry);
 
 bool ocf_alock_is_locked_exclusively(struct ocf_alock *alock,
-		ocf_cache_line_t line);
+		ocf_cache_line_t entry);
 
 uint32_t ocf_alock_waitlist_count(struct ocf_alock *alock);
 
