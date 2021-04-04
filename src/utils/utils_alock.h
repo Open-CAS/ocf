@@ -87,6 +87,11 @@ bool ocf_alock_is_locked_exclusively(struct ocf_alock *alock,
 
 uint32_t ocf_alock_waitlist_count(struct ocf_alock *alock);
 
+size_t ocf_alock_obj_size(void);
+
+int ocf_alock_init_inplace(struct ocf_alock *self, unsigned num_entries,
+		const char* name, ocf_cache_t cache);
+
 int ocf_alock_init(struct ocf_alock **self, unsigned num_entries,
 		const char* name, ocf_cache_t cache);
 

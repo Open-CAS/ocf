@@ -54,6 +54,7 @@ struct metadata_io_request {
 	env_atomic finished;
 	uint32_t page;
 	uint32_t count;
+	uint64_t map;
 };
 
 /*

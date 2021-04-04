@@ -62,78 +62,94 @@ struct ocf_alock {
 
 };
 
-int ocf_alock_init(struct ocf_alock **self, unsigned num_entries,
+size_t ocf_alock_obj_size(void)
+{
+	return sizeof(struct ocf_alock);
+}
+
+int ocf_alock_init_inplace(struct ocf_alock *self, unsigned num_entries,
 		const char* name, ocf_cache_t cache)
 {
 	uint32_t i;
 	int error = 0;
-	struct ocf_alock *alock;
 
 	OCF_DEBUG_TRACE(cache);
 
-	alock = env_vzalloc(sizeof(*alock));
-	if (!alock) {
-		error = __LINE__;
-		goto exit_err;
-	}
+	self->cache = cache;
+	self->num_entries = num_entries;
 
-	alock->cache = cache;
-	alock->num_entries = num_entries;
-
-	error = env_mutex_init(&alock->lock);
+	error = env_mutex_init(&self->lock);
 	if (error) {
 		error = __LINE__;
 		goto rwsem_err;
 	}
 
-	alock->access = env_vzalloc(num_entries * sizeof(alock->access[0]));
+	self->access = env_vzalloc(num_entries * sizeof(self->access[0]));
 
-	if (!alock->access) {
+	if (!self->access) {
 		error = __LINE__;
 		goto allocation_err;
 	}
 
-	alock->allocator = env_allocator_create(sizeof(struct ocf_alock_waiter), name, false);
-	if (!alock->allocator) {
+	self->allocator = env_allocator_create(sizeof(struct ocf_alock_waiter), name, false);
+	if (!self->allocator) {
 		error = __LINE__;
 		goto allocation_err;
 	}
 
 	/* Init concurrency control table */
 	for (i = 0; i < _WAITERS_LIST_ENTRIES; i++) {
-		INIT_LIST_HEAD(&alock->waiters_lsts[i].head);
-		error = env_spinlock_init(&alock->waiters_lsts[i].lock);
+		INIT_LIST_HEAD(&self->waiters_lsts[i].head);
+		error = env_spinlock_init(&self->waiters_lsts[i].lock);
 		if (error) {
 			error = __LINE__;
 			goto spinlock_err;
 		}
 	}
 
-	*self = alock;
 	return 0;
 
 spinlock_err:
 	while (i--)
-		env_spinlock_destroy(&alock->waiters_lsts[i].lock);
+		env_spinlock_destroy(&self->waiters_lsts[i].lock);
 
 allocation_err:
-	if (alock->allocator)
-		env_allocator_destroy(alock->allocator);
+	if (self->allocator)
+		env_allocator_destroy(self->allocator);
 
-	if (alock->access)
-		env_vfree(alock->access);
+	if (self->access)
+		env_vfree(self->access);
 
 rwsem_err:
-	env_mutex_destroy(&alock->lock);
+	env_mutex_destroy(&self->lock);
 
-exit_err:
 	ocf_cache_log(cache, log_err, "Cannot initialize cache concurrency, "
 			"ERROR %d", error);
-	if (alock)
+
+	return -1;
+}
+
+int ocf_alock_init(struct ocf_alock **self, unsigned num_entries,
+		const char* name, ocf_cache_t cache)
+{
+	struct ocf_alock *alock;
+	int ret;
+
+	OCF_DEBUG_TRACE(cache);
+
+	alock = env_vzalloc(sizeof(*alock));
+	if (!alock)
+		return -OCF_ERR_NO_MEM;
+
+	ret = ocf_alock_init_inplace(alock, num_entries,
+			name, cache);
+
+	if (!ret)
+		*self = alock;
+	else
 		env_vfree(alock);
 
-	*self = NULL;
-	return -1;
+	return ret;
 }
 
 void ocf_alock_deinit(struct ocf_alock **self)
