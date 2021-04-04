@@ -8,6 +8,8 @@
 
 #include "../utils/utils_alock.h"
 
+struct metadata_io_request;
+
 int ocf_mio_async_lock(struct ocf_alock *alock,
 		struct metadata_io_request *m_req,
 		ocf_req_async_lock_cb cmpl);

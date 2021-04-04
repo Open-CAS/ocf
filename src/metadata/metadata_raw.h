@@ -7,6 +7,7 @@
 #define __METADATA_RAW_H__
 
 #include "metadata_segment_id.h"
+#include "../concurrency/ocf_mio_concurrency.h"
 
 /**
  * @file metadata_raw.h
@@ -88,6 +89,8 @@ struct ocf_metadata_raw {
 
 	ocf_flush_page_synch_t lock_page; /*!< Page lock callback */
 	ocf_flush_page_synch_t unlock_page; /*!< Page unlock callback */
+
+	struct ocf_alock *mio_conc;
 };
 
 /**

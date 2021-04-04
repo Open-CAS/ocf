@@ -6,6 +6,8 @@
 #ifndef __METADATA_IO_H__
 #define __METADATA_IO_H__
 
+#include "../concurrency/ocf_mio_concurrency.h"
+
 /**
  * @file metadata_io.h
  * @brief Metadata IO utilities
@@ -68,6 +70,7 @@ struct metadata_io_request_asynch {
 	ocf_metadata_io_event_t on_meta_fill;
 	ocf_metadata_io_event_t on_meta_drain;
 	ocf_metadata_io_end_t on_complete;
+	struct ocf_alock *mio_conc;
 	uint32_t page;
 	uint32_t count;
 	uint32_t alloc_req_count; /*< Number of allocated metadata_io_requests */
@@ -123,7 +126,8 @@ int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue,
 int metadata_io_write_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 		void *context, uint32_t page, uint32_t count, int flags,
 		ocf_metadata_io_event_t fill_hndl,
-		ocf_metadata_io_end_t compl_hndl);
+		ocf_metadata_io_end_t compl_hndl,
+		struct ocf_alock *mio_conc);
 
 /**
  * @brief Iterative asynchronous pages read
@@ -152,15 +156,5 @@ int ocf_metadata_io_ctx_init(struct ocf_ctx *ocf_ctx);
  * Deinitialize ocf_ctx related structures of metadata_io
  */
 void ocf_metadata_io_ctx_deinit(struct ocf_ctx *ocf_ctx);
-
-/**
- * Function for initializing metadata io.
- */
-int ocf_metadata_io_init(ocf_cache_t cache);
-
-/**
- * Function for deinitializing metadata io.
- */
-void ocf_metadata_io_deinit(ocf_cache_t cache);
 
 #endif /* METADATA_IO_UTILS_H_ */

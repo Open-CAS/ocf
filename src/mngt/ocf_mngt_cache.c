@@ -1231,10 +1231,6 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	params.flags.added_to_list = true;
 	env_rmutex_unlock(&ctx->lock);
 
-	result = ocf_metadata_io_init(tmp_cache);
-	if (result)
-		goto _cache_mngt_init_instance_ERROR;
-
 	ocf_cache_log(tmp_cache, log_debug, "Metadata initialized\n");
 
 	_ocf_mngt_cache_init(tmp_cache, &params);

@@ -1610,16 +1610,12 @@ int ocf_metadata_init(struct ocf_cache *cache,
 	OCF_DEBUG_TRACE(cache);
 
 	ret = ocf_metadata_init_fixed_size(cache, cache_line_size);
-	if (ret) {
-		ocf_metadata_io_deinit(cache);
+	if (ret)
 		return ret;
-	}
 
 	ret = ocf_metadata_concurrency_init(&cache->metadata.lock);
 	if (ret) {
 		ocf_metadata_deinit_fixed_size(cache);
-
-		ocf_metadata_io_deinit(cache);
 		return ret;
 	}
 
@@ -1632,7 +1628,6 @@ void ocf_metadata_deinit(struct ocf_cache *cache)
 
 	ocf_metadata_deinit_fixed_size(cache);
 	ocf_metadata_concurrency_deinit(&cache->metadata.lock);
-	ocf_metadata_io_deinit(cache);
 }
 
 void ocf_metadata_error(struct ocf_cache *cache)
