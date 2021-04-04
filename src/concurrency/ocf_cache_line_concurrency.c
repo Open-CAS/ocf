@@ -43,11 +43,18 @@ static void ocf_cl_lock_line_mark_locked(struct ocf_request *req,
 		req->map[index].rd_locked = locked;
 }
 
+static ocf_cache_line_t ocf_cl_lock_line_get_entry(struct ocf_request *req,
+		unsigned index)
+{
+	return req->map[index].coll_idx;
+}
+
 static struct ocf_alock_lock_cbs ocf_cline_conc_cbs = {
 		.line_needs_lock = ocf_cl_lock_line_needs_lock,
 		.line_is_acting = ocf_cl_lock_line_is_acting,
 		.line_is_locked = ocf_cl_lock_line_is_locked,
-		.line_mark_locked = ocf_cl_lock_line_mark_locked
+		.line_mark_locked = ocf_cl_lock_line_mark_locked,
+		.line_get_entry = ocf_cl_lock_line_get_entry
 };
 
 bool ocf_cache_line_try_lock_rd(struct ocf_alock *alock,

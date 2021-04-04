@@ -32,6 +32,8 @@ typedef bool (*ocf_cl_lock_line_is_locked_cb)(struct ocf_request *req,
 typedef void (*ocf_cl_lock_line_mark_locked_cb)(struct ocf_request *req,
 		unsigned index, int rw, bool locked);
 
+typedef ocf_cache_line_t (*ocf_cl_lock_line_get_entry_cb)(
+		struct ocf_request *req, unsigned index);
 
 struct ocf_alock_lock_cbs
 {
@@ -39,6 +41,7 @@ struct ocf_alock_lock_cbs
 	ocf_cl_lock_line_is_acting_cb line_is_acting;
 	ocf_cl_lock_line_is_locked_cb line_is_locked;
 	ocf_cl_lock_line_mark_locked_cb line_mark_locked;
+	ocf_cl_lock_line_get_entry_cb line_get_entry;
 };
 
 bool ocf_alock_trylock_one_rd(struct ocf_alock *alock,
