@@ -160,32 +160,6 @@ static void ctx_cleaner_stop(ocf_cleaner_t c)
 }
 
 /*
- * Initialize metadata updater thread. Metadata updater thread is left
- * non-implemented to keep this example as simple as possible.
- */
-static int ctx_metadata_updater_init(ocf_metadata_updater_t mu)
-{
-	return 0;
-}
-
-/*
- * Kick metadata updater thread. Metadata updater thread is left
- * non-implemented to keep this example as simple as possible.
- */
-static void ctx_metadata_updater_kick(ocf_metadata_updater_t mu)
-{
-    ocf_metadata_updater_run(mu);
-}
-
-/*
- * Stop metadata updater thread. Metadata updater thread is left
- * non-implemented to keep this example as simple as possible.
- */
-static void ctx_metadata_updater_stop(ocf_metadata_updater_t mu)
-{
-}
-
-/*
  * Function prividing interface for printing to log used by OCF internals.
  * It can handle differently messages at varous log levels.
  */
@@ -255,12 +229,6 @@ static const struct ocf_ctx_config ctx_cfg = {
 			.init = ctx_cleaner_init,
 			.kick = ctx_cleaner_kick,
 			.stop = ctx_cleaner_stop,
-		},
-
-		.metadata_updater = {
-			.init = ctx_metadata_updater_init,
-			.kick = ctx_metadata_updater_kick,
-			.stop = ctx_metadata_updater_stop,
 		},
 
 		.logger = {

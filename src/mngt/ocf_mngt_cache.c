@@ -10,6 +10,7 @@
 #include "../ocf_core_priv.h"
 #include "../ocf_queue_priv.h"
 #include "../metadata/metadata.h"
+#include "../metadata/metadata_io.h"
 #include "../engine/cache_engine.h"
 #include "../utils/utils_part.h"
 #include "../utils/utils_cache_line.h"

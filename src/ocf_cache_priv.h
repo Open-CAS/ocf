@@ -12,7 +12,6 @@
 #include "ocf_core_priv.h"
 #include "metadata/metadata_structs.h"
 #include "metadata/metadata_partition_structs.h"
-#include "metadata/metadata_updater_priv.h"
 #include "utils/utils_list.h"
 #include "utils/utils_pipeline.h"
 #include "utils/utils_refcnt.h"
@@ -113,8 +112,6 @@ struct ocf_cache {
 
 	env_atomic flush_in_progress;
 	env_mutex flush_mutex;
-
-	struct ocf_metadata_updater metadata_updater;
 
 	struct ocf_cleaner cleaner;
 

@@ -301,6 +301,15 @@ static void matadata_io_page_lock_acquired(struct ocf_request *req)
 	ocf_engine_push_req_front(req, true);
 }
 
+void metadata_io_req_finalize(struct metadata_io_request *m_req)
+{
+	struct metadata_io_request_asynch *a_req = m_req->asynch;
+
+	if (env_atomic_dec_return(&a_req->req_active) == 0)
+		env_mpool_del(m_req->cache->owner->resources.mio, a_req,
+				a_req->alloc_req_count);
+}
+
 static void metadata_io_req_submit(struct metadata_io_request *m_req)
 {
 	struct metadata_io_request_asynch *a_req = m_req->asynch;
@@ -311,7 +320,12 @@ static void metadata_io_req_submit(struct metadata_io_request *m_req)
 	if (a_req->mio_conc) {
 		lock = ocf_mio_async_lock(a_req->mio_conc, m_req,
 			matadata_io_page_lock_acquired);
-		/* TODO: error handling for lock < 0 */
+
+		if (lock != OCF_LOCK_ACQUIRED) {
+			a_req->error = lock;
+			metadata_io_req_finalize(m_req);
+			return;
+		}
 	}
 
 	if (!a_req->mio_conc || lock == OCF_LOCK_ACQUIRED)
@@ -327,15 +341,6 @@ void metadata_io_req_end(struct metadata_io_request *m_req)
 		a_req->on_complete(cache, a_req->context, a_req->error);
 
 	ctx_data_free(cache->owner, m_req->data);
-}
-
-void metadata_io_req_finalize(struct metadata_io_request *m_req)
-{
-	struct metadata_io_request_asynch *a_req = m_req->asynch;
-
-	if (env_atomic_dec_return(&a_req->req_active) == 0)
-		env_mpool_del(m_req->cache->owner->resources.mio, a_req,
-				a_req->alloc_req_count);
 }
 
 static uint32_t metadata_io_max_page(ocf_cache_t cache)

@@ -8,7 +8,6 @@ from ctypes import c_void_p, Structure, c_char_p, cast, pointer, byref, c_int
 from .logger import LoggerOps, Logger
 from .data import DataOps, Data
 from .cleaner import CleanerOps, Cleaner
-from .metadata_updater import MetadataUpdaterOps, MetadataUpdater
 from .shared import OcfError
 from ..ocf import OcfLib
 from .queue import Queue
@@ -19,7 +18,6 @@ class OcfCtxOps(Structure):
     _fields_ = [
         ("data", DataOps),
         ("cleaner", CleanerOps),
-        ("metadata_updater", MetadataUpdaterOps),
         ("logger", LoggerOps),
     ]
 
@@ -29,10 +27,9 @@ class OcfCtxCfg(Structure):
 
 
 class OcfCtx:
-    def __init__(self, lib, name, logger, data, mu, cleaner):
+    def __init__(self, lib, name, logger, data, cleaner):
         self.logger = logger
         self.data = data
-        self.mu = mu
         self.cleaner = cleaner
         self.ctx_handle = c_void_p()
         self.lib = lib
@@ -45,7 +42,6 @@ class OcfCtx:
             ops=OcfCtxOps(
                 data=self.data.get_ops(),
                 cleaner=self.cleaner.get_ops(),
-                metadata_updater=self.mu.get_ops(),
                 logger=logger.get_ops(),
             ),
             logger_priv=cast(pointer(logger.get_priv()), c_void_p),
@@ -98,7 +94,6 @@ class OcfCtx:
         self.cfg = None
         self.logger = None
         self.data = None
-        self.mu = None
         self.cleaner = None
         Queue._instances_ = {}
         Volume._instances_ = {}
@@ -112,7 +107,6 @@ def get_default_ctx(logger):
         b"PyOCF default ctx",
         logger,
         Data,
-        MetadataUpdater,
         Cleaner,
     )
 
