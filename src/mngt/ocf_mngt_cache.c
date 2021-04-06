@@ -1635,6 +1635,25 @@ static void ocf_mngt_cache_stop_wait_metadata_io(ocf_pipeline_t pipeline,
 			ocf_mngt_cache_stop_wait_metadata_io_finish, context);
 }
 
+static void ocf_mngt_cache_stop_check_dirty(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (ocf_mngt_cache_is_dirty(cache)) {
+		cache->conf_meta->dirty_flushed = DIRTY_NOT_FLUSHED;
+
+		ocf_cache_log(cache, log_warn, "Cache is still dirty. "
+				"DO NOT USE your core devices until flushing "
+				"dirty data!\n");
+	} else {
+		cache->conf_meta->dirty_flushed = DIRTY_FLUSHED;
+	}
+
+	ocf_pipeline_next(context->pipeline);
+}
+
 static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache, bool attached)
 {
 	ocf_core_t core;
@@ -1786,6 +1805,7 @@ struct ocf_pipeline_properties ocf_mngt_cache_stop_pipeline_properties = {
 	.finish = ocf_mngt_cache_stop_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_mngt_cache_stop_wait_metadata_io),
+		OCF_PL_STEP(ocf_mngt_cache_stop_check_dirty),
 		OCF_PL_STEP(ocf_mngt_cache_stop_remove_cores),
 		OCF_PL_STEP(ocf_mngt_cache_stop_unplug),
 		OCF_PL_STEP(ocf_mngt_cache_stop_put_io_queues),
@@ -2049,18 +2069,6 @@ static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
 
 	__deinit_cleaning_policy(cache);
 	__deinit_promotion_policy(cache);
-
-	if (ocf_mngt_cache_is_dirty(cache)) {
-		ENV_BUG_ON(!stop);
-
-		cache->conf_meta->dirty_flushed = DIRTY_NOT_FLUSHED;
-
-		ocf_cache_log(cache, log_warn, "Cache is still dirty. "
-				"DO NOT USE your core devices until flushing "
-				"dirty data!\n");
-	} else {
-		cache->conf_meta->dirty_flushed = DIRTY_FLUSHED;
-	}
 
 	if (!stop) {
 		/* Just set correct shutdown status */
@@ -2540,9 +2548,11 @@ static void ocf_mngt_cache_detach_unplug(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_detach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
+	ENV_BUG_ON(cache->conf_meta->dirty_flushed == DIRTY_NOT_FLUSHED);
+
 	/* Do the actual detach - deinit cacheline metadata,
 	 * stop cleaner thread and close cache bottom device */
-	_ocf_mngt_cache_unplug(cache, false,  &context->unplug_context,
+	_ocf_mngt_cache_unplug(cache, false, &context->unplug_context,
 			ocf_mngt_cache_detach_unplug_complete, context);
 }
 
@@ -2581,6 +2591,7 @@ struct ocf_pipeline_properties ocf_mngt_cache_detach_pipeline_properties = {
 		OCF_PL_STEP(ocf_mngt_cache_detach_flush),
 		OCF_PL_STEP(ocf_mngt_cache_detach_stop_cache_io),
 		OCF_PL_STEP(ocf_mngt_cache_detach_stop_cleaner_io),
+		OCF_PL_STEP(ocf_mngt_cache_stop_check_dirty),
 		OCF_PL_STEP(ocf_mngt_cache_detach_update_metadata),
 		OCF_PL_STEP(ocf_mngt_cache_detach_unplug),
 		OCF_PL_STEP_TERMINATOR(),
