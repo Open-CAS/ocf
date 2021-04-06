@@ -37,7 +37,7 @@
 
 struct __waiter {
 	ocf_cache_line_t line;
-	uint32_t entry_idx;
+	uint32_t idx;
 	struct ocf_request *req;
 	ocf_req_async_lock_cb cmpl;
 	struct list_head item;
@@ -458,7 +458,7 @@ static void _req_on_lock(struct ocf_cache_line_concurrency *c,
 static inline bool __lock_cache_line_wr(struct ocf_cache_line_concurrency *c,
 		struct ocf_cache_line_concurrency_lock_cbs *cbs,
 		const ocf_cache_line_t line, ocf_req_async_lock_cb cmpl,
-		void *req, uint32_t entry_idx)
+		void *req, uint32_t idx)
 {
 	struct __waiter *waiter;
 	bool waiting = false;
@@ -468,7 +468,7 @@ static inline bool __lock_cache_line_wr(struct ocf_cache_line_concurrency *c,
 
 	if (__try_lock_wr(c, line)) {
 		/* lock was not owned by anyone */
-		cbs->line_mark_locked(req, entry_idx, OCF_WRITE, true);
+		cbs->line_mark_locked(req, idx, OCF_WRITE, true);
 		_req_on_lock(c, req, cmpl);
 		return true;
 	}
@@ -488,7 +488,7 @@ static inline bool __lock_cache_line_wr(struct ocf_cache_line_concurrency *c,
 	/* Setup waiters filed */
 	waiter->line = line;
 	waiter->req = req;
-	waiter->entry_idx = entry_idx;
+	waiter->idx = idx;
 	waiter->cmpl = cmpl;
 	waiter->rw = OCF_WRITE;
 	INIT_LIST_HEAD(&waiter->item);
@@ -501,7 +501,7 @@ unlock:
 	__unlock_waiters_list(c, line, flags);
 
 	if (!waiting) {
-		cbs->line_mark_locked(req, entry_idx, OCF_WRITE, true);
+		cbs->line_mark_locked(req, idx, OCF_WRITE, true);
 		_req_on_lock(c, req, cmpl);
 		env_allocator_del(c->allocator, waiter);
 	}
@@ -516,7 +516,7 @@ unlock:
 static inline bool __lock_cache_line_rd(struct ocf_cache_line_concurrency *c,
 		struct ocf_cache_line_concurrency_lock_cbs *cbs,
 		const ocf_cache_line_t line, ocf_req_async_lock_cb cmpl,
-		void *req, uint32_t entry_idx)
+		void *req, uint32_t idx)
 {
 	struct __waiter *waiter;
 	bool waiting = false;
@@ -526,7 +526,7 @@ static inline bool __lock_cache_line_rd(struct ocf_cache_line_concurrency *c,
 
 	if( __try_lock_rd_idle(c, line)) {
 		/* lock was not owned by anyone */
-		cbs->line_mark_locked(req, entry_idx, OCF_READ, true);
+		cbs->line_mark_locked(req, idx, OCF_READ, true);
 		_req_on_lock(c, req, cmpl);
 		return true;
 	}
@@ -551,7 +551,7 @@ static inline bool __lock_cache_line_rd(struct ocf_cache_line_concurrency *c,
 	/* Setup waiters field */
 	waiter->line = line;
 	waiter->req = req;
-	waiter->entry_idx = entry_idx;
+	waiter->idx = idx;
 	waiter->cmpl = cmpl;
 	waiter->rw = OCF_READ;
 	INIT_LIST_HEAD(&waiter->item);
@@ -564,7 +564,7 @@ unlock:
 	__unlock_waiters_list(c, line, flags);
 
 	if (!waiting) {
-		cbs->line_mark_locked(req, entry_idx, OCF_READ, true);
+		cbs->line_mark_locked(req, idx, OCF_READ, true);
 		_req_on_lock(c, req, cmpl);
 		env_allocator_del(c->allocator, waiter);
 	}
@@ -622,7 +622,7 @@ static inline void __unlock_cache_line_rd_common(struct ocf_cache_line_concurren
 			exchanged = false;
 			list_del(iter);
 
-			cbs->line_mark_locked(waiter->req, waiter->entry_idx,
+			cbs->line_mark_locked(waiter->req, waiter->idx,
 					waiter->rw, true);
 			_req_on_lock(c, waiter->req, waiter->cmpl);
 
@@ -706,7 +706,7 @@ static inline void __unlock_cache_line_wr_common(struct ocf_cache_line_concurren
 			exchanged = false;
 			list_del(iter);
 
-			cbs->line_mark_locked(waiter->req, waiter->entry_idx,
+			cbs->line_mark_locked(waiter->req, waiter->idx,
 					waiter->rw, true);
 			_req_on_lock(c, waiter->req, waiter->cmpl);
 
