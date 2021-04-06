@@ -9,8 +9,8 @@
 #include "../utils/utils_alock.h"
 #include "../utils/utils_cache_line.h"
 
-static bool ocf_cl_lock_line_needs_lock(struct ocf_request *req,
-		unsigned index)
+static bool ocf_cl_lock_line_needs_lock(struct ocf_alock *alock,
+		struct ocf_request *req, unsigned index)
 {
 	/* Remapped cachelines are assigned cacheline lock individually
 	 * during eviction
@@ -19,14 +19,14 @@ static bool ocf_cl_lock_line_needs_lock(struct ocf_request *req,
 			req->map[index].status != LOOKUP_REMAPPED;
 }
 
-static bool ocf_cl_lock_line_is_acting(struct ocf_request *req,
-		unsigned index)
+static bool ocf_cl_lock_line_is_acting(struct ocf_alock *alock,
+		struct ocf_request *req, unsigned index)
 {
 	return req->map[index].status != LOOKUP_MISS;
 }
 
-static bool ocf_cl_lock_line_is_locked(struct ocf_request *req,
-		unsigned index, int rw)
+static bool ocf_cl_lock_line_is_locked(struct ocf_alock *alock,
+		struct ocf_request *req, unsigned index, int rw)
 {
 	if (rw == OCF_WRITE)
 		return req->map[index].wr_locked;
@@ -34,8 +34,8 @@ static bool ocf_cl_lock_line_is_locked(struct ocf_request *req,
 		return req->map[index].rd_locked;
 }
 
-static void ocf_cl_lock_line_mark_locked(struct ocf_request *req,
-		unsigned index, int rw, bool locked)
+static void ocf_cl_lock_line_mark_locked(struct ocf_alock *alock,
+		struct ocf_request *req, unsigned index, int rw, bool locked)
 {
 	if (rw == OCF_WRITE)
 		req->map[index].wr_locked = locked;
@@ -43,7 +43,8 @@ static void ocf_cl_lock_line_mark_locked(struct ocf_request *req,
 		req->map[index].rd_locked = locked;
 }
 
-static ocf_cache_line_t ocf_cl_lock_line_get_entry(struct ocf_request *req,
+static ocf_cache_line_t ocf_cl_lock_line_get_entry(
+		struct ocf_alock *alock, struct ocf_request *req,
 		unsigned index)
 {
 	return req->map[index].coll_idx;
