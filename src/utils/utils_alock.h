@@ -20,20 +20,21 @@ struct ocf_alock;
 /* async request cacheline lock acquisition callback */
 typedef void (*ocf_req_async_lock_cb)(struct ocf_request *req);
 
-typedef bool (*ocf_cl_lock_line_needs_lock_cb)(struct ocf_request *req,
-		unsigned index);
+typedef bool (*ocf_cl_lock_line_needs_lock_cb)(struct ocf_alock *alock,
+		struct ocf_request *req, unsigned index);
 
-typedef bool (*ocf_cl_lock_line_is_acting_cb)(struct ocf_request *req,
-		unsigned index);
+typedef bool (*ocf_cl_lock_line_is_acting_cb)(struct ocf_alock *alock,
+		struct ocf_request *req, unsigned index);
 
-typedef bool (*ocf_cl_lock_line_is_locked_cb)(struct ocf_request *req,
-		unsigned index, int rw);
+typedef bool (*ocf_cl_lock_line_is_locked_cb)(struct ocf_alock *alock,
+		struct ocf_request *req, unsigned index, int rw);
 
-typedef void (*ocf_cl_lock_line_mark_locked_cb)(struct ocf_request *req,
-		unsigned index, int rw, bool locked);
+typedef void (*ocf_cl_lock_line_mark_locked_cb)(struct ocf_alock *alock,
+		struct ocf_request *req, unsigned index, int rw, bool locked);
 
 typedef ocf_cache_line_t (*ocf_cl_lock_line_get_entry_cb)(
-		struct ocf_request *req, unsigned index);
+		struct ocf_alock *alock, struct ocf_request *req,
+		unsigned index);
 
 struct ocf_alock_lock_cbs
 {
