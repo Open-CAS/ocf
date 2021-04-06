@@ -8,16 +8,17 @@
 
 #include "../utils/utils_alock.h"
 
-int ocf_coll_update_async_lock(struct ocf_alock *alock,
+int ocf_mio_async_lock(struct ocf_alock *alock,
 		struct metadata_io_request *m_req,
 		ocf_req_async_lock_cb cmpl);
 
-void ocf_coll_update_async_unlock(struct ocf_alock *alock,
+void ocf_mio_async_unlock(struct ocf_alock *alock,
 		struct metadata_io_request *m_req);
 
-int ocf_coll_update_concurrency_init(struct ocf_alock **self,
-		unsigned num_pages, ocf_cache_t cache);
+int ocf_mio_concurrency_init(struct ocf_alock **self,
+		unsigned first_page, unsigned num_pages,
+		ocf_cache_t cache);
 
-void ocf_coll_update_concurrency_deinit(struct ocf_alock **self);
+void ocf_mio_concurrency_deinit(struct ocf_alock **self);
 
 #endif
