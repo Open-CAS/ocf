@@ -149,13 +149,17 @@ void ocf_io_get(struct ocf_io *io)
 void ocf_io_put(struct ocf_io *io)
 {
 	struct ocf_io_internal *ioi = ocf_io_get_internal(io);
+	struct ocf_volume *volume;
 
 	if (env_atomic_dec_return(&ioi->meta.ref_count))
 		return;
 
-	ocf_refcnt_dec(&ioi->meta.volume->refcnt);
+	/* Hold volume reference to avoid use after free of ioi */
+	volume = ioi->meta.volume;
 
 	ocf_io_allocator_del(&ioi->meta.volume->type->allocator, (void *)ioi);
+
+	ocf_refcnt_dec(&volume->refcnt);
 }
 
 ocf_volume_t ocf_io_get_volume(struct ocf_io *io)
