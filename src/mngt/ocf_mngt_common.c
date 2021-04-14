@@ -41,11 +41,9 @@ void cache_mngt_core_remove_from_cleaning_pol(ocf_core_t core)
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	clean_pol_type = cache->conf_meta->cleaning_policy_type;
-	if (cache->core[core_id].opened) {
-		if (cleaning_policy_ops[clean_pol_type].remove_core) {
-			cleaning_policy_ops[clean_pol_type].
-				remove_core(cache, core_id);
-		}
+	if (cleaning_policy_ops[clean_pol_type].remove_core) {
+		cleaning_policy_ops[clean_pol_type].
+			remove_core(cache, core_id);
 	}
 
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
