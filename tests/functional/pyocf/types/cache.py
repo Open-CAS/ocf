@@ -85,6 +85,7 @@ class ConfValidValues:
     cleaning_acp_flush_max_buffers_range = range(1, 10000)
 
     seq_cutoff_threshold_rage = range(1, 4194181)
+    seq_cutoff_promotion_range = range(1, 65535)
 
     ioclass_id_range = range(0, 32)
     ioclass_priority_range = range(-1, 255)
@@ -318,6 +319,18 @@ class Cache:
 
         if status:
             raise OcfError("Error setting cache seq cut off policy threshold", status)
+
+    def set_seq_cut_off_promotion(self, count: int):
+        self.write_lock()
+
+        status = self.owner.lib.ocf_mngt_core_set_seq_cutoff_promotion_count_all(
+            self.cache_handle, count
+        )
+
+        self.write_unlock()
+
+        if status:
+            raise OcfError("Error setting cache seq cut off policy promotion count", status)
 
     def get_partition_info(self, part_id: int):
         ioclass_info = IoClassInfo()
@@ -707,6 +720,8 @@ lib.ocf_mngt_core_set_seq_cutoff_policy_all.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_threshold_all.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_threshold_all.restype = c_int
+lib.ocf_mngt_core_set_seq_cutoff_promotion_count_all.argtypes = [c_void_p, c_uint32]
+lib.ocf_mngt_core_set_seq_cutoff_promotion_count_all.restype = c_int
 lib.ocf_stats_collect_cache.argtypes = [
     c_void_p,
     c_void_p,
