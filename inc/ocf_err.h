@@ -125,6 +125,9 @@ typedef enum {
 
 	/** Device does not meet requirements */
 	OCF_ERR_INVAL_CACHE_DEV,
+
+	/** Core with the uuid already exists */
+	OCF_ERR_CORE_UUID_EXISTS,
 } ocf_error_t;
 
 #endif /* __OCF_ERR_H__ */

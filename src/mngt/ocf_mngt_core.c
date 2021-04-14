@@ -27,6 +27,25 @@ static int ocf_mngt_core_set_name(ocf_core_t core, const char *name)
 			name, OCF_CORE_NAME_SIZE);
 }
 
+static int ocf_core_get_by_uuid(ocf_cache_t cache, void *uuid, size_t uuid_size,
+		ocf_core_t *core)
+{
+	struct ocf_volume *volume;
+	ocf_core_t i_core;
+	ocf_core_id_t i_core_id;
+
+	for_each_core_metadata(cache, i_core, i_core_id) {
+		volume = ocf_core_get_volume(i_core);
+		if (!env_strncmp(volume->uuid.data, volume->uuid.size, uuid,
+					uuid_size)) {
+			*core = i_core;
+			return 0;
+		}
+	}
+
+	return -OCF_ERR_CORE_NOT_EXIST;
+}
+
 static int _ocf_uuid_set(const struct ocf_volume_uuid *uuid,
 		struct ocf_metadata_uuid *muuid)
 {
@@ -316,6 +335,11 @@ static void ocf_mngt_cache_add_core_prepare(ocf_pipeline_t pipeline,
 				OCF_CACHE_NAME_SIZE, &core);
 	if (!result)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CORE_EXIST);
+
+	result = ocf_core_get_by_uuid(cache, cfg->uuid.data,
+				cfg->uuid.size, &core);
+	if (!result)
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CORE_UUID_EXISTS);
 
 	result = ocf_mngt_find_free_core(cache, &core);
 	if (result)
