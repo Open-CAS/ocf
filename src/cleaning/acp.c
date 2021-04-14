@@ -666,6 +666,7 @@ void cleaning_policy_acp_remove_core(ocf_cache_t cache,
 	uint64_t i;
 
 	ENV_BUG_ON(acp->chunks_total < acp->num_chunks[core_id]);
+	ENV_BUG_ON(!acp->chunk_info[core_id]);
 
 	if (acp->state.in_progress && acp->state.chunk->core_id == core_id) {
 		acp->state.in_progress = false;
