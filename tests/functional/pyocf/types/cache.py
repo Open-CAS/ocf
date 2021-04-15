@@ -84,7 +84,7 @@ class ConfValidValues:
     cleaning_acp_wake_up_time_range = range(0, 10000)
     cleaning_acp_flush_max_buffers_range = range(1, 10000)
 
-    seq_cutoff_threshold_rage = range(1, 4194181)
+    seq_cutoff_threshold_rage = range(1, 4294841344)
     seq_cutoff_promotion_range = range(1, 65535)
 
     ioclass_id_range = range(0, 32)
