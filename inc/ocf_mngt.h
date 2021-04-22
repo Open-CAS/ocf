@@ -325,12 +325,13 @@ static inline void ocf_mngt_cache_config_set_default(
  * @param[in] ctx OCF context
  * @param[out] cache Cache handle
  * @param[in] cfg Starting cache configuration
+ * @param[in] priv initial value of priv field in cache
  *
  * @retval 0 Cache started successfully
  * @retval Non-zero Error occurred and starting cache failed
  */
 int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
-		struct ocf_mngt_cache_config *cfg);
+		struct ocf_mngt_cache_config *cfg, void *priv);
 
 /**
  * @brief Set queue to be used during management operations
