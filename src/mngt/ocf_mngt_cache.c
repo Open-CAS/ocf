@@ -11,6 +11,7 @@
 #include "../ocf_queue_priv.h"
 #include "../metadata/metadata.h"
 #include "../metadata/metadata_io.h"
+#include "../metadata/metadata_partition_structs.h"
 #include "../engine/cache_engine.h"
 #include "../utils/utils_user_part.h"
 #include "../utils/utils_cache_line.h"
@@ -22,7 +23,6 @@
 #include "../concurrency/ocf_concurrency.h"
 #include "../eviction/ops.h"
 #include "../ocf_ctx_priv.h"
-#include "../ocf_freelist.h"
 #include "../cleaning/cleaning.h"
 #include "../promotion/ops.h"
 
@@ -123,8 +123,6 @@ struct ocf_cache_attach_context {
 			 * load or recovery
 			 */
 
-		bool freelist_inited : 1;
-
 		bool concurrency_inited : 1;
 	} flags;
 
@@ -182,26 +180,22 @@ static void __init_partitions(ocf_cache_t cache)
 	}
 }
 
-static void __init_user_parts_attached(ocf_cache_t cache)
+static void __init_parts_attached(ocf_cache_t cache)
 {
-	struct ocf_part *part;
 	ocf_part_id_t part_id;
 
-	for (part_id = 0; part_id < OCF_USER_IO_CLASS_MAX; part_id++) {
-		part = &cache->user_parts[part_id].part;
+	for (part_id = 0; part_id < OCF_USER_IO_CLASS_MAX; part_id++)
+		ocf_eviction_initialize(cache, &cache->user_parts[part_id].part);
 
-		part->runtime->head = cache->device->collision_table_entries;
-		part->runtime->curr_size = 0;
-		ocf_eviction_initialize(cache, part);
-	}
+	ocf_eviction_initialize(cache, &cache->free);
 }
 
-static void __init_freelist(ocf_cache_t cache)
+static void __init_free(ocf_cache_t cache)
 {
 	uint64_t free_clines = ocf_metadata_collision_table_entries(cache) -
 			ocf_get_cache_occupancy(cache);
 
-	ocf_freelist_populate(cache->freelist, free_clines);
+	ocf_lru_populate(cache, free_clines);
 }
 
 static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
@@ -301,8 +295,8 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
 
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
-	__init_user_parts_attached(cache);
-	__init_freelist(cache);
+	__init_parts_attached(cache);
+	__init_free(cache);
 
 	result = __init_cleaning_policy(cache);
 	if (result) {
@@ -321,7 +315,7 @@ static void init_attached_data_structures_recovery(ocf_cache_t cache)
 {
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
-	__init_user_parts_attached(cache);
+	__init_parts_attached(cache);
 	__reset_stats(cache);
 	__init_metadata_version(cache);
 }
@@ -477,7 +471,8 @@ void _ocf_mngt_load_init_instance_complete(void *priv, int error)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
 	}
 
-	__init_freelist(cache);
+	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown)
+		__init_free(cache);
 
 	cleaning_policy = cache->conf_meta->cleaning_policy_type;
 	if (!cleaning_policy_ops[cleaning_policy].initialize)
@@ -996,12 +991,6 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 
 	context->flags.attached_metadata_inited = true;
 
-	ret = ocf_freelist_init(&cache->freelist, cache);
-	if (ret)
-		OCF_PL_FINISH_RET(pipeline, ret);
-
-	context->flags.freelist_inited = true;
-
 	ret = ocf_concurrency_init(cache);
 	if (ret)
 		OCF_PL_FINISH_RET(pipeline, ret);
@@ -1146,9 +1135,6 @@ static void _ocf_mngt_attach_handle_error(
 
 	if (context->flags.concurrency_inited)
 		ocf_concurrency_deinit(cache);
-
-	if (context->flags.freelist_inited)
-		ocf_freelist_deinit(cache->freelist);
 
 	if (context->flags.volume_inited)
 		ocf_volume_deinit(&cache->device->volume);
@@ -2025,7 +2011,6 @@ static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
 
 	ocf_metadata_deinit_variable_size(cache);
 	ocf_concurrency_deinit(cache);
-	ocf_freelist_deinit(cache->freelist);
 
 	ocf_volume_deinit(&cache->device->volume);
 

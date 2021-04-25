@@ -63,10 +63,8 @@ static inline uint32_t ocf_eviction_need_space(ocf_cache_t cache,
 
 	ENV_BUG_ON(type >= ocf_eviction_max);
 
-	if (likely(evict_policy_ops[type].req_clines)) {
-		result = evict_policy_ops[type].req_clines(req,
-				part, clines);
-	}
+	if (likely(evict_policy_ops[type].req_clines))
+		result = evict_policy_ops[type].req_clines(req, part, clines);
 
 	return result;
 }
@@ -91,9 +89,7 @@ static inline void ocf_eviction_initialize(struct ocf_cache *cache,
 	ENV_BUG_ON(type >= ocf_eviction_max);
 
 	if (likely(evict_policy_ops[type].init_evp)) {
-		OCF_METADATA_EVICTION_WR_LOCK_ALL();
 		evict_policy_ops[type].init_evp(cache, part);
-		OCF_METADATA_EVICTION_WR_UNLOCK_ALL();
 	}
 }
 

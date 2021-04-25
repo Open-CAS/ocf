@@ -210,17 +210,8 @@ static const struct ocf_io_if _io_if_read_generic_resume = {
 	.write = _ocf_read_generic_do,
 };
 
-static enum ocf_engine_lock_type ocf_rd_get_lock_type(struct ocf_request *req)
-{
-	if (ocf_engine_is_hit(req))
-		return ocf_engine_lock_read;
-	else
-		return ocf_engine_lock_write;
-}
-
 static const struct ocf_engine_callbacks _rd_engine_callbacks =
 {
-	.get_lock_type = ocf_rd_get_lock_type,
 	.resume = ocf_engine_on_resume,
 };
 

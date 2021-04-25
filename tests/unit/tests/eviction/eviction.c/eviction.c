@@ -27,10 +27,16 @@ struct test_cache
 {
 	struct ocf_cache cache;
 	struct ocf_user_part_config part[OCF_USER_IO_CLASS_MAX];
+	struct ocf_part_runtime runtime[OCF_USER_IO_CLASS_MAX];
 	uint32_t overflow[OCF_USER_IO_CLASS_MAX];
 	uint32_t evictable[OCF_USER_IO_CLASS_MAX];
 	uint32_t req_unmapped;
 };
+
+uint32_t __wrap_ocf_lru_num_free(ocf_cache_t cache)
+{
+	return 0;
+}
 
 bool __wrap_ocf_eviction_can_evict(ocf_cache_t cache)
 {
@@ -58,7 +64,9 @@ uint32_t __wrap_ocf_eviction_need_space(struct ocf_cache *cache,
 	uint32_t clines)
 {
 	struct test_cache *tcache = (struct test_cache *)cache;
-	unsigned overflown_consumed = min(clines, tcache->overflow[part->id]);
+	unsigned overflown_consumed;
+
+	overflown_consumed = min(clines, tcache->overflow[part->id]);
 
 	tcache->overflow[part->id] -= overflown_consumed;
 	tcache->evictable[part->id] -= clines;
@@ -102,9 +110,11 @@ int ocf_user_part_lst_cmp_valid(struct ocf_cache *cache,
 	struct ocf_user_part *p2 = container_of(e2, struct ocf_user_part,
 			lst_valid);
 	size_t p1_size = ocf_cache_is_device_attached(cache) ?
-				p1->part.runtime->curr_size : 0;
+				env_atomic_read(&p1->part.runtime->curr_size)
+				: 0;
 	size_t p2_size = ocf_cache_is_device_attached(cache) ?
-				p2->part.runtime->curr_size : 0;
+				env_atomic_read(&p2->part.runtime->curr_size)
+				: 0;
 	int v1 = p1->config->priority;
 	int v2 = p2->config->priority;
 

@@ -14,7 +14,6 @@
 #include "metadata_segment.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../ocf_def_priv.h"
-#include "../ocf_freelist.h"
 #include "../ocf_priv.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_io.h"
@@ -94,7 +93,7 @@ static ocf_cache_line_t ocf_metadata_get_entries(
 		return OCF_USER_IO_CLASS_MAX + 1;
 
 	case metadata_segment_part_runtime:
-		return OCF_USER_IO_CLASS_MAX + 1;
+		return OCF_NUM_PARTITIONS;
 
 	case metadata_segment_core_config:
 		return OCF_CORE_MAX;
@@ -580,6 +579,8 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 			&part_runtime_meta[i].runtime;
 		cache->user_parts[i].part.id = i;
 	}
+	cache->free.runtime= &part_runtime_meta[PARTITION_FREELIST].runtime;
+	cache->free.id = PARTITION_FREELIST;
 
 	/* Set core metadata */
 	core_meta_config = METADATA_MEM_POOL(ctrl,
@@ -1154,10 +1155,13 @@ static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
 	ocf_core_t core = ocf_cache_get_core(cache, core_id);
 	ocf_part_id_t part_id;
 	ocf_cache_line_t hash_index;
+	struct ocf_part_runtime *part;
 
 	part_id = PARTITION_DEFAULT;
+	part = cache->user_parts[part_id].part.runtime;
 
-	ocf_metadata_add_to_partition(cache, part_id, cache_line);
+	ocf_metadata_set_partition_id(cache, part_id, cache_line);
+	env_atomic_inc(&part->curr_size);
 
 	hash_index = ocf_metadata_hash_func(cache, core_line, core_id);
 	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,

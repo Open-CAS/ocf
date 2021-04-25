@@ -131,18 +131,26 @@ static inline uint32_t ocf_evict_do(struct ocf_request *req)
 	ocf_part_id_t target_part_id = req->part_id;
 	struct ocf_user_part *target_part = &cache->user_parts[target_part_id];
 	uint32_t evict_cline_no = ocf_engine_unmapped_count(req);
-	uint32_t evicted;
+	uint32_t evicted = 0;
 
-	/* First attempt to evict overflown partitions in order to
+	/* First attempt to map from freelist */
+	if (ocf_lru_num_free(cache) > 0) {
+		evicted = ocf_eviction_need_space(cache, req, &cache->free,
+				evict_cline_no);
+	}
+	if (evicted >= evict_cline_no)
+		return evicted;
+
+	/* Attempt to evict overflown partitions in order to
 	 * achieve configured maximum size. Ignoring partitions
 	 * priority in this case, as overflown partitions should
 	 * free its cachelines regardless of destination partition
 	 * priority. */
-
-	evicted = ocf_evict_user_partitions(cache, req, evict_cline_no,
+	evicted += ocf_evict_user_partitions(cache, req, evict_cline_no,
 		true, OCF_IO_CLASS_PRIO_PINNED);
 	if (evicted >= evict_cline_no)
 		return evicted;
+
 	/* Not enough cachelines in overflown partitions. Go through
 	 * partitions with priority <= target partition and attempt
 	 * to evict from those. */
@@ -166,7 +174,7 @@ int space_managment_evict_do(struct ocf_request *req)
 	}
 
 	if (needed <= evicted)
-		return LOOKUP_INSERTED;
+		return LOOKUP_REMAPPED;
 
 	return LOOKUP_MISS;
 }

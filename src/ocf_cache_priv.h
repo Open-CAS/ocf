@@ -21,7 +21,6 @@
 #include "ocf_logger_priv.h"
 #include "ocf/ocf_trace.h"
 #include "promotion/promotion.h"
-#include "ocf_freelist.h"
 
 #define DIRTY_FLUSHED 1
 #define DIRTY_NOT_FLUSHED 0
@@ -80,7 +79,7 @@ struct ocf_cache {
 	struct ocf_lst user_part_list;
 	struct ocf_user_part user_parts[OCF_USER_IO_CLASS_MAX + 1];
 
-	ocf_freelist_t freelist;
+	struct ocf_part free;
 
 	ocf_eviction_t eviction_policy_init;
 

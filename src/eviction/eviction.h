@@ -15,6 +15,9 @@
 #define OCF_NUM_EVICTION_LISTS 32
 
 struct ocf_part;
+struct ocf_user_part;
+struct ocf_part_runtime;
+struct ocf_part_cleaning_ctx;
 struct ocf_request;
 
 struct eviction_policy {
@@ -43,12 +46,10 @@ struct eviction_policy_ops {
 			uint32_t cline_no);
 	void (*hot_cline)(ocf_cache_t cache, ocf_cache_line_t cline);
 	void (*init_evp)(ocf_cache_t cache, struct ocf_part *part);
-	void (*dirty_cline)(ocf_cache_t cache,
-			struct ocf_part *part,
-			uint32_t cline_no);
-	void (*clean_cline)(ocf_cache_t cache,
-			struct ocf_part *part,
-			uint32_t cline_no);
+	void (*dirty_cline)(ocf_cache_t cache, struct ocf_part *part,
+			ocf_cache_line_t cline);
+	void (*clean_cline)(ocf_cache_t cache, struct ocf_part *part,
+			ocf_cache_line_t cline);
 	void (*flush_dirty)(ocf_cache_t cache, struct ocf_user_part *user_part,
 			ocf_queue_t io_queue, uint32_t count);
 	const char *name;
@@ -66,5 +67,20 @@ extern struct eviction_policy_ops evict_policy_ops[ocf_eviction_max];
 int space_managment_evict_do(struct ocf_request *req);
 
 int space_management_free(ocf_cache_t cache, uint32_t count);
+
+void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines);
+
+typedef void (*ocf_metadata_actor_t)(struct ocf_cache *cache,
+		ocf_cache_line_t cache_line);
+
+int ocf_metadata_actor(struct ocf_cache *cache,
+		ocf_part_id_t part_id, ocf_core_id_t core_id,
+		uint64_t start_byte, uint64_t end_byte,
+		ocf_metadata_actor_t actor);
+
+void ocf_lru_repart(ocf_cache_t cache, ocf_cache_line_t cline,
+		struct ocf_part *src_upart, struct ocf_part *dst_upart);
+
+uint32_t ocf_lru_num_free(ocf_cache_t cache);
 
 #endif

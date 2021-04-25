@@ -10,6 +10,8 @@
 #include "../cleaning/cleaning.h"
 #include "../eviction/eviction.h"
 
+#define OCF_NUM_PARTITIONS OCF_USER_IO_CLASS_MAX + 2
+
 struct ocf_user_part_config {
 	char name[OCF_IO_CLASS_NAME_MAX];
 	uint32_t min_size;
@@ -27,8 +29,7 @@ struct ocf_user_part_config {
 };
 
 struct ocf_part_runtime {
-	uint32_t curr_size;
-	uint32_t head;
+	env_atomic curr_size;
 	struct eviction_policy eviction[OCF_NUM_EVICTION_LISTS];
 };
 
@@ -43,6 +44,8 @@ struct ocf_lru_iter
 	ocf_cache_line_t curr_cline[OCF_NUM_EVICTION_LISTS];
 	/* cache object */
 	ocf_cache_t cache;
+	/* cacheline concurrency */
+	struct ocf_alock *c;
 	/* target partition */
 	struct ocf_part *part;
 	/* available (non-empty) eviction list bitmap rotated so that current
@@ -59,8 +62,6 @@ struct ocf_lru_iter
 	struct ocf_request *req;
 	/* 1 if iterating over clean lists, 0 if over dirty */
 	bool clean : 1;
-	/* 1 if cacheline is to be locked for write, 0 if for read*/
-	bool cl_lock_write : 1;
 };
 
 #define OCF_EVICTION_CLEAN_SIZE 32U
