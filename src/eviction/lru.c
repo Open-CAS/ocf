@@ -67,6 +67,30 @@ static void add_lru_head(ocf_cache_t cache,
 	}
 }
 
+static void add_lru_tail(ocf_cache_t cache,
+		struct ocf_lru_list *list,
+		unsigned int collision_index)
+{
+	struct lru_eviction_policy_meta *node, *tail;
+
+	ENV_BUG_ON(collision_index == end_marker);
+
+	if (list->num_nodes == 0) {
+		add_lru_head(cache, list, collision_index);
+		return;
+	}
+
+	node = &ocf_metadata_get_eviction_policy(cache, collision_index)->lru;
+	tail = &ocf_metadata_get_eviction_policy(cache, list->tail)->lru;
+
+	node->hot = false;
+	node->prev = list->tail;
+	node->next = end_marker;
+	tail->next = collision_index;
+	list->tail = collision_index;
+	list->num_nodes++;
+}
+
 /* Deletes the node with the given collision_index from the lru list */
 static void remove_lru_list(ocf_cache_t cache,
 		struct ocf_lru_list *list,
@@ -224,49 +248,83 @@ static void balance_lru_list(ocf_cache_t cache,
 
 /*-- End of LRU functions*/
 
-void evp_lru_init_cline(ocf_cache_t cache, ocf_cache_line_t cline)
-{
-	struct lru_eviction_policy_meta *node;
-
-	node = &ocf_metadata_get_eviction_policy(cache, cline)->lru;
-
-	node->hot = false;
-	node->prev = end_marker;
-	node->next = end_marker;
-}
-
-static struct ocf_lru_list *evp_lru_get_list(struct ocf_user_part *part,
+static struct ocf_lru_list *evp_lru_get_list(struct ocf_part_runtime *part,
 		uint32_t evp, bool clean)
 {
-	return clean ? &part->runtime->eviction[evp].policy.lru.clean :
-			&part->runtime->eviction[evp].policy.lru.dirty;
+	return clean ? &part->eviction[evp].policy.lru.clean :
+			&part->eviction[evp].policy.lru.dirty;
 }
 
 static inline struct ocf_lru_list *evp_get_cline_list(ocf_cache_t cache,
 		ocf_cache_line_t cline)
 {
-	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, cline);
-	struct ocf_user_part *part = &cache->user_parts[part_id];
 	uint32_t ev_list = (cline % OCF_NUM_EVICTION_LISTS);
+	ocf_part_id_t part_id;
+	struct ocf_part_runtime *part;
+
+	part_id = ocf_metadata_get_partition_id(cache, cline);
+	ENV_BUG_ON(part_id == PARTITION_INVALID);
+	part = cache->user_parts[part_id].runtime;
 
 	return evp_lru_get_list(part, ev_list,
 			!metadata_test_dirty(cache, cline));
 }
 
+static void evp_lru_move(ocf_cache_t cache, ocf_cache_line_t cline,
+		struct ocf_lru_list *src_list,
+		struct ocf_lru_list *dst_list)
+{
+	remove_lru_list(cache, src_list, cline);
+	balance_lru_list(cache, src_list);
+	add_lru_head(cache, dst_list, cline);
+	balance_lru_list(cache, dst_list);
+}
+
 /* the caller must hold the metadata lock */
 void evp_lru_rm_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
-	struct ocf_lru_list *list;
+	struct ocf_lru_list *list, *free;
+	uint32_t ev_list = (cline % OCF_NUM_EVICTION_LISTS);
+	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, cline);
+	struct ocf_part_runtime *part = cache->user_parts[part_id].runtime;
 
 	list = evp_get_cline_list(cache, cline);
-	remove_lru_list(cache, list, cline);
-	balance_lru_list(cache, list);
+	free = evp_lru_get_list(cache->free, ev_list, true);
+	evp_lru_move(cache, cline, list, free);
+	ocf_metadata_set_partition_id(cache, cline, PARTITION_INVALID);
+	env_atomic_dec(&part->curr_size);
+}
+
+static void evp_lru_repart_locked(ocf_cache_t cache, ocf_cache_line_t cline,
+		struct ocf_part_runtime *src_part,
+		struct ocf_part_runtime *dst_part, ocf_part_id_t dst_part_id)
+{
+	uint32_t ev_list = (cline % OCF_NUM_EVICTION_LISTS);
+	struct ocf_lru_list *src_list, *dst_list;
+	bool clean;
+
+	clean = !metadata_test_dirty(cache, cline);
+	src_list = evp_lru_get_list(src_part, ev_list, clean);
+	dst_list = evp_lru_get_list(dst_part, ev_list, clean);
+	evp_lru_move(cache, cline, src_list, dst_list);
+	ocf_metadata_set_partition_id(cache, cline, dst_part_id);
+	env_atomic_dec(&src_part->curr_size);
+	env_atomic_inc(&dst_part->curr_size);
+}
+
+void ocf_lru_repart(ocf_cache_t cache, ocf_cache_line_t cline,
+		struct ocf_user_part *src_upart,
+		struct ocf_user_part *dst_upart)
+{
+	OCF_METADATA_EVICTION_WR_LOCK(cline);
+	evp_lru_repart_locked(cache, cline, src_upart->runtime,
+			dst_upart->runtime, dst_upart->id);
+	OCF_METADATA_EVICTION_WR_UNLOCK(cline);
 }
 
 static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
-		struct ocf_user_part *part, uint32_t start_evp, bool clean,
-		bool cl_lock_write, _lru_hash_locked_pfn hash_locked,
-		struct ocf_request *req)
+		struct ocf_part_runtime *part, uint32_t start_evp, bool clean,
+		_lru_hash_locked_pfn hash_locked, struct ocf_request *req)
 {
 	uint32_t i;
 
@@ -275,13 +333,14 @@ static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
 	ENV_BUILD_BUG_ON(OCF_NUM_EVICTION_LISTS > sizeof(iter->evp) * 8);
 
 	iter->cache = cache;
+	iter->c = ocf_cache_line_concurrency(cache);
 	iter->part = part;
 	/* set iterator value to start_evp - 1 modulo OCF_NUM_EVICTION_LISTS */
-	iter->evp = (start_evp + OCF_NUM_EVICTION_LISTS - 1) % OCF_NUM_EVICTION_LISTS;
+	iter->evp = (start_evp + OCF_NUM_EVICTION_LISTS - 1) %
+			OCF_NUM_EVICTION_LISTS;
 	iter->num_avail_evps = OCF_NUM_EVICTION_LISTS;
 	iter->next_avail_evp = ((1ULL << OCF_NUM_EVICTION_LISTS) - 1);
 	iter->clean = clean;
-	iter->cl_lock_write = cl_lock_write;
 	iter->hash_locked = hash_locked;
 	iter->req = req;
 
@@ -290,26 +349,24 @@ static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
 }
 
 static inline void lru_iter_cleaning_init(struct ocf_lru_iter *iter,
-		ocf_cache_t cache, struct ocf_user_part *part,
+		ocf_cache_t cache, struct ocf_part_runtime *part,
 		uint32_t start_evp)
 {
 	/* Lock cachelines for read, non-exclusive access */
-	lru_iter_init(iter, cache, part, start_evp, false, false,
-			NULL, NULL);
+	lru_iter_init(iter, cache, part, start_evp, false, NULL, NULL);
 }
 
 static inline void lru_iter_eviction_init(struct ocf_lru_iter *iter,
-		ocf_cache_t cache, struct ocf_user_part *part,
-		uint32_t start_evp, bool cl_lock_write,
-		struct ocf_request *req)
+		ocf_cache_t cache, struct ocf_part_runtime *part,
+		uint32_t start_evp, struct ocf_request *req)
 {
 	/* Lock hash buckets for write, cachelines according to user request,
 	 * however exclusive cacheline access is needed even in case of read
 	 * access. _evp_lru_evict_hash_locked tells whether given hash bucket
 	 * is already locked as part of request hash locking (to avoid attempt
 	 * to acquire the same hash bucket lock twice) */
-	lru_iter_init(iter, cache, part, start_evp, true, cl_lock_write,
-		ocf_req_hash_in_range, req);
+	lru_iter_init(iter, cache, part, start_evp, true, ocf_req_hash_in_range,
+			req);
 }
 
 
@@ -341,29 +398,6 @@ static inline void _lru_evp_set_empty(struct ocf_lru_iter *iter)
 static inline bool _lru_evp_all_empty(struct ocf_lru_iter *iter)
 {
 	return iter->num_avail_evps == 0;
-}
-
-static bool inline _lru_trylock_cacheline(struct ocf_lru_iter *iter,
-		ocf_cache_line_t cline)
-{
-	struct ocf_cache_line_concurrency *c =
-			ocf_cache_line_concurrency(iter->cache);
-
-	return iter->cl_lock_write ?
-		ocf_cache_line_try_lock_wr(c, cline) :
-		ocf_cache_line_try_lock_rd(c, cline);
-}
-
-static void inline _lru_unlock_cacheline(struct ocf_lru_iter *iter,
-		ocf_cache_line_t cline)
-{
-	struct ocf_cache_line_concurrency *c =
-			ocf_cache_line_concurrency(iter->cache);
-
-	if (iter->cl_lock_write)
-		ocf_cache_line_unlock_wr(c, cline);
-	else
-		ocf_cache_line_unlock_rd(c, cline);
 }
 
 static bool inline _lru_trylock_hash(struct ocf_lru_iter *iter,
@@ -399,7 +433,7 @@ static bool inline _lru_iter_evition_lock(struct ocf_lru_iter *iter,
 {
 	struct ocf_request *req = iter->req;
 
-	if (!_lru_trylock_cacheline(iter, cache_line))
+	if (!ocf_cache_line_try_lock_wr(iter->c, cache_line))
 		return false;
 
 	ocf_metadata_get_core_info(iter->cache, cache_line,
@@ -409,19 +443,18 @@ static bool inline _lru_iter_evition_lock(struct ocf_lru_iter *iter,
 	if (*core_id == ocf_core_get_id(req->core) &&
 			*core_line >= req->core_line_first &&
 			*core_line <= req->core_line_last) {
-		_lru_unlock_cacheline(iter, cache_line);
+		ocf_cache_line_unlock_wr(iter->c, cache_line);
 		return false;
 	}
 
 	if (!_lru_trylock_hash(iter, *core_id, *core_line)) {
-		_lru_unlock_cacheline(iter, cache_line);
+		ocf_cache_line_unlock_wr(iter->c, cache_line);
 		return false;
 	}
 
-	if (!ocf_cache_line_is_locked_exclusively(iter->cache,
-				cache_line)) {
+	if (ocf_cache_line_are_waiters(iter->c, cache_line)) {
 		_lru_unlock_hash(iter, *core_id, *core_line);
-		_lru_unlock_cacheline(iter, cache_line);
+		ocf_cache_line_unlock_wr(iter->c, cache_line);
 		return false;
 	}
 
@@ -429,16 +462,22 @@ static bool inline _lru_iter_evition_lock(struct ocf_lru_iter *iter,
 }
 
 /* Get next clean cacheline from tail of lru lists. Caller must not hold any
- * eviction list lock. Returned cacheline is read or write locked, depending on
- * iter->write_lock. Returned cacheline has corresponding metadata hash bucket
- * locked. Cacheline is moved to the head of lru list before being returned */
+ * eviction list lock.
+ * - returned cacheline is write locked
+ * - returned cacheline has the corresponding metadata hash bucket write locked
+ * - cacheline is moved to the head of destination partition lru list before
+ *   being returned.
+ * All this is packed into a single function to lock LRU list once per each
+ * replaced cacheline.
+ **/
 static inline ocf_cache_line_t lru_iter_eviction_next(struct ocf_lru_iter *iter,
+		struct ocf_part_runtime *dst_part, ocf_part_id_t dst_part_id,
 		ocf_core_id_t *core_id, uint64_t *core_line)
 {
 	uint32_t curr_evp;
 	ocf_cache_line_t  cline;
 	ocf_cache_t cache = iter->cache;
-	struct ocf_user_part *part = iter->part;
+	struct ocf_part_runtime *part = iter->part;
 	struct ocf_lru_list *list;
 
 	do {
@@ -456,12 +495,67 @@ static inline ocf_cache_line_t lru_iter_eviction_next(struct ocf_lru_iter *iter,
 		}
 
 		if (cline != end_marker) {
-			remove_lru_list(cache, list, cline);
-			add_lru_head(cache, list, cline);
-			balance_lru_list(cache, list);
+			if (dst_part != part) {
+				evp_lru_repart_locked(cache, cline, part,
+						dst_part, dst_part_id);
+			} else {
+				remove_lru_list(cache, list, cline);
+				add_lru_head(cache, list, cline);
+				balance_lru_list(cache, list);
+			}
 		}
 
-		ocf_metadata_eviction_wr_unlock(&cache->metadata.lock, curr_evp);
+		ocf_metadata_eviction_wr_unlock(&cache->metadata.lock,
+				curr_evp);
+
+		if (cline == end_marker && !_lru_evp_is_empty(iter)) {
+			/* mark list as empty */
+			_lru_evp_set_empty(iter);
+		}
+	} while (cline == end_marker && !_lru_evp_all_empty(iter));
+
+	return cline;
+}
+
+/* Get next clean cacheline from tail of free lru lists. Caller must not hold any
+ * eviction list lock.
+ * - returned cacheline is write locked
+ * - cacheline is moved to the head of destination partition lru list before
+ *   being returned.
+ * All this is packed into a single function to lock LRU list once per each
+ * replaced cacheline.
+ **/
+static inline ocf_cache_line_t lru_iter_free_next(struct ocf_lru_iter *iter,
+		struct ocf_part_runtime *dst_part, ocf_part_id_t dst_part_id)
+{
+	uint32_t curr_evp;
+	ocf_cache_line_t cline;
+	ocf_cache_t cache = iter->cache;
+	struct ocf_part_runtime *free = iter->part;
+	struct ocf_lru_list *list;
+
+	do {
+		curr_evp = _lru_next_evp(iter);
+
+		ocf_metadata_eviction_wr_lock(&cache->metadata.lock, curr_evp);
+
+		list = evp_lru_get_list(free, curr_evp, iter->clean);
+
+		cline = list->tail;
+		while (cline != end_marker && !ocf_cache_line_try_lock_wr(
+				iter->c, cline)) {
+			cline = ocf_metadata_get_eviction_policy(
+					iter->cache, cline)->lru.prev;
+		}
+
+		if (cline != end_marker) {
+			ENV_BUG_ON(dst_part == free);
+			evp_lru_repart_locked(cache, cline, free, dst_part,
+					dst_part_id);
+		}
+
+		ocf_metadata_eviction_wr_unlock(&cache->metadata.lock,
+				curr_evp);
 
 		if (cline == end_marker && !_lru_evp_is_empty(iter)) {
 			/* mark list as empty */
@@ -484,8 +578,8 @@ static inline ocf_cache_line_t lru_iter_cleaning_next(struct ocf_lru_iter *iter)
 		curr_evp = _lru_next_evp(iter);
 		cline = iter->curr_cline[curr_evp];
 
-		while (cline != end_marker && !_lru_trylock_cacheline(iter,
-				cline)) {
+		while (cline != end_marker && ! ocf_cache_line_try_lock_rd(
+				iter->c, cline)) {
 			cline = ocf_metadata_get_eviction_policy(
 					 iter->cache, cline)->lru.prev;
 		}
@@ -531,16 +625,16 @@ static int evp_lru_clean_get(ocf_cache_t cache, void *getter_context,
 	return 0;
 }
 
-void evp_lru_clean(ocf_cache_t cache, struct ocf_user_part *part,
+void evp_lru_clean(ocf_cache_t cache, struct ocf_part_runtime *part,
+		struct ocf_part_cleaning_ctx *ctx,
 		ocf_queue_t io_queue, uint32_t count)
 {
-	struct ocf_part_cleaning_ctx *ctx = &part->cleaning;
 	struct ocf_cleaner_attribs attribs = {
 		.lock_cacheline = false,
 		.lock_metadata = true,
 		.do_sort = true,
 
-		.cmpl_context = &part->cleaning,
+		.cmpl_context = ctx,
 		.cmpl_fn = evp_lru_clean_end,
 
 		.getter = evp_lru_clean_get,
@@ -550,7 +644,7 @@ void evp_lru_clean(ocf_cache_t cache, struct ocf_user_part *part,
 
 		.io_queue = io_queue
 	};
-	ocf_cache_line_t *cline = part->cleaning.cline;
+	ocf_cache_line_t *cline = ctx->cline;
 	struct ocf_lru_iter iter;
 	unsigned evp;
 	int cnt;
@@ -571,7 +665,7 @@ void evp_lru_clean(ocf_cache_t cache, struct ocf_user_part *part,
 		return;
 	}
 
-	part->cleaning.cache = cache;
+	ctx->cache = cache;
 	evp = io_queue->eviction_idx++ % OCF_NUM_EVICTION_LISTS;
 
 	lock_idx = ocf_metadata_concurrency_next_idx(io_queue);
@@ -607,21 +701,41 @@ bool evp_lru_can_evict(ocf_cache_t cache)
 	return true;
 }
 
+static void evp_lru_invalidate(ocf_cache_t cache, ocf_cache_line_t cline,
+	ocf_core_id_t core_id, ocf_part_id_t part_id)
+{
+	ocf_core_t core;
+
+	ocf_metadata_start_collision_shared_access(
+			cache, cline);
+	metadata_clear_valid_sec(cache, cline, 0,
+			ocf_line_end_sector(cache));
+	ocf_metadata_remove_from_collision(cache, cline, part_id);
+	ocf_metadata_end_collision_shared_access(
+			cache, cline);
+
+	core = ocf_cache_get_core(cache, core_id);
+	env_atomic_dec(&core->runtime_meta->cached_clines);
+	env_atomic_dec(&core->runtime_meta->
+			part_counters[part_id].cached_clines);
+}
+
 /* the caller must hold the metadata lock */
 uint32_t evp_lru_req_clines(struct ocf_request *req,
-		struct ocf_user_part *part, uint32_t cline_no)
+	struct ocf_part_runtime *part, ocf_part_id_t part_id,
+	uint32_t cline_no)
 {
 	struct ocf_lru_iter iter;
 	uint32_t i;
 	ocf_cache_line_t cline;
 	uint64_t core_line;
 	ocf_core_id_t core_id;
-	ocf_core_t core;
 	ocf_cache_t cache = req->cache;
-	bool cl_write_lock =
-		(req->engine_cbs->get_lock_type(req) ==	ocf_engine_lock_write);
 	unsigned evp;
 	unsigned req_idx = 0;
+	ocf_part_id_t dst_part_id = req->part_id;
+	struct ocf_part_runtime *dst_part = cache->user_parts[dst_part_id].
+			runtime;
 
 	if (cline_no == 0)
 		return 0;
@@ -636,14 +750,19 @@ uint32_t evp_lru_req_clines(struct ocf_request *req,
 
 	evp = req->io_queue->eviction_idx++ % OCF_NUM_EVICTION_LISTS;
 
-	lru_iter_eviction_init(&iter, cache, part, evp, cl_write_lock, req);
+	lru_iter_eviction_init(&iter, cache, part, evp, req);
 
 	i = 0;
 	while (i < cline_no) {
 		if (!evp_lru_can_evict(cache))
 			break;
 
-		cline = lru_iter_eviction_next(&iter, &core_id, &core_line);
+		if (part_id != PARTITION_INVALID) {
+			cline = lru_iter_eviction_next(&iter, dst_part,
+				dst_part_id, &core_id, &core_line);
+		} else {
+			cline = lru_iter_free_next(&iter, dst_part, dst_part_id);
+		}
 
 		if (cline == end_marker)
 			break;
@@ -661,33 +780,21 @@ uint32_t evp_lru_req_clines(struct ocf_request *req,
 
 		ENV_BUG_ON(req->map[req_idx].status != LOOKUP_MISS);
 
-		ocf_metadata_start_collision_shared_access(
-				cache, cline);
-		metadata_clear_valid_sec(cache, cline, 0, ocf_line_end_sector(cache));
-		ocf_metadata_remove_from_collision(cache, cline, part->id);
-		ocf_metadata_end_collision_shared_access(
-				cache, cline);
-
-		core = ocf_cache_get_core(cache, core_id);
-		env_atomic_dec(&core->runtime_meta->cached_clines);
-		env_atomic_dec(&core->runtime_meta->
-				part_counters[part->id].cached_clines);
-
-		_lru_unlock_hash(&iter, core_id, core_line);
+		if (part_id != PARTITION_INVALID) {
+			evp_lru_invalidate(cache, cline, core_id, part_id);
+			_lru_unlock_hash(&iter, core_id, core_line);
+		}
 
 		ocf_map_cache_line(req, req_idx, cline);
 
 		req->map[req_idx].status = LOOKUP_REMAPPED;
 		ocf_engine_patch_req_info(cache, req, req_idx);
-
-		if (cl_write_lock)
-			req->map[req_idx].wr_locked = true;
-		else
-			req->map[req_idx].rd_locked = true;
+		req->map[req_idx].wr_locked = true;
 
 		++req_idx;
 		++i;
-		/* Number of cachelines to evict have to match space in the request */
+		/* Number of cachelines to evict have to match space in the
+		 * request */
 		ENV_BUG_ON(req_idx == req->core_line_count && i != cline_no );
 	}
 
@@ -736,7 +843,7 @@ static inline void _lru_init(struct ocf_lru_list *list)
 	list->last_hot = end_marker;
 }
 
-void evp_lru_init_evp(ocf_cache_t cache, struct ocf_user_part *part)
+void evp_lru_init_evp(ocf_cache_t cache, struct ocf_part_runtime *part)
 {
 	struct ocf_lru_list *clean_list;
 	struct ocf_lru_list *dirty_list;
@@ -751,7 +858,7 @@ void evp_lru_init_evp(ocf_cache_t cache, struct ocf_user_part *part)
 	}
 }
 
-void evp_lru_clean_cline(ocf_cache_t cache, struct ocf_user_part *part,
+void evp_lru_clean_cline(ocf_cache_t cache, struct ocf_part_runtime *part,
 		uint32_t cline)
 {
 	uint32_t ev_list = (cline % OCF_NUM_EVICTION_LISTS);
@@ -769,7 +876,7 @@ void evp_lru_clean_cline(ocf_cache_t cache, struct ocf_user_part *part,
 	OCF_METADATA_EVICTION_WR_UNLOCK(cline);
 }
 
-void evp_lru_dirty_cline(ocf_cache_t cache, struct ocf_user_part *part,
+void evp_lru_dirty_cline(ocf_cache_t cache, struct ocf_part_runtime *part,
 		uint32_t cline)
 {
 	uint32_t ev_list = (cline % OCF_NUM_EVICTION_LISTS);
@@ -787,3 +894,163 @@ void evp_lru_dirty_cline(ocf_cache_t cache, struct ocf_user_part *part,
 	OCF_METADATA_EVICTION_WR_UNLOCK(cline);
 }
 
+static ocf_cache_line_t next_phys_invalid(ocf_cache_t cache,
+		ocf_cache_line_t phys)
+{
+	ocf_cache_line_t lg;
+	ocf_cache_line_t collision_table_entries =
+			ocf_metadata_collision_table_entries(cache);
+
+	if (phys == collision_table_entries)
+		return collision_table_entries;
+
+	lg = ocf_metadata_map_phy2lg(cache, phys);
+	while (metadata_test_valid_any(cache, lg) &&
+			phys +  1 < collision_table_entries) {
+		++phys;
+
+		if (phys == collision_table_entries)
+			break;
+
+		lg = ocf_metadata_map_phy2lg(cache, phys);
+	}
+
+	return phys;
+}
+
+/* put invalid cachelines at the end of LRU  */
+void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines)
+{
+	ocf_cache_line_t phys, cline;
+	ocf_cache_line_t collision_table_entries =
+			ocf_metadata_collision_table_entries(cache);
+	struct ocf_lru_list *list;
+	unsigned ev_list;
+	unsigned i;
+
+	evp_lru_init_evp(cache, cache->free);
+
+	phys = 0;
+	for (i = 0; i < num_free_clines; i++) {
+		/* find first invalid cacheline */
+		phys = next_phys_invalid(cache, phys);
+		ENV_BUG_ON(phys == collision_table_entries);
+		cline = ocf_metadata_map_phy2lg(cache, phys);
+		++phys;
+
+		ocf_metadata_set_partition_id(cache, cline, PARTITION_INVALID);
+
+		ev_list = (cline % OCF_NUM_EVICTION_LISTS);
+		list = evp_lru_get_list(cache->free, ev_list, true);
+
+		add_lru_tail(cache, list, cline);
+		balance_lru_list(cache, list);
+	}
+
+	/* we should have reached the last invalid cache line */
+	phys = next_phys_invalid(cache, phys);
+	ENV_BUG_ON(phys != collision_table_entries);
+
+	env_atomic_set(&cache->free->curr_size, num_free_clines);
+}
+
+static bool _is_cache_line_acting(struct ocf_cache *cache,
+		uint32_t cache_line, ocf_core_id_t core_id,
+		uint64_t start_line, uint64_t end_line)
+{
+	ocf_core_id_t tmp_core_id;
+	uint64_t core_line;
+
+	ocf_metadata_get_core_info(cache, cache_line,
+		&tmp_core_id, &core_line);
+
+	if (core_id != OCF_CORE_ID_INVALID) {
+		if (core_id != tmp_core_id)
+			return false;
+
+		if (core_line < start_line || core_line > end_line)
+			return false;
+
+	} else if (tmp_core_id == OCF_CORE_ID_INVALID) {
+		return false;
+	}
+
+	return true;
+}
+
+/*
+ * Iterates over cache lines that belong to the core device with
+ * core ID = core_id  whose core byte addresses are in the range
+ * [start_byte, end_byte] and applies actor(cache, cache_line) to all
+ * matching cache lines
+ *
+ * set partition_id to PARTITION_INVALID to not care about partition_id
+ *
+ * global metadata write lock must be held before calling this function
+ */
+int ocf_metadata_actor(struct ocf_cache *cache,
+		ocf_part_id_t part_id, ocf_core_id_t core_id,
+		uint64_t start_byte, uint64_t end_byte,
+		ocf_metadata_actor_t actor)
+{
+	uint32_t step = 0;
+	uint64_t start_line, end_line;
+	int ret = 0;
+	struct ocf_cache_line_concurrency *c = ocf_cache_line_concurrency(cache);
+	int clean;
+	struct ocf_lru_list *list;
+	struct ocf_part_runtime *part;
+	unsigned i, cline;
+	struct lru_eviction_policy_meta *node;
+
+	start_line = ocf_bytes_2_lines(cache, start_byte);
+	end_line = ocf_bytes_2_lines(cache, end_byte);
+
+	if (part_id == PARTITION_INVALID) {
+		for (cline = 0; cline < cache->device->collision_table_entries;
+				++cline) {
+			if (_is_cache_line_acting(cache, cline, core_id,
+					start_line, end_line)) {
+				if (ocf_cache_line_is_used(c, cline))
+					ret = -OCF_ERR_AGAIN;
+				else
+					actor(cache, cline);
+			}
+
+			OCF_COND_RESCHED_DEFAULT(step);
+		}
+		return ret;
+	}
+
+	part = cache->user_parts[part_id].runtime;
+	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+		for (clean = 0; clean <= 1; clean++) {
+			list = evp_lru_get_list(part, i, clean);
+
+			cline = list->tail;
+			while (cline != end_marker) {
+				node = &ocf_metadata_get_eviction_policy(cache,
+						cline)->lru;
+				if (!_is_cache_line_acting(cache, cline,
+						core_id, start_line,
+						end_line)) {
+					cline = node->prev;
+					continue;
+				}
+				if (ocf_cache_line_is_used(c, cline))
+					ret = -OCF_ERR_AGAIN;
+				else
+					actor(cache, cline);
+				cline = node->prev;
+				OCF_COND_RESCHED_DEFAULT(step);
+			}
+		}
+	}
+
+	return ret;
+}
+
+uint32_t ocf_lru_num_free(ocf_cache_t cache)
+{
+	return env_atomic_read(&cache->free->curr_size);
+}

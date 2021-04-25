@@ -15,10 +15,6 @@ struct ocf_metadata_list_info {
 		/*!<  Previous cache line in collision list */
 	ocf_cache_line_t next_col;
 		/*!<  Next cache line in collision list*/
-	ocf_cache_line_t partition_prev;
-		/*!<  Previous cache line in the same partition*/
-	ocf_cache_line_t partition_next;
-		/*!<  Next cache line in the same partition*/
 	ocf_part_id_t partition_id : 8;
 		/*!<  ID of partition where is assigned this cache line*/
 } __attribute__((packed));
