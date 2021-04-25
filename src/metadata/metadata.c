@@ -14,7 +14,6 @@
 #include "metadata_segment.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../ocf_def_priv.h"
-#include "../ocf_freelist.h"
 #include "../ocf_priv.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_io.h"
@@ -89,7 +88,7 @@ static ocf_cache_line_t ocf_metadata_get_entries(
 		return OCF_IO_CLASS_MAX + 1;
 
 	case metadata_segment_part_runtime:
-		return OCF_IO_CLASS_MAX + 1;
+		return OCF_IO_CLASS_MAX + 2; /* extra runtime for freelist */
 
 	case metadata_segment_core_config:
 		return OCF_CORE_MAX;
@@ -154,7 +153,7 @@ static int64_t ocf_metadata_get_element_size(
 		break;
 
 	case metadata_segment_part_runtime:
-		size = sizeof(struct ocf_user_part_runtime);
+		size = sizeof(struct ocf_part_runtime);
 		break;
 
 	case metadata_segment_hash:
@@ -551,7 +550,7 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 	struct ocf_core_meta_config *core_meta_config;
 	struct ocf_core_meta_runtime *core_meta_runtime;
 	struct ocf_user_part_config *part_config;
-	struct ocf_user_part_runtime *part_runtime;
+	struct ocf_part_runtime *part_runtime;
 	struct ocf_metadata_segment *superblock;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
@@ -626,6 +625,7 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 		cache->user_parts[i].runtime = &part_runtime[i];
 		cache->user_parts[i].id = i;
 	}
+	cache->free = &part_runtime[OCF_IO_CLASS_MAX + 1];
 
 	/* Set core metadata */
 	core_meta_config = METADATA_MEM_POOL(ctrl,
@@ -1229,10 +1229,13 @@ static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
 	ocf_core_t core = ocf_cache_get_core(cache, core_id);
 	ocf_part_id_t part_id;
 	ocf_cache_line_t hash_index;
+	struct ocf_part_runtime *part;
 
 	part_id = PARTITION_DEFAULT;
+	part = cache->user_parts[part_id].runtime;
 
-	ocf_metadata_add_to_partition(cache, part_id, cache_line);
+	ocf_metadata_set_partition_id(cache, part_id, cache_line);
+	env_atomic_inc(&part->curr_size);
 
 	hash_index = ocf_metadata_hash_func(cache, core_line, core_id);
 	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,

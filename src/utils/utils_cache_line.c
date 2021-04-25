@@ -131,8 +131,10 @@ void set_cache_line_clean(struct ocf_cache *cache, uint8_t start_bit,
 			env_atomic_dec(&req->core->runtime_meta->
 					part_counters[part_id].dirty_clines);
 
-			if (likely(evict_policy_ops[evp_type].clean_cline))
-				evict_policy_ops[evp_type].clean_cline(cache, part, line);
+			if (likely(evict_policy_ops[evp_type].clean_cline)) {
+				evict_policy_ops[evp_type].clean_cline(cache,
+						part->runtime, line);
+			}
 
 			ocf_purge_cleaning_policy(cache, line);
 		}
@@ -174,8 +176,10 @@ void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
 			env_atomic_inc(&req->core->runtime_meta->
 					part_counters[part_id].dirty_clines);
 
-			if (likely(evict_policy_ops[evp_type].dirty_cline))
-				evict_policy_ops[evp_type].dirty_cline(cache, part, line);
+			if (likely(evict_policy_ops[evp_type].dirty_cline)) {
+				evict_policy_ops[evp_type].dirty_cline(cache,
+						part->runtime, line);
+			}
 		}
 	}
 
