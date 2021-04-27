@@ -25,6 +25,8 @@ struct ocf_metadata_ctrl {
 	size_t mapping_size;
 	struct ocf_metadata_raw raw_desc[metadata_segment_max];
 	struct ocf_metadata_segment *segment[metadata_segment_max];
+	ocf_persistent_meta_zone_t persistent_meta_fixed;
+	ocf_persistent_meta_zone_t persistent_meta_variable;
 };
 
 struct ocf_metadata_context {

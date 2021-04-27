@@ -10,6 +10,7 @@
 #include "../engine/cache_engine.h"
 #include "../eviction/ops.h"
 #include "utils_part.h"
+#include "../mngt/ocf_mngt_common.h"
 
 static struct ocf_lst_entry *ocf_part_lst_getter_valid(
 		struct ocf_cache *cache, ocf_cache_line_t idx)
@@ -81,8 +82,49 @@ static int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
 
 void ocf_part_init(struct ocf_cache *cache)
 {
+	ocf_part_id_t i_part;
+
 	ocf_lst_init(cache, &cache->lst_part, OCF_IO_CLASS_MAX,
 			ocf_part_lst_getter_valid, ocf_part_lst_cmp_valid);
+
+	/* Init default Partition */
+	ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache, PARTITION_DEFAULT,
+			"unclassified", 0, PARTITION_SIZE_MAX,
+			OCF_IO_CLASS_PRIO_LOWEST, true, false));
+
+	/* Add other partition to the cache and make it as dummy */
+	for (i_part = 0; i_part < OCF_IO_CLASS_MAX; i_part++) {
+		ocf_refcnt_freeze(&cache->user_parts[i_part].cleaning.counter);
+
+		if (i_part == PARTITION_DEFAULT)
+			continue;
+
+		/* Init default Partition */
+		ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache, i_part,
+				"Inactive", 0, PARTITION_SIZE_MAX,
+				OCF_IO_CLASS_PRIO_LOWEST, false, false));
+	}
+}
+
+void ocf_part_load(struct ocf_cache *cache)
+{
+	ocf_part_id_t i_part;
+	struct ocf_user_part *part;
+
+	ocf_lst_init(cache, &cache->lst_part, OCF_IO_CLASS_MAX,
+			ocf_part_lst_getter_valid, ocf_part_lst_cmp_valid);
+
+	for (i_part = 0; i_part < OCF_IO_CLASS_MAX; i_part++) {
+		part = &cache->user_parts[i_part];
+
+		ocf_refcnt_freeze(&part->cleaning.counter);
+
+		ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache,
+				i_part, part->config->name, part->config->min_size,
+				part->config->max_size,
+				part->config->priority,
+				part->config->flags.valid, true));
+	}
 }
 
 void ocf_part_move(struct ocf_request *req)

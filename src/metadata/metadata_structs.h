@@ -77,8 +77,10 @@ struct ocf_metadata {
 	const struct ocf_cache_line_settings settings;
 		/*!< Cache line configuration */
 
-	bool is_volatile;
-		/*!< true if metadata used in volatile mode (RAM only) */
+	ocf_metadata_persistence_mode_t persistence_mode;
+		/*!< mode of metadata persistence */
+
+	bool loaded;
 
 	struct ocf_metadata_lock lock;
 };

@@ -28,7 +28,7 @@ static uint64_t _ocf_mngt_count_parts_min_size(struct ocf_cache *cache)
 
 int ocf_mngt_add_partition_to_cache(struct ocf_cache *cache,
 		ocf_part_id_t part_id, const char *name, uint32_t min_size,
-		uint32_t max_size, uint8_t priority, bool valid)
+		uint32_t max_size, uint8_t priority, bool valid, bool load)
 {
 	uint32_t size;
 	struct ocf_lst_entry *iter;
@@ -40,7 +40,7 @@ int ocf_mngt_add_partition_to_cache(struct ocf_cache *cache,
 	if (part_id >= OCF_IO_CLASS_MAX)
 		return -OCF_ERR_INVAL;
 
-	if (cache->user_parts[part_id].config->flags.valid)
+	if (cache->user_parts[part_id].config->flags.valid && !load)
 		return -OCF_ERR_INVAL;
 
 	if (min_size > max_size)

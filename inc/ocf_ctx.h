@@ -194,6 +194,17 @@ struct ocf_metadata_updater_ops {
 	void (*stop)(ocf_metadata_updater_t mu);
 };
 
+typedef struct ocf_persistent_meta_zone *ocf_persistent_meta_zone_t;
+
+struct ocf_persistent_metadata_ops {
+	ocf_persistent_meta_zone_t (*init)(ocf_cache_t cache, size_t size,
+			bool *load);
+	int (*deinit)(ocf_persistent_meta_zone_t zone);
+	void *(*alloc)(ocf_persistent_meta_zone_t zone, size_t size,
+			int alloc_id, bool *load);
+	int (*free)(ocf_persistent_meta_zone_t zone, int alloc_id, void *ptr);
+};
+
 /**
  * @brief OCF context specific operation
  */
@@ -209,6 +220,8 @@ struct ocf_ctx_ops {
 
 	/* Logger operations */
 	struct ocf_logger_ops logger;
+
+	struct ocf_persistent_metadata_ops persistent_meta;
 };
 
 struct ocf_ctx_config {
