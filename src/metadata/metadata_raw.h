@@ -40,6 +40,8 @@ enum ocf_metadata_raw_type {
 	 */
 	metadata_raw_type_atomic,
 
+	metadata_raw_type_persistent,
+
 	metadata_raw_type_max, /*!<  MAX */
 	metadata_raw_type_min = metadata_raw_type_ram /*!<  MAX */
 };
@@ -83,6 +85,8 @@ struct ocf_metadata_raw {
 	void *mem_pool; /*!< Private memory pool*/
 
 	size_t mem_pool_limit; /*! Current memory pool size (limit) */
+
+	ocf_persistent_meta_zone_t persistent_allocator;
 
 	void *priv; /*!< Private data - context */
 
@@ -312,5 +316,8 @@ static inline void *ocf_metadata_raw_get_mem(struct ocf_metadata_raw *raw)
 {
 	return raw->mem_pool;
 }
+
+void raw_ram_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+		ocf_metadata_end_t cmpl, void *priv);
 
 #endif /* METADATA_RAW_H_ */

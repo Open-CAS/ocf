@@ -266,7 +266,7 @@ struct ocf_mngt_cache_config {
 	 */
 	ocf_metadata_layout_t metadata_layout;
 
-	bool metadata_volatile;
+	ocf_metadata_persistence_mode_t persistence_mode;
 
 	/**
 	 * @brief Backfill configuration
@@ -311,7 +311,7 @@ static inline void ocf_mngt_cache_config_set_default(
 	cfg->promotion_policy = ocf_promotion_default;
 	cfg->cache_line_size = ocf_cache_line_size_4;
 	cfg->metadata_layout = ocf_metadata_layout_default;
-	cfg->metadata_volatile = false;
+	cfg->persistence_mode = ocf_metadata_persistence_default;
 	cfg->backfill.max_queue_size = 65536;
 	cfg->backfill.queue_unblock_size = 60000;
 	cfg->locked = false;

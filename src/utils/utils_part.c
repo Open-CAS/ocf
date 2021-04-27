@@ -81,8 +81,28 @@ static int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
 
 void ocf_part_init(struct ocf_cache *cache)
 {
+	ocf_part_id_t i_part;
+
 	ocf_lst_init(cache, &cache->lst_part, OCF_IO_CLASS_MAX,
 			ocf_part_lst_getter_valid, ocf_part_lst_cmp_valid);
+
+	/* Init default Partition */
+	ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache, PARTITION_DEFAULT,
+			"unclassified", 0, PARTITION_SIZE_MAX,
+			OCF_IO_CLASS_PRIO_LOWEST, true));
+
+	/* Add other partition to the cache and make it as dummy */
+	for (i_part = 0; i_part < OCF_IO_CLASS_MAX; i_part++) {
+		ocf_refcnt_freeze(&cache->user_parts[i_part].cleaning.counter);
+
+		if (i_part == PARTITION_DEFAULT)
+			continue;
+
+		/* Init default Partition */
+		ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache, i_part,
+				"Inactive", 0, PARTITION_SIZE_MAX,
+				OCF_IO_CLASS_PRIO_LOWEST, false));
+	}
 }
 
 void ocf_part_move(struct ocf_request *req)

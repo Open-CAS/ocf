@@ -48,8 +48,6 @@ struct ocf_cache_mngt_init_params {
 	uint8_t locked;
 		/*!< Keep cache locked */
 
-	bool metadata_volatile;
-
 	/**
 	 * @brief initialization state (in case of error, it is used to know
 	 * which assets have to be deallocated in premature exit from function
@@ -142,6 +140,8 @@ struct ocf_cache_attach_context {
 
 		uint8_t dirty_flushed;
 		/*!< is dirty data fully flushed */
+
+		bool persistent_meta_loaded;
 	} metadata;
 
 	struct {
@@ -157,29 +157,6 @@ struct ocf_cache_attach_context {
 
 	ocf_pipeline_t pipeline;
 };
-
-static void __init_partitions(ocf_cache_t cache)
-{
-	ocf_part_id_t i_part;
-
-	/* Init default Partition */
-	ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache, PARTITION_DEFAULT,
-			"unclassified", 0, PARTITION_SIZE_MAX,
-			OCF_IO_CLASS_PRIO_LOWEST, true));
-
-	/* Add other partition to the cache and make it as dummy */
-	for (i_part = 0; i_part < OCF_IO_CLASS_MAX; i_part++) {
-		ocf_refcnt_freeze(&cache->user_parts[i_part].cleaning.counter);
-
-		if (i_part == PARTITION_DEFAULT)
-			continue;
-
-		/* Init default Partition */
-		ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache, i_part,
-				"Inactive", 0, PARTITION_SIZE_MAX,
-				OCF_IO_CLASS_PRIO_LOWEST, false));
-	}
-}
 
 static void __init_partitions_attached(ocf_cache_t cache)
 {
@@ -482,7 +459,8 @@ void _ocf_mngt_load_init_instance_complete(void *priv, int error)
 	if (!cleaning_policy_ops[cleaning_policy].initialize)
 		goto out;
 
-	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown)
+	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown ||
+			context->metadata.persistent_meta_loaded)
 		result = cleaning_policy_ops[cleaning_policy].initialize(cache, 0);
 	else
 		result = cleaning_policy_ops[cleaning_policy].initialize(cache, 1);
@@ -541,10 +519,15 @@ static void _ocf_mngt_load_init_instance(ocf_pipeline_t pipeline,
 	if (ret)
 		OCF_PL_FINISH_RET(pipeline, ret);
 
-	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown)
-		_ocf_mngt_load_init_instance_clean_load(context);
-	else
-		_ocf_mngt_load_init_instance_recovery(context);
+
+	if (!context->cache->metadata.loaded) {
+		if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown)
+			_ocf_mngt_load_init_instance_clean_load(context);
+		else
+			_ocf_mngt_load_init_instance_recovery(context);
+	} else {
+		_ocf_mngt_load_init_instance_complete(context, 0);
+	}
 }
 
 /**
@@ -685,7 +668,6 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 	cache->use_submit_io_fast = cfg->use_submit_io_fast;
 
 	cache->eviction_policy_init = cfg->eviction_policy;
-	cache->metadata.is_volatile = cfg->metadata_volatile;
 
 out:
 	return ret;
@@ -984,6 +966,8 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 	context->metadata.line_size = context->metadata.line_size ?:
 			cache->metadata.settings.size;
 
+	context->metadata.persistent_meta_loaded = cache->metadata.loaded;
+
 	/*
 	 * Initialize variable size metadata segments
 	 */
@@ -1168,14 +1152,8 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	cache->conf_meta->metadata_layout = params->metadata.layout;
 	cache->conf_meta->promotion_policy_type = params->metadata.promotion_policy;
 
-	INIT_LIST_HEAD(&cache->io_queues);
-
-	/* Init Partitions */
-	ocf_part_init(cache);
-
 	__init_cores(cache);
 	__init_metadata_version(cache);
-	__init_partitions(cache);
 }
 
 static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
@@ -1191,7 +1169,6 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	params.metadata.cache_mode = cfg->cache_mode;
 	params.metadata.layout = cfg->metadata_layout;
 	params.metadata.line_size = cfg->cache_line_size;
-	params.metadata_volatile = cfg->metadata_volatile;
 	params.metadata.promotion_policy = cfg->promotion_policy;
 	params.locked = cfg->locked;
 
@@ -1213,7 +1190,8 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	/*
 	 * Initialize metadata selected segments of metadata in memory
 	 */
-	result = ocf_metadata_init(tmp_cache, params.metadata.line_size);
+	result = ocf_metadata_init(tmp_cache, cfg->cache_line_size,
+			cfg->persistence_mode);
 	if (result) {
 		env_rmutex_unlock(&ctx->lock);
 		result =  -OCF_ERR_NO_MEM;
@@ -1237,7 +1215,13 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	ocf_cache_log(tmp_cache, log_debug, "Metadata initialized\n");
 
-	_ocf_mngt_cache_init(tmp_cache, &params);
+	INIT_LIST_HEAD(&tmp_cache->io_queues);
+
+	/* Init Partitions */
+	ocf_part_init(tmp_cache);
+
+	if (!tmp_cache->metadata.loaded)
+		_ocf_mngt_cache_init(tmp_cache, &params);
 
 	ocf_ctx_get(ctx);
 
@@ -1422,6 +1406,10 @@ static void _ocf_mngt_attach_flush_metadata(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
+	if (context->metadata.persistent_meta_loaded) {
+		ocf_pipeline_next(context->pipeline);
+		return;
+	}
 	ocf_metadata_flush_all(cache,
 			_ocf_mngt_attach_flush_metadata_complete, context);
 }
@@ -1907,6 +1895,11 @@ static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 		return -OCF_ERR_INVAL;
 	}
 
+	if (cfg->persistence_mode >= ocf_metadata_persistence_max ||
+			cfg->persistence_mode < 0) {
+		return -OCF_ERR_INVAL;
+	}
+
 	if (cfg->backfill.queue_unblock_size > cfg->backfill.max_queue_size )
 		return -OCF_ERR_INVAL;
 
@@ -2139,7 +2132,7 @@ void ocf_mngt_cache_load(ocf_cache_t cache,
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
 	/* Load is not allowed in volatile metadata mode */
-	if (cache->metadata.is_volatile)
+	if (cache->metadata.persistence_mode == ocf_metadata_persistence_ram)
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
 	/* Load is not allowed with 'force' flag on */
