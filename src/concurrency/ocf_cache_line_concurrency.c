@@ -65,7 +65,7 @@ struct ocf_cache_line_concurrency {
  *
  */
 
-#define ALLOCATOR_NAME_FMT "ocf_%s_cache_concurrency"
+#define ALLOCATOR_NAME_FMT "ocf_%s_concurrency"
 #define ALLOCATOR_NAME_MAX (sizeof(ALLOCATOR_NAME_FMT) + OCF_CACHE_NAME_SIZE)
 
 int ocf_cache_line_concurrency_init(struct ocf_cache_line_concurrency **self,
