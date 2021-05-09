@@ -364,6 +364,11 @@ static inline void env_completion_destroy(env_completion *completion)
 	sem_destroy(&completion->sem);
 }
 
+/* WARNING: this is actually only a compiler barrier - it working as a CPU
+ * rd/wr smp barrier is x86 specific. */
+#define env_smp_wmb() asm volatile ("" : : : "memory")
+#define env_smp_rmb() env_smp_wmb()
+
 /* ATOMIC VARIABLES */
 typedef struct {
 	volatile int counter;
