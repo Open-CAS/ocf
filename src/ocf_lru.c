@@ -16,11 +16,70 @@
 
 static const ocf_cache_line_t end_marker = (ocf_cache_line_t)-1;
 
+/* update list last_hot index. returns pivot element (the one for which hot
+ * status effectively changes during balancing). */
+static inline ocf_cache_line_t balance_update_last_hot(ocf_cache_t cache,
+		struct ocf_lru_list *list, int change)
+{
+	ocf_cache_line_t last_hot_new, last_hot_old;
+
+	last_hot_old = list->last_hot;
+
+	if (change > 0) {
+		ENV_BUG_ON(change != 1);
+
+		if (unlikely(list->last_hot == end_marker)) {
+			last_hot_new = list->head;
+		} else {
+			last_hot_new = ocf_metadata_get_lru(cache,
+					list->last_hot)->next;
+			ENV_BUG_ON(last_hot_new == end_marker);
+		}
+	} else if (change < 0) {
+		ENV_BUG_ON(change != -1);
+		ENV_BUG_ON(list->last_hot == end_marker);
+
+		last_hot_new = ocf_metadata_get_lru(cache, list->last_hot)->prev;
+	} else {
+		last_hot_new = list->last_hot;
+	}
+
+	list->last_hot = last_hot_new;
+
+	if (change == 0)
+		return end_marker;
+
+	return (change > 0) ? list->last_hot : last_hot_old;
+}
+
+/* Increase / decrease number of hot elements to achieve target count.
+ * Asssumes that the list has hot element clustered together at the
+ * head of the list.
+ */
+static void balance_lru_list(ocf_cache_t cache, struct ocf_lru_list *list)
+{
+	unsigned target_hot_count = list->num_nodes / OCF_LRU_HOT_RATIO;
+	int change = target_hot_count - list->num_hot;
+	ocf_cache_line_t pivot;
+
+	if (!list->track_hot)
+		return;
+
+	/* 1 - update hot counter */
+	list->num_hot = target_hot_count;
+
+	/* 2 - update last hot */
+	pivot = balance_update_last_hot(cache, list, change);
+
+	/* 3 - change hot bit for cacheline at the end of hot list */
+	if (pivot != end_marker)
+		ocf_metadata_get_lru(cache, pivot)->hot = (change >= 0);
+}
+
 /* Adds the given collision_index to the _head_ of the LRU list */
-static void add_lru_head(ocf_cache_t cache,
+static void add_lru_head_nobalance(ocf_cache_t cache,
 		struct ocf_lru_list *list,
 		unsigned int collision_index)
-
 {
 	struct ocf_lru_meta *node;
 	unsigned int curr_head_index;
@@ -65,13 +124,53 @@ static void add_lru_head(ocf_cache_t cache,
 	}
 }
 
+static void add_lru_head(ocf_cache_t cache, struct ocf_lru_list *list,
+		ocf_cache_line_t collision_index)
+{
+	add_lru_head_nobalance(cache, list, collision_index);
+	balance_lru_list(cache, list);
+}
+
+/* update list global pointers and node neighbours to reflect removal */
+static inline void remove_update_ptrs(ocf_cache_t cache,
+		struct ocf_lru_list *list, ocf_cache_line_t collision_index,
+		struct ocf_lru_meta *node)
+{
+	uint32_t next_lru_node = node->next;
+	uint32_t prev_lru_node = node->prev;
+	struct ocf_lru_meta *next_node;
+	struct ocf_lru_meta *prev_node;
+	bool is_head = (node->prev == end_marker);
+	bool is_tail = (node->next == end_marker);
+
+	if (is_head && is_tail) {
+		list->head = end_marker;
+		list->tail = end_marker;
+	} else if (is_head) {
+		list->head = next_lru_node;
+		next_node = ocf_metadata_get_lru(cache, next_lru_node);
+		next_node->prev = end_marker;
+	} else if (is_tail) {
+		list->tail = prev_lru_node;
+		prev_node = ocf_metadata_get_lru(cache, prev_lru_node);
+		prev_node->next = end_marker;
+	} else {
+		next_node = ocf_metadata_get_lru(cache, next_lru_node);
+		prev_node = ocf_metadata_get_lru(cache, prev_lru_node);
+		prev_node->next = node->next;
+		next_node->prev = node->prev;
+	}
+
+	if (list->last_hot == collision_index)
+		list->last_hot = prev_lru_node;
+}
+
 /* Deletes the node with the given collision_index from the lru list */
-static void remove_lru_list(ocf_cache_t cache,
+static void remove_lru_list_nobalance(ocf_cache_t cache,
 		struct ocf_lru_list *list,
-		unsigned int collision_index)
+		ocf_cache_line_t collision_index)
 {
 	int is_head = 0, is_tail = 0;
-	uint32_t prev_lru_node, next_lru_node;
 	struct ocf_lru_meta *node;
 
 	ENV_BUG_ON(collision_index == end_marker);
@@ -81,142 +180,35 @@ static void remove_lru_list(ocf_cache_t cache,
 	is_head = (list->head == collision_index);
 	is_tail = (list->tail == collision_index);
 
+	ENV_BUG_ON(is_head == (node->prev != end_marker));
+	ENV_BUG_ON(is_tail == (node->next != end_marker));
+
+	remove_update_ptrs(cache, list, collision_index, node);
+
+	--list->num_nodes;
 	if (node->hot)
 		--list->num_hot;
 
-	/* Set prev and next (even if not existent) */
-	next_lru_node = node->next;
-	prev_lru_node = node->prev;
-
-	/* Case 1: If we are head AND tail, there is only one node.
-	 * So unlink node and set that there is no node left in the list.
-	 */
-	if (is_head && is_tail) {
-		node->next = end_marker;
-		node->prev = end_marker;
-
-		list->head = end_marker;
-		list->tail = end_marker;
-		list->last_hot = end_marker;
-		ENV_BUG_ON(list->num_hot != 0);
-	}
-
-	/* Case 2: else if this collision_index is LRU head, but not tail,
-	 * update head and return
-	 */
-	else if (is_head) {
-		struct ocf_lru_meta *next_node;
-
-		ENV_BUG_ON(next_lru_node == end_marker);
-
-		next_node = ocf_metadata_get_lru(cache, next_lru_node);
-
-		if (list->last_hot == collision_index) {
-			ENV_BUG_ON(list->num_hot != 0);
-			list->last_hot = end_marker;
-		}
-
-		list->head = next_lru_node;
-
-		node->next = end_marker;
-		next_node->prev = end_marker;
-	}
-
-	/* Case 3: else if this collision_index is LRU tail, but not head,
-	 * update tail and return
-	 */
-	else if (is_tail) {
-		struct ocf_lru_meta *prev_node;
-
-		ENV_BUG_ON(prev_lru_node == end_marker);
-
-		list->tail = prev_lru_node;
-
-		prev_node = ocf_metadata_get_lru(cache, prev_lru_node);
-
-		node->prev = end_marker;
-		prev_node->next = end_marker;
-	}
-
-	/* Case 4: else this collision_index is a middle node. There is no
-	 * change to the head and the tail pointers.
-	 */
-	else {
-		struct ocf_lru_meta *prev_node;
-		struct ocf_lru_meta *next_node;
-
-		ENV_BUG_ON(next_lru_node == end_marker);
-		ENV_BUG_ON(prev_lru_node == end_marker);
-
-		next_node = ocf_metadata_get_lru(cache, next_lru_node);
-		prev_node = ocf_metadata_get_lru(cache, prev_lru_node);
-
-		if (list->last_hot == collision_index) {
-			ENV_BUG_ON(list->num_hot == 0);
-			list->last_hot = prev_lru_node;
-		}
-
-		/* Update prev and next nodes */
-		prev_node->next = node->next;
-		next_node->prev = node->prev;
-
-		/* Update the given node */
-		node->next = end_marker;
-		node->prev = end_marker;
-	}
-
+	node->next = end_marker;
+	node->prev = end_marker;
 	node->hot = false;
-	--list->num_nodes;
 }
 
-/* Increase / decrease number of hot elements to achieve target count.
- * Asssumes that the list has hot element clustered together at the
- * head of the list.
- */
-static void balance_lru_list(ocf_cache_t cache,
-		struct ocf_lru_list *list)
+static void remove_lru_list(ocf_cache_t cache, struct ocf_lru_list *list,
+		ocf_cache_line_t cline)
 {
-	unsigned target_hot_count = list->num_nodes / OCF_LRU_HOT_RATIO;
-	struct ocf_lru_meta *node;
-
-	if (!list->track_hot)
-		return;
-
-	if (target_hot_count == list->num_hot)
-		return;
-
-	if (list->num_hot == 0) {
-		node = ocf_metadata_get_lru(cache, list->head);
-		list->last_hot = list->head;
-		list->num_hot = 1;
-		node->hot = 1;
-		return;
-	}
-
-	ENV_BUG_ON(list->last_hot == end_marker);
-	node = ocf_metadata_get_lru(cache, list->last_hot);
-
-	if (target_hot_count > list->num_hot) {
-		++list->num_hot;
-		list->last_hot = node->next;
-		node = ocf_metadata_get_lru(cache, node->next);
-		node->hot = true;
-	} else {
-		if (list->last_hot == list->head) {
-			node->hot = false;
-			list->num_hot = 0;
-			list->last_hot = end_marker;
-		} else {
-			ENV_BUG_ON(node->prev == end_marker);
-			node->hot = false;
-			--list->num_hot;
-			list->last_hot = node->prev;
-		}
-	}
+	remove_lru_list_nobalance(cache, list, cline);
+	balance_lru_list(cache, list);
 }
 
+static void ocf_lru_set_hot(ocf_cache_t cache, struct ocf_lru_list *list,
+		ocf_cache_line_t cline)
 
-/*-- End of LRU functions*/
+{
+	remove_lru_list_nobalance(cache, list, cline);
+	add_lru_head_nobalance(cache, list, cline);
+	balance_lru_list(cache, list);
+}
 
 void ocf_lru_init_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
@@ -252,39 +244,18 @@ static inline struct ocf_lru_list *lru_get_cline_list(ocf_cache_t cache,
 			!metadata_test_dirty(cache, cline));
 }
 
-static void ocf_lru_move(ocf_cache_t cache, ocf_cache_line_t cline,
-		struct ocf_part *src_part, struct ocf_lru_list *src_list,
-		struct ocf_part *dst_part, struct ocf_lru_list *dst_list)
+void ocf_lru_add(ocf_cache_t cache, ocf_cache_line_t cline)
 {
-	remove_lru_list(cache, src_list, cline);
-	balance_lru_list(cache, src_list);
-	add_lru_head(cache, dst_list, cline);
-	balance_lru_list(cache, dst_list);
-	env_atomic_dec(&src_part->runtime->curr_size);
-	env_atomic_inc(&dst_part->runtime->curr_size);
-	ocf_metadata_set_partition_id(cache, cline, dst_part->id);
+	struct ocf_lru_list *list = lru_get_cline_list(cache, cline);
 
+	add_lru_head(cache, list, cline);
 }
 
-/* the caller must hold the metadata lock */
-void ocf_lru_rm_cline(ocf_cache_t cache, ocf_cache_line_t cline)
+static inline void ocf_lru_move(ocf_cache_t cache, ocf_cache_line_t cline,
+		struct ocf_lru_list *src_list, struct ocf_lru_list *dst_list)
 {
-	struct ocf_lru_list *list, *free;
-	uint32_t lru_list = (cline % OCF_NUM_LRU_LISTS);
-	ocf_part_id_t part_id;
-	struct ocf_part *part;
-
-	part_id = ocf_metadata_get_partition_id(cache, cline);
-	ENV_BUG_ON(part_id > OCF_USER_IO_CLASS_MAX);
-	part = &cache->user_parts[part_id].part;
-
-	OCF_METADATA_LRU_WR_LOCK(cline);
-
-	list = lru_get_cline_list(cache, cline);
-	free = ocf_lru_get_list(&cache->free, lru_list, true);
-	ocf_lru_move(cache, cline, part, list, &cache->free, free);
-
-	OCF_METADATA_LRU_WR_UNLOCK(cline);
+	remove_lru_list(cache, src_list, cline);
+	add_lru_head(cache, dst_list, cline);
 }
 
 static void ocf_lru_repart_locked(ocf_cache_t cache, ocf_cache_line_t cline,
@@ -298,7 +269,10 @@ static void ocf_lru_repart_locked(ocf_cache_t cache, ocf_cache_line_t cline,
 	src_list = ocf_lru_get_list(src_part, lru_list, clean);
 	dst_list = ocf_lru_get_list(dst_part, lru_list, clean);
 
-	ocf_lru_move(cache, cline, src_part, src_list, dst_part, dst_list);
+	ocf_lru_move(cache, cline, src_list, dst_list);
+	ocf_metadata_set_partition_id(cache, cline, dst_part->id);
+	env_atomic_dec(&src_part->runtime->curr_size);
+	env_atomic_inc(&dst_part->runtime->curr_size);
 }
 
 void ocf_lru_repart(ocf_cache_t cache, ocf_cache_line_t cline,
@@ -308,6 +282,18 @@ void ocf_lru_repart(ocf_cache_t cache, ocf_cache_line_t cline,
 	ocf_lru_repart_locked(cache, cline, src_part, dst_part);
 	OCF_METADATA_LRU_WR_UNLOCK(cline);
 }
+
+/* the caller must hold the metadata lock */
+void ocf_lru_rm_cline(ocf_cache_t cache, ocf_cache_line_t cline)
+{
+	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, cline);
+	struct ocf_part *part = &cache->user_parts[part_id].part;
+
+	ENV_BUG_ON(metadata_test_dirty(cache, cline));
+
+	ocf_lru_repart(cache, cline, part, &cache->free);
+}
+
 
 static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
 		struct ocf_part *part, uint32_t start_lru, bool clean,
@@ -484,9 +470,7 @@ static inline ocf_cache_line_t lru_iter_eviction_next(struct ocf_lru_iter *iter,
 				ocf_lru_repart_locked(cache, cline, part,
 						dst_part);
 			} else {
-				remove_lru_list(cache, list, cline);
-				add_lru_head(cache, list, cline);
-				balance_lru_list(cache, list);
+				ocf_lru_set_hot(cache, list, cline);
 			}
 		}
 
@@ -518,6 +502,8 @@ static inline ocf_cache_line_t lru_iter_free_next(struct ocf_lru_iter *iter,
 	ocf_cache_t cache = iter->cache;
 	struct ocf_part *free = iter->part;
 	struct ocf_lru_list *list;
+
+	ENV_BUG_ON(dst_part == free);
 
 	do {
 		curr_lru = _lru_next_lru(iter);
@@ -797,9 +783,13 @@ uint32_t ocf_lru_req_clines(struct ocf_request *req,
 /* the caller must hold the metadata lock */
 void ocf_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
+	const uint32_t lru_list = (cline % OCF_NUM_LRU_LISTS);
 	struct ocf_lru_meta *node;
 	struct ocf_lru_list *list;
+	ocf_part_id_t part_id;
+	struct ocf_part *part;
 	bool hot;
+	bool clean;
 
 	node = ocf_metadata_get_lru(cache, cline);
 
@@ -810,19 +800,18 @@ void ocf_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	if (hot)
 		return;
 
-	list = lru_get_cline_list(cache, cline);
+	part_id = ocf_metadata_get_partition_id(cache, cline);
+	part = &cache->user_parts[part_id].part;
+	clean = !metadata_test_dirty(cache, cline);
+	list = ocf_lru_get_list(part, lru_list, clean);
 
 	OCF_METADATA_LRU_WR_LOCK(cline);
 
-	if (node->next != end_marker ||
-			node->prev != end_marker ||
-			list->head == cline || list->tail == cline) {
-		remove_lru_list(cache, list, cline);
-	}
+	/* cacheline must be on the list when set_hot gets called */
+	ENV_BUG_ON(node->next == end_marker && list->tail != cline);
+	ENV_BUG_ON(node->prev == end_marker && list->head != cline);
 
-	/* Update LRU */
-	add_lru_head(cache, list, cline);
-	balance_lru_list(cache, list);
+	ocf_lru_set_hot(cache, list, cline);
 
 	OCF_METADATA_LRU_WR_UNLOCK(cline);
 }
@@ -870,9 +859,7 @@ void ocf_lru_clean_cline(ocf_cache_t cache, struct ocf_part *part,
 
 	OCF_METADATA_LRU_WR_LOCK(cline);
 	remove_lru_list(cache, dirty_list, cline);
-	balance_lru_list(cache, dirty_list);
 	add_lru_head(cache, clean_list, cline);
-	balance_lru_list(cache, clean_list);
 	OCF_METADATA_LRU_WR_UNLOCK(cline);
 }
 
@@ -888,9 +875,7 @@ void ocf_lru_dirty_cline(ocf_cache_t cache, struct ocf_part *part,
 
 	OCF_METADATA_LRU_WR_LOCK(cline);
 	remove_lru_list(cache, clean_list, cline);
-	balance_lru_list(cache, clean_list);
 	add_lru_head(cache, dirty_list, cline);
-	balance_lru_list(cache, dirty_list);
 	OCF_METADATA_LRU_WR_UNLOCK(cline);
 }
 
@@ -942,7 +927,6 @@ void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines)
 		list = ocf_lru_get_list(&cache->free, lru_list, true);
 
 		add_lru_head(cache, list, cline);
-		balance_lru_list(cache, list);
 	}
 
 	/* we should have reached the last invalid cache line */

@@ -1167,7 +1167,7 @@ static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
 
 	ocf_lru_init_cline(cache, cache_line);
 
-	ocf_lru_hot_cline(cache, cache_line);
+	ocf_lru_add(cache, cache_line);
 
 	env_atomic_inc(&core->runtime_meta->cached_clines);
 	env_atomic_inc(&core->runtime_meta->

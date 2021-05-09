@@ -5,11 +5,13 @@
  *	INSERT HERE LIST OF FUNCTIONS YOU WANT TO LEAVE
  *	ONE FUNCTION PER LINE
  *  lru_iter_init
+ *  lru_iter_cleaning_init
  *  _lru_next_lru
  *  _lru_lru_is_empty
  *  _lru_lru_set_empty
  *  _lru_lru_all_empty
  *  ocf_rotate_right
+ *  ocf_get_lru
  *  lru_iter_eviction_next
  *  lru_iter_cleaning_next
  * </functions_to_leave>
@@ -37,7 +39,7 @@
 
 #include "ocf_lru.c/lru_iter_generated_wraps.c"
 
-//#define DEBUG
+// #define DEBUG
 
 struct ocf_cache_line_concurrency *__wrap_ocf_cache_line_concurrency(ocf_cache_t cache)
 {
@@ -222,7 +224,7 @@ struct ocf_lru_list *__wrap_ocf_lru_get_list(struct ocf_user_part *user_part,
 	}
 
 #ifdef DEBUG
-	print_message("list for case %u lru %u: head: %u tail %u elems %u\n",
+	print_message("list for case %u lru %u: head: 0x%x tail 0x%x elems 0x%x\n",
 		current_case, lru, list.head, list.tail, list.num_nodes);
 #endif
 
@@ -258,7 +260,7 @@ struct ocf_lru_meta *__wrap_ocf_metadata_get_lru(
 
 				g_lru_meta.next = test_cases[j + 1][i][current_case];
 #ifdef DEBUG
-				print_message("[%u] next %u prev %u\n",
+				print_message("[%u] next 0x%x prev 0x%x\n",
 						line, g_lru_meta.next,
 						g_lru_meta.prev);
 #endif
@@ -372,8 +374,7 @@ static void _lru_run_test(unsigned test_case)
 				pos[i]++;
 		}
 
-		lru_iter_init(&iter, NULL, NULL, start_pos, false, false, false,
-				NULL, NULL);
+		lru_iter_cleaning_init(&iter, NULL, NULL, start_pos);
 
 		do {
 			/* check what is expected to be returned from iterator */
@@ -402,6 +403,15 @@ static void _lru_run_test(unsigned test_case)
 			/* get cacheline from iterator */
 			cache_line = lru_iter_cleaning_next(&iter);
 
+#ifdef DEBUG
+			if (cache_line == expected_cache_line) {
+				print_message("case %u cline 0x%x ok\n",
+						test_case, cache_line);
+			} else {
+				print_message("case %u cline 0x%x NOK expected 0x%x\n",
+						test_case, cache_line, expected_cache_line);
+			}
+#endif
 			assert_int_equal(cache_line, expected_cache_line);
 
 			curr_lru = (curr_lru + 1) % OCF_NUM_LRU_LISTS;
