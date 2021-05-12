@@ -230,6 +230,7 @@ static int ocf_metadata_calculate_metadata_size(
 	int64_t i_diff = 0, diff_lines = 0, cache_lines = ctrl->device_lines;
 	int64_t lowest_diff;
 	ocf_cache_line_t count_pages;
+	uint64_t ram_footprint;
 	uint32_t i;
 
 	OCF_DEBUG_PARAM(cache, "Cache lines = %lld", cache_lines);
@@ -238,6 +239,8 @@ static int ocf_metadata_calculate_metadata_size(
 
 	do {
 		count_pages = ctrl->count_pages;
+		ram_footprint = ctrl->ram_footprint;
+
 		for (i = metadata_segment_variable_size_start;
 				i < metadata_segment_max; i++) {
 			struct ocf_metadata_raw *raw = &ctrl->raw_desc[i];
@@ -255,6 +258,7 @@ static int ocf_metadata_calculate_metadata_size(
 
 			/* Update offset for next container */
 			count_pages += ocf_metadata_raw_size_on_ssd(raw);
+			ram_footprint += (raw->entry_size * raw->entries);
 		}
 
 		/*
@@ -308,6 +312,7 @@ static int ocf_metadata_calculate_metadata_size(
 	} while (diff_lines);
 
 	ctrl->count_pages = count_pages;
+	ctrl->ram_footprint = ram_footprint;
 	ctrl->cachelines = cache_lines;
 	OCF_DEBUG_PARAM(cache, "Cache lines = %u", ctrl->cachelines);
 
@@ -474,6 +479,7 @@ static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(
 	uint32_t page = 0;
 	uint32_t i = 0;
 	enum ocf_metadata_raw_type default_raw_type;
+	uint64_t ram_footprint = 0;
 
 	switch (persistence_mode) {
 	case ocf_metadata_persistence_volume:
@@ -530,10 +536,13 @@ static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(
 
 			/* Update offset for next container */
 			page += ocf_metadata_raw_size_on_ssd(raw);
+
+			ram_footprint += (raw->entry_size * raw->entries);
 		}
 	}
 
 	ctrl->count_pages = page;
+	ctrl->ram_footprint = ram_footprint;
 
 	return ctrl;
 }
@@ -555,7 +564,6 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 	uint32_t i = 0;
 	int result = 0;
 	bool loaded = false;
-	ocf_persistent_meta_zone_t persistent_meta;
 
 	OCF_DEBUG_TRACE(cache);
 
@@ -569,13 +577,13 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 	metadata->priv = ctrl;
 
 	if (metadata->persistence_mode == ocf_metadata_persistence_persistent) {
-		persistent_meta = ctx_persistent_meta_init(cache->owner, cache,
-				ctrl->ram_footprint, &loaded);
-		if (!persistent_meta) {
+		ctrl->persistent_meta_fixed = ctx_persistent_meta_init(
+				cache->owner, cache, ctrl->ram_footprint,
+				&loaded);
+		if (!ctrl->persistent_meta_fixed) {
 			ocf_metadata_deinit_fixed_size(cache);
 			return -OCF_ERR_NO_MEM;
 		}
-		ctrl->persistent_meta_fixed = persistent_meta;
 	}
 
 	cache->metadata.loaded = loaded;
@@ -683,8 +691,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	ocf_flush_page_synch_t lock_page, unlock_page;
 	uint64_t device_lines;
 	struct ocf_metadata_segment *superblock;
-	ocf_persistent_meta_zone_t persistent_meta;
-	ocf_cache_line_t old_pages;
+	uint64_t old_footprint;
 	bool loaded;
 
 	OCF_DEBUG_TRACE(cache);
@@ -724,7 +731,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		raw->entries_in_page = PAGE_SIZE / raw->entry_size;
 	}
 
-	old_pages = ctrl->count_pages;
+	old_footprint = ctrl->ram_footprint;
 
 	if (0 != ocf_metadata_calculate_metadata_size(cache, ctrl,
 			settings)) {
@@ -732,12 +739,11 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	}
 
 	if (metadata->persistence_mode == ocf_metadata_persistence_persistent) {
-		persistent_meta = ctx_persistent_meta_init(cache->owner, cache,
-				(ctrl->count_pages - old_pages) * PAGE_SIZE,
-				&loaded);
-		if (!persistent_meta)
+		ctrl->persistent_meta_variable = ctx_persistent_meta_init(
+				cache->owner, cache,
+				ctrl->ram_footprint - old_footprint, &loaded);
+		if (!ctrl->persistent_meta_variable)
 			return -OCF_ERR_NO_MEM;
-		ctrl->persistent_meta_variable = persistent_meta;
 	}
 
 	OCF_DEBUG_PARAM(cache, "Metadata begin pages = %u", ctrl->start_page);
