@@ -13,6 +13,7 @@ from .shared import OcfError
 from ..ocf import OcfLib
 from .queue import Queue
 from .volume import Volume
+from .persistent_metadata import PersistentMetaOps
 
 
 class OcfCtxOps(Structure):
@@ -21,6 +22,7 @@ class OcfCtxOps(Structure):
         ("cleaner", CleanerOps),
         ("metadata_updater", MetadataUpdaterOps),
         ("logger", LoggerOps),
+        ("persistent_meta", PersistentMetaOps),
     ]
 
 

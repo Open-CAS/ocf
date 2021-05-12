@@ -52,7 +52,7 @@ class CacheConfig(Structure):
         ("_promotion_policy", c_uint32),
         ("_cache_line_size", c_uint64),
         ("_metadata_layout", c_uint32),
-        ("_metadata_volatile", c_bool),
+        ("_persistence_mode", c_uint32),
         ("_backfill", Backfill),
         ("_locked", c_bool),
         ("_pt_unaligned_io", c_bool),
