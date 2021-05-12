@@ -40,6 +40,11 @@
 
 //#define DEBUG
 
+struct ocf_cache_line_concurrency *__wrap_ocf_cache_line_concurrency(ocf_cache_t cache)
+{
+	return NULL;
+}
+
 ocf_cache_line_t test_cases[10 * OCF_NUM_EVICTION_LISTS][OCF_NUM_EVICTION_LISTS][20];
 unsigned num_cases = 20;
 
@@ -335,12 +340,17 @@ bool __wrap__lru_lock(struct ocf_lru_iter *iter,
 	return true;
 }
 
-bool __wrap__lru_trylock_cacheline(struct ocf_lru_iter *iter,
-		ocf_cache_line_t cline)
+bool __wrap_ocf_cache_line_try_lock_rd(struct ocf_cache_line_concurrency *c,
+		ocf_cache_line_t line)
 {
 	return true;
 }
 
+bool __wrap_ocf_cache_line_try_lock_wr(struct ocf_cache_line_concurrency *c,
+		ocf_cache_line_t line)
+{
+	return false;
+}
 static void _lru_run_test(unsigned test_case)
 {
 	unsigned start_pos;

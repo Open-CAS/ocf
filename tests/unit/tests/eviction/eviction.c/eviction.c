@@ -27,10 +27,16 @@ struct test_cache
 {
 	struct ocf_cache cache;
 	struct ocf_user_part_config part[OCF_IO_CLASS_MAX];
+	struct ocf_part_runtime runtime[OCF_IO_CLASS_MAX];
 	uint32_t overflow[OCF_IO_CLASS_MAX];
 	uint32_t evictable[OCF_IO_CLASS_MAX];
 	uint32_t req_unmapped;
 };
+
+uint32_t __wrap_ocf_lru_num_free(ocf_cache_t cache)
+{
+	return 0;
+}
 
 bool __wrap_ocf_eviction_can_evict(ocf_cache_t cache)
 {
@@ -54,14 +60,16 @@ uint32_t __wrap_ocf_evict_calculate(ocf_cache_t cache,
 }
 
 uint32_t __wrap_ocf_eviction_need_space(struct ocf_cache *cache,
-	ocf_queue_t io_queue, struct ocf_user_part *part,
-	uint32_t clines)
+	ocf_queue_t io_queue, struct ocf_part_runtime *part,
+	ocf_part_id_t part_id, uint32_t clines)
 {
 	struct test_cache *tcache = (struct test_cache *)cache;
-	unsigned overflown_consumed = min(clines, tcache->overflow[part->id]);
+	unsigned overflown_consumed;
 
-	tcache->overflow[part->id] -= overflown_consumed;
-	tcache->evictable[part->id] -= clines;
+	overflown_consumed = min(clines, tcache->overflow[part_id]);
+
+	tcache->overflow[part_id] -= overflown_consumed;
+	tcache->evictable[part_id] -= clines;
 	tcache->req_unmapped -= clines;
 
 	check_expected(part);
@@ -102,9 +110,9 @@ int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
 	struct ocf_user_part *p2 = container_of(e2, struct ocf_user_part,
 			lst_valid);
 	size_t p1_size = ocf_cache_is_device_attached(cache) ?
-				p1->runtime->curr_size : 0;
+				env_atomic_read(&p1->runtime->curr_size) : 0;
 	size_t p2_size = ocf_cache_is_device_attached(cache) ?
-				p2->runtime->curr_size : 0;
+				env_atomic_read(&p2->runtime->curr_size) : 0;
 
 	int v1 = p1->config->priority;
 	int v2 = p2->config->priority;
@@ -169,6 +177,7 @@ static void init_part_list(struct test_cache *tcache)
 	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
 		tcache->cache.user_parts[i].id = i;
 		tcache->cache.user_parts[i].config = &tcache->part[i];
+		tcache->cache.user_parts[i].runtime = &tcache->runtime[i];
 		tcache->cache.user_parts[i].config->priority = i+1;
 		tcache->cache.user_parts[i].config->flags.eviction = 1;
 	}
@@ -190,7 +199,7 @@ uint32_t __wrap_ocf_engine_unmapped_count(struct ocf_request *req)
 
 #define _expect_evict_call(tcache, part_id, req_count, ret_count) \
 	do { \
-		expect_value(__wrap_ocf_eviction_need_space, part, &tcache.cache.user_parts[part_id]); \
+		expect_value(__wrap_ocf_eviction_need_space, part, tcache.cache.user_parts[part_id].runtime); \
 		expect_value(__wrap_ocf_eviction_need_space, clines, req_count); \
 		expect_function_call(__wrap_ocf_eviction_need_space); \
 		will_return(__wrap_ocf_eviction_need_space, ret_count); \
