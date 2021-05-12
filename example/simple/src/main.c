@@ -107,7 +107,7 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 
 	/* Cache configuration */
 	ocf_mngt_cache_config_set_default(&cache_cfg);
-	cache_cfg.metadata_volatile = true;
+	cache_cfg.persistence_mode = ocf_metadata_persistence_ram;
 
 	/* Cache deivce (volume) configuration */
 	ocf_mngt_cache_device_config_set_default(&device_cfg);

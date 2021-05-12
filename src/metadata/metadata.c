@@ -1665,7 +1665,6 @@ int ocf_metadata_init(struct ocf_cache *cache,
 		ocf_metadata_persistence_mode_t persistence_mode)
 {
 	int ret;
-	ocf_persistent_meta_zone_t pmeta_zone;
 
 	OCF_DEBUG_TRACE(cache);
 
