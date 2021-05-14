@@ -1218,10 +1218,13 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	INIT_LIST_HEAD(&tmp_cache->io_queues);
 
 	/* Init Partitions */
-	ocf_part_init(tmp_cache);
 
-	if (!tmp_cache->metadata.loaded)
+	if (!tmp_cache->metadata.loaded) {
+		ocf_part_init(tmp_cache);
 		_ocf_mngt_cache_init(tmp_cache, &params);
+	} else {
+		ocf_part_load(tmp_cache);
+	}
 
 	ocf_ctx_get(ctx);
 
