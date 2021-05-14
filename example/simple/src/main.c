@@ -126,7 +126,7 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 		return -ENOMEM;
 
 	/* Start cache */
-	ret = ocf_mngt_cache_start(ctx, cache, &cache_cfg);
+	ret = ocf_mngt_cache_start(ctx, cache, &cache_cfg, NULL);
 	if (ret)
 		goto err_priv;
 
