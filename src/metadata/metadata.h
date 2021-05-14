@@ -29,10 +29,12 @@
  *
  * @param cache - Cache instance
  * @param cache_line_size Cache line size
+ * @param persistence_mode metadata persistence mode
  * @return 0 - Operation success otherwise failure
  */
 int ocf_metadata_init(struct ocf_cache *cache,
-		ocf_cache_line_size_t cache_line_size);
+		ocf_cache_line_size_t cache_line_size,
+		ocf_metadata_persistence_mode_t persistence_mode);
 
 /**
  * @brief Initialize per-cacheline metadata

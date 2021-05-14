@@ -13,6 +13,8 @@
 
 void ocf_part_init(struct ocf_cache *cache);
 
+void ocf_part_load(struct ocf_cache *cache);
+
 static inline bool ocf_part_is_valid(struct ocf_user_part *part)
 {
 	return !!part->config->flags.valid;

@@ -54,6 +54,29 @@ int ocf_ctx_register_volume_type_extended(ocf_ctx_t ctx, uint8_t type_id,
 		const struct ocf_volume_properties *properties,
 		const struct ocf_volume_extended *extended);
 
+static inline ocf_persistent_meta_zone_t ctx_persistent_meta_init(ocf_ctx_t ctx,
+		ocf_cache_t cache, size_t size, bool *loaded)
+{
+	return ctx->ops->persistent_meta.init(cache, size, loaded);
+}
+
+static inline int ctx_persistent_meta_deinit(ocf_ctx_t ctx,
+		ocf_persistent_meta_zone_t zone)
+{
+	return ctx->ops->persistent_meta.deinit(zone);
+}
+
+static inline void *ctx_persistent_meta_alloc(ocf_ctx_t ctx,
+		ocf_persistent_meta_zone_t zone, size_t size, int alloc_id, bool *load)
+{
+	return ctx->ops->persistent_meta.alloc(zone, size, alloc_id, load);
+}
+
+static inline int ctx_persistent_meta_free(ocf_ctx_t ctx,
+		ocf_persistent_meta_zone_t zone, int alloc_id, void *ptr)
+{
+	return ctx->ops->persistent_meta.free(zone, alloc_id, ptr);
+}
 /**
  * @name Environment data buffer operations wrappers
  * @{

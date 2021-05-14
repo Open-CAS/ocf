@@ -303,6 +303,17 @@ typedef enum {
 } ocf_metadata_layout_t;
 
 /**
+ * @brief Metadata persistence mode
+ */
+typedef enum {
+	ocf_metadata_persistence_volume = 0,
+	ocf_metadata_persistence_ram,
+	ocf_metadata_persistence_persistent,
+	ocf_metadata_persistence_max,
+	ocf_metadata_persistence_default = ocf_metadata_persistence_volume,
+} ocf_metadata_persistence_mode_t;
+
+/**
  * @name OCF IO class definitions
  */
 /**

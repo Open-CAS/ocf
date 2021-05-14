@@ -52,7 +52,7 @@ class CacheConfig(Structure):
         ("_promotion_policy", c_uint32),
         ("_cache_line_size", c_uint64),
         ("_metadata_layout", c_uint32),
-        ("_metadata_volatile", c_bool),
+        ("_persistence_mode", c_uint32),
         ("_backfill", Backfill),
         ("_locked", c_bool),
         ("_pt_unaligned_io", c_bool),
@@ -363,7 +363,7 @@ class Cache:
         _name = name.encode("ascii")
 
         status = self.owner.lib.ocf_mngt_add_partition_to_cache(
-            self.cache_handle, part_id, _name, min_size, max_size, priority, valid
+            self.cache_handle, part_id, _name, min_size, max_size, priority, valid, False
         )
 
         self.write_unlock()
@@ -749,6 +749,7 @@ lib.ocf_mngt_add_partition_to_cache.argtypes = [
     c_uint32,
     c_uint32,
     c_uint8,
+    c_bool,
     c_bool,
 ]
 lib.ocf_mngt_cache_io_classes_configure.restype = c_int

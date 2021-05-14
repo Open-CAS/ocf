@@ -8,6 +8,7 @@
 #include "metadata_raw.h"
 #include "metadata_io.h"
 #include "metadata_raw_atomic.h"
+#include "metadata_raw_persistent.h"
 #include "../ocf_def_priv.h"
 #include "../ocf_priv.h"
 
@@ -220,7 +221,7 @@ static void _raw_ram_load_all_complete(ocf_cache_t cache,
 /*
  * RAM Implementation - Load all metadata elements from SSD
  */
-static void _raw_ram_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+void raw_ram_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 		ocf_metadata_end_t cmpl, void *priv)
 {
 	struct _raw_ram_load_all_context *context;
@@ -547,7 +548,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.checksum		= _raw_ram_checksum,
 		.page			= _raw_ram_page,
 		.access			= _raw_ram_access,
-		.load_all		= _raw_ram_load_all,
+		.load_all		= raw_ram_load_all,
 		.flush_all		= _raw_ram_flush_all,
 		.flush_mark		= _raw_ram_flush_mark,
 		.flush_do_asynch	= _raw_ram_flush_do_asynch,
@@ -586,10 +587,23 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.checksum		= _raw_ram_checksum,
 		.page			= _raw_ram_page,
 		.access			= _raw_ram_access,
-		.load_all		= _raw_ram_load_all,
+		.load_all		= raw_ram_load_all,
 		.flush_all		= _raw_ram_flush_all,
 		.flush_mark		= raw_atomic_flush_mark,
 		.flush_do_asynch	= raw_atomic_flush_do_asynch,
+	},
+	[metadata_raw_type_persistent] = {
+		.init			= raw_persistent_init,
+		.deinit			= raw_persistent_deinit,
+		.size_of		= _raw_ram_size_of,
+		.size_on_ssd		= _raw_ram_size_on_ssd,
+		.checksum		= _raw_ram_checksum,
+		.page			= _raw_ram_page,
+		.access			= _raw_ram_access,
+		.load_all		= raw_persistent_load_all,
+		.flush_all		= _raw_ram_flush_all,
+		.flush_mark		= _raw_ram_flush_mark,
+		.flush_do_asynch	= _raw_ram_flush_do_asynch,
 	},
 };
 
