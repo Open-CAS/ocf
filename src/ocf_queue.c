@@ -27,35 +27,45 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 
 	tmp_queue = env_zalloc(sizeof(*tmp_queue), ENV_MEM_NORMAL);
 	if (!tmp_queue) {
-		ocf_mngt_cache_put(cache);
-		return -OCF_ERR_NO_MEM;
+		result = -OCF_ERR_NO_MEM;
+		goto put;
 	}
 
 	env_atomic_set(&tmp_queue->io_no, 0);
 	result = env_spinlock_init(&tmp_queue->io_list_lock);
-	if (result) {
-		ocf_mngt_cache_put(cache);
-		env_free(tmp_queue);
-		return result;
-	}
+	if (result)
+		goto free;
 
+	env_atomic_set(&tmp_queue->deferred_io_no, 0);
+	result = env_spinlock_init(&tmp_queue->deferred_io_list_lock);
+	if (result)
+		goto io_lock_destroy;
+
+	INIT_LIST_HEAD(&tmp_queue->deferred_io_list);
 	INIT_LIST_HEAD(&tmp_queue->io_list);
 	env_atomic_set(&tmp_queue->ref_count, 1);
 	tmp_queue->cache = cache;
 	tmp_queue->ops = ops;
 
 	result = ocf_queue_seq_cutoff_init(tmp_queue);
-	if (result) {
-		ocf_mngt_cache_put(cache);
-		env_free(tmp_queue);
-		return result;
-	}
+	if (result)
+		goto deferred_io_lock_destroy;
 
 	list_add(&tmp_queue->list, &cache->io_queues);
 
 	*queue = tmp_queue;
 
 	return 0;
+
+deferred_io_lock_destroy:
+	env_spinlock_destroy(&tmp_queue->deferred_io_list_lock);
+io_lock_destroy:
+	env_spinlock_destroy(&tmp_queue->io_list_lock);
+free:
+	env_free(tmp_queue);
+put:
+	ocf_mngt_cache_put(cache);
+	return result;
 }
 
 void ocf_queue_get(ocf_queue_t queue)
@@ -75,6 +85,7 @@ void ocf_queue_put(ocf_queue_t queue)
 		ocf_queue_seq_cutoff_deinit(queue);
 		ocf_mngt_cache_put(queue->cache);
 		env_spinlock_destroy(&queue->io_list_lock);
+		env_spinlock_destroy(&queue->deferred_io_list_lock);
 		env_free(queue);
 	}
 }

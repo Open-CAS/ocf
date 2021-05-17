@@ -12,6 +12,7 @@
 #include "../ocf_ctx_priv.h"
 #include "../mngt/ocf_mngt_common.h"
 #include "../metadata/metadata.h"
+#include "../engine/engine_common.h"
 #include "../ocf_queue_priv.h"
 
 struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max] = {
@@ -107,6 +108,11 @@ static int _ocf_cleaner_run_check_dirty_inactive(ocf_cache_t cache)
 static void ocf_cleaner_run_complete(ocf_cleaner_t cleaner, uint32_t interval)
 {
 	ocf_cache_t cache = ocf_cleaner_get_cache(cleaner);
+	ocf_queue_t iter;
+
+	list_for_each_entry(iter, &cache->io_queues, list) {
+		ocf_engine_reschedule_deferred(iter);
+	}
 
 	ocf_mngt_cache_unlock(cache);
 	ocf_queue_put(cleaner->io_queue);
