@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", [CacheMode.WB, CacheMode.WT, CacheMode.WO])
 @pytest.mark.parametrize("new_cache_size", [25, 45])
+@pytest.mark.skip(reason="pyocf is missing cleaner thread")
 def test_attach_different_size(
     pyocf_ctx, new_cache_size, mode: CacheMode, cls: CacheLineSize
 ):
