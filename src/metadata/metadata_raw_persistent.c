@@ -51,6 +51,7 @@ int raw_persistent_init(ocf_cache_t cache,
 	/* Allocate memory pool for entries */
 	mem_pool_size = raw->entries;
 	mem_pool_size *= raw->entry_size;
+	mem_pool_size += PAGE_SIZE;
 	raw->mem_pool_limit = mem_pool_size;
 	raw->mem_pool = ctx_persistent_meta_alloc(cache->owner, raw->persistent_allocator,
 			mem_pool_size, raw->metadata_segment, &ctx->loaded);
