@@ -258,7 +258,7 @@ static int ocf_metadata_calculate_metadata_size(
 
 			/* Update offset for next container */
 			count_pages += ocf_metadata_raw_size_on_ssd(raw);
-			ram_footprint += (raw->entry_size * raw->entries);
+			ram_footprint += (raw->entry_size * raw->entries) + PAGE_SIZE;
 		}
 
 		/*
@@ -531,7 +531,7 @@ static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(
 			/* Update offset for next container */
 			page += ocf_metadata_raw_size_on_ssd(raw);
 
-			ram_footprint += (raw->entry_size * raw->entries);
+			ram_footprint += (raw->entry_size * raw->entries) + PAGE_SIZE;
 		}
 	}
 
