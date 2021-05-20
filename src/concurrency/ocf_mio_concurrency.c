@@ -78,19 +78,13 @@ int ocf_mio_async_lock(struct ocf_alock *alock,
 		struct metadata_io_request *m_req,
 		ocf_req_async_lock_cb cmpl)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_mio_conc_cbs;
-
-	return ocf_alock_lock_wr(alock, cbs, &m_req->req, cmpl);
+	return ocf_alock_lock_wr(alock, &m_req->req, cmpl);
 }
 
 void ocf_mio_async_unlock(struct ocf_alock *alock,
 		struct metadata_io_request *m_req)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_mio_conc_cbs;
-
-	ocf_alock_unlock_wr(alock, cbs, &m_req->req);
+	ocf_alock_unlock_wr(alock, &m_req->req);
 	m_req->map = 0;
 }
 
@@ -119,7 +113,7 @@ int ocf_mio_concurrency_init(struct ocf_alock **self,
 	if (!alock)
 		return -OCF_ERR_NO_MEM;
 
-	ret = ocf_alock_init_inplace(alock, num_pages, name, cache);
+	ret = ocf_alock_init_inplace(alock, num_pages, name, &ocf_mio_conc_cbs, cache);
 	if (ret)
 		return ret;
 

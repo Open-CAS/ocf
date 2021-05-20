@@ -66,10 +66,7 @@ bool ocf_cache_line_try_lock_rd(struct ocf_alock *alock,
 
 void ocf_cache_line_unlock_rd(struct ocf_alock *alock, ocf_cache_line_t line)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	ocf_alock_unlock_one_rd(alock, cbs, line);
+	ocf_alock_unlock_one_rd(alock, line);
 }
 
 bool ocf_cache_line_try_lock_wr(struct ocf_alock *alock,
@@ -81,52 +78,34 @@ bool ocf_cache_line_try_lock_wr(struct ocf_alock *alock,
 void ocf_cache_line_unlock_wr(struct ocf_alock *alock,
 		ocf_cache_line_t line)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	ocf_alock_unlock_one_wr(alock, cbs, line);
+	ocf_alock_unlock_one_wr(alock, line);
 }
 
 int ocf_req_async_lock_rd(struct ocf_alock *alock,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	return ocf_alock_lock_rd(alock, cbs, req, cmpl);
+	return ocf_alock_lock_rd(alock, req, cmpl);
 }
 
 int ocf_req_async_lock_wr(struct ocf_alock *alock,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	return ocf_alock_lock_wr(alock, cbs, req, cmpl);
+	return ocf_alock_lock_wr(alock, req, cmpl);
 }
 
 void ocf_req_unlock_rd(struct ocf_alock *alock, struct ocf_request *req)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	ocf_alock_unlock_rd(alock, cbs, req);
+	ocf_alock_unlock_rd(alock, req);
 }
 
 void ocf_req_unlock_wr(struct ocf_alock *alock, struct ocf_request *req)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	ocf_alock_unlock_wr(alock, cbs, req);
+	ocf_alock_unlock_wr(alock, req);
 }
 
 void ocf_req_unlock(struct ocf_alock *alock, struct ocf_request *req)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	ocf_alock_unlock(alock, cbs, req);
+	ocf_alock_unlock(alock, req);
 }
 
 bool ocf_cache_line_are_waiters(struct ocf_alock *alock,
@@ -165,7 +144,7 @@ int ocf_cache_line_concurrency_init(struct ocf_alock **self,
 	if (ret >= ALLOCATOR_NAME_MAX)
 		return -ENOSPC;
 
-	return ocf_alock_init(self, num_clines, name, cache);
+	return ocf_alock_init(self, num_clines, name, &ocf_cline_conc_cbs, cache);
 }
 
 void ocf_cache_line_concurrency_deinit(struct ocf_alock **self)

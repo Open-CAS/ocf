@@ -49,34 +49,27 @@ bool ocf_alock_trylock_one_rd(struct ocf_alock *alock,
 		ocf_cache_line_t entry);
 
 void ocf_alock_unlock_one_rd(struct ocf_alock *alock,
-		struct ocf_alock_lock_cbs *cbs,
 		const ocf_cache_line_t entry);
 
 bool ocf_alock_trylock_entry_wr(struct ocf_alock *alock,
 		ocf_cache_line_t entry);
 
 void ocf_alock_unlock_one_wr(struct ocf_alock *alock,
-		struct ocf_alock_lock_cbs *cbs,
 		const ocf_cache_line_t entry_idx);
 
 int ocf_alock_lock_rd(struct ocf_alock *alock,
-		struct ocf_alock_lock_cbs *cbs,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl);
 
 int ocf_alock_lock_wr(struct ocf_alock *alock,
-		struct ocf_alock_lock_cbs *cbs,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl);
 
 void ocf_alock_unlock_rd(struct ocf_alock *alock,
-		struct ocf_alock_lock_cbs *cbs,
 		struct ocf_request *req);
 
 void ocf_alock_unlock_wr(struct ocf_alock *alock,
-		struct ocf_alock_lock_cbs *cbs,
 		struct ocf_request *req);
 
 void ocf_alock_unlock(struct ocf_alock *alock,
-		struct ocf_alock_lock_cbs *cbs,
 		struct ocf_request *req);
 
 bool ocf_alock_waitlist_is_empty(struct ocf_alock *alock,
@@ -90,10 +83,10 @@ uint32_t ocf_alock_waitlist_count(struct ocf_alock *alock);
 size_t ocf_alock_obj_size(void);
 
 int ocf_alock_init_inplace(struct ocf_alock *self, unsigned num_entries,
-		const char* name, ocf_cache_t cache);
+		const char* name, struct ocf_alock_lock_cbs *cbs, ocf_cache_t cache);
 
 int ocf_alock_init(struct ocf_alock **self, unsigned num_entries,
-		const char* name, ocf_cache_t cache);
+		const char* name, struct ocf_alock_lock_cbs *cbs, ocf_cache_t cache);
 
 void ocf_alock_deinit(struct ocf_alock **self);
 
