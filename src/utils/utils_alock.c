@@ -120,8 +120,8 @@ allocation_err:
 	if (self->access)
 		env_vfree(self->access);
 
-rwsem_err:
 	env_mutex_destroy(&self->lock);
+rwsem_err:
 
 	ocf_cache_log(cache, log_err, "Cannot initialize cache concurrency, "
 			"ERROR %d", error);
@@ -433,7 +433,7 @@ static inline bool ocf_alock_lock_one_rd(struct ocf_alock *alock,
 	/* Lock waiters list */
 	ocf_alock_waitlist_lock(alock, entry, flags);
 
-	if (!ocf_alock_waitlist_is_empty_locked(alock, entry)) {
+	if (ocf_alock_waitlist_is_empty_locked(alock, entry)) {
 		/* No waiters at the moment */
 
 		/* Check if read lock can be obtained */

@@ -154,7 +154,7 @@ int ocf_cache_line_concurrency_init(struct ocf_alock **self,
 	if (ret < 0)
 		return ret;
 	if (ret >= ALLOCATOR_NAME_MAX)
-		return -ENOSPC;
+		return -OCF_ERR_INVAL;
 
 	return ocf_alock_init(self, num_clines, name, cache);
 }

@@ -113,15 +113,17 @@ int ocf_mio_concurrency_init(struct ocf_alock **self,
 	if (ret < 0)
 		return ret;
 	if (ret >= ALLOCATOR_NAME_MAX)
-		return -ENOSPC;
+		return -OCF_ERR_INVAL;
 
 	alock = env_vzalloc(base_size + sizeof(struct ocf_mio_alock));
 	if (!alock)
 		return -OCF_ERR_NO_MEM;
 
 	ret = ocf_alock_init_inplace(alock, num_pages, name, cache);
-	if (ret)
+	if (ret) {
+		env_vfree(alock);
 		return ret;
+	}
 
 	mio_alock = (void*)alock + base_size;
 	mio_alock->first_page = first_page;
