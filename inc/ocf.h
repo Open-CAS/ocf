@@ -26,7 +26,6 @@
 #include "cleaning/acp.h"
 #include "promotion/nhit.h"
 #include "ocf_metadata.h"
-#include "ocf_metadata_updater.h"
 #include "ocf_io_class.h"
 #include "ocf_stats.h"
 #include "ocf_mngt.h"

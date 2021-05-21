@@ -24,7 +24,7 @@
 
 static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 {
-	struct ocf_cache_line_concurrency *c = ocf_cache_line_concurrency(
+	struct ocf_alock *c = ocf_cache_line_concurrency(
 			req->cache);
 
 	if (error)
