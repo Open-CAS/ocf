@@ -155,14 +155,8 @@ static const struct ocf_io_if _io_if_wt_resume = {
 	.write = _ocf_write_wt_do,
 };
 
-static enum ocf_engine_lock_type ocf_wt_get_lock_type(struct ocf_request *req)
-{
-	return ocf_engine_lock_write;
-}
-
 static const struct ocf_engine_callbacks _wt_engine_callbacks =
 {
-	.get_lock_type = ocf_wt_get_lock_type,
 	.resume = ocf_engine_on_resume,
 };
 

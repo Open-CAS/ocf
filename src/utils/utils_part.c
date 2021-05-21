@@ -28,9 +28,9 @@ static int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
 	struct ocf_user_part *p2 = container_of(e2, struct ocf_user_part,
 			lst_valid);
 	size_t p1_size = ocf_cache_is_device_attached(cache) ?
-				p1->runtime->curr_size : 0;
+				env_atomic_read(&p1->runtime->curr_size) : 0;
 	size_t p2_size = ocf_cache_is_device_attached(cache) ?
-				p2->runtime->curr_size : 0;
+				env_atomic_read(&p2->runtime->curr_size) : 0;
 
 	int v1 = p1->config->priority;
 	int v2 = p2->config->priority;
@@ -146,11 +146,11 @@ void ocf_part_move(struct ocf_request *req)
 		}
 
 		/* Moving cachelines to another partition is needed only
-		 * for those already mapped before this request, which
-		 * indicates either HIT or REMAPPED.
+		 * for those already mapped before this request and remapped
+		 * cachelines are assigned to target partition during eviction.
+		 * So only hit cachelines are interesting.
 		 */
-		if (entry->status != LOOKUP_HIT &&
-				entry->status != LOOKUP_REMAPPED) {
+		if (entry->status != LOOKUP_HIT) {
 			/* No HIT */
 			continue;
 		}
@@ -169,9 +169,6 @@ void ocf_part_move(struct ocf_request *req)
 			continue;
 		}
 
-		/* Remove from old eviction */
-		ocf_eviction_purge_cache_line(cache, line);
-
 		if (metadata_test_dirty(cache, line)) {
 			/*
 			 * Remove cline from cleaning - this if for ioclass
@@ -184,13 +181,8 @@ void ocf_part_move(struct ocf_request *req)
 						purge_cache_block(cache, line);
 		}
 
-		/* Let's change partition */
-		ocf_metadata_remove_from_partition(cache, id_old, line);
-		ocf_metadata_add_to_partition(cache, id_new, line);
-
-		/* Add to new eviction */
-		ocf_eviction_init_cache_line(cache, line);
-		ocf_eviction_set_hot_cache_line(cache, line);
+		ocf_lru_repart(cache, line, &cache->user_parts[id_old],
+				&cache->user_parts[id_new]);
 
 		/* Check if cache line is dirty. If yes then need to change
 		 * cleaning  policy and update partition dirty clines

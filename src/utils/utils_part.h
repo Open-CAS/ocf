@@ -55,7 +55,7 @@ static inline ocf_part_id_t ocf_part_class2id(ocf_cache_t cache, uint64_t class)
 
 static inline uint32_t ocf_part_get_occupancy(struct ocf_user_part *part)
 {
-	return part->runtime->curr_size;
+	return env_atomic_read(&part->runtime->curr_size);
 }
 
 static inline uint32_t ocf_part_get_min_size(ocf_cache_t cache,

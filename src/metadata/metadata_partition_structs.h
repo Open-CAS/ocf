@@ -26,9 +26,8 @@ struct ocf_user_part_config {
 	ocf_cache_mode_t cache_mode;
 };
 
-struct ocf_user_part_runtime {
-	uint32_t curr_size;
-	uint32_t head;
+struct ocf_part_runtime {
+	env_atomic curr_size;
 	struct eviction_policy eviction[OCF_NUM_EVICTION_LISTS];
 	struct cleaning_policy cleaning;
 };
@@ -44,8 +43,10 @@ struct ocf_lru_iter
 	ocf_cache_line_t curr_cline[OCF_NUM_EVICTION_LISTS];
 	/* cache object */
 	ocf_cache_t cache;
+	/* cacheline concurrency */
+	struct ocf_cache_line_concurrency *c;
 	/* target partition */
-	struct ocf_user_part *part;
+	struct ocf_part_runtime *part;
 	/* available (non-empty) eviction list bitmap rotated so that current
 	   @evp is on the most significant bit */
 	unsigned long long next_avail_evp;
@@ -60,8 +61,6 @@ struct ocf_lru_iter
 	struct ocf_request *req;
 	/* 1 if iterating over clean lists, 0 if over dirty */
 	bool clean : 1;
-	/* 1 if cacheline is to be locked for write, 0 if for read*/
-	bool cl_lock_write : 1;
 };
 
 #define OCF_EVICTION_CLEAN_SIZE 32U
@@ -74,7 +73,7 @@ struct ocf_part_cleaning_ctx {
 
 struct ocf_user_part {
 	struct ocf_user_part_config *config;
-	struct ocf_user_part_runtime *runtime;
+	struct ocf_part_runtime *runtime;
 	ocf_part_id_t id;
 	struct ocf_part_cleaning_ctx cleaning;
 	struct ocf_lst_entry lst_valid;

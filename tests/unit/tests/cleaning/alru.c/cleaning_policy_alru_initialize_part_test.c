@@ -49,7 +49,7 @@ static void cleaning_policy_alru_initialize_test01(void **state)
 	print_test_description("Check if all variables are set correctly");
 
 	cache = test_malloc(sizeof(*cache));
-	cache->user_parts[part_id].runtime = test_malloc(sizeof(struct ocf_user_part_runtime));
+	cache->user_parts[part_id].runtime = test_malloc(sizeof(struct ocf_part_runtime));
 	cache->device = test_malloc(sizeof(struct ocf_cache_device));
 	cache->device->runtime_meta = test_malloc(sizeof(struct ocf_superblock_runtime));
 
@@ -82,7 +82,7 @@ static void cleaning_policy_alru_initialize_test02(void **state)
 	print_test_description("Check if only appropirate variables are changed");
 
 	cache = test_malloc(sizeof(*cache));
-	cache->user_parts[part_id].runtime = test_malloc(sizeof(struct ocf_user_part_runtime));
+	cache->user_parts[part_id].runtime = test_malloc(sizeof(struct ocf_part_runtime));
 	cache->device = test_malloc(sizeof(struct ocf_cache_device));
 	cache->device->runtime_meta = test_malloc(sizeof(struct ocf_superblock_runtime));
 

@@ -7,7 +7,6 @@
 #include "../ocf_priv.h"
 #include "../ocf_cache_priv.h"
 #include "../ocf_queue_priv.h"
-#include "../ocf_freelist.h"
 #include "engine_common.h"
 #define OCF_ENGINE_DEBUG_IO_NAME "common"
 #include "engine_debug.h"
@@ -123,15 +122,6 @@ void ocf_engine_patch_req_info(struct ocf_cache *cache,
 
 	req->info.insert_no++;
 
-	if (req->part_id != ocf_metadata_get_partition_id(cache,
-			entry->coll_idx)) {
-		/*
-		 * Need to move this cache line into other partition
-		 */
-		entry->re_part = true;
-		req->info.re_part_no++;
-	}
-
 	if (idx > 0 && ocf_engine_clines_phys_cont(req, idx - 1))
 		req->info.seq_no++;
 	if (idx + 1 < req->core_line_count &&
@@ -152,8 +142,7 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 
 	ENV_BUG_ON(entry->status != LOOKUP_HIT &&
 			entry->status != LOOKUP_MISS &&
-			entry->status != LOOKUP_REMAPPED &&
-			entry->status != LOOKUP_INSERTED);
+			entry->status != LOOKUP_REMAPPED);
 
 	/* Handle return value */
 	if (entry->status == LOOKUP_HIT) {
@@ -187,10 +176,8 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 	}
 
 
-	if (entry->status == LOOKUP_INSERTED ||
-			entry->status == LOOKUP_REMAPPED) {
+	if (entry->status == LOOKUP_REMAPPED)
 		req->info.insert_no++;
-	}
 
 	/* Check if cache hit is sequential */
 	if (idx > 0 && ocf_engine_clines_phys_cont(req, idx - 1))
@@ -336,26 +323,6 @@ void ocf_map_cache_line(struct ocf_request *req,
 }
 
 
-static void ocf_engine_map_cache_line(struct ocf_request *req,
-		unsigned int idx)
-{
-	struct ocf_cache *cache = req->cache;
-	ocf_cache_line_t cache_line;
-
-	if (!ocf_freelist_get_cache_line(cache->freelist, &cache_line)) {
-		ocf_req_set_mapping_error(req);
-		return;
-	}
-
-	ocf_metadata_add_to_partition(cache, req->part_id, cache_line);
-
-	ocf_map_cache_line(req, idx, cache_line);
-
-	/* Update LRU:: Move this node to head of lru list. */
-	ocf_eviction_init_cache_line(cache, cache_line);
-	ocf_eviction_set_hot_cache_line(cache, cache_line);
-}
-
 static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 		struct ocf_request *req)
 {
@@ -370,7 +337,6 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 		case LOOKUP_MISS:
 			break;
 
-		case LOOKUP_INSERTED:
 		case LOOKUP_REMAPPED:
 			OCF_DEBUG_RQ(req, "Canceling cache line %u",
 					entry->coll_idx);
@@ -393,56 +359,6 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 			break;
 		}
 	}
-}
-
-static void ocf_engine_map(struct ocf_request *req)
-{
-	struct ocf_cache *cache = req->cache;
-	uint32_t i;
-	struct ocf_map_info *entry;
-	uint64_t core_line;
-	ocf_core_id_t core_id = ocf_core_get_id(req->core);
-
-	ocf_req_clear_info(req);
-
-	OCF_DEBUG_TRACE(req->cache);
-
-	for (i = 0, core_line = req->core_line_first;
-			core_line <= req->core_line_last; core_line++, i++) {
-		entry = &(req->map[i]);
-
-		ocf_engine_lookup_map_entry(cache, entry, core_id, core_line);
-
-		/* attempt mapping only if no mapping error previously,
-		 * otherwise continue the loop anyway to have request fully
-		 * traversed after map()
-		 */
-		if (entry->status != LOOKUP_HIT &&
-				!ocf_req_test_mapping_error(req)) {
-			ocf_engine_map_cache_line(req, i);
-			if (!ocf_req_test_mapping_error(req))
-				entry->status = LOOKUP_INSERTED;
-		}
-
-		if (entry->status != LOOKUP_MISS)
-			ocf_engine_update_req_info(cache, req, i);
-
-		OCF_DEBUG_PARAM(req->cache,
-			"%s, cache line %u, core line = %llu",
-			entry->status == LOOKUP_HIT ? "Hit" :
-				entry->status == LOOKUP_MISS : "Miss" :
-						"Insert",
-			entry->coll_idx, entry->core_line);
-	}
-
-	if (!ocf_req_test_mapping_error(req)) {
-		/* request has been inserted into cache - purge it from promotion
-		 * policy */
-		ocf_promotion_req_purge(cache->promotion_policy, req);
-	}
-
-	OCF_DEBUG_PARAM(req->cache, "Sequential - %s",
-			ocf_engine_is_sequential(req) ? "Yes" : "No");
 }
 
 static void _ocf_engine_clean_end(void *private_data, int error)
@@ -494,27 +410,24 @@ static void ocf_engine_evict(struct ocf_request *req)
 
 static int lock_clines(struct ocf_request *req)
 {
-	struct ocf_cache_line_concurrency *c = ocf_cache_line_concurrency(req->cache);
-	enum ocf_engine_lock_type lock_type =
-		req->engine_cbs->get_lock_type(req);
+	struct ocf_cache_line_concurrency *c = ocf_cache_line_concurrency(
+			req->cache);
+	int lock_type = OCF_WRITE;
 
-	switch (lock_type) {
-	case ocf_engine_lock_write:
-		return ocf_req_async_lock_wr(c, req, req->engine_cbs->resume);
-	case ocf_engine_lock_read:
-		return ocf_req_async_lock_rd(c, req, req->engine_cbs->resume);
-	default:
-		return OCF_LOCK_ACQUIRED;
-	}
+	if (req->rw == OCF_READ && ocf_engine_is_hit(req))
+		lock_type = OCF_READ;
+
+	return lock_type == OCF_WRITE ?
+		ocf_req_async_lock_wr(c, req, req->engine_cbs->resume) :
+		ocf_req_async_lock_rd(c, req, req->engine_cbs->resume);
 }
 
 /* Attempt to map cachelines marked as LOOKUP_MISS by evicting from cache.
  * Caller must assure that request map info is up to date (request
  * is traversed).
  */
-static inline int ocf_prepare_clines_evict(struct ocf_request *req)
+static inline void ocf_prepare_clines_evict(struct ocf_request *req)
 {
-	int lock_status = -OCF_ERR_NO_LOCK;
 	bool part_has_space;
 
 	part_has_space = ocf_part_has_space(req);
@@ -529,52 +442,8 @@ static inline int ocf_prepare_clines_evict(struct ocf_request *req)
 
 	ocf_engine_evict(req);
 
-	if (!ocf_req_test_mapping_error(req)) {
+	if (!ocf_req_test_mapping_error(req))
 		ocf_promotion_req_purge(req->cache->promotion_policy, req);
-		lock_status = lock_clines(req);
-		if (lock_status < 0)
-			ocf_req_set_mapping_error(req);
-	}
-
-	return lock_status;
-}
-
-static inline int ocf_prepare_clines_miss(struct ocf_request *req)
-{
-	int lock_status = -OCF_ERR_NO_LOCK;
-
-	/* requests to disabled partitions go in pass-through */
-	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
-		ocf_req_set_mapping_error(req);
-		return lock_status;
-	}
-
-	/* NOTE: ocf_part_has_space() below uses potentially stale request
-	 * statistics (collected before hash bucket lock had been upgraded).
-	 * It is ok since this check is opportunistic, as partition occupancy
-	 * is also subject to change. */
-	if (!ocf_part_has_space(req)) {
-		ocf_engine_lookup(req);
-		return ocf_prepare_clines_evict(req);
-	}
-
-	ocf_engine_map(req);
-	if (!ocf_req_test_mapping_error(req)) {
-		lock_status = lock_clines(req);
-		if (lock_status < 0) {
-			/* Mapping succeeded, but we failed to acquire cacheline lock.
-			 * Don't try to evict, just return error to caller */
-			ocf_req_set_mapping_error(req);
-		}
-		return lock_status;
-	}
-
-	/* Request mapping failed, but it is fully traversed as a side
-	 * effect of ocf_engine_map(), so no need to repeat the traversation
-	 * before eviction.
-	 * */
-	req->info.mapping_error = false;
-	return ocf_prepare_clines_evict(req);
 }
 
 int ocf_engine_prepare_clines(struct ocf_request *req)
@@ -583,7 +452,12 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 	bool mapped;
 	bool promote = true;
 	int lock = -OCF_ERR_NO_LOCK;
-	int result;
+
+	/* requests to disabled partitions go in pass-through */
+	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
+		ocf_req_set_mapping_error(req);
+		return -OCF_ERR_NO_LOCK;
+	}
 
 	/* Calculate hashes for hash-bucket locking */
 	ocf_req_hash(req);
@@ -615,17 +489,31 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 
 	/* Mapping must be performed holding (at least) hash-bucket write lock */
 	ocf_hb_req_prot_lock_upgrade(req);
-	result = ocf_prepare_clines_miss(req);
+
+	/* Repeat lookup after upgrading lock */
+	ocf_engine_lookup(req);
+
+	ocf_prepare_clines_evict(req);
+	if (!ocf_req_test_mapping_error(req)) {
+		lock = lock_clines(req);
+		if (lock < 0) {
+			/* Mapping succeeded, but we failed to acquire cacheline lock.
+			 * Don't try to evict, just return error to caller */
+			ocf_req_set_mapping_error(req);
+		}
+	}
+
 	if (!ocf_req_test_mapping_error(req))
 		ocf_engine_set_hot(req);
+
 	ocf_hb_req_prot_unlock_wr(req);
 
 	if (ocf_req_test_clean_eviction(req)) {
-		ocf_eviction_flush_dirty(req->cache, part, req->io_queue,
-				128);
+		ocf_eviction_flush_dirty(req->cache, part->runtime,
+				&part->cleaning, req->io_queue, 128);
 	}
 
-	return result;
+	return lock;
 }
 
 static int _ocf_engine_clean_getter(struct ocf_cache *cache,

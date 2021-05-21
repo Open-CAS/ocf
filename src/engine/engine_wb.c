@@ -168,14 +168,8 @@ int ocf_write_wb_do(struct ocf_request *req)
 	return 0;
 }
 
-static enum ocf_engine_lock_type ocf_wb_get_lock_type(struct ocf_request *req)
-{
-	return ocf_engine_lock_write;
-}
-
 static const struct ocf_engine_callbacks _wb_engine_callbacks =
 {
-	.get_lock_type = ocf_wb_get_lock_type,
 	.resume = ocf_engine_on_resume,
 };
 

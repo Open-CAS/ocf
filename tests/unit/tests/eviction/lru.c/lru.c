@@ -39,6 +39,11 @@
 
 static union eviction_policy_meta meta[META_COUNT];
 
+struct ocf_cache_line_concurrency *__wrap_ocf_cache_line_concurrency(ocf_cache_t cache)
+{
+	return NULL;
+}
+
 union eviction_policy_meta*
 __wrap_ocf_metadata_get_eviction_policy(ocf_cache_t cache, ocf_cache_line_t line)
 {
