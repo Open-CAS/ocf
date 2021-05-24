@@ -297,10 +297,10 @@ static inline int ocf_metadata_raw_flush_do_asynch(ocf_cache_t cache,
  */
 static inline bool _raw_is_valid(struct ocf_metadata_raw *raw, uint32_t entry)
 {
-	if (!raw)
+	if (unlikely(!raw))
 		return false;
 
-	if (entry >= raw->entries)
+	if (unlikely(entry >= raw->entries))
 		return false;
 
 	return true;
