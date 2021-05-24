@@ -1495,6 +1495,11 @@ static void _ocf_mngt_attach_shutdown_status(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
+	if (context->metadata.persistent_meta_loaded) {
+		ocf_pipeline_next(context->pipeline);
+		return;
+	}
+
 	/* clear clean shutdown status */
 	ocf_metadata_set_shutdown_status(cache, ocf_metadata_dirty_shutdown,
 		_ocf_mngt_attach_shutdown_status_complete, context);
