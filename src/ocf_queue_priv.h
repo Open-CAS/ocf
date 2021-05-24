@@ -15,6 +15,8 @@ struct ocf_queue {
 
 	struct list_head io_list;
 
+	struct list_head deferred_io_list;
+
 	/* per-queue free running global metadata lock index */
 	unsigned lock_idx;
 
@@ -33,9 +35,11 @@ struct ocf_queue {
 	/* Tracing stop request */
 	env_atomic trace_stop;
 	env_atomic io_no;
+	env_atomic deferred_io_no;
 
 	env_atomic ref_count;
 	env_spinlock io_list_lock;
+	env_spinlock deferred_io_list_lock;
 } __attribute__((__aligned__(64)));
 
 static inline void ocf_queue_kick(ocf_queue_t queue, bool allow_sync)

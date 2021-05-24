@@ -92,6 +92,30 @@ static inline void list_move_tail(struct list_head *it, struct list_head *l1)
 }
 
 /**
+ * Join two lists
+ * @src - the list to add
+ * @dst - list the place to add it in the first list
+ */
+
+static inline void list_join(struct list_head *src,
+                 struct list_head *dst)
+{
+	if (list_empty(src))
+		return;
+
+	// link src tail element with dst head element
+	src->prev->next = dst->next;
+	dst->next->prev = src->prev;
+
+	// set src head as dst head
+	src->next->prev = dst;
+	dst->next = src->next;
+
+	// empty source
+	INIT_LIST_HEAD(src);
+}
+
+/**
  * Extract an entry.
  * @param list_head_i list head item, from which entry is extracted
  * @param item_type type (struct) of list entry
@@ -109,8 +133,8 @@ static inline void list_move_tail(struct list_head *it, struct list_head *l1)
  */
 #define list_for_each(iterator, plist) \
 	for (iterator = (plist)->next; \
-	     (iterator)->next != (plist)->next; \
-	     iterator = (iterator)->next)
+		 (iterator)->next != (plist)->next; \
+		 iterator = (iterator)->next)
 
 /**
  * Safe version of list_for_each which works even if entries are deleted during
@@ -132,8 +156,8 @@ static inline void list_move_tail(struct list_head *it, struct list_head *l1)
  */
 #define list_for_each_safe(iterator, q, plist) \
 	for (iterator = (q = (plist)->next->next)->prev; \
-	     (q) != (plist)->next; \
-	     iterator = (q = (q)->next)->prev)
+		 (q) != (plist)->next; \
+		 iterator = (q = (q)->next)->prev)
 
 #define _list_entry_helper(item, head, field_name) \
 		list_entry(head, typeof(*item), field_name)
@@ -146,9 +170,9 @@ static inline void list_move_tail(struct list_head *it, struct list_head *l1)
  */
 #define list_for_each_entry(item, plist, field_name) \
 	for (item = _list_entry_helper(item, (plist)->next, field_name); \
-	     _list_entry_helper(item, (item)->field_name.next, field_name) !=\
-		     _list_entry_helper(item, (plist)->next, field_name); \
-	     item = _list_entry_helper(item, (item)->field_name.next, field_name))
+		 _list_entry_helper(item, (item)->field_name.next, field_name) !=\
+			 _list_entry_helper(item, (plist)->next, field_name); \
+		 item = _list_entry_helper(item, (item)->field_name.next, field_name))
 
 /**
  * Safe version of list_for_each_entry which works even if entries are deleted
@@ -160,9 +184,9 @@ static inline void list_move_tail(struct list_head *it, struct list_head *l1)
  */
 #define list_for_each_entry_safe(item, q, plist, field_name)		\
 	for (item = _list_entry_helper(item, (plist)->next, field_name), \
-	     q = _list_entry_helper(item, (item)->field_name.next, field_name); \
-	     _list_entry_helper(item, (item)->field_name.next, field_name) != \
-		     _list_entry_helper(item, (plist)->next, field_name); \
-	     item = q, q = _list_entry_helper(q, (q)->field_name.next, field_name))
+		 q = _list_entry_helper(item, (item)->field_name.next, field_name); \
+		 _list_entry_helper(item, (item)->field_name.next, field_name) != \
+			 _list_entry_helper(item, (plist)->next, field_name); \
+		 item = q, q = _list_entry_helper(q, (q)->field_name.next, field_name))
 
 #endif // __OCF_ENV_LIST__

@@ -445,9 +445,19 @@ static inline void ocf_prepare_clines_evict(struct ocf_request *req)
 		ocf_promotion_req_purge(req->cache->promotion_policy, req);
 }
 
+static inline bool _defer_req(struct ocf_request *req)
+{
+	if (!ocf_req_test_clean_eviction(req))
+		return false;
+
+	if (req->byte_length % (64*KiB) == 0)
+		return false;
+
+	return true;
+}
+
 int ocf_engine_prepare_clines(struct ocf_request *req)
 {
-	struct ocf_user_part *part = &req->cache->user_parts[req->part_id];
 	bool mapped;
 	bool promote = true;
 	int lock = -OCF_ERR_NO_LOCK;
@@ -507,9 +517,10 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 
 	ocf_hb_req_prot_unlock_wr(req);
 
-	if (ocf_req_test_clean_eviction(req)) {
-		ocf_eviction_flush_dirty(req->cache, part->runtime,
-				&part->cleaning, req->io_queue, 128);
+	if (_defer_req(req)) {
+		ocf_engine_defer_req(req);
+
+		lock = OCF_ERR_NO_LOCK;
 	}
 
 	return lock;
@@ -633,6 +644,48 @@ void ocf_engine_push_req_front(struct ocf_request *req, bool allow_sync)
 	 * at this point */
 
 	ocf_queue_kick(q, allow_sync);
+}
+
+void ocf_engine_reschedule_deferred(ocf_queue_t q)
+{
+	unsigned long lock_flags1, lock_flags2 = 0;
+
+	if (env_atomic_read(&q->deferred_io_no) == 0)
+		return;
+
+	env_spinlock_lock_irqsave(&q->deferred_io_list_lock, lock_flags1);
+	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags2);
+
+	list_join(&q->deferred_io_list, &q->io_list);
+	env_atomic_add(env_atomic_read(&q->deferred_io_no), &q->io_no);
+
+	/* Need to update list head */
+	env_atomic_set(&q->deferred_io_no, 0);
+
+	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags2);
+	env_spinlock_unlock_irqrestore(&q->deferred_io_list_lock, lock_flags1);
+
+	ocf_queue_kick(q, false);
+}
+
+void ocf_engine_defer_req(struct ocf_request *req)
+{
+	ocf_queue_t q = NULL;
+	unsigned long lock_flags = 0;
+
+	ENV_BUG_ON(!req->io_queue);
+	INIT_LIST_HEAD(&req->list);
+
+	q = req->io_queue;
+
+	ocf_req_clear(req);
+
+	env_spinlock_lock_irqsave(&q->deferred_io_list_lock, lock_flags);
+
+	list_add_tail(&req->list, &q->deferred_io_list);
+	env_atomic_inc(&q->deferred_io_no);
+
+	env_spinlock_unlock_irqrestore(&q->deferred_io_list_lock, lock_flags);
 }
 
 void ocf_engine_push_req_front_if(struct ocf_request *req,

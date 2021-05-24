@@ -311,6 +311,20 @@ void ocf_engine_push_req_front_if(struct ocf_request *req,
 		const struct ocf_io_if *io_if,
 		bool allow_sync);
 
+/**
+ * @brief Resume handling of the deferred requests
+ *
+ * @param q OCF queue
+ */
+void ocf_engine_reschedule_deferred(ocf_queue_t q);
+
+/**
+ * @brief Defer request handling
+ *
+ * @param req OCF request
+ */
+void ocf_engine_defer_req(struct ocf_request *req);
+
 void inc_fallback_pt_error_counter(ocf_cache_t cache);
 
 void ocf_engine_on_resume(struct ocf_request *req);
