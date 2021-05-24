@@ -624,7 +624,6 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 {
 	int result = 0;
 	uint32_t i = 0;
-	ocf_cache_line_t line;
 	struct ocf_metadata_ctrl *ctrl = NULL;
 	struct ocf_cache_line_settings *settings =
 		(struct ocf_cache_line_settings *)&cache->metadata.settings;
@@ -770,30 +769,6 @@ finalize:
 
 	ocf_cache_log(cache, log_info, "Metadata capacity: %llu MiB\n",
 			(uint64_t)ocf_metadata_size_of(cache) / MiB);
-
-	/*
-	 * Self test of metadata
-	 */
-	for (line = 0; line < cache->device->collision_table_entries; line++) {
-		ocf_cache_line_t phy, lg;
-
-		phy = ocf_metadata_map_lg2phy(cache, line);
-		lg = ocf_metadata_map_phy2lg(cache, phy);
-
-		if (line != lg) {
-			result = -OCF_ERR_INVAL;
-			break;
-		}
-		env_cond_resched();
-	}
-
-	if (result == 0) {
-		ocf_cache_log(cache, log_info,
-				"OCF metadata self-test PASSED\n");
-	} else {
-		ocf_cache_log(cache, log_err,
-				"OCF metadata self-test ERROR\n");
-	}
 
 	result = ocf_metadata_concurrency_attached_init(&cache->metadata.lock,
 			cache, ctrl->raw_desc[metadata_segment_hash].entries,
