@@ -109,10 +109,13 @@ static void ocf_cleaner_run_complete(ocf_cleaner_t cleaner, uint32_t interval)
 {
 	ocf_cache_t cache = ocf_cleaner_get_cache(cleaner);
 	ocf_queue_t iter;
+	uint32_t flags = 0;
 
+	env_spinlock_lock_irqsave(&cache->io_queues_list_lock, flags);
 	list_for_each_entry(iter, &cache->io_queues, list) {
 		ocf_engine_reschedule_deferred(iter);
 	}
+	env_spinlock_unlock_irqrestore(&cache->io_queues_list_lock, flags);
 
 	ocf_mngt_cache_unlock(cache);
 	ocf_queue_put(cleaner->io_queue);
