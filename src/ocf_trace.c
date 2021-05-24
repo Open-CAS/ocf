@@ -78,6 +78,7 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 {
 	ocf_queue_t queue;
 	int result = 0;
+	uint32_t flags = 0;
 
 	OCF_CHECK_NULL(cache);
 
@@ -93,6 +94,7 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 	cache->trace.trace_ctx = trace_ctx;
 
 	// Reset trace stop flag
+	env_spinlock_lock_irqsave(&cache->io_queues_list_lock, flags);
 	list_for_each_entry(queue, &cache->io_queues, list) {
 		env_atomic_set(&queue->trace_stop, 0);
 	}
@@ -104,6 +106,7 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 			return result;
 		}
 	}
+	env_spinlock_unlock_irqrestore(&cache->io_queues_list_lock, flags);
 
 	ocf_cache_log(cache, log_info, "Tracing started\n");
 
@@ -113,6 +116,7 @@ int ocf_mngt_start_trace(ocf_cache_t cache, void *trace_ctx,
 int ocf_mngt_stop_trace(ocf_cache_t cache)
 {
 	ocf_queue_t queue;
+	uint32_t flags = 0;
 
 	OCF_CHECK_NULL(cache);
 
@@ -122,9 +126,11 @@ int ocf_mngt_stop_trace(ocf_cache_t cache)
 	}
 
 	// Set trace stop flag
+	env_spinlock_lock_irqsave(&cache->io_queues_list_lock, flags);
 	list_for_each_entry(queue, &cache->io_queues, list) {
 		env_atomic_set(&queue->trace_stop, OCF_TRACING_STOP);
 	}
+	env_spinlock_unlock_irqrestore(&cache->io_queues_list_lock, flags);
 
 	cache->trace.trace_callback = NULL;
 	cache->trace.trace_ctx = NULL;

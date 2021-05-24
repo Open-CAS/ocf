@@ -1202,6 +1202,9 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	ocf_cache_log(tmp_cache, log_debug, "Metadata initialized\n");
 
 	INIT_LIST_HEAD(&tmp_cache->io_queues);
+	result = env_spinlock_init(&tmp_cache->io_queues_list_lock);
+	if (result)
+		goto _cache_mngt_init_instance_ERROR;
 
 	/* Init Partitions */
 
@@ -1705,6 +1708,7 @@ static void ocf_mngt_cache_stop_put_io_queues(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 
 	_ocf_mngt_cache_put_io_queues(cache);
+	env_spinlock_destroy(&cache->io_queues_list_lock);
 
 	ocf_pipeline_next(pipeline);
 }

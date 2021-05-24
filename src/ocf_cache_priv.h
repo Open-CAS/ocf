@@ -114,6 +114,7 @@ struct ocf_cache {
 
 	struct ocf_cleaner cleaner;
 
+	env_spinlock io_queues_list_lock;
 	struct list_head io_queues;
 	ocf_promotion_policy_t promotion_policy;
 
