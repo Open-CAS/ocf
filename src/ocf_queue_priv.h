@@ -50,4 +50,6 @@ static inline void ocf_queue_kick(ocf_queue_t queue, bool allow_sync)
 		queue->ops->kick(queue);
 }
 
+void ocf_queue_put_no_lock(ocf_queue_t queue);
+
 #endif
