@@ -124,21 +124,14 @@ static void ocf_metadata_check_crc_sb_config(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void ocf_metadata_load_superblock_post(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
+
+static void _ocf_metadata_initialize_core_volumes(struct ocf_cache *cache)
 {
-	struct ocf_metadata_context *context = priv;
-	struct ocf_metadata_ctrl *ctrl;
-	struct ocf_superblock_config *sb_config;
-	ocf_cache_t cache = context->cache;
 	struct ocf_metadata_uuid *muuid;
 	struct ocf_volume_uuid uuid;
 	ocf_volume_type_t volume_type;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
-
-	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
-	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 
 	for_each_core_metadata(cache, core, core_id) {
 		muuid = ocf_metadata_get_core_uuid(cache, core_id);
@@ -152,6 +145,20 @@ static void ocf_metadata_load_superblock_post(ocf_pipeline_t pipeline,
 		ocf_volume_init(&core->volume, volume_type, &uuid, false);
 		core->has_volume = true;
 	}
+}
+static void ocf_metadata_load_superblock_post(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_metadata_context *context = priv;
+	struct ocf_metadata_ctrl *ctrl;
+	struct ocf_superblock_config *sb_config;
+	ocf_cache_t cache = context->cache;
+
+	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
+	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
+
+
+	_ocf_metadata_initialize_core_volumes(cache);
 
 	/* Restore all dynamics items */
 
@@ -269,7 +276,7 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_pipeline_props = {
  * Super Block - Load, This function has to prevent to pointers overwrite
  */
 void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
-		void *priv)
+		void *priv, bool loaded)
 {
 	struct ocf_metadata_context *context;
 	ocf_pipeline_t pipeline;
@@ -279,6 +286,10 @@ void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
 	int result;
 
 	OCF_DEBUG_TRACE(cache);
+	if (loaded) {
+		_ocf_metadata_initialize_core_volumes(cache);
+		OCF_CMPL_RET(priv, 0);
+	}
 
 	/* TODO: get ctrl from args rather than from cache */
 	ctrl = cache->metadata.priv;

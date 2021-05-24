@@ -72,7 +72,7 @@ void ocf_metadata_set_shutdown_status(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv);
 
 void ocf_metadata_load_superblock(ocf_cache_t cache,
-		ocf_metadata_end_t cmpl, void *priv);
+		ocf_metadata_end_t cmpl, void *priv, bool load);
 
 void ocf_metadata_flush_superblock(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv);

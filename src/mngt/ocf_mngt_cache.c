@@ -1339,7 +1339,8 @@ static void _ocf_mngt_load_superblock(ocf_pipeline_t pipeline,
 
 	ocf_cache_log(cache, log_info, "Loading cache state...\n");
 	ocf_metadata_load_superblock(cache,
-			_ocf_mngt_load_superblock_complete, context);
+			_ocf_mngt_load_superblock_complete, context,
+			context->metadata.persistent_meta_loaded);
 }
 
 static void _ocf_mngt_init_cleaner(ocf_pipeline_t pipeline,
