@@ -149,6 +149,7 @@ void ocf_mngt_cache_put(ocf_cache_t cache)
 
 	if (ocf_refcnt_dec(&cache->refcnt.cache) == 0) {
 		ctx = cache->owner;
+		env_spinlock_destroy(&cache->io_queues_list_lock);
 		ocf_metadata_deinit(cache);
 		env_vfree(cache);
 		ocf_ctx_put(ctx);

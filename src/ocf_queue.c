@@ -78,21 +78,36 @@ void ocf_queue_get(ocf_queue_t queue)
 	env_atomic_inc(&queue->ref_count);
 }
 
+static inline void _queue_deinit(ocf_queue_t queue)
+{
+	queue->ops->stop(queue);
+	ocf_queue_seq_cutoff_deinit(queue);
+	ocf_mngt_cache_put(queue->cache);
+	env_spinlock_destroy(&queue->io_list_lock);
+	env_spinlock_destroy(&queue->deferred_io_list_lock);
+	env_free(queue);
+}
+
 void ocf_queue_put(ocf_queue_t queue)
 {
-	uint32_t flags = 0;
+	uint32_t flags;
 	OCF_CHECK_NULL(queue);
 
 	if (env_atomic_dec_return(&queue->ref_count) == 0) {
 		env_spinlock_lock_irqsave(&queue->cache->io_queues_list_lock, flags);
 		list_del(&queue->list);
 		env_spinlock_unlock_irqrestore(&queue->cache->io_queues_list_lock, flags);
-		queue->ops->stop(queue);
-		ocf_queue_seq_cutoff_deinit(queue);
-		ocf_mngt_cache_put(queue->cache);
-		env_spinlock_destroy(&queue->io_list_lock);
-		env_spinlock_destroy(&queue->deferred_io_list_lock);
-		env_free(queue);
+		_queue_deinit(queue);
+	}
+}
+
+void ocf_queue_put_no_lock(ocf_queue_t queue)
+{
+	OCF_CHECK_NULL(queue);
+
+	if (env_atomic_dec_return(&queue->ref_count) == 0) {
+		list_del(&queue->list);
+		_queue_deinit(queue);
 	}
 }
 

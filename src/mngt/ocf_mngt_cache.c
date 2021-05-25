@@ -1696,9 +1696,12 @@ static void ocf_mngt_cache_stop_unplug(ocf_pipeline_t pipeline,
 static void _ocf_mngt_cache_put_io_queues(ocf_cache_t cache)
 {
 	ocf_queue_t queue, tmp_queue;
+	uint32_t flags = 0;
 
+	env_spinlock_lock_irqsave(&cache->io_queues_list_lock, flags);
 	list_for_each_entry_safe(queue, tmp_queue, &cache->io_queues, list)
-		ocf_queue_put(queue);
+		ocf_queue_put_no_lock(queue);
+	env_spinlock_unlock_irqrestore(&cache->io_queues_list_lock, flags);
 }
 
 static void ocf_mngt_cache_stop_put_io_queues(ocf_pipeline_t pipeline,
@@ -1708,7 +1711,6 @@ static void ocf_mngt_cache_stop_put_io_queues(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 
 	_ocf_mngt_cache_put_io_queues(cache);
-	env_spinlock_destroy(&cache->io_queues_list_lock);
 
 	ocf_pipeline_next(pipeline);
 }
