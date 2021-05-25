@@ -186,7 +186,9 @@ void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		return;
 	}
 
-	if (ocf_core_seq_cutoff_check(core, req)) {
+	if (ocf_core_seq_cutoff_check(core, req) &&
+			req->byte_position % (64*KiB) == 0 &&
+			req->byte_length % (64*KiB) == 0) {
 		req->cache_mode = ocf_req_cache_mode_pt;
 		req->seq_cutoff = 1;
 		return;
