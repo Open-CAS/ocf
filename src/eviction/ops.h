@@ -52,7 +52,7 @@ static inline bool ocf_eviction_can_evict(struct ocf_cache *cache)
 	return true;
 }
 
-static inline uint32_t ocf_eviction_need_space(ocf_cache_t cache,
+static inline uint32_t ocf_request_space(ocf_cache_t cache,
 		struct ocf_request *req, struct ocf_part *part,
 		uint32_t clines)
 {
@@ -93,7 +93,7 @@ static inline void ocf_eviction_initialize(struct ocf_cache *cache,
 	}
 }
 
-static inline void ocf_eviction_flush_dirty(ocf_cache_t cache,
+static inline void ocf_lru_flush_dirty(ocf_cache_t cache,
 		struct ocf_user_part *user_part, ocf_queue_t io_queue,
 		uint32_t count)
 {

@@ -3,7 +3,7 @@
  * <tested_function>ocf_prepare_clines_miss</tested_function>
  * <functions_to_leave>
  *    ocf_prepare_clines_evict
- *    ocf_engine_evict
+ *    ocf_engine_remap
  *    ocf_req_set_mapping_error
  *    ocf_req_test_mapping_error
  *    ocf_req_set_part_evict
@@ -74,7 +74,7 @@ void __wrap_ocf_metadata_end_exclusive_access(
 {
 }
 
-int __wrap_space_managment_evict_do(struct ocf_request *req)
+int __wrap_ocf_space_managment_remap_do(struct ocf_request *req)
 {
 	function_called();
 	return mock();
@@ -89,8 +89,8 @@ static void ocf_prepare_clines_miss_test01(void **state)
 	print_test_description("\tEviction success\n");
 
 	will_return_always(__wrap_ocf_user_part_has_space, false);
-	expect_function_call(__wrap_space_managment_evict_do);
-	will_return_always(__wrap_space_managment_evict_do, LOOKUP_REMAPPED);
+	expect_function_call(__wrap_ocf_space_managment_remap_do);
+	will_return_always(__wrap_ocf_space_managment_remap_do, LOOKUP_REMAPPED);
 
 	ocf_prepare_clines_miss(&req);
 	assert(!ocf_req_test_mapping_error(&req));
@@ -107,8 +107,8 @@ static void ocf_prepare_clines_miss_test02(void **state)
 
 	will_return_always(__wrap_ocf_user_part_has_space, false);
 
-	expect_function_call(__wrap_space_managment_evict_do);
-	will_return(__wrap_space_managment_evict_do, LOOKUP_MISS);
+	expect_function_call(__wrap_ocf_space_managment_remap_do);
+	will_return(__wrap_ocf_space_managment_remap_do, LOOKUP_MISS);
 
 	ocf_prepare_clines_miss(&req);
 	assert(ocf_req_test_mapping_error(&req));
@@ -124,8 +124,8 @@ static void ocf_prepare_clines_miss_test03(void **state)
 	print_test_description("\tEviction success\n");
 
 	will_return_always(__wrap_ocf_user_part_has_space, true);
-	expect_function_call(__wrap_space_managment_evict_do);
-	will_return_always(__wrap_space_managment_evict_do, LOOKUP_REMAPPED);
+	expect_function_call(__wrap_ocf_space_managment_remap_do);
+	will_return_always(__wrap_ocf_space_managment_remap_do, LOOKUP_REMAPPED);
 
 	ocf_prepare_clines_miss(&req);
 	assert(!ocf_req_test_mapping_error(&req));
@@ -142,8 +142,8 @@ static void ocf_prepare_clines_miss_test04(void **state)
 
 	will_return_always(__wrap_ocf_user_part_has_space, true);
 
-	expect_function_call(__wrap_space_managment_evict_do);
-	will_return(__wrap_space_managment_evict_do, LOOKUP_MISS);
+	expect_function_call(__wrap_ocf_space_managment_remap_do);
+	will_return(__wrap_ocf_space_managment_remap_do, LOOKUP_MISS);
 
 	ocf_prepare_clines_miss(&req);
 	assert(ocf_req_test_mapping_error(&req));

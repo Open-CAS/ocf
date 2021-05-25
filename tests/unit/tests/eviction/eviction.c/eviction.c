@@ -1,6 +1,6 @@
 /*
  * <tested_file_path>src/eviction/eviction.c</tested_file_path>
- * <tested_function>ocf_evict_do</tested_function>
+ * <tested_function>ocf_remap_do</tested_function>
  * <functions_to_leave>
 	ocf_evict_user_partitions
  * </functions_to_leave>
@@ -59,7 +59,7 @@ uint32_t __wrap_ocf_evict_calculate(ocf_cache_t cache,
 	return min(tcache->evictable[user_part->part.id], to_evict);
 }
 
-uint32_t __wrap_ocf_eviction_need_space(struct ocf_cache *cache,
+uint32_t __wrap_ocf_request_space(struct ocf_cache *cache,
 	ocf_queue_t io_queue, struct ocf_part *part,
 	uint32_t clines)
 {
@@ -200,13 +200,13 @@ uint32_t __wrap_ocf_engine_unmapped_count(struct ocf_request *req)
 
 #define _expect_evict_call(tcache, part_id, req_count, ret_count) \
 	do { \
-		expect_value(__wrap_ocf_eviction_need_space, part, &tcache.cache.user_parts[part_id].part); \
-		expect_value(__wrap_ocf_eviction_need_space, clines, req_count); \
-		expect_function_call(__wrap_ocf_eviction_need_space); \
-		will_return(__wrap_ocf_eviction_need_space, ret_count); \
+		expect_value(__wrap_ocf_request_space, part, &tcache.cache.user_parts[part_id].part); \
+		expect_value(__wrap_ocf_request_space, clines, req_count); \
+		expect_function_call(__wrap_ocf_request_space); \
+		will_return(__wrap_ocf_request_space, ret_count); \
 	} while (false);
 
-static void ocf_evict_do_test01(void **state)
+static void ocf_remap_do_test01(void **state)
 {
 	struct test_cache tcache = {};
 	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
@@ -220,11 +220,11 @@ static void ocf_evict_do_test01(void **state)
 	tcache.req_unmapped = 50;
 
 	_expect_evict_call(tcache, 10, 50, 50);
-	evicted = ocf_evict_do(&req);
+	evicted = ocf_remap_do(&req);
 	assert_int_equal(evicted, 50);
 }
 
-static void ocf_evict_do_test02(void **state)
+static void ocf_remap_do_test02(void **state)
 {
 	struct test_cache tcache = {};
 	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
@@ -241,11 +241,11 @@ static void ocf_evict_do_test02(void **state)
 
 	_expect_evict_call(tcache, 10, 50, 50);
 
-	evicted = ocf_evict_do(&req);
+	evicted = ocf_remap_do(&req);
 	assert_int_equal(evicted, 50);
 }
 
-static void ocf_evict_do_test03(void **state)
+static void ocf_remap_do_test03(void **state)
 {
 	struct test_cache tcache = {};
 	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
@@ -267,11 +267,11 @@ static void ocf_evict_do_test03(void **state)
 	_expect_evict_call(tcache, 16, 100, 100);
 	_expect_evict_call(tcache, 17, 50, 50);
 
-	evicted = ocf_evict_do(&req);
+	evicted = ocf_remap_do(&req);
 	assert_int_equal(evicted, 350);
 }
 
-static void ocf_evict_do_test04(void **state)
+static void ocf_remap_do_test04(void **state)
 {
 	struct test_cache tcache = {};
 	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
@@ -301,16 +301,16 @@ static void ocf_evict_do_test04(void **state)
 	_expect_evict_call(tcache, 16, 100, 100);
 	_expect_evict_call(tcache, 17, 80, 80);
 
-	evicted = ocf_evict_do(&req);
+	evicted = ocf_remap_do(&req);
 	assert_int_equal(evicted, 580);
 }
 int main(void)
 {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test(ocf_evict_do_test01),
-		cmocka_unit_test(ocf_evict_do_test02),
-		cmocka_unit_test(ocf_evict_do_test03),
-		cmocka_unit_test(ocf_evict_do_test04)
+		cmocka_unit_test(ocf_remap_do_test01),
+		cmocka_unit_test(ocf_remap_do_test02),
+		cmocka_unit_test(ocf_remap_do_test03),
+		cmocka_unit_test(ocf_remap_do_test04)
 	};
 
 	return cmocka_run_group_tests(tests, NULL, NULL);

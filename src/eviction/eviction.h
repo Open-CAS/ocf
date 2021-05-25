@@ -64,7 +64,7 @@ extern struct eviction_policy_ops evict_policy_ops[ocf_eviction_max];
  * 'LOOKUP_HIT' if evicted enough cachelines to serve @req
  * 'LOOKUP_MISS' otherwise
  */
-int space_managment_evict_do(struct ocf_request *req);
+int ocf_space_managment_remap_do(struct ocf_request *req);
 
 int space_management_free(ocf_cache_t cache, uint32_t count);
 

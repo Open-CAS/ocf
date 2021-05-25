@@ -385,21 +385,21 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	}
 }
 
-static void ocf_engine_evict(struct ocf_request *req)
+static void ocf_engine_remap(struct ocf_request *req)
 {
 	int status;
 
-	status = space_managment_evict_do(req);
+	status = ocf_space_managment_remap_do(req);
 	if (status == LOOKUP_MISS) {
 		/* mark error */
 		ocf_req_set_mapping_error(req);
 
-		/* unlock cachelines locked during eviction */
+		/* unlock cachelines locked during remapping */
 		ocf_req_unlock(ocf_cache_line_concurrency(req->cache),
 				req);
 
 		/* request cleaning */
-		ocf_req_set_clean_eviction(req);
+		ocf_req_set_cleaning_required(req);
 
 		/* unmap inserted and replaced cachelines */
 		ocf_engine_map_hndl_error(req->cache, req);
@@ -439,7 +439,7 @@ static inline void ocf_prepare_clines_miss(struct ocf_request *req)
 		ocf_req_clear_part_evict(req);
 	}
 
-	ocf_engine_evict(req);
+	ocf_engine_remap(req);
 
 	if (!ocf_req_test_mapping_error(req))
 		ocf_promotion_req_purge(req->cache->promotion_policy, req);
@@ -517,8 +517,8 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 
 	ocf_hb_req_prot_unlock_wr(req);
 
-	if (ocf_req_test_clean_eviction(req)) {
-		ocf_eviction_flush_dirty(req->cache, user_part, req->io_queue,
+	if (ocf_req_is_cleaning_required(req)) {
+		ocf_lru_flush_dirty(req->cache, user_part, req->io_queue,
 				128);
 	}
 
