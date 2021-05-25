@@ -450,7 +450,8 @@ static inline bool _defer_req(struct ocf_request *req)
 	if (!ocf_req_test_clean_eviction(req))
 		return false;
 
-	if (req->byte_length % (64*KiB) == 0)
+	if (req->byte_position % (64*KiB) == 0 &&
+			req->byte_length % (64*KiB) == 0)
 		return false;
 
 	return true;
