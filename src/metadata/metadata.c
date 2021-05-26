@@ -746,6 +746,12 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 			return -OCF_ERR_NO_MEM;
 	}
 
+	if (loaded != cache->metadata.loaded) {
+		ocf_cache_log(cache, log_err, "Persistent metadata zones state "
+				"mismatch!");
+		return -OCF_ERR_INVAL;
+	}
+
 	OCF_DEBUG_PARAM(cache, "Metadata begin pages = %u", ctrl->start_page);
 	OCF_DEBUG_PARAM(cache, "Metadata count pages = %u", ctrl->count_pages);
 	OCF_DEBUG_PARAM(cache, "Metadata end pages = %u", ctrl->start_page
