@@ -205,7 +205,7 @@ class Cache:
 
     def start_cache(self, default_io_queue: Queue = None, mngt_queue: Queue = None):
         status = self.owner.lib.ocf_mngt_cache_start(
-            self.owner.ctx_handle, byref(self.cache_handle), byref(self.cfg)
+            self.owner.ctx_handle, byref(self.cache_handle), byref(self.cfg), None
         )
         if status:
             raise OcfError("Creating cache instance failed", status)

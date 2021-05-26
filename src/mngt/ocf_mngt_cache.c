@@ -1179,7 +1179,7 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 }
 
 static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
-		struct ocf_mngt_cache_config *cfg)
+		struct ocf_mngt_cache_config *cfg, void *priv)
 {
 	struct ocf_cache_mngt_init_params params;
 	ocf_cache_t tmp_cache;
@@ -1208,6 +1208,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	tmp_cache = params.cache;
 	tmp_cache->owner = ctx;
+	tmp_cache->priv = priv;
 
 	/*
 	 * Initialize metadata selected segments of metadata in memory
@@ -1946,7 +1947,7 @@ static const char *_ocf_cache_mode_get_name(ocf_cache_mode_t cache_mode)
 }
 
 int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
-		struct ocf_mngt_cache_config *cfg)
+		struct ocf_mngt_cache_config *cfg, void *priv)
 {
 	int result;
 
@@ -1957,7 +1958,7 @@ int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	if (result)
 		return result;
 
-	result = _ocf_mngt_cache_start(ctx, cache, cfg);
+	result = _ocf_mngt_cache_start(ctx, cache, cfg, priv);
 	if (!result) {
 		_ocf_mngt_cache_set_valid(*cache);
 
