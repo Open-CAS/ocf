@@ -394,7 +394,7 @@ def test_start_stop_noqueue(pyocf_ctx):
 
     cache_handle = c_void_p()
     status = pyocf_ctx.lib.ocf_mngt_cache_start(
-        pyocf_ctx.ctx_handle, byref(cache_handle), byref(_cache.cfg)
+        pyocf_ctx.ctx_handle, byref(cache_handle), byref(_cache.cfg), None
     )
     assert not status, "Failed to start cache: {}".format(status)
 
