@@ -19,9 +19,16 @@
 			format"\n", OCF_READ == (req)->rw ? "RD" : "WR", req, \
 			__func__, ##__VA_ARGS__)
 
+#define OCF_DEBUG_CACHE(cache, format, ...) \
+	ocf_cache_log(cache, log_info, "[Concurrency][Cache][%s] - " \
+			format"\n", \
+			__func__, ##__VA_ARGS__)
+
+
 #else
 #define OCF_DEBUG_TRACE(cache)
 #define OCF_DEBUG_RQ(req, format, ...)
+#define OCF_DEBUG_CACHE(cache, format, ...)
 #endif
 
 #define OCF_CACHE_LINE_ACCESS_WR	INT_MAX
@@ -558,7 +565,7 @@ void ocf_alock_unlock_one_rd(struct ocf_alock *alock,
 {
 	unsigned long flags = 0;
 
-	OCF_DEBUG_RQ(alock->cache, "Cache entry = %u", entry);
+	OCF_DEBUG_CACHE(alock->cache, "Cache entry unlock one rd = %u", entry);
 
 	/* Lock waiters list */
 	ocf_alock_waitlist_lock(alock, entry, flags);
@@ -639,7 +646,7 @@ void ocf_alock_unlock_one_wr(struct ocf_alock *alock,
 {
 	unsigned long flags = 0;
 
-	OCF_DEBUG_RQ(alock->cache, "Cache entry = %u", entry);
+	OCF_DEBUG_CACHE(alock->cache, "Cache entry unlock one wr = %u", entry);
 
 	/* Lock waiters list */
 	ocf_alock_waitlist_lock(alock, entry, flags);

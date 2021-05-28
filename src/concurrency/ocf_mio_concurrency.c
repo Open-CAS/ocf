@@ -131,7 +131,7 @@ void ocf_mio_async_unlock(struct ocf_alock *alock,
 }
 
 
-#define ALLOCATOR_NAME_FMT "ocf_%s_mio_concurrency"
+#define ALLOCATOR_NAME_FMT "ocf_%s_mio_conc"
 #define ALLOCATOR_NAME_MAX (sizeof(ALLOCATOR_NAME_FMT) + OCF_CACHE_NAME_SIZE)
 
 int ocf_mio_concurrency_init(struct ocf_alock **self,

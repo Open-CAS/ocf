@@ -229,7 +229,18 @@ ocf_ctx_t ocf_cache_get_ctx(ocf_cache_t cache)
 
 int __wrap_ocf_log_raw(ocf_logger_t logger, ocf_logger_lvl_t lvl, const char *fmt, ...)
 {
-	function_called();
+	char buf[1024];
+
+	va_list args;
+	int ret;
+
+	va_start(args, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+
+	printf(buf);
+
+	return 0;
 }
 
 unsigned long long progress;

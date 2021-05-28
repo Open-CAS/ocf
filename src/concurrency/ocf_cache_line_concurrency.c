@@ -247,7 +247,7 @@ uint32_t ocf_cache_line_concurrency_suspended_no(struct ocf_alock *alock)
 	return ocf_alock_waitlist_count(alock);
 }
 
-#define ALLOCATOR_NAME_FMT "ocf_%s_cache_concurrency"
+#define ALLOCATOR_NAME_FMT "ocf_%s_cl_conc"
 #define ALLOCATOR_NAME_MAX (sizeof(ALLOCATOR_NAME_FMT) + OCF_CACHE_NAME_SIZE)
 
 int ocf_cache_line_concurrency_init(struct ocf_alock **self,
