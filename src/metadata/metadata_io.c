@@ -348,7 +348,7 @@ static uint32_t metadata_io_max_page(ocf_cache_t cache)
 	uint32_t volume_max_io_pages = ocf_volume_get_max_io_size(
 			&cache->device->volume) / PAGE_SIZE;
 	struct metadata_io_request *m_req;
-	uint32_t request_map_capacity_pages = sizeof(m_req->map) * 8;
+	uint32_t request_map_capacity_pages = sizeof(m_req->alock_status) * 8;
 
 	return OCF_MIN(volume_max_io_pages, request_map_capacity_pages);
 }
@@ -458,6 +458,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 		m_req->req.info.internal = true;
 		m_req->req.rw = dir;
 		m_req->req.map = LIST_POISON1;
+		m_req->req.alock_status = (uint8_t*)&m_req->alock_status;
 
 		/* If req_count == io_count and count is not multiple of
 		 * max_count, for last we can allocate data smaller that

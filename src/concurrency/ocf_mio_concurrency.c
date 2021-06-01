@@ -16,43 +16,7 @@ struct ocf_mio_alock
 	unsigned num_pages;
 };
 
-static bool ocf_mio_lock_line_needs_lock(struct ocf_alock *alock,
-		struct ocf_request *req, unsigned index)
-{
-	return true;
-}
-
-static bool ocf_mio_lock_line_is_acting(struct ocf_alock *alock,
-		struct ocf_request *req, unsigned index)
-{
-	return true;
-}
-
-static bool ocf_mio_lock_line_is_locked(struct ocf_alock *alock,
-		struct ocf_request *req, unsigned index, int rw)
-{
-	struct metadata_io_request *m_req = (struct metadata_io_request *)req;
-
-	if (rw == OCF_WRITE)
-		return env_bit_test(index, &m_req->map);
-	else
-		return false;
-}
-
-static void ocf_mio_lock_line_mark_locked(struct ocf_alock *alock,
-		struct ocf_request *req, unsigned index, int rw, bool locked)
-{
-	struct metadata_io_request *m_req = (struct metadata_io_request *)req;
-
-	if (rw == OCF_READ)
-		return;
-	if (locked)
-		env_bit_set(index, &m_req->map);
-	else
-		env_bit_clear(index, &m_req->map);
-}
-
-static ocf_cache_line_t ocf_mio_lock_line_get_entry(
+static ocf_cache_line_t ocf_mio_lock_get_entry(
 		struct ocf_alock *alock, struct ocf_request *req,
 		unsigned index)
 {
@@ -66,12 +30,77 @@ static ocf_cache_line_t ocf_mio_lock_line_get_entry(
 	return page - mio_alock->first_page;
 }
 
+static int ocf_mio_lock_fast(struct ocf_alock *alock,
+		struct ocf_request *req, int rw)
+{
+	ocf_cache_line_t entry;
+	int ret = OCF_LOCK_ACQUIRED;
+	int32_t i;
+	ENV_BUG_ON(rw != OCF_WRITE);
+
+	for (i = 0; i < req->core_line_count; i++) {
+		entry = ocf_mio_lock_get_entry(alock, req, i);
+		ENV_BUG_ON(ocf_alock_is_index_locked(alock, req, i));
+
+		if (ocf_alock_trylock_entry_wr(alock, entry)) {
+			/* cache entry locked */
+			ocf_alock_mark_index_locked(alock, req, i, true);
+		} else {
+			/* Not possible to lock all cachelines */
+			ret = OCF_LOCK_NOT_ACQUIRED;
+			break;
+		}
+	}
+
+	/* Check if request is locked */
+	if (ret == OCF_LOCK_NOT_ACQUIRED) {
+		/* Request is not locked, discard acquired locks */
+		for (; i >= 0; i--) {
+			entry = ocf_mio_lock_get_entry(alock, req, i);
+
+			if (ocf_alock_is_index_locked(alock, req, i)) {
+				ocf_alock_unlock_one_wr(alock, entry);
+				ocf_alock_mark_index_locked(alock, req, i, false);
+			}
+		}
+	}
+
+	return ret;
+}
+
+static int ocf_mio_lock_slow(struct ocf_alock *alock,
+		struct ocf_request *req, int rw, ocf_req_async_lock_cb cmpl)
+{
+	int32_t i;
+	ocf_cache_line_t entry;
+	int ret = 0;
+	ENV_BUG_ON(rw != OCF_WRITE);
+
+	for (i = 0; i < req->core_line_count; i++) {
+		entry = ocf_mio_lock_get_entry(alock, req, i);
+		ENV_BUG_ON(ocf_alock_is_index_locked(alock, req, i));
+
+		if (!ocf_alock_lock_one_wr(alock, entry, cmpl, req, i)) {
+			/* lock not acquired and not added to wait list */
+			ret = -OCF_ERR_NO_MEM;
+			goto err;
+		}
+	}
+
+	return ret;
+
+err:
+	for (; i >= 0; i--) {
+		entry = ocf_mio_lock_get_entry(alock, req, i);
+		ocf_alock_waitlist_remove_entry(alock, req, i, entry, OCF_WRITE);
+	}
+
+	return ret;
+}
+
 static struct ocf_alock_lock_cbs ocf_mio_conc_cbs = {
-		.line_needs_lock = ocf_mio_lock_line_needs_lock,
-		.line_is_acting = ocf_mio_lock_line_is_acting,
-		.line_is_locked = ocf_mio_lock_line_is_locked,
-		.line_mark_locked = ocf_mio_lock_line_mark_locked,
-		.line_get_entry = ocf_mio_lock_line_get_entry
+		.lock_entries_fast = ocf_mio_lock_fast,
+		.lock_entries_slow = ocf_mio_lock_slow
 };
 
 int ocf_mio_async_lock(struct ocf_alock *alock,
@@ -84,8 +113,21 @@ int ocf_mio_async_lock(struct ocf_alock *alock,
 void ocf_mio_async_unlock(struct ocf_alock *alock,
 		struct metadata_io_request *m_req)
 {
-	ocf_alock_unlock_wr(alock, &m_req->req);
-	m_req->map = 0;
+	ocf_cache_line_t entry;
+	struct ocf_request *req = &m_req->req;
+	int i;
+
+	for (i = 0; i < req->core_line_count; i++) {
+		if (!ocf_alock_is_index_locked(alock, req, i))
+			continue;
+
+		entry = ocf_mio_lock_get_entry(alock, req, i);
+
+		ocf_alock_unlock_one_wr(alock, entry);
+		ocf_alock_mark_index_locked(alock, req, i, false);
+	}
+
+	m_req->alock_status = 0;
 }
 
 
@@ -107,15 +149,17 @@ int ocf_mio_concurrency_init(struct ocf_alock **self,
 	if (ret < 0)
 		return ret;
 	if (ret >= ALLOCATOR_NAME_MAX)
-		return -ENOSPC;
+		return -OCF_ERR_NO_MEM;
 
 	alock = env_vzalloc(base_size + sizeof(struct ocf_mio_alock));
 	if (!alock)
 		return -OCF_ERR_NO_MEM;
 
 	ret = ocf_alock_init_inplace(alock, num_pages, name, &ocf_mio_conc_cbs, cache);
-	if (ret)
+	if (ret) {
+		env_free(alock);
 		return ret;
+	}
 
 	mio_alock = (void*)alock + base_size;
 	mio_alock->first_page = first_page;

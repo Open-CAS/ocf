@@ -611,6 +611,7 @@ bool evp_lru_can_evict(ocf_cache_t cache)
 uint32_t evp_lru_req_clines(struct ocf_request *req,
 		struct ocf_user_part *part, uint32_t cline_no)
 {
+	struct ocf_alock* alock;
 	struct ocf_lru_iter iter;
 	uint32_t i;
 	ocf_cache_line_t cline;
@@ -680,10 +681,10 @@ uint32_t evp_lru_req_clines(struct ocf_request *req,
 		req->map[req_idx].status = LOOKUP_REMAPPED;
 		ocf_engine_patch_req_info(cache, req, req_idx);
 
-		if (cl_write_lock)
-			req->map[req_idx].wr_locked = true;
-		else
-			req->map[req_idx].rd_locked = true;
+		alock = ocf_cache_line_concurrency(iter.cache);
+
+		ocf_alock_mark_index_locked(alock, req, req_idx, true);
+		req->alock_rw = cl_write_lock ? OCF_WRITE : OCF_READ;
 
 		++req_idx;
 		++i;

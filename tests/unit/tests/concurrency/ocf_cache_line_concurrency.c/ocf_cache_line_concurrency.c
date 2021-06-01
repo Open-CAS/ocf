@@ -160,6 +160,7 @@ pthread_mutex_t prog_mutex = PTHREAD_MUTEX_INITIALIZER;
 struct test_req {
 	struct ocf_request r;
 	struct ocf_map_info map[TEST_MAX_MAP_SIZE];
+	uint8_t alock_map[TEST_MAX_MAP_SIZE];
 	pthread_cond_t completion;
 	pthread_mutex_t completion_mutex;
 	bool finished;
@@ -249,6 +250,7 @@ void thread(void *_ctx)
 	bool locked;
 
 	ctx->treq.r.map = &ctx->treq.map;
+	ctx->treq.r.alock_status = &ctx->treq.alock_map;
 	pthread_cond_init(&ctx->treq.completion, NULL);
 	pthread_mutex_init(&ctx->treq.completion_mutex, NULL);
 
@@ -399,12 +401,13 @@ static void cctest(unsigned num_threads, unsigned num_iterations, unsigned cline
 	{
 		if (!threads[i].finished)
 		{
-			unsigned num_clines = threads[i].treq.r.core_line_count;
+			struct ocf_request *req = &threads[i].treq.r;
+			unsigned num_clines = req->core_line_count;
 			struct ocf_map_info **clines = malloc(num_clines *
 					sizeof(*clines));
 			for (j = 0; j < num_clines; j++)
 			{
-				clines[j] = &threads[i].treq.r.map[j];
+				clines[j] = &req->map[j];
 			}
 
 			qsort(clines, num_clines, sizeof(*clines), cmp_map);
@@ -412,8 +415,8 @@ static void cctest(unsigned num_threads, unsigned num_iterations, unsigned cline
 			print_message("thread no %u\n", i);
 			for (j = 0; j < num_clines; j++) {
 				struct ocf_map_info *map = clines[j];
-				const char *status = map->rd_locked ? "R" :
-						map->wr_locked ? "W" : "X";
+				const char *status = env_bit_test(index, (unsigned long*)req->alock_status) ?
+						(req->alock_rw == OCF_WRITE ? "W" : "R") : "X";
 				print_message("[%u] %u %s\n", j, map->coll_idx, status);
 			}
 
