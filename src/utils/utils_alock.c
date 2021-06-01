@@ -15,8 +15,8 @@
 	ocf_cache_log(cache, log_info, "[Concurrency][Cache] %s\n", __func__)
 
 #define OCF_DEBUG_RQ(req, format, ...) \
-	ocf_cache_log(req->cache, log_info, "[Concurrency][Cache][%s] %s - " \
-			format"\n", OCF_READ == (req)->rw ? "RD" : "WR", \
+	ocf_cache_log(req->cache, log_info, "[Concurrency][Cache][%s][%p] %s - " \
+			format"\n", OCF_READ == (req)->rw ? "RD" : "WR", req, \
 			__func__, ##__VA_ARGS__)
 
 #else
