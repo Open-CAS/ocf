@@ -41,7 +41,14 @@ enum ocf_metadata_raw_type {
 	 */
 	metadata_raw_type_atomic,
 
+	/* persistent RAM backed by a disk drive */
 	metadata_raw_type_persistent,
+
+	/* persistent RAM with no disk backend */
+	metadata_raw_persistent_ram,
+
+	/* skip this segment */
+	metadata_raw_null,
 
 	metadata_raw_type_max, /*!<  MAX */
 	metadata_raw_type_min = metadata_raw_type_ram /*!<  MAX */
