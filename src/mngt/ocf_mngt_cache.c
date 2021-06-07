@@ -269,8 +269,6 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
 {
 	ocf_error_t result;
 
-	/* Lock to ensure consistency */
-
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
 	__init_partitions_attached(cache);
@@ -442,6 +440,10 @@ void _ocf_mngt_load_init_instance_complete(void *priv, int error)
 	ocf_cache_t cache = context->cache;
 	ocf_cleaning_t cleaning_policy;
 	ocf_error_t result;
+	bool dirty_shutdown = (context->metadata.shutdown_status != ocf_metadata_clean_shutdown);
+	bool persistent_memory = context->cache->metadata.loaded;
+	bool init_meta = (dirty_shutdown && !persistent_memory);
+	bool recover_from_journal = dirty_shutdown && persistent_memory;
 
 	if (error) {
 		ocf_cache_log(cache, log_err,
@@ -449,26 +451,38 @@ void _ocf_mngt_load_init_instance_complete(void *priv, int error)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
 	}
 
-	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown &&
-			!context->metadata.persistent_meta_loaded) {
+	if (init_meta)
 		__init_free(cache);
-	}
 
 	cleaning_policy = cache->conf_meta->cleaning_policy_type;
 	if (!cleaning_policy_ops[cleaning_policy].initialize)
 		goto out;
 
-	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown ||
-			context->metadata.persistent_meta_loaded)
-		result = cleaning_policy_ops[cleaning_policy].initialize(cache, 0);
-	else
-		result = cleaning_policy_ops[cleaning_policy].initialize(cache, 1);
-
+	result = cleaning_policy_ops[cleaning_policy].initialize(cache, init_meta);
 	if (result) {
 		ocf_cache_log(cache, log_err,
 				"Cannot initialize cleaning policy\n");
 		OCF_PL_FINISH_RET(context->pipeline, result);
 	}
+
+	 if (recover_from_journal) {
+		error = ocf_journal_recover(cache, cache->journal);
+		if (error) {
+			ocf_cache_log(cache, log_err,
+					"recovery from journal failed\n");
+			OCF_PL_FINISH_RET(context->pipeline,
+					-OCF_ERR_START_CACHE_FAIL);
+		} else {
+			ocf_cache_log(cache, log_info,
+				"succesfully recovered from journal\n");
+		}
+
+		ocf_lru_recover(cache);
+	} else if (persistent_memory) {
+		ocf_journal_start(cache->journal);
+	}
+
+
 
 out:
 	ocf_pipeline_next(context->pipeline);
@@ -525,7 +539,7 @@ static void _ocf_mngt_load_init_instance(ocf_pipeline_t pipeline,
 		else
 			_ocf_mngt_load_init_instance_recovery(context);
 	} else {
-		_ocf_mngt_load_init_instance_complete(context, 0);
+		_ocf_mngt_load_init_instance_complete(context, ret);
 	}
 }
 
@@ -2148,6 +2162,7 @@ static void ocf_mngt_cache_stop_detached(ocf_cache_t cache,
 {
 	_ocf_mngt_cache_stop_remove_cores(cache, false);
 	_ocf_mngt_cache_put_io_queues(cache);
+	ocf_journal_deinit(cache->journal);
 	ocf_mngt_cache_remove(cache->owner, cache);
 	ocf_cache_log(cache, log_info, "Cache %s successfully stopped\n",
 			ocf_cache_get_name(cache));

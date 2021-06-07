@@ -12,6 +12,7 @@
 #include "ocf_core_priv.h"
 #include "mngt/ocf_mngt_core_pool_priv.h"
 #include "metadata/metadata_io.h"
+#include "utils/utils_journal.h"
 
 /*
  *
@@ -183,6 +184,7 @@ int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 		goto err_utils;
 
 	ocf_mngt_core_pool_init(ocf_ctx);
+	ocf_journal_schema_init(&ocf_ctx->journal_schema);
 
 	*ctx = ocf_ctx;
 
