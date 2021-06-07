@@ -6,6 +6,7 @@
 #include "ocf/ocf.h"
 #include "ocf_env.h"
 #include "utils_journal.h"
+#include "../eviction/lru_transaction_schema.h"
 
 static inline void mark_started(ocf_jop_t op)
 {
@@ -515,8 +516,8 @@ void ocf_journal_deinit(ocf_journal_t jrnl)
 
 void ocf_journal_schema_init(struct ocf_journal_schema *schema)
 {
+	ocf_lru_transaction_schema_init(schema);
 }
-
 ocf_jop_t ocf_journal_op_get_parent(ocf_jop_t op)
 {
 	return get_op_by_idx(op, op->parent);

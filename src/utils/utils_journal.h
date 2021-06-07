@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "utils_journal_lru_data.h"
+
 struct ocf_jdata_val_update {
 	uint32_t old;
 	uint32_t new;
@@ -12,6 +14,18 @@ struct ocf_jdata_val_update {
 
 struct ocf_jdata {
 	union {
+		struct ocf_jdata_lru_del lru_del;
+		struct ocf_jdata_lru_unlink lru_unlink;
+		struct ocf_jdata_lru_move lru_move;
+		struct ocf_jdata_lru_del_update_pointers del_update_ptrs;
+		struct ocf_jdata_lru_del_dec_count del_dec_count;
+		struct ocf_jdata_lru_del_dec_hot del_dec_hot;
+		struct ocf_jdata_val_update balance_update_ctr;
+		struct ocf_jdata_val_update balance_update_last;
+		struct ocf_jdata_val_update swap;
+		struct ocf_jdata_lru_list lru_list;
+		struct ocf_jdata_lru_balance_set_hot balance_set_hot;
+		struct ocf_jdata_lru_add_insert insert;
 	};
 };
 
