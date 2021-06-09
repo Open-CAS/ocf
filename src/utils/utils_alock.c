@@ -91,7 +91,8 @@ int ocf_alock_init_inplace(struct ocf_alock *self, unsigned num_entries,
 		goto allocation_err;
 	}
 
-	self->allocator = env_allocator_create(sizeof(struct ocf_alock_waiter), name);
+	self->allocator = env_allocator_create(sizeof(struct ocf_alock_waiter),
+			name, false);
 	if (!self->allocator) {
 		error = __LINE__;
 		goto allocation_err;

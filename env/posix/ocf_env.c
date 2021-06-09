@@ -17,6 +17,9 @@ struct _env_allocator {
 
 	/*!< Number of currently allocated items in pool */
 	env_atomic count;
+
+	/*!< Should buffer be zeroed while allocating */
+	bool zero;
 };
 
 static inline size_t env_allocator_align(size_t size)
@@ -36,21 +39,26 @@ void *env_allocator_new(env_allocator *allocator)
 {
 	struct _env_allocator_item *item = NULL;
 
-	item = calloc(1, allocator->item_size);
+	item = malloc(allocator->item_size);
 
-	if (item) {
-		item->cpu = 0;
-		env_atomic_inc(&allocator->count);
+	if (!item) {
+		return NULL;
 	}
+
+	if (allocator->zero) {
+		memset(item, 0, allocator->item_size);
+	}
+
+	item->cpu = 0;
+	item->flags = 0;
+	env_atomic_inc(&allocator->count);
 
 	return &item->data;
 }
 
-env_allocator *env_allocator_create(uint32_t size, const char *fmt_name, ...)
+env_allocator *env_allocator_create(uint32_t size, const char *name, bool zero)
 {
-	char name[OCF_ALLOCATOR_NAME_MAX] = { '\0' };
-	int result, error = -1;
-	va_list args;
+	int error = -1;
 
 	env_allocator *allocator = calloc(1, sizeof(*allocator));
 	if (!allocator) {
@@ -59,21 +67,11 @@ env_allocator *env_allocator_create(uint32_t size, const char *fmt_name, ...)
 	}
 
 	allocator->item_size = size + sizeof(struct _env_allocator_item);
+	allocator->zero = zero;
 
-	/* Format allocator name */
-	va_start(args, fmt_name);
-	result = vsnprintf(name, sizeof(name), fmt_name, args);
-	va_end(args);
+	allocator->name = strdup(name);
 
-	if ((result > 0) && (result < sizeof(name))) {
-		allocator->name = strdup(name);
-
-		if (!allocator->name) {
-			error = __LINE__;
-			goto err;
-		}
-	} else {
-		/* Formated string name exceed max allowed size of name */
+	if (!allocator->name) {
 		error = __LINE__;
 		goto err;
 	}
