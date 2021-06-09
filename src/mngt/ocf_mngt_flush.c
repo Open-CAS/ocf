@@ -476,15 +476,18 @@ static void _ocf_mngt_flush_containers(
 		struct flush_container *fctbl,
 		uint32_t fcnum, ocf_flush_complete_t complete)
 {
+	ocf_cache_t cache;
 	int i;
 
 	if (fcnum == 0) {
 		complete(context, 0);
 		return;
 	}
-
-	/* Sort data. Smallest sectors first (0...n). */
-	ocf_cleaner_sort_flush_containers(fctbl, fcnum);
+	cache = context->cache;
+	if (ocf_cache_is_any_core_rotational(cache)) {
+		/* Sort data. Smallest sectors first (0...n). */
+		ocf_cleaner_sort_flush_containers(fctbl, fcnum);
+	}
 
 	env_atomic_set(&context->fcs.error, 0);
 	env_atomic_set(&context->fcs.count, 1);

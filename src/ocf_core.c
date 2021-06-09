@@ -569,6 +569,16 @@ int ocf_core_volume_type_init(ocf_ctx_t ctx)
 			&ocf_core_volume_extended);
 }
 
+void ocf_core_set_rotational(ocf_core_t core, uint8_t val)
+{
+	core->rotational = val;
+}
+
+bool ocf_core_is_rotational(ocf_core_t core)
+{
+	return core->rotational;
+}
+
 int ocf_core_get_info(ocf_core_t core, struct ocf_core_info *info)
 {
 	ocf_cache_t cache;

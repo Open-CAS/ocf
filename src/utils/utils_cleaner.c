@@ -774,9 +774,9 @@ static int _ocf_cleaner_cmp_private(const void *a, const void *b)
  *
  * @param req cleaning request
  * @param i_out number of already filled map requests (remaining to be filled
- *    with missed
+ *    with missed)
  */
-static int _ocf_cleaner_do_fire(struct ocf_request *req,  uint32_t i_out,
+static int _ocf_cleaner_do_fire(struct ocf_request *req, uint32_t i_out,
 		bool do_sort)
 {
 	uint32_t i;

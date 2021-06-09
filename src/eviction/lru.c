@@ -538,7 +538,7 @@ void evp_lru_clean(ocf_cache_t cache, struct ocf_user_part *part,
 	struct ocf_cleaner_attribs attribs = {
 		.lock_cacheline = false,
 		.lock_metadata = true,
-		.do_sort = true,
+		.do_sort = ocf_cache_is_any_core_rotational(cache),
 
 		.cmpl_context = &part->cleaning,
 		.cmpl_fn = evp_lru_clean_end,

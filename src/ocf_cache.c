@@ -26,6 +26,21 @@ int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size)
 			src, src_size);
 }
 
+bool ocf_cache_is_any_core_rotational(ocf_cache_t cache)
+{
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	uint8_t result = 0;
+
+	for_each_core(cache, core, core_id){
+		result = ocf_core_is_rotational(core);
+		if (result)
+			return result;
+	}
+
+	return result;
+}
+
 const char *ocf_cache_get_name(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
