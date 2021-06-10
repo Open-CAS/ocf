@@ -504,10 +504,14 @@ int metadata_io_read_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 			page, count, flags, drain_hndl, compl_hndl, NULL);
 }
 
+
+#ifdef OCF_CONFIG_MEM_SAVER
+#define MIO_RPOOL_THRESHOLD ocf_mio_size_4
+#define MIO_RPOOL_LIMIT 0
+#else
+#define MIO_RPOOL_THRESHOLD ocf_mio_size_16
 #define MIO_RPOOL_LIMIT 16
-#define MIO_RPOOL_THRESHOLD ocf_mio_size_16 /* This is statically determined to
-					       not exceed one page (4096B).
-					       Change if apropriate. */
+#endif
 
 int ocf_metadata_io_ctx_init(struct ocf_ctx *ocf_ctx)
 {
