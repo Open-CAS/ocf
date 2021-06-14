@@ -47,7 +47,7 @@ int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
 {
 	ocf_ctx->resources.req = env_mpool_create(sizeof(struct ocf_request),
 		sizeof(struct ocf_map_info), ENV_MEM_NORMAL, ocf_req_size_128,
-		false, NULL, "ocf_req");
+		false, NULL, "ocf_req", true);
 
 	if (ocf_ctx->resources.req == NULL)
 		return -1;

@@ -108,7 +108,7 @@ int ocf_cache_line_concurrency_init(struct ocf_cache_line_concurrency **self,
 		goto allocation_err;
 	}
 
-	c->allocator = env_allocator_create(sizeof(struct __waiter), name);
+	c->allocator = env_allocator_create(sizeof(struct __waiter), name, false);
 	if (!c->allocator) {
 		error = __LINE__;
 		goto allocation_err;

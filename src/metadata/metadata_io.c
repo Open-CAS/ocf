@@ -492,7 +492,8 @@ int ocf_metadata_io_ctx_init(struct ocf_ctx *ocf_ctx)
 			sizeof(struct metadata_io_request),
 			ENV_MEM_NOIO, ocf_mio_size_max - 1, true,
 			limits,
-			"ocf_mio");
+			"ocf_mio",
+			true);
 	if (ocf_ctx->resources.mio == NULL)
 		return -1;
 

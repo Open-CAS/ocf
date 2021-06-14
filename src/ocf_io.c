@@ -34,7 +34,8 @@
 static int ocf_io_allocator_default_init(ocf_io_allocator_t allocator,
 		uint32_t priv_size, const char *name)
 {
-	allocator->priv = env_allocator_create(OCF_IO_TOTAL(priv_size), name);
+	allocator->priv = env_allocator_create(OCF_IO_TOTAL(priv_size), name,
+			true);
 	if (!allocator->priv)
 		return -OCF_ERR_NO_MEM;
 
