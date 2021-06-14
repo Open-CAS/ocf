@@ -6,7 +6,7 @@
 #include "ocf/ocf.h"
 #include "metadata/metadata.h"
 
-struct ocf_part {
+struct ocf_freelist_part {
         ocf_cache_line_t head;
         ocf_cache_line_t tail;
         env_atomic64 curr_size;
@@ -17,7 +17,7 @@ struct ocf_freelist {
 	struct ocf_cache *cache;
 
 	/* partition list array */
-	struct ocf_part *part;
+	struct ocf_freelist_part *part;
 
 	/* freelist lock array */
 	env_spinlock *lock;
@@ -52,7 +52,7 @@ static void _ocf_freelist_remove_cache_line(ocf_freelist_t freelist,
 		uint32_t ctx, ocf_cache_line_t cline)
 {
 	struct ocf_cache *cache = freelist->cache;
-	struct ocf_part *freelist_part = &freelist->part[ctx];
+	struct ocf_freelist_part *freelist_part = &freelist->part[ctx];
 	int is_head, is_tail;
 	ocf_part_id_t invalid_part_id = PARTITION_INVALID;
 	ocf_cache_line_t prev, next;
@@ -217,7 +217,7 @@ static void ocf_freelist_add_cache_line(ocf_freelist_t freelist,
 		uint32_t ctx, ocf_cache_line_t line)
 {
 	struct ocf_cache *cache = freelist->cache;
-	struct ocf_part *freelist_part = &freelist->part[ctx];
+	struct ocf_freelist_part *freelist_part = &freelist->part[ctx];
 	ocf_cache_line_t tail;
 	ocf_cache_line_t line_entries = ocf_metadata_collision_table_entries(
 							freelist->cache);

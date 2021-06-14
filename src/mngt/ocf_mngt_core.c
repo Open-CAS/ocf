@@ -457,7 +457,7 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	env_atomic_set(&core->runtime_meta->dirty_clines, 0);
 	env_atomic64_set(&core->runtime_meta->dirty_since, 0);
 
-	for (i = 0; i != OCF_IO_CLASS_MAX; i++) {
+	for (i = 0; i != OCF_USER_IO_CLASS_MAX; i++) {
 		env_atomic_set(&core->runtime_meta->
 				part_counters[i].cached_clines, 0);
 		env_atomic_set(&core->runtime_meta->

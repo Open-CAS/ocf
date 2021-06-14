@@ -7,7 +7,7 @@
 #include "ocf_priv.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
-#include "utils/utils_part.h"
+#include "utils/utils_user_part.h"
 
 int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 		struct ocf_io_class_info *info)
@@ -19,10 +19,10 @@ int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 	if (!info)
 		return -OCF_ERR_INVAL;
 
-	if (io_class >= OCF_IO_CLASS_MAX)
+	if (io_class >= OCF_USER_IO_CLASS_MAX)
 		return -OCF_ERR_INVAL;
 
-	if (!ocf_part_is_valid(&cache->user_parts[part_id])) {
+	if (!ocf_user_part_is_valid(&cache->user_parts[part_id])) {
 		/* Partition does not exist */
 		return -OCF_ERR_IO_CLASS_NOT_EXIST;
 	}
@@ -35,7 +35,7 @@ int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 
 	info->priority = cache->user_parts[part_id].config->priority;
 	info->curr_size = ocf_cache_is_device_attached(cache) ?
-			cache->user_parts[part_id].runtime->curr_size : 0;
+			cache->user_parts[part_id].part.runtime->curr_size : 0;
 	info->min_size = cache->user_parts[part_id].config->min_size;
 	info->max_size = cache->user_parts[part_id].config->max_size;
 
@@ -50,7 +50,7 @@ int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 int ocf_io_class_visit(ocf_cache_t cache, ocf_io_class_visitor_t visitor,
 		void *cntx)
 {
-	struct ocf_user_part *part;
+	struct ocf_user_part *user_part;
 	ocf_part_id_t part_id;
 	int result = 0;
 
@@ -59,8 +59,8 @@ int ocf_io_class_visit(ocf_cache_t cache, ocf_io_class_visitor_t visitor,
 	if (!visitor)
 		return -OCF_ERR_INVAL;
 
-	for_each_part(cache, part, part_id) {
-		if (!ocf_part_is_valid(part))
+	for_each_user_part(cache, user_part, part_id) {
+		if (!ocf_user_part_is_valid(user_part))
 			continue;
 
 		result = visitor(cache, part_id, cntx);

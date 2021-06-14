@@ -14,7 +14,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../ocf_request.h"
 #include "../utils/utils_cleaner.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../metadata/metadata.h"
 #include "../eviction/eviction.h"
 #include "../promotion/promotion.h"
@@ -517,7 +517,7 @@ static inline int ocf_prepare_clines_evict(struct ocf_request *req)
 	int lock_status = -OCF_ERR_NO_LOCK;
 	bool part_has_space;
 
-	part_has_space = ocf_part_has_space(req);
+	part_has_space = ocf_user_part_has_space(req);
 	if (!part_has_space) {
 		/* adding more cachelines to target partition would overflow
 		   it - requesting eviction from target partition only */
@@ -544,16 +544,16 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req)
 	int lock_status = -OCF_ERR_NO_LOCK;
 
 	/* requests to disabled partitions go in pass-through */
-	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
+	if (!ocf_user_part_is_enabled(&req->cache->user_parts[req->part_id])) {
 		ocf_req_set_mapping_error(req);
 		return lock_status;
 	}
 
-	/* NOTE: ocf_part_has_space() below uses potentially stale request
+	/* NOTE: ocf_user_part_has_space() below uses potentially stale request
 	 * statistics (collected before hash bucket lock had been upgraded).
 	 * It is ok since this check is opportunistic, as partition occupancy
 	 * is also subject to change. */
-	if (!ocf_part_has_space(req)) {
+	if (!ocf_user_part_has_space(req)) {
 		ocf_engine_lookup(req);
 		return ocf_prepare_clines_evict(req);
 	}
@@ -579,7 +579,7 @@ static inline int ocf_prepare_clines_miss(struct ocf_request *req)
 
 int ocf_engine_prepare_clines(struct ocf_request *req)
 {
-	struct ocf_user_part *part = &req->cache->user_parts[req->part_id];
+	struct ocf_user_part *user_part = &req->cache->user_parts[req->part_id];
 	bool mapped;
 	bool promote = true;
 	int lock = -OCF_ERR_NO_LOCK;
@@ -628,7 +628,7 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 	ocf_hb_req_prot_unlock_wr(req);
 
 	if (ocf_req_test_clean_eviction(req)) {
-		ocf_eviction_flush_dirty(req->cache, part, req->io_queue,
+		ocf_eviction_flush_dirty(req->cache, user_part, req->io_queue,
 				128);
 	}
 

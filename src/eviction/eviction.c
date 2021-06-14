@@ -5,7 +5,7 @@
 
 #include "eviction.h"
 #include "ops.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../engine/engine_common.h"
 
 struct eviction_policy_ops evict_policy_ops[ocf_eviction_max] = {
@@ -23,11 +23,11 @@ struct eviction_policy_ops evict_policy_ops[ocf_eviction_max] = {
 };
 
 static uint32_t ocf_evict_calculate(ocf_cache_t cache,
-		struct ocf_user_part *part, uint32_t to_evict)
+		struct ocf_user_part *user_part, uint32_t to_evict)
 {
 
-	uint32_t curr_part_size = ocf_part_get_occupancy(part);
-	uint32_t min_part_size = ocf_part_get_min_size(cache, part);
+	uint32_t curr_part_size = ocf_part_get_occupancy(&user_part->part);
+	uint32_t min_part_size = ocf_user_part_get_min_size(cache, user_part);
 
 	if (curr_part_size <= min_part_size) {
 		/*
@@ -44,7 +44,7 @@ static uint32_t ocf_evict_calculate(ocf_cache_t cache,
 }
 
 static inline uint32_t ocf_evict_part_do(struct ocf_request *req,
-		struct ocf_user_part *target_part)
+		struct ocf_user_part *user_part)
 {
 	uint32_t unmapped = ocf_engine_unmapped_count(req);
 	uint32_t to_evict = 0;
@@ -52,7 +52,7 @@ static inline uint32_t ocf_evict_part_do(struct ocf_request *req,
 	if (!evp_lru_can_evict(req->cache))
 		return 0;
 
-	to_evict = ocf_evict_calculate(req->cache, target_part, unmapped);
+	to_evict = ocf_evict_calculate(req->cache, user_part, unmapped);
 
 	if (to_evict < unmapped) {
 		/* cannot evict enough cachelines to map request,
@@ -60,34 +60,34 @@ static inline uint32_t ocf_evict_part_do(struct ocf_request *req,
 		return 0;
 	}
 
-	return ocf_eviction_need_space(req->cache, req, target_part, to_evict);
+	return ocf_eviction_need_space(req->cache, req, &user_part->part, to_evict);
 }
 
-static inline uint32_t ocf_evict_partitions(ocf_cache_t cache,
+static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
 		struct ocf_request *req, uint32_t evict_cline_no,
 		bool overflown_only, int16_t max_priority)
 {
 	uint32_t to_evict = 0, evicted = 0;
-	struct ocf_user_part *part;
+	struct ocf_user_part *user_part;
 	ocf_part_id_t part_id;
 	unsigned overflow_size;
 
 	/* For each partition from the lowest priority to highest one */
-	for_each_part(cache, part, part_id) {
+	for_each_user_part(cache, user_part, part_id) {
 		if (!ocf_eviction_can_evict(cache))
 			goto out;
 
 		/*
 		 * Check stop and continue conditions
 		 */
-		if (max_priority > part->config->priority) {
+		if (max_priority > user_part->config->priority) {
 			/*
 			 * iterate partition have higher priority,
 			 * do not evict
 			 */
 			break;
 		}
-		if (!overflown_only && !part->config->flags.eviction) {
+		if (!overflown_only && !user_part->config->flags.eviction) {
 			/* If partition is overflown it should be evcited
 			 * even if its pinned
 			 */
@@ -95,12 +95,12 @@ static inline uint32_t ocf_evict_partitions(ocf_cache_t cache,
 		}
 
 		if (overflown_only) {
-			overflow_size = ocf_part_overflow_size(cache, part);
+			overflow_size = ocf_user_part_overflow_size(cache, user_part);
 			if (overflow_size == 0)
 				continue;
 		}
 
-		to_evict = ocf_evict_calculate(cache, part,
+		to_evict = ocf_evict_calculate(cache, user_part,
 				evict_cline_no - evicted);
 		if (to_evict == 0) {
 			/* No cache lines to evict for this partition */
@@ -110,7 +110,8 @@ static inline uint32_t ocf_evict_partitions(ocf_cache_t cache,
 		if (overflown_only)
 			to_evict = OCF_MIN(to_evict, overflow_size);
 
-		evicted += ocf_eviction_need_space(cache, req, part, to_evict);
+		evicted += ocf_eviction_need_space(cache, req,
+				&user_part->part, to_evict);
 
 		if (evicted >= evict_cline_no) {
 			/* Evicted requested number of cache line, stop
@@ -138,7 +139,7 @@ static inline uint32_t ocf_evict_do(struct ocf_request *req)
 	 * free its cachelines regardless of destination partition
 	 * priority. */
 
-	evicted = ocf_evict_partitions(cache, req, evict_cline_no,
+	evicted = ocf_evict_user_partitions(cache, req, evict_cline_no,
 		true, OCF_IO_CLASS_PRIO_PINNED);
 	if (evicted >= evict_cline_no)
 		return evicted;
@@ -146,7 +147,7 @@ static inline uint32_t ocf_evict_do(struct ocf_request *req)
 	 * partitions with priority <= target partition and attempt
 	 * to evict from those. */
 	evict_cline_no -= evicted;
-	evicted += ocf_evict_partitions(cache, req, evict_cline_no,
+	evicted += ocf_evict_user_partitions(cache, req, evict_cline_no,
 		false, target_part->config->priority);
 
 	return evicted;

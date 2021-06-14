@@ -308,7 +308,7 @@ typedef enum {
 /**
  * Maximum numbers of IO classes per cache instance
  */
-#define OCF_IO_CLASS_MAX OCF_CONFIG_MAX_IO_CLASSES
+#define OCF_USER_IO_CLASS_MAX OCF_CONFIG_MAX_IO_CLASSES
 /**
  * Minimum value of a valid IO class ID
  */
@@ -316,11 +316,11 @@ typedef enum {
 /**
  * Maximum value of a valid IO class ID
  */
-#define OCF_IO_CLASS_ID_MAX (OCF_IO_CLASS_MAX - 1)
+#define OCF_IO_CLASS_ID_MAX (OCF_USER_IO_CLASS_MAX - 1)
 /**
  * Invalid value of IO class id
  */
-#define OCF_IO_CLASS_INVALID OCF_IO_CLASS_MAX
+#define OCF_IO_CLASS_INVALID OCF_USER_IO_CLASS_MAX
 
 /** Maximum size of the IO class name */
 #define OCF_IO_CLASS_NAME_MAX 1024

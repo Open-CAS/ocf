@@ -235,7 +235,7 @@ void evp_lru_init_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	node->next = end_marker;
 }
 
-static struct ocf_lru_list *evp_lru_get_list(struct ocf_user_part *part,
+static struct ocf_lru_list *evp_lru_get_list(struct ocf_part *part,
 		uint32_t evp, bool clean)
 {
 	return clean ? &part->runtime->eviction[evp].policy.lru.clean :
@@ -246,7 +246,7 @@ static inline struct ocf_lru_list *evp_get_cline_list(ocf_cache_t cache,
 		ocf_cache_line_t cline)
 {
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, cline);
-	struct ocf_user_part *part = &cache->user_parts[part_id];
+	struct ocf_part *part = &cache->user_parts[part_id].part;
 	uint32_t ev_list = (cline % OCF_NUM_EVICTION_LISTS);
 
 	return evp_lru_get_list(part, ev_list,
@@ -264,7 +264,7 @@ void evp_lru_rm_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 }
 
 static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
-		struct ocf_user_part *part, uint32_t start_evp, bool clean,
+		struct ocf_part *part, uint32_t start_evp, bool clean,
 		bool cl_lock_write, _lru_hash_locked_pfn hash_locked,
 		struct ocf_request *req)
 {
@@ -290,7 +290,7 @@ static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
 }
 
 static inline void lru_iter_cleaning_init(struct ocf_lru_iter *iter,
-		ocf_cache_t cache, struct ocf_user_part *part,
+		ocf_cache_t cache, struct ocf_part *part,
 		uint32_t start_evp)
 {
 	/* Lock cachelines for read, non-exclusive access */
@@ -299,7 +299,7 @@ static inline void lru_iter_cleaning_init(struct ocf_lru_iter *iter,
 }
 
 static inline void lru_iter_eviction_init(struct ocf_lru_iter *iter,
-		ocf_cache_t cache, struct ocf_user_part *part,
+		ocf_cache_t cache, struct ocf_part *part,
 		uint32_t start_evp, bool cl_lock_write,
 		struct ocf_request *req)
 {
@@ -438,7 +438,7 @@ static inline ocf_cache_line_t lru_iter_eviction_next(struct ocf_lru_iter *iter,
 	uint32_t curr_evp;
 	ocf_cache_line_t  cline;
 	ocf_cache_t cache = iter->cache;
-	struct ocf_user_part *part = iter->part;
+	struct ocf_part *part = iter->part;
 	struct ocf_lru_list *list;
 
 	do {
@@ -531,26 +531,26 @@ static int evp_lru_clean_get(ocf_cache_t cache, void *getter_context,
 	return 0;
 }
 
-void evp_lru_clean(ocf_cache_t cache, struct ocf_user_part *part,
+void evp_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 		ocf_queue_t io_queue, uint32_t count)
 {
-	struct ocf_part_cleaning_ctx *ctx = &part->cleaning;
+	struct ocf_part_cleaning_ctx *ctx = &user_part->cleaning;
 	struct ocf_cleaner_attribs attribs = {
 		.lock_cacheline = false,
 		.lock_metadata = true,
 		.do_sort = true,
 
-		.cmpl_context = &part->cleaning,
+		.cmpl_context = ctx,
 		.cmpl_fn = evp_lru_clean_end,
 
 		.getter = evp_lru_clean_get,
-		.getter_context = &part->cleaning,
+		.getter_context = ctx,
 
 		.count = min(count, OCF_EVICTION_CLEAN_SIZE),
 
 		.io_queue = io_queue
 	};
-	ocf_cache_line_t *cline = part->cleaning.cline;
+	ocf_cache_line_t *cline = ctx->cline;
 	struct ocf_lru_iter iter;
 	unsigned evp;
 	int cnt;
@@ -571,7 +571,7 @@ void evp_lru_clean(ocf_cache_t cache, struct ocf_user_part *part,
 		return;
 	}
 
-	part->cleaning.cache = cache;
+	ctx->cache = cache;
 	evp = io_queue->eviction_idx++ % OCF_NUM_EVICTION_LISTS;
 
 	lock_idx = ocf_metadata_concurrency_next_idx(io_queue);
@@ -579,7 +579,7 @@ void evp_lru_clean(ocf_cache_t cache, struct ocf_user_part *part,
 
 	OCF_METADATA_EVICTION_WR_LOCK_ALL();
 
-	lru_iter_cleaning_init(&iter, cache, part, evp);
+	lru_iter_cleaning_init(&iter, cache, &user_part->part, evp);
 	i = 0;
 	while (i < OCF_EVICTION_CLEAN_SIZE) {
 		cline[i] = lru_iter_cleaning_next(&iter);
@@ -609,7 +609,7 @@ bool evp_lru_can_evict(ocf_cache_t cache)
 
 /* the caller must hold the metadata lock */
 uint32_t evp_lru_req_clines(struct ocf_request *req,
-		struct ocf_user_part *part, uint32_t cline_no)
+		struct ocf_part *part, uint32_t cline_no)
 {
 	struct ocf_alock* alock;
 	struct ocf_lru_iter iter;
@@ -737,7 +737,7 @@ static inline void _lru_init(struct ocf_lru_list *list)
 	list->last_hot = end_marker;
 }
 
-void evp_lru_init_evp(ocf_cache_t cache, struct ocf_user_part *part)
+void evp_lru_init_evp(ocf_cache_t cache, struct ocf_part *part)
 {
 	struct ocf_lru_list *clean_list;
 	struct ocf_lru_list *dirty_list;
@@ -752,7 +752,7 @@ void evp_lru_init_evp(ocf_cache_t cache, struct ocf_user_part *part)
 	}
 }
 
-void evp_lru_clean_cline(ocf_cache_t cache, struct ocf_user_part *part,
+void evp_lru_clean_cline(ocf_cache_t cache, struct ocf_part *part,
 		uint32_t cline)
 {
 	uint32_t ev_list = (cline % OCF_NUM_EVICTION_LISTS);
@@ -770,7 +770,7 @@ void evp_lru_clean_cline(ocf_cache_t cache, struct ocf_user_part *part,
 	OCF_METADATA_EVICTION_WR_UNLOCK(cline);
 }
 
-void evp_lru_dirty_cline(ocf_cache_t cache, struct ocf_user_part *part,
+void evp_lru_dirty_cline(ocf_cache_t cache, struct ocf_part *part,
 		uint32_t cline)
 {
 	uint32_t ev_list = (cline % OCF_NUM_EVICTION_LISTS);

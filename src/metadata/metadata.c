@@ -36,6 +36,11 @@
 
 #define OCF_METADATA_HASH_DIFF_MAX 1000
 
+struct ocf_part_runtime_meta {
+	struct ocf_part_runtime runtime;
+	struct cleaning_policy clean_pol;
+};
+
 enum {
 	ocf_metadata_status_type_valid = 0,
 	ocf_metadata_status_type_dirty,
@@ -86,10 +91,10 @@ static ocf_cache_line_t ocf_metadata_get_entries(
 		return 32;
 
 	case metadata_segment_part_config:
-		return OCF_IO_CLASS_MAX + 1;
+		return OCF_USER_IO_CLASS_MAX + 1;
 
 	case metadata_segment_part_runtime:
-		return OCF_IO_CLASS_MAX + 1;
+		return OCF_USER_IO_CLASS_MAX + 1;
 
 	case metadata_segment_core_config:
 		return OCF_CORE_MAX;
@@ -154,7 +159,7 @@ static int64_t ocf_metadata_get_element_size(
 		break;
 
 	case metadata_segment_part_runtime:
-		size = sizeof(struct ocf_user_part_runtime);
+		size = sizeof(struct ocf_part_runtime_meta);
 		break;
 
 	case metadata_segment_hash:
@@ -515,7 +520,7 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 	struct ocf_core_meta_config *core_meta_config;
 	struct ocf_core_meta_runtime *core_meta_runtime;
 	struct ocf_user_part_config *part_config;
-	struct ocf_user_part_runtime *part_runtime;
+	struct ocf_part_runtime_meta *part_runtime_meta;
 	struct ocf_metadata_segment *superblock;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
@@ -565,12 +570,15 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 
 	/* Set partition metadata */
 	part_config = METADATA_MEM_POOL(ctrl, metadata_segment_part_config);
-	part_runtime = METADATA_MEM_POOL(ctrl, metadata_segment_part_runtime);
+	part_runtime_meta = METADATA_MEM_POOL(ctrl,
+			metadata_segment_part_runtime);
 
-	for (i = 0; i < OCF_IO_CLASS_MAX + 1; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX + 1; i++) {
 		cache->user_parts[i].config = &part_config[i];
-		cache->user_parts[i].runtime = &part_runtime[i];
-		cache->user_parts[i].id = i;
+		cache->user_parts[i].clean_pol = &part_runtime_meta[i].clean_pol;
+		cache->user_parts[i].part.runtime =
+			&part_runtime_meta[i].runtime;
+		cache->user_parts[i].part.id = i;
 	}
 
 	/* Set core metadata */

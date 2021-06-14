@@ -58,7 +58,7 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 	end_line = ocf_bytes_2_lines(cache, end_byte);
 
 	if (part_id != PARTITION_INVALID) {
-		for (i = cache->user_parts[part_id].runtime->head;
+		for (i = cache->user_parts[part_id].part.runtime->head;
 				i != cache->device->collision_table_entries;
 				i = next_i) {
 			next_i = ocf_metadata_get_partition_next(cache, i);

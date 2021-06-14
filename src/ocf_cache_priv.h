@@ -77,8 +77,8 @@ struct ocf_cache {
 
 	struct ocf_cache_device *device;
 
-	struct ocf_lst lst_part;
-	struct ocf_user_part user_parts[OCF_IO_CLASS_MAX + 1];
+	struct ocf_lst user_part_list;
+	struct ocf_user_part user_parts[OCF_USER_IO_CLASS_MAX + 1];
 
 	ocf_freelist_t freelist;
 

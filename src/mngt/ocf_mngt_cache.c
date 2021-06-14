@@ -12,7 +12,7 @@
 #include "../metadata/metadata.h"
 #include "../metadata/metadata_io.h"
 #include "../engine/cache_engine.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
@@ -169,7 +169,7 @@ static void __init_partitions(ocf_cache_t cache)
 			OCF_IO_CLASS_PRIO_LOWEST, true));
 
 	/* Add other partition to the cache and make it as dummy */
-	for (i_part = 0; i_part < OCF_IO_CLASS_MAX; i_part++) {
+	for (i_part = 0; i_part < OCF_USER_IO_CLASS_MAX; i_part++) {
 		ocf_refcnt_freeze(&cache->user_parts[i_part].cleaning.counter);
 
 		if (i_part == PARTITION_DEFAULT)
@@ -182,13 +182,13 @@ static void __init_partitions(ocf_cache_t cache)
 	}
 }
 
-static void __init_partitions_attached(ocf_cache_t cache)
+static void __init_user_parts_attached(ocf_cache_t cache)
 {
-	struct ocf_user_part *part;
+	struct ocf_part *part;
 	ocf_part_id_t part_id;
 
-	for (part_id = 0; part_id < OCF_IO_CLASS_MAX; part_id++) {
-		part = &cache->user_parts[part_id];
+	for (part_id = 0; part_id < OCF_USER_IO_CLASS_MAX; part_id++) {
+		part = &cache->user_parts[part_id].part;
 
 		part->runtime->head = cache->device->collision_table_entries;
 		part->runtime->curr_size = 0;
@@ -283,7 +283,7 @@ static void __reset_stats(ocf_cache_t cache)
 		env_atomic_set(&core->runtime_meta->dirty_clines, 0);
 		env_atomic64_set(&core->runtime_meta->dirty_since, 0);
 
-		for (i = 0; i != OCF_IO_CLASS_MAX; i++) {
+		for (i = 0; i != OCF_USER_IO_CLASS_MAX; i++) {
 			env_atomic_set(&core->runtime_meta->
 					part_counters[i].cached_clines, 0);
 			env_atomic_set(&core->runtime_meta->
@@ -301,7 +301,7 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
 
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
-	__init_partitions_attached(cache);
+	__init_user_parts_attached(cache);
 	__init_freelist(cache);
 
 	result = __init_cleaning_policy(cache);
@@ -321,7 +321,7 @@ static void init_attached_data_structures_recovery(ocf_cache_t cache)
 {
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
-	__init_partitions_attached(cache);
+	__init_user_parts_attached(cache);
 	__reset_stats(cache);
 	__init_metadata_version(cache);
 }
@@ -1172,7 +1172,7 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	INIT_LIST_HEAD(&cache->io_queues);
 
 	/* Init Partitions */
-	ocf_part_init(cache);
+	ocf_user_part_init(cache);
 
 	__init_cores(cache);
 	__init_metadata_version(cache);

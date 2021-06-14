@@ -6,7 +6,7 @@
 #include "ocf/ocf.h"
 #include "metadata.h"
 #include "metadata_internal.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 
 void ocf_metadata_get_partition_info(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_part_id_t *part_id,
@@ -92,7 +92,7 @@ void ocf_metadata_set_partition_info(struct ocf_cache *cache,
 static void update_partition_head(struct ocf_cache *cache,
 		ocf_part_id_t part_id, ocf_cache_line_t line)
 {
-	struct ocf_user_part *part = &cache->user_parts[part_id];
+	struct ocf_part *part = &cache->user_parts[part_id].part;
 
 	part->runtime->head = line;
 }
@@ -103,7 +103,8 @@ void ocf_metadata_add_to_partition(struct ocf_cache *cache,
 {
 	ocf_cache_line_t line_head;
 	ocf_cache_line_t line_entries = cache->device->collision_table_entries;
-	struct ocf_user_part *part = &cache->user_parts[part_id];
+	struct ocf_user_part *user_part = &cache->user_parts[part_id];
+	struct ocf_part *part = &user_part->part;
 
 	ENV_BUG_ON(!(line < line_entries));
 
@@ -116,11 +117,11 @@ void ocf_metadata_add_to_partition(struct ocf_cache *cache,
 		ocf_metadata_set_partition_info(cache, line, part_id,
 				line_entries, line_entries);
 
-		if (!ocf_part_is_valid(part)) {
+		if (!ocf_user_part_is_valid(user_part)) {
 			/* Partition becomes empty, and is not valid
 			 * update list of partitions
 			 */
-			ocf_part_sort(cache);
+			ocf_user_part_sort(cache);
 		}
 
 	} else {
@@ -149,7 +150,8 @@ void ocf_metadata_remove_from_partition(struct ocf_cache *cache,
 	int is_head, is_tail;
 	ocf_cache_line_t prev_line, next_line;
 	uint32_t line_entries = cache->device->collision_table_entries;
-	struct ocf_user_part *part = &cache->user_parts[part_id];
+	struct ocf_user_part *user_part = &cache->user_parts[part_id];
+	struct ocf_part *part = &user_part->part;
 
 	ENV_BUG_ON(!(line < line_entries));
 
@@ -172,11 +174,11 @@ void ocf_metadata_remove_from_partition(struct ocf_cache *cache,
 
 		update_partition_head(cache, part_id, line_entries);
 
-		if (!ocf_part_is_valid(part)) {
+		if (!ocf_user_part_is_valid(user_part)) {
 			/* Partition becomes not empty, and is not valid
 			 * update list of partitions
 			 */
-			ocf_part_sort(cache);
+			ocf_user_part_sort(cache);
 		}
 
 	} else if (is_head) {

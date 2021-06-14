@@ -26,11 +26,10 @@ struct ocf_user_part_config {
 	ocf_cache_mode_t cache_mode;
 };
 
-struct ocf_user_part_runtime {
+struct ocf_part_runtime {
 	uint32_t curr_size;
 	uint32_t head;
 	struct eviction_policy eviction[OCF_NUM_EVICTION_LISTS];
-	struct cleaning_policy cleaning;
 };
 
 typedef bool ( *_lru_hash_locked_pfn)(struct ocf_request *req,
@@ -45,7 +44,7 @@ struct ocf_lru_iter
 	/* cache object */
 	ocf_cache_t cache;
 	/* target partition */
-	struct ocf_user_part *part;
+	struct ocf_part *part;
 	/* available (non-empty) eviction list bitmap rotated so that current
 	   @evp is on the most significant bit */
 	unsigned long long next_avail_evp;
@@ -72,10 +71,18 @@ struct ocf_part_cleaning_ctx {
 	ocf_cache_line_t cline[OCF_EVICTION_CLEAN_SIZE];
 };
 
+/* common partition data for both user-deined partitions as
+ * well as freelist
+ */
+struct ocf_part {
+	struct ocf_part_runtime *runtime;
+	ocf_part_id_t id;
+};
+
 struct ocf_user_part {
 	struct ocf_user_part_config *config;
-	struct ocf_user_part_runtime *runtime;
-	ocf_part_id_t id;
+	struct cleaning_policy *clean_pol;
+	struct ocf_part part;
 	struct ocf_part_cleaning_ctx cleaning;
 	struct ocf_lst_entry lst_valid;
 };

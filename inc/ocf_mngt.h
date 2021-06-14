@@ -874,7 +874,7 @@ struct ocf_mngt_io_class_config {
 };
 
 struct ocf_mngt_io_classes_config {
-	struct ocf_mngt_io_class_config config[OCF_IO_CLASS_MAX];
+	struct ocf_mngt_io_class_config config[OCF_USER_IO_CLASS_MAX];
 };
 
 /**

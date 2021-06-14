@@ -14,7 +14,7 @@
 
 #define OCF_NUM_EVICTION_LISTS 32
 
-struct ocf_user_part;
+struct ocf_part;
 struct ocf_request;
 
 struct eviction_policy {
@@ -39,17 +39,17 @@ struct eviction_policy_ops {
 	void (*rm_cline)(ocf_cache_t cache,
 			ocf_cache_line_t cline);
 	bool (*can_evict)(ocf_cache_t cache);
-	uint32_t (*req_clines)(struct ocf_request *req, struct ocf_user_part *part,
+	uint32_t (*req_clines)(struct ocf_request *req, struct ocf_part *part,
 			uint32_t cline_no);
 	void (*hot_cline)(ocf_cache_t cache, ocf_cache_line_t cline);
-	void (*init_evp)(ocf_cache_t cache, struct ocf_user_part *part);
+	void (*init_evp)(ocf_cache_t cache, struct ocf_part *part);
 	void (*dirty_cline)(ocf_cache_t cache,
-			struct ocf_user_part *part,
+			struct ocf_part *part,
 			uint32_t cline_no);
 	void (*clean_cline)(ocf_cache_t cache,
-			struct ocf_user_part *part,
+			struct ocf_part *part,
 			uint32_t cline_no);
-	void (*flush_dirty)(ocf_cache_t cache, struct ocf_user_part *part,
+	void (*flush_dirty)(ocf_cache_t cache, struct ocf_user_part *user_part,
 			ocf_queue_t io_queue, uint32_t count);
 	const char *name;
 };

@@ -8,19 +8,19 @@
 #include "../ocf_priv.h"
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../eviction/ops.h"
 #include "ocf_env.h"
 
-static uint64_t _ocf_mngt_count_parts_min_size(struct ocf_cache *cache)
+static uint64_t _ocf_mngt_count_user_parts_min_size(struct ocf_cache *cache)
 {
-	struct ocf_user_part *part;
+	struct ocf_user_part *user_part;
 	ocf_part_id_t part_id;
 	uint64_t count = 0;
 
-	for_each_part(cache, part, part_id) {
-		if (ocf_part_is_valid(part))
-			count += part->config->min_size;
+	for_each_user_part(cache, user_part, part_id) {
+		if (ocf_user_part_is_valid(user_part))
+			count += user_part->config->min_size;
 	}
 
 	return count;
@@ -37,7 +37,7 @@ int ocf_mngt_add_partition_to_cache(struct ocf_cache *cache,
 	if (!name)
 		return -OCF_ERR_INVAL;
 
-	if (part_id >= OCF_IO_CLASS_MAX)
+	if (part_id >= OCF_USER_IO_CLASS_MAX)
 		return -OCF_ERR_INVAL;
 
 	if (cache->user_parts[part_id].config->flags.valid)
@@ -56,7 +56,7 @@ int ocf_mngt_add_partition_to_cache(struct ocf_cache *cache,
 		return -OCF_ERR_INVAL;
 	}
 
-	for_each_lst(&cache->lst_part, iter, iter_id) {
+	for_each_lst(&cache->user_part_list, iter, iter_id) {
 		if (iter_id == part_id) {
 			ocf_cache_log(cache, log_err,
 					"Part with id %hu already exists\n", part_id);
@@ -73,9 +73,9 @@ int ocf_mngt_add_partition_to_cache(struct ocf_cache *cache,
 	cache->user_parts[part_id].config->priority = priority;
 	cache->user_parts[part_id].config->cache_mode = ocf_cache_mode_max;
 
-	ocf_part_set_valid(cache, part_id, valid);
-	ocf_lst_add(&cache->lst_part, part_id);
-	ocf_part_sort(cache);
+	ocf_user_part_set_valid(cache, part_id, valid);
+	ocf_lst_add(&cache->user_part_list, part_id);
+	ocf_user_part_sort(cache);
 
 	cache->user_parts[part_id].config->flags.added = 1;
 
@@ -85,12 +85,13 @@ int ocf_mngt_add_partition_to_cache(struct ocf_cache *cache,
 static int _ocf_mngt_set_partition_size(struct ocf_cache *cache,
 		ocf_part_id_t part_id, uint32_t min, uint32_t max)
 {
-	struct ocf_user_part *part = &cache->user_parts[part_id];
+	struct ocf_user_part *user_part = &cache->user_parts[part_id];
 
 	if (min > max)
 		return -OCF_ERR_INVAL;
 
-	if (_ocf_mngt_count_parts_min_size(cache) + min > PARTITION_SIZE_MAX) {
+	if (_ocf_mngt_count_user_parts_min_size(cache) + min >
+			PARTITION_SIZE_MAX) {
 		/* Illegal configuration in which sum of all min_sizes exceeds
 		 * cache size.
 		 */
@@ -100,8 +101,8 @@ static int _ocf_mngt_set_partition_size(struct ocf_cache *cache,
 	if (max > PARTITION_SIZE_MAX)
 		max = PARTITION_SIZE_MAX;
 
-	part->config->min_size = min;
-	part->config->max_size = max;
+	user_part->config->min_size = min;
+	user_part->config->max_size = max;
 
 	return 0;
 }
@@ -123,7 +124,7 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 
 	dest_part = &cache->user_parts[part_id];
 
-	if (!ocf_part_is_added(dest_part)) {
+	if (!ocf_user_part_is_added(dest_part)) {
 		ocf_cache_log(cache, log_info, "Setting IO class, id: %u, "
 			"name: '%s' [ ERROR ]\n", part_id, dest_part->config->name);
 		return -OCF_ERR_INVAL;
@@ -150,7 +151,7 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 				" [ ERROR ]\n", part_id, dest_part->config->name, max);
 			return -OCF_ERR_INVAL;
 		}
-		ocf_part_set_prio(cache, dest_part, prio);
+		ocf_user_part_set_prio(cache, dest_part, prio);
 		dest_part->config->cache_mode = cache_mode;
 
 		ocf_cache_log(cache, log_info,
@@ -175,21 +176,21 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 		return -OCF_ERR_INVAL;
 	}
 
-	if (ocf_part_is_valid(dest_part)) {
+	if (ocf_user_part_is_valid(dest_part)) {
 		/* Updating existing */
 		ocf_cache_log(cache, log_info, "Updating existing IO "
 				"class, id: %u, name: '%s', max size %u%% [ OK ]\n",
 				part_id, dest_part->config->name, max);
 	} else {
 		/* Adding new */
-		ocf_part_set_valid(cache, part_id, true);
+		ocf_user_part_set_valid(cache, part_id, true);
 
 		ocf_cache_log(cache, log_info, "Adding new IO class, "
 				"id: %u, name: '%s', max size %u%% [ OK ]\n", part_id,
 				dest_part->config->name, max);
 	}
 
-	ocf_part_set_prio(cache, dest_part, prio);
+	ocf_user_part_set_prio(cache, dest_part, prio);
 	dest_part->config->cache_mode = cache_mode;
 
 	return result;
@@ -212,13 +213,13 @@ static void _ocf_mngt_io_class_remove(ocf_cache_t cache,
 		return;
 	}
 
-	if (!ocf_part_is_valid(dest_part)) {
+	if (!ocf_user_part_is_valid(dest_part)) {
 		/* Does not exist */
 		return;
 	}
 
 
-	ocf_part_set_valid(cache, part_id, false);
+	ocf_user_part_set_valid(cache, part_id, false);
 
 	ocf_cache_log(cache, log_info,
 			"Removing IO class, id: %u [ OK ]\n", part_id);
@@ -240,7 +241,7 @@ static int _ocf_mngt_io_class_edit(ocf_cache_t cache,
 static int _ocf_mngt_io_class_validate_cfg(ocf_cache_t cache,
 		const struct ocf_mngt_io_class_config *cfg)
 {
-	if (cfg->class_id >= OCF_IO_CLASS_MAX)
+	if (cfg->class_id >= OCF_USER_IO_CLASS_MAX)
 		return -OCF_ERR_INVAL;
 
 	/* Name set to null means particular io_class should be removed */
@@ -252,13 +253,13 @@ static int _ocf_mngt_io_class_validate_cfg(ocf_cache_t cache,
 		return -OCF_ERR_INVAL;
 	}
 
-	if (!ocf_part_is_name_valid(cfg->name)) {
+	if (!ocf_user_part_is_name_valid(cfg->name)) {
 		ocf_cache_log(cache, log_info,
 			"The name of the partition is not valid\n");
 		return -OCF_ERR_INVAL;
 	}
 
-	if (!ocf_part_is_prio_valid(cfg->prio)) {
+	if (!ocf_user_part_is_prio_valid(cfg->prio)) {
 		ocf_cache_log(cache, log_info,
 			"Invalid value of the partition priority\n");
 		return -OCF_ERR_INVAL;
@@ -284,7 +285,7 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(cfg);
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		result = _ocf_mngt_io_class_validate_cfg(cache, &cfg->config[i]);
 		if (result)
 			return result;
@@ -301,7 +302,7 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 	if (result)
 		goto out_cpy;
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		result = _ocf_mngt_io_class_edit(cache, &cfg->config[i]);
 		if (result) {
 			ocf_cache_log(cache, log_err,
@@ -310,7 +311,7 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 		}
 	}
 
-	ocf_part_sort(cache);
+	ocf_user_part_sort(cache);
 
 out_edit:
 	if (result) {

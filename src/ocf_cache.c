@@ -8,7 +8,7 @@
 #include "engine/cache_engine.h"
 #include "utils/utils_cache_line.h"
 #include "ocf_request.h"
-#include "utils/utils_part.h"
+#include "utils/utils_user_part.h"
 #include "ocf_priv.h"
 #include "ocf_cache_priv.h"
 #include "ocf_queue_priv.h"

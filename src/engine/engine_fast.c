@@ -10,7 +10,7 @@
 #include "engine_pt.h"
 #include "engine_wb.h"
 #include "../ocf_request.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../utils/utils_io.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../metadata/metadata.h"
@@ -77,7 +77,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
-		ocf_part_move(req);
+		ocf_user_part_move(req);
 
 		ocf_hb_req_prot_unlock_wr(req);
 	}
@@ -126,7 +126,7 @@ int ocf_read_fast(struct ocf_request *req)
 
 	hit = ocf_engine_is_hit(req);
 
-	part_has_space = ocf_part_has_space(req);
+	part_has_space = ocf_user_part_has_space(req);
 
 	if (hit && part_has_space) {
 		ocf_io_start(&req->ioi.io);
@@ -198,7 +198,7 @@ int ocf_write_fast(struct ocf_request *req)
 
 	mapped = ocf_engine_is_mapped(req);
 
-	part_has_space = ocf_part_has_space(req);
+	part_has_space = ocf_user_part_has_space(req);
 
 	if (mapped && part_has_space) {
 		ocf_io_start(&req->ioi.io);

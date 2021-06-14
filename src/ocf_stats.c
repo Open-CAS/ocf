@@ -7,7 +7,7 @@
 #include "ocf_priv.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
-#include "utils/utils_part.h"
+#include "utils/utils_user_part.h"
 #include "utils/utils_cache_line.h"
 
 #ifdef OCF_DEBUG_STATS
@@ -195,7 +195,7 @@ void ocf_core_stats_initialize(ocf_core_t core)
 	ocf_stats_error_init(&exp_obj_stats->cache_errors);
 	ocf_stats_error_init(&exp_obj_stats->core_errors);
 
-	for (i = 0; i != OCF_IO_CLASS_MAX; i++)
+	for (i = 0; i != OCF_USER_IO_CLASS_MAX; i++)
 		ocf_stats_part_init(&exp_obj_stats->part_counters[i]);
 
 #ifdef OCF_DEBUG_STATS
@@ -286,7 +286,7 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 
 	cache = ocf_core_get_cache(core);
 
-	if (!ocf_part_is_valid(&cache->user_parts[part_id]))
+	if (!ocf_user_part_is_valid(&cache->user_parts[part_id]))
 		return -OCF_ERR_IO_CLASS_NOT_EXIST;
 
 	part_stat = &core->counters->part_counters[part_id];
@@ -333,7 +333,7 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 			&core_stats->debug_stats);
 #endif
 
-	for (i = 0; i != OCF_IO_CLASS_MAX; i++) {
+	for (i = 0; i != OCF_USER_IO_CLASS_MAX; i++) {
 		curr = &core_stats->part_counters[i];
 
 		accum_req_stats(&stats->read_reqs,
