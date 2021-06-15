@@ -49,8 +49,6 @@ struct ocf_superblock_config {
 	ocf_promotion_t promotion_policy_type;
 	struct promotion_policy_config promotion[PROMOTION_POLICY_TYPE_MAX];
 
-	ocf_eviction_t eviction_policy_type;
-
 	/*
 	 * Checksum for each metadata region.
 	 * This field has to be the last one!

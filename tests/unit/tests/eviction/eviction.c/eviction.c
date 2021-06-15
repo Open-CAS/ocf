@@ -18,7 +18,6 @@
 #include "print_desc.h"
 
 #include "eviction.h"
-#include "ops.h"
 #include "../utils/utils_user_part.h"
 
 #include "eviction/eviction.c/eviction_generated_wraps.c"
@@ -38,11 +37,6 @@ uint32_t __wrap_ocf_lru_num_free(ocf_cache_t cache)
 	return 0;
 }
 
-bool __wrap_ocf_eviction_can_evict(ocf_cache_t cache)
-{
-	return true;
-}
-
 uint32_t __wrap_ocf_user_part_overflow_size(struct ocf_cache *cache,
 		struct ocf_user_part *user_part)
 {
@@ -59,21 +53,20 @@ uint32_t __wrap_ocf_evict_calculate(ocf_cache_t cache,
 	return min(tcache->evictable[user_part->part.id], to_evict);
 }
 
-uint32_t __wrap_ocf_request_space(struct ocf_cache *cache,
-	ocf_queue_t io_queue, struct ocf_part *part,
-	uint32_t clines)
+uint32_t __wrap_evp_lru_req_clines(struct ocf_request *req,
+	struct ocf_part *src_part, uint32_t cline_no)
 {
-	struct test_cache *tcache = (struct test_cache *)cache;
+	struct test_cache *tcache = (struct test_cache *)req->cache;
 	unsigned overflown_consumed;
 
-	overflown_consumed = min(clines, tcache->overflow[part->id]);
+	overflown_consumed = min(cline_no, tcache->overflow[src_part->id]);
 
-	tcache->overflow[part->id] -= overflown_consumed;
-	tcache->evictable[part->id] -= clines;
-	tcache->req_unmapped -= clines;
+	tcache->overflow[src_part->id] -= overflown_consumed;
+	tcache->evictable[src_part->id] -= cline_no;
+	tcache->req_unmapped -= cline_no;
 
-	check_expected(part);
-	check_expected(clines);
+	check_expected(src_part);
+	check_expected(cline_no);
 	function_called();
 
 	return mock();
@@ -200,10 +193,10 @@ uint32_t __wrap_ocf_engine_unmapped_count(struct ocf_request *req)
 
 #define _expect_evict_call(tcache, part_id, req_count, ret_count) \
 	do { \
-		expect_value(__wrap_ocf_request_space, part, &tcache.cache.user_parts[part_id].part); \
-		expect_value(__wrap_ocf_request_space, clines, req_count); \
-		expect_function_call(__wrap_ocf_request_space); \
-		will_return(__wrap_ocf_request_space, ret_count); \
+		expect_value(__wrap_evp_lru_req_clines, src_part, &tcache.cache.user_parts[part_id].part); \
+		expect_value(__wrap_evp_lru_req_clines, cline_no, req_count); \
+		expect_function_call(__wrap_evp_lru_req_clines); \
+		will_return(__wrap_evp_lru_req_clines, ret_count); \
 	} while (false);
 
 static void ocf_remap_do_test01(void **state)

@@ -48,7 +48,6 @@ class CacheConfig(Structure):
     _fields_ = [
         ("_name", c_char * MAX_CACHE_NAME_SIZE),
         ("_cache_mode", c_uint32),
-        ("_eviction_policy", c_uint32),
         ("_promotion_policy", c_uint32),
         ("_cache_line_size", c_uint64),
         ("_metadata_layout", c_uint32),
@@ -115,11 +114,6 @@ class CacheMode(IntEnum):
         return self.value not in [CacheMode.PT, CacheMode.WO]
 
 
-class EvictionPolicy(IntEnum):
-    LRU = 0
-    DEFAULT = LRU
-
-
 class PromotionPolicy(IntEnum):
     ALWAYS = 0
     NHIT = 1
@@ -167,7 +161,6 @@ class Cache:
         owner,
         name: str = "cache",
         cache_mode: CacheMode = CacheMode.DEFAULT,
-        eviction_policy: EvictionPolicy = EvictionPolicy.DEFAULT,
         promotion_policy: PromotionPolicy = PromotionPolicy.DEFAULT,
         cache_line_size: CacheLineSize = CacheLineSize.DEFAULT,
         metadata_layout: MetadataLayout = MetadataLayout.DEFAULT,
@@ -186,7 +179,6 @@ class Cache:
         self.cfg = CacheConfig(
             _name=name.encode("ascii"),
             _cache_mode=cache_mode,
-            _eviction_policy=eviction_policy,
             _promotion_policy=promotion_policy,
             _cache_line_size=cache_line_size,
             _metadata_layout=metadata_layout,
@@ -351,7 +343,6 @@ class Cache:
             "_curr_size": (ioclass_info._curr_size),
             "_min_size": int(ioclass_info._min_size),
             "_max_size": int(ioclass_info._max_size),
-            "_eviction_policy_type": int(ioclass_info._eviction_policy_type),
             "_cleaning_policy_type": int(ioclass_info._cleaning_policy_type),
         }
 
@@ -625,7 +616,6 @@ class Cache:
                     "status": cache_info.fallback_pt.status,
                 },
                 "state": cache_info.state,
-                "eviction_policy": EvictionPolicy(cache_info.eviction_policy),
                 "cleaning_policy": CleaningPolicy(cache_info.cleaning_policy),
                 "promotion_policy": PromotionPolicy(cache_info.promotion_policy),
                 "cache_line_size": line_size,

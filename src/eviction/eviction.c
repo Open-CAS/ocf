@@ -4,23 +4,8 @@
  */
 
 #include "eviction.h"
-#include "ops.h"
 #include "../utils/utils_user_part.h"
 #include "../engine/engine_common.h"
-
-struct eviction_policy_ops evict_policy_ops[ocf_eviction_max] = {
-	[ocf_eviction_lru] = {
-		.init_cline = evp_lru_init_cline,
-		.rm_cline = evp_lru_rm_cline,
-		.req_clines = evp_lru_req_clines,
-		.hot_cline = evp_lru_hot_cline,
-		.init_evp = evp_lru_init_evp,
-		.dirty_cline = evp_lru_dirty_cline,
-		.clean_cline = evp_lru_clean_cline,
-		.flush_dirty = evp_lru_clean,
-		.name = "lru",
-	},
-};
 
 static uint32_t ocf_evict_calculate(ocf_cache_t cache,
 		struct ocf_user_part *user_part, uint32_t to_evict)
@@ -49,9 +34,6 @@ static inline uint32_t ocf_evict_part_do(struct ocf_request *req,
 	uint32_t unmapped = ocf_engine_unmapped_count(req);
 	uint32_t to_evict = 0;
 
-	if (!evp_lru_can_evict(req->cache))
-		return 0;
-
 	to_evict = ocf_evict_calculate(req->cache, user_part, unmapped);
 
 	if (to_evict < unmapped) {
@@ -60,8 +42,7 @@ static inline uint32_t ocf_evict_part_do(struct ocf_request *req,
 		return 0;
 	}
 
-	return ocf_request_space(req->cache, req, &user_part->part,
-			to_evict);
+	return evp_lru_req_clines(req, &user_part->part, to_evict);
 }
 
 static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
@@ -75,9 +56,6 @@ static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
 
 	/* For each partition from the lowest priority to highest one */
 	for_each_user_part(cache, user_part, part_id) {
-		if (!ocf_eviction_can_evict(cache))
-			goto out;
-
 		/*
 		 * Check stop and continue conditions
 		 */
@@ -111,8 +89,7 @@ static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
 		if (overflown_only)
 			to_evict = OCF_MIN(to_evict, overflow_size);
 
-		evicted += ocf_request_space(cache, req, &user_part->part,
-				to_evict);
+		evicted += evp_lru_req_clines(req, &user_part->part, to_evict);
 
 		if (evicted >= evict_cline_no) {
 			/* Evicted requested number of cache line, stop
@@ -135,10 +112,9 @@ static inline uint32_t ocf_remap_do(struct ocf_request *req)
 	uint32_t remapped = 0;
 
 	/* First attempt to map from freelist */
-	if (ocf_lru_num_free(cache) > 0) {
-		remapped = ocf_request_space(cache, req, &cache->free,
-				remap_cline_no);
-	}
+	if (ocf_lru_num_free(cache) > 0)
+		remapped = evp_lru_req_clines(req, &cache->free, remap_cline_no);
+
 	if (remapped >= remap_cline_no)
 		return remapped;
 

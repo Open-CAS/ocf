@@ -81,8 +81,6 @@ struct ocf_cache {
 
 	struct ocf_part free;
 
-	ocf_eviction_t eviction_policy_init;
-
 	uint32_t fallback_pt_error_threshold;
 	ocf_queue_t mngt_queue;
 

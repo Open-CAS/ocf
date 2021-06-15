@@ -200,20 +200,6 @@ typedef enum {
 } ocf_seq_cutoff_policy;
 
 /**
- * OCF supported eviction policy types
- */
-typedef enum {
-	ocf_eviction_lru = 0,
-		/*!< Last recently used eviction policy */
-
-	ocf_eviction_max,
-		/*!< Stopper of enumerator */
-
-	ocf_eviction_default = ocf_eviction_lru,
-		/*!< Default eviction policy */
-} ocf_eviction_t;
-
-/**
  * OCF supported promotion policy types
  */
 typedef enum {

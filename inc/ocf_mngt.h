@@ -247,11 +247,6 @@ struct ocf_mngt_cache_config {
 	ocf_cache_mode_t cache_mode;
 
 	/**
-	 * @brief Eviction policy type
-	 */
-	ocf_eviction_t eviction_policy;
-
-	/**
 	 * @brief Promotion policy type
 	 */
 	ocf_promotion_t promotion_policy;
@@ -307,7 +302,6 @@ static inline void ocf_mngt_cache_config_set_default(
 		struct ocf_mngt_cache_config *cfg)
 {
 	cfg->cache_mode = ocf_cache_mode_default;
-	cfg->eviction_policy = ocf_eviction_default;
 	cfg->promotion_policy = ocf_promotion_default;
 	cfg->cache_line_size = ocf_cache_line_size_4;
 	cfg->metadata_layout = ocf_metadata_layout_default;

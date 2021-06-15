@@ -30,7 +30,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_pipeline.h"
 #include "../concurrency/ocf_concurrency.h"
-#include "../eviction/ops.h"
+#include "../eviction/lru.h"
 #include "../ocf_ctx_priv.h"
 #include "../cleaning/cleaning.h"
 

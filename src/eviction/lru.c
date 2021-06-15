@@ -5,7 +5,6 @@
 
 #include "eviction.h"
 #include "lru.h"
-#include "ops.h"
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_cache_line.h"
 #include "../concurrency/ocf_concurrency.h"

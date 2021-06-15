@@ -1167,9 +1167,9 @@ static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
 	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,
 			cache_line);
 
-	ocf_eviction_init_cache_line(cache, cache_line);
+	evp_lru_init_cline(cache, cache_line);
 
-	ocf_eviction_set_hot_cache_line(cache, cache_line);
+	evp_lru_hot_cline(cache, cache_line);
 
 	env_atomic_inc(&core->runtime_meta->cached_clines);
 	env_atomic_inc(&core->runtime_meta->

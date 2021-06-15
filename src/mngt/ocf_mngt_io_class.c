@@ -9,7 +9,7 @@
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
 #include "../utils/utils_user_part.h"
-#include "../eviction/ops.h"
+#include "../eviction/lru.h"
 #include "ocf_env.h"
 
 static uint64_t _ocf_mngt_count_user_parts_min_size(struct ocf_cache *cache)
