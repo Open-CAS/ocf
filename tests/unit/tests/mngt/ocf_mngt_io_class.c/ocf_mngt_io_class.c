@@ -32,7 +32,7 @@
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
 #include "../utils/utils_user_part.h"
-#include "../eviction/lru.h"
+#include "../ocf_lru.h"
 #include "ocf_env.h"
 
 #include "mngt/ocf_mngt_io_class.c/ocf_mngt_io_class_generated_wraps.c"

@@ -1,5 +1,5 @@
 /*
- * <tested_file_path>src/eviction/eviction.c</tested_file_path>
+ * <tested_file_path>src/ocf_space.c</tested_file_path>
  * <tested_function>ocf_remap_do</tested_function>
  * <functions_to_leave>
 	ocf_evict_user_partitions
@@ -17,10 +17,10 @@
 #include <cmocka.h>
 #include "print_desc.h"
 
-#include "eviction.h"
+#include "ocf_space.h"
 #include "../utils/utils_user_part.h"
 
-#include "eviction/eviction.c/eviction_generated_wraps.c"
+#include "ocf_space.c/ocf_space_generated_wraps.c"
 
 struct test_cache
 {

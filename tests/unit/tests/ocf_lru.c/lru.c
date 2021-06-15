@@ -1,5 +1,5 @@
 /*
- * <tested_file_path>src/eviction/lru.c</tested_file_path>
+ * <tested_file_path>src/ocf_lru.c</tested_file_path>
  * <tested_function>_lru_init</tested_function>
  * <functions_to_leave>
  * 	update_lru_head
@@ -23,8 +23,8 @@
 #include <cmocka.h>
 #include "print_desc.h"
 
-#include "eviction.h"
-#include "lru.h"
+#include "ocf_space.h"
+#include "ocf_lru.h"
 #include "ops.h"
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_cache_line.h"
@@ -33,7 +33,7 @@
 #include "../engine/engine_zero.h"
 #include "../ocf_request.h"
 
-#include "eviction/lru.c/lru_generated_wraps.c"
+#include "ocf_lru.c/lru_generated_wraps.c"
 
 #define META_COUNT 128
 

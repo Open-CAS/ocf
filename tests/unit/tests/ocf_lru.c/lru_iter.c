@@ -1,5 +1,5 @@
 /*
- * <tested_file_path>src/eviction/lru.c</tested_file_path>
+ * <tested_file_path>src/ocf_lru.c</tested_file_path>
  * <tested_function>lru_iter_next</tested_function>
  * <functions_to_leave>
  *	INSERT HERE LIST OF FUNCTIONS YOU WANT TO LEAVE
@@ -26,8 +26,8 @@
 #include <cmocka.h>
 #include "print_desc.h"
 
-#include "eviction.h"
-#include "lru.h"
+#include "ocf_space.h"
+#include "ocf_lru.h"
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_cache_line.h"
 #include "../concurrency/ocf_concurrency.h"
@@ -35,7 +35,7 @@
 #include "../engine/engine_zero.h"
 #include "../ocf_request.h"
 
-#include "eviction/lru.c/lru_iter_generated_wraps.c"
+#include "ocf_lru.c/lru_iter_generated_wraps.c"
 
 //#define DEBUG
 

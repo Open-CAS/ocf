@@ -21,7 +21,7 @@
 #include "../utils/utils_refcnt.h"
 #include "../utils/utils_async_lock.h"
 #include "../concurrency/ocf_concurrency.h"
-#include "../eviction/lru.h"
+#include "../ocf_lru.h"
 #include "../ocf_ctx_priv.h"
 #include "../cleaning/cleaning.h"
 #include "../promotion/ops.h"

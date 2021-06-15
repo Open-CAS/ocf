@@ -15,7 +15,7 @@
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_user_part.h"
 #include "../metadata/metadata.h"
-#include "../eviction/eviction.h"
+#include "../ocf_space.h"
 #include "../promotion/promotion.h"
 #include "../concurrency/ocf_concurrency.h"
 

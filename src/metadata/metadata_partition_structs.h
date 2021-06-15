@@ -8,7 +8,7 @@
 
 #include "../utils/utils_list.h"
 #include "../cleaning/cleaning.h"
-#include "../eviction/eviction.h"
+#include "../ocf_space.h"
 
 #define OCF_NUM_PARTITIONS OCF_USER_IO_CLASS_MAX + 2
 

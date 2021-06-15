@@ -8,7 +8,7 @@
 
 #include "../metadata/metadata.h"
 #include "../concurrency/ocf_cache_line_concurrency.h"
-#include "../eviction/eviction.h"
+#include "../ocf_space.h"
 #include "../engine/cache_engine.h"
 #include "../ocf_request.h"
 #include "../ocf_def_priv.h"

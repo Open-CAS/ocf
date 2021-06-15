@@ -7,7 +7,7 @@
 #define __METADATA_STRUCTS_H__
 
 #include "metadata_common.h"
-#include "../eviction/eviction.h"
+#include "../ocf_space.h"
 #include "../cleaning/cleaning.h"
 #include "../ocf_request.h"
 

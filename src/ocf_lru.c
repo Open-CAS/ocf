@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include "eviction.h"
-#include "lru.h"
+#include "ocf_space.h"
+#include "ocf_lru.h"
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_cache_line.h"
 #include "../concurrency/ocf_concurrency.h"

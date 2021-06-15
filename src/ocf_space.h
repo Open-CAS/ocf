@@ -7,8 +7,8 @@
 #define __LAYER_EVICTION_POLICY_H__
 
 #include "ocf/ocf.h"
-#include "lru.h"
-#include "lru_structs.h"
+#include "ocf_lru.h"
+#include "ocf_lru_structs.h"
 
 #define OCF_PENDING_EVICTION_LIMIT 512UL
 

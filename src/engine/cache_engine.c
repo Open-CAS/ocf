@@ -25,7 +25,7 @@
 #include "../utils/utils_refcnt.h"
 #include "../ocf_request.h"
 #include "../metadata/metadata.h"
-#include "../eviction/eviction.h"
+#include "../ocf_space.h"
 
 enum ocf_io_if_type {
 	/* Public OCF IO interfaces to be set by user */

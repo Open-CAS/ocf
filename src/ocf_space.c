@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#include "eviction.h"
+#include "ocf_space.h"
 #include "../utils/utils_user_part.h"
 #include "../engine/engine_common.h"
 

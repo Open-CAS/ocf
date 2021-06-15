@@ -5,8 +5,8 @@
 #ifndef __EVICTION_LRU_H__
 #define __EVICTION_LRU_H__
 
-#include "eviction.h"
-#include "lru_structs.h"
+#include "ocf_space.h"
+#include "ocf_lru_structs.h"
 
 struct ocf_part;
 struct ocf_user_part;

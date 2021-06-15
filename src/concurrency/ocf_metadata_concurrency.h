@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include "../ocf_cache_priv.h"
-#include "../eviction/eviction.h"
+#include "../ocf_space.h"
 #include "../ocf_queue_priv.h"
 
 #ifndef __OCF_METADATA_CONCURRENCY_H__
