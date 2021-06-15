@@ -615,6 +615,13 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 
 	/* Mapping must be performed holding (at least) hash-bucket write lock */
 	ocf_hb_req_prot_lock_upgrade(req);
+	if (unlikely(ocf_engine_is_mapped(req))) {
+		lock = lock_clines(req);
+		ocf_engine_set_hot(req);
+		ocf_hb_req_prot_unlock_wr(req);
+		return lock;
+	}
+
 	result = ocf_prepare_clines_miss(req);
 	if (!ocf_req_test_mapping_error(req))
 		ocf_engine_set_hot(req);
