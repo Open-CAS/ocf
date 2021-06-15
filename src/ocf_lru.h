@@ -14,18 +14,18 @@ struct ocf_part_runtime;
 struct ocf_part_cleaning_ctx;
 struct ocf_request;
 
-void evp_lru_init_cline(ocf_cache_t cache, ocf_cache_line_t cline);
-void evp_lru_rm_cline(struct ocf_cache *cache, ocf_cache_line_t cline);
-bool evp_lru_can_evict(struct ocf_cache *cache);
-uint32_t evp_lru_req_clines(struct ocf_request *req,
+void ocf_lru_init_cline(ocf_cache_t cache, ocf_cache_line_t cline);
+void ocf_lru_rm_cline(struct ocf_cache *cache, ocf_cache_line_t cline);
+bool ocf_lru_can_evict(struct ocf_cache *cache);
+uint32_t ocf_lru_req_clines(struct ocf_request *req,
 		struct ocf_part *src_part, uint32_t cline_no);
-void evp_lru_hot_cline(struct ocf_cache *cache, ocf_cache_line_t cline);
-void evp_lru_init_evp(struct ocf_cache *cache, struct ocf_part *part);
-void evp_lru_dirty_cline(struct ocf_cache *cache, struct ocf_part *part,
+void ocf_lru_hot_cline(struct ocf_cache *cache, ocf_cache_line_t cline);
+void ocf_lru_init_evp(struct ocf_cache *cache, struct ocf_part *part);
+void ocf_lru_dirty_cline(struct ocf_cache *cache, struct ocf_part *part,
 		ocf_cache_line_t cline);
-void evp_lru_clean_cline(struct ocf_cache *cache, struct ocf_part *part,
+void ocf_lru_clean_cline(struct ocf_cache *cache, struct ocf_part *part,
 		ocf_cache_line_t cline);
-void evp_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
+void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 		ocf_queue_t io_queue, uint32_t count);
 void ocf_lru_repart(ocf_cache_t cache, ocf_cache_line_t cline,
 		struct ocf_part *src_upart, struct ocf_part *dst_upart);

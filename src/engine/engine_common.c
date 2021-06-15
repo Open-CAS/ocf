@@ -202,7 +202,7 @@ static void ocf_engine_set_hot(struct ocf_request *req)
 
 		if (status == LOOKUP_HIT) {
 			/* Update eviction (LRU) */
-			evp_lru_hot_cline(cache, entry->coll_idx);
+			ocf_lru_hot_cline(cache, entry->coll_idx);
 		}
 	}
 }
@@ -518,7 +518,7 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 	ocf_hb_req_prot_unlock_wr(req);
 
 	if (ocf_req_is_cleaning_required(req)) {
-		evp_lru_clean(req->cache, user_part, req->io_queue,
+		ocf_lru_clean(req->cache, user_part, req->io_queue,
 				128);
 	}
 

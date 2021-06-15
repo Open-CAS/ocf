@@ -185,9 +185,9 @@ static void __init_parts_attached(ocf_cache_t cache)
 	ocf_part_id_t part_id;
 
 	for (part_id = 0; part_id < OCF_USER_IO_CLASS_MAX; part_id++)
-		evp_lru_init_evp(cache, &cache->user_parts[part_id].part);
+		ocf_lru_init_evp(cache, &cache->user_parts[part_id].part);
 
-	evp_lru_init_evp(cache, &cache->free);
+	ocf_lru_init_evp(cache, &cache->free);
 }
 
 static void __init_free(ocf_cache_t cache)

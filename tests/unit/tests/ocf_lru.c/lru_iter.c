@@ -203,7 +203,7 @@ unsigned current_case;
 
 struct ocf_lru_list list;
 
-struct ocf_lru_list *__wrap_evp_lru_get_list(struct ocf_user_part *user_part,
+struct ocf_lru_list *__wrap_ocf_lru_get_list(struct ocf_user_part *user_part,
 		uint32_t evp, bool clean)
 {
 	unsigned i = 0;
@@ -232,7 +232,7 @@ struct ocf_lru_list *__wrap_evp_lru_get_list(struct ocf_user_part *user_part,
 inline struct ocf_lru_list *__wrap_evp_get_cline_list(ocf_cache_t cache,
 		ocf_cache_line_t cline)
 {
-	return __wrap_evp_lru_get_list(NULL, cline % OCF_NUM_EVICTION_LISTS, true);
+	return __wrap_ocf_lru_get_list(NULL, cline % OCF_NUM_EVICTION_LISTS, true);
 }
 
 
