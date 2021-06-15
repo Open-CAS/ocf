@@ -12,7 +12,7 @@
 
 #define OCF_PENDING_EVICTION_LIMIT 512UL
 
-#define OCF_NUM_EVICTION_LISTS 32
+#define OCF_NUM_LRU_LISTS 32
 
 struct ocf_part;
 struct ocf_user_part;

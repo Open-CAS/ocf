@@ -20,7 +20,7 @@ bool ocf_lru_can_evict(struct ocf_cache *cache);
 uint32_t ocf_lru_req_clines(struct ocf_request *req,
 		struct ocf_part *src_part, uint32_t cline_no);
 void ocf_lru_hot_cline(struct ocf_cache *cache, ocf_cache_line_t cline);
-void ocf_lru_init_evp(struct ocf_cache *cache, struct ocf_part *part);
+void ocf_lru_init(struct ocf_cache *cache, struct ocf_part *part);
 void ocf_lru_dirty_cline(struct ocf_cache *cache, struct ocf_part *part,
 		ocf_cache_line_t cline);
 void ocf_lru_clean_cline(struct ocf_cache *cache, struct ocf_part *part,
