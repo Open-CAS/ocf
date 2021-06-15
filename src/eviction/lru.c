@@ -289,10 +289,13 @@ void evp_lru_rm_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	ENV_BUG_ON(part_id > OCF_USER_IO_CLASS_MAX);
 	part = &cache->user_parts[part_id].part;
 
+	OCF_METADATA_EVICTION_WR_LOCK(cline);
+
 	list = evp_get_cline_list(cache, cline);
 	free = evp_lru_get_list(&cache->free, ev_list, true);
-
 	evp_lru_move(cache, cline, part, list, &cache->free, free);
+
+	OCF_METADATA_EVICTION_WR_UNLOCK(cline);
 }
 
 static void evp_lru_repart_locked(ocf_cache_t cache, ocf_cache_line_t cline,

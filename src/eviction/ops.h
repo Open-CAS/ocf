@@ -36,9 +36,7 @@ static inline void ocf_eviction_purge_cache_line(
 	ENV_BUG_ON(type >= ocf_eviction_max);
 
 	if (likely(evict_policy_ops[type].rm_cline)) {
-		OCF_METADATA_EVICTION_WR_LOCK(line);
 		evict_policy_ops[type].rm_cline(cache, line);
-		OCF_METADATA_EVICTION_WR_UNLOCK(line);
 	}
 }
 
