@@ -20,17 +20,6 @@ struct ocf_part_runtime;
 struct ocf_part_cleaning_ctx;
 struct ocf_request;
 
-struct eviction_policy {
-	union {
-		struct lru_eviction_policy lru;
-	} policy;
-};
-
-/* Eviction policy metadata per cache line */
-union eviction_policy_meta {
-	struct lru_eviction_policy_meta lru;
-} __attribute__((packed));
-
 /*
  * Deallocates space according to eviction priorities.
  *

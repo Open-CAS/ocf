@@ -30,7 +30,7 @@ struct ocf_user_part_config {
 
 struct ocf_part_runtime {
 	env_atomic curr_size;
-	struct eviction_policy eviction[OCF_NUM_EVICTION_LISTS];
+	struct ocf_lru_part_meta lru[OCF_NUM_EVICTION_LISTS];
 };
 
 typedef bool ( *_lru_hash_locked_pfn)(struct ocf_request *req,

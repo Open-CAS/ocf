@@ -236,9 +236,9 @@ inline struct ocf_lru_list *__wrap_evp_get_cline_list(ocf_cache_t cache,
 }
 
 
-union eviction_policy_meta policy;
+struct ocf_lru_meta policy;
 
-union eviction_policy_meta *__wrap_ocf_metadata_get_eviction_policy(
+struct ocf_lru_meta *__wrap_ocf_metadata_get_lru(
   struct ocf_cache *cache, ocf_cache_line_t line)
 {
 	unsigned i, j;
@@ -250,17 +250,17 @@ union eviction_policy_meta *__wrap_ocf_metadata_get_eviction_policy(
 		while (test_cases[j][i][current_case] != -1) {
 			if (test_cases[j][i][current_case] == line) {
 				if (j == 0) {
-					policy.lru.prev = -1;
+					policy.prev = -1;
 				} else {
-					policy.lru.prev =
+					policy.prev =
 						test_cases[j - 1][i][current_case];
 				}
 
-				policy.lru.next = test_cases[j + 1][i][current_case];
+				policy.next = test_cases[j + 1][i][current_case];
 #ifdef DEBUG
 				print_message("[%u] next %u prev %u\n",
-						line, policy.lru.next,
-						policy.lru.prev);
+						line, policy.next,
+						policy.prev);
 #endif
 				return &policy;
 			}

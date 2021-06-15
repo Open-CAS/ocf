@@ -37,15 +37,15 @@
 
 #define META_COUNT 128
 
-static union eviction_policy_meta meta[META_COUNT];
+static struct ocf_lru_meta meta[META_COUNT];
 
 struct ocf_cache_line_concurrency *__wrap_ocf_cache_line_concurrency(ocf_cache_t cache)
 {
 	return NULL;
 }
 
-union eviction_policy_meta*
-__wrap_ocf_metadata_get_eviction_policy(ocf_cache_t cache, ocf_cache_line_t line)
+struct ocf_lru_meta*
+__wrap_ocf_metadata_get_lru(ocf_cache_t cache, ocf_cache_line_t line)
 {
 	assert (line < META_COUNT);
 	return &meta[line];
@@ -76,12 +76,12 @@ static void check_hot_elems(struct ocf_lru_list *l)
 	unsigned curr = l->head;
 
 	for (i = 0; i < l->num_hot; i++) {
-		assert_int_equal(meta[curr].lru.hot, 1);
-		curr = meta[curr].lru.next;
+		assert_int_equal(meta[curr].hot, 1);
+		curr = meta[curr].next;
 	}
 	for (i = l->num_hot; i < l->num_nodes; i++) {
-		assert_int_equal(meta[curr].lru.hot, 0);
-		curr = meta[curr].lru.next;
+		assert_int_equal(meta[curr].hot, 0);
+		curr = meta[curr].next;
 	}
 }
 

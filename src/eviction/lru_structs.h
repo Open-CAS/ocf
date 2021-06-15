@@ -6,7 +6,7 @@
 
 #define __EVICTION_LRU_STRUCTS_H__
 
-struct lru_eviction_policy_meta {
+struct ocf_lru_meta {
 	uint32_t prev;
 	uint32_t next;
 	uint8_t hot;
@@ -21,7 +21,7 @@ struct ocf_lru_list {
 	bool track_hot;
 };
 
-struct lru_eviction_policy {
+struct ocf_lru_part_meta {
 	struct ocf_lru_list clean;
 	struct ocf_lru_list dirty;
 };
