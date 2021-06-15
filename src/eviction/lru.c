@@ -56,10 +56,12 @@ static void add_lru_head(ocf_cache_t cache,
 		node->next = curr_head_index;
 		node->prev = end_marker;
 		curr_head->prev = collision_index;
-		node->hot = true;
-		if (!curr_head->hot)
-			list->last_hot = collision_index;
-		++list->num_hot;
+		if (list->track_hot) {
+			node->hot = true;
+			if (!curr_head->hot)
+				list->last_hot = collision_index;
+			++list->num_hot;
+		}
 
 		list->head = collision_index;
 
@@ -184,6 +186,9 @@ static void balance_lru_list(ocf_cache_t cache,
 {
 	unsigned target_hot_count = list->num_nodes / OCF_LRU_HOT_RATIO;
 	struct lru_eviction_policy_meta *node;
+
+	if (!list->track_hot)
+		return;
 
 	if (target_hot_count == list->num_hot)
 		return;
@@ -834,13 +839,14 @@ void evp_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	OCF_METADATA_EVICTION_WR_UNLOCK(cline);
 }
 
-static inline void _lru_init(struct ocf_lru_list *list)
+static inline void _lru_init(struct ocf_lru_list *list, bool track_hot)
 {
 	list->num_nodes = 0;
 	list->head = end_marker;
 	list->tail = end_marker;
 	list->num_hot = 0;
 	list->last_hot = end_marker;
+	list->track_hot = track_hot;
 }
 
 void evp_lru_init_evp(ocf_cache_t cache, struct ocf_part *part)
@@ -853,8 +859,12 @@ void evp_lru_init_evp(ocf_cache_t cache, struct ocf_part *part)
 		clean_list = evp_lru_get_list(part, i, true);
 		dirty_list = evp_lru_get_list(part, i, false);
 
-		_lru_init(clean_list);
-		_lru_init(dirty_list);
+		if (part->id == PARTITION_FREELIST) {
+			_lru_init(clean_list, false);
+		} else {
+			_lru_init(clean_list, true);
+			_lru_init(dirty_list, true);
+		}
 	}
 
 	env_atomic_set(&part->runtime->curr_size, 0);

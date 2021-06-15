@@ -59,7 +59,7 @@ static void _lru_init_test01(void **state)
 
 	print_test_description("test init\n");
 
-	_lru_init(&l, end_marker);
+	_lru_init(&l, true);
 
 	assert_int_equal(l.num_hot, 0);
 	assert_int_equal(l.num_nodes, 0);
@@ -94,7 +94,7 @@ static void _lru_init_test02(void **state)
 
 	print_test_description("test add\n");
 
-	_lru_init(&l, end_marker);
+	_lru_init(&l, true);
 
 	for (i = 1; i <= 8; i++)
 	{
@@ -119,7 +119,7 @@ static void _lru_init_test03(void **state)
 
 	print_test_description("remove head\n");
 
-	_lru_init(&l, end_marker);
+	_lru_init(&l, true);
 
 	for (i = 1; i <= 8; i++) {
 		add_lru_head(NULL, &l, i, end_marker);
@@ -155,7 +155,7 @@ static void _lru_init_test04(void **state)
 
 	print_test_description("remove tail\n");
 
-	_lru_init(&l, end_marker);
+	_lru_init(&l, true);
 
 	for (i = 1; i <= 8; i++) {
 		add_lru_head(NULL, &l, i, end_marker);
@@ -193,7 +193,7 @@ static void _lru_init_test05(void **state)
 
 	print_test_description("remove last hot\n");
 
-	_lru_init(&l, end_marker);
+	_lru_init(&l, true);
 
 	for (i = 1; i <= 8; i++) {
 		add_lru_head(NULL, &l, i, end_marker);
@@ -240,7 +240,7 @@ static void _lru_init_test06(void **state)
 
 	print_test_description("remove middle hot\n");
 
-	_lru_init(&l, end_marker);
+	_lru_init(&l, true);
 
 	for (i = 1; i <= 8; i++) {
 		add_lru_head(NULL, &l, i, end_marker);
