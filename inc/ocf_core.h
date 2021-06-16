@@ -240,6 +240,10 @@ int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
  */
 int ocf_core_get_info(ocf_core_t core, struct ocf_core_info *info);
 
+void ocf_core_set_rotational(ocf_core_t core, uint8_t val);
+
+bool ocf_core_is_rotational(ocf_core_t core);
+
 /**
  * @brief Set core private data
  *

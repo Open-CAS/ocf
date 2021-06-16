@@ -91,6 +91,8 @@ struct ocf_core {
 	/* This bit means that core is added into cache */
 	uint32_t added : 1;
 
+	uint32_t rotational : 1;
+
 	struct ocf_counters_core *counters;
 
 	void *priv;
