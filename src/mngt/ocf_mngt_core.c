@@ -1060,14 +1060,14 @@ static int _cache_mngt_set_core_seq_cutoff_promo_count(ocf_core_t core,
 	if (count_old == count) {
 		ocf_core_log(core, log_info,
 				"Sequential cutoff promotion count %u "
-				"bytes is already set\n", count);
+				"is already set\n", count);
 		return 0;
 	}
 
 	env_atomic_set(&core->conf_meta->seq_cutoff_promo_count, count);
 
-	ocf_core_log(core, log_info, "Changing sequential cutoff promotion"
-			"count from %u to %u bytes successful\n",
+	ocf_core_log(core, log_info, "Changing sequential cutoff promotion "
+			"count from %u to %u successful\n",
 			count_old, count);
 
 	return 0;
