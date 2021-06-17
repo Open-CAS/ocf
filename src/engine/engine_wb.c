@@ -74,6 +74,8 @@ static int ocf_write_wb_do_flush_metadata(struct ocf_request *req)
 
 	env_atomic_set(&req->req_remaining, 1); /* One core IO */
 
+	_ocf_write_wb_update_bits(req);
+
 	if (req->info.flush_metadata) {
 		OCF_DEBUG_RQ(req, "Flush metadata");
 		ocf_metadata_flush_do_asynch(cache, req,
@@ -151,9 +153,6 @@ int ocf_write_wb_do(struct ocf_request *req)
 {
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
-
-	/* Update status bits */
-	_ocf_write_wb_update_bits(req);
 
 	/* Submit IO */
 	_ocf_write_wb_submit(req);
