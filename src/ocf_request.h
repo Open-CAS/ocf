@@ -61,12 +61,6 @@ struct ocf_map_info {
 	uint16_t status : 8;
 	/*!< Traverse or mapping status - HIT, MISS, etc... */
 
-	uint16_t rd_locked : 1;
-	/*!< Indicates if cache line is locked for READ access */
-
-	uint16_t wr_locked : 1;
-	/*!< Indicates if cache line is locked for WRITE access */
-
 	uint16_t invalid : 1;
 	/*!< This bit indicates that mapping is invalid */
 
@@ -222,9 +216,15 @@ struct ocf_request {
 
 	struct ocf_req_discard_info discard;
 
+	uint32_t alock_rw;
+	/*!< Read/Write mode for alock*/
+
+	uint8_t *alock_status;
+	/*!< Mapping for locked/unlocked alock entries */
+
 	struct ocf_map_info *map;
 
-	struct ocf_map_info __map[];
+	struct ocf_map_info __map[0];
 };
 
 typedef void (*ocf_req_end_t)(struct ocf_request *req, int error);

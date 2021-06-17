@@ -126,6 +126,8 @@ int raw_dynamic_deinit(ocf_cache_t cache,
 
 	OCF_DEBUG_TRACE(cache);
 
+	ocf_mio_concurrency_deinit(&raw->mio_conc);
+
 	for (i = 0; i < raw->ssd_pages; i++)
 		env_secure_free(ctrl->pages[i], PAGE_SIZE);
 
@@ -147,19 +149,30 @@ int raw_dynamic_init(ocf_cache_t cache,
 {
 	struct _raw_ctrl *ctrl;
 	size_t size = sizeof(*ctrl) + (sizeof(ctrl->pages[0]) * raw->ssd_pages);
+	int ret;
 
 	OCF_DEBUG_TRACE(cache);
 
 	if (raw->entry_size > PAGE_SIZE)
 		return -1;
 
+	/* TODO: caller should specify explicitly whether to init mio conc? */
+	if (lock_page_pfn) {
+		ret = ocf_mio_concurrency_init(&raw->mio_conc,
+			raw->ssd_pages_offset, raw->ssd_pages, cache);
+		if (ret)
+			return ret;
+	}
 	ctrl = env_vmalloc(size);
-	if (!ctrl)
+	if (!ctrl) {
+		ocf_mio_concurrency_deinit(&raw->mio_conc);
 		return -1;
+	}
 
 	ENV_BUG_ON(env_memset(ctrl, size, 0));
 
 	if (env_mutex_init(&ctrl->lock)) {
+		ocf_mio_concurrency_deinit(&raw->mio_conc);
 		env_vfree(ctrl);
 		return -1;
 	}
@@ -519,7 +532,8 @@ void raw_dynamic_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	result = metadata_io_write_i_asynch(cache, cache->mngt_queue, context,
 			raw->ssd_pages_offset, raw->ssd_pages, 0,
 			raw_dynamic_flush_all_fill,
-			raw_dynamic_flush_all_complete);
+			raw_dynamic_flush_all_complete,
+			raw->mio_conc);
 	if (result)
 		OCF_CMPL_RET(priv, result);
 }

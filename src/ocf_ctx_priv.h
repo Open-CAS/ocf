@@ -160,24 +160,6 @@ static inline void ctx_cleaner_kick(ocf_ctx_t ctx, ocf_cleaner_t cleaner)
 	ctx->ops->cleaner.kick(cleaner);
 }
 
-static inline int ctx_metadata_updater_init(ocf_ctx_t ctx,
-		ocf_metadata_updater_t mu)
-{
-	return ctx->ops->metadata_updater.init(mu);
-}
-
-static inline void ctx_metadata_updater_kick(ocf_ctx_t ctx,
-		ocf_metadata_updater_t mu)
-{
-	ctx->ops->metadata_updater.kick(mu);
-}
-
-static inline void ctx_metadata_updater_stop(ocf_ctx_t ctx,
-		ocf_metadata_updater_t mu)
-{
-	ctx->ops->metadata_updater.stop(mu);
-}
-
 /**
  * @}
  */

@@ -14,16 +14,6 @@
  */
 
 /**
- * @brief Lock result - Lock acquired successfully
- */
-#define OCF_LOCK_ACQUIRED		0
-
-/**
- * @brief Lock result - Lock not acquired, lock request added into waiting list
- */
-#define OCF_LOCK_NOT_ACQUIRED		1
-
-/**
  * @brief Initialize OCF concurrency module
  *
  * @param cache - OCF cache instance

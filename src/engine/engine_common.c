@@ -494,7 +494,7 @@ static void ocf_engine_evict(struct ocf_request *req)
 
 static int lock_clines(struct ocf_request *req)
 {
-	struct ocf_cache_line_concurrency *c = ocf_cache_line_concurrency(req->cache);
+	struct ocf_alock *c = ocf_cache_line_concurrency(req->cache);
 	enum ocf_engine_lock_type lock_type =
 		req->engine_cbs->get_lock_type(req);
 

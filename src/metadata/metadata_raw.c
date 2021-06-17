@@ -83,6 +83,8 @@ static int _raw_ram_deinit(ocf_cache_t cache,
 		raw->mem_pool = NULL;
 	}
 
+	ocf_mio_concurrency_deinit(&raw->mio_conc);
+
 	return 0;
 }
 
@@ -95,16 +97,27 @@ static int _raw_ram_init(ocf_cache_t cache,
 	struct ocf_metadata_raw *raw)
 {
 	size_t mem_pool_size;
+	int ret;
 
 	OCF_DEBUG_TRACE(cache);
+
+	/* TODO: caller should specify explicitly whether to init mio conc? */
+	if (lock_page_pfn) {
+		ret = ocf_mio_concurrency_init(&raw->mio_conc,
+			raw->ssd_pages_offset, raw->ssd_pages, cache);
+		if (ret)
+			return ret;
+	}
 
 	/* Allocate memory pool for entries */
 	mem_pool_size = raw->ssd_pages;
 	mem_pool_size *= PAGE_SIZE;
 	raw->mem_pool_limit = mem_pool_size;
 	raw->mem_pool = env_secure_alloc(mem_pool_size);
-	if (!raw->mem_pool)
+	if (!raw->mem_pool) {
+		ocf_mio_concurrency_deinit(&raw->mio_conc);
 		return -OCF_ERR_NO_MEM;
+	}
 	ENV_BUG_ON(env_memset(raw->mem_pool, mem_pool_size, 0));
 
 	raw->lock_page = lock_page_pfn;
@@ -310,7 +323,8 @@ static void _raw_ram_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 
 	result = metadata_io_write_i_asynch(cache, cache->mngt_queue, context,
 			raw->ssd_pages_offset, raw->ssd_pages, 0,
-			_raw_ram_flush_all_fill, _raw_ram_flush_all_complete);
+			_raw_ram_flush_all_fill, _raw_ram_flush_all_complete,
+			raw->mio_conc);
 	if (result)
 		_raw_ram_flush_all_complete(cache, context, result);
 }
@@ -516,7 +530,8 @@ static int _raw_ram_flush_do_asynch(ocf_cache_t cache,
 				raw->ssd_pages_offset + start_page, count,
 				req->ioi.io.flags,
 				_raw_ram_flush_do_asynch_fill,
-				_raw_ram_flush_do_asynch_io_complete);
+				_raw_ram_flush_do_asynch_io_complete,
+				raw->mio_conc);
 
 		if (result)
 			break;

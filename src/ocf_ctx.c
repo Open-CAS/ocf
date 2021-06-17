@@ -136,10 +136,6 @@ static void check_ops_provided(const struct ocf_ctx_ops *ops)
 	ENV_BUG_ON(!ops->cleaner.init);
 	ENV_BUG_ON(!ops->cleaner.kick);
 	ENV_BUG_ON(!ops->cleaner.stop);
-
-	ENV_BUG_ON(!ops->metadata_updater.init);
-	ENV_BUG_ON(!ops->metadata_updater.kick);
-	ENV_BUG_ON(!ops->metadata_updater.stop);
 }
 
 /*

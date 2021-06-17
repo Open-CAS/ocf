@@ -12,7 +12,6 @@
 #include "ocf_core_priv.h"
 #include "metadata/metadata_structs.h"
 #include "metadata/metadata_partition_structs.h"
-#include "metadata/metadata_updater_priv.h"
 #include "utils/utils_list.h"
 #include "utils/utils_pipeline.h"
 #include "utils/utils_refcnt.h"
@@ -60,7 +59,7 @@ struct ocf_cache_device {
 	uint64_t metadata_offset;
 
 	struct {
-		struct ocf_cache_line_concurrency *cache_line;
+		struct ocf_alock *cache_line;
 	} concurrency;
 
 	struct ocf_superblock_runtime *runtime_meta;
@@ -113,8 +112,6 @@ struct ocf_cache {
 
 	env_atomic flush_in_progress;
 	env_mutex flush_mutex;
-
-	struct ocf_metadata_updater metadata_updater;
 
 	struct ocf_cleaner cleaner;
 

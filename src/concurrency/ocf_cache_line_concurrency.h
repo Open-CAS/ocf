@@ -6,15 +6,12 @@
 #ifndef OCF_CACHE_CONCURRENCY_H_
 #define OCF_CACHE_CONCURRENCY_H_
 
-/**
- * @file utils_req.h
- * @brief OCF cache concurrency module
- */
+#include "../utils/utils_alock.h"
 
 /**
- * @brief OCF cache concurrency module handle
+ * @file ocf_cache_line_concurrency.h
+ * @brief OCF cache concurrency module
  */
-struct ocf_cache_line_concurrency;
 
 /**
  * @brief Initialize OCF cache concurrency module
@@ -25,7 +22,7 @@ struct ocf_cache_line_concurrency;
 
  * @return 0 - Initialization successful, otherwise ERROR
  */
-int ocf_cache_line_concurrency_init(struct ocf_cache_line_concurrency **self,
+int ocf_cache_line_concurrency_init(struct ocf_alock **self,
 		unsigned num_clines, struct ocf_cache *cache);
 
 /**
@@ -34,7 +31,7 @@ int ocf_cache_line_concurrency_init(struct ocf_cache_line_concurrency **self,
  * @param self - cacheline concurrency private data
  */
 void ocf_cache_line_concurrency_deinit(
-		struct ocf_cache_line_concurrency **self);
+		struct ocf_alock **self);
 
 /**
  * @brief Get number of waiting (suspended) OCF requests in due to cache
@@ -44,7 +41,7 @@ void ocf_cache_line_concurrency_deinit(
  *
  * @return Number of suspended OCF requests
  */
-uint32_t ocf_cache_line_concurrency_suspended_no(struct ocf_cache_line_concurrency *c);
+uint32_t ocf_cache_line_concurrency_suspended_no(struct ocf_alock *c);
 
 /**
  * @brief Return memory footprint conusmed by cache concurrency module
@@ -55,40 +52,37 @@ uint32_t ocf_cache_line_concurrency_suspended_no(struct ocf_cache_line_concurren
  */
 size_t ocf_cache_line_concurrency_size_of(ocf_cache_t cache);
 
-/* async request cacheline lock acquisition callback */
-typedef void (*ocf_req_async_lock_cb)(struct ocf_request *req);
-
 /**
  * @brief Lock OCF request for write access (Lock all cache lines in map info)
  *
  * @param c - cacheline concurrency private data
  * @param req - OCF request
- * @param cb - async lock acquisition callback
+ * @param cmpl - async lock acquisition callback
  *
  * @returns lock acquisition status or negative error code in case of internal
  *		error
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- * added into waiting list. When lock will be acquired @cb cllback be called
+ * added into waiting list. When lock will be acquired @cmpl cllback be called
  */
-int ocf_req_async_lock_wr(struct ocf_cache_line_concurrency *c,
-		struct ocf_request *req, ocf_req_async_lock_cb cb);
+int ocf_req_async_lock_wr(struct ocf_alock *c,
+		struct ocf_request *req, ocf_req_async_lock_cb cmpl);
 
 /**
  * @brief Lock OCF request for read access (Lock all cache lines in map info)
  *
  * @param c - cacheline concurrency private data
  * @param req - OCF request
- * @param cb - async lock acquisition callback
+ * @param cmpl - async lock acquisition callback
  *
  * @returns lock acquisition status or negative error code in case of internal
  *		error
  * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
  * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired, request was
- * added into waiting list. When lock will be acquired @cb callback be called
+ * added into waiting list. When lock will be acquired @cmpl callback be called
  */
-int ocf_req_async_lock_rd(struct ocf_cache_line_concurrency *c,
-		struct ocf_request *req, ocf_req_async_lock_cb cb);
+int ocf_req_async_lock_rd(struct ocf_alock *c,
+		struct ocf_request *req, ocf_req_async_lock_cb cmpl);
 
 /**
  * @brief Unlock OCF request from write access
@@ -96,7 +90,7 @@ int ocf_req_async_lock_rd(struct ocf_cache_line_concurrency *c,
  * @param c - cacheline concurrency private data
  * @param req - OCF request
  */
-void ocf_req_unlock_wr(struct ocf_cache_line_concurrency *c,
+void ocf_req_unlock_wr(struct ocf_alock *c,
 		struct ocf_request *req);
 
 /**
@@ -105,7 +99,7 @@ void ocf_req_unlock_wr(struct ocf_cache_line_concurrency *c,
  * @param c - cacheline concurrency private data
  * @param req - OCF request
  */
-void ocf_req_unlock_rd(struct ocf_cache_line_concurrency *c,
+void ocf_req_unlock_rd(struct ocf_alock *c,
 		struct ocf_request *req);
 
 /**
@@ -114,7 +108,7 @@ void ocf_req_unlock_rd(struct ocf_cache_line_concurrency *c,
  * @param c - cacheline concurrency private data
  * @param req - OCF request
  */
-void ocf_req_unlock(struct ocf_cache_line_concurrency *c,
+void ocf_req_unlock(struct ocf_alock *c,
 		struct ocf_request *req);
 
 /**
@@ -131,7 +125,7 @@ void ocf_req_unlock(struct ocf_cache_line_concurrency *c,
  * @retval true - cache line is used
  * @retval false - cache line is not used
  */
-bool ocf_cache_line_is_used(struct ocf_cache_line_concurrency *c,
+bool ocf_cache_line_is_used(struct ocf_alock *c,
 		ocf_cache_line_t line);
 
 /**
@@ -144,7 +138,7 @@ bool ocf_cache_line_is_used(struct ocf_cache_line_concurrency *c,
  * @retval true - there are waiters
  * @retval false - No waiters
  */
-bool ocf_cache_line_are_waiters(struct ocf_cache_line_concurrency *c,
+bool ocf_cache_line_are_waiters(struct ocf_alock *c,
 		ocf_cache_line_t line);
 
 bool ocf_cache_line_is_locked_exclusively(struct ocf_cache *cache,
@@ -157,7 +151,7 @@ bool ocf_cache_line_is_locked_exclusively(struct ocf_cache *cache,
  * @param req - OCF request
  * @param entry - request map entry number
  */
-void ocf_req_unlock_entry(struct ocf_cache_line_concurrency *c,
+void ocf_req_unlock_entry(struct ocf_alock *c,
 		struct ocf_request *req, uint32_t entry);
 
 /**
@@ -166,7 +160,7 @@ void ocf_req_unlock_entry(struct ocf_cache_line_concurrency *c,
  * @param cache - OCF cache instance
  * @param line - Cache line to be unlocked
  */
-void ocf_cache_line_unlock_rd(struct ocf_cache_line_concurrency *c,
+void ocf_cache_line_unlock_rd(struct ocf_alock *c,
 		ocf_cache_line_t line);
 
 /**
@@ -178,7 +172,7 @@ void ocf_cache_line_unlock_rd(struct ocf_cache_line_concurrency *c,
  * @retval true - read lock successfully acquired
  * @retval false - failed to acquire read lock
  */
-bool ocf_cache_line_try_lock_rd(struct ocf_cache_line_concurrency *c,
+bool ocf_cache_line_try_lock_rd(struct ocf_alock *c,
 		ocf_cache_line_t line);
 
 /**
@@ -187,7 +181,7 @@ bool ocf_cache_line_try_lock_rd(struct ocf_cache_line_concurrency *c,
  * @param c - cacheline concurrency private data
  * @param line - Cache line to be unlocked
  */
-void ocf_cache_line_unlock_wr(struct ocf_cache_line_concurrency *c,
+void ocf_cache_line_unlock_wr(struct ocf_alock *c,
 		ocf_cache_line_t line);
 
 /**
@@ -199,7 +193,7 @@ void ocf_cache_line_unlock_wr(struct ocf_cache_line_concurrency *c,
  * @retval true - write lock successfully acquired
  * @retval false - failed to acquire write lock
  */
-bool ocf_cache_line_try_lock_wr(struct ocf_cache_line_concurrency *c,
+bool ocf_cache_line_try_lock_wr(struct ocf_alock *c,
 		ocf_cache_line_t line);
 
 /**
@@ -208,7 +202,7 @@ bool ocf_cache_line_try_lock_wr(struct ocf_cache_line_concurrency *c,
  * @param cache - cache instance
  * @return cacheline concurrency context
  */
-static inline struct ocf_cache_line_concurrency *
+static inline struct ocf_alock *
 ocf_cache_line_concurrency(ocf_cache_t cache)
 {
 	return cache->device->concurrency.cache_line;

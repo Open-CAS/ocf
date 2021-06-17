@@ -159,39 +159,15 @@ struct ocf_cleaner_ops {
 	void (*stop)(ocf_cleaner_t c);
 };
 
-/**
- * @brief Metadata updater operations
- */
-struct ocf_metadata_updater_ops {
-	/**
-	 * @brief Initialize metadata updater.
-	 *
-	 * This function should create worker, thread, timer or any other
-	 * mechanism responsible for calling metadata updater routine.
-	 *
-	 * @param[in] mu Handle to metadata updater to be initialized
-	 *
-	 * @retval 0 Metadata updater has been initializaed successfully
-	 * @retval Non-zero I/O queue initialization failure
-	 */
-	int (*init)(ocf_metadata_updater_t mu);
+typedef struct ocf_persistent_meta_zone *ocf_persistent_meta_zone_t;
 
-	/**
-	 * @brief Kick metadata updater processing
-	 *
-	 * This function should inform worker, thread or any other mechanism,
-	 * that there are new metadata requests to be processed.
-	 *
-	 * @param[in] mu Metadata updater to be kicked
-	 */
-	void (*kick)(ocf_metadata_updater_t mu);
-
-	/**
-	 * @brief Stop metadata updater
-	 *
-	 * @param[in] mu Metadata updater beeing stopped
-	 */
-	void (*stop)(ocf_metadata_updater_t mu);
+struct ocf_persistent_metadata_ops {
+	ocf_persistent_meta_zone_t (*init)(ocf_cache_t cache, size_t size,
+			bool *load);
+	int (*deinit)(ocf_persistent_meta_zone_t zone);
+	void *(*alloc)(ocf_persistent_meta_zone_t zone, size_t size,
+			int alloc_id, bool *load);
+	int (*free)(ocf_persistent_meta_zone_t zone, int alloc_id, void *ptr);
 };
 
 /**
@@ -203,9 +179,6 @@ struct ocf_ctx_ops {
 
 	/* Cleaner operations */
 	struct ocf_cleaner_ops cleaner;
-
-	/* Metadata updater operations */
-	struct ocf_metadata_updater_ops metadata_updater;
 
 	/* Logger operations */
 	struct ocf_logger_ops logger;
