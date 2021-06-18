@@ -82,9 +82,14 @@ static int ocf_user_part_lst_cmp_valid(struct ocf_cache *cache,
 
 void ocf_user_part_init(struct ocf_cache *cache)
 {
+	unsigned i;
+
 	ocf_lst_init(cache, &cache->user_part_list, OCF_USER_IO_CLASS_MAX,
 			ocf_user_part_lst_getter_valid,
 			ocf_user_part_lst_cmp_valid);
+
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX + 1; i++)
+		cache->user_parts[i].part.id = i;
 }
 
 void ocf_user_part_move(struct ocf_request *req)

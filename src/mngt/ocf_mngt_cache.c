@@ -190,7 +190,7 @@ static void __init_parts_attached(ocf_cache_t cache)
 	ocf_lru_init(cache, &cache->free);
 }
 
-static void __init_free(ocf_cache_t cache)
+static void __populate_free(ocf_cache_t cache)
 {
 	uint64_t free_clines = ocf_metadata_collision_table_entries(cache) -
 			ocf_get_cache_occupancy(cache);
@@ -245,6 +245,11 @@ static void __deinit_promotion_policy(ocf_cache_t cache)
 	cache->promotion_policy = NULL;
 }
 
+static void __init_free(ocf_cache_t cache)
+{
+	cache->free.id = PARTITION_FREELIST;
+}
+
 static void __init_cores(ocf_cache_t cache)
 {
 	/* No core devices yet */
@@ -287,7 +292,7 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache)
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
 	__init_parts_attached(cache);
-	__init_free(cache);
+	__populate_free(cache);
 
 	result = __init_cleaning_policy(cache);
 	if (result) {
@@ -462,7 +467,7 @@ void _ocf_mngt_load_init_instance_complete(void *priv, int error)
 	}
 
 	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown)
-		__init_free(cache);
+		__populate_free(cache);
 
 	cleaning_policy = cache->conf_meta->cleaning_policy_type;
 	if (!cleaning_policy_ops[cleaning_policy].initialize)
@@ -1148,6 +1153,7 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 
 	/* Init Partitions */
 	ocf_user_part_init(cache);
+	__init_free(cache);
 
 	__init_cores(cache);
 	__init_metadata_version(cache);

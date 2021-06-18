@@ -577,10 +577,8 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 		cache->user_parts[i].clean_pol = &part_runtime_meta[i].clean_pol;
 		cache->user_parts[i].part.runtime =
 			&part_runtime_meta[i].runtime;
-		cache->user_parts[i].part.id = i;
 	}
 	cache->free.runtime= &part_runtime_meta[PARTITION_FREELIST].runtime;
-	cache->free.id = PARTITION_FREELIST;
 
 	/* Set core metadata */
 	core_meta_config = METADATA_MEM_POOL(ctrl,
