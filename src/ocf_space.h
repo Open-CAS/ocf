@@ -29,8 +29,6 @@ struct ocf_request;
  */
 int ocf_space_managment_remap_do(struct ocf_request *req);
 
-int space_management_free(ocf_cache_t cache, uint32_t count);
-
 typedef void (*ocf_metadata_actor_t)(struct ocf_cache *cache,
 		ocf_cache_line_t cache_line);
 
