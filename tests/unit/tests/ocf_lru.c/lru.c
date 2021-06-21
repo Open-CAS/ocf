@@ -6,9 +6,13 @@
  * 	update_lru_tail
  * 	update_lru_head_tail
  *      _lru_init
- * 	add_lru_head
- * 	remove_lru_list
+ * 	add_lru_head_nobalance
+ * 	remove_lru_list_nobalance
+ * 	remove_update_list
+ * 	remove_update_ptrs
  * 	balance_lru_list
+ * 	balance_update_last_hot
+ * 	ocf_get_lru
  * </functions_to_leave>
  */
 
@@ -98,8 +102,8 @@ static void _lru_init_test02(void **state)
 
 	for (i = 1; i <= 8; i++)
 	{
-		add_lru_head(NULL, &l, i, end_marker);
-		balance_lru_list(NULL, &l, end_marker);
+		add_lru_head_nobalance(NULL, &l, i, NULL);
+		balance_lru_list(NULL, &l, NULL);
 		assert_int_equal(l.num_hot, i / 2);
 		assert_int_equal(l.num_nodes, i);
 		assert_int_equal(l.head, i);
@@ -122,8 +126,8 @@ static void _lru_init_test03(void **state)
 	_lru_init(&l, true);
 
 	for (i = 1; i <= 8; i++) {
-		add_lru_head(NULL, &l, i, end_marker);
-		balance_lru_list(NULL, &l, end_marker);
+		add_lru_head_nobalance(NULL, &l, i, NULL);
+		balance_lru_list(NULL, &l, NULL);
 	}
 
 	for (i = 8; i >= 1; i--) {
@@ -135,8 +139,8 @@ static void _lru_init_test03(void **state)
 				i - i / 2 + 1);
 		check_hot_elems(&l);
 
-		remove_lru_list(NULL, &l, i, end_marker);
-		balance_lru_list(NULL, &l, end_marker);
+		remove_lru_list_nobalance(NULL, &l, i, NULL);
+		balance_lru_list(NULL, &l, NULL);
 	}
 
 	assert_int_equal(l.num_hot, 0);
@@ -158,8 +162,8 @@ static void _lru_init_test04(void **state)
 	_lru_init(&l, true);
 
 	for (i = 1; i <= 8; i++) {
-		add_lru_head(NULL, &l, i, end_marker);
-		balance_lru_list(NULL, &l, end_marker);
+		add_lru_head_nobalance(NULL, &l, i, NULL);
+		balance_lru_list(NULL, &l, NULL);
 	}
 
 	for (i = 8; i >= 1; i--) {
@@ -171,8 +175,8 @@ static void _lru_init_test04(void **state)
 				8 - i / 2 + 1);
 		check_hot_elems(&l);
 
-		remove_lru_list(NULL, &l, 9 - i, end_marker);
-		balance_lru_list(NULL, &l, end_marker);
+		remove_lru_list_nobalance(NULL, &l, 9 - i, NULL);
+		balance_lru_list(NULL, &l, NULL);
 	}
 
 	assert_int_equal(l.num_hot, 0);
@@ -196,8 +200,8 @@ static void _lru_init_test05(void **state)
 	_lru_init(&l, true);
 
 	for (i = 1; i <= 8; i++) {
-		add_lru_head(NULL, &l, i, end_marker);
-		balance_lru_list(NULL, &l, end_marker);
+		add_lru_head_nobalance(NULL, &l, i, NULL);
+		balance_lru_list(NULL, &l, NULL);
 		present[i] = true;
 	}
 
@@ -219,8 +223,8 @@ static void _lru_init_test05(void **state)
 		check_hot_elems(&l);
 
 		present[l.last_hot] = false;
-		remove_lru_list(NULL, &l, l.last_hot, end_marker);
-		balance_lru_list(NULL, &l, end_marker);
+		remove_lru_list_nobalance(NULL, &l, l.last_hot, NULL);
+		balance_lru_list(NULL, &l, NULL);
 	}
 
 	assert_int_equal(l.num_hot, 1);
@@ -243,14 +247,14 @@ static void _lru_init_test06(void **state)
 	_lru_init(&l, true);
 
 	for (i = 1; i <= 8; i++) {
-		add_lru_head(NULL, &l, i, end_marker);
-		balance_lru_list(NULL, &l, end_marker);
+		add_lru_head_nobalance(NULL, &l, i, NULL);
+		balance_lru_list(NULL, &l, NULL);
 	}
 
 	count = 8;
 
-	remove_lru_list(NULL, &l, 7, end_marker);
-	balance_lru_list(NULL, &l, end_marker);
+	remove_lru_list_nobalance(NULL, &l, 7, NULL);
+	balance_lru_list(NULL, &l, NULL);
 	--count;
 	assert_int_equal(l.num_hot, count / 2);
 	assert_int_equal(l.num_nodes, count);
@@ -258,8 +262,8 @@ static void _lru_init_test06(void **state)
 	assert_int_equal(l.tail, 1);
 	assert_int_equal(l.last_hot, 5);
 
-	remove_lru_list(NULL, &l, 6, end_marker);
-	balance_lru_list(NULL, &l, end_marker);
+	remove_lru_list_nobalance(NULL, &l, 6, NULL);
+	balance_lru_list(NULL, &l, NULL);
 	--count;
 	assert_int_equal(l.num_hot, count / 2);
 	assert_int_equal(l.num_nodes, count);
@@ -267,8 +271,8 @@ static void _lru_init_test06(void **state)
 	assert_int_equal(l.tail, 1);
 	assert_int_equal(l.last_hot, 4);
 
-	remove_lru_list(NULL, &l, 5, end_marker);
-	balance_lru_list(NULL, &l, end_marker);
+	remove_lru_list_nobalance(NULL, &l, 5, NULL);
+	balance_lru_list(NULL, &l, NULL);
 	--count;
 	assert_int_equal(l.num_hot, count / 2);
 	assert_int_equal(l.num_nodes, count);
@@ -276,8 +280,8 @@ static void _lru_init_test06(void **state)
 	assert_int_equal(l.tail, 1);
 	assert_int_equal(l.last_hot, 4);
 
-	remove_lru_list(NULL, &l, 4, end_marker);
-	balance_lru_list(NULL, &l, end_marker);
+	remove_lru_list_nobalance(NULL, &l, 4, NULL);
+	balance_lru_list(NULL, &l, NULL);
 	--count;
 	assert_int_equal(l.num_hot, count / 2);
 	assert_int_equal(l.num_nodes, count);
@@ -285,8 +289,8 @@ static void _lru_init_test06(void **state)
 	assert_int_equal(l.tail, 1);
 	assert_int_equal(l.last_hot, 3);
 
-	remove_lru_list(NULL, &l, 3, end_marker);
-	balance_lru_list(NULL, &l, end_marker);
+	remove_lru_list_nobalance(NULL, &l, 3, NULL);
+	balance_lru_list(NULL, &l, NULL);
 	--count;
 	assert_int_equal(l.num_hot, count / 2);
 	assert_int_equal(l.num_nodes, count);
@@ -294,8 +298,8 @@ static void _lru_init_test06(void **state)
 	assert_int_equal(l.tail, 1);
 	assert_int_equal(l.last_hot, 8);
 
-	remove_lru_list(NULL, &l, 8, end_marker);
-	balance_lru_list(NULL, &l, end_marker);
+	remove_lru_list_nobalance(NULL, &l, 8, NULL);
+	balance_lru_list(NULL, &l, NULL);
 	--count;
 	assert_int_equal(l.num_hot, count / 2);
 	assert_int_equal(l.num_nodes, count);
@@ -303,8 +307,8 @@ static void _lru_init_test06(void **state)
 	assert_int_equal(l.tail, 1);
 	assert_int_equal(l.last_hot, 2);
 
-	remove_lru_list(NULL, &l, 2, end_marker);
-	balance_lru_list(NULL, &l, end_marker);
+	remove_lru_list_nobalance(NULL, &l, 2, NULL);
+	balance_lru_list(NULL, &l, NULL);
 	--count;
 	assert_int_equal(l.num_hot, count / 2);
 	assert_int_equal(l.num_nodes, count);
