@@ -719,6 +719,7 @@ int ocf_alock_lock_rd(struct ocf_alock *alock,
 		} else {
 			env_atomic_set(&req->lock_remaining, 0);
 			env_atomic_dec(&alock->waiting);
+			lock = status;
 		}
 		env_mutex_unlock(&alock->lock);
 	}
@@ -754,6 +755,7 @@ int ocf_alock_lock_wr(struct ocf_alock *alock,
 		} else {
 			env_atomic_set(&req->lock_remaining, 0);
 			env_atomic_dec(&alock->waiting);
+			lock = status;
 		}
 		env_mutex_unlock(&alock->lock);
 	}

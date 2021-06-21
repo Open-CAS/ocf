@@ -321,7 +321,7 @@ static void metadata_io_req_submit(struct metadata_io_request *m_req)
 		lock = ocf_mio_async_lock(a_req->mio_conc, m_req,
 			matadata_io_page_lock_acquired);
 
-		if (lock != OCF_LOCK_ACQUIRED) {
+		if (lock < 0) {
 			a_req->error = lock;
 			metadata_io_req_finalize(m_req);
 			return;
