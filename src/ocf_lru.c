@@ -5,14 +5,14 @@
 
 #include "ocf_space.h"
 #include "ocf_lru.h"
-#include "../utils/utils_cleaner.h"
-#include "../utils/utils_cache_line.h"
-#include "../concurrency/ocf_concurrency.h"
-#include "../mngt/ocf_mngt_common.h"
-#include "../engine/engine_zero.h"
-#include "../ocf_cache_priv.h"
-#include "../ocf_request.h"
-#include "../engine/engine_common.h"
+#include "utils/utils_cleaner.h"
+#include "utils/utils_cache_line.h"
+#include "concurrency/ocf_concurrency.h"
+#include "mngt/ocf_mngt_common.h"
+#include "engine/engine_zero.h"
+#include "ocf_cache_priv.h"
+#include "ocf_request.h"
+#include "engine/engine_common.h"
 
 static const ocf_cache_line_t end_marker = (ocf_cache_line_t)-1;
 
