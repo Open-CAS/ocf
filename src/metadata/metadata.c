@@ -99,6 +99,9 @@ static ocf_cache_line_t ocf_metadata_get_entries(
 	case metadata_segment_core_uuid:
 		return OCF_CORE_MAX;
 
+	case metadata_segment_journal:
+		return 256 * 1024; /* 1 GiB total */
+
 	default:
 		break;
 	}
@@ -170,6 +173,10 @@ static int64_t ocf_metadata_get_element_size(
 
 	case metadata_segment_core_uuid:
 		size = sizeof(struct ocf_metadata_uuid);
+		break;
+
+	case metadata_segment_journal:
+		size = PAGE_SIZE;
 		break;
 
 	default:
@@ -335,6 +342,8 @@ const char * const ocf_metadata_segment_names[] = {
 		[metadata_segment_core_config]		= "Core config",
 		[metadata_segment_core_runtime]		= "Core runtime",
 		[metadata_segment_core_uuid]		= "Core UUID",
+		[metadata_segment_journal]		= "Metadata journal",
+
 };
 #if 1 == OCF_METADATA_DEBUG
 /*
@@ -455,6 +464,11 @@ static void ocf_metadata_deinit_fixed_size(struct ocf_cache *cache)
 
 	ocf_metadata_superblock_destroy(cache, superblock);
 
+	if (cache->journal) {
+		ocf_journal_deinit(cache->journal);
+		cache->journal = NULL;
+	}
+
 	if (ctrl->persistent_meta_fixed)
 		ctx_persistent_meta_deinit(cache->owner, ctrl->persistent_meta_fixed);
 
@@ -508,6 +522,15 @@ static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(
 		if (i == metadata_segment_core_uuid &&
 			persistence_mode == ocf_metadata_persistence_volume) {
 			raw->raw_type = metadata_raw_type_dynamic;
+		}
+
+		if (i == metadata_segment_journal) {
+			if (persistence_mode ==
+					ocf_metadata_persistence_persistent) {
+				raw->raw_type = metadata_raw_persistent_ram;
+			} else {
+				raw->raw_type = metadata_raw_null;
+			}
 		}
 
 		/* We can only calculate sizes for fixed size metadata segments */
@@ -612,6 +635,25 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 	if (result) {
 		ocf_metadata_deinit_fixed_size(cache);
 		return result;
+	}
+
+	if (metadata->persistence_mode == ocf_metadata_persistence_persistent)  {
+		struct ocf_metadata_raw* journal_raw = &ctrl->raw_desc[
+				metadata_segment_journal];
+
+		result = ocf_journal_init(cache,
+				ctx_get_journal_schema(cache->owner),
+				ocf_metadata_raw_wr_access(cache, journal_raw, 0)
+				, ocf_metadata_raw_size_of(cache, journal_raw),
+				&cache->journal);
+
+		if (result) {
+			ocf_cache_log(cache, log_err,
+					"Cannot initialize cache journal\n");
+			cache->journal = NULL;
+			ocf_metadata_deinit_fixed_size(cache);
+			return result;
+		}
 	}
 
 	cache->conf_meta = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);

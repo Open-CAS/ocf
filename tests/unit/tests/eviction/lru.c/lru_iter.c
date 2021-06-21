@@ -5,11 +5,13 @@
  *	INSERT HERE LIST OF FUNCTIONS YOU WANT TO LEAVE
  *	ONE FUNCTION PER LINE
  *  lru_iter_init
+ *  lru_iter_cleaning_init
  *  _lru_next_evp
  *  _lru_evp_is_empty
  *  _lru_evp_set_empty
  *  _lru_evp_all_empty
  *  ocf_rotate_right
+ *  ocf_get_lru
  *  lru_iter_eviction_next
  *  lru_iter_cleaning_next
  * </functions_to_leave>
@@ -38,7 +40,7 @@
 
 #include "eviction/lru.c/lru_iter_generated_wraps.c"
 
-//#define DEBUG
+#define DEBUG
 
 struct ocf_cache_line_concurrency *__wrap_ocf_cache_line_concurrency(ocf_cache_t cache)
 {
@@ -223,7 +225,7 @@ struct ocf_lru_list *__wrap_evp_lru_get_list(struct ocf_user_part *part,
 	}
 
 #ifdef DEBUG
-	print_message("list for case %u evp %u: head: %u tail %u elems %u\n",
+	print_message("list for case %u evp %u: head: 0x%x tail 0x%x elems 0x%x\n",
 		current_case, evp, list.head, list.tail, list.num_nodes);
 #endif
 
@@ -259,7 +261,7 @@ union eviction_policy_meta *__wrap_ocf_metadata_get_eviction_policy(
 
 				policy.lru.next = test_cases[j + 1][i][current_case];
 #ifdef DEBUG
-				print_message("[%u] next %u prev %u\n",
+				print_message("[0x%x] next 0x%x prev 0x%x\n",
 						line, policy.lru.next,
 						policy.lru.prev);
 #endif
@@ -373,8 +375,7 @@ static void _lru_run_test(unsigned test_case)
 				pos[i]++;
 		}
 
-		lru_iter_init(&iter, NULL, NULL, start_pos, false, false, false,
-				NULL, NULL);
+		lru_iter_cleaning_init(&iter, NULL, NULL, 0, start_pos);
 
 		do {
 			/* check what is expected to be returned from iterator */
@@ -403,8 +404,16 @@ static void _lru_run_test(unsigned test_case)
 			/* get cacheline from iterator */
 			cache_line = lru_iter_cleaning_next(&iter);
 
+#ifdef DEBUG
+			if (cache_line == expected_cache_line) {
+				print_message("case %u cline 0x%x ok\n",
+						test_case, cache_line);
+			} else {
+				print_message("case %u cline 0x%x NOK expected 0x%x\n",
+						test_case, cache_line, expected_cache_line);
+			}
+#endif
 			assert_int_equal(cache_line, expected_cache_line);
-
 			curr_evp = (curr_evp + 1) % OCF_NUM_EVICTION_LISTS;
 		} while (cache_line != -1);
 

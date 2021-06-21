@@ -47,6 +47,8 @@ struct ocf_lru_iter
 	struct ocf_alock *c;
 	/* target partition */
 	struct ocf_part_runtime *part;
+	/* target partition id */
+	ocf_part_id_t part_id;
 	/* available (non-empty) eviction list bitmap rotated so that current
 	   @evp is on the most significant bit */
 	unsigned long long next_avail_evp;

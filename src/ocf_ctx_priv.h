@@ -10,6 +10,7 @@
 #include "ocf/ocf_ctx.h"
 #include "ocf_logger_priv.h"
 #include "ocf_volume_priv.h"
+#include "utils/utils_journal.h"
 
 #define OCF_VOLUME_TYPE_MAX 8
 
@@ -33,6 +34,8 @@ struct ocf_ctx {
 		int core_pool_count;
 	} core_pool;
 
+
+	struct ocf_journal_schema journal_schema;
 
 	const struct ocf_ctx_config *cfg;
 	env_atomic ref_count;
@@ -181,6 +184,12 @@ static inline void ctx_cleaner_stop(ocf_ctx_t ctx, ocf_cleaner_t cleaner)
 static inline void ctx_cleaner_kick(ocf_ctx_t ctx, ocf_cleaner_t cleaner)
 {
 	ctx->ops->cleaner.kick(cleaner);
+}
+
+static inline struct ocf_journal_schema *ctx_get_journal_schema(ocf_ctx_t ctx)
+{
+	return &ctx->journal_schema;
+
 }
 
 /**

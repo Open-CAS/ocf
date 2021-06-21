@@ -24,6 +24,7 @@ enum ocf_metadata_segment_id {
 	metadata_segment_core_config,	/*!< Core Config Metadata */
 	metadata_segment_core_runtime,	/*!< Core Runtime Metadata */
 	metadata_segment_core_uuid,	/*!< Core UUID */
+	metadata_segment_journal,	/*!< Core UUID */
 	/* .... new fixed size sections go here */
 
 	metadata_segment_fixed_size_max,

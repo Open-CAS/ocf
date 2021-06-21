@@ -96,7 +96,7 @@ static inline void ocf_eviction_initialize(struct ocf_cache *cache,
 }
 
 static inline void ocf_eviction_flush_dirty(ocf_cache_t cache,
-		struct ocf_part_runtime *part,
+		struct ocf_user_part *part,
 		struct ocf_part_cleaning_ctx *ctx,
 		ocf_queue_t io_queue, uint32_t count)
 {

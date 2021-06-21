@@ -125,6 +125,8 @@ struct ocf_cache {
 
 	void *priv;
 
+	struct ocf_journal *journal;
+
 	/*
 	 * Most of the time this variable is set to 0, unless user requested
 	 * interruption of flushing process.
