@@ -4,8 +4,8 @@
  */
 
 #include "ocf_space.h"
-#include "../utils/utils_user_part.h"
-#include "../engine/engine_common.h"
+#include "utils/utils_user_part.h"
+#include "engine/engine_common.h"
 
 static uint32_t ocf_evict_calculate(ocf_cache_t cache,
 		struct ocf_user_part *user_part, uint32_t to_evict)
