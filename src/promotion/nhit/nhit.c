@@ -222,7 +222,7 @@ bool nhit_req_should_promote(ocf_promotion_policy_t policy,
 	uint64_t core_line;
 	uint64_t occupied_cachelines =
 		ocf_metadata_collision_table_entries(policy->owner) -
-		ocf_freelist_num_free(policy->owner->freelist);
+		ocf_lru_num_free(policy->owner);
 
 	cfg = (struct nhit_promotion_policy_config*)policy->config;
 

@@ -7,7 +7,7 @@
 #include "ocf_priv.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
-#include "utils/utils_part.h"
+#include "utils/utils_user_part.h"
 #include "utils/utils_cache_line.h"
 #include "utils/utils_stats.h"
 

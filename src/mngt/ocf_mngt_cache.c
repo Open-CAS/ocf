@@ -11,8 +11,9 @@
 #include "../ocf_queue_priv.h"
 #include "../metadata/metadata.h"
 #include "../metadata/metadata_io.h"
+#include "../metadata/metadata_partition_structs.h"
 #include "../engine/cache_engine.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
@@ -20,9 +21,8 @@
 #include "../utils/utils_refcnt.h"
 #include "../utils/utils_async_lock.h"
 #include "../concurrency/ocf_concurrency.h"
-#include "../eviction/ops.h"
+#include "../ocf_lru.h"
 #include "../ocf_ctx_priv.h"
-#include "../ocf_freelist.h"
 #include "../cleaning/cleaning.h"
 #include "../promotion/ops.h"
 
@@ -123,8 +123,6 @@ struct ocf_cache_attach_context {
 			 * load or recovery
 			 */
 
-		bool freelist_inited : 1;
-
 		bool concurrency_inited : 1;
 	} flags;
 
@@ -169,7 +167,7 @@ static void __init_partitions(ocf_cache_t cache)
 			OCF_IO_CLASS_PRIO_LOWEST, true));
 
 	/* Add other partition to the cache and make it as dummy */
-	for (i_part = 0; i_part < OCF_IO_CLASS_MAX; i_part++) {
+	for (i_part = 0; i_part < OCF_USER_IO_CLASS_MAX; i_part++) {
 		ocf_refcnt_freeze(&cache->user_parts[i_part].cleaning.counter);
 
 		if (i_part == PARTITION_DEFAULT)
@@ -182,26 +180,22 @@ static void __init_partitions(ocf_cache_t cache)
 	}
 }
 
-static void __init_partitions_attached(ocf_cache_t cache)
+static void __init_parts_attached(ocf_cache_t cache)
 {
-	struct ocf_user_part *part;
 	ocf_part_id_t part_id;
 
-	for (part_id = 0; part_id < OCF_IO_CLASS_MAX; part_id++) {
-		part = &cache->user_parts[part_id];
+	for (part_id = 0; part_id < OCF_USER_IO_CLASS_MAX; part_id++)
+		ocf_lru_init(cache, &cache->user_parts[part_id].part);
 
-		part->runtime->head = cache->device->collision_table_entries;
-		part->runtime->curr_size = 0;
-		ocf_eviction_initialize(cache, part);
-	}
+	ocf_lru_init(cache, &cache->free);
 }
 
-static void __init_freelist(ocf_cache_t cache)
+static void __populate_free(ocf_cache_t cache)
 {
 	uint64_t free_clines = ocf_metadata_collision_table_entries(cache) -
 			ocf_get_cache_occupancy(cache);
 
-	ocf_freelist_populate(cache->freelist, free_clines);
+	ocf_lru_populate(cache, free_clines);
 }
 
 static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
@@ -233,14 +227,6 @@ static void __deinit_cleaning_policy(ocf_cache_t cache)
 		cleaning_policy_ops[cleaning_policy].deinitialize(cache);
 }
 
-static void __init_eviction_policy(ocf_cache_t cache,
-		ocf_eviction_t eviction)
-{
-	ENV_BUG_ON(eviction < 0 || eviction >= ocf_eviction_max);
-
-	cache->conf_meta->eviction_policy_type = eviction;
-}
-
 static void __setup_promotion_policy(ocf_cache_t cache)
 {
 	int i;
@@ -257,6 +243,11 @@ static void __deinit_promotion_policy(ocf_cache_t cache)
 {
 	ocf_promotion_deinit(cache->promotion_policy);
 	cache->promotion_policy = NULL;
+}
+
+static void __init_free(ocf_cache_t cache)
+{
+	cache->free.id = PARTITION_FREELIST;
 }
 
 static void __init_cores(ocf_cache_t cache)
@@ -283,7 +274,7 @@ static void __reset_stats(ocf_cache_t cache)
 		env_atomic_set(&core->runtime_meta->dirty_clines, 0);
 		env_atomic64_set(&core->runtime_meta->dirty_since, 0);
 
-		for (i = 0; i != OCF_IO_CLASS_MAX; i++) {
+		for (i = 0; i != OCF_USER_IO_CLASS_MAX; i++) {
 			env_atomic_set(&core->runtime_meta->
 					part_counters[i].cached_clines, 0);
 			env_atomic_set(&core->runtime_meta->
@@ -292,8 +283,7 @@ static void __reset_stats(ocf_cache_t cache)
 	}
 }
 
-static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
-		ocf_eviction_t eviction_policy)
+static ocf_error_t init_attached_data_structures(ocf_cache_t cache)
 {
 	ocf_error_t result;
 
@@ -301,8 +291,8 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
 
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
-	__init_partitions_attached(cache);
-	__init_freelist(cache);
+	__init_parts_attached(cache);
+	__populate_free(cache);
 
 	result = __init_cleaning_policy(cache);
 	if (result) {
@@ -311,7 +301,6 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache,
 		return result;
 	}
 
-	__init_eviction_policy(cache, eviction_policy);
 	__setup_promotion_policy(cache);
 
 	return 0;
@@ -321,7 +310,7 @@ static void init_attached_data_structures_recovery(ocf_cache_t cache)
 {
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
-	__init_partitions_attached(cache);
+	__init_parts_attached(cache);
 	__reset_stats(cache);
 	__init_metadata_version(cache);
 }
@@ -477,7 +466,8 @@ void _ocf_mngt_load_init_instance_complete(void *priv, int error)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
 	}
 
-	__init_freelist(cache);
+	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown)
+		__populate_free(cache);
 
 	cleaning_policy = cache->conf_meta->cleaning_policy_type;
 	if (!cleaning_policy_ops[cleaning_policy].initialize)
@@ -685,7 +675,6 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 	cache->pt_unaligned_io = cfg->pt_unaligned_io;
 	cache->use_submit_io_fast = cfg->use_submit_io_fast;
 
-	cache->eviction_policy_init = cfg->eviction_policy;
 	cache->metadata.is_volatile = cfg->metadata_volatile;
 
 out:
@@ -996,12 +985,6 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 
 	context->flags.attached_metadata_inited = true;
 
-	ret = ocf_freelist_init(&cache->freelist, cache);
-	if (ret)
-		OCF_PL_FINISH_RET(pipeline, ret);
-
-	context->flags.freelist_inited = true;
-
 	ret = ocf_concurrency_init(cache);
 	if (ret)
 		OCF_PL_FINISH_RET(pipeline, ret);
@@ -1021,7 +1004,7 @@ static void _ocf_mngt_attach_init_instance(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 	ocf_error_t result;
 
-	result = init_attached_data_structures(cache, cache->eviction_policy_init);
+	result = init_attached_data_structures(cache);
 	if (result)
 		OCF_PL_FINISH_RET(pipeline, result);
 
@@ -1147,9 +1130,6 @@ static void _ocf_mngt_attach_handle_error(
 	if (context->flags.concurrency_inited)
 		ocf_concurrency_deinit(cache);
 
-	if (context->flags.freelist_inited)
-		ocf_freelist_deinit(cache->freelist);
-
 	if (context->flags.volume_inited)
 		ocf_volume_deinit(&cache->device->volume);
 
@@ -1172,7 +1152,8 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	INIT_LIST_HEAD(&cache->io_queues);
 
 	/* Init Partitions */
-	ocf_part_init(cache);
+	ocf_user_part_init(cache);
+	__init_free(cache);
 
 	__init_cores(cache);
 	__init_metadata_version(cache);
@@ -1886,11 +1867,6 @@ static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 	if (!ocf_cache_mode_is_valid(cfg->cache_mode))
 		return -OCF_ERR_INVALID_CACHE_MODE;
 
-	if (cfg->eviction_policy >= ocf_eviction_max ||
-			cfg->eviction_policy < 0) {
-		return -OCF_ERR_INVAL;
-	}
-
 	if (cfg->promotion_policy >= ocf_promotion_max ||
 			cfg->promotion_policy < 0 ) {
 		return -OCF_ERR_INVAL;
@@ -2025,7 +2001,6 @@ static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
 
 	ocf_metadata_deinit_variable_size(cache);
 	ocf_concurrency_deinit(cache);
-	ocf_freelist_deinit(cache->freelist);
 
 	ocf_volume_deinit(&cache->device->volume);
 
@@ -2092,15 +2067,12 @@ static int _ocf_mngt_cache_load_core_log(ocf_core_t core, void *cntx)
 static void _ocf_mngt_cache_load_log(ocf_cache_t cache)
 {
 	ocf_cache_mode_t cache_mode = ocf_cache_get_mode(cache);
-	ocf_eviction_t eviction_type = cache->conf_meta->eviction_policy_type;
 	ocf_cleaning_t cleaning_type = cache->conf_meta->cleaning_policy_type;
 	ocf_promotion_t promotion_type = cache->conf_meta->promotion_policy_type;
 
 	ocf_cache_log(cache, log_info, "Successfully loaded\n");
 	ocf_cache_log(cache, log_info, "Cache mode : %s\n",
 			_ocf_cache_mode_get_name(cache_mode));
-	ocf_cache_log(cache, log_info, "Eviction policy : %s\n",
-			evict_policy_ops[eviction_type].name);
 	ocf_cache_log(cache, log_info, "Cleaning policy : %s\n",
 			cleaning_policy_ops[cleaning_type].name);
 	ocf_cache_log(cache, log_info, "Promotion policy : %s\n",

@@ -1,14 +1,14 @@
 /*
- * <tested_file_path>src/eviction/lru.c</tested_file_path>
+ * <tested_file_path>src/ocf_lru.c</tested_file_path>
  * <tested_function>lru_iter_next</tested_function>
  * <functions_to_leave>
  *	INSERT HERE LIST OF FUNCTIONS YOU WANT TO LEAVE
  *	ONE FUNCTION PER LINE
  *  lru_iter_init
- *  _lru_next_evp
- *  _lru_evp_is_empty
- *  _lru_evp_set_empty
- *  _lru_evp_all_empty
+ *  _lru_next_lru
+ *  _lru_lru_is_empty
+ *  _lru_lru_set_empty
+ *  _lru_lru_all_empty
  *  ocf_rotate_right
  *  lru_iter_eviction_next
  *  lru_iter_cleaning_next
@@ -26,9 +26,8 @@
 #include <cmocka.h>
 #include "print_desc.h"
 
-#include "eviction.h"
-#include "lru.h"
-#include "ops.h"
+#include "ocf_space.h"
+#include "ocf_lru.h"
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_cache_line.h"
 #include "../concurrency/ocf_concurrency.h"
@@ -36,11 +35,16 @@
 #include "../engine/engine_zero.h"
 #include "../ocf_request.h"
 
-#include "eviction/lru.c/lru_iter_generated_wraps.c"
+#include "ocf_lru.c/lru_iter_generated_wraps.c"
 
 //#define DEBUG
 
-ocf_cache_line_t test_cases[10 * OCF_NUM_EVICTION_LISTS][OCF_NUM_EVICTION_LISTS][20];
+struct ocf_cache_line_concurrency *__wrap_ocf_cache_line_concurrency(ocf_cache_t cache)
+{
+	return NULL;
+}
+
+ocf_cache_line_t test_cases[10 * OCF_NUM_LRU_LISTS][OCF_NUM_LRU_LISTS][20];
 unsigned num_cases = 20;
 
 void write_test_case_description(void)
@@ -49,21 +53,21 @@ void write_test_case_description(void)
 	unsigned test_case = 0;
 
 	// case 0 - all lists empty
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
 		test_cases[0][i][test_case] = -1;
 	}
 
 	// case 1 - all lists with single element
 	test_case++;
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
 		test_cases[0][i][test_case] = 10 * i;
 		test_cases[1][i][test_case] = -1;
 	}
 
 	// case 2 - all lists have between 1 and 5 elements, increasingly
 	test_case++;
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
-		unsigned num_elements = 1 + i / (OCF_NUM_EVICTION_LISTS / 4);
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
+		unsigned num_elements = 1 + i / (OCF_NUM_LRU_LISTS / 4);
 
 		for (j = 0; j < num_elements; j++)
 			test_cases[j][i][test_case] = 10 * i + j;
@@ -72,7 +76,7 @@ void write_test_case_description(void)
 
 	// case 3 - all lists have between 1 and 5 elements, modulo index
 	test_case++;
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
 		unsigned num_elements = 1 + (i % 5);
 
 		for (j = 0; j < num_elements; j++)
@@ -82,8 +86,8 @@ void write_test_case_description(void)
 
 	// case 4 - all lists have between 0 and 4 elements, increasingly
 	test_case++;
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
-		unsigned num_elements = i / (OCF_NUM_EVICTION_LISTS / 4);
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
+		unsigned num_elements = i / (OCF_NUM_LRU_LISTS / 4);
 
 		for (j = 0; j < num_elements; j++)
 			test_cases[j][i][test_case] = 10 * i + j;
@@ -92,7 +96,7 @@ void write_test_case_description(void)
 
 	// case 5 - all lists have between 0 and 4 elements, modulo index
 	test_case++;
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
 		unsigned num_elements = (i % 5);
 
 		for (j = 0; j < num_elements; j++)
@@ -102,41 +106,41 @@ void write_test_case_description(void)
 
 	// case 6 - list length increasing by 1 from 0
 	test_case++;
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
 		unsigned num_elements = i;
 
 		for (j = 0; j < num_elements; j++)
-			test_cases[j][i][test_case] = OCF_NUM_EVICTION_LISTS * i + j;
+			test_cases[j][i][test_case] = OCF_NUM_LRU_LISTS * i + j;
 		test_cases[j][i][test_case] = -1;
 	}
 
 	// case 7 - list length increasing by 1 from 1
 	test_case++;
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
 		unsigned num_elements = i + 1;
 
 		for (j = 0; j < num_elements; j++)
-			test_cases[j][i][test_case] = 2 * OCF_NUM_EVICTION_LISTS * i + j;
+			test_cases[j][i][test_case] = 2 * OCF_NUM_LRU_LISTS * i + j;
 		test_cases[j][i][test_case] = -1;
 	}
 
 	// case 8 - list length increasing by 4 from 0
 	test_case++;
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
 		unsigned num_elements = 4 * i;
 
 		for (j = 0; j < num_elements; j++)
-			test_cases[j][i][test_case] = 4 * OCF_NUM_EVICTION_LISTS * i + j;
+			test_cases[j][i][test_case] = 4 * OCF_NUM_LRU_LISTS * i + j;
 		test_cases[j][i][test_case] = -1;
 	}
 
 	// case 9 - list length increasing by 4 from 1
 	test_case++;
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
 		unsigned num_elements = 4 * i + 1;
 
 		for (j = 0; j < num_elements; j++)
-			test_cases[j][i][test_case] = 5 * OCF_NUM_EVICTION_LISTS * i + j;
+			test_cases[j][i][test_case] = 5 * OCF_NUM_LRU_LISTS * i + j;
 		test_cases[j][i][test_case] = -1;
 	}
 
@@ -146,8 +150,8 @@ void write_test_case_description(void)
 	while(test_case < 2 * (l + 1)) {
 		unsigned matching_case = test_case - l - 1;
 
-		for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
-			unsigned curr_list = (i + 4) % OCF_NUM_EVICTION_LISTS;
+		for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
+			unsigned curr_list = (i + 4) % OCF_NUM_LRU_LISTS;
 			j = 0;
 			while(test_cases[j][i][matching_case] != -1) {
 				test_cases[j][curr_list][test_case] =
@@ -160,13 +164,13 @@ void write_test_case_description(void)
 	}
 
 	/* transform cacheline numbers so that they remain unique but have
-	 * assignment to list modulo OCF_NUM_EVICTION_LISTS */
+	 * assignment to list modulo OCF_NUM_LRU_LISTS */
 	for (test_case = 0; test_case < num_cases; test_case++) {
-		for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+		for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
 			j = 0;
 			while (test_cases[j][i][test_case] != -1) {
 				test_cases[j][i][test_case] = test_cases[j][i][test_case] *
-						OCF_NUM_EVICTION_LISTS + i;
+						OCF_NUM_LRU_LISTS + i;
 				j++;
 			}
 		}
@@ -181,7 +185,7 @@ void write_test_case_description(void)
 
 	for (test_case = 0; test_case < num_cases; test_case++) {
 		print_message("test case no %d\n", test_case);
-		for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++) {
+		for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
 			print_message("list %02u: ", i);
 			j = 0;
 			while (test_cases[j][i][test_case] != -1) {
@@ -199,12 +203,12 @@ unsigned current_case;
 
 struct ocf_lru_list list;
 
-struct ocf_lru_list *__wrap_evp_lru_get_list(struct ocf_user_part *part,
-		uint32_t evp, bool clean)
+struct ocf_lru_list *__wrap_ocf_lru_get_list(struct ocf_user_part *user_part,
+		uint32_t lru, bool clean)
 {
 	unsigned i = 0;
 
-	while (test_cases[i][evp][current_case] != -1)
+	while (test_cases[i][lru][current_case] != -1)
 		i++;
 
 	if (i == 0) {
@@ -212,53 +216,53 @@ struct ocf_lru_list *__wrap_evp_lru_get_list(struct ocf_user_part *part,
 		list.tail = -1;
 		list.num_nodes = 0;
 	} else {
-		list.head = test_cases[0][evp][current_case];
-		list.tail = test_cases[i - 1][evp][current_case];
+		list.head = test_cases[0][lru][current_case];
+		list.tail = test_cases[i - 1][lru][current_case];
 		list.num_nodes = i;
 	}
 
 #ifdef DEBUG
-	print_message("list for case %u evp %u: head: %u tail %u elems %u\n",
-		current_case, evp, list.head, list.tail, list.num_nodes);
+	print_message("list for case %u lru %u: head: %u tail %u elems %u\n",
+		current_case, lru, list.head, list.tail, list.num_nodes);
 #endif
 
 	return &list;
 }
 
-inline struct ocf_lru_list *__wrap_evp_get_cline_list(ocf_cache_t cache,
+inline struct ocf_lru_list *__wrap_lru_get_cline_list(ocf_cache_t cache,
 		ocf_cache_line_t cline)
 {
-	return __wrap_evp_lru_get_list(NULL, cline % OCF_NUM_EVICTION_LISTS, true);
+	return __wrap_ocf_lru_get_list(NULL, cline % OCF_NUM_LRU_LISTS, true);
 }
 
 
-union eviction_policy_meta policy;
+struct ocf_lru_meta g_lru_meta;
 
-union eviction_policy_meta *__wrap_ocf_metadata_get_eviction_policy(
+struct ocf_lru_meta *__wrap_ocf_metadata_get_lru(
   struct ocf_cache *cache, ocf_cache_line_t line)
 {
 	unsigned i, j;
 
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++)
 	{
 		j = 0;
 
 		while (test_cases[j][i][current_case] != -1) {
 			if (test_cases[j][i][current_case] == line) {
 				if (j == 0) {
-					policy.lru.prev = -1;
+					g_lru_meta.prev = -1;
 				} else {
-					policy.lru.prev =
+					g_lru_meta.prev =
 						test_cases[j - 1][i][current_case];
 				}
 
-				policy.lru.next = test_cases[j + 1][i][current_case];
+				g_lru_meta.next = test_cases[j + 1][i][current_case];
 #ifdef DEBUG
 				print_message("[%u] next %u prev %u\n",
-						line, policy.lru.next,
-						policy.lru.prev);
+						line, g_lru_meta.next,
+						g_lru_meta.prev);
 #endif
-				return &policy;
+				return &g_lru_meta;
 			}
 			j++;
 		}
@@ -276,7 +280,7 @@ void __wrap_add_lru_head(ocf_cache_t cache,
 		unsigned int collision_index)
 {
 	unsigned list_head = list->head;
-	unsigned i, j = collision_index % OCF_NUM_EVICTION_LISTS;
+	unsigned i, j = collision_index % OCF_NUM_LRU_LISTS;
 
 	i = 1;
 	while (test_cases[i][j][current_case] != -1)
@@ -290,7 +294,7 @@ void __wrap_add_lru_head(ocf_cache_t cache,
 	test_cases[0][j][current_case] = collision_index;
 
 #ifdef DEBUG
-	print_message("case %u evp %u  head set to  %u\n", current_case, j, collision_index);
+	print_message("case %u lru %u  head set to  %u\n", current_case, j, collision_index);
 #endif
 }
 
@@ -303,7 +307,7 @@ void __wrap_remove_lru_list(ocf_cache_t cache,
 	unsigned i, j;
 
 	found = false;
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++)
 	{
 		j = 0;
 
@@ -324,7 +328,7 @@ void __wrap_remove_lru_list(ocf_cache_t cache,
 	assert(found);
 
 #ifdef DEBUG
-	print_message("case %u removed  %u from evp  %u\n", current_case, collision_index, i);
+	print_message("case %u removed  %u from lru  %u\n", current_case, collision_index, i);
 #endif
 }
 
@@ -335,28 +339,33 @@ bool __wrap__lru_lock(struct ocf_lru_iter *iter,
 	return true;
 }
 
-bool __wrap__lru_trylock_cacheline(struct ocf_lru_iter *iter,
-		ocf_cache_line_t cline)
+bool __wrap_ocf_cache_line_try_lock_rd(struct ocf_cache_line_concurrency *c,
+		ocf_cache_line_t line)
 {
 	return true;
 }
 
+bool __wrap_ocf_cache_line_try_lock_wr(struct ocf_cache_line_concurrency *c,
+		ocf_cache_line_t line)
+{
+	return false;
+}
 static void _lru_run_test(unsigned test_case)
 {
 	unsigned start_pos;
 	current_case = test_case;
 
-	for (start_pos = 0; start_pos < OCF_NUM_EVICTION_LISTS; start_pos++)
+	for (start_pos = 0; start_pos < OCF_NUM_LRU_LISTS; start_pos++)
 	{
 		struct ocf_lru_iter iter;
 		ocf_cache_line_t cache_line, expected_cache_line;
-		unsigned curr_evp = start_pos;
-		unsigned pos[OCF_NUM_EVICTION_LISTS];
+		unsigned curr_lru = start_pos;
+		unsigned pos[OCF_NUM_LRU_LISTS];
 		unsigned i;
 
 		write_test_case_description();
 
-		for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
+		for (i = 0; i < OCF_NUM_LRU_LISTS; i++)
 		{
 			pos[i] = -1;
 			while(test_cases[pos[i] + 1][i][test_case] != -1)
@@ -368,26 +377,26 @@ static void _lru_run_test(unsigned test_case)
 
 		do {
 			/* check what is expected to be returned from iterator */
-			if (pos[curr_evp] == -1) {
+			if (pos[curr_lru] == -1) {
 				i = 1;
-				while (i < OCF_NUM_EVICTION_LISTS &&
-					pos[(curr_evp + i) % OCF_NUM_EVICTION_LISTS]
+				while (i < OCF_NUM_LRU_LISTS &&
+					pos[(curr_lru + i) % OCF_NUM_LRU_LISTS]
 						== -1) {
 					i++;
 				}
-				if (i == OCF_NUM_EVICTION_LISTS) {
+				if (i == OCF_NUM_LRU_LISTS) {
 					/* reached end of lists */
 					expected_cache_line = -1;
 				} else {
-					curr_evp = (curr_evp + i) % OCF_NUM_EVICTION_LISTS;
-					expected_cache_line = test_cases[pos[curr_evp]]
-							[curr_evp][test_case];
-					pos[curr_evp]--;
+					curr_lru = (curr_lru + i) % OCF_NUM_LRU_LISTS;
+					expected_cache_line = test_cases[pos[curr_lru]]
+							[curr_lru][test_case];
+					pos[curr_lru]--;
 				}
 			} else {
-				expected_cache_line = test_cases[pos[curr_evp]]
-						[curr_evp][test_case];
-				pos[curr_evp]--;
+				expected_cache_line = test_cases[pos[curr_lru]]
+						[curr_lru][test_case];
+				pos[curr_lru]--;
 			}
 
 			/* get cacheline from iterator */
@@ -395,11 +404,11 @@ static void _lru_run_test(unsigned test_case)
 
 			assert_int_equal(cache_line, expected_cache_line);
 
-			curr_evp = (curr_evp + 1) % OCF_NUM_EVICTION_LISTS;
+			curr_lru = (curr_lru + 1) % OCF_NUM_LRU_LISTS;
 		} while (cache_line != -1);
 
 		/* make sure all cachelines are visited */
-		for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
+		for (i = 0; i < OCF_NUM_LRU_LISTS; i++)
 		{
 			assert_int_equal((unsigned)-1, pos[i]);
 		}

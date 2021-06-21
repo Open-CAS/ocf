@@ -161,7 +161,7 @@ static void ocf_metadata_load_superblock_post(ocf_pipeline_t pipeline,
 		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
 	}
 
-	if (sb_config->valid_parts_no > OCF_IO_CLASS_MAX) {
+	if (sb_config->valid_parts_no > OCF_USER_IO_CLASS_MAX) {
 		ocf_cache_log(cache, log_err,
 			"Loading cache state ERROR, invalid partition count\n");
 		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);

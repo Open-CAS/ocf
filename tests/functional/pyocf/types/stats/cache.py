@@ -28,7 +28,6 @@ class CacheInfo(Structure):
         ("dirty_for", c_uint64),
         ("cache_mode", c_uint32),
         ("fallback_pt", _FallbackPt),
-        ("eviction_policy", c_uint32),
         ("cleaning_policy", c_uint32),
         ("promotion_policy", c_uint32),
         ("cache_line_size", c_uint64),

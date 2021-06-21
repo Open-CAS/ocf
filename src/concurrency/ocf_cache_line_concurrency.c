@@ -233,15 +233,6 @@ bool ocf_cache_line_are_waiters(struct ocf_alock *alock,
 	return !ocf_alock_waitlist_is_empty(alock, line);
 }
 
-bool ocf_cache_line_is_locked_exclusively(struct ocf_cache *cache,
-		ocf_cache_line_t line)
-{
-	struct ocf_alock *alock =
-			ocf_cache_line_concurrency(cache);
-
-	return ocf_alock_is_locked_exclusively(alock, line);
-}
-
 uint32_t ocf_cache_line_concurrency_suspended_no(struct ocf_alock *alock)
 {
 	return ocf_alock_waitlist_count(alock);

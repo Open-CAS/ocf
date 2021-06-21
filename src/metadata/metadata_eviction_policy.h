@@ -6,8 +6,8 @@
 #ifndef __METADATA_EVICTION_H__
 #define __METADATA_EVICTION_H__
 
-union eviction_policy_meta *
-ocf_metadata_get_eviction_policy(
+struct ocf_lru_meta *
+ocf_metadata_get_lru(
 		struct ocf_cache *cache, ocf_cache_line_t line);
 
 #endif /* METADATA_EVICTION_H_ */

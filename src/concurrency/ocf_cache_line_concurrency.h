@@ -141,9 +141,6 @@ bool ocf_cache_line_is_used(struct ocf_alock *c,
 bool ocf_cache_line_are_waiters(struct ocf_alock *c,
 		ocf_cache_line_t line);
 
-bool ocf_cache_line_is_locked_exclusively(struct ocf_cache *cache,
-		ocf_cache_line_t line);
-
 /**
  * @brief un_lock request map info entry from from write or read access.
  *

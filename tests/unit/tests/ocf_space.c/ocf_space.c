@@ -1,8 +1,8 @@
 /*
- * <tested_file_path>src/eviction/eviction.c</tested_file_path>
- * <tested_function>ocf_evict_do</tested_function>
+ * <tested_file_path>src/ocf_space.c</tested_file_path>
+ * <tested_function>ocf_remap_do</tested_function>
  * <functions_to_leave>
-	ocf_evict_partitions
+	ocf_evict_user_partitions
  * </functions_to_leave>
  */
 
@@ -17,55 +17,56 @@
 #include <cmocka.h>
 #include "print_desc.h"
 
-#include "eviction.h"
-#include "ops.h"
-#include "../utils/utils_part.h"
+#include "ocf_space.h"
+#include "../utils/utils_user_part.h"
 
-#include "eviction/eviction.c/eviction_generated_wraps.c"
+#include "ocf_space.c/ocf_space_generated_wraps.c"
 
 struct test_cache
 {
 	struct ocf_cache cache;
-	struct ocf_user_part_config part[OCF_IO_CLASS_MAX];
-	uint32_t overflow[OCF_IO_CLASS_MAX];
-	uint32_t evictable[OCF_IO_CLASS_MAX];
+	struct ocf_user_part_config part[OCF_USER_IO_CLASS_MAX];
+	struct ocf_part_runtime runtime[OCF_USER_IO_CLASS_MAX];
+	uint32_t overflow[OCF_USER_IO_CLASS_MAX];
+	uint32_t evictable[OCF_USER_IO_CLASS_MAX];
 	uint32_t req_unmapped;
 };
 
-bool __wrap_ocf_eviction_can_evict(ocf_cache_t cache)
+uint32_t __wrap_ocf_lru_num_free(ocf_cache_t cache)
 {
-	return true;
+	return 0;
 }
 
-uint32_t __wrap_ocf_part_overflow_size(struct ocf_cache *cache,
-		struct ocf_user_part *part)
+uint32_t __wrap_ocf_user_part_overflow_size(struct ocf_cache *cache,
+		struct ocf_user_part *user_part)
 {
 	struct test_cache* tcache = cache;
 
-	return tcache->overflow[part->id];
+	return tcache->overflow[user_part->part.id];
 }
 
 uint32_t __wrap_ocf_evict_calculate(ocf_cache_t cache,
-		struct ocf_user_part *part, uint32_t to_evict, bool roundup)
+		struct ocf_user_part *user_part, uint32_t to_evict, bool roundup)
 {
 	struct test_cache* tcache = cache;
 
-	return min(tcache->evictable[part->id], to_evict);
+	return min(tcache->evictable[user_part->part.id], to_evict);
 }
 
-uint32_t __wrap_ocf_eviction_need_space(struct ocf_cache *cache,
-	ocf_queue_t io_queue, struct ocf_user_part *part,
-	uint32_t clines)
+uint32_t __wrap_ocf_lru_req_clines(struct ocf_request *req,
+	struct ocf_part *src_part, uint32_t cline_no)
 {
-	struct test_cache *tcache = (struct test_cache *)cache;
-	unsigned overflown_consumed = min(clines, tcache->overflow[part->id]);
+	struct test_cache *tcache = (struct test_cache *)req->cache;
+	unsigned overflown_consumed;
 
-	tcache->overflow[part->id] -= overflown_consumed;
-	tcache->evictable[part->id] -= clines;
-	tcache->req_unmapped -= clines;
+	overflown_consumed = min(cline_no, tcache->overflow[src_part->id]);
 
-	check_expected(part);
-	check_expected(clines);
+	tcache->overflow[src_part->id] -= overflown_consumed;
+	tcache->evictable[src_part->id] -= cline_no;
+	tcache->req_unmapped -= cline_no;
+
+	check_expected(src_part);
+	check_expected(cline_no);
 	function_called();
 
 	return mock();
@@ -94,7 +95,7 @@ bool ocf_cache_is_device_attached(ocf_cache_t cache)
 
 
 /* FIXME: copy-pasted from OCF */
-int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
+int ocf_user_part_lst_cmp_valid(struct ocf_cache *cache,
 		struct ocf_lst_entry *e1, struct ocf_lst_entry *e2)
 {
 	struct ocf_user_part *p1 = container_of(e1, struct ocf_user_part,
@@ -102,10 +103,11 @@ int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
 	struct ocf_user_part *p2 = container_of(e2, struct ocf_user_part,
 			lst_valid);
 	size_t p1_size = ocf_cache_is_device_attached(cache) ?
-				p1->runtime->curr_size : 0;
+				env_atomic_read(&p1->part.runtime->curr_size)
+				: 0;
 	size_t p2_size = ocf_cache_is_device_attached(cache) ?
-				p2->runtime->curr_size : 0;
-
+				env_atomic_read(&p2->part.runtime->curr_size)
+				: 0;
 	int v1 = p1->config->priority;
 	int v2 = p2->config->priority;
 
@@ -154,6 +156,7 @@ int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
 	return v2 - v1;
 }
 
+
 static struct ocf_lst_entry *_list_getter(
 		struct ocf_cache *cache, ocf_cache_line_t idx)
 {
@@ -166,18 +169,18 @@ static void init_part_list(struct test_cache *tcache)
 {
 	unsigned i;
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
-		tcache->cache.user_parts[i].id = i;
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
+		tcache->cache.user_parts[i].part.id = i;
 		tcache->cache.user_parts[i].config = &tcache->part[i];
 		tcache->cache.user_parts[i].config->priority = i+1;
 		tcache->cache.user_parts[i].config->flags.eviction = 1;
 	}
 
-	ocf_lst_init((ocf_cache_t)tcache, &tcache->cache.lst_part, OCF_IO_CLASS_MAX,
-			_list_getter, ocf_part_lst_cmp_valid);
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
-		ocf_lst_init_entry(&tcache->cache.lst_part, &tcache->cache.user_parts[i].lst_valid);
-		ocf_lst_add_tail(&tcache->cache.lst_part, i);
+	ocf_lst_init((ocf_cache_t)tcache, &tcache->cache.user_part_list, OCF_USER_IO_CLASS_MAX,
+			_list_getter, ocf_user_part_lst_cmp_valid);
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
+		ocf_lst_init_entry(&tcache->cache.user_part_list, &tcache->cache.user_parts[i].lst_valid);
+		ocf_lst_add_tail(&tcache->cache.user_part_list, i);
 	}
 }
 
@@ -190,13 +193,13 @@ uint32_t __wrap_ocf_engine_unmapped_count(struct ocf_request *req)
 
 #define _expect_evict_call(tcache, part_id, req_count, ret_count) \
 	do { \
-		expect_value(__wrap_ocf_eviction_need_space, part, &tcache.cache.user_parts[part_id]); \
-		expect_value(__wrap_ocf_eviction_need_space, clines, req_count); \
-		expect_function_call(__wrap_ocf_eviction_need_space); \
-		will_return(__wrap_ocf_eviction_need_space, ret_count); \
+		expect_value(__wrap_ocf_lru_req_clines, src_part, &tcache.cache.user_parts[part_id].part); \
+		expect_value(__wrap_ocf_lru_req_clines, cline_no, req_count); \
+		expect_function_call(__wrap_ocf_lru_req_clines); \
+		will_return(__wrap_ocf_lru_req_clines, ret_count); \
 	} while (false);
 
-static void ocf_evict_do_test01(void **state)
+static void ocf_remap_do_test01(void **state)
 {
 	struct test_cache tcache = {};
 	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
@@ -210,11 +213,11 @@ static void ocf_evict_do_test01(void **state)
 	tcache.req_unmapped = 50;
 
 	_expect_evict_call(tcache, 10, 50, 50);
-	evicted = ocf_evict_do(&req);
+	evicted = ocf_remap_do(&req);
 	assert_int_equal(evicted, 50);
 }
 
-static void ocf_evict_do_test02(void **state)
+static void ocf_remap_do_test02(void **state)
 {
 	struct test_cache tcache = {};
 	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
@@ -231,11 +234,11 @@ static void ocf_evict_do_test02(void **state)
 
 	_expect_evict_call(tcache, 10, 50, 50);
 
-	evicted = ocf_evict_do(&req);
+	evicted = ocf_remap_do(&req);
 	assert_int_equal(evicted, 50);
 }
 
-static void ocf_evict_do_test03(void **state)
+static void ocf_remap_do_test03(void **state)
 {
 	struct test_cache tcache = {};
 	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
@@ -257,11 +260,11 @@ static void ocf_evict_do_test03(void **state)
 	_expect_evict_call(tcache, 16, 100, 100);
 	_expect_evict_call(tcache, 17, 50, 50);
 
-	evicted = ocf_evict_do(&req);
+	evicted = ocf_remap_do(&req);
 	assert_int_equal(evicted, 350);
 }
 
-static void ocf_evict_do_test04(void **state)
+static void ocf_remap_do_test04(void **state)
 {
 	struct test_cache tcache = {};
 	struct ocf_request req = {.cache = &tcache.cache, .part_id = 0 };
@@ -291,16 +294,16 @@ static void ocf_evict_do_test04(void **state)
 	_expect_evict_call(tcache, 16, 100, 100);
 	_expect_evict_call(tcache, 17, 80, 80);
 
-	evicted = ocf_evict_do(&req);
+	evicted = ocf_remap_do(&req);
 	assert_int_equal(evicted, 580);
 }
 int main(void)
 {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test(ocf_evict_do_test01),
-		cmocka_unit_test(ocf_evict_do_test02),
-		cmocka_unit_test(ocf_evict_do_test03),
-		cmocka_unit_test(ocf_evict_do_test04)
+		cmocka_unit_test(ocf_remap_do_test01),
+		cmocka_unit_test(ocf_remap_do_test02),
+		cmocka_unit_test(ocf_remap_do_test03),
+		cmocka_unit_test(ocf_remap_do_test04)
 	};
 
 	return cmocka_run_group_tests(tests, NULL, NULL);

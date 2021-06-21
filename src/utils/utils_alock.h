@@ -53,9 +53,6 @@ int ocf_alock_lock_wr(struct ocf_alock *alock,
 bool ocf_alock_waitlist_is_empty(struct ocf_alock *alock,
 		ocf_cache_line_t entry);
 
-bool ocf_alock_is_locked_exclusively(struct ocf_alock *alock,
-		ocf_cache_line_t entry);
-
 uint32_t ocf_alock_waitlist_count(struct ocf_alock *alock);
 
 size_t ocf_alock_obj_size(void);

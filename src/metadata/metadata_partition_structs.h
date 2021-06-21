@@ -8,7 +8,9 @@
 
 #include "../utils/utils_list.h"
 #include "../cleaning/cleaning.h"
-#include "../eviction/eviction.h"
+#include "../ocf_space.h"
+
+#define OCF_NUM_PARTITIONS OCF_USER_IO_CLASS_MAX + 2
 
 struct ocf_user_part_config {
 	char name[OCF_IO_CLASS_NAME_MAX];
@@ -26,33 +28,33 @@ struct ocf_user_part_config {
 	ocf_cache_mode_t cache_mode;
 };
 
-struct ocf_user_part_runtime {
-	uint32_t curr_size;
-	uint32_t head;
-	struct eviction_policy eviction[OCF_NUM_EVICTION_LISTS];
-	struct cleaning_policy cleaning;
+struct ocf_part_runtime {
+	env_atomic curr_size;
+	struct ocf_lru_part_meta lru[OCF_NUM_LRU_LISTS];
 };
 
 typedef bool ( *_lru_hash_locked_pfn)(struct ocf_request *req,
 		ocf_core_id_t core_id, uint64_t core_line);
 
-/* Iterator state, visiting all eviction lists within a partition
+/* Iterator state, visiting all lru lists within a partition
    in round robin order */
 struct ocf_lru_iter
 {
 	/* per-partition cacheline iterator */
-	ocf_cache_line_t curr_cline[OCF_NUM_EVICTION_LISTS];
+	ocf_cache_line_t curr_cline[OCF_NUM_LRU_LISTS];
 	/* cache object */
 	ocf_cache_t cache;
+	/* cacheline concurrency */
+	struct ocf_alock *c;
 	/* target partition */
-	struct ocf_user_part *part;
-	/* available (non-empty) eviction list bitmap rotated so that current
-	   @evp is on the most significant bit */
-	unsigned long long next_avail_evp;
-	/* number of available eviction lists */
-	uint32_t num_avail_evps;
-	/* current eviction list index */
-	uint32_t evp;
+	struct ocf_part *part;
+	/* available (non-empty) lru list bitmap rotated so that current
+	   @lru_idx is on the most significant bit */
+	unsigned long long next_avail_lru;
+	/* number of available lru lists */
+	uint32_t num_avail_lrus;
+	/* current lru list index */
+	uint32_t lru_idx;
 	/* callback to determine whether given hash bucket is already
 	 * locked by the caller */
 	_lru_hash_locked_pfn hash_locked;
@@ -60,8 +62,6 @@ struct ocf_lru_iter
 	struct ocf_request *req;
 	/* 1 if iterating over clean lists, 0 if over dirty */
 	bool clean : 1;
-	/* 1 if cacheline is to be locked for write, 0 if for read*/
-	bool cl_lock_write : 1;
 };
 
 #define OCF_EVICTION_CLEAN_SIZE 32U
@@ -72,10 +72,18 @@ struct ocf_part_cleaning_ctx {
 	ocf_cache_line_t cline[OCF_EVICTION_CLEAN_SIZE];
 };
 
+/* common partition data for both user-deined partitions as
+ * well as freelist
+ */
+struct ocf_part {
+	struct ocf_part_runtime *runtime;
+	ocf_part_id_t id;
+};
+
 struct ocf_user_part {
 	struct ocf_user_part_config *config;
-	struct ocf_user_part_runtime *runtime;
-	ocf_part_id_t id;
+	struct cleaning_policy *clean_pol;
+	struct ocf_part part;
 	struct ocf_part_cleaning_ctx cleaning;
 	struct ocf_lst_entry lst_valid;
 };

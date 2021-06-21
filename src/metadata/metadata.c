@@ -14,7 +14,6 @@
 #include "metadata_segment.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../ocf_def_priv.h"
-#include "../ocf_freelist.h"
 #include "../ocf_priv.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_io.h"
@@ -35,6 +34,11 @@
 #endif
 
 #define OCF_METADATA_HASH_DIFF_MAX 1000
+
+struct ocf_part_runtime_meta {
+	struct ocf_part_runtime runtime;
+	struct cleaning_policy clean_pol;
+};
 
 enum {
 	ocf_metadata_status_type_valid = 0,
@@ -67,7 +71,7 @@ static ocf_cache_line_t ocf_metadata_get_entries(
 	switch (type) {
 	case metadata_segment_collision:
 	case metadata_segment_cleaning:
-	case metadata_segment_eviction:
+	case metadata_segment_lru:
 	case metadata_segment_list_info:
 		return cache_lines;
 
@@ -86,10 +90,10 @@ static ocf_cache_line_t ocf_metadata_get_entries(
 		return 32;
 
 	case metadata_segment_part_config:
-		return OCF_IO_CLASS_MAX + 1;
+		return OCF_USER_IO_CLASS_MAX + 1;
 
 	case metadata_segment_part_runtime:
-		return OCF_IO_CLASS_MAX + 1;
+		return OCF_NUM_PARTITIONS;
 
 	case metadata_segment_core_config:
 		return OCF_CORE_MAX;
@@ -120,8 +124,8 @@ static int64_t ocf_metadata_get_element_size(
 	ENV_BUG_ON(type >= metadata_segment_variable_size_start && !settings);
 
 	switch (type) {
-	case metadata_segment_eviction:
-		size = sizeof(union eviction_policy_meta);
+	case metadata_segment_lru:
+		size = sizeof(struct ocf_lru_meta);
 		break;
 
 	case metadata_segment_cleaning:
@@ -154,7 +158,7 @@ static int64_t ocf_metadata_get_element_size(
 		break;
 
 	case metadata_segment_part_runtime:
-		size = sizeof(struct ocf_user_part_runtime);
+		size = sizeof(struct ocf_part_runtime_meta);
 		break;
 
 	case metadata_segment_hash:
@@ -324,7 +328,7 @@ const char * const ocf_metadata_segment_names[] = {
 		[metadata_segment_part_config]		= "Part config",
 		[metadata_segment_part_runtime]		= "Part runtime",
 		[metadata_segment_cleaning]		= "Cleaning",
-		[metadata_segment_eviction]		= "Eviction",
+		[metadata_segment_lru]			= "LRU list",
 		[metadata_segment_collision]		= "Collision",
 		[metadata_segment_list_info]		= "List info",
 		[metadata_segment_hash]			= "Hash",
@@ -515,7 +519,7 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 	struct ocf_core_meta_config *core_meta_config;
 	struct ocf_core_meta_runtime *core_meta_runtime;
 	struct ocf_user_part_config *part_config;
-	struct ocf_user_part_runtime *part_runtime;
+	struct ocf_part_runtime_meta *part_runtime_meta;
 	struct ocf_metadata_segment *superblock;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
@@ -565,13 +569,16 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 
 	/* Set partition metadata */
 	part_config = METADATA_MEM_POOL(ctrl, metadata_segment_part_config);
-	part_runtime = METADATA_MEM_POOL(ctrl, metadata_segment_part_runtime);
+	part_runtime_meta = METADATA_MEM_POOL(ctrl,
+			metadata_segment_part_runtime);
 
-	for (i = 0; i < OCF_IO_CLASS_MAX + 1; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX + 1; i++) {
 		cache->user_parts[i].config = &part_config[i];
-		cache->user_parts[i].runtime = &part_runtime[i];
-		cache->user_parts[i].id = i;
+		cache->user_parts[i].clean_pol = &part_runtime_meta[i].clean_pol;
+		cache->user_parts[i].part.runtime =
+			&part_runtime_meta[i].runtime;
 	}
+	cache->free.runtime= &part_runtime_meta[PARTITION_FREELIST].runtime;
 
 	/* Set core metadata */
 	core_meta_config = METADATA_MEM_POOL(ctrl,
@@ -948,7 +955,7 @@ struct ocf_pipeline_arg ocf_metadata_flush_all_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_part_runtime),
 	OCF_PL_ARG_INT(metadata_segment_core_runtime),
 	OCF_PL_ARG_INT(metadata_segment_cleaning),
-	OCF_PL_ARG_INT(metadata_segment_eviction),
+	OCF_PL_ARG_INT(metadata_segment_lru),
 	OCF_PL_ARG_INT(metadata_segment_collision),
 	OCF_PL_ARG_INT(metadata_segment_list_info),
 	OCF_PL_ARG_INT(metadata_segment_hash),
@@ -1092,7 +1099,7 @@ out:
 struct ocf_pipeline_arg ocf_metadata_load_all_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_core_runtime),
 	OCF_PL_ARG_INT(metadata_segment_cleaning),
-	OCF_PL_ARG_INT(metadata_segment_eviction),
+	OCF_PL_ARG_INT(metadata_segment_lru),
 	OCF_PL_ARG_INT(metadata_segment_collision),
 	OCF_PL_ARG_INT(metadata_segment_list_info),
 	OCF_PL_ARG_INT(metadata_segment_hash),
@@ -1146,18 +1153,21 @@ static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
 	ocf_core_t core = ocf_cache_get_core(cache, core_id);
 	ocf_part_id_t part_id;
 	ocf_cache_line_t hash_index;
+	struct ocf_part_runtime *part;
 
 	part_id = PARTITION_DEFAULT;
+	part = cache->user_parts[part_id].part.runtime;
 
-	ocf_metadata_add_to_partition(cache, part_id, cache_line);
+	ocf_metadata_set_partition_id(cache, part_id, cache_line);
+	env_atomic_inc(&part->curr_size);
 
 	hash_index = ocf_metadata_hash_func(cache, core_line, core_id);
 	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,
 			cache_line);
 
-	ocf_eviction_init_cache_line(cache, cache_line);
+	ocf_lru_init_cline(cache, cache_line);
 
-	ocf_eviction_set_hot_cache_line(cache, cache_line);
+	ocf_lru_hot_cline(cache, cache_line);
 
 	env_atomic_inc(&core->runtime_meta->cached_clines);
 	env_atomic_inc(&core->runtime_meta->

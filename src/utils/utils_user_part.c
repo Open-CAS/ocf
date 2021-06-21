@@ -8,18 +8,18 @@
 #include "../ocf_request.h"
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
-#include "../eviction/ops.h"
-#include "utils_part.h"
+#include "../ocf_lru.h"
+#include "utils_user_part.h"
 
-static struct ocf_lst_entry *ocf_part_lst_getter_valid(
+static struct ocf_lst_entry *ocf_user_part_lst_getter_valid(
 		struct ocf_cache *cache, ocf_cache_line_t idx)
 {
-	ENV_BUG_ON(idx > OCF_IO_CLASS_MAX);
+	ENV_BUG_ON(idx > OCF_USER_IO_CLASS_MAX);
 	return &cache->user_parts[idx].lst_valid;
 }
 
 
-static int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
+static int ocf_user_part_lst_cmp_valid(struct ocf_cache *cache,
 		struct ocf_lst_entry *e1, struct ocf_lst_entry *e2)
 {
 	struct ocf_user_part *p1 = container_of(e1, struct ocf_user_part,
@@ -27,10 +27,11 @@ static int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
 	struct ocf_user_part *p2 = container_of(e2, struct ocf_user_part,
 			lst_valid);
 	size_t p1_size = ocf_cache_is_device_attached(cache) ?
-				p1->runtime->curr_size : 0;
+				env_atomic_read(&p1->part.runtime->curr_size)
+				: 0;
 	size_t p2_size = ocf_cache_is_device_attached(cache) ?
-				p2->runtime->curr_size : 0;
-
+				env_atomic_read(&p2->part.runtime->curr_size)
+				: 0;
 	int v1 = p1->config->priority;
 	int v2 = p2->config->priority;
 
@@ -79,13 +80,19 @@ static int ocf_part_lst_cmp_valid(struct ocf_cache *cache,
 	return v2 - v1;
 }
 
-void ocf_part_init(struct ocf_cache *cache)
+void ocf_user_part_init(struct ocf_cache *cache)
 {
-	ocf_lst_init(cache, &cache->lst_part, OCF_IO_CLASS_MAX,
-			ocf_part_lst_getter_valid, ocf_part_lst_cmp_valid);
+	unsigned i;
+
+	ocf_lst_init(cache, &cache->user_part_list, OCF_USER_IO_CLASS_MAX,
+			ocf_user_part_lst_getter_valid,
+			ocf_user_part_lst_cmp_valid);
+
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX + 1; i++)
+		cache->user_parts[i].part.id = i;
 }
 
-void ocf_part_move(struct ocf_request *req)
+void ocf_user_part_move(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
 	struct ocf_map_info *entry;
@@ -104,11 +111,11 @@ void ocf_part_move(struct ocf_request *req)
 		}
 
 		/* Moving cachelines to another partition is needed only
-		 * for those already mapped before this request, which
-		 * indicates either HIT or REMAPPED.
+		 * for those already mapped before this request and remapped
+		 * cachelines are assigned to target partition during eviction.
+		 * So only hit cachelines are interesting.
 		 */
-		if (entry->status != LOOKUP_HIT &&
-				entry->status != LOOKUP_REMAPPED) {
+		if (entry->status != LOOKUP_HIT) {
 			/* No HIT */
 			continue;
 		}
@@ -117,8 +124,8 @@ void ocf_part_move(struct ocf_request *req)
 		id_old = ocf_metadata_get_partition_id(cache, line);
 		id_new = req->part_id;
 
-		ENV_BUG_ON(id_old >= OCF_IO_CLASS_MAX ||
-				id_new >= OCF_IO_CLASS_MAX);
+		ENV_BUG_ON(id_old >= OCF_USER_IO_CLASS_MAX ||
+				id_new >= OCF_USER_IO_CLASS_MAX);
 
 		if (id_old == id_new) {
 			/* Partition of the request and cache line is the same,
@@ -126,9 +133,6 @@ void ocf_part_move(struct ocf_request *req)
 			 */
 			continue;
 		}
-
-		/* Remove from old eviction */
-		ocf_eviction_purge_cache_line(cache, line);
 
 		if (metadata_test_dirty(cache, line)) {
 			/*
@@ -142,13 +146,8 @@ void ocf_part_move(struct ocf_request *req)
 						purge_cache_block(cache, line);
 		}
 
-		/* Let's change partition */
-		ocf_metadata_remove_from_partition(cache, id_old, line);
-		ocf_metadata_add_to_partition(cache, id_new, line);
-
-		/* Add to new eviction */
-		ocf_eviction_init_cache_line(cache, line);
-		ocf_eviction_set_hot_cache_line(cache, line);
+		ocf_lru_repart(cache, line, &cache->user_parts[id_old].part,
+				&cache->user_parts[id_new].part);
 
 		/* Check if cache line is dirty. If yes then need to change
 		 * cleaning  policy and update partition dirty clines
@@ -175,22 +174,23 @@ void ocf_part_move(struct ocf_request *req)
 	}
 }
 
-void ocf_part_set_valid(struct ocf_cache *cache, ocf_part_id_t id,
+void ocf_user_part_set_valid(struct ocf_cache *cache, ocf_part_id_t id,
 		bool valid)
 {
-	struct ocf_user_part *part = &cache->user_parts[id];
+	struct ocf_user_part *user_part = &cache->user_parts[id];
 
-	if (valid ^ part->config->flags.valid) {
+	if (valid ^ user_part->config->flags.valid) {
 		if (valid) {
-			part->config->flags.valid = true;
+			user_part->config->flags.valid = true;
 			cache->conf_meta->valid_parts_no++;
 		} else {
-			part->config->flags.valid = false;
+			user_part->config->flags.valid = false;
 			cache->conf_meta->valid_parts_no--;
-			part->config->priority = OCF_IO_CLASS_PRIO_LOWEST;
-			part->config->min_size = 0;
-			part->config->max_size = PARTITION_SIZE_MAX;
-			ENV_BUG_ON(env_strncpy(part->config->name, sizeof(part->config->name),
+			user_part->config->priority = OCF_IO_CLASS_PRIO_LOWEST;
+			user_part->config->min_size = 0;
+			user_part->config->max_size = PARTITION_SIZE_MAX;
+			ENV_BUG_ON(env_strncpy(user_part->config->name,
+					sizeof(user_part->config->name),
 					"Inactive", 9));
 		}
 	}

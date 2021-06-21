@@ -15,7 +15,7 @@
 #include "../utils/utils_io.h"
 #include "../ocf_request.h"
 #include "../utils/utils_cache_line.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../metadata/metadata.h"
 #include "../ocf_def_priv.h"
 
@@ -182,7 +182,7 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
-		ocf_part_move(req);
+		ocf_user_part_move(req);
 
 		ocf_hb_req_prot_unlock_wr(req);
 	}
@@ -210,17 +210,8 @@ static const struct ocf_io_if _io_if_read_generic_resume = {
 	.write = _ocf_read_generic_do,
 };
 
-static enum ocf_engine_lock_type ocf_rd_get_lock_type(struct ocf_request *req)
-{
-	if (ocf_engine_is_hit(req))
-		return ocf_engine_lock_read;
-	else
-		return ocf_engine_lock_write;
-}
-
 static const struct ocf_engine_callbacks _rd_engine_callbacks =
 {
-	.get_lock_type = ocf_rd_get_lock_type,
 	.resume = ocf_engine_on_resume,
 };
 

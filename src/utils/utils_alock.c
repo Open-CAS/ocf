@@ -790,23 +790,6 @@ bool ocf_alock_waitlist_is_empty(struct ocf_alock *alock,
 	return empty;
 }
 
-/* NOTE: it is caller responsibility to assure that noone acquires
- * a lock in background */
-bool ocf_alock_is_locked_exclusively(struct ocf_alock *alock,
-		ocf_cache_line_t entry)
-{
-	env_atomic *access = &alock->access[entry];
-	int val = env_atomic_read(access);
-
-	ENV_BUG_ON(val == OCF_CACHE_LINE_ACCESS_IDLE);
-
-	if (!ocf_alock_waitlist_is_empty(alock, entry))
-		return false;
-
-	return val == OCF_CACHE_LINE_ACCESS_ONE_RD ||
-			val == OCF_CACHE_LINE_ACCESS_WR;
-}
-
 uint32_t ocf_alock_waitlist_count(struct ocf_alock *alock)
 {
 	return env_atomic_read(&alock->waiting);

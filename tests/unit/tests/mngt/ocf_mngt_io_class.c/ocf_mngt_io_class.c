@@ -31,14 +31,14 @@
 #include "../ocf_priv.h"
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
-#include "../utils/utils_part.h"
-#include "../eviction/ops.h"
+#include "../utils/utils_user_part.h"
+#include "../ocf_lru.h"
 #include "ocf_env.h"
 
 #include "mngt/ocf_mngt_io_class.c/ocf_mngt_io_class_generated_wraps.c"
 
 /* Functions mocked for testing purposes */
-bool __wrap_ocf_part_is_added(struct ocf_user_part *part)
+bool __wrap_ocf_user_part_is_added(struct ocf_user_part *user_part)
 {
 	function_called();
 	return mock();
@@ -51,20 +51,20 @@ int __wrap__ocf_mngt_set_partition_size(struct ocf_cache *cache,
 	return mock();
 }
 
-void __wrap_ocf_part_set_prio(struct ocf_cache *cache,
-		struct ocf_user_part *part, int16_t prio)
+void __wrap_ocf_user_part_set_prio(struct ocf_cache *cache,
+		struct ocf_user_part *user_part, int16_t prio)
 {
 	function_called();
 }
 
-bool __wrap_ocf_part_is_valid(struct ocf_user_part *part)
+bool __wrap_ocf_user_part_is_valid(struct ocf_user_part *user_part)
 {
 	function_called();
 	return mock();
 }
 
 
-void __wrap_ocf_part_set_valid(struct ocf_cache *cache, ocf_part_id_t id,
+void __wrap_ocf_user_part_set_valid(struct ocf_cache *cache, ocf_part_id_t id,
 		bool valid)
 {
 	function_called();
@@ -79,7 +79,7 @@ int __wrap__ocf_mngt_io_class_validate_cfg(ocf_cache_t cache,
 	return mock();
 }
 
-void __wrap_ocf_part_sort(struct ocf_cache *cache)
+void __wrap_ocf_user_part_sort(struct ocf_cache *cache)
 {
 	function_called();
 }
@@ -93,7 +93,7 @@ static inline void setup_valid_config(struct ocf_mngt_io_class_config *cfg,
 		bool remove)
 {
 	int i;
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		cfg[i].class_id = i;
 		cfg[i].name = remove ? NULL : i == 0 ? "unclassified" :"test_io_class_name" ;
 		cfg[i].prio = i;
@@ -112,7 +112,7 @@ static void ocf_mngt_io_classes_configure_test03(void **state)
 
 	cache = test_malloc(sizeof(*cache));
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		cache->user_parts[i].config =
 				test_malloc(sizeof(struct ocf_user_part_config));
 	}
@@ -120,30 +120,30 @@ static void ocf_mngt_io_classes_configure_test03(void **state)
 
 	setup_valid_config(cfg.config, true);
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		expect_function_call(__wrap__ocf_mngt_io_class_validate_cfg);
 		will_return(__wrap__ocf_mngt_io_class_validate_cfg, 0);
 	}
 
 	/* Removing default io_class is not allowed */
-	for (i = 1; i < OCF_IO_CLASS_MAX; i++) {
-		expect_function_call(__wrap_ocf_part_is_valid);
-		will_return(__wrap_ocf_part_is_valid, 1);
+	for (i = 1; i < OCF_USER_IO_CLASS_MAX; i++) {
+		expect_function_call(__wrap_ocf_user_part_is_valid);
+		will_return(__wrap_ocf_user_part_is_valid, 1);
 
-		expect_function_call(__wrap_ocf_part_set_valid);
+		expect_function_call(__wrap_ocf_user_part_set_valid);
 		/* Test assumes default partition has id equal 0 */
-		expect_in_range(__wrap_ocf_part_set_valid, id, OCF_IO_CLASS_ID_MIN + 1,
+		expect_in_range(__wrap_ocf_user_part_set_valid, id, OCF_IO_CLASS_ID_MIN + 1,
 				OCF_IO_CLASS_ID_MAX);
-		expect_value(__wrap_ocf_part_set_valid, valid, false);
+		expect_value(__wrap_ocf_user_part_set_valid, valid, false);
 	}
 
-	expect_function_call(__wrap_ocf_part_sort);
+	expect_function_call(__wrap_ocf_user_part_sort);
 
 	result = ocf_mngt_cache_io_classes_configure(cache, &cfg);
 
 	assert_int_equal(result, 0);
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++)
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++)
 		test_free(cache->user_parts[i].config);
 
 	test_free(cache);
@@ -157,7 +157,7 @@ static void ocf_mngt_io_classes_configure_test02(void **state)
 
 	cache = test_malloc(sizeof(*cache));
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		cache->user_parts[i].config =
 				test_malloc(sizeof(struct ocf_user_part_config));
 	}
@@ -169,46 +169,46 @@ static void ocf_mngt_io_classes_configure_test02(void **state)
 
 	print_test_description("Configure all possible io classes");
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		expect_function_call(__wrap__ocf_mngt_io_class_validate_cfg);
 		will_return(__wrap__ocf_mngt_io_class_validate_cfg, 0);
 	}
 
 	/* Configure default io_class */
-	expect_function_call(__wrap_ocf_part_is_added);
-	will_return(__wrap_ocf_part_is_added, 1);
+	expect_function_call(__wrap_ocf_user_part_is_added);
+	will_return(__wrap_ocf_user_part_is_added, 1);
 
 	expect_function_call(__wrap__ocf_mngt_set_partition_size);
 	will_return(__wrap__ocf_mngt_set_partition_size, 0);
 
-	expect_function_call(__wrap_ocf_part_set_prio);
+	expect_function_call(__wrap_ocf_user_part_set_prio);
 
 	/* Configure custom io_classes */
-	for (i = 1; i < OCF_IO_CLASS_MAX; i++) {
-		expect_function_call(__wrap_ocf_part_is_added);
-		will_return(__wrap_ocf_part_is_added, 1);
+	for (i = 1; i < OCF_USER_IO_CLASS_MAX; i++) {
+		expect_function_call(__wrap_ocf_user_part_is_added);
+		will_return(__wrap_ocf_user_part_is_added, 1);
 
 		expect_function_call(__wrap__ocf_mngt_set_partition_size);
 		will_return(__wrap__ocf_mngt_set_partition_size, 0);
 
-		expect_function_call(__wrap_ocf_part_is_valid);
-		will_return(__wrap_ocf_part_is_valid, 0);
+		expect_function_call(__wrap_ocf_user_part_is_valid);
+		will_return(__wrap_ocf_user_part_is_valid, 0);
 
-		expect_function_call(__wrap_ocf_part_set_valid);
-		expect_in_range(__wrap_ocf_part_set_valid, id, OCF_IO_CLASS_ID_MIN,
+		expect_function_call(__wrap_ocf_user_part_set_valid);
+		expect_in_range(__wrap_ocf_user_part_set_valid, id, OCF_IO_CLASS_ID_MIN,
 				OCF_IO_CLASS_ID_MAX);
-		expect_value(__wrap_ocf_part_set_valid, valid, true);
+		expect_value(__wrap_ocf_user_part_set_valid, valid, true);
 
-		expect_function_call(__wrap_ocf_part_set_prio);
+		expect_function_call(__wrap_ocf_user_part_set_prio);
 	}
 
-	expect_function_call(__wrap_ocf_part_sort);
+	expect_function_call(__wrap_ocf_user_part_sort);
 
 	result = ocf_mngt_cache_io_classes_configure(cache, &cfg);
 
 	assert_int_equal(result, 0);
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++)
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++)
 		test_free(cache->user_parts[i].config);
 
 	test_free(cache);
@@ -217,7 +217,7 @@ static void ocf_mngt_io_classes_configure_test02(void **state)
 static void ocf_mngt_io_classes_configure_test01(void **state)
 {
 	struct ocf_cache *cache;
-	struct ocf_mngt_io_classes_config cfg[OCF_IO_CLASS_MAX];
+	struct ocf_mngt_io_classes_config cfg[OCF_USER_IO_CLASS_MAX];
 	int error_code = -OCF_ERR_INVAL;
 	int result;
 

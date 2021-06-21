@@ -21,11 +21,11 @@
 #include "engine_discard.h"
 #include "engine_d2c.h"
 #include "engine_ops.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../utils/utils_refcnt.h"
 #include "../ocf_request.h"
 #include "../metadata/metadata.h"
-#include "../eviction/eviction.h"
+#include "../ocf_space.h"
 
 enum ocf_io_if_type {
 	/* Public OCF IO interfaces to be set by user */
@@ -192,8 +192,8 @@ void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		return;
 	}
 
-	req->cache_mode = ocf_part_get_cache_mode(cache,
-				ocf_part_class2id(cache, req->part_id));
+	req->cache_mode = ocf_user_part_get_cache_mode(cache,
+				ocf_user_part_class2id(cache, req->part_id));
 	if (!ocf_cache_mode_is_valid(req->cache_mode))
 		req->cache_mode = cache->conf_meta->cache_mode;
 
