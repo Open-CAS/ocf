@@ -110,8 +110,19 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 		req->complete(req, req->info.core_error ? req->error : 0);
 
 		ocf_engine_invalidate(req);
-	} else {
+
+		return;
+	}
+
+	if (req->info.dirty_any) {
+		/* Some of the request's cachelines changed its state to clean */
 		ocf_engine_push_req_front_if(req, &_io_if_wt_flush_metadata, true);
+	} else {
+		ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
+
+		req->complete(req, req->info.core_error ? req->error : 0);
+
+		ocf_req_put(req);
 	}
 }
 
@@ -163,6 +174,13 @@ static int _ocf_write_wt_do(struct ocf_request *req)
 {
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
+
+	if (!req->info.dirty_any) {
+		/* Set metadata bits before the request submission only if the dirty
+		   status for any of the request's cachelines won't change */
+		_ocf_write_wt_update_bits(req);
+		ENV_BUG_ON(req->info.flush_metadata);
+	}
 
 	/* Submit IO */
 	_ocf_write_wt_submit(req);
