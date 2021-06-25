@@ -394,15 +394,15 @@ static void ocf_engine_remap(struct ocf_request *req)
 		/* mark error */
 		ocf_req_set_mapping_error(req);
 
-		/* unlock cachelines locked during remapping */
-		ocf_req_unlock(ocf_cache_line_concurrency(req->cache),
-				req);
-
 		/* request cleaning */
 		ocf_req_set_cleaning_required(req);
 
 		/* unmap inserted and replaced cachelines */
 		ocf_engine_map_hndl_error(req->cache, req);
+
+		/* unlock cachelines locked during remapping */
+		ocf_req_unlock(ocf_cache_line_concurrency(req->cache),
+				req);
 	}
 
 	return;
