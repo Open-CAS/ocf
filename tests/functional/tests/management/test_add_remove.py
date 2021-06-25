@@ -64,6 +64,30 @@ def test_removing_core(pyocf_ctx, cache_mode, cls):
     assert stats["conf"]["core_count"] == 0
 
 
+@pytest.mark.parametrize("cache_mode", [CacheMode.WB])
+@pytest.mark.parametrize("cls", CacheLineSize)
+def test_remove_dirty_no_flush(pyocf_ctx, cache_mode, cls):
+    # Start cache device
+    cache_device = Volume(S.from_MiB(30))
+    cache = Cache.start_on_device(
+        cache_device, cache_mode=cache_mode, cache_line_size=cls
+    )
+
+    # Create core device
+    core_device = Volume(S.from_MiB(10))
+    core = Core.using_device(core_device)
+    cache.add_core(core)
+
+    # Prepare data
+    core_size = core.get_stats()["size"]
+    data = Data(core_size.B)
+
+    _io_to_core(core, data)
+
+    # Remove core from cache
+    cache.remove_core(core)
+
+
 def test_30add_remove(pyocf_ctx):
     # Start cache device
     cache_device = Volume(S.from_MiB(30))
@@ -276,3 +300,16 @@ def test_add_remove_incrementally(pyocf_ctx, cache_mode, cls):
     cache.add_core(core_devices[2])
     stats = cache.get_stats()
     assert stats["conf"]["core_count"] == core_amount
+
+
+def _io_to_core(exported_obj: Core, data: Data):
+    io = exported_obj.new_io(exported_obj.cache.get_default_queue(), 0, data.size,
+            IoDir.WRITE, 0, 0)
+    io.set_data(data)
+
+    completion = OcfCompletion([("err", c_int)])
+    io.callback = completion.callback
+    io.submit()
+    completion.wait()
+
+    assert completion.results["err"] == 0, "IO to exported object completion"
