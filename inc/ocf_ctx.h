@@ -159,17 +159,6 @@ struct ocf_cleaner_ops {
 	void (*stop)(ocf_cleaner_t c);
 };
 
-typedef struct ocf_persistent_meta_zone *ocf_persistent_meta_zone_t;
-
-struct ocf_persistent_metadata_ops {
-	ocf_persistent_meta_zone_t (*init)(ocf_cache_t cache, size_t size,
-			bool *load);
-	int (*deinit)(ocf_persistent_meta_zone_t zone);
-	void *(*alloc)(ocf_persistent_meta_zone_t zone, size_t size,
-			int alloc_id, bool *load);
-	int (*free)(ocf_persistent_meta_zone_t zone, int alloc_id, void *ptr);
-};
-
 /**
  * @brief OCF context specific operation
  */
