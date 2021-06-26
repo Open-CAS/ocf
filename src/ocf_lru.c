@@ -632,7 +632,7 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 	}
 
 	ctx->cache = cache;
-	lru_idx = io_queue->eviction_idx++ % OCF_NUM_LRU_LISTS;
+	lru_idx = io_queue->lru_idx++ % OCF_NUM_LRU_LISTS;
 
 	lock_idx = ocf_metadata_concurrency_next_idx(io_queue);
 	ocf_metadata_start_shared_access(&cache->metadata.lock, lock_idx);
@@ -724,7 +724,7 @@ uint32_t ocf_lru_req_clines(struct ocf_request *req,
 	ENV_BUG_ON(req->part_id == PARTITION_FREELIST);
 	dst_part = &cache->user_parts[req->part_id].part;
 
-	lru_idx = req->io_queue->eviction_idx++ % OCF_NUM_LRU_LISTS;
+	lru_idx = req->io_queue->lru_idx++ % OCF_NUM_LRU_LISTS;
 
 	lru_iter_eviction_init(&iter, cache, src_part, lru_idx, req);
 
