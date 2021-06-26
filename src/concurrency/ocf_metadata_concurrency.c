@@ -10,12 +10,12 @@
 int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 {
 	int err = 0;
-	unsigned evp_iter;
+	unsigned lru_iter;
 	unsigned part_iter;
 	unsigned global_iter;
 
-	for (evp_iter = 0; evp_iter < OCF_NUM_LRU_LISTS; evp_iter++)
-		env_rwlock_init(&metadata_lock->lru[evp_iter]);
+	for (lru_iter = 0; lru_iter < OCF_NUM_LRU_LISTS; lru_iter++)
+		env_rwlock_init(&metadata_lock->lru[lru_iter]);
 
 	for (global_iter = 0; global_iter < OCF_NUM_GLOBAL_META_LOCKS;
 			global_iter++) {
@@ -40,8 +40,8 @@ global_err:
 	while (global_iter--)
 		env_rwsem_destroy(&metadata_lock->global[global_iter].sem);
 
-	while (evp_iter--)
-		env_rwlock_destroy(&metadata_lock->lru[evp_iter]);
+	while (lru_iter--)
+		env_rwlock_destroy(&metadata_lock->lru[lru_iter]);
 
 	return err;
 }
