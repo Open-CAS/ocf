@@ -15,7 +15,6 @@ from pyocf.types.cache import (
     Cache,
     CacheMode,
     MetadataLayout,
-    EvictionPolicy,
     CleaningPolicy,
 )
 from pyocf.types.core import Core

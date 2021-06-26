@@ -455,7 +455,7 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	env_atomic_set(&core->runtime_meta->dirty_clines, 0);
 	env_atomic64_set(&core->runtime_meta->dirty_since, 0);
 
-	for (i = 0; i != OCF_IO_CLASS_MAX; i++) {
+	for (i = 0; i != OCF_USER_IO_CLASS_MAX; i++) {
 		env_atomic_set(&core->runtime_meta->
 				part_counters[i].cached_clines, 0);
 		env_atomic_set(&core->runtime_meta->
@@ -1059,14 +1059,14 @@ static int _cache_mngt_set_core_seq_cutoff_promo_count(ocf_core_t core,
 	if (count_old == count) {
 		ocf_core_log(core, log_info,
 				"Sequential cutoff promotion count %u "
-				"bytes is already set\n", count);
+				"is already set\n", count);
 		return 0;
 	}
 
 	env_atomic_set(&core->conf_meta->seq_cutoff_promo_count, count);
 
-	ocf_core_log(core, log_info, "Changing sequential cutoff promotion"
-			"count from %u to %u bytes successful\n",
+	ocf_core_log(core, log_info, "Changing sequential cutoff promotion "
+			"count from %u to %u successful\n",
 			count_old, count);
 
 	return 0;

@@ -30,7 +30,7 @@
 #include "alru.h"
 #include "../metadata/metadata.h"
 #include "../utils/utils_cleaner.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../utils/utils_realloc.h"
 #include "../concurrency/ocf_cache_line_concurrency.h"
 #include "../ocf_def_priv.h"
@@ -49,7 +49,9 @@ static void cleaning_policy_alru_initialize_test01(void **state)
 	print_test_description("Check if all variables are set correctly");
 
 	cache = test_malloc(sizeof(*cache));
-	cache->user_parts[part_id].runtime = test_malloc(sizeof(struct ocf_part_runtime));
+	cache->user_parts[part_id].part.runtime = test_malloc(sizeof(struct ocf_part_runtime));
+	cache->user_parts[part_id].clean_pol = test_malloc(sizeof(*cache->user_parts[part_id].clean_pol));
+	cache->user_parts[part_id].part.id = part_id;
 	cache->device = test_malloc(sizeof(struct ocf_cache_device));
 	cache->device->runtime_meta = test_malloc(sizeof(struct ocf_superblock_runtime));
 
@@ -59,15 +61,16 @@ static void cleaning_policy_alru_initialize_test01(void **state)
 
 	assert_int_equal(result, 0);
 
-	assert_int_equal(env_atomic_read(&cache->user_parts[part_id].runtime->cleaning.policy.alru.size), 0);
-	assert_int_equal(cache->user_parts[part_id].runtime->cleaning.policy.alru.lru_head, collision_table_entries);
-	assert_int_equal(cache->user_parts[part_id].runtime->cleaning.policy.alru.lru_tail, collision_table_entries);
+	assert_int_equal(env_atomic_read(&cache->user_parts[part_id].clean_pol->policy.alru.size), 0);
+	assert_int_equal(cache->user_parts[part_id].clean_pol->policy.alru.lru_head, collision_table_entries);
+	assert_int_equal(cache->user_parts[part_id].clean_pol->policy.alru.lru_tail, collision_table_entries);
 
 	assert_int_equal(cache->device->runtime_meta->cleaning_thread_access, 0);
 
 	test_free(cache->device->runtime_meta);
 	test_free(cache->device);
-	test_free(cache->user_parts[part_id].runtime);
+	test_free(cache->user_parts[part_id].clean_pol);
+	test_free(cache->user_parts[part_id].part.runtime);
 	test_free(cache);
 }
 
@@ -82,27 +85,29 @@ static void cleaning_policy_alru_initialize_test02(void **state)
 	print_test_description("Check if only appropirate variables are changed");
 
 	cache = test_malloc(sizeof(*cache));
-	cache->user_parts[part_id].runtime = test_malloc(sizeof(struct ocf_part_runtime));
+	cache->user_parts[part_id].part.runtime = test_malloc(sizeof(struct ocf_part_runtime));
+	cache->user_parts[part_id].clean_pol = test_malloc(sizeof(*cache->user_parts[part_id].clean_pol));
 	cache->device = test_malloc(sizeof(struct ocf_cache_device));
 	cache->device->runtime_meta = test_malloc(sizeof(struct ocf_superblock_runtime));
 
-	env_atomic_set(&cache->user_parts[part_id].runtime->cleaning.policy.alru.size, 1);
-	cache->user_parts[part_id].runtime->cleaning.policy.alru.lru_head = -collision_table_entries;
-	cache->user_parts[part_id].runtime->cleaning.policy.alru.lru_tail = -collision_table_entries;
+	env_atomic_set(&cache->user_parts[part_id].clean_pol->policy.alru.size, 1);
+	cache->user_parts[part_id].clean_pol->policy.alru.lru_head = -collision_table_entries;
+	cache->user_parts[part_id].clean_pol->policy.alru.lru_tail = -collision_table_entries;
 
-	result = cleaning_policy_alru_initialize_part(cache, cache->user_parts[part_id], 0, 0);
+	result = cleaning_policy_alru_initialize_part(cache, &cache->user_parts[part_id], 0, 0);
 
 	assert_int_equal(result, 0);
 
-	assert_int_equal(env_atomic_read(&cache->user_parts[part_id].runtime->cleaning.policy.alru.size), 1);
-	assert_int_equal(cache->user_parts[part_id].runtime->cleaning.policy.alru.lru_head, -collision_table_entries);
-	assert_int_equal(cache->user_parts[part_id].runtime->cleaning.policy.alru.lru_tail, -collision_table_entries);
+	assert_int_equal(env_atomic_read(&cache->user_parts[part_id].clean_pol->policy.alru.size), 1);
+	assert_int_equal(cache->user_parts[part_id].clean_pol->policy.alru.lru_head, -collision_table_entries);
+	assert_int_equal(cache->user_parts[part_id].clean_pol->policy.alru.lru_tail, -collision_table_entries);
 
 	assert_int_equal(cache->device->runtime_meta->cleaning_thread_access, 0);
 
 	test_free(cache->device->runtime_meta);
 	test_free(cache->device);
-	test_free(cache->user_parts[part_id].runtime);
+	test_free(cache->user_parts[part_id].clean_pol);
+	test_free(cache->user_parts[part_id].part.runtime);
 	test_free(cache);
 }
 

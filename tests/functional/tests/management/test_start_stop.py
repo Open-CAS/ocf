@@ -11,7 +11,7 @@ from itertools import count
 import pytest
 
 from pyocf.ocf import OcfLib
-from pyocf.types.cache import Cache, CacheMode, MetadataLayout, EvictionPolicy, CleaningPolicy
+from pyocf.types.cache import Cache, CacheMode, MetadataLayout,  CleaningPolicy
 from pyocf.types.core import Core
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
@@ -38,7 +38,6 @@ def test_start_check_default(pyocf_ctx):
     assert stats["conf"]["cleaning_policy"] == CleaningPolicy.DEFAULT
     assert stats["conf"]["cache_mode"] == CacheMode.DEFAULT
     assert stats["conf"]["cache_line_size"] == CacheLineSize.DEFAULT
-    assert stats["conf"]["eviction_policy"] == EvictionPolicy.DEFAULT
 
     core_stats = core.get_stats()
     assert core_stats["seq_cutoff_policy"] == SeqCutOffPolicy.DEFAULT
@@ -156,7 +155,6 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     stats = cache.get_stats()
     assert stats["conf"]["cache_mode"] == mode, "Cache mode"
     assert stats["conf"]["cache_line_size"] == cls, "Cache line size"
-    assert stats["conf"]["eviction_policy"] == EvictionPolicy.DEFAULT, "Eviction policy"
     assert cache.get_name() == name, "Cache name"
     # TODO: metadata_layout, metadata_volatile, max_queue_size,
     #  queue_unblock_size, pt_unaligned_io, use_submit_fast
@@ -394,7 +392,7 @@ def test_start_stop_noqueue(pyocf_ctx):
 
     cache_handle = c_void_p()
     status = pyocf_ctx.lib.ocf_mngt_cache_start(
-        pyocf_ctx.ctx_handle, byref(cache_handle), byref(_cache.cfg)
+        pyocf_ctx.ctx_handle, byref(cache_handle), byref(_cache.cfg), None
     )
     assert not status, "Failed to start cache: {}".format(status)
 

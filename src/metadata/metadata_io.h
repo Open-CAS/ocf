@@ -53,10 +53,9 @@ struct metadata_io_request {
 	void *context;
 	ctx_data_t *data;
 	struct metadata_io_request_asynch *asynch;
-	env_atomic finished;
 	uint32_t page;
 	uint32_t count;
-	uint64_t map;
+	uint64_t alock_status;
 };
 
 /*

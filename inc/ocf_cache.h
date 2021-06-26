@@ -72,9 +72,6 @@ struct ocf_cache_info {
 			  set as a result of reaching IO error threshold */
 	} fallback_pt;
 
-	ocf_eviction_t eviction_policy;
-		/*!< Eviction policy selected */
-
 	ocf_cleaning_t cleaning_policy;
 		/*!< Cleaning policy selected */
 

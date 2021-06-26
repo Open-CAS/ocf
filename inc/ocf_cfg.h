@@ -24,10 +24,6 @@
 #define OCF_CONFIG_MAX_IO_CLASSES 33
 #endif
 
-#ifndef OCF_CONFIG_MEM_SAVER
-#define OCF_CONFIG_MEM_SAVER 0
-#endif
-
 #if OCF_CONFIG_MAX_IO_CLASSES > 256
 #error "Limit of maximum number of IO classes exceeded"
 #endif

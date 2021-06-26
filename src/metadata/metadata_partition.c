@@ -6,7 +6,7 @@
 #include "ocf/ocf.h"
 #include "metadata.h"
 #include "metadata_internal.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 
 ocf_part_id_t ocf_metadata_get_partition_id(struct ocf_cache *cache,
 		ocf_cache_line_t line)
@@ -33,7 +33,8 @@ void ocf_metadata_set_partition_id(struct ocf_cache *cache,
 	info = ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
 
-	ENV_BUG_ON(!info);
-
-	info->partition_id = part_id;
+	if (info)
+		info->partition_id = part_id;
+	else
+		ocf_metadata_error(cache);
 }

@@ -12,7 +12,7 @@
 #include "../engine/engine_common.h"
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_cache_line.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../utils/utils_pipeline.h"
 #include "../utils/utils_refcnt.h"
 #include "../ocf_request.h"

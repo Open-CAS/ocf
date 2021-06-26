@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
-#ifndef OCF_COLLISION_UPDATE_CONCURRENCY_H_
-#define OCF_COLLISION_UPDATE_CONCURRENCY_H_
+#ifndef OCF_MIO_CONCURRENCY_H_
+#define OCF_MIO_CONCURRENCY_H_
 
 #include "../utils/utils_alock.h"
 
