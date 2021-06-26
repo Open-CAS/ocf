@@ -105,8 +105,6 @@ struct ocf_cache {
 	env_atomic pending_read_misses_list_blocked;
 	env_atomic pending_read_misses_list_count;
 
-	env_atomic pending_eviction_clines;
-
 	env_atomic flush_in_progress;
 	env_mutex flush_mutex;
 

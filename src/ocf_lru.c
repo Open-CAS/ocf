@@ -657,16 +657,6 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 	ocf_cleaner_fire(cache, &attribs);
 }
 
-bool ocf_lru_can_evict(ocf_cache_t cache)
-{
-	if (env_atomic_read(&cache->pending_eviction_clines) >=
-			OCF_PENDING_EVICTION_LIMIT) {
-		return false;
-	}
-
-	return true;
-}
-
 static void ocf_lru_invalidate(ocf_cache_t cache, ocf_cache_line_t cline,
 	ocf_core_id_t core_id, ocf_part_id_t part_id)
 {
@@ -730,9 +720,6 @@ uint32_t ocf_lru_req_clines(struct ocf_request *req,
 
 	i = 0;
 	while (i < cline_no) {
-		if (!ocf_lru_can_evict(cache))
-			break;
-
 		if (src_part->id != PARTITION_FREELIST) {
 			cline = lru_iter_eviction_next(&iter, dst_part, &core_id,
 					&core_line);
