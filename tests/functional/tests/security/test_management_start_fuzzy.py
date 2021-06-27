@@ -7,7 +7,7 @@ import logging
 
 import pytest
 
-from pyocf.types.cache import Cache, CacheMode, EvictionPolicy, MetadataLayout, PromotionPolicy
+from pyocf.types.cache import Cache, CacheMode, MetadataLayout, PromotionPolicy
 from pyocf.types.shared import OcfError, CacheLineSize
 from pyocf.types.volume import Volume
 from pyocf.utils import Size
@@ -71,25 +71,6 @@ def test_fuzzy_start_name(pyocf_ctx, string_randomize, cm, cls):
     if string_randomize in incorrect_values:
         logger.error(f"Cache started with incorrect name value: '{string_randomize}'")
     cache.stop()
-
-
-@pytest.mark.security
-@pytest.mark.parametrize("cm", CacheMode)
-@pytest.mark.parametrize("cls", CacheLineSize)
-def test_fuzzy_start_eviction_policy(pyocf_ctx, not_eviction_policy_randomize, cm, cls):
-    """
-    Test whether it is impossible to start cache with invalid eviction policy value.
-    :param pyocf_ctx: basic pyocf context fixture
-    :param c_uint32_randomize: eviction policy enum value to start cache with
-    :param cm: cache mode value to start cache with
-    :param cls: cache line size value to start cache with
-    """
-    with pytest.raises(OcfError, match="OCF_ERR_INVAL"):
-        try_start_cache(
-            eviction_policy=not_eviction_policy_randomize,
-            cache_mode=cm,
-            cache_line_size=cls
-        )
 
 
 @pytest.mark.security

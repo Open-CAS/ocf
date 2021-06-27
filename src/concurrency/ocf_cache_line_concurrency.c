@@ -25,24 +25,6 @@ static bool ocf_cl_lock_line_is_acting(struct ocf_alock *alock,
 	return req->map[index].status != LOOKUP_MISS;
 }
 
-static bool ocf_cl_lock_line_is_locked(struct ocf_alock *alock,
-		struct ocf_request *req, unsigned index, int rw)
-{
-	if (rw == OCF_WRITE)
-		return req->map[index].wr_locked;
-	else
-		return req->map[index].rd_locked;
-}
-
-static void ocf_cl_lock_line_mark_locked(struct ocf_alock *alock,
-		struct ocf_request *req, unsigned index, int rw, bool locked)
-{
-	if (rw == OCF_WRITE)
-		req->map[index].wr_locked = locked;
-	else
-		req->map[index].rd_locked = locked;
-}
-
 static ocf_cache_line_t ocf_cl_lock_line_get_entry(
 		struct ocf_alock *alock, struct ocf_request *req,
 		unsigned index)
@@ -50,12 +32,118 @@ static ocf_cache_line_t ocf_cl_lock_line_get_entry(
 	return req->map[index].coll_idx;
 }
 
+static int ocf_cl_lock_line_fast(struct ocf_alock *alock,
+		struct ocf_request *req, int rw)
+{
+	int32_t i;
+	ocf_cache_line_t entry;
+	int ret = OCF_LOCK_ACQUIRED;
+
+	for (i = 0; i < req->core_line_count; i++) {
+		if (!ocf_cl_lock_line_needs_lock(alock, req, i)) {
+			/* nothing to lock */
+			continue;
+		}
+
+		entry = ocf_cl_lock_line_get_entry(alock, req, i);
+		ENV_BUG_ON(ocf_alock_is_index_locked(alock, req, i));
+
+		if (rw == OCF_WRITE) {
+			if (ocf_alock_trylock_entry_wr(alock, entry)) {
+				/* cache entry locked */
+				ocf_alock_mark_index_locked(alock, req, i, true);
+			} else {
+				/* Not possible to lock all cachelines */
+				ret = OCF_LOCK_NOT_ACQUIRED;
+				break;
+			}
+		} else {
+			if (ocf_alock_trylock_entry_rd_idle(alock, entry)) {
+				/* cache entry locked */
+				ocf_alock_mark_index_locked(alock, req, i, true);
+			} else {
+				/* Not possible to lock all cachelines */
+				ret = OCF_LOCK_NOT_ACQUIRED;
+				break;
+			}
+		}
+	}
+
+	/* Check if request is locked */
+	if (ret == OCF_LOCK_NOT_ACQUIRED) {
+		/* Request is not locked, discard acquired locks */
+		for (; i >= 0; i--) {
+			if (!ocf_cl_lock_line_needs_lock(alock, req, i))
+				continue;
+
+			entry = ocf_cl_lock_line_get_entry(alock, req, i);
+
+			if (ocf_alock_is_index_locked(alock, req, i)) {
+
+				if (rw == OCF_WRITE) {
+					ocf_alock_unlock_one_wr(alock, entry);
+				} else {
+					ocf_alock_unlock_one_rd(alock, entry);
+				}
+				ocf_alock_mark_index_locked(alock, req, i, false);
+			}
+		}
+	}
+
+	return ret;
+}
+
+static int ocf_cl_lock_line_slow(struct ocf_alock *alock,
+		struct ocf_request *req, int rw, ocf_req_async_lock_cb cmpl)
+{
+	int32_t i;
+	ocf_cache_line_t entry;
+	int ret = 0;
+
+	for (i = 0; i < req->core_line_count; i++) {
+
+		if (!ocf_cl_lock_line_needs_lock(alock, req, i)) {
+			/* nothing to lock */
+			env_atomic_dec(&req->lock_remaining);
+			continue;
+		}
+
+		entry = ocf_cl_lock_line_get_entry(alock, req, i);
+		ENV_BUG_ON(ocf_alock_is_index_locked(alock, req, i));
+
+
+		if (rw == OCF_WRITE) {
+			if (!ocf_alock_lock_one_wr(alock, entry, cmpl, req, i)) {
+				/* lock not acquired and not added to wait list */
+				ret = -OCF_ERR_NO_MEM;
+				goto err;
+			}
+		} else {
+			if (!ocf_alock_lock_one_rd(alock, entry, cmpl, req, i)) {
+				/* lock not acquired and not added to wait list */
+				ret = -OCF_ERR_NO_MEM;
+				goto err;
+			}
+		}
+	}
+
+	return ret;
+
+err:
+	for (; i >= 0; i--) {
+		if (!ocf_cl_lock_line_needs_lock(alock, req, i))
+			continue;
+
+		entry = ocf_cl_lock_line_get_entry(alock, req, i);
+		ocf_alock_waitlist_remove_entry(alock, req, i, entry, rw);
+	}
+
+	return ret;
+}
+
 static struct ocf_alock_lock_cbs ocf_cline_conc_cbs = {
-		.line_needs_lock = ocf_cl_lock_line_needs_lock,
-		.line_is_acting = ocf_cl_lock_line_is_acting,
-		.line_is_locked = ocf_cl_lock_line_is_locked,
-		.line_mark_locked = ocf_cl_lock_line_mark_locked,
-		.line_get_entry = ocf_cl_lock_line_get_entry
+		.lock_entries_fast = ocf_cl_lock_line_fast,
+		.lock_entries_slow = ocf_cl_lock_line_slow
 };
 
 bool ocf_cache_line_try_lock_rd(struct ocf_alock *alock,
@@ -66,10 +154,7 @@ bool ocf_cache_line_try_lock_rd(struct ocf_alock *alock,
 
 void ocf_cache_line_unlock_rd(struct ocf_alock *alock, ocf_cache_line_t line)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	ocf_alock_unlock_one_rd(alock, cbs, line);
+	ocf_alock_unlock_one_rd(alock, line);
 }
 
 bool ocf_cache_line_try_lock_wr(struct ocf_alock *alock,
@@ -81,52 +166,65 @@ bool ocf_cache_line_try_lock_wr(struct ocf_alock *alock,
 void ocf_cache_line_unlock_wr(struct ocf_alock *alock,
 		ocf_cache_line_t line)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	ocf_alock_unlock_one_wr(alock, cbs, line);
+	ocf_alock_unlock_one_wr(alock, line);
 }
 
 int ocf_req_async_lock_rd(struct ocf_alock *alock,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	return ocf_alock_lock_rd(alock, cbs, req, cmpl);
+	return ocf_alock_lock_rd(alock, req, cmpl);
 }
 
 int ocf_req_async_lock_wr(struct ocf_alock *alock,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	return ocf_alock_lock_wr(alock, cbs, req, cmpl);
+	return ocf_alock_lock_wr(alock, req, cmpl);
 }
 
 void ocf_req_unlock_rd(struct ocf_alock *alock, struct ocf_request *req)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
+	int32_t i;
+	ocf_cache_line_t entry;
 
-	ocf_alock_unlock_rd(alock, cbs, req);
+	for (i = 0; i < req->core_line_count; i++) {
+		if (!ocf_cl_lock_line_is_acting(alock, req, i))
+			continue;
+
+		if (!ocf_alock_is_index_locked(alock, req, i))
+			continue;
+
+		entry = ocf_cl_lock_line_get_entry(alock, req, i);
+
+		ocf_alock_unlock_one_rd(alock, entry);
+		ocf_alock_mark_index_locked(alock, req, i, false);
+	}
 }
 
 void ocf_req_unlock_wr(struct ocf_alock *alock, struct ocf_request *req)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
+	int32_t i;
+	ocf_cache_line_t entry;
 
-	ocf_alock_unlock_wr(alock, cbs, req);
+	for (i = 0; i < req->core_line_count; i++) {
+		if (!ocf_cl_lock_line_is_acting(alock, req, i))
+			continue;
+
+		if (!ocf_alock_is_index_locked(alock, req, i))
+			continue;
+
+		entry = ocf_cl_lock_line_get_entry(alock, req, i);
+
+		ocf_alock_unlock_one_wr(alock, entry);
+		ocf_alock_mark_index_locked(alock, req, i, false);
+	}
 }
 
 void ocf_req_unlock(struct ocf_alock *alock, struct ocf_request *req)
 {
-	struct ocf_alock_lock_cbs *cbs =
-			&ocf_cline_conc_cbs;
-
-	ocf_alock_unlock(alock, cbs, req);
+	if (req->alock_rw == OCF_WRITE)
+		ocf_req_unlock_wr(alock, req);
+	else
+		ocf_req_unlock_rd(alock, req);
 }
 
 bool ocf_cache_line_are_waiters(struct ocf_alock *alock,
@@ -140,7 +238,7 @@ uint32_t ocf_cache_line_concurrency_suspended_no(struct ocf_alock *alock)
 	return ocf_alock_waitlist_count(alock);
 }
 
-#define ALLOCATOR_NAME_FMT "ocf_%s_cache_concurrency"
+#define ALLOCATOR_NAME_FMT "ocf_%s_cl_conc"
 #define ALLOCATOR_NAME_MAX (sizeof(ALLOCATOR_NAME_FMT) + OCF_CACHE_NAME_SIZE)
 
 int ocf_cache_line_concurrency_init(struct ocf_alock **self,
@@ -154,9 +252,9 @@ int ocf_cache_line_concurrency_init(struct ocf_alock **self,
 	if (ret < 0)
 		return ret;
 	if (ret >= ALLOCATOR_NAME_MAX)
-		return -OCF_ERR_INVAL;
+		return -ENOSPC;
 
-	return ocf_alock_init(self, num_clines, name, cache);
+	return ocf_alock_init(self, num_clines, name, &ocf_cline_conc_cbs, cache);
 }
 
 void ocf_cache_line_concurrency_deinit(struct ocf_alock **self)

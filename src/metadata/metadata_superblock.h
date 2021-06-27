@@ -49,8 +49,6 @@ struct ocf_superblock_config {
 	ocf_promotion_t promotion_policy_type;
 	struct promotion_policy_config promotion[PROMOTION_POLICY_TYPE_MAX];
 
-	ocf_eviction_t eviction_policy_type;
-
 	/*
 	 * Checksum for each metadata region.
 	 * This field has to be the last one!
@@ -72,7 +70,7 @@ void ocf_metadata_set_shutdown_status(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv);
 
 void ocf_metadata_load_superblock(ocf_cache_t cache,
-		ocf_metadata_end_t cmpl, void *priv, bool load);
+		ocf_metadata_end_t cmpl, void *priv);
 
 void ocf_metadata_flush_superblock(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv);

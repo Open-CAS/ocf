@@ -9,7 +9,7 @@
 #include "alru.h"
 #include "../metadata/metadata.h"
 #include "../utils/utils_cleaner.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../utils/utils_realloc.h"
 #include "../concurrency/ocf_cache_line_concurrency.h"
 #include "../ocf_def_priv.h"
@@ -55,41 +55,11 @@ struct alru_flush_ctx {
 
 struct alru_context {
 	struct alru_flush_ctx flush_ctx;
-	env_spinlock list_lock[OCF_IO_CLASS_MAX];
+	env_spinlock list_lock[OCF_USER_IO_CLASS_MAX];
 };
 
 
 /* -- Start of ALRU functions -- */
-
-
-/* Sets the given collision_index as the new _head_ of the ALRU list. */
-static inline void update_alru_head(struct ocf_cache *cache,
-		int partition_id, unsigned int collision_index)
-{
-	struct ocf_user_part *part = &cache->user_parts[partition_id];
-
-	part->runtime->cleaning.policy.alru.lru_head = collision_index;
-}
-
-/* Sets the given collision_index as the new _tail_ of the ALRU list. */
-static inline void update_alru_tail(struct ocf_cache *cache,
-		int partition_id, unsigned int collision_index)
-{
-	struct ocf_user_part *part = &cache->user_parts[partition_id];
-
-	part->runtime->cleaning.policy.alru.lru_tail = collision_index;
-}
-
-/* Sets the given collision_index as the new _head_ and _tail_
- * of the ALRU list.
- */
-static inline void update_alru_head_tail(struct ocf_cache *cache,
-		int partition_id, unsigned int collision_index)
-{
-	update_alru_head(cache, partition_id, collision_index);
-	update_alru_tail(cache, partition_id, collision_index);
-}
-
 
 /* Adds the given collision_index to the _head_ of the ALRU list */
 static void add_alru_head(struct ocf_cache *cache, int partition_id,
@@ -97,20 +67,21 @@ static void add_alru_head(struct ocf_cache *cache, int partition_id,
 {
 	unsigned int curr_head_index;
 	unsigned int collision_table_entries = cache->device->collision_table_entries;
-	struct ocf_user_part *part = &cache->user_parts[partition_id];
+	struct alru_cleaning_policy *part_alru = &cache->user_parts[partition_id]
+			.clean_pol->policy.alru;
 	struct alru_cleaning_policy_meta *alru;
 
 	ENV_BUG_ON(!(collision_index < collision_table_entries));
 
-	ENV_BUG_ON(env_atomic_read(
-			&part->runtime->cleaning.policy.alru.size) < 0);
+	ENV_BUG_ON(env_atomic_read(&part_alru->size) < 0);
 
 	ENV_WARN_ON(!metadata_test_dirty(cache, collision_index));
 	ENV_WARN_ON(!metadata_test_valid_any(cache, collision_index));
 
 	/* First node to be added/ */
-	if (env_atomic_read(&part->runtime->cleaning.policy.alru.size) == 0) {
-		update_alru_head_tail(cache, partition_id, collision_index);
+	if (env_atomic_read(&part_alru->size) == 0) {
+		part_alru->lru_head = collision_index;
+		part_alru->lru_tail = collision_index;
 
 		alru = &ocf_metadata_get_cleaning_policy(cache,
 				collision_index)->meta.alru;
@@ -121,7 +92,7 @@ static void add_alru_head(struct ocf_cache *cache, int partition_id,
 	} else {
 		/* Not the first node to be added. */
 
-		curr_head_index = part->runtime->cleaning.policy.alru.lru_head;
+		curr_head_index = part_alru->lru_head;
 
 		ENV_BUG_ON(!(curr_head_index < collision_table_entries));
 
@@ -136,10 +107,10 @@ static void add_alru_head(struct ocf_cache *cache, int partition_id,
 				curr_head_index)->meta.alru;
 		alru->lru_prev = collision_index;
 
-		update_alru_head(cache, partition_id, collision_index);
+		part_alru->lru_head = collision_index;
 	}
 
-	env_atomic_inc(&part->runtime->cleaning.policy.alru.size);
+	env_atomic_inc(&part_alru->size);
 }
 
 /* Deletes the node with the given collision_index from the ALRU list */
@@ -148,14 +119,13 @@ static void remove_alru_list(struct ocf_cache *cache, int partition_id,
 {
 	uint32_t prev_lru_node, next_lru_node;
 	uint32_t collision_table_entries = cache->device->collision_table_entries;
-	struct ocf_user_part *part = &cache->user_parts[partition_id];
-	struct alru_cleaning_policy *cleaning_policy =
-			&part->runtime->cleaning.policy.alru;
+	struct alru_cleaning_policy *part_alru = &cache->user_parts[partition_id]
+			.clean_pol->policy.alru;
 	struct alru_cleaning_policy_meta *alru;
 
 	ENV_BUG_ON(!(collision_index < collision_table_entries));
 
-	if (env_atomic_read(&part->runtime->cleaning.policy.alru.size) == 0) {
+	if (env_atomic_read(&part_alru->size) == 0) {
 		ocf_cache_log(cache, log_err, "ERROR: Attempt to remove item "
 				"from empty ALRU Cleaning Policy queue!\n");
 		ENV_BUG();
@@ -170,29 +140,29 @@ static void remove_alru_list(struct ocf_cache *cache, int partition_id,
 	/* Check if entry is not part of the ALRU list */
 	if ((next_lru_node == collision_table_entries) &&
 			(prev_lru_node == collision_table_entries) &&
-			(cleaning_policy->lru_head != collision_index) &&
-			(cleaning_policy->lru_tail != collision_index)) {
+			(part_alru->lru_head != collision_index) &&
+			(part_alru->lru_tail != collision_index)) {
 		return;
 	}
 
 	/* Case 0: If we are head AND tail, there is only one node. So unlink
 	 * node and set that there is no node left in the list.
 	 */
-	if (cleaning_policy->lru_head == collision_index &&
-			cleaning_policy->lru_tail == collision_index) {
+	if (part_alru->lru_head == collision_index &&
+			part_alru->lru_tail == collision_index) {
 		alru->lru_next = collision_table_entries;
 		alru->lru_prev = collision_table_entries;
 
 
-		update_alru_head_tail(cache, partition_id,
-				collision_table_entries);
+		part_alru->lru_head = collision_table_entries;
+		part_alru->lru_tail = collision_table_entries;
 	}
 
 	/* Case 1: else if this collision_index is ALRU head, but not tail,
 	 * update head and return
 	 */
-	else if ((cleaning_policy->lru_tail != collision_index) &&
-			(cleaning_policy->lru_head == collision_index)) {
+	else if ((part_alru->lru_tail != collision_index) &&
+			(part_alru->lru_head == collision_index)) {
 		struct alru_cleaning_policy_meta *next_alru;
 
 		ENV_BUG_ON(!(next_lru_node < collision_table_entries));
@@ -200,7 +170,7 @@ static void remove_alru_list(struct ocf_cache *cache, int partition_id,
 		next_alru = &ocf_metadata_get_cleaning_policy(cache,
 				next_lru_node)->meta.alru;
 
-		update_alru_head(cache, partition_id, next_lru_node);
+		part_alru->lru_head = next_lru_node;
 
 		alru->lru_next = collision_table_entries;
 		next_alru->lru_prev = collision_table_entries;
@@ -210,8 +180,8 @@ static void remove_alru_list(struct ocf_cache *cache, int partition_id,
 	/* Case 2: else if this collision_index is ALRU tail, but not head,
 	 * update tail and return
 	 */
-	else if ((cleaning_policy->lru_head != collision_index) &&
-			(cleaning_policy->lru_tail == collision_index)) {
+	else if ((part_alru->lru_head != collision_index) &&
+			(part_alru->lru_tail == collision_index)) {
 		struct alru_cleaning_policy_meta *prev_alru;
 
 		ENV_BUG_ON(!(prev_lru_node < collision_table_entries));
@@ -219,7 +189,7 @@ static void remove_alru_list(struct ocf_cache *cache, int partition_id,
 		prev_alru = &ocf_metadata_get_cleaning_policy(cache,
 				prev_lru_node)->meta.alru;
 
-		update_alru_tail(cache, partition_id, prev_lru_node);
+		part_alru->lru_tail = prev_lru_node;
 
 		alru->lru_prev = collision_table_entries;
 		prev_alru->lru_next = collision_table_entries;
@@ -249,7 +219,7 @@ static void remove_alru_list(struct ocf_cache *cache, int partition_id,
 
 	}
 
-	env_atomic_dec(&part->runtime->cleaning.policy.alru.size);
+	env_atomic_dec(&part_alru->size);
 }
 
 static bool is_on_alru_list(struct ocf_cache *cache, int partition_id,
@@ -257,9 +227,8 @@ static bool is_on_alru_list(struct ocf_cache *cache, int partition_id,
 {
 	uint32_t prev_lru_node, next_lru_node;
 	uint32_t collision_table_entries = cache->device->collision_table_entries;
-	struct ocf_user_part *part = &cache->user_parts[partition_id];
-	struct alru_cleaning_policy *cleaning_policy =
-			&part->runtime->cleaning.policy.alru;
+	struct alru_cleaning_policy *part_alru = &cache->user_parts[partition_id]
+			.clean_pol->policy.alru;
 	struct alru_cleaning_policy_meta *alru;
 
 	ENV_BUG_ON(!(collision_index < collision_table_entries));
@@ -270,8 +239,8 @@ static bool is_on_alru_list(struct ocf_cache *cache, int partition_id,
 	next_lru_node = alru->lru_next;
 	prev_lru_node = alru->lru_prev;
 
-	return cleaning_policy->lru_tail == collision_index ||
-			cleaning_policy->lru_head == collision_index ||
+	return part_alru->lru_tail == collision_index ||
+			part_alru->lru_head == collision_index ||
 			next_lru_node != collision_table_entries ||
 			prev_lru_node != collision_table_entries;
 }
@@ -321,13 +290,12 @@ static void __cleaning_policy_alru_purge_cache_block_any(
 
 int cleaning_policy_alru_purge_range(struct ocf_cache *cache, int core_id,
 		uint64_t start_byte, uint64_t end_byte) {
-	struct ocf_user_part *part;
+	struct ocf_user_part *user_part;
 	ocf_part_id_t part_id;
 	int ret = 0;
 
-	for_each_part(cache, part, part_id) {
-		if (env_atomic_read(&part->runtime->cleaning.
-				policy.alru.size) == 0)
+	for_each_user_part(cache, user_part, part_id) {
+		if (env_atomic_read(&user_part->clean_pol->policy.alru.size) == 0)
 			continue;
 
 		ret |= ocf_metadata_actor(cache, part_id,
@@ -344,8 +312,8 @@ void cleaning_policy_alru_set_hot_cache_line(struct ocf_cache *cache,
 	struct alru_context *ctx = cache->cleaner.cleaning_policy_context;
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache,
 			cache_line);
-	struct ocf_user_part *part = &cache->user_parts[part_id];
-
+	struct alru_cleaning_policy *part_alru = &cache->user_parts[part_id]
+			.clean_pol->policy.alru;
 	uint32_t prev_lru_node, next_lru_node;
 	uint32_t collision_table_entries = cache->device->collision_table_entries;
 	struct alru_cleaning_policy_meta *alru;
@@ -362,10 +330,8 @@ void cleaning_policy_alru_set_hot_cache_line(struct ocf_cache *cache,
 
 	if ((next_lru_node != collision_table_entries) ||
 			(prev_lru_node != collision_table_entries) ||
-			((part->runtime->cleaning.policy.
-				alru.lru_head == cache_line) &&
-			(part->runtime->cleaning.policy.
-				alru.lru_tail == cache_line)))
+			((part_alru->lru_head == cache_line) &&
+			(part_alru->lru_tail == cache_line)))
 		remove_alru_list(cache, part_id, cache_line);
 
 	add_alru_head(cache, part_id, cache_line);
@@ -375,19 +341,19 @@ void cleaning_policy_alru_set_hot_cache_line(struct ocf_cache *cache,
 
 static void _alru_rebuild(struct ocf_cache *cache)
 {
-	struct ocf_user_part *part;
+	struct ocf_user_part *user_part;
+	struct alru_cleaning_policy *part_alru;
 	ocf_part_id_t part_id;
 	ocf_core_id_t core_id;
 	ocf_cache_line_t cline;
 	uint32_t step = 0;
 
-	for_each_part(cache, part, part_id) {
+	for_each_user_part(cache, user_part, part_id) {
 		/* ALRU initialization */
-		env_atomic_set(&part->runtime->cleaning.policy.alru.size, 0);
-		part->runtime->cleaning.policy.alru.lru_head =
-				cache->device->collision_table_entries;
-		part->runtime->cleaning.policy.alru.lru_tail =
-				cache->device->collision_table_entries;
+		part_alru = &user_part->clean_pol->policy.alru;
+		env_atomic_set(&part_alru->size, 0);
+		part_alru->lru_head = cache->device->collision_table_entries;
+		part_alru->lru_tail = cache->device->collision_table_entries;
 		cache->device->runtime_meta->cleaning_thread_access = 0;
 	}
 
@@ -410,15 +376,16 @@ static void _alru_rebuild(struct ocf_cache *cache)
 }
 
 static int cleaning_policy_alru_initialize_part(struct ocf_cache *cache,
-		struct ocf_user_part *part, int init_metadata)
+		struct ocf_user_part *user_part, int init_metadata)
 {
+	struct alru_cleaning_policy *part_alru =
+		&user_part->clean_pol->policy.alru;
+
 	if (init_metadata) {
 		/* ALRU initialization */
-		env_atomic_set(&part->runtime->cleaning.policy.alru.size, 0);
-		part->runtime->cleaning.policy.alru.lru_head =
-				cache->device->collision_table_entries;
-		part->runtime->cleaning.policy.alru.lru_tail =
-				cache->device->collision_table_entries;
+		env_atomic_set(&part_alru->size, 0);
+		part_alru->lru_head = cache->device->collision_table_entries;
+		part_alru->lru_tail = cache->device->collision_table_entries;
 	}
 
 	cache->device->runtime_meta->cleaning_thread_access = 0;
@@ -440,7 +407,7 @@ void cleaning_policy_alru_setup(struct ocf_cache *cache)
 
 int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata)
 {
-	struct ocf_user_part *part;
+	struct ocf_user_part *user_part;
 	ocf_part_id_t part_id;
 	struct alru_context *ctx;
 	int error = 0;
@@ -452,7 +419,7 @@ int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata)
 		return -OCF_ERR_NO_MEM;
 	}
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		error = env_spinlock_init(&ctx->list_lock[i]);
 		if (error)
 			break;
@@ -468,9 +435,9 @@ int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata)
 
 	cache->cleaner.cleaning_policy_context = ctx;
 
-	for_each_part(cache, part, part_id) {
+	for_each_user_part(cache, user_part, part_id) {
 		cleaning_policy_alru_initialize_part(cache,
-				part, init_metadata);
+				user_part, init_metadata);
 	}
 
 	if (init_metadata)
@@ -486,7 +453,7 @@ void cleaning_policy_alru_deinitialize(struct ocf_cache *cache)
 	struct alru_context *alru = cache->cleaner.cleaning_policy_context;
 	unsigned i;
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++)
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++)
 		env_spinlock_destroy(&alru->list_lock[i]);
 
 	env_vfree(cache->cleaner.cleaning_policy_context);
@@ -697,17 +664,17 @@ static int get_data_to_flush(struct alru_context *ctx)
 	struct alru_cleaning_policy_config *config;
 	struct alru_cleaning_policy_meta *alru;
 	ocf_cache_line_t cache_line;
-	struct ocf_user_part *part;
+	struct ocf_user_part *user_part;
 	uint32_t last_access;
 	int to_flush = 0;
 	int part_id = OCF_IO_CLASS_ID_MAX;
 
 	config = (void *)&cache->conf_meta->cleaning[ocf_cleaning_alru].data;
 
-	for_each_part(cache, part, part_id) {
+	for_each_user_part(cache, user_part, part_id) {
 		env_spinlock_lock(&ctx->list_lock[part_id]);
 
-		cache_line = part->runtime->cleaning.policy.alru.lru_tail;
+		cache_line = user_part->clean_pol->policy.alru.lru_tail;
 
 		last_access = compute_timestamp(config);
 

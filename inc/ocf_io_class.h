@@ -44,9 +44,6 @@ struct ocf_io_class_info {
 		 * of ioclass's cachelines are evicted.
 		 */
 
-	uint8_t eviction_policy_type;
-		/*!< The type of eviction policy for given IO class */
-
 	ocf_cleaning_t cleaning_policy_type;
 		/*!< The type of cleaning policy for given IO class */
 };

@@ -70,7 +70,7 @@ struct ocf_core_meta_runtime {
 		 * cache device
 		 */
 		env_atomic dirty_clines;
-	} part_counters[OCF_IO_CLASS_MAX];
+	} part_counters[OCF_USER_IO_CLASS_MAX];
 };
 
 struct ocf_core {

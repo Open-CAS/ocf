@@ -9,7 +9,7 @@
 #include "../concurrency/ocf_concurrency.h"
 #include "../ocf_request.h"
 #include "utils_cleaner.h"
-#include "utils_part.h"
+#include "utils_user_part.h"
 #include "utils_io.h"
 #include "utils_cache_line.h"
 #include "../ocf_queue_priv.h"
@@ -1052,7 +1052,7 @@ void ocf_cleaner_refcnt_freeze(ocf_cache_t cache)
 	struct ocf_user_part *curr_part;
 	ocf_part_id_t part_id;
 
-	for_each_part(cache, curr_part, part_id)
+	for_each_user_part(cache, curr_part, part_id)
 		ocf_refcnt_freeze(&curr_part->cleaning.counter);
 }
 
@@ -1061,7 +1061,7 @@ void ocf_cleaner_refcnt_unfreeze(ocf_cache_t cache)
 	struct ocf_user_part *curr_part;
 	ocf_part_id_t part_id;
 
-	for_each_part(cache, curr_part, part_id)
+	for_each_user_part(cache, curr_part, part_id)
 		ocf_refcnt_unfreeze(&curr_part->cleaning.counter);
 }
 
@@ -1084,7 +1084,7 @@ void ocf_cleaner_refcnt_register_zero_cb(ocf_cache_t cache,
 	ctx->cb = cb;
 	ctx->priv = priv;
 
-	for_each_part(cache, curr_part, part_id) {
+	for_each_user_part(cache, curr_part, part_id) {
 		env_atomic_inc(&ctx->waiting);
 		ocf_refcnt_register_zero_cb(&curr_part->cleaning.counter,
 				ocf_cleaner_refcnt_register_zero_cb_finish, ctx);

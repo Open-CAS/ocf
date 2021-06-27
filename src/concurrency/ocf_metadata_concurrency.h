@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include "../ocf_cache_priv.h"
-#include "../eviction/eviction.h"
+#include "../ocf_space.h"
 #include "../ocf_queue_priv.h"
 
 #ifndef __OCF_METADATA_CONCURRENCY_H__
@@ -28,69 +28,69 @@ int ocf_metadata_concurrency_attached_init(
 void ocf_metadata_concurrency_attached_deinit(
 		struct ocf_metadata_lock *metadata_lock);
 
-static inline void ocf_metadata_eviction_wr_lock(
+static inline void ocf_metadata_lru_wr_lock(
 		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
 {
-	env_rwlock_write_lock(&metadata_lock->eviction[ev_list]);
+	env_rwlock_write_lock(&metadata_lock->lru[ev_list]);
 }
 
-static inline void ocf_metadata_eviction_wr_unlock(
+static inline void ocf_metadata_lru_wr_unlock(
 		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
 {
-	env_rwlock_write_unlock(&metadata_lock->eviction[ev_list]);
+	env_rwlock_write_unlock(&metadata_lock->lru[ev_list]);
 }
 
-static inline void ocf_metadata_eviction_rd_lock(
+static inline void ocf_metadata_lru_rd_lock(
 		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
 {
-	env_rwlock_read_lock(&metadata_lock->eviction[ev_list]);
+	env_rwlock_read_lock(&metadata_lock->lru[ev_list]);
 }
 
-static inline void ocf_metadata_eviction_rd_unlock(
+static inline void ocf_metadata_lru_rd_unlock(
 		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
 {
-	env_rwlock_read_unlock(&metadata_lock->eviction[ev_list]);
+	env_rwlock_read_unlock(&metadata_lock->lru[ev_list]);
 }
-static inline void ocf_metadata_eviction_wr_lock_all(
+static inline void ocf_metadata_lru_wr_lock_all(
 		struct ocf_metadata_lock *metadata_lock)
 {
 	uint32_t i;
 
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
-		ocf_metadata_eviction_wr_lock(metadata_lock, i);
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++)
+		ocf_metadata_lru_wr_lock(metadata_lock, i);
 }
 
-static inline void ocf_metadata_eviction_wr_unlock_all(
+static inline void ocf_metadata_lru_wr_unlock_all(
 		struct ocf_metadata_lock *metadata_lock)
 {
 	uint32_t i;
 
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
-		ocf_metadata_eviction_wr_unlock(metadata_lock, i);
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++)
+		ocf_metadata_lru_wr_unlock(metadata_lock, i);
 }
 
-#define OCF_METADATA_EVICTION_WR_LOCK(cline) \
-		ocf_metadata_eviction_wr_lock(&cache->metadata.lock, \
-				cline % OCF_NUM_EVICTION_LISTS)
+#define OCF_METADATA_LRU_WR_LOCK(cline) \
+		ocf_metadata_lru_wr_lock(&cache->metadata.lock, \
+				cline % OCF_NUM_LRU_LISTS)
 
-#define OCF_METADATA_EVICTION_WR_UNLOCK(cline) \
-		ocf_metadata_eviction_wr_unlock(&cache->metadata.lock, \
-				cline % OCF_NUM_EVICTION_LISTS)
+#define OCF_METADATA_LRU_WR_UNLOCK(cline) \
+		ocf_metadata_lru_wr_unlock(&cache->metadata.lock, \
+				cline % OCF_NUM_LRU_LISTS)
 
-#define OCF_METADATA_EVICTION_RD_LOCK(cline) \
-		ocf_metadata_eviction_rd_lock(&cache->metadata.lock, \
-				cline % OCF_NUM_EVICTION_LISTS)
+#define OCF_METADATA_LRU_RD_LOCK(cline) \
+		ocf_metadata_lru_rd_lock(&cache->metadata.lock, \
+				cline % OCF_NUM_LRU_LISTS)
 
-#define OCF_METADATA_EVICTION_RD_UNLOCK(cline) \
-		ocf_metadata_eviction_rd_unlock(&cache->metadata.lock, \
-				cline % OCF_NUM_EVICTION_LISTS)
+#define OCF_METADATA_LRU_RD_UNLOCK(cline) \
+		ocf_metadata_lru_rd_unlock(&cache->metadata.lock, \
+				cline % OCF_NUM_LRU_LISTS)
 
 
-#define OCF_METADATA_EVICTION_WR_LOCK_ALL() \
-	ocf_metadata_eviction_wr_lock_all(&cache->metadata.lock)
+#define OCF_METADATA_LRU_WR_LOCK_ALL() \
+	ocf_metadata_lru_wr_lock_all(&cache->metadata.lock)
 
-#define OCF_METADATA_EVICTION_WR_UNLOCK_ALL() \
-	ocf_metadata_eviction_wr_unlock_all(&cache->metadata.lock)
+#define OCF_METADATA_LRU_WR_UNLOCK_ALL() \
+	ocf_metadata_lru_wr_unlock_all(&cache->metadata.lock)
 
 static inline void ocf_metadata_partition_lock(
 		struct ocf_metadata_lock *metadata_lock,

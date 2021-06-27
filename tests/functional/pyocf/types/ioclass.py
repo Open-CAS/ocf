@@ -15,7 +15,6 @@ class IoClassInfo(Structure):
         ("_curr_size", c_uint32),
         ("_min_size", c_uint32),
         ("_max_size", c_uint32),
-        ("_eviction_policy_type", c_uint8),
         ("_cleaning_policy_type", c_int),
     ]
 

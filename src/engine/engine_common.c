@@ -13,9 +13,9 @@
 #include "../utils/utils_cache_line.h"
 #include "../ocf_request.h"
 #include "../utils/utils_cleaner.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../metadata/metadata.h"
-#include "../eviction/eviction.h"
+#include "../ocf_space.h"
 #include "../promotion/promotion.h"
 #include "../concurrency/ocf_concurrency.h"
 
@@ -202,7 +202,7 @@ static void ocf_engine_set_hot(struct ocf_request *req)
 
 		if (status == LOOKUP_HIT) {
 			/* Update eviction (LRU) */
-			ocf_eviction_set_hot_cache_line(cache, entry->coll_idx);
+			ocf_lru_hot_cline(cache, entry->coll_idx);
 		}
 	}
 }
@@ -385,21 +385,21 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	}
 }
 
-static void ocf_engine_evict(struct ocf_request *req)
+static void ocf_engine_remap(struct ocf_request *req)
 {
 	int status;
 
-	status = space_managment_evict_do(req);
+	status = ocf_space_managment_remap_do(req);
 	if (status == LOOKUP_MISS) {
 		/* mark error */
 		ocf_req_set_mapping_error(req);
 
-		/* unlock cachelines locked during eviction */
+		/* unlock cachelines locked during remapping */
 		ocf_req_unlock(ocf_cache_line_concurrency(req->cache),
 				req);
 
 		/* request cleaning */
-		ocf_req_set_clean_eviction(req);
+		ocf_req_set_cleaning_required(req);
 
 		/* unmap inserted and replaced cachelines */
 		ocf_engine_map_hndl_error(req->cache, req);
@@ -417,19 +417,19 @@ static int lock_clines(struct ocf_request *req)
 		lock_type = OCF_READ;
 
 	return lock_type == OCF_WRITE ?
-			ocf_req_async_lock_wr(c, req, req->engine_cbs->resume) :
-			ocf_req_async_lock_rd(c, req, req->engine_cbs->resume);
+		ocf_req_async_lock_wr(c, req, req->engine_cbs->resume) :
+		ocf_req_async_lock_rd(c, req, req->engine_cbs->resume);
 }
 
-/* Attempt to map cachelines marked as LOOKUP_MISS by evicting from cache.
+/* Attempt to map cachelines marked as LOOKUP_MISS.
  * Caller must assure that request map info is up to date (request
  * is traversed).
  */
-static inline void ocf_prepare_clines_evict(struct ocf_request *req)
+static inline void ocf_prepare_clines_miss(struct ocf_request *req)
 {
 	bool part_has_space;
 
-	part_has_space = ocf_part_has_space(req);
+	part_has_space = ocf_user_part_has_space(req);
 	if (!part_has_space) {
 		/* adding more cachelines to target partition would overflow
 		   it - requesting eviction from target partition only */
@@ -439,7 +439,7 @@ static inline void ocf_prepare_clines_evict(struct ocf_request *req)
 		ocf_req_clear_part_evict(req);
 	}
 
-	ocf_engine_evict(req);
+	ocf_engine_remap(req);
 
 	if (!ocf_req_test_mapping_error(req))
 		ocf_promotion_req_purge(req->cache->promotion_policy, req);
@@ -447,7 +447,7 @@ static inline void ocf_prepare_clines_evict(struct ocf_request *req)
 
 static inline bool _defer_req(struct ocf_request *req)
 {
-	if (!ocf_req_test_clean_eviction(req))
+	if (!ocf_req_is_cleaning_required(req))
 		return false;
 
 	if (req->byte_position % (64*KiB) == 0 &&
@@ -459,12 +459,13 @@ static inline bool _defer_req(struct ocf_request *req)
 
 int ocf_engine_prepare_clines(struct ocf_request *req)
 {
+	struct ocf_user_part *user_part = &req->cache->user_parts[req->part_id]; 
 	bool mapped;
 	bool promote = true;
 	int lock = -OCF_ERR_NO_LOCK;
 
 	/* requests to disabled partitions go in pass-through */
-	if (!ocf_part_is_enabled(&req->cache->user_parts[req->part_id])) {
+	if (!ocf_user_part_is_enabled(user_part)) {
 		ocf_req_set_mapping_error(req);
 		return -OCF_ERR_NO_LOCK;
 	}
@@ -483,7 +484,10 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 	mapped = ocf_engine_is_mapped(req);
 	if (mapped) {
 		lock = lock_clines(req);
-		ocf_engine_set_hot(req);
+		if (lock < 0)
+			ocf_req_set_mapping_error(req);
+		else
+			ocf_engine_set_hot(req);
 		ocf_hb_req_prot_unlock_rd(req);
 		return lock;
 	}
@@ -503,7 +507,14 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 	/* Repeat lookup after upgrading lock */
 	ocf_engine_lookup(req);
 
-	ocf_prepare_clines_evict(req);
+	if (unlikely(ocf_engine_is_mapped(req))) {
+		lock = lock_clines(req);
+		ocf_engine_set_hot(req);
+		ocf_hb_req_prot_unlock_wr(req);
+		return lock;
+	}
+
+	ocf_prepare_clines_miss(req);
 	if (!ocf_req_test_mapping_error(req)) {
 		lock = lock_clines(req);
 		if (lock < 0) {

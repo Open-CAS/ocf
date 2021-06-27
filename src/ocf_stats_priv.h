@@ -176,7 +176,7 @@ struct ocf_counters_core {
 	struct ocf_counters_error core_errors;
 	struct ocf_counters_error cache_errors;
 
-	struct ocf_counters_part part_counters[OCF_IO_CLASS_MAX];
+	struct ocf_counters_part part_counters[OCF_USER_IO_CLASS_MAX];
 #ifdef OCF_DEBUG_STATS
 	struct ocf_counters_debug debug_stats;
 #endif

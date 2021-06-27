@@ -76,12 +76,10 @@ struct ocf_cache {
 
 	struct ocf_cache_device *device;
 
-	struct ocf_lst lst_part;
-	struct ocf_user_part user_parts[OCF_IO_CLASS_MAX + 1];
+	struct ocf_lst user_part_list;
+	struct ocf_user_part user_parts[OCF_USER_IO_CLASS_MAX + 1];
 
-	struct ocf_part_runtime *free;
-
-	ocf_eviction_t eviction_policy_init;
+	struct ocf_part free;
 
 	uint32_t fallback_pt_error_threshold;
 	ocf_queue_t mngt_queue;

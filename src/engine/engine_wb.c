@@ -14,7 +14,7 @@
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_request.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../concurrency/ocf_concurrency.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "wb"
@@ -135,7 +135,7 @@ static inline void _ocf_write_wb_submit(struct ocf_request *req)
 		/* Probably some cache lines are assigned into wrong
 		 * partition. Need to move it to new one
 		 */
-		ocf_part_move(req);
+		ocf_user_part_move(req);
 
 		ocf_hb_req_prot_unlock_wr(req);
 	}

@@ -14,8 +14,8 @@ int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 	unsigned part_iter;
 	unsigned global_iter;
 
-	for (evp_iter = 0; evp_iter < OCF_NUM_EVICTION_LISTS; evp_iter++)
-		env_rwlock_init(&metadata_lock->eviction[evp_iter]);
+	for (evp_iter = 0; evp_iter < OCF_NUM_LRU_LISTS; evp_iter++)
+		env_rwlock_init(&metadata_lock->lru[evp_iter]);
 
 	for (global_iter = 0; global_iter < OCF_NUM_GLOBAL_META_LOCKS;
 			global_iter++) {
@@ -24,7 +24,7 @@ int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 			goto global_err;
 	}
 
-	for (part_iter = 0; part_iter < OCF_IO_CLASS_MAX; part_iter++) {
+	for (part_iter = 0; part_iter < OCF_USER_IO_CLASS_MAX; part_iter++) {
 		err = env_spinlock_init(&metadata_lock->partition[part_iter]);
 		if (err)
 			goto partition_err;
@@ -41,7 +41,7 @@ global_err:
 		env_rwsem_destroy(&metadata_lock->global[global_iter].sem);
 
 	while (evp_iter--)
-		env_rwlock_destroy(&metadata_lock->eviction[evp_iter]);
+		env_rwlock_destroy(&metadata_lock->lru[evp_iter]);
 
 	return err;
 }
@@ -50,11 +50,11 @@ void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock)
 {
 	unsigned i;
 
-	for (i = 0; i < OCF_IO_CLASS_MAX; i++)
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++)
 		env_spinlock_destroy(&metadata_lock->partition[i]);
 
-	for (i = 0; i < OCF_NUM_EVICTION_LISTS; i++)
-		env_rwlock_destroy(&metadata_lock->eviction[i]);
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++)
+		env_rwlock_destroy(&metadata_lock->lru[i]);
 
 	for (i = 0; i < OCF_NUM_GLOBAL_META_LOCKS; i++)
 		env_rwsem_destroy(&metadata_lock->global[i].sem);

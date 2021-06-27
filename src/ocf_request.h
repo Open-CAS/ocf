@@ -33,7 +33,7 @@ struct ocf_req_info {
 	uint32_t mapping_error : 1;
 	/*!< Core lines in this request were not mapped into cache */
 
-	uint32_t clean_eviction : 1;
+	uint32_t cleaning_required : 1;
 	/*!< Eviction failed, need to request cleaning */
 
 	uint32_t core_error : 1;
@@ -60,12 +60,6 @@ struct ocf_map_info {
 
 	uint16_t status : 8;
 	/*!< Traverse or mapping status - HIT, MISS, etc... */
-
-	uint16_t rd_locked : 1;
-	/*!< Indicates if cache line is locked for READ access */
-
-	uint16_t wr_locked : 1;
-	/*!< Indicates if cache line is locked for WRITE access */
 
 	uint16_t invalid : 1;
 	/*!< This bit indicates that mapping is invalid */
@@ -222,9 +216,15 @@ struct ocf_request {
 
 	struct ocf_req_discard_info discard;
 
+	uint32_t alock_rw;
+	/*!< Read/Write mode for alock*/
+
+	uint8_t *alock_status;
+	/*!< Mapping for locked/unlocked alock entries */
+
 	struct ocf_map_info *map;
 
-	struct ocf_map_info __map[];
+	struct ocf_map_info __map[0];
 };
 
 typedef void (*ocf_req_end_t)(struct ocf_request *req, int error);
@@ -403,14 +403,14 @@ static inline bool ocf_req_test_mapping_error(struct ocf_request *req)
 	return req->info.mapping_error;
 }
 
-static inline void ocf_req_set_clean_eviction(struct ocf_request *req)
+static inline void ocf_req_set_cleaning_required(struct ocf_request *req)
 {
-	req->info.clean_eviction = true;
+	req->info.cleaning_required = true;
 }
 
-static inline bool ocf_req_test_clean_eviction(struct ocf_request *req)
+static inline bool ocf_req_is_cleaning_required(struct ocf_request *req)
 {
-	return req->info.clean_eviction;
+	return req->info.cleaning_required;
 }
 
 /**

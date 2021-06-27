@@ -13,7 +13,7 @@ from ctypes import (
 )
 from tests.utils.random import RandomStringGenerator, RandomGenerator, DefaultRanges, Range
 
-from pyocf.types.cache import CacheMode, EvictionPolicy, MetadataLayout, PromotionPolicy
+from pyocf.types.cache import CacheMode, MetadataLayout, PromotionPolicy
 from pyocf.types.shared import CacheLineSize
 
 import pytest
@@ -74,13 +74,6 @@ def not_cache_mode_randomize(request):
     params=RandomGenerator(DefaultRanges.UINT32).exclude_range(enum_range(CacheLineSize))
 )
 def not_cache_line_size_randomize(request):
-    return request.param
-
-
-@pytest.fixture(
-    params=RandomGenerator(DefaultRanges.UINT32).exclude_range(enum_range(EvictionPolicy))
-)
-def not_eviction_policy_randomize(request):
     return request.param
 
 

@@ -41,6 +41,6 @@ void ocf_metadata_sparse_cache_line(struct ocf_cache *cache,
 int ocf_metadata_sparse_range(struct ocf_cache *cache, int core_id,
 			  uint64_t start_byte, uint64_t end_byte)
 {
-	return ocf_metadata_actor(cache, PARTITION_INVALID, core_id,
+	return ocf_metadata_actor(cache, PARTITION_UNSPECIFIED, core_id,
 		start_byte, end_byte, ocf_metadata_sparse_cache_line);
 }

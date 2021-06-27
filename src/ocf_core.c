@@ -9,7 +9,7 @@
 #include "ocf_io_priv.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
-#include "utils/utils_part.h"
+#include "utils/utils_user_part.h"
 #include "ocf_request.h"
 #include "ocf_trace_priv.h"
 
@@ -186,7 +186,7 @@ static inline int ocf_core_validate_io(struct ocf_io *io)
 	if (io->addr + io->bytes > ocf_volume_get_length(volume))
 		return -OCF_ERR_INVAL;
 
-	if (io->io_class >= OCF_IO_CLASS_MAX)
+	if (io->io_class >= OCF_USER_IO_CLASS_MAX)
 		return -OCF_ERR_INVAL;
 
 	if (io->dir != OCF_READ && io->dir != OCF_WRITE)
@@ -248,7 +248,7 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 		return;
 	}
 
-	req->part_id = ocf_part_class2id(cache, io->io_class);
+	req->part_id = ocf_user_part_class2id(cache, io->io_class);
 	req->core = core;
 	req->complete = ocf_req_complete;
 
@@ -310,7 +310,7 @@ int ocf_core_submit_io_fast(struct ocf_io *io)
 
 	req->core = core;
 	req->complete = ocf_req_complete;
-	req->part_id = ocf_part_class2id(cache, io->io_class);
+	req->part_id = ocf_user_part_class2id(cache, io->io_class);
 
 	ocf_resolve_effective_cache_mode(cache, core, req);
 

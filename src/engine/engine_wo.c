@@ -12,7 +12,7 @@
 #include "../metadata/metadata.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
-#include "../utils/utils_part.h"
+#include "../utils/utils_user_part.h"
 #include "../concurrency/ocf_concurrency.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "wo"

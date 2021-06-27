@@ -654,7 +654,7 @@ void cleaning_policy_acp_purge_block(struct ocf_cache *cache,
 int cleaning_policy_acp_purge_range(struct ocf_cache *cache,
 		int core_id, uint64_t start_byte, uint64_t end_byte)
 {
-	return ocf_metadata_actor(cache, PARTITION_INVALID,
+	return ocf_metadata_actor(cache, PARTITION_UNSPECIFIED,
 			core_id, start_byte, end_byte,
 			cleaning_policy_acp_purge_block);
 }

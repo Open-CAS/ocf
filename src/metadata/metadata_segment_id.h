@@ -32,7 +32,7 @@ enum ocf_metadata_segment_id {
 	/* sections with size dependent on cache device size go here: */
 	metadata_segment_cleaning =	/*!< Cleaning policy */
 			metadata_segment_variable_size_start,
-	metadata_segment_eviction,	/*!< Eviction policy */
+	metadata_segment_lru,	/*!< Eviction policy */
 	metadata_segment_collision,	/*!< Collision */
 	metadata_segment_list_info,	/*!< Collision */
 	metadata_segment_hash,		/*!< Hash */

@@ -222,7 +222,7 @@ static void metadata_io_io_cmpl(struct ocf_io *io, int error)
 	ocf_io_put(io);
 }
 
-static int metadata_io_restart_req(struct ocf_request *req)
+static int metadata_io_do(struct ocf_request *req)
 {
 	struct metadata_io_request *m_req = req->priv;
 	ocf_cache_t cache = req->cache;
@@ -260,6 +260,53 @@ static int metadata_io_restart_req(struct ocf_request *req)
 	return 0;
 }
 
+static struct ocf_io_if metadata_io_do_if = {
+	.read = metadata_io_do,
+	.write = metadata_io_do,
+};
+
+void metadata_io_req_finalize(struct metadata_io_request *m_req)
+{
+	struct metadata_io_request_asynch *a_req = m_req->asynch;
+
+	if (env_atomic_dec_return(&a_req->req_active) == 0)
+		env_mpool_del(m_req->cache->owner->resources.mio, a_req,
+				a_req->alloc_req_count);
+}
+
+static void metadata_io_page_lock_acquired(struct ocf_request *req)
+{
+	ocf_engine_push_req_front(req, true);
+}
+
+static int metadata_io_restart_req(struct ocf_request *req)
+{
+	struct metadata_io_request *m_req = req->priv;
+	struct metadata_io_request_asynch *a_req = m_req->asynch;
+	int lock;
+
+	m_req->req.io_if = &metadata_io_do_if;
+
+	if (!a_req->mio_conc) {
+		metadata_io_do(&m_req->req);
+		return 0;
+	}
+
+	lock = ocf_mio_async_lock(a_req->mio_conc, m_req,
+		metadata_io_page_lock_acquired);
+
+	if (lock < 0) {
+		a_req->error = lock;
+		metadata_io_req_finalize(m_req);
+		return 0;
+	}
+
+	if (lock == OCF_LOCK_ACQUIRED)
+		metadata_io_do(&m_req->req);
+
+	return 0;
+}
+
 static struct ocf_io_if metadata_io_restart_if = {
 	.read = metadata_io_restart_req,
 	.write = metadata_io_restart_req,
@@ -291,31 +338,7 @@ static void metadata_io_io_end(struct metadata_io_request *m_req, int error)
 
 	metadata_io_req_advance(m_req);
 
-	env_atomic_set(&m_req->finished, 1);
-
 	metadata_io_req_complete(m_req);
-}
-
-static void matadata_io_page_lock_acquired(struct ocf_request *req)
-{
-	ocf_engine_push_req_front(req, true);
-}
-
-static void metadata_io_req_submit(struct metadata_io_request *m_req)
-{
-	struct metadata_io_request_asynch *a_req = m_req->asynch;
-	int lock;
-
-	env_atomic_set(&m_req->finished, 0);
-
-	if (a_req->mio_conc) {
-		lock = ocf_mio_async_lock(a_req->mio_conc, m_req,
-			matadata_io_page_lock_acquired);
-		/* TODO: error handling for lock < 0 */
-	}
-
-	if (!a_req->mio_conc || lock == OCF_LOCK_ACQUIRED)
-		matadata_io_page_lock_acquired(&m_req->req);
 }
 
 void metadata_io_req_end(struct metadata_io_request *m_req)
@@ -329,21 +352,12 @@ void metadata_io_req_end(struct metadata_io_request *m_req)
 	ctx_data_free(cache->owner, m_req->data);
 }
 
-void metadata_io_req_finalize(struct metadata_io_request *m_req)
-{
-	struct metadata_io_request_asynch *a_req = m_req->asynch;
-
-	if (env_atomic_dec_return(&a_req->req_active) == 0)
-		env_mpool_del(m_req->cache->owner->resources.mio, a_req,
-				a_req->alloc_req_count);
-}
-
 static uint32_t metadata_io_max_page(ocf_cache_t cache)
 {
 	uint32_t volume_max_io_pages = ocf_volume_get_max_io_size(
 			&cache->device->volume) / PAGE_SIZE;
 	struct metadata_io_request *m_req;
-	uint32_t request_map_capacity_pages = sizeof(m_req->map) * 8;
+	uint32_t request_map_capacity_pages = sizeof(m_req->alock_status) * 8;
 
 	return OCF_MIN(volume_max_io_pages, request_map_capacity_pages);
 }
@@ -386,7 +400,7 @@ static void metadata_io_req_start(struct metadata_io_request *m_req)
 		return;
 	}
 
-	metadata_io_req_submit(m_req);
+	metadata_io_restart_req(&m_req->req);
 }
 
 void metadata_io_req_complete(struct metadata_io_request *m_req)
@@ -398,7 +412,8 @@ void metadata_io_req_complete(struct metadata_io_request *m_req)
 		return;
 	}
 
-	metadata_io_req_submit(m_req);
+	m_req->req.io_if = &metadata_io_restart_if;
+	ocf_engine_push_req_front(&m_req->req, true);
 }
 
 /*
@@ -453,6 +468,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 		m_req->req.info.internal = true;
 		m_req->req.rw = dir;
 		m_req->req.map = LIST_POISON1;
+		m_req->req.alock_status = (uint8_t*)&m_req->alock_status;
 
 		/* If req_count == io_count and count is not multiple of
 		 * max_count, for last we can allocate data smaller that
@@ -504,14 +520,10 @@ int metadata_io_read_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 			page, count, flags, drain_hndl, compl_hndl, NULL);
 }
 
-
-#ifdef OCF_CONFIG_MEM_SAVER
-#define MIO_RPOOL_THRESHOLD ocf_mio_size_4
-#define MIO_RPOOL_LIMIT 0
-#else
-#define MIO_RPOOL_THRESHOLD ocf_mio_size_16
 #define MIO_RPOOL_LIMIT 16
-#endif
+#define MIO_RPOOL_THRESHOLD ocf_mio_size_16 /* This is statically determined to
+					       not exceed one page (4096B).
+					       Change if apropriate. */
 
 int ocf_metadata_io_ctx_init(struct ocf_ctx *ocf_ctx)
 {

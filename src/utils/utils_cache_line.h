@@ -8,8 +8,7 @@
 
 #include "../metadata/metadata.h"
 #include "../concurrency/ocf_cache_line_concurrency.h"
-#include "../eviction/eviction.h"
-#include "../eviction/ops.h"
+#include "../ocf_space.h"
 #include "../engine/cache_engine.h"
 #include "../ocf_request.h"
 #include "../ocf_def_priv.h"
@@ -180,7 +179,7 @@ static inline void ocf_purge_cleaning_policy(struct ocf_cache *cache,
 static inline void ocf_purge_eviction_policy(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	ocf_eviction_purge_cache_line(cache, line);
+	ocf_lru_rm_cline(cache, line);
 }
 
 /**
