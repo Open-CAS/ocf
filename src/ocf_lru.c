@@ -224,6 +224,9 @@ void ocf_lru_init_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 static struct ocf_lru_list *ocf_lru_get_list(struct ocf_part *part,
 		uint32_t lru_idx, bool clean)
 {
+	if (part->id == PARTITION_FREELIST)
+		clean = true;
+
 	return clean ? &part->runtime->lru[lru_idx].clean :
 			&part->runtime->lru[lru_idx].dirty;
 }
@@ -288,8 +291,6 @@ void ocf_lru_rm_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
 	ocf_part_id_t part_id = ocf_metadata_get_partition_id(cache, cline);
 	struct ocf_part *part = &cache->user_parts[part_id].part;
-
-	ENV_BUG_ON(metadata_test_dirty(cache, cline));
 
 	ocf_lru_repart(cache, cline, part, &cache->free);
 }
