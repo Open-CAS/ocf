@@ -67,7 +67,7 @@ static inline bool ocf_engine_needs_repart(struct ocf_request *req)
  * @param req OCF request
  *
  * @retval true request is mapped fully
- * @retval false request is not mapped fully and eviction might be run in
+ * @retval false request is not mapped fully and remap might be run in
  * order to complete mapping
  */
 static inline bool ocf_engine_is_mapped(struct ocf_request *req)
@@ -226,9 +226,10 @@ struct ocf_engine_callbacks
  *
  * @param req OCF request
  *
- * @returns eviction status
- * @retval LOOKUP_INSERTED successfully evicted required number of cachelines
- * @retval LOOKUP_MISS eviction failure
+ * @returns cacheline lock status
+ * @retval OCF_LOCK_ACQUIRED in case of success and CLs locked
+ * @retval OCF_LOCK_NOT_ACQUIRED in case of success and waiting for CL lock
+ * @retval <0 other error code
  */
 int ocf_engine_prepare_clines(struct ocf_request *req);
 

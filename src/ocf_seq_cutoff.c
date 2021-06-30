@@ -11,7 +11,7 @@
 #include "ocf/ocf_debug.h"
 #include "utils/utils_cache_line.h"
 
-#define SEQ_CUTOFF_FULL_MARGIN OCF_PENDING_EVICTION_LIMIT
+#define SEQ_CUTOFF_FULL_MARGIN 512
 
 static inline bool ocf_seq_cutoff_is_on(ocf_cache_t cache,
 		struct ocf_request *req)

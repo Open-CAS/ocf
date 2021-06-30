@@ -10,8 +10,6 @@
 #include "ocf_lru.h"
 #include "ocf_lru_structs.h"
 
-#define OCF_PENDING_EVICTION_LIMIT 512UL
-
 #define OCF_NUM_LRU_LISTS 32
 
 struct ocf_part;

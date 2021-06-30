@@ -18,8 +18,8 @@ struct ocf_queue {
 	/* per-queue free running global metadata lock index */
 	unsigned lock_idx;
 
-	/* per-queue free running eviction list index */
-	unsigned eviction_idx;
+	/* per-queue free running lru list index */
+	unsigned lru_idx;
 
 	struct ocf_seq_cutoff *seq_cutoff;
 

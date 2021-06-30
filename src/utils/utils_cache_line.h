@@ -171,18 +171,6 @@ static inline void ocf_purge_cleaning_policy(struct ocf_cache *cache,
 }
 
 /**
- * @brief Remove cache line from eviction policy
- *
- * @param cache - cache instance
- * @param line - cache line to be removed
- */
-static inline void ocf_purge_eviction_policy(struct ocf_cache *cache,
-		ocf_cache_line_t line)
-{
-	ocf_lru_rm_cline(cache, line);
-}
-
-/**
  * @brief Set cache line clean and invalid and remove form lists
  *
  * @note Collision page must be locked by the caller (either exclusive access
@@ -206,8 +194,8 @@ static inline void _ocf_purge_cache_line_sec(struct ocf_cache *cache,
 }
 
 /**
- * @brief Purge cache line (remove completely, from collision, move to free
- * partition, from cleaning policy and eviction policy)
+ * @brief Purge cache line (remove from collision and cleaning policy,
+ * move to free LRU list).
  *
  * @param req - OCF request to purge
  */

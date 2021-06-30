@@ -45,7 +45,7 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 	 */
 	if (!is_valid && !ocf_cache_line_are_waiters(
 			ocf_cache_line_concurrency(cache), line)) {
-		ocf_purge_eviction_policy(cache, line);
+		ocf_lru_rm_cline(cache, line);
 		ocf_metadata_remove_cache_line(cache, line);
 	}
 }
