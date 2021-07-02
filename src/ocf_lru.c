@@ -900,6 +900,7 @@ void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines)
 	struct ocf_lru_list *list;
 	unsigned lru_list;
 	unsigned i;
+	unsigned step = 0;
 
 	phys = 0;
 	for (i = 0; i < num_free_clines; i++) {
@@ -915,6 +916,8 @@ void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines)
 		list = ocf_lru_get_list(&cache->free, lru_list, true);
 
 		add_lru_head(cache, list, cline);
+
+		OCF_COND_RESCHED_DEFAULT(step);
 	}
 
 	/* we should have reached the last invalid cache line */
