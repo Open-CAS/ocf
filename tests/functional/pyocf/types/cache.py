@@ -52,18 +52,18 @@ class CacheConfig(Structure):
         ("_cache_line_size", c_uint64),
         ("_metadata_layout", c_uint32),
         ("_metadata_volatile", c_bool),
-        ("_backfill", Backfill),
         ("_locked", c_bool),
         ("_pt_unaligned_io", c_bool),
         ("_use_submit_io_fast", c_bool),
+        ("_backfill", Backfill),
     ]
 
 
 class CacheDeviceConfig(Structure):
     _fields_ = [
         ("_uuid", Uuid),
-        ("_volume_type", c_uint8),
         ("_cache_line_size", c_uint64),
+        ("_volume_type", c_uint8),
         ("_force", c_bool),
         ("_min_free_ram", c_uint64),
         ("_perform_test", c_bool),

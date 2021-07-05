@@ -143,8 +143,6 @@ struct ocf_request {
 	ctx_data_t *cp_data;
 	/*!< Copy of request data */
 
-	ocf_req_cache_mode_t cache_mode;
-
 	uint64_t byte_position;
 	/*!< LBA byte position of request in core domain */
 
@@ -195,6 +193,8 @@ struct ocf_request {
 
 	uint8_t lock_idx : OCF_METADATA_GLOBAL_LOCK_IDX_BITS;
 	/* !< Selected global metadata read lock */
+
+	ocf_req_cache_mode_t cache_mode;
 
 	log_sid_t sid;
 	/*!< Tracing sequence ID */
