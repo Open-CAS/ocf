@@ -328,6 +328,7 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 {
 	uint32_t i;
 	struct ocf_map_info *entry;
+	struct ocf_alock *alock = ocf_cache_line_concurrency(req->cache);
 
 	for (i = 0; i < req->core_line_count; i++) {
 		entry = &(req->map[i]);
@@ -352,6 +353,10 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 
 			ocf_metadata_end_collision_shared_access(cache,
 					entry->coll_idx);
+
+			ocf_alock_mark_index_locked(alock, req, i, false);
+
+			ocf_cache_line_unlock_wr(alock, entry->coll_idx);
 			break;
 
 		default:
