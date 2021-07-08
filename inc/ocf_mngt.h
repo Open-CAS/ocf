@@ -264,14 +264,6 @@ struct ocf_mngt_cache_config {
 	bool metadata_volatile;
 
 	/**
-	 * @brief Backfill configuration
-	 */
-	struct {
-		 uint32_t max_queue_size;
-		 uint32_t queue_unblock_size;
-	} backfill;
-
-	/**
 	 * @brief Start cache and keep it locked
 	 *
 	 * @note In this case caller is able to perform additional activities
@@ -288,6 +280,14 @@ struct ocf_mngt_cache_config {
 	 * @brief If set, try to submit all I/O in fast path.
 	 */
 	bool use_submit_io_fast;
+
+	/**
+	 * @brief Backfill configuration
+	 */
+	struct {
+		 uint32_t max_queue_size;
+		 uint32_t queue_unblock_size;
+	} backfill;
 };
 
 /**
@@ -368,14 +368,14 @@ struct ocf_mngt_cache_device_config {
 	struct ocf_volume_uuid uuid;
 
 	/**
-	 * @brief Cache volume type
-	 */
-	uint8_t volume_type;
-
-	/**
 	 * @brief Cache line size
 	 */
 	ocf_cache_line_size_t cache_line_size;
+
+	/**
+	 * @brief Cache volume type
+	 */
+	uint8_t volume_type;
 
 	/**
 	 * @brief Automatically open core volumes when loading cache

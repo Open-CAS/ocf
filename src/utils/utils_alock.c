@@ -56,16 +56,19 @@ struct ocf_alock_waiters_list {
 };
 
 struct ocf_alock {
-	ocf_cache_t cache;
-	env_mutex lock;
-	env_atomic *access;
-	env_atomic waiting;
+	struct {
+		ocf_cache_t cache;
+		env_mutex lock;
+		env_atomic waiting;
+	} __attribute__((__aligned__(64)));
+
 	ocf_cache_line_t num_entries;
+	env_atomic *access;
 	env_allocator *allocator;
 	struct ocf_alock_lock_cbs *cbs;
 	struct ocf_alock_waiters_list waiters_lsts[_WAITERS_LIST_ENTRIES];
 
-};
+} __attribute__((__aligned__(64)));
 
 void ocf_alock_mark_index_locked(struct ocf_alock *alock,
 		struct ocf_request *req, unsigned index, bool locked)

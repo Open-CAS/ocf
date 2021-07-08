@@ -51,13 +51,13 @@ struct ocf_cache_info {
 	uint32_t dirty;
 		/*!< Dirty blocks within cache (in cache lines) */
 
+	uint64_t dirty_for;
+		/*!< How long there are dirty cache lines (in seconds) */
+
 	uint32_t dirty_initial;
 		/*!< Dirty blocks within cache that where there when switching
 		 * out of WB mode
 		 */
-
-	uint64_t dirty_for;
-		/*!< How long there are dirty cache lines (in seconds) */
 
 	ocf_cache_mode_t cache_mode;
 		/*!< Current cache mode */

@@ -132,9 +132,11 @@ struct ocf_cache {
 
 	bool use_submit_io_fast;
 
-	struct ocf_trace trace;
+	struct {
+		struct ocf_trace trace;
 
-	struct ocf_async_lock lock;
+		struct ocf_async_lock lock;
+	} __attribute__((aligned(64)));
 	// This should be on it's own cacheline ideally
 	env_atomic last_access_ms;
 };
