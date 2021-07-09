@@ -1158,7 +1158,7 @@ static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
 	part_id = PARTITION_DEFAULT;
 	part = cache->user_parts[part_id].part.runtime;
 
-	ocf_metadata_set_partition_id(cache, part_id, cache_line);
+	ocf_metadata_set_partition_id(cache, cache_line, part_id);
 	env_atomic_inc(&part->curr_size);
 
 	hash_index = ocf_metadata_hash_func(cache, core_line, core_id);
