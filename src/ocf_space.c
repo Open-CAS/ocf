@@ -123,7 +123,7 @@ static inline uint32_t ocf_remap_do(struct ocf_request *req)
 	 * priority in this case, as overflown partitions should
 	 * free its cachelines regardless of destination partition
 	 * priority. */
-	remapped += ocf_evict_user_partitions(cache, req, remap_cline_no,
+	remapped += ocf_evict_user_partitions(cache, req, remap_cline_no - remapped,
 		true, OCF_IO_CLASS_PRIO_PINNED);
 	if (remapped >= remap_cline_no)
 		return remapped;
