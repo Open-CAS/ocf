@@ -505,7 +505,8 @@ static void cctest(unsigned num_threads, unsigned num_iterations, unsigned cline
 			print_message("thread no %u\n", i);
 			for (j = 0; j < num_clines; j++) {
 				struct ocf_map_info *map = clines[j];
-				const char *status = env_bit_test(index, (unsigned long*)req->alock_status) ?
+				unsigned index = map - req->map;
+				const char *status = env_bit_test(index, (unsigned long*)&req->alock_status) ?
 						(req->alock_rw == OCF_WRITE ? "W" : "R") : "X";
 				print_message("[%u] %u %s\n", j, map->coll_idx, status);
 			}
