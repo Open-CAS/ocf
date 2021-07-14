@@ -878,8 +878,7 @@ static ocf_cache_line_t next_phys_invalid(ocf_cache_t cache,
 		return collision_table_entries;
 
 	lg = ocf_metadata_map_phy2lg(cache, phys);
-	while (metadata_test_valid_any(cache, lg) &&
-			phys +  1 < collision_table_entries) {
+	while (metadata_test_valid_any(cache, lg)) {
 		++phys;
 
 		if (phys == collision_table_entries)
