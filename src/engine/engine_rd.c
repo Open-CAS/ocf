@@ -224,6 +224,7 @@ int ocf_read_generic(struct ocf_request *req)
 
 	if (env_atomic_read(&cache->pending_read_misses_list_blocked)) {
 		/* There are conditions to bypass IO */
+		req->bf_blocked = true;
 		ocf_get_io_if(ocf_cache_mode_pt)->read(req);
 		return 0;
 	}
