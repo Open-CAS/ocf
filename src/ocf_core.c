@@ -221,6 +221,66 @@ static void ocf_req_complete(struct ocf_request *req, int error)
 	ocf_io_put(&req->ioi.io);
 }
 
+static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
+		ocf_core_t core, ocf_cache_t cache)
+{
+	struct ocf_event_io trace_event;
+	ocf_req_cache_mode_t original_cache_mode;
+	int fast;
+	int ret;
+
+	if (req->d2c) {
+		return -OCF_ERR_IO;
+	}
+
+	ret = ocf_req_alloc_map(req);
+	if (ret) {
+		return -OCF_ERR_IO;
+	}
+
+	original_cache_mode = req->cache_mode;
+
+	switch (req->cache_mode) {
+	case ocf_req_cache_mode_pt:
+		ret = -OCF_ERR_IO;
+		goto map_allocated;
+	case ocf_req_cache_mode_wb:
+	case ocf_req_cache_mode_wo:
+		req->cache_mode = ocf_req_cache_mode_fast;
+		break;
+	default:
+		if (cache->use_submit_io_fast)
+			break;
+
+		if (io->dir == OCF_WRITE)
+		{
+			ret = -OCF_ERR_IO;
+			goto map_allocated;
+		}
+
+		req->cache_mode = ocf_req_cache_mode_fast;
+	}
+
+	if (cache->trace.trace_callback) {
+		if (io->dir == OCF_WRITE)
+			ocf_trace_prep_io_event(&trace_event, req, ocf_event_operation_wr);
+		else if (io->dir == OCF_READ)
+			ocf_trace_prep_io_event(&trace_event, req, ocf_event_operation_rd);
+	}
+
+	fast = ocf_engine_hndl_fast_req(req);
+	if (fast != OCF_FAST_PATH_NO) {
+		ocf_trace_push(io->io_queue, &trace_event, sizeof(trace_event));
+		return 0;
+	}
+
+	req->cache_mode = original_cache_mode;
+	ret = -OCF_ERR_IO;
+map_allocated:
+	ocf_req_dealloc_map(req);
+	return ret;
+}
+
 void ocf_core_volume_submit_io(struct ocf_io *io)
 {
 	struct ocf_request *req;
@@ -254,16 +314,21 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 
 	ocf_resolve_effective_cache_mode(cache, core, req);
 
-	ocf_core_seq_cutoff_update(core, req);
-
 	ocf_core_update_stats(core, io);
+
+	ocf_io_get(io);
+
+	if (!ocf_core_submit_io_fast(io, req, core, cache)) {
+		ocf_core_seq_cutoff_update(core, req);
+		return;
+	}
+
+	ocf_core_seq_cutoff_update(core, req);
 
 	if (io->dir == OCF_WRITE)
 		ocf_trace_io(req, ocf_event_operation_wr);
 	else if (io->dir == OCF_READ)
 		ocf_trace_io(req, ocf_event_operation_rd);
-
-	ocf_io_get(io);
 
 	ret = ocf_engine_hndl_req(req);
 	if (ret) {
@@ -271,88 +336,6 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 		ocf_io_end(io, ret);
 		ocf_io_put(io);
 	}
-}
-
-int ocf_core_submit_io_fast(struct ocf_io *io)
-{
-	struct ocf_request *req;
-	struct ocf_event_io trace_event;
-	ocf_core_t core;
-	ocf_cache_t cache;
-	int fast;
-	int ret;
-
-	OCF_CHECK_NULL(io);
-
-	ret = ocf_core_validate_io(io);
-	if (ret < 0)
-		return ret;
-
-	req = ocf_io_to_req(io);
-	core = ocf_volume_to_core(ocf_io_get_volume(io));
-	cache = ocf_core_get_cache(core);
-
-	if (unlikely(!env_bit_test(ocf_cache_state_running,
-			&cache->cache_state))) {
-		ocf_io_end(io, -OCF_ERR_CACHE_NOT_AVAIL);
-		return 0;
-	}
-
-	if (req->d2c) {
-		dec_counter_if_req_was_dirty(req);
-		return -OCF_ERR_IO;
-	}
-
-	ret = ocf_req_alloc_map(req);
-	if (ret) {
-		ocf_io_end(io, -OCF_ERR_NO_MEM);
-		return 0;
-	}
-
-	req->core = core;
-	req->complete = ocf_req_complete;
-	req->part_id = ocf_user_part_class2id(cache, io->io_class);
-
-	ocf_resolve_effective_cache_mode(cache, core, req);
-
-	switch (req->cache_mode) {
-	case ocf_req_cache_mode_pt:
-		return -OCF_ERR_IO;
-	case ocf_req_cache_mode_wb:
-	case ocf_req_cache_mode_wo:
-		req->cache_mode = ocf_req_cache_mode_fast;
-		break;
-	default:
-		if (cache->use_submit_io_fast)
-			break;
-		if (io->dir == OCF_WRITE)
-			return -OCF_ERR_IO;
-
-		req->cache_mode = ocf_req_cache_mode_fast;
-	}
-
-	ocf_core_update_stats(core, io);
-
-	if (cache->trace.trace_callback) {
-		if (io->dir == OCF_WRITE)
-			ocf_trace_prep_io_event(&trace_event, req, ocf_event_operation_wr);
-		else if (io->dir == OCF_READ)
-			ocf_trace_prep_io_event(&trace_event, req, ocf_event_operation_rd);
-	}
-
-	ocf_io_get(io);
-
-	fast = ocf_engine_hndl_fast_req(req);
-	if (fast != OCF_FAST_PATH_NO) {
-		ocf_trace_push(io->io_queue, &trace_event, sizeof(trace_event));
-		ocf_core_seq_cutoff_update(core, req);
-		return 0;
-	}
-
-	dec_counter_if_req_was_dirty(req);
-
-	ocf_io_put(io);
-	return -OCF_ERR_IO;
 }
 
 static void ocf_core_volume_submit_flush(struct ocf_io *io)

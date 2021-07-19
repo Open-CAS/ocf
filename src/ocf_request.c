@@ -153,6 +153,15 @@ int ocf_req_alloc_map(struct ocf_request *req)
 	return 0;
 }
 
+void ocf_req_dealloc_map(struct ocf_request *req)
+{
+	if (req->map && req->map != req->__map)
+	{
+		env_free(req->map);
+		req->map = NULL;
+	}
+}
+
 int ocf_req_alloc_map_discard(struct ocf_request *req)
 {
 	ENV_BUILD_BUG_ON(MAX_TRIM_RQ_SIZE / ocf_cache_line_size_4 *

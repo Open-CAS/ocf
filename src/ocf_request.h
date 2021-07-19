@@ -272,6 +272,13 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 int ocf_req_alloc_map(struct ocf_request *req);
 
 /**
+ * @brief Deallocate OCF request map, if it wasn't allocated from mpool
+ *
+ * @param req OCF request
+ */
+void ocf_req_dealloc_map(struct ocf_request *req);
+
+/**
  * @brief Allocate OCF request map for discard request
  *
  * @param req OCF request

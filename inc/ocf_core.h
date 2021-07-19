@@ -173,17 +173,6 @@ static inline void ocf_core_submit_io(struct ocf_io *io)
 }
 
 /**
- * @brief Fast path for submitting IO. If possible, request is processed
- * immediately without adding to internal request queue
- *
- * @param[in] io IO to be submitted
- *
- * @retval 0 IO has been submitted successfully
- * @retval Non-zero Fast submit failed. Try to submit IO with ocf_core_submit_io()
- */
-int ocf_core_submit_io_fast(struct ocf_io *io);
-
-/**
  * @brief Submit ocf_io with flush command
  *
  * @param[in] io IO to be submitted
