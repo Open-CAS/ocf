@@ -13,7 +13,7 @@
 #include "../mngt/ocf_mngt_common.h"
 #include "../metadata/metadata.h"
 #include "../ocf_queue_priv.h"
-#include "cleaning_ops.c"
+#include "cleaning_ops.h"
 
 int ocf_start_cleaner(ocf_cache_t cache)
 {
@@ -82,7 +82,6 @@ static void ocf_cleaner_run_complete(ocf_cleaner_t cleaner, uint32_t interval)
 void ocf_cleaner_run(ocf_cleaner_t cleaner, ocf_queue_t queue)
 {
 	ocf_cache_t cache;
-	ocf_cleaning_t clean_type;
 
 	OCF_CHECK_NULL(cleaner);
 	OCF_CHECK_NULL(queue);
@@ -110,13 +109,8 @@ void ocf_cleaner_run(ocf_cleaner_t cleaner, ocf_queue_t queue)
 		return;
 	}
 
-	clean_type = cache->conf_meta->cleaning_policy_type;
-
-	ENV_BUG_ON(clean_type >= ocf_cleaning_max);
-
 	ocf_queue_get(queue);
 	cleaner->io_queue = queue;
 
-	cleaning_policy_ops[clean_type].perform_cleaning(cache,
-			ocf_cleaner_run_complete);
+	ocf_cleaning_perform_cleaning(cache, ocf_cleaner_run_complete);
 }

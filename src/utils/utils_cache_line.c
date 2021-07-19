@@ -6,19 +6,6 @@
 #include "utils_cache_line.h"
 #include "../promotion/promotion.h"
 
-void ocf_cleaning_set_hot_cache_line(struct ocf_cache *cache,
-		ocf_cache_line_t line)
-{
-	ocf_cleaning_t cleaning_type = cache->conf_meta->cleaning_policy_type;
-
-	ENV_BUG_ON(cleaning_type >= ocf_cleaning_max);
-
-	if (cleaning_policy_ops[cleaning_type].set_hot_cache_line) {
-		cleaning_policy_ops[cleaning_type].
-				set_hot_cache_line(cache, line);
-	}
-}
-
 static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 		uint8_t end_bit, ocf_cache_line_t line,
 		ocf_core_id_t core_id, ocf_part_id_t part_id)
@@ -178,7 +165,6 @@ void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
 				evict_policy_ops[evp_type].dirty_cline(cache, part, line);
 		}
 	}
-
 
 	ocf_cleaning_set_hot_cache_line(cache, line);
 }

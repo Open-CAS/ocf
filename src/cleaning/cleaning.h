@@ -38,27 +38,6 @@ struct cleaning_policy_meta {
 	} meta;
 };
 
-struct cleaning_policy_ops {
-	void (*setup)(ocf_cache_t cache);
-	int (*initialize)(ocf_cache_t cache, int init_metadata);
-	void (*deinitialize)(ocf_cache_t cache);
-	int (*add_core)(ocf_cache_t cache, ocf_core_id_t core_id);
-	void (*remove_core)(ocf_cache_t cache, ocf_core_id_t core_id);
-	void (*init_cache_block)(ocf_cache_t cache, uint32_t cache_line);
-	void (*purge_cache_block)(ocf_cache_t cache, uint32_t cache_line);
-	int (*purge_range)(ocf_cache_t cache, int core_id,
-			uint64_t start_byte, uint64_t end_byte);
-	void (*set_hot_cache_line)(ocf_cache_t cache, uint32_t cache_line);
-	int (*set_cleaning_param)(ocf_cache_t cache, uint32_t param_id,
-			uint32_t param_value);
-	int (*get_cleaning_param)(ocf_cache_t cache, uint32_t param_id,
-			uint32_t *param_value);
-	void (*perform_cleaning)(ocf_cache_t cache, ocf_cleaner_end_t cmpl);
-	const char *name;
-};
-
-extern struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max];
-
 struct ocf_cleaner {
 	void *cleaning_policy_context;
 	ocf_queue_t io_queue;

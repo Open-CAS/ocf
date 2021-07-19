@@ -313,7 +313,6 @@ void ocf_map_cache_line(struct ocf_request *req,
 {
 	ocf_cache_t cache = req->cache;
 	ocf_core_id_t core_id = ocf_core_get_id(req->core);
-	ocf_cleaning_t clean_policy_type;
 	unsigned int hash_index = req->map[idx].hash;
 	uint64_t core_line = req->core_line_first + idx;
 
@@ -324,13 +323,8 @@ void ocf_map_cache_line(struct ocf_request *req,
 	ocf_metadata_end_collision_shared_access(cache, cache_line);
 
 	/* Update dirty cache-block list */
-	clean_policy_type = cache->conf_meta->cleaning_policy_type;
 
-	ENV_BUG_ON(clean_policy_type >= ocf_cleaning_max);
-
-	if (cleaning_policy_ops[clean_policy_type].init_cache_block != NULL)
-		cleaning_policy_ops[clean_policy_type].
-				init_cache_block(cache, cache_line);
+	ocf_cleaning_init_cache_block(cache, cache_line);
 
 	req->map[idx].coll_idx = cache_line;
 }
