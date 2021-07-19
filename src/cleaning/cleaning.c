@@ -13,41 +13,7 @@
 #include "../mngt/ocf_mngt_common.h"
 #include "../metadata/metadata.h"
 #include "../ocf_queue_priv.h"
-
-struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max] = {
-	[ocf_cleaning_nop] = {
-		.name = "nop",
-		.perform_cleaning = cleaning_nop_perform_cleaning,
-	},
-	[ocf_cleaning_alru] = {
-		.setup = cleaning_policy_alru_setup,
-		.init_cache_block = cleaning_policy_alru_init_cache_block,
-		.purge_cache_block = cleaning_policy_alru_purge_cache_block,
-		.purge_range = cleaning_policy_alru_purge_range,
-		.set_hot_cache_line = cleaning_policy_alru_set_hot_cache_line,
-		.initialize = cleaning_policy_alru_initialize,
-		.deinitialize = cleaning_policy_alru_deinitialize,
-		.set_cleaning_param = cleaning_policy_alru_set_cleaning_param,
-		.get_cleaning_param = cleaning_policy_alru_get_cleaning_param,
-		.perform_cleaning = cleaning_alru_perform_cleaning,
-		.name = "alru",
-	},
-	[ocf_cleaning_acp] = {
-		.setup = cleaning_policy_acp_setup,
-		.init_cache_block = cleaning_policy_acp_init_cache_block,
-		.purge_cache_block = cleaning_policy_acp_purge_block,
-		.purge_range = cleaning_policy_acp_purge_range,
-		.set_hot_cache_line = cleaning_policy_acp_set_hot_cache_line,
-		.initialize = cleaning_policy_acp_initialize,
-		.deinitialize = cleaning_policy_acp_deinitialize,
-		.set_cleaning_param = cleaning_policy_acp_set_cleaning_param,
-		.get_cleaning_param = cleaning_policy_acp_get_cleaning_param,
-		.add_core = cleaning_policy_acp_add_core,
-		.remove_core = cleaning_policy_acp_remove_core,
-		.perform_cleaning = cleaning_policy_acp_perform_cleaning,
-		.name = "acp",
-	},
-};
+#include "cleaning_ops.c"
 
 int ocf_start_cleaner(ocf_cache_t cache)
 {
