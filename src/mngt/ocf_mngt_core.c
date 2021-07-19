@@ -12,7 +12,7 @@
 #include "../utils/utils_pipeline.h"
 #include "../ocf_stats_priv.h"
 #include "../ocf_def_priv.h"
-#include "../cleaning/cleaning_ops.c"
+#include "../cleaning/cleaning_ops.h"
 
 static ocf_seq_no_t _ocf_mngt_get_core_seq_no(ocf_cache_t cache)
 {
@@ -124,14 +124,12 @@ static void _ocf_mngt_cache_add_core_handle_error(
 	ocf_core_t core = context->core;
 	ocf_core_id_t core_id;
 	ocf_volume_t volume;
-	ocf_cleaning_t clean_type;
 
 	if (!core)
 		return;
 
 	core_id = ocf_core_get_id(core);
 	volume = &core->volume;
-	clean_type = cache->conf_meta->cleaning_policy_type;
 
 	if (context->flags.counters_allocated) {
 		env_bit_clear(core_id,
@@ -144,11 +142,8 @@ static void _ocf_mngt_cache_add_core_handle_error(
 		core->counters = NULL;
 	}
 
-	if (context->flags.clean_pol_added) {
-		if (cleaning_policy_ops[clean_type].remove_core)
-			cleaning_policy_ops[clean_type].remove_core(cache,
-					core_id);
-	}
+	if (context->flags.clean_pol_added)
+		ocf_cleaning_remove_core(cache, core_id);
 
 	if (context->flags.cutoff_initialized)
 		ocf_core_seq_cutoff_deinit(core);
@@ -376,7 +371,6 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	ocf_volume_t volume;
 	ocf_volume_type_t type;
 	ocf_seq_no_t core_sequence_no;
-	ocf_cleaning_t clean_type;
 	uint64_t length;
 	int i, result = 0;
 
@@ -428,11 +422,8 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 
 	core->conf_meta->length = length;
 
-	clean_type = cache->conf_meta->cleaning_policy_type;
-	if (ocf_cache_is_device_attached(cache) &&
-			cleaning_policy_ops[clean_type].add_core) {
-		result = cleaning_policy_ops[clean_type].add_core(cache,
-				core_id);
+	if (ocf_cache_is_device_attached(cache)) {
+		result = ocf_cleaning_add_core(cache, core_id);
 		if (result)
 			OCF_PL_FINISH_RET(pipeline, result);
 
