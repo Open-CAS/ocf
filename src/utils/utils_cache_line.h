@@ -13,6 +13,7 @@
 #include "../engine/cache_engine.h"
 #include "../ocf_request.h"
 #include "../ocf_def_priv.h"
+#include "../cleaning/cleaning_ops.c"
 
 /**
  * @file utils_cache_line.h

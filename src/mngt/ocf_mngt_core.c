@@ -12,6 +12,7 @@
 #include "../utils/utils_pipeline.h"
 #include "../ocf_stats_priv.h"
 #include "../ocf_def_priv.h"
+#include "../cleaning/cleaning_ops.c"
 
 static ocf_seq_no_t _ocf_mngt_get_core_seq_no(ocf_cache_t cache)
 {
