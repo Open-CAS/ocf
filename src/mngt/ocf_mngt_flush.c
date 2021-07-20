@@ -917,6 +917,16 @@ struct ocf_mngt_cache_set_cleaning_context
 	void *priv;
 };
 
+static void _ocf_mngt_cleaning_deinit_complete(void *priv)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_cleaning_deinitialize(cache);
+
+	ocf_pipeline_next(context->pipeline);
+}
+
 static void _ocf_mngt_deinit_clean_policy(ocf_pipeline_t pipeline, void *priv,
 		ocf_pipeline_arg_t arg)
 {
@@ -925,9 +935,9 @@ static void _ocf_mngt_deinit_clean_policy(ocf_pipeline_t pipeline, void *priv,
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
-	ocf_cleaning_deinitialize(cache);
-
-	ocf_pipeline_next(context->pipeline);
+	ocf_refcnt_freeze(&cache->cleaner.refcnt);
+	ocf_refcnt_register_zero_cb(&cache->cleaner.refcnt,
+			_ocf_mngt_cleaning_deinit_complete, context);
 }
 
 static void _ocf_mngt_init_clean_policy(ocf_pipeline_t pipeline, void *priv,
@@ -955,6 +965,7 @@ static void _ocf_mngt_init_clean_policy(ocf_pipeline_t pipeline, void *priv,
 
 	cache->conf_meta->cleaning_policy_type = new_policy;
 
+	ocf_refcnt_unfreeze(&cache->cleaner.refcnt);
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, result);

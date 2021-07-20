@@ -205,6 +205,8 @@ static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
 
 	OCF_ASSERT_PLUGGED(cache);
 
+	ocf_refcnt_init(&cache->cleaner.refcnt);
+
 	for (i = 0; i < ocf_cleaning_max; i++)
 		ocf_cleaning_setup(cache, i);
 

@@ -10,6 +10,7 @@
 #include "nop_structs.h"
 #include "acp_structs.h"
 #include "ocf/ocf_cleaner.h"
+#include "../utils/utils_refcnt.h"
 
 #define CLEANING_POLICY_CONFIG_BYTES 256
 #define CLEANING_POLICY_TYPE_MAX 4
@@ -39,6 +40,7 @@ struct cleaning_policy_meta {
 };
 
 struct ocf_cleaner {
+	struct ocf_refcnt refcnt __attribute__((aligned(64)));
 	void *cleaning_policy_context;
 	ocf_queue_t io_queue;
 	ocf_cleaner_end_t end;
