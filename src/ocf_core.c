@@ -227,14 +227,8 @@ static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
 	struct ocf_event_io trace_event;
 	ocf_req_cache_mode_t original_cache_mode;
 	int fast;
-	int ret;
 
 	if (req->d2c) {
-		return -OCF_ERR_IO;
-	}
-
-	ret = ocf_req_alloc_map(req);
-	if (ret) {
 		return -OCF_ERR_IO;
 	}
 
@@ -242,8 +236,7 @@ static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
 
 	switch (req->cache_mode) {
 	case ocf_req_cache_mode_pt:
-		ret = -OCF_ERR_IO;
-		goto map_allocated;
+		return -OCF_ERR_IO;
 	case ocf_req_cache_mode_wb:
 	case ocf_req_cache_mode_wo:
 		req->cache_mode = ocf_req_cache_mode_fast;
@@ -253,10 +246,7 @@ static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
 			break;
 
 		if (io->dir == OCF_WRITE)
-		{
-			ret = -OCF_ERR_IO;
-			goto map_allocated;
-		}
+			return -OCF_ERR_IO;
 
 		req->cache_mode = ocf_req_cache_mode_fast;
 	}
@@ -275,10 +265,7 @@ static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
 	}
 
 	req->cache_mode = original_cache_mode;
-	ret = -OCF_ERR_IO;
-map_allocated:
-	ocf_req_dealloc_map(req);
-	return ret;
+	return -OCF_ERR_IO;
 }
 
 void ocf_core_volume_submit_io(struct ocf_io *io)
@@ -308,6 +295,12 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 		return;
 	}
 
+	ret = ocf_req_alloc_map(req);
+	if (ret) {
+		ocf_io_end(io, ret);
+		return;
+	}
+
 	req->part_id = ocf_user_part_class2id(cache, io->io_class);
 	req->core = core;
 	req->complete = ocf_req_complete;
@@ -323,6 +316,7 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 		return;
 	}
 
+	ocf_req_clear_map(req);
 	ocf_core_seq_cutoff_update(core, req);
 
 	if (io->dir == OCF_WRITE)
