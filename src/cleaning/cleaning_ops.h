@@ -9,6 +9,7 @@
 #include "../metadata/metadata_superblock.h"
 #include "../metadata/metadata_structs.h"
 #include "../ocf_cache_priv.h"
+#include "../utils/utils_refcnt.h"
 
 struct cleaning_policy_ops {
 	void (*setup)(ocf_cache_t cache);
@@ -104,6 +105,10 @@ static inline int ocf_cleaning_add_core(ocf_cache_t cache,
 		ocf_core_id_t core_id)
 {
 	ocf_cleaning_t policy;
+	int result = 0;
+
+	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+		return -OCF_ERR_NO_LOCK;
 
 	policy = cache->conf_meta->cleaning_policy_type;
 
@@ -112,13 +117,21 @@ static inline int ocf_cleaning_add_core(ocf_cache_t cache,
 	if (unlikely(!cleaning_policy_ops[policy].add_core))
 		goto unlock;
 
-	return cleaning_policy_ops[policy].add_core(cache, core_id);
+	result = cleaning_policy_ops[policy].add_core(cache, core_id);
+
+unlock:
+	ocf_refcnt_dec(&cache->cleaner.refcnt);
+
+	return result;
 }
 
 static inline void ocf_cleaning_remove_core(ocf_cache_t cache,
 		ocf_core_id_t core_id)
 {
 	ocf_cleaning_t policy;
+
+	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+		return;
 
 	policy = cache->conf_meta->cleaning_policy_type;
 
@@ -128,12 +141,18 @@ static inline void ocf_cleaning_remove_core(ocf_cache_t cache,
 		goto unlock;
 
 	cleaning_policy_ops[policy].remove_core(cache, core_id);
+
+unlock:
+	ocf_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline void ocf_cleaning_init_cache_block(ocf_cache_t cache,
 		ocf_cache_line_t cache_line)
 {
 	ocf_cleaning_t policy;
+
+	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+		return;
 
 	policy = cache->conf_meta->cleaning_policy_type;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
@@ -142,12 +161,18 @@ static inline void ocf_cleaning_init_cache_block(ocf_cache_t cache,
 		goto unlock;
 
 	cleaning_policy_ops[policy].init_cache_block(cache, cache_line);
+
+unlock:
+	ocf_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline void ocf_cleaning_purge_cache_block(ocf_cache_t cache,
 		ocf_cache_line_t cache_line)
 {
 	ocf_cleaning_t policy;
+
+	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+		return;
 
 	policy = cache->conf_meta->cleaning_policy_type;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
@@ -156,12 +181,18 @@ static inline void ocf_cleaning_purge_cache_block(ocf_cache_t cache,
 		goto unlock;
 
 	cleaning_policy_ops[policy].purge_cache_block(cache, cache_line);
+
+unlock:
+	ocf_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline void ocf_cleaning_purge_range(ocf_cache_t cache,
 		ocf_core_id_t core_id, uint64_t start_byte, uint64_t end_byte)
 {
 	ocf_cleaning_t policy;
+
+	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+		return;
 
 	policy = cache->conf_meta->cleaning_policy_type;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
@@ -171,12 +202,18 @@ static inline void ocf_cleaning_purge_range(ocf_cache_t cache,
 
 	cleaning_policy_ops[policy].purge_range(cache, core_id, start_byte,
 			end_byte);
+
+unlock:
+	ocf_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline void ocf_cleaning_set_hot_cache_line(ocf_cache_t cache,
 		ocf_cache_line_t cache_line)
 {
 	ocf_cleaning_t policy;
+
+	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+		return;
 
 	policy = cache->conf_meta->cleaning_policy_type;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
@@ -185,6 +222,9 @@ static inline void ocf_cleaning_set_hot_cache_line(ocf_cache_t cache,
 		goto unlock;
 
 	cleaning_policy_ops[policy].set_hot_cache_line(cache, cache_line);
+
+unlock:
+	ocf_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline int ocf_cleaning_set_param(ocf_cache_t cache,
@@ -216,6 +256,9 @@ static inline void ocf_cleaning_perform_cleaning(ocf_cache_t cache,
 {
 	ocf_cleaning_t policy;
 
+	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+		return;
+
 	policy = cache->conf_meta->cleaning_policy_type;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
@@ -223,6 +266,9 @@ static inline void ocf_cleaning_perform_cleaning(ocf_cache_t cache,
 		goto unlock;
 
 	cleaning_policy_ops[policy].perform_cleaning(cache, cmpl);
+
+unlock:
+	ocf_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline const char *ocf_cleaning_get_name(ocf_cleaning_t policy)
