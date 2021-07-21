@@ -731,18 +731,29 @@ static inline bool ocf_mngt_cache_mode_has_lazy_write(ocf_cache_mode_t mode)
 int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode);
 
 /**
+ * @brief Completion callback of switch cleaning policy operation
+ *
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_set_cleaning_policy_end_t)( void *priv,
+		int error);
+
+/**
  * @brief Set cleaning policy in given cache
  *
  * @attention This changes only runtime state. To make changes persistent
  *            use function ocf_mngt_cache_save().
  *
  * @param[in] cache Cache handle
- * @param[in] type Cleaning policy type
+ * @param[out] new_policy New cleaning policy
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
  *
- * @retval 0 Policy has been set successfully
- * @retval Non-zero Error occurred and policy has not been set
  */
-int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type);
+void ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache,
+		ocf_cleaning_t new_policy,
+		ocf_mngt_cache_set_cleaning_policy_end_t cmpl, void *priv);
 
 /**
  * @brief Get current cleaning policy from given cache
