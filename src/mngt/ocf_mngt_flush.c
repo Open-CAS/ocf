@@ -901,46 +901,123 @@ void ocf_mngt_cache_flush_interrupt(ocf_cache_t cache)
 	cache->flushing_interrupted = 1;
 }
 
-int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type)
+struct ocf_mngt_cache_set_cleaning_context
 {
-	ocf_cleaning_t old_type;
-	int ret = 0;
+	/* pipeline for switching cleaning policy */
+	ocf_pipeline_t pipeline;
+	/* target cache */
+	ocf_cache_t cache;
+	/* new cleaning policy */
+	ocf_cleaning_t new_policy;
+	/* old cleaning policy */
+	ocf_cleaning_t old_policy;
+	/* completion function */
+	ocf_mngt_cache_set_cleaning_policy_end_t cmpl;
+	/* completion function */
+	void *priv;
+};
 
-	OCF_CHECK_NULL(cache);
-
-	if (type < 0 || type >= ocf_cleaning_max)
-		return -OCF_ERR_INVAL;
-
-	old_type = cache->conf_meta->cleaning_policy_type;
-
-	if (type == old_type) {
-		ocf_cache_log(cache, log_info, "Cleaning policy %s is already "
-				"set\n", ocf_cleaning_get_name(old_type));
-		return 0;
-	}
+static void _ocf_mngt_deinit_clean_policy(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+	ocf_cache_t cache = context->cache;
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	ocf_cleaning_deinitialize(cache);
 
-	if (ocf_cleaning_initialize(cache, type, 1)) {
-		/*
-		 * If initialization of new cleaning policy failed,
-		 * we set cleaning policy to nop.
-		 */
-		type = ocf_cleaning_nop;
-		ret = -OCF_ERR_INVAL;
+	ocf_pipeline_next(context->pipeline);
+}
+
+static void _ocf_mngt_init_clean_policy(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
+{
+	int result;
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_cleaning_t old_policy = context->old_policy;
+	ocf_cleaning_t new_policy = context->new_policy;
+	ocf_cleaning_t emergency_policy = ocf_cleaning_nop;
+
+	result = ocf_cleaning_initialize(cache, new_policy, 1);
+	if (result) {
+		ocf_cache_log(cache, log_info, "Failed to initialize %s cleaning "
+				"policy. Setting %s instead\n",
+				ocf_cleaning_get_name(new_policy),
+				ocf_cleaning_get_name(emergency_policy));
+		new_policy = emergency_policy;
+	} else {
+		ocf_cache_log(cache, log_info, "Changing cleaning policy from "
+				"%s to %s\n", ocf_cleaning_get_name(old_policy),
+				ocf_cleaning_get_name(new_policy));
 	}
 
-	cache->conf_meta->cleaning_policy_type = type;
+	cache->conf_meta->cleaning_policy_type = new_policy;
 
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
-	ocf_cache_log(cache, log_info, "Changing cleaning policy from "
-			"%s to %s\n", ocf_cleaning_get_name(old_type),
-			ocf_cleaning_get_name(type));
+	OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, result);
+}
 
-	return ret;
+static void _ocf_mngt_set_cleaning_finish(ocf_pipeline_t pipeline, void *priv,
+		int error)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+
+	context->cmpl(context->priv, error);
+
+	ocf_pipeline_destroy(pipeline);
+}
+
+static
+struct ocf_pipeline_properties _ocf_mngt_cache_set_cleaning_policy = {
+	.priv_size = sizeof(struct ocf_mngt_cache_set_cleaning_context),
+	.finish = _ocf_mngt_set_cleaning_finish,
+	.steps = {
+		OCF_PL_STEP(_ocf_mngt_deinit_clean_policy),
+		OCF_PL_STEP(_ocf_mngt_init_clean_policy),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+void ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache,
+		ocf_cleaning_t new_policy,
+		ocf_mngt_cache_set_cleaning_policy_end_t cmpl, void *priv)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context;
+	ocf_pipeline_t pipeline;
+	ocf_cleaning_t old_policy;
+	int ret = 0;
+
+	OCF_CHECK_NULL(cache);
+
+	if (new_policy < 0 || new_policy >= ocf_cleaning_max)
+		OCF_CMPL_RET(priv, -OCF_ERR_INVAL);
+
+	old_policy = cache->conf_meta->cleaning_policy_type;
+
+	if (new_policy == old_policy) {
+		ocf_cache_log(cache, log_info, "Cleaning policy %s is already "
+				"set\n", ocf_cleaning_get_name(old_policy));
+		OCF_CMPL_RET(priv, 0);
+	}
+
+	ret = ocf_pipeline_create(&pipeline, cache,
+			&_ocf_mngt_cache_set_cleaning_policy);
+	if (ret)
+		OCF_CMPL_RET(priv, ret);
+
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->cmpl = cmpl;
+	context->cache = cache;
+	context->pipeline = pipeline;
+	context->new_policy = new_policy;
+	context->old_policy = old_policy;
+	context->priv = priv;
+
+	OCF_PL_NEXT_RET(pipeline);
 }
 
 int ocf_mngt_cache_cleaning_get_policy(ocf_cache_t cache, ocf_cleaning_t *type)
