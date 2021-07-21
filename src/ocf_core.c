@@ -269,6 +269,7 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 	if (ret) {
 		dec_counter_if_req_was_dirty(req);
 		ocf_io_end(io, ret);
+		ocf_io_put(io);
 	}
 }
 
