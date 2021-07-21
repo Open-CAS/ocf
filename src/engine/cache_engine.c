@@ -144,11 +144,6 @@ struct ocf_request *ocf_engine_pop_req(ocf_queue_t q)
 
 	OCF_CHECK_NULL(req);
 
-	if (ocf_req_alloc_map(req)) {
-		req->complete(req, req->error);
-		return NULL;
-	}
-
 	return req;
 }
 
