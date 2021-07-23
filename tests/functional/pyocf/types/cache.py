@@ -236,14 +236,16 @@ class Cache:
     def set_cleaning_policy(self, cleaning_policy: CleaningPolicy):
         self.write_lock()
 
-        status = self.owner.lib.ocf_mngt_cache_cleaning_set_policy(
-            self.cache_handle, cleaning_policy
+        c = OcfCompletion([("priv", c_void_p), ("error", c_int)])
+        self.owner.lib.ocf_mngt_cache_cleaning_set_policy(
+            self.cache_handle, cleaning_policy, c, None
         )
+        c.wait()
 
         self.write_unlock()
 
-        if status:
-            raise OcfError("Error changing cleaning policy", status)
+        if c.results["error"]:
+            raise OcfError("Error changing cleaning policy", c.results["error"])
 
     def set_cleaning_policy_param(
         self, cleaning_policy: CleaningPolicy, param_id, param_value
@@ -714,8 +716,7 @@ lib.ocf_mngt_cache_remove_core.argtypes = [c_void_p, c_void_p, c_void_p]
 lib.ocf_mngt_cache_add_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p]
 lib.ocf_cache_get_name.argtypes = [c_void_p]
 lib.ocf_cache_get_name.restype = c_char_p
-lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [c_void_p, c_uint32]
-lib.ocf_mngt_cache_cleaning_set_policy.restype = c_int
+lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [c_void_p, c_uint32, c_void_p, c_void_p]
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_threshold_all.argtypes = [c_void_p, c_uint32]
