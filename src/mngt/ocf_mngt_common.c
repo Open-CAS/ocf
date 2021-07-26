@@ -130,6 +130,7 @@ void cache_mngt_core_remove_from_cache(ocf_core_t core)
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	ocf_core_id_t core_id = ocf_core_get_id(core);
 
+	ocf_core_seq_cutoff_deinit(core);
 	env_free(core->counters);
 	core->counters = NULL;
 	core->added = false;
