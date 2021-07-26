@@ -6,7 +6,7 @@
 #ifndef __UTILS_PIPELINE_H__
 #define __UTILS_PIPELINE_H__
 
-#include "../ocf_cache_priv.h"
+#include "ocf/ocf.h"
 
 enum ocf_pipeline_step_type {
 	ocf_pipeline_step_single,
