@@ -8,6 +8,7 @@
 
 #include <ocf/ocf_def.h>
 #include "metadata_segment.h"
+#include "../promotion/promotion.h"
 
 #define CACHE_MAGIC_NUMBER	0x187E1CA6
 
