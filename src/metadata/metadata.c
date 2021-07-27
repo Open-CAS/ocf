@@ -1200,19 +1200,12 @@ static void _recovery_invalidate_clean_sec(struct ocf_cache *cache,
 static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
 		ocf_cache_line_t cline)
 {
-	ocf_cleaning_t clean_policy_type;
 
 	ocf_metadata_set_core_info(cache, cline, OCF_CORE_MAX, ULLONG_MAX);
 
 	metadata_clear_valid(cache, cline);
 
-	clean_policy_type = cache->conf_meta->cleaning_policy_type;
-
-	ENV_BUG_ON(clean_policy_type >= ocf_cleaning_max);
-
-	if (cleaning_policy_ops[clean_policy_type].init_cache_block != NULL)
-		cleaning_policy_ops[clean_policy_type].
-			init_cache_block(cache, cline);
+	ocf_cleaning_init_cache_block(cache, cline);
 }
 
 static void _recovery_rebuild_metadata(ocf_pipeline_t pipeline,

@@ -99,9 +99,6 @@ void ocf_user_part_move(struct ocf_request *req)
 	ocf_cache_line_t line;
 	ocf_part_id_t id_old, id_new;
 	uint32_t i;
-	ocf_cleaning_t type = cache->conf_meta->cleaning_policy_type;
-
-	ENV_BUG_ON(type >= ocf_cleaning_max);
 
 	entry = &req->map[0];
 	for (i = 0; i < req->core_line_count; i++, entry++) {
@@ -141,9 +138,7 @@ void ocf_user_part_move(struct ocf_request *req)
 			 * TODO: Consider adding update_cache_line() ops
 			 * to cleaning policy to let policies handle this.
 			 */
-			if (cleaning_policy_ops[type].purge_cache_block)
-				cleaning_policy_ops[type].
-						purge_cache_block(cache, line);
+			ocf_cleaning_purge_cache_block(cache, line);
 		}
 
 		ocf_lru_repart(cache, line, &cache->user_parts[id_old].part,
@@ -155,9 +150,7 @@ void ocf_user_part_move(struct ocf_request *req)
 		 */
 		if (metadata_test_dirty(cache, line)) {
 			/* Add cline back to cleaning policy */
-			if (cleaning_policy_ops[type].set_hot_cache_line)
-				cleaning_policy_ops[type].
-					set_hot_cache_line(cache, line);
+			ocf_cleaning_set_hot_cache_line(cache, line);
 
 			env_atomic_inc(&req->core->runtime_meta->
 					part_counters[id_new].dirty_clines);

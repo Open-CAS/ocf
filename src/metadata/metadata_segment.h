@@ -6,6 +6,7 @@
 #ifndef __METADATA_SEGMENT_OPS_H__
 #define __METADATA_SEGMENT_OPS_H__
 
+#include "../utils/utils_pipeline.h"
 #include "metadata_raw.h"
 #include <ocf/ocf_def.h>
 

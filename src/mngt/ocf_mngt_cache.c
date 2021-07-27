@@ -202,29 +202,22 @@ static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
 {
 	ocf_cleaning_t cleaning_policy = ocf_cleaning_default;
 	int i;
-	ocf_error_t result = 0;
 
 	OCF_ASSERT_PLUGGED(cache);
 
-	for (i = 0; i < ocf_cleaning_max; i++) {
-		if (cleaning_policy_ops[i].setup)
-			cleaning_policy_ops[i].setup(cache);
-	}
+	ocf_refcnt_init(&cache->cleaner.refcnt);
+
+	for (i = 0; i < ocf_cleaning_max; i++)
+		ocf_cleaning_setup(cache, i);
 
 	cache->conf_meta->cleaning_policy_type = ocf_cleaning_default;
-	if (cleaning_policy_ops[cleaning_policy].initialize)
-		result = cleaning_policy_ops[cleaning_policy].initialize(cache, 1);
 
-	return result;
+	return ocf_cleaning_initialize(cache, cleaning_policy, 1);
 }
 
 static void __deinit_cleaning_policy(ocf_cache_t cache)
 {
-	ocf_cleaning_t cleaning_policy;
-
-	cleaning_policy = cache->conf_meta->cleaning_policy_type;
-	if (cleaning_policy_ops[cleaning_policy].deinitialize)
-		cleaning_policy_ops[cleaning_policy].deinitialize(cache);
+	ocf_cleaning_deinitialize(cache);
 }
 
 static void __setup_promotion_policy(ocf_cache_t cache)
@@ -470,13 +463,11 @@ void _ocf_mngt_load_init_instance_complete(void *priv, int error)
 		__populate_free(cache);
 
 	cleaning_policy = cache->conf_meta->cleaning_policy_type;
-	if (!cleaning_policy_ops[cleaning_policy].initialize)
-		goto out;
 
 	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown)
-		result = cleaning_policy_ops[cleaning_policy].initialize(cache, 0);
+		result = ocf_cleaning_initialize(cache, cleaning_policy, 0);
 	else
-		result = cleaning_policy_ops[cleaning_policy].initialize(cache, 1);
+		result = ocf_cleaning_initialize(cache, cleaning_policy, 1);
 
 	if (result) {
 		ocf_cache_log(cache, log_err,
@@ -484,7 +475,6 @@ void _ocf_mngt_load_init_instance_complete(void *priv, int error)
 		OCF_PL_FINISH_RET(context->pipeline, result);
 	}
 
-out:
 	ocf_pipeline_next(context->pipeline);
 }
 
@@ -2074,7 +2064,7 @@ static void _ocf_mngt_cache_load_log(ocf_cache_t cache)
 	ocf_cache_log(cache, log_info, "Cache mode : %s\n",
 			_ocf_cache_mode_get_name(cache_mode));
 	ocf_cache_log(cache, log_info, "Cleaning policy : %s\n",
-			cleaning_policy_ops[cleaning_type].name);
+			ocf_cleaning_get_name(cleaning_type));
 	ocf_cache_log(cache, log_info, "Promotion policy : %s\n",
 			ocf_promotion_policies[promotion_type].name);
 	ocf_core_visit(cache, _ocf_mngt_cache_load_core_log,
