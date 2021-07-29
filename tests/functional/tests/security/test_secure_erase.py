@@ -14,7 +14,6 @@ from pyocf.types.data import Data, DataOps
 from pyocf.types.ctx import OcfCtx
 from pyocf.types.logger import DefaultLogger, LogLevel
 from pyocf.ocf import OcfLib
-from pyocf.types.metadata_updater import MetadataUpdater
 from pyocf.types.cleaner import Cleaner
 from pyocf.types.io import IoDir
 from pyocf.types.shared import OcfCompletion
@@ -73,7 +72,6 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
         b"Security tests ctx",
         DefaultLogger(LogLevel.WARN),
         DataCopyTracer,
-        MetadataUpdater,
         Cleaner,
     )
 
@@ -167,7 +165,6 @@ def test_secure_erase_simple_io_cleaning():
         b"Security tests ctx",
         DefaultLogger(LogLevel.WARN),
         DataCopyTracer,
-        MetadataUpdater,
         Cleaner,
     )
 
