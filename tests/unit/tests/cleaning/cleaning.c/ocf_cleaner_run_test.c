@@ -43,7 +43,7 @@
  */
 
 
-int __wrap_cleaning_alru_perform_cleaning(struct ocf_cache *cache, ocf_cleaner_end_t cmpl)
+int __wrap_ocf_cleaning_perform_cleaning(struct ocf_cache *cache, ocf_cleaner_end_t cmpl)
 {
 	function_called();
 	return mock();
@@ -132,8 +132,8 @@ static void ocf_cleaner_run_test01(void **state)
 	expect_function_call(__wrap__ocf_cleaner_run_check_dirty_inactive);
 	will_return(__wrap__ocf_cleaner_run_check_dirty_inactive, 0);
 
-	expect_function_call(__wrap_cleaning_alru_perform_cleaning);
-	will_return(__wrap_cleaning_alru_perform_cleaning, 0);
+	expect_function_call(__wrap_ocf_cleaning_perform_cleaning);
+	will_return(__wrap_ocf_cleaning_perform_cleaning, 0);
 
 	ocf_cleaner_set_cmpl(&cache->cleaner, cleaner_complete);
 

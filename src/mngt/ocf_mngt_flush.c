@@ -901,49 +901,134 @@ void ocf_mngt_cache_flush_interrupt(ocf_cache_t cache)
 	cache->flushing_interrupted = 1;
 }
 
-int ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache, ocf_cleaning_t type)
+struct ocf_mngt_cache_set_cleaning_context
 {
-	ocf_cleaning_t old_type;
+	/* pipeline for switching cleaning policy */
+	ocf_pipeline_t pipeline;
+	/* target cache */
+	ocf_cache_t cache;
+	/* new cleaning policy */
+	ocf_cleaning_t new_policy;
+	/* old cleaning policy */
+	ocf_cleaning_t old_policy;
+	/* completion function */
+	ocf_mngt_cache_set_cleaning_policy_end_t cmpl;
+	/* completion function */
+	void *priv;
+};
+
+static void _ocf_mngt_cleaning_deinit_complete(void *priv)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_cleaning_deinitialize(cache);
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+static void _ocf_mngt_deinit_clean_policy(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+
+	ocf_refcnt_freeze(&cache->cleaner.refcnt);
+	ocf_refcnt_register_zero_cb(&cache->cleaner.refcnt,
+			_ocf_mngt_cleaning_deinit_complete, context);
+}
+
+static void _ocf_mngt_init_clean_policy(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
+{
+	int result;
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_cleaning_t old_policy = context->old_policy;
+	ocf_cleaning_t new_policy = context->new_policy;
+	ocf_cleaning_t emergency_policy = ocf_cleaning_nop;
+
+	result = ocf_cleaning_initialize(cache, new_policy, 1);
+	if (result) {
+		ocf_cache_log(cache, log_info, "Failed to initialize %s cleaning "
+				"policy. Setting %s instead\n",
+				ocf_cleaning_get_name(new_policy),
+				ocf_cleaning_get_name(emergency_policy));
+		new_policy = emergency_policy;
+	} else {
+		ocf_cache_log(cache, log_info, "Changing cleaning policy from "
+				"%s to %s\n", ocf_cleaning_get_name(old_policy),
+				ocf_cleaning_get_name(new_policy));
+	}
+
+	cache->conf_meta->cleaning_policy_type = new_policy;
+
+	ocf_refcnt_unfreeze(&cache->cleaner.refcnt);
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, result);
+}
+
+static void _ocf_mngt_set_cleaning_finish(ocf_pipeline_t pipeline, void *priv,
+		int error)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+
+	context->cmpl(context->priv, error);
+
+	ocf_pipeline_destroy(pipeline);
+}
+
+static
+struct ocf_pipeline_properties _ocf_mngt_cache_set_cleaning_policy = {
+	.priv_size = sizeof(struct ocf_mngt_cache_set_cleaning_context),
+	.finish = _ocf_mngt_set_cleaning_finish,
+	.steps = {
+		OCF_PL_STEP(_ocf_mngt_deinit_clean_policy),
+		OCF_PL_STEP(_ocf_mngt_init_clean_policy),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+void ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache,
+		ocf_cleaning_t new_policy,
+		ocf_mngt_cache_set_cleaning_policy_end_t cmpl, void *priv)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context;
+	ocf_pipeline_t pipeline;
+	ocf_cleaning_t old_policy;
 	int ret = 0;
 
 	OCF_CHECK_NULL(cache);
 
-	if (type < 0 || type >= ocf_cleaning_max)
-		return -OCF_ERR_INVAL;
+	if (new_policy < 0 || new_policy >= ocf_cleaning_max)
+		OCF_CMPL_RET(priv, -OCF_ERR_INVAL);
 
-	old_type = cache->conf_meta->cleaning_policy_type;
+	old_policy = cache->conf_meta->cleaning_policy_type;
 
-	if (type == old_type) {
+	if (new_policy == old_policy) {
 		ocf_cache_log(cache, log_info, "Cleaning policy %s is already "
-				"set\n", cleaning_policy_ops[old_type].name);
-		return 0;
+				"set\n", ocf_cleaning_get_name(old_policy));
+		OCF_CMPL_RET(priv, 0);
 	}
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	ret = ocf_pipeline_create(&pipeline, cache,
+			&_ocf_mngt_cache_set_cleaning_policy);
+	if (ret)
+		OCF_CMPL_RET(priv, ret);
 
-	if (cleaning_policy_ops[old_type].deinitialize)
-		cleaning_policy_ops[old_type].deinitialize(cache);
+	context = ocf_pipeline_get_priv(pipeline);
 
-	if (cleaning_policy_ops[type].initialize) {
-		if (cleaning_policy_ops[type].initialize(cache, 1)) {
-			/*
-			 * If initialization of new cleaning policy failed,
-			 * we set cleaning policy to nop.
-			 */
-			type = ocf_cleaning_nop;
-			ret = -OCF_ERR_INVAL;
-		}
-	}
+	context->cmpl = cmpl;
+	context->cache = cache;
+	context->pipeline = pipeline;
+	context->new_policy = new_policy;
+	context->old_policy = old_policy;
+	context->priv = priv;
 
-	cache->conf_meta->cleaning_policy_type = type;
-
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
-
-	ocf_cache_log(cache, log_info, "Changing cleaning policy from "
-			"%s to %s\n", cleaning_policy_ops[old_type].name,
-			cleaning_policy_ops[type].name);
-
-	return ret;
+	OCF_PL_NEXT_RET(pipeline);
 }
 
 int ocf_mngt_cache_cleaning_get_policy(ocf_cache_t cache, ocf_cleaning_t *type)
@@ -966,13 +1051,9 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
 	if (type < 0 || type >= ocf_cleaning_max)
 		return -OCF_ERR_INVAL;
 
-	if (!cleaning_policy_ops[type].set_cleaning_param)
-		return -OCF_ERR_INVAL;
-
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
-	ret = cleaning_policy_ops[type].set_cleaning_param(cache,
-			param_id, param_value);
+	ret = ocf_cleaning_set_param(cache, type, param_id, param_value);
 
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
@@ -982,19 +1063,11 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
 int ocf_mngt_cache_cleaning_get_param(ocf_cache_t cache, ocf_cleaning_t type,
 		uint32_t param_id, uint32_t *param_value)
 {
-	int ret;
-
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(param_value);
 
 	if (type < 0 || type >= ocf_cleaning_max)
 		return -OCF_ERR_INVAL;
 
-	if (!cleaning_policy_ops[type].get_cleaning_param)
-		return -OCF_ERR_INVAL;
-
-	ret = cleaning_policy_ops[type].get_cleaning_param(cache,
-			param_id, param_value);
-
-	return ret;
+	return ocf_cleaning_get_param(cache, type, param_id, param_value);
 }

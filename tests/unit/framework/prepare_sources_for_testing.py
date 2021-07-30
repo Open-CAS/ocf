@@ -576,7 +576,7 @@ class UnitTestsSourcesGenerator(object):
         delimiter = ""
         try:
             if "{" in ret[-1] or "{" in ret[-2]:
-                delimter = "{"
+                delimiter = "{"
             else:
                 delimiter = ";"
         except IndexError:

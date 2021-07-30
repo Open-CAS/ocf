@@ -36,15 +36,10 @@ void cache_mngt_core_remove_from_cleaning_pol(ocf_core_t core)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	ocf_core_id_t core_id = ocf_core_get_id(core);
-	ocf_cleaning_t clean_pol_type;
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
-	clean_pol_type = cache->conf_meta->cleaning_policy_type;
-	if (cleaning_policy_ops[clean_pol_type].remove_core) {
-		cleaning_policy_ops[clean_pol_type].
-			remove_core(cache, core_id);
-	}
+	ocf_cleaning_remove_core(cache, core_id);
 
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 }

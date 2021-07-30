@@ -13,6 +13,7 @@
 #include "../engine/cache_engine.h"
 #include "../ocf_request.h"
 #include "../ocf_def_priv.h"
+#include "../cleaning/cleaning_ops.h"
 
 /**
  * @file utils_cache_line.h
@@ -68,9 +69,6 @@ static inline uint64_t ocf_lines_2_bytes(struct ocf_cache *cache,
 {
 	return lines * ocf_line_size(cache);
 }
-
-void ocf_cleaning_set_hot_cache_line(struct ocf_cache *cache,
-		ocf_cache_line_t line);
 
 /**
  * @brief Set cache line invalid
@@ -162,13 +160,8 @@ void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
 static inline void ocf_purge_cleaning_policy(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	ocf_cleaning_t clean_type = cache->conf_meta->cleaning_policy_type;
-
-	ENV_BUG_ON(clean_type >= ocf_cleaning_max);
-
 	/* Remove from cleaning policy */
-	if (cleaning_policy_ops[clean_type].purge_cache_block != NULL)
-		cleaning_policy_ops[clean_type].purge_cache_block(cache, line);
+	ocf_cleaning_purge_cache_block(cache, line);
 }
 
 /**
