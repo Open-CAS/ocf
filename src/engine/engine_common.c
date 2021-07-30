@@ -478,15 +478,15 @@ static void ocf_engine_evict(struct ocf_request *req)
 		/* mark error */
 		ocf_req_set_mapping_error(req);
 
-		/* unlock cachelines locked during eviction */
-		ocf_req_unlock(ocf_cache_line_concurrency(req->cache),
-				req);
-
 		/* request cleaning */
 		ocf_req_set_clean_eviction(req);
 
 		/* unmap inserted and replaced cachelines */
 		ocf_engine_map_hndl_error(req->cache, req);
+
+		/* unlock cachelines locked during eviction */
+		ocf_req_unlock(ocf_cache_line_concurrency(req->cache),
+				req);
 	}
 
 	return;
