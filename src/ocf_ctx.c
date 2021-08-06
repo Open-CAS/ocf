@@ -98,12 +98,14 @@ int ocf_ctx_get_volume_type_id(ocf_ctx_t ctx, ocf_volume_type_t type)
 
 	OCF_CHECK_NULL(ctx);
 
+	env_rmutex_lock(&ctx->lock);
 	for (i = 0; i < OCF_VOLUME_TYPE_MAX; ++i) {
 		if (ctx->volume_type[i] == type)
-			return i;
+			break;
 	}
+	env_rmutex_unlock(&ctx->lock);
 
-	return -1;
+	return (i < OCF_VOLUME_TYPE_MAX) ? i : -1;
 }
 
 /*
