@@ -11,7 +11,6 @@
 #include "engine/cache_engine.h"
 #include "utils/utils_user_part.h"
 #include "ocf_request.h"
-#include "ocf_trace_priv.h"
 
 struct ocf_core_volume {
 	ocf_core_t core;
@@ -209,9 +208,6 @@ static inline int ocf_core_validate_io(struct ocf_io *io)
 
 static void ocf_req_complete(struct ocf_request *req, int error)
 {
-	/* Log trace */
-	ocf_trace_io_cmpl(req);
-
 	/* Complete IO */
 	ocf_io_end(&req->ioi.io, error);
 
@@ -224,7 +220,6 @@ static void ocf_req_complete(struct ocf_request *req, int error)
 static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
 		ocf_core_t core, ocf_cache_t cache)
 {
-	struct ocf_event_io trace_event;
 	ocf_req_cache_mode_t original_cache_mode;
 	int fast;
 
@@ -251,18 +246,9 @@ static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
 		req->cache_mode = ocf_req_cache_mode_fast;
 	}
 
-	if (cache->trace.trace_callback) {
-		if (io->dir == OCF_WRITE)
-			ocf_trace_prep_io_event(&trace_event, req, ocf_event_operation_wr);
-		else if (io->dir == OCF_READ)
-			ocf_trace_prep_io_event(&trace_event, req, ocf_event_operation_rd);
-	}
-
 	fast = ocf_engine_hndl_fast_req(req);
-	if (fast != OCF_FAST_PATH_NO) {
-		ocf_trace_push(io->io_queue, &trace_event, sizeof(trace_event));
+	if (fast != OCF_FAST_PATH_NO)
 		return 0;
-	}
 
 	req->cache_mode = original_cache_mode;
 	return -OCF_ERR_IO;
@@ -286,8 +272,6 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 	req = ocf_io_to_req(io);
 	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
-
-	ocf_trace_init_io(req);
 
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
 					&cache->cache_state))) {
@@ -318,11 +302,6 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 
 	ocf_req_clear_map(req);
 	ocf_core_seq_cutoff_update(core, req);
-
-	if (io->dir == OCF_WRITE)
-		ocf_trace_io(req, ocf_event_operation_wr);
-	else if (io->dir == OCF_READ)
-		ocf_trace_io(req, ocf_event_operation_rd);
 
 	ret = ocf_engine_hndl_req(req);
 	if (ret) {
@@ -360,7 +339,6 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 	req->core = core;
 	req->complete = ocf_req_complete;
 
-	ocf_trace_io(req, ocf_event_operation_flush);
 	ocf_io_get(io);
 
 	ocf_engine_hndl_ops_req(req);
@@ -405,7 +383,6 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 	req->core = core;
 	req->complete = ocf_req_complete;
 
-	ocf_trace_io(req, ocf_event_operation_discard);
 	ocf_io_get(io);
 
 	ocf_engine_hndl_discard_req(req);

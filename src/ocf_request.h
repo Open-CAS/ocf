@@ -199,9 +199,6 @@ struct ocf_request {
 
 	ocf_req_cache_mode_t cache_mode;
 
-	log_sid_t sid;
-	/*!< Tracing sequence ID */
-
 	uint64_t timestamp;
 	/*!< Tracing timestamp */
 
