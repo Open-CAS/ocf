@@ -31,6 +31,5 @@
 #include "ocf_mngt.h"
 #include "ocf_ctx.h"
 #include "ocf_err.h"
-#include "ocf_trace.h"
 
 #endif /* __OCF_H__ */
