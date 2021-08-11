@@ -514,6 +514,28 @@ void ocf_mngt_cache_load(ocf_cache_t cache,
 		struct ocf_mngt_cache_device_config *cfg,
 		ocf_mngt_cache_load_end_t cmpl, void *priv);
 
+/**
+ * @brief Completion callback of cache bind operation
+ *
+ * @param[in] cache Cache handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_bind_end_t)(ocf_cache_t cache,
+		void *priv, int error);
+
+/**
+ * @brief Bind cache instance
+ *
+ * @param[in] cache Cache handle
+ * @param[in] cfg Caching device configuration
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
+ */
+void ocf_mngt_cache_bind(ocf_cache_t cache,
+		struct ocf_mngt_cache_device_config *cfg,
+		ocf_mngt_cache_bind_end_t cmpl, void *priv);
+
 /* Adding and removing cores */
 
 /**

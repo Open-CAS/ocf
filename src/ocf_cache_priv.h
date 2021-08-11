@@ -26,6 +26,7 @@
 
 /* Cache device */
 struct ocf_cache_device {
+	struct ocf_volume front_volume;
 	struct ocf_volume volume;
 
 	/* Hash Table contains contains pointer to the entry in

@@ -19,6 +19,11 @@ ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache)
 	return cache->device ? &cache->device->volume : NULL;
 }
 
+ocf_volume_t ocf_cache_get_front_volume(ocf_cache_t cache)
+{
+	return cache->device ? &cache->device->front_volume : NULL;
+}
+
 int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size)
 {
 	int result;
@@ -101,6 +106,16 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 				cache->device->volume.type);
 		info->size = cache->conf_meta->cachelines;
 	}
+	info->state = cache->cache_state;
+	info->cache_line_size = ocf_line_size(cache);
+	info->metadata_end_offset = ocf_cache_is_device_attached(cache) ?
+			cache->device->metadata_offset / PAGE_SIZE : 0;
+	info->metadata_footprint = ocf_cache_is_device_attached(cache) ?
+			ocf_metadata_size_of(cache) : 0;
+
+	if (env_bit_test(ocf_cache_state_passive, &cache->cache_state))
+		return 0;
+
 	info->core_count = cache->conf_meta->core_count;
 
 	info->cache_mode = ocf_cache_get_mode(cache);
@@ -152,10 +167,6 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	info->dirty_initial = initial_dirty_blocks_total;
 	info->occupancy = cache_occupancy_total;
 	info->dirty_for = _calc_dirty_for(dirty_since);
-	info->metadata_end_offset = ocf_cache_is_device_attached(cache) ?
-			cache->device->metadata_offset / PAGE_SIZE : 0;
-
-	info->state = cache->cache_state;
 
 	if (info->attached) {
 		_set(&info->inactive.occupancy,
@@ -179,8 +190,6 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 
 	info->cleaning_policy = cache->conf_meta->cleaning_policy_type;
 	info->promotion_policy = cache->conf_meta->promotion_policy_type;
-	info->metadata_footprint = ocf_cache_is_device_attached(cache) ?
-			ocf_metadata_size_of(cache) : 0;
 	info->cache_line_size = ocf_line_size(cache);
 
 	return 0;

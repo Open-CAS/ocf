@@ -104,6 +104,15 @@ struct ocf_cache_info {
 ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache);
 
 /**
+ * @brief Obtain front volume from cache
+ *
+ * @param[in] cache Cache object
+ *
+ * @retval Volume, NULL if dettached.
+ */
+ocf_volume_t ocf_cache_get_front_volume(ocf_cache_t cache);
+
+/**
  * @brief Get name of given cache object
  *
  * @param[in] cache Cache object
