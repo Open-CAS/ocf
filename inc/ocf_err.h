@@ -128,6 +128,12 @@ typedef enum {
 
 	/** Core with the uuid already exists */
 	OCF_ERR_CORE_UUID_EXISTS,
+
+	/** Cache initialized with wrong metadata layout */
+	OCF_ERR_METADATA_LAYOUT_MISMATCH,
+
+	/** Cache initialized with wrong cache line size */
+	OCF_ERR_CACHE_LINE_SIZE_MISMATCH,
 } ocf_error_t;
 
 #endif /* __OCF_ERR_H__ */
