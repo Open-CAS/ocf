@@ -229,6 +229,8 @@ int ocf_mngt_core_init_front_volume(ocf_core_t core)
 	if (ret)
 		return ret;
 
+	core->front_volume.cache = cache;
+
 	ret = ocf_volume_open(&core->front_volume, NULL);
 	if (ret)
 		ocf_volume_deinit(&core->front_volume);

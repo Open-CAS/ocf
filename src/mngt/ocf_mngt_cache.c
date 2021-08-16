@@ -1960,6 +1960,7 @@ static void _ocf_mngt_init_cache_front_volume(ocf_pipeline_t pipeline,
 	result = ocf_volume_init(&cache->device->front_volume, type, &uuid, false);
 	if (result)
 		OCF_PL_FINISH_RET(context->pipeline, result);
+	cache->device->front_volume.cache = cache;
 	context->flags.front_volume_inited = true;
 
 	result = ocf_volume_open(&cache->device->front_volume, NULL);
