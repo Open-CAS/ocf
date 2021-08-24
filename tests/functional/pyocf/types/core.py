@@ -19,9 +19,6 @@ from ctypes import (
     cast,
     byref,
     create_string_buffer,
-    sizeof,
-    memmove,
-    pointer,
 )
 from datetime import timedelta
 
@@ -68,23 +65,11 @@ class Core:
     ):
         self.cache = None
         self.device = device
-        self.device_name = device.uuid
+        self.name = name
+        self.seq_cutoff_threshold = seq_cutoff_threshold
+        self.seq_cutoff_promotion_count = seq_cutoff_promotion_count
+
         self.handle = c_void_p()
-        self.cfg = CoreConfig(
-            _uuid=Uuid(
-                _data=cast(
-                    create_string_buffer(self.device_name.encode("ascii")),
-                    c_char_p,
-                ),
-                _size=len(self.device_name) + 1,
-            ),
-            _name=name.encode("ascii"),
-            _volume_type=self.device.type_id,
-            _try_add=try_add,
-            _seq_cutoff_threshold=seq_cutoff_threshold,
-            _seq_cutoff_promotion_count=seq_cutoff_promotion_count,
-            _user_metadata=UserMetadata(_data=None, _size=0),
-        )
 
     @classmethod
     def using_device(cls, device, **kwargs):
@@ -92,11 +77,24 @@ class Core:
 
         return c
 
-    def get_cfg(self):
-        config_copy = CoreConfig()
-        memmove(pointer(config_copy), pointer(self.cfg), sizeof(config_copy))
+    def get_config(self):
+        cfg = CoreConfig(
+            _uuid=Uuid(
+                _data=cast(
+                    create_string_buffer(self.device.uuid.encode("ascii")),
+                    c_char_p,
+                ),
+                _size=len(self.device.uuid) + 1,
+            ),
+            _name=self.name.encode("ascii"),
+            _volume_type=self.device.type_id,
+            _try_add=False,
+            _seq_cutoff_threshold=self.seq_cutoff_threshold,
+            _seq_cutoff_promotion_count=self.seq_cutoff_promotion_count,
+            _user_metadata=UserMetadata(_data=None, _size=0),
+        )
 
-        return config_copy
+        return cfg
 
     def get_handle(self):
         return self.handle

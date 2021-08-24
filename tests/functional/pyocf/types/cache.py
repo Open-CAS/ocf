@@ -176,37 +176,53 @@ class Cache:
         metadata_volatile: bool = False,
         max_queue_size: int = DEFAULT_BACKFILL_QUEUE_SIZE,
         queue_unblock_size: int = DEFAULT_BACKFILL_UNBLOCK,
-        locked: bool = False,
         pt_unaligned_io: bool = DEFAULT_PT_UNALIGNED_IO,
         use_submit_fast: bool = DEFAULT_USE_SUBMIT_FAST,
     ):
         self.device = None
         self.started = False
         self.owner = owner
-        self.cache_line_size = cache_line_size
 
-        self.cfg = CacheConfig(
-            _name=name.encode("ascii"),
-            _cache_mode=cache_mode,
-            _promotion_policy=promotion_policy,
-            _cache_line_size=cache_line_size,
-            _metadata_layout=metadata_layout,
-            _metadata_volatile=metadata_volatile,
-            _backfill=Backfill(
-                _max_queue_size=max_queue_size, _queue_unblock_size=queue_unblock_size
-            ),
-            _locked=locked,
-            _pt_unaligned_io=pt_unaligned_io,
-            _use_submit_fast=use_submit_fast,
-        )
+        self.name = name
+        self.cache_mode = cache_mode
+        self.promotion_policy = promotion_policy
+        self.cache_line_size = cache_line_size
+        self.metadata_layout = metadata_layout
+        self.metadata_volatile = metadata_volatile
+        self.max_queue_size = max_queue_size
+        self.queue_unblock_size = queue_unblock_size
+        self.pt_unaligned_io = pt_unaligned_io
+        self.use_submit_fast = use_submit_fast
+
         self.cache_handle = c_void_p()
         self._as_parameter_ = self.cache_handle
         self.io_queues = []
         self.cores = []
 
-    def start_cache(self, default_io_queue: Queue = None, mngt_queue: Queue = None):
+    def start_cache(
+        self,
+        default_io_queue: Queue = None,
+        mngt_queue: Queue = None,
+        locked: bool = False,
+    ):
+        cfg = CacheConfig(
+            _name=self.name.encode("ascii"),
+            _cache_mode=self.cache_mode,
+            _promotion_policy=self.promotion_policy,
+            _cache_line_size=self.cache_line_size,
+            _metadata_layout=self.metadata_layout,
+            _metadata_volatile=self.metadata_volatile,
+            _backfill=Backfill(
+                _max_queue_size=self.max_queue_size,
+                _queue_unblock_size=self.queue_unblock_size,
+            ),
+            _locked=locked,
+            _pt_unaligned_io=self.pt_unaligned_io,
+            _use_submit_fast=self.use_submit_fast,
+        )
+
         status = self.owner.lib.ocf_mngt_cache_start(
-            self.owner.ctx_handle, byref(self.cache_handle), byref(self.cfg), None
+            self.owner.ctx_handle, byref(self.cache_handle), byref(cfg), None
         )
         if status:
             raise OcfError("Creating cache instance failed", status)
@@ -427,12 +443,13 @@ class Cache:
         if status:
             raise OcfError("Error adding partition to cache", status)
 
-    def configure_device(
+    def generate_attach_config(
         self,
         device,
         force=False,
         perform_test=True,
         cache_line_size=None,
+        discard=False,
         open_cores=True,
     ):
         self.device = device
@@ -440,17 +457,15 @@ class Cache:
 
         device_config = CacheDeviceConfig(
             _uuid=Uuid(
-                _data=cast(
-                    create_string_buffer(self.device_name.encode("ascii")), c_char_p
-                ),
-                _size=len(self.device_name) + 1,
+                _data=cast(create_string_buffer(device.uuid.encode("ascii")), c_char_p),
+                _size=len(device.uuid) + 1,
             ),
             _volume_type=device.type_id,
             _perform_test=perform_test,
             _volume_params=None,
         )
 
-        self.dev_cfg = CacheAttachConfig(
+        attach_cfg = CacheAttachConfig(
             _device=device_config,
             _cache_line_size=cache_line_size
             if cache_line_size
@@ -460,23 +475,28 @@ class Cache:
             _discard_on_start=False,
         )
 
+        return attach_cfg
+
+
     def attach_device(
-        self,
-        device,
-        force=False,
-        perform_test=False,
-        cache_line_size=None,
-        open_cores=True,
+        self, device, force=False, perform_test=False, cache_line_size=None, open_cores=True
     ):
-        self.configure_device(
-            device, force, perform_test, cache_line_size, open_cores=open_cores
+        attach_cfg = self.generate_attach_config(
+            device,
+            force,
+            perform_test,
+            cache_line_size,
+            open_cores=open_cores
         )
+
+        self.device = device
+
         self.write_lock()
 
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
 
         self.owner.lib.ocf_mngt_cache_attach(
-            self.cache_handle, byref(self.dev_cfg), c, None
+            self.cache_handle, byref(attach_cfg), c, None
         )
 
         c.wait()
@@ -500,10 +520,13 @@ class Cache:
             raise OcfError("Attaching cache device failed", c.results["error"])
 
     def load_cache(self, device, open_cores=True):
-        self.configure_device(device, open_cores=open_cores)
+        attach_cfg = self.generate_attach_config(device, open_cores=open_cores)
+        self.device = device
+
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
+
         self.owner.lib.ocf_mngt_cache_load(
-            self.cache_handle, byref(self.dev_cfg), c, None
+            self.cache_handle, byref(attach_cfg), c, None
         )
 
         c.wait()
@@ -571,6 +594,10 @@ class Cache:
         self.owner.lib.ocf_mngt_cache_unlock(self.cache_handle)
 
     def add_core(self, core: Core, try_add=False):
+        cfg = core.get_config()
+
+        cfg._try_add = try_add
+
         self.write_lock()
 
         c = OcfCompletion(
@@ -582,12 +609,7 @@ class Cache:
             ]
         )
 
-        cfg = core.get_cfg()
-        cfg._try_add = try_add
-
-        self.owner.lib.ocf_mngt_cache_add_core(
-            self.cache_handle, byref(cfg), c, None
-        )
+        self.owner.lib.ocf_mngt_cache_add_core(self.cache_handle, byref(cfg), c, None)
 
         c.wait()
         if c.results["error"]:
