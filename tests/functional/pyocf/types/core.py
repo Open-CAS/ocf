@@ -19,6 +19,9 @@ from ctypes import (
     cast,
     byref,
     create_string_buffer,
+    sizeof,
+    memmove,
+    pointer,
 )
 from datetime import timedelta
 
@@ -90,7 +93,10 @@ class Core:
         return c
 
     def get_cfg(self):
-        return self.cfg
+        config_copy = CoreConfig()
+        memmove(pointer(config_copy), pointer(self.cfg), sizeof(config_copy))
+
+        return config_copy
 
     def get_handle(self):
         return self.handle

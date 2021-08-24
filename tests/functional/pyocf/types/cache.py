@@ -570,7 +570,7 @@ class Cache:
     def write_unlock(self):
         self.owner.lib.ocf_mngt_cache_unlock(self.cache_handle)
 
-    def add_core(self, core: Core):
+    def add_core(self, core: Core, try_add=False):
         self.write_lock()
 
         c = OcfCompletion(
@@ -582,8 +582,11 @@ class Cache:
             ]
         )
 
+        cfg = core.get_cfg()
+        cfg._try_add = try_add
+
         self.owner.lib.ocf_mngt_cache_add_core(
-            self.cache_handle, byref(core.get_cfg()), c, None
+            self.cache_handle, byref(cfg), c, None
         )
 
         c.wait()
