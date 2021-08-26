@@ -22,14 +22,11 @@ struct ocf_core_info {
 	/** Core size in bytes unit */
 	uint64_t core_size_bytes;
 
-	/** Fields refers ongoing flush operation */
-	struct {
-		/** Number of blocks flushed in ongoing flush operation */
-		uint32_t flushed;
+	/** Number of blocks flushed in ongoing flush operation */
+	uint32_t flushed;
 
-		/** Number of blocks left to flush in ongoing flush operation */
-		uint32_t dirty;
-	};
+	/** Number of blocks left to flush in ongoing flush operation */
+	uint32_t dirty;
 
 	/** How long core is dirty in seconds unit */
 	uint64_t dirty_for;
