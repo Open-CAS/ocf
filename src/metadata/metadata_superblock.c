@@ -132,29 +132,9 @@ static void ocf_metadata_load_superblock_post(ocf_pipeline_t pipeline,
 	struct ocf_metadata_ctrl *ctrl;
 	struct ocf_superblock_config *sb_config;
 	ocf_cache_t cache = context->cache;
-	struct ocf_metadata_uuid *muuid;
-	struct ocf_volume_uuid uuid;
-	ocf_volume_type_t volume_type;
-	ocf_core_t core;
-	ocf_core_id_t core_id;
 
 	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
-
-	for_each_core_metadata(cache, core, core_id) {
-		muuid = ocf_metadata_get_core_uuid(cache, core_id);
-		uuid.data = muuid->data;
-		uuid.size = muuid->size;
-
-		volume_type = ocf_ctx_get_volume_type(cache->owner,
-				core->conf_meta->type);
-
-		/* Initialize core volume */
-		ocf_volume_init(&core->volume, volume_type, &uuid, false);
-		core->has_volume = true;
-	}
-
-	/* Restore all dynamics items */
 
 	if (sb_config->core_count > OCF_CORE_MAX) {
 		ocf_cache_log(cache, log_err,

@@ -362,10 +362,22 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 
 	/* Check in metadata which cores were saved in cache metadata */
 	for_each_core_metadata(cache, core, core_id) {
+		struct ocf_metadata_uuid *muuid;
+		struct ocf_volume_uuid uuid;
+		ocf_volume_type_t volume_type;
 		ocf_volume_t tvolume = NULL;
 
-		if (!core->volume.type)
+		muuid = ocf_metadata_get_core_uuid(cache, core_id);
+		uuid.data = muuid->data;
+		uuid.size = muuid->size;
+
+		volume_type = ocf_ctx_get_volume_type(cache->owner,
+				core->conf_meta->type);
+
+		ret = ocf_volume_init(&core->volume, volume_type, &uuid, false);
+		if (ret)
 			goto err;
+		core->has_volume = true;
 
 		tvolume = ocf_mngt_core_pool_lookup(ocf_cache_get_ctx(cache),
 				&core->volume.uuid, core->volume.type);
