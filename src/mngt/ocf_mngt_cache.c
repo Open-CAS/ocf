@@ -344,9 +344,10 @@ static void _ocf_mngt_close_all_uninitialized_cores(
  * @brief routine loading metadata from cache device
  *  - attempts to open all the underlying cores
  */
-static int _ocf_mngt_load_add_cores(
-		struct ocf_cache_attach_context *context)
+static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
 {
+	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
@@ -438,12 +439,12 @@ static int _ocf_mngt_load_add_cores(
 	}
 
 	context->flags.cores_opened = true;
-	return 0;
+	OCF_PL_NEXT_RET(context->pipeline);
 
 err:
 	_ocf_mngt_close_all_uninitialized_cores(cache);
 
-	return -OCF_ERR_START_CACHE_FAIL;
+	OCF_PL_FINISH_RET(pipeline, -OCF_ERR_START_CACHE_FAIL);
 }
 
 void _ocf_mngt_load_init_instance_complete(void *priv, int error)
@@ -513,14 +514,6 @@ static void _ocf_mngt_load_init_instance(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
-	ocf_cache_t cache = context->cache;
-	int ret;
-
-	OCF_ASSERT_PLUGGED(cache);
-
-	ret = _ocf_mngt_load_add_cores(context);
-	if (ret)
-		OCF_PL_FINISH_RET(pipeline, ret);
 
 	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown)
 		_ocf_mngt_load_init_instance_clean_load(context);
@@ -1554,6 +1547,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_load_superblock),
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
 		OCF_PL_STEP(_ocf_mngt_init_promotion),
+		OCF_PL_STEP(_ocf_mngt_load_add_cores),
 		OCF_PL_STEP(_ocf_mngt_load_init_instance),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
