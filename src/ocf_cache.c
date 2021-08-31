@@ -56,6 +56,12 @@ bool ocf_cache_is_running(ocf_cache_t cache)
 	return env_bit_test(ocf_cache_state_running, &cache->cache_state);
 }
 
+bool ocf_cache_is_passive(ocf_cache_t cache)
+{
+	OCF_CHECK_NULL(cache);
+	return env_bit_test(ocf_cache_state_passive, &cache->cache_state);
+}
+
 bool ocf_cache_is_device_attached(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
