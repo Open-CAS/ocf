@@ -1012,7 +1012,7 @@ static void _ocf_mngt_load_read_properties_end(void *priv, int error,
 	/*
 	 * Check if name loaded from disk is the same as present one.
 	 */
-	if (env_strncmp(cache->conf_meta->name, OCF_CACHE_NAME_SIZE,
+	if (env_strncmp(cache->name, OCF_CACHE_NAME_SIZE,
 			properties->cache_name, OCF_CACHE_NAME_SIZE)) {
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CACHE_NAME_MISMATCH);
 	}

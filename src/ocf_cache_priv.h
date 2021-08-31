@@ -51,6 +51,8 @@ struct ocf_cache_device {
 };
 
 struct ocf_cache {
+	char name[OCF_CACHE_NAME_SIZE];
+
 	ocf_ctx_t owner;
 
 	struct list_head list;
