@@ -1689,6 +1689,29 @@ static void _ocf_mngt_cache_put_io_queues(ocf_cache_t cache)
 		ocf_queue_put(queue);
 }
 
+static void ocf_mngt_cache_stop_deinit_metadata(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_volume_close(&cache->device->volume);
+
+	ocf_metadata_deinit_variable_size(cache);
+	ocf_concurrency_deinit(cache);
+
+	ocf_volume_deinit(&cache->device->volume);
+
+	env_vfree(cache->device);
+	cache->device = NULL;
+
+	/* TODO: this should be removed from detach after 'attached' stats
+		are better separated in statistics */
+	env_atomic_set(&cache->fallback_pt_error_counter, 0);
+
+	ocf_pipeline_next(pipeline);
+}
+
 static void ocf_mngt_cache_stop_put_io_queues(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -1777,6 +1800,7 @@ struct ocf_pipeline_properties ocf_mngt_cache_stop_pipeline_properties = {
 		OCF_PL_STEP(ocf_mngt_cache_stop_check_dirty),
 		OCF_PL_STEP(ocf_mngt_cache_stop_remove_cores),
 		OCF_PL_STEP(ocf_mngt_cache_stop_unplug),
+		OCF_PL_STEP(ocf_mngt_cache_stop_deinit_metadata),
 		OCF_PL_STEP(ocf_mngt_cache_stop_put_io_queues),
 		OCF_PL_STEP_TERMINATOR(),
 	},
@@ -1985,21 +2009,6 @@ void ocf_mngt_cache_attach(ocf_cache_t cache,
 static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
 {
 	struct _ocf_mngt_cache_unplug_context *context = priv;
-	ocf_cache_t cache = context->cache;
-
-	ocf_volume_close(&cache->device->volume);
-
-	ocf_metadata_deinit_variable_size(cache);
-	ocf_concurrency_deinit(cache);
-
-	ocf_volume_deinit(&cache->device->volume);
-
-	env_vfree(cache->device);
-	cache->device = NULL;
-
-	/* TODO: this should be removed from detach after 'attached' stats
-		are better separated in statistics */
-	env_atomic_set(&cache->fallback_pt_error_counter, 0);
 
 	context->cmpl(context->priv, error ? -OCF_ERR_WRITE_CACHE : 0);
 }
