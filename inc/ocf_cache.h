@@ -137,8 +137,8 @@ bool ocf_cache_is_device_attached(ocf_cache_t cache);
  *
  * @param[in] cache Cache object
  *
- * @retval 1 Caching device is being stopped
- * @retval 0 Caching device is being stopped
+ * @retval 1 Caching device is running
+ * @retval 0 Caching device is not running
  */
 bool ocf_cache_is_running(ocf_cache_t cache);
 
