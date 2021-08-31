@@ -47,7 +47,7 @@ bool ocf_cache_is_running(ocf_cache_t cache)
 bool ocf_cache_is_device_attached(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	return !ocf_refcnt_frozen(&cache->refcnt.metadata);
+	return !!cache->device;
 }
 
 ocf_cache_mode_t ocf_cache_get_mode(ocf_cache_t cache)
