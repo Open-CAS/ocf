@@ -188,6 +188,42 @@ static void *_raw_ram_access(ocf_cache_t cache,
 	return _RAW_RAM_ADDR(raw, entry);
 }
 
+static int _raw_ram_drain_page(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, ctx_data_t *data, uint32_t page)
+{
+
+	uint32_t size = raw->entry_size * raw->entries_in_page;
+	ocf_cache_line_t line;
+
+	ENV_BUG_ON(page > raw->ssd_pages);
+	ENV_BUG_ON(size > PAGE_SIZE);
+
+	line = page * raw->entries_in_page;
+
+	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, page);
+
+	ctx_data_rd_check(cache->owner, _RAW_RAM_ADDR(raw, line), data, size);
+	ctx_data_seek(cache->owner, data, ctx_data_seek_current,
+			PAGE_SIZE - size);
+
+	return 0;
+}
+
+/*
+ * RAM Implementation - update
+ */
+static int _raw_ram_update(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, ctx_data_t *data,
+		uint64_t page, uint64_t count)
+{
+	uint64_t i;
+
+	for (i = 0; i < count; i++)
+		_raw_ram_drain_page(cache, raw, data, page + i);
+
+	return 0;
+}
+
 struct _raw_ram_load_all_context {
 	struct ocf_metadata_raw *raw;
 	ocf_metadata_end_t cmpl;
@@ -202,23 +238,9 @@ static int _raw_ram_load_all_drain(ocf_cache_t cache,
 {
 	struct _raw_ram_load_all_context *context = priv;
 	struct ocf_metadata_raw *raw = context->raw;
-	uint32_t size = raw->entry_size * raw->entries_in_page;
-	ocf_cache_line_t line;
-	uint32_t raw_page;
 
-	ENV_BUG_ON(!_raw_ssd_page_is_valid(raw, page));
-	ENV_BUG_ON(size > PAGE_SIZE);
-
-	raw_page = page - raw->ssd_pages_offset;
-	line = raw_page * raw->entries_in_page;
-
-	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
-
-	ctx_data_rd_check(cache->owner, _RAW_RAM_ADDR(raw, line), data, size);
-	ctx_data_seek(cache->owner, data, ctx_data_seek_current,
-			PAGE_SIZE - size);
-
-	return 0;
+	return _raw_ram_drain_page(cache, raw, data,
+			page - raw->ssd_pages_offset);
 }
 
 static void _raw_ram_load_all_complete(ocf_cache_t cache,
@@ -562,6 +584,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.checksum		= _raw_ram_checksum,
 		.page			= _raw_ram_page,
 		.access			= _raw_ram_access,
+		.update			= _raw_ram_update,
 		.load_all		= _raw_ram_load_all,
 		.flush_all		= _raw_ram_flush_all,
 		.flush_mark		= _raw_ram_flush_mark,
@@ -575,6 +598,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.checksum		= raw_dynamic_checksum,
 		.page			= raw_dynamic_page,
 		.access			= raw_dynamic_access,
+		.update			= raw_dynamic_update,
 		.load_all		= raw_dynamic_load_all,
 		.flush_all		= raw_dynamic_flush_all,
 		.flush_mark		= raw_dynamic_flush_mark,
@@ -588,6 +612,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.checksum		= raw_volatile_checksum,
 		.page			= _raw_ram_page,
 		.access			= _raw_ram_access,
+		.update			= raw_volatile_update,
 		.load_all		= raw_volatile_load_all,
 		.flush_all		= raw_volatile_flush_all,
 		.flush_mark		= raw_volatile_flush_mark,
@@ -601,6 +626,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.checksum		= _raw_ram_checksum,
 		.page			= _raw_ram_page,
 		.access			= _raw_ram_access,
+		.update			= _raw_ram_update,
 		.load_all		= _raw_ram_load_all,
 		.flush_all		= _raw_ram_flush_all,
 		.flush_mark		= raw_atomic_flush_mark,

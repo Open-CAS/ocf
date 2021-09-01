@@ -257,6 +257,72 @@ void *raw_dynamic_access(ocf_cache_t cache,
 }
 
 /*
+ * RAM DYNAMIC Implementation - update
+ */
+static int raw_dynamic_update_pages(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, ctx_data_t *data, uint64_t page,
+		uint64_t count, uint8_t **buffer, uint8_t *zpage)
+{
+	struct _raw_ctrl *ctrl = (struct _raw_ctrl *)raw->priv;
+	int result = 0;
+	uint64_t i;
+	int cmp;
+
+	for (i = 0; i < count; i++) {
+		if (!*buffer) {
+			*buffer = env_secure_alloc(PAGE_SIZE);
+			if (!*buffer)
+				return -OCF_ERR_NO_MEM;
+		}
+
+		ctx_data_rd_check(cache->owner, *buffer, data, PAGE_SIZE);
+
+		result = env_memcmp(zpage, PAGE_SIZE, *buffer, PAGE_SIZE, &cmp);
+		if (result < 0)
+			return result;
+
+		/* When page is zero set, no need to allocate space for it */
+		if (cmp == 0) {
+			OCF_DEBUG_PARAM(cache, "Zero loaded %llu", i);
+			continue;
+		}
+
+		OCF_DEBUG_PARAM(cache, "Non-zero loaded %llu", i);
+
+		if (ctrl->pages[page + i])
+			env_secure_free(ctrl->pages[page + i], PAGE_SIZE);
+		ctrl->pages[page + i] = *buffer;
+		*buffer = NULL;
+
+		env_atomic_inc(&ctrl->count);
+	}
+
+	return 0;
+}
+
+int raw_dynamic_update(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, ctx_data_t *data,
+		uint64_t page, uint64_t count)
+{
+	uint8_t *buffer = NULL, *zpage;
+	int result;
+
+	zpage = env_vzalloc(PAGE_SIZE);
+	if (!zpage)
+		return -OCF_ERR_NO_MEM;
+
+	result = raw_dynamic_update_pages(cache, raw, data, page,
+			count, &buffer, zpage);
+
+	if (buffer)
+		env_secure_free(buffer, PAGE_SIZE);
+
+	env_vfree(zpage);
+
+	return result;
+}
+
+/*
 * RAM DYNAMIC Implementation - Load all
 */
 #define RAW_DYNAMIC_LOAD_PAGES 128
@@ -269,7 +335,7 @@ struct raw_dynamic_load_all_context {
 	ctx_data_t *data;
 	uint8_t *zpage;
 	uint8_t *page;
-	uint64_t i;
+	uint64_t i_page;
 	int error;
 
 	ocf_metadata_end_t cmpl;
@@ -317,11 +383,12 @@ static int raw_dynamic_load_all_read(struct ocf_request *req)
 	uint64_t count;
 	int result;
 
-	count = OCF_MIN(RAW_DYNAMIC_LOAD_PAGES, raw->ssd_pages - context->i);
+	count = OCF_MIN(RAW_DYNAMIC_LOAD_PAGES,
+			raw->ssd_pages - context->i_page);
 
 	/* Allocate IO */
 	context->io = ocf_new_cache_io(context->cache, req->io_queue,
-		PAGES_TO_BYTES(raw->ssd_pages_offset + context->i),
+		PAGES_TO_BYTES(raw->ssd_pages_offset + context->i_page),
 		PAGES_TO_BYTES(count), OCF_READ, 0, 0);
 
 	if (!context->io) {
@@ -354,53 +421,20 @@ static int raw_dynamic_load_all_update(struct ocf_request *req)
 {
 	struct raw_dynamic_load_all_context *context = req->priv;
 	struct ocf_metadata_raw *raw = context->raw;
-	struct _raw_ctrl *ctrl = (struct _raw_ctrl *)raw->priv;
 	ocf_cache_t cache = context->cache;
 	uint64_t count = BYTES_TO_PAGES(context->io->bytes);
-	uint64_t i_page;
 	int result = 0;
-	int cmp;
 
 	/* Reset head of data buffer */
 	ctx_data_seek_check(context->cache->owner, context->data,
 			ctx_data_seek_begin, 0);
 
-	for (i_page = 0; i_page < count; i_page++, context->i++) {
-		if (!context->page) {
-			context->page = env_secure_alloc(PAGE_SIZE);
-			if (!context->page) {
-				/* Allocation error */
-				result = -OCF_ERR_NO_MEM;
-				break;
-			}
-		}
+	result = raw_dynamic_update_pages(cache, raw, context->data,
+			context->i_page, count, &context->page, context->zpage);
 
-		ctx_data_rd_check(cache->owner, context->page,
-				context->data, PAGE_SIZE);
+	context->i_page += count;
 
-		result = env_memcmp(context->zpage, PAGE_SIZE, context->page,
-				PAGE_SIZE, &cmp);
-		if (result)
-			break;
-
-		/* When page is zero set, no need to allocate space for it */
-		if (cmp == 0) {
-			OCF_DEBUG_PARAM(cache, "Zero loaded %llu", i);
-			continue;
-		}
-
-		OCF_DEBUG_PARAM(cache, "Non-zero loaded %llu", i);
-
-		if (ctrl->pages[context->i])
-			env_vfree(ctrl->pages[context->i]);
-
-		ctrl->pages[context->i] = context->page;
-		context->page = NULL;
-
-		env_atomic_inc(&ctrl->count);
-	}
-
-	if (result || context->i >= raw->ssd_pages) {
+	if (result || context->i_page >= raw->ssd_pages) {
 		raw_dynamic_load_all_complete(context, result);
 		return 0;
 	}

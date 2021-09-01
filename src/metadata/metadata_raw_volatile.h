@@ -18,6 +18,13 @@ uint32_t raw_volatile_checksum(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw);
 
 /*
+ * RAW volatile Implementation - Update
+ */
+int raw_volatile_update(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, ctx_data_t *data,
+		uint64_t page, uint64_t count);
+
+/*
  * RAW volatile Implementation - Load all metadata elements from SSD
  */
 void raw_volatile_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
