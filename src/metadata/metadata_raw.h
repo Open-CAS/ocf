@@ -234,7 +234,6 @@ static inline void *ocf_metadata_raw_wr_access(ocf_cache_t cache,
  * @param cache - Cache instance
  * @param raw - RAW descriptor
  * @param entry - Entry to be get
- * @param data - Data where metadata entry will be copied into
  * @return 0 - Point to accessed data, in case of error NULL
  */
 static inline const void *ocf_metadata_raw_rd_access( ocf_cache_t cache,
