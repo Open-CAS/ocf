@@ -1772,7 +1772,7 @@ void ocf_metadata_load_properties(ocf_volume_t volume,
 {
 	int result;
 
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_TRACE(volume->cache);
 
 	result = ocf_metadata_read_sb(volume->cache->owner, volume,
 			ocf_metadata_load_properties_cmpl, cmpl, priv);
