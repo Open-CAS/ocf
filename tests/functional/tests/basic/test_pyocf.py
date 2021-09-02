@@ -13,6 +13,7 @@ from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size as S
 from pyocf.types.shared import OcfError, OcfCompletion
+from pyocf.rio import Rio, ReadWrite
 
 
 def test_ctx_fixture(pyocf_ctx):
@@ -31,17 +32,9 @@ def test_simple_wt_write(pyocf_ctx):
     cache_device.reset_stats()
     core_device.reset_stats()
 
-    write_data = Data.from_string("This is test data")
-    io = core.new_io(cache.get_default_queue(), S.from_sector(1).B,
-                     write_data.size, IoDir.WRITE, 0, 0)
-    io.set_data(write_data)
+    r = Rio().target(core).readwrite(ReadWrite.WRITE).size(S.from_sector(1)).run()
 
-    cmpl = OcfCompletion([("err", c_int)])
-    io.callback = cmpl.callback
-    io.submit()
-    cmpl.wait()
-
-    assert cmpl.results["err"] == 0
+    assert r.error_count == 0
     assert cache_device.get_stats()[IoDir.WRITE] == 1
     stats = cache.get_stats()
     assert stats["req"]["wr_full_misses"]["value"] == 1
