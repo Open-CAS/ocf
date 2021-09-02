@@ -27,13 +27,18 @@ int ocf_mngt_core_pool_get_count(ocf_ctx_t ctx)
 
 int ocf_mngt_core_pool_add(ocf_ctx_t ctx, ocf_uuid_t uuid, uint8_t type)
 {
+	ocf_volume_type_t volume_type;
 	ocf_volume_t volume;
 
 	int result = 0;
 
 	OCF_CHECK_NULL(ctx);
 
-	result = ocf_ctx_volume_create(ctx, &volume, uuid, type);
+	volume_type = ocf_ctx_get_volume_type(ctx, type);
+	if (!volume_type)
+		return -OCF_ERR_INVAL;
+
+	result = ocf_volume_create(&volume, volume_type, uuid);
 	if (result)
 		return result;
 
