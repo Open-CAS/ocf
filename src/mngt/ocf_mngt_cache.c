@@ -553,18 +553,13 @@ static void _ocf_mngt_recovery_rebuild_metadata(ocf_cache_t cache)
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 }
 
-void _ocf_mngt_load_init_instance_complete(void *priv, int error)
+static void _ocf_mngt_load_post_metadata_load(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_cleaning_t cleaning_policy;
 	ocf_error_t result;
-
-	if (error) {
-		ocf_cache_log(cache, log_err,
-				"Cannot read cache metadata\n");
-		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
-	}
 
 	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown) {
 		_ocf_mngt_recovery_rebuild_metadata(cache);
@@ -581,7 +576,21 @@ void _ocf_mngt_load_init_instance_complete(void *priv, int error)
 	if (result) {
 		ocf_cache_log(cache, log_err,
 				"Cannot initialize cleaning policy\n");
-		OCF_PL_FINISH_RET(context->pipeline, result);
+		OCF_PL_FINISH_RET(pipeline, result);
+	}
+
+	ocf_pipeline_next(pipeline);
+}
+
+void _ocf_mngt_load_init_instance_complete(void *priv, int error)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (error) {
+		ocf_cache_log(cache, log_err,
+				"Cannot read cache metadata\n");
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_START_CACHE_FAIL);
 	}
 
 	ocf_pipeline_next(context->pipeline);
@@ -1657,6 +1666,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_init_promotion),
 		OCF_PL_STEP(_ocf_mngt_load_add_cores),
 		OCF_PL_STEP(_ocf_mngt_load_init_instance),
+		OCF_PL_STEP(_ocf_mngt_load_post_metadata_load),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
 		OCF_PL_STEP(_ocf_mngt_attach_post_init),
