@@ -1146,106 +1146,6 @@ void ocf_metadata_load_all(ocf_cache_t cache,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
-		ocf_core_id_t core_id, uint64_t core_line,
-		ocf_cache_line_t cache_line)
-{
-	ocf_core_t core = ocf_cache_get_core(cache, core_id);
-	ocf_part_id_t part_id;
-	ocf_cache_line_t hash_index;
-	struct ocf_part_runtime *part;
-
-	part_id = PARTITION_DEFAULT;
-	part = cache->user_parts[part_id].part.runtime;
-
-	ocf_metadata_set_partition_id(cache, cache_line, part_id);
-	env_atomic_inc(&part->curr_size);
-
-	hash_index = ocf_metadata_hash_func(cache, core_line, core_id);
-	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,
-			cache_line);
-
-	ocf_lru_init_cline(cache, cache_line);
-
-	ocf_lru_add(cache, cache_line);
-
-	env_atomic_inc(&core->runtime_meta->cached_clines);
-	env_atomic_inc(&core->runtime_meta->
-			part_counters[part_id].cached_clines);
-
-	if (metadata_test_dirty(cache, cache_line)) {
-		env_atomic_inc(&core->runtime_meta->dirty_clines);
-		env_atomic_inc(&core->runtime_meta->
-				part_counters[part_id].dirty_clines);
-		if (!env_atomic64_read(&core->runtime_meta->dirty_since))
-			env_atomic64_cmpxchg(&core->runtime_meta->dirty_since, 0,
-					env_ticks_to_secs(env_get_tick_count()));
-	}
-}
-
-static void _recovery_invalidate_clean_sec(struct ocf_cache *cache,
-		ocf_cache_line_t cline)
-{
-	uint8_t i;
-
-	for (i = ocf_line_start_sector(cache);
-	     i <= ocf_line_end_sector(cache); i++) {
-		if (!metadata_test_dirty_one(cache, cline, i)) {
-			/* Invalidate clear sectors */
-			metadata_clear_valid_sec_one(cache, cline, i);
-		}
-	}
-}
-
-static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
-		ocf_cache_line_t cline)
-{
-
-	ocf_metadata_set_core_info(cache, cline, OCF_CORE_MAX, ULLONG_MAX);
-
-	metadata_clear_valid(cache, cline);
-
-	ocf_cleaning_init_cache_block(cache, cline);
-}
-
-static void _recovery_rebuild_metadata(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_metadata_context *context = priv;
-	bool dirty_only = ocf_pipeline_arg_get_int(arg);
-	ocf_cache_t cache = context->cache;
-	ocf_cache_line_t cline;
-	ocf_core_id_t core_id;
-	uint64_t core_line;
-	unsigned char step = 0;
-	const uint64_t collision_table_entries =
-			ocf_metadata_collision_table_entries(cache);
-
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
-
-	for (cline = 0; cline < collision_table_entries; cline++) {
-		ocf_metadata_get_core_info(cache, cline, &core_id, &core_line);
-		if (core_id != OCF_CORE_MAX &&
-				(!dirty_only || metadata_test_dirty(cache,
-						cline))) {
-			/* Rebuild metadata for mapped cache line */
-			_recovery_rebuild_cline_metadata(cache, core_id,
-					core_line, cline);
-			if (dirty_only)
-				_recovery_invalidate_clean_sec(cache, cline);
-		} else {
-			/* Reset metadata for not mapped or clean cache line */
-			_recovery_reset_cline_metadata(cache, cline);
-		}
-
-		OCF_COND_RESCHED(step, 128);
-	}
-
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
-
-	ocf_pipeline_next(pipeline);
-}
-
 static void ocf_metadata_load_recovery_legacy_finish(
 		ocf_pipeline_t pipeline, void *priv, int error)
 {
@@ -1273,7 +1173,6 @@ ocf_metadata_load_recovery_legacy_pl_props = {
 	.steps = {
 		OCF_PL_STEP_ARG_INT(ocf_metadata_load_segment,
 				metadata_segment_collision),
-		OCF_PL_STEP_ARG_INT(_recovery_rebuild_metadata, true),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
@@ -1415,7 +1314,6 @@ ocf_metadata_load_recovery_atomic_pl_props = {
 	.finish = ocf_metadata_load_recovery_atomic_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_metadata_load_atomic_metadata),
-		OCF_PL_STEP_ARG_INT(_recovery_rebuild_metadata, false),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
