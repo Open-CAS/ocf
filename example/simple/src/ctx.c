@@ -194,11 +194,11 @@ static int ctx_logger_print(ocf_logger_t logger, ocf_logger_lvl_t lvl,
 {
 	FILE *lfile = stdout;
 
-	if (lvl > log_info)
-		return 0;
-
-	if (lvl <= log_warn)
-		lfile = stderr;
+//	if (lvl > log_info)
+//		return 0;
+//
+//	if (lvl <= log_warn)
+//		lfile = stderr;
 
 	return vfprintf(lfile, fmt, args);
 }
