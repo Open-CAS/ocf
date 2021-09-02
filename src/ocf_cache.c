@@ -231,3 +231,187 @@ void *ocf_cache_get_priv(ocf_cache_t cache)
 	OCF_CHECK_NULL(cache);
 	return cache->priv;
 }
+
+struct ocf_cache_volume_io_priv {
+	struct ocf_io *io;
+	struct ctx_data_t *data;
+};
+
+struct ocf_cache_volume {
+	ocf_cache_t cache;
+};
+
+static inline ocf_cache_t ocf_volume_to_cache(ocf_volume_t volume)
+{
+	struct ocf_cache_volume *cache_volume = ocf_volume_get_priv(volume);
+
+	return cache_volume->cache;
+}
+
+static void ocf_cache_volume_io_complete(struct ocf_io *vol_io, int error)
+{
+	struct ocf_io *io = vol_io->priv1;
+
+	ocf_io_put(vol_io);
+	ocf_io_end(io, error);
+}
+
+static int ocf_cache_volume_prepare_vol_io(struct ocf_io *io,
+		struct ocf_io **vol_io)
+{
+	struct ocf_cache_volume_io_priv *priv;
+	ocf_cache_t cache;
+	struct ocf_io *tmp_io;
+	int result;
+
+	OCF_CHECK_NULL(io);
+
+	priv = ocf_io_get_priv(io);
+	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
+
+	tmp_io = ocf_volume_new_io(ocf_cache_get_volume(cache), io->io_queue,
+			io->addr, io->bytes, io->dir, io->io_class, io->flags);
+	if (!tmp_io)
+		return -OCF_ERR_NO_MEM;
+
+	result = ocf_io_set_data(tmp_io, priv->data, 0);
+	if (result) {
+		ocf_io_put(tmp_io);
+		return result;
+	}
+
+	ocf_io_set_cmpl(tmp_io, io, NULL, ocf_cache_volume_io_complete);
+
+	*vol_io = tmp_io;
+
+	return 0;
+}
+
+
+static void ocf_cache_volume_submit_io(struct ocf_io *io)
+{
+	struct ocf_io *vol_io;
+	int result;
+
+	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
+	if (result) {
+		ocf_io_end(io, result);
+		return;
+	}
+
+	ocf_volume_submit_io(vol_io);
+}
+
+
+static void ocf_cache_volume_submit_flush(struct ocf_io *io)
+{
+	struct ocf_io *vol_io;
+	int result;
+
+	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
+	if (result) {
+		ocf_io_end(io, result);
+		return;
+	}
+
+	ocf_volume_submit_flush(vol_io);
+}
+
+
+static void ocf_cache_volume_submit_discard(struct ocf_io *io)
+{
+	struct ocf_io *vol_io;
+	int result;
+
+	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
+	if (result) {
+		ocf_io_end(io, result);
+		return;
+	}
+
+	ocf_volume_submit_discard(vol_io);
+}
+
+/* *** VOLUME OPS *** */
+
+static int ocf_cache_volume_open(ocf_volume_t volume, void *volume_params)
+{
+	struct ocf_cache_volume *cache_volume = ocf_volume_get_priv(volume);
+	const struct ocf_volume_uuid *uuid = ocf_volume_get_uuid(volume);
+	ocf_cache_t cache = (ocf_cache_t)uuid->data;
+
+	cache_volume->cache = cache;
+
+	return 0;
+}
+
+static void ocf_cache_volume_close(ocf_volume_t volume)
+{
+}
+
+static unsigned int ocf_cache_volume_get_max_io_size(ocf_volume_t volume)
+{
+	ocf_cache_t cache = ocf_volume_to_cache(volume);
+
+	return ocf_volume_get_max_io_size(ocf_cache_get_volume(cache));
+}
+
+static uint64_t ocf_cache_volume_get_byte_length(ocf_volume_t volume)
+{
+	ocf_cache_t cache = ocf_volume_to_cache(volume);
+
+	return ocf_volume_get_length(ocf_cache_get_volume(cache));
+}
+
+/* *** IO OPS *** */
+
+static int ocf_cache_io_set_data(struct ocf_io *io,
+		ctx_data_t *data, uint32_t offset)
+{
+	struct ocf_cache_volume_io_priv *priv = ocf_io_get_priv(io);
+
+	if (!data || offset)
+		return -OCF_ERR_INVAL;
+
+	priv->data = data;
+
+	return 0;
+}
+
+static ctx_data_t *ocf_cache_io_get_data(struct ocf_io *io)
+{
+	struct ocf_cache_volume_io_priv *priv = ocf_io_get_priv(io);
+
+	return priv->data;
+}
+
+const struct ocf_volume_properties ocf_cache_volume_properties = {
+	.name = "OCF Cache",
+	.io_priv_size = sizeof(struct ocf_cache_volume_io_priv),
+	.volume_priv_size = sizeof(struct ocf_cache_volume),
+	.caps = {
+		.atomic_writes = 0,
+	},
+	.ops = {
+		.submit_io = ocf_cache_volume_submit_io,
+		.submit_flush = ocf_cache_volume_submit_flush,
+		.submit_discard = ocf_cache_volume_submit_discard,
+		.submit_metadata = NULL,
+
+		.open = ocf_cache_volume_open,
+		.close = ocf_cache_volume_close,
+		.get_max_io_size = ocf_cache_volume_get_max_io_size,
+		.get_length = ocf_cache_volume_get_byte_length,
+	},
+	.io_ops = {
+		.set_data = ocf_cache_io_set_data,
+		.get_data = ocf_cache_io_get_data,
+	},
+	.deinit = NULL,
+};
+
+int ocf_cache_volume_type_init(ocf_ctx_t ctx)
+{
+	return ocf_ctx_register_volume_type_internal(ctx, OCF_VOLUME_TYPE_CACHE,
+			&ocf_cache_volume_properties, NULL);
+}

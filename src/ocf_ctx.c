@@ -216,6 +216,10 @@ int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 	if (ret)
 		goto err_utils;
 
+	ret = ocf_cache_volume_type_init(ocf_ctx);
+	if (ret)
+		goto err_utils;
+
 	ocf_mngt_core_pool_init(ocf_ctx);
 
 	*ctx = ocf_ctx;

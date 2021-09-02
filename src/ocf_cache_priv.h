@@ -169,4 +169,6 @@ static inline uint64_t ocf_get_cache_occupancy(ocf_cache_t cache)
 
 int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size);
 
+int ocf_cache_volume_type_init(ocf_ctx_t ctx);
+
 #endif /* __OCF_CACHE_PRIV_H__ */
