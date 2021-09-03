@@ -74,6 +74,8 @@ ocf_volume_t ocf_mngt_core_pool_lookup(ocf_ctx_t ctx, ocf_uuid_t uuid,
 		ocf_volume_type_t type)
 {
 	ocf_volume_t svolume;
+	int result;
+	int cmp;
 
 	OCF_CHECK_NULL(ctx);
 	OCF_CHECK_NULL(uuid);
@@ -81,10 +83,15 @@ ocf_volume_t ocf_mngt_core_pool_lookup(ocf_ctx_t ctx, ocf_uuid_t uuid,
 
 	list_for_each_entry(svolume, &ctx->core_pool.core_pool_head,
 			core_pool_item) {
-		if (svolume->type == type && !env_strncmp(svolume->uuid.data,
-			svolume->uuid.size, uuid->data, uuid->size)) {
-			return svolume;
-		}
+		if (svolume->type != type)
+			continue;
+
+		result = env_memcmp(svolume->uuid.data, svolume->uuid.size,
+				uuid->data, uuid->size, &cmp);
+		if (result || cmp)
+			continue;
+
+		return svolume;
 	}
 
 	return NULL;
