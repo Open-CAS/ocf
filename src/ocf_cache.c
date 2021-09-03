@@ -251,6 +251,7 @@ void *ocf_cache_get_priv(ocf_cache_t cache)
 struct ocf_cache_volume_io_priv {
 	struct ocf_io *io;
 	struct ctx_data_t *data;
+	env_atomic remaining;
 };
 
 struct ocf_cache_volume {
@@ -266,7 +267,13 @@ static inline ocf_cache_t ocf_volume_to_cache(ocf_volume_t volume)
 
 static void ocf_cache_volume_io_complete(struct ocf_io *vol_io, int error)
 {
+	struct ocf_cache_volume_io_priv *priv;
 	struct ocf_io *io = vol_io->priv1;
+
+	priv = ocf_io_get_priv(io);
+
+	if (env_atomic_dec_return(&priv->remaining))
+		return;
 
 	ocf_io_put(vol_io);
 	ocf_io_end(io, error);
@@ -306,8 +313,15 @@ static int ocf_cache_volume_prepare_vol_io(struct ocf_io *io,
 
 static void ocf_cache_volume_submit_io(struct ocf_io *io)
 {
+	struct ocf_cache_volume_io_priv *priv;
 	struct ocf_io *vol_io;
+	ocf_cache_t cache;
 	int result;
+
+	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
+	priv = ocf_io_get_priv(io);
+
+	env_atomic_set(&priv->remaining, 2);
 
 	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
 	if (result) {
@@ -316,13 +330,29 @@ static void ocf_cache_volume_submit_io(struct ocf_io *io)
 	}
 
 	ocf_volume_submit_io(vol_io);
+
+	result = ocf_metadata_passive_update(cache, io);
+	if (result) {
+		ocf_cache_log(cache, log_crit,
+				"Metadata update error (error=%d)!\n", result);
+	}
+
+	if (env_atomic_dec_return(&priv->remaining))
+		return;
+
+	ocf_io_put(vol_io);
+	ocf_io_end(io, 0);
 }
 
 
 static void ocf_cache_volume_submit_flush(struct ocf_io *io)
 {
+	struct ocf_cache_volume_io_priv *priv;
 	struct ocf_io *vol_io;
 	int result;
+
+	priv = ocf_io_get_priv(io);
+	env_atomic_set(&priv->remaining, 1);
 
 	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
 	if (result) {
@@ -336,8 +366,12 @@ static void ocf_cache_volume_submit_flush(struct ocf_io *io)
 
 static void ocf_cache_volume_submit_discard(struct ocf_io *io)
 {
+	struct ocf_cache_volume_io_priv *priv;
 	struct ocf_io *vol_io;
 	int result;
+
+	priv = ocf_io_get_priv(io);
+	env_atomic_set(&priv->remaining, 1);
 
 	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
 	if (result) {
