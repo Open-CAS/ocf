@@ -269,6 +269,7 @@ static void ocf_cache_volume_io_complete(struct ocf_io *vol_io, int error)
 {
 	struct ocf_cache_volume_io_priv *priv;
 	struct ocf_io *io = vol_io->priv1;
+	ocf_cache_t cache = ocf_volume_to_cache(ocf_io_get_volume(io));
 
 	priv = ocf_io_get_priv(io);
 
@@ -277,6 +278,7 @@ static void ocf_cache_volume_io_complete(struct ocf_io *vol_io, int error)
 
 	ocf_io_put(vol_io);
 	ocf_io_end(io, error);
+	ocf_refcnt_dec(&cache->refcnt.metadata);
 }
 
 static int ocf_cache_volume_prepare_vol_io(struct ocf_io *io,
@@ -321,6 +323,11 @@ static void ocf_cache_volume_submit_io(struct ocf_io *io)
 	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
 	priv = ocf_io_get_priv(io);
 
+	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
+		ocf_io_end(io, -OCF_ERR_IO);
+		return;
+	}
+
 	env_atomic_set(&priv->remaining, 2);
 
 	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
@@ -342,6 +349,7 @@ static void ocf_cache_volume_submit_io(struct ocf_io *io)
 
 	ocf_io_put(vol_io);
 	ocf_io_end(io, 0);
+	ocf_refcnt_dec(&cache->refcnt.metadata);
 }
 
 
@@ -349,9 +357,17 @@ static void ocf_cache_volume_submit_flush(struct ocf_io *io)
 {
 	struct ocf_cache_volume_io_priv *priv;
 	struct ocf_io *vol_io;
+	ocf_cache_t cache;
 	int result;
 
+	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
 	priv = ocf_io_get_priv(io);
+
+	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
+		ocf_io_end(io, -OCF_ERR_IO);
+		return;
+	}
+
 	env_atomic_set(&priv->remaining, 1);
 
 	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
@@ -368,9 +384,17 @@ static void ocf_cache_volume_submit_discard(struct ocf_io *io)
 {
 	struct ocf_cache_volume_io_priv *priv;
 	struct ocf_io *vol_io;
+	ocf_cache_t cache;
 	int result;
 
+	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
 	priv = ocf_io_get_priv(io);
+
+	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
+		ocf_io_end(io, -OCF_ERR_IO);
+		return;
+	}
+
 	env_atomic_set(&priv->remaining, 1);
 
 	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
