@@ -284,6 +284,12 @@ static int raw_dynamic_update_pages(ocf_cache_t cache,
 		/* When page is zero set, no need to allocate space for it */
 		if (cmp == 0) {
 			OCF_DEBUG_PARAM(cache, "Zero loaded %llu", i);
+			if (ctrl->pages[page + i]) {
+				env_secure_free(ctrl->pages[page + i],
+						PAGE_SIZE);
+				ctrl->pages[page + i] = NULL;
+				env_atomic_dec(&ctrl->count);
+			}
 			continue;
 		}
 
