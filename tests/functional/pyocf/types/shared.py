@@ -49,6 +49,9 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_INVALID_CACHE_LINE_SIZE = auto()
     OCF_ERR_CACHE_NAME_MISMATCH = auto()
     OCF_ERR_INVAL_CACHE_DEV = auto()
+    OCF_ERR_CORE_UUID_EXISTS = auto()
+    OCF_ERR_METADATA_LAYOUT_MISMATCH = auto()
+    OCF_ERR_CACHE_LINE_SIZE_MISMATCH = auto()
 
 
 class OcfCompletion:
