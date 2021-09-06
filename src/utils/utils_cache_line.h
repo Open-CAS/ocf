@@ -19,32 +19,6 @@
  * @brief OCF utilities for cache line operations
  */
 
-static inline ocf_cache_line_size_t ocf_line_size(
-		struct ocf_cache *cache)
-{
-	return cache->metadata.settings.size;
-}
-
-static inline uint64_t ocf_line_pages(struct ocf_cache *cache)
-{
-	return cache->metadata.settings.size / PAGE_SIZE;
-}
-
-static inline uint64_t ocf_line_sectors(struct ocf_cache *cache)
-{
-	return cache->metadata.settings.sector_count;
-}
-
-static inline uint64_t ocf_line_end_sector(struct ocf_cache *cache)
-{
-	return cache->metadata.settings.sector_end;
-}
-
-static inline uint64_t ocf_line_start_sector(struct ocf_cache *cache)
-{
-	return cache->metadata.settings.sector_start;
-}
-
 static inline uint64_t ocf_bytes_round_lines(struct ocf_cache *cache,
 		uint64_t bytes)
 {

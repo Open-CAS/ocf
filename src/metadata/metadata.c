@@ -47,10 +47,10 @@ enum {
 	ocf_metadata_status_type_max
 };
 
-static inline size_t ocf_metadata_status_sizeof(
-		const struct ocf_cache_line_settings *settings) {
+static inline size_t ocf_metadata_status_sizeof(ocf_cache_line_size_t line_size)
+{
 	/* Number of bytes required to mark cache line status */
-	size_t size = settings->sector_count / 8;
+	size_t size = BYTES_TO_SECTORS(line_size) / 8;
 
 	/* Number of types of status (valid, dirty, etc...) */
 	size *= ocf_metadata_status_type_max;
@@ -117,11 +117,11 @@ static ocf_cache_line_t ocf_metadata_get_entries(
  */
 static int64_t ocf_metadata_get_element_size(
 		enum ocf_metadata_segment_id type,
-		const struct ocf_cache_line_settings *settings)
+		ocf_cache_line_size_t line_size)
 {
 	int64_t size = 0;
 
-	ENV_BUG_ON(type >= metadata_segment_variable_size_start && !settings);
+	ENV_BUG_ON(type >= metadata_segment_variable_size_start && !line_size);
 
 	switch (type) {
 	case metadata_segment_lru:
@@ -134,7 +134,7 @@ static int64_t ocf_metadata_get_element_size(
 
 	case metadata_segment_collision:
 		size = sizeof(struct ocf_metadata_map)
-			+ ocf_metadata_status_sizeof(settings);
+			+ ocf_metadata_status_sizeof(line_size);
 		break;
 
 	case metadata_segment_list_info:
@@ -229,7 +229,7 @@ static bool ocf_metadata_calculate_exception_hndl(ocf_cache_t cache,
 static int ocf_metadata_calculate_metadata_size(
 		struct ocf_cache *cache,
 		struct ocf_metadata_ctrl *ctrl,
-		const struct ocf_cache_line_settings *settings)
+		ocf_cache_line_size_t line_size)
 {
 	int64_t i_diff = 0, diff_lines = 0, cache_lines = ctrl->device_lines;
 	int64_t lowest_diff;
@@ -286,11 +286,11 @@ static int ocf_metadata_calculate_metadata_size(
 		/* Calculate diff of cache lines */
 
 		/* Cache size in bytes */
-		diff_lines = ctrl->device_lines * settings->size;
+		diff_lines = ctrl->device_lines * line_size;
 		/* Sub metadata size which is in 4 kiB unit */
 		diff_lines -= count_pages * PAGE_SIZE;
 		/* Convert back to cache lines */
-		diff_lines /= settings->size;
+		diff_lines /= line_size;
 		/* Calculate difference */
 		diff_lines -= cache_lines;
 
@@ -416,22 +416,16 @@ void ocf_metadata_deinit_variable_size(struct ocf_cache *cache)
 	}
 }
 
-static inline void ocf_metadata_config_init(struct ocf_cache *cache,
-		struct ocf_cache_line_settings *settings, size_t size)
+static inline void ocf_metadata_config_init(ocf_cache_t cache, size_t size)
 {
 	ENV_BUG_ON(!ocf_cache_line_size_is_valid(size));
 
-	ENV_BUG_ON(env_memset(settings, sizeof(*settings), 0));
-
-	settings->size = size;
-	settings->sector_count = BYTES_TO_SECTORS(settings->size);
-	settings->sector_start = 0;
-	settings->sector_end = settings->sector_count - 1;
+	cache->metadata.line_size = size;
 
 	OCF_DEBUG_PARAM(cache, "Cache line size = %lu, bits count = %llu, "
 			"status size = %lu",
-			settings->size, settings->sector_count,
-			ocf_metadata_status_sizeof(settings));
+			size, ocf_line_sectors(cache),
+			ocf_metadata_status_sizeof(size));
 }
 
 static void ocf_metadata_deinit_fixed_size(struct ocf_cache *cache)
@@ -487,7 +481,7 @@ static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(
 
 		/* Entry size configuration */
 		raw->entry_size
-			= ocf_metadata_get_element_size(i, NULL);
+			= ocf_metadata_get_element_size(i, 0);
 		raw->entries_in_page = PAGE_SIZE / raw->entry_size;
 
 		/* Setup number of entries */
@@ -514,8 +508,6 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 {
 	struct ocf_metadata_ctrl *ctrl = NULL;
 	struct ocf_metadata *metadata = &cache->metadata;
-	struct ocf_cache_line_settings *settings =
-		(struct ocf_cache_line_settings *)&metadata->settings;
 	struct ocf_core_meta_config *core_meta_config;
 	struct ocf_core_meta_runtime *core_meta_runtime;
 	struct ocf_user_part_config *part_config;
@@ -530,7 +522,7 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 
 	ENV_WARN_ON(metadata->priv);
 
-	ocf_metadata_config_init(cache, settings, cache_line_size);
+	ocf_metadata_config_init(cache, cache_line_size);
 
 	ctrl = ocf_metadata_ctrl_init(metadata->is_volatile);
 	if (!ctrl)
@@ -626,14 +618,12 @@ static void ocf_metadata_init_layout(struct ocf_cache *cache,
  * Initialize hash metadata interface
  */
 int ocf_metadata_init_variable_size(struct ocf_cache *cache,
-		uint64_t device_size, ocf_cache_line_size_t cache_line_size,
+		uint64_t device_size, ocf_cache_line_size_t line_size,
 		ocf_metadata_layout_t layout)
 {
 	int result = 0;
 	uint32_t i = 0;
 	struct ocf_metadata_ctrl *ctrl = NULL;
-	struct ocf_cache_line_settings *settings =
-		(struct ocf_cache_line_settings *)&cache->metadata.settings;
 	ocf_flush_page_synch_t lock_page, unlock_page;
 	uint64_t device_lines;
 	struct ocf_metadata_segment *superblock;
@@ -644,7 +634,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 
 	ctrl = cache->metadata.priv;
 
-	device_lines = device_size / cache_line_size;
+	device_lines = device_size / line_size;
 	if (device_lines >= (ocf_cache_line_t)(-1)){
 		/* TODO: This is just a rough check. Most optimal one would be
 		 * located in calculate_metadata_size. */
@@ -655,11 +645,11 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 
 	ctrl->device_lines = device_lines;
 
-	if (settings->size != cache_line_size)
-		/* Re-initialize settings with different cache line size */
-		ocf_metadata_config_init(cache, settings, cache_line_size);
+	if (cache->metadata.line_size != line_size)
+		/* Re-initialize metadata with different cache line size */
+		ocf_metadata_config_init(cache, line_size);
 
-	ctrl->mapping_size = ocf_metadata_status_sizeof(settings)
+	ctrl->mapping_size = ocf_metadata_status_sizeof(line_size)
 		+ sizeof(struct ocf_metadata_map);
 
 	ocf_metadata_init_layout(cache, layout);
@@ -683,12 +673,11 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 
 		/* Entry size configuration */
 		raw->entry_size
-			= ocf_metadata_get_element_size(i, settings);
+			= ocf_metadata_get_element_size(i, line_size);
 		raw->entries_in_page = PAGE_SIZE / raw->entry_size;
 	}
 
-	if (0 != ocf_metadata_calculate_metadata_size(cache, ctrl,
-			settings)) {
+	if (0 != ocf_metadata_calculate_metadata_size(cache, ctrl, line_size)) {
 		return -1;
 	}
 
@@ -767,12 +756,12 @@ finalize:
 	cache->device->metadata_offset = ctrl->count_pages * PAGE_SIZE;
 
 	cache->conf_meta->cachelines = ctrl->cachelines;
-	cache->conf_meta->line_size = cache_line_size;
+	cache->conf_meta->line_size = line_size;
 
 	ocf_metadata_raw_info(cache, ctrl);
 
 	ocf_cache_log(cache, log_info, "Cache line size: %llu kiB\n",
-			settings->size / KiB);
+			line_size / KiB);
 
 	ocf_cache_log(cache, log_info, "Metadata capacity: %llu MiB\n",
 			(uint64_t)ocf_metadata_size_of(cache) / MiB);
@@ -1499,7 +1488,7 @@ void ocf_metadata_set_hash(struct ocf_cache *cache, ocf_cache_line_t index,
 bool ocf_metadata_##what(struct ocf_cache *cache, \
 	 ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all) \
 { \
-	switch (cache->metadata.settings.size) { \
+	switch (cache->metadata.line_size) { \
 		case ocf_cache_line_size_4: \
 			return _ocf_metadata_##what##_u8(cache, line, start, stop, all); \
 		case ocf_cache_line_size_8: \
@@ -1522,7 +1511,7 @@ bool ocf_metadata_##what(struct ocf_cache *cache, \
 bool ocf_metadata_##what(struct ocf_cache *cache, \
 	 ocf_cache_line_t line, uint8_t start, uint8_t stop) \
 { \
-	switch (cache->metadata.settings.size) { \
+	switch (cache->metadata.line_size) { \
 		case ocf_cache_line_size_4: \
 			return _ocf_metadata_##what##_u8(cache, line, start, stop); \
 		case ocf_cache_line_size_8: \
