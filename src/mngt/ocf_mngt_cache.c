@@ -509,19 +509,6 @@ static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
 	}
 }
 
-static void _recovery_invalidate_clean_sec(struct ocf_cache *cache,
-		ocf_cache_line_t cline)
-{
-	uint8_t i;
-
-	for (i = 0; i <= ocf_line_sectors(cache); i++) {
-		if (!metadata_test_dirty_one(cache, cline, i)) {
-			/* Invalidate clear sectors */
-			metadata_clear_valid_sec_one(cache, cline, i);
-		}
-	}
-}
-
 static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
 		ocf_cache_line_t cline)
 {
@@ -553,7 +540,7 @@ static void _ocf_mngt_recovery_rebuild_metadata(ocf_cache_t cache)
 			_recovery_rebuild_cline_metadata(cache, core_id,
 					core_line, cline);
 			if (dirty_only)
-				_recovery_invalidate_clean_sec(cache, cline);
+				metadata_clear_valid_if_clean(cache, cline);
 		} else {
 			/* Reset metadata for not mapped or clean cache line */
 			_recovery_reset_cline_metadata(cache, cline);
