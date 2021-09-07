@@ -514,8 +514,7 @@ static void _recovery_invalidate_clean_sec(struct ocf_cache *cache,
 {
 	uint8_t i;
 
-	for (i = ocf_line_start_sector(cache);
-			i <= ocf_line_end_sector(cache); i++) {
+	for (i = 0; i <= ocf_line_sectors(cache); i++) {
 		if (!metadata_test_dirty_one(cache, cline, i)) {
 			/* Invalidate clear sectors */
 			metadata_clear_valid_sec_one(cache, cline, i);
@@ -1086,7 +1085,7 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 	int ret;
 
 	context->metadata.line_size = context->metadata.line_size ?:
-			cache->metadata.settings.size;
+			cache->metadata.line_size;
 
 	/*
 	 * Initialize variable size metadata segments
@@ -2144,7 +2143,7 @@ static void _ocf_mngt_activate_check_superblock_complete(void *priv, int error)
 				-OCF_ERR_METADATA_LAYOUT_MISMATCH);
 	}
 
-	if (cache->conf_meta->line_size != cache->metadata.settings.size) {
+	if (cache->conf_meta->line_size != cache->metadata.line_size) {
 		OCF_PL_FINISH_RET(context->pipeline,
 				-OCF_ERR_CACHE_LINE_SIZE_MISMATCH);
 	}
