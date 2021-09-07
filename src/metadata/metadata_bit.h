@@ -221,20 +221,13 @@ static bool _ocf_metadata_test_and_clear_##what##_##type( \
 	return test; \
 } \
 
-ocf_metadata_bit_struct(u8);
-ocf_metadata_bit_struct(u16);
-ocf_metadata_bit_struct(u32);
-ocf_metadata_bit_struct(u64);
-ocf_metadata_bit_struct(u128);
+#define ocf_metadata_bit_funcs(type) \
+ocf_metadata_bit_struct(type); \
+ocf_metadata_bit_func(dirty, type); \
+ocf_metadata_bit_func(valid, type); \
 
-ocf_metadata_bit_func(dirty, u8);
-ocf_metadata_bit_func(dirty, u16);
-ocf_metadata_bit_func(dirty, u32);
-ocf_metadata_bit_func(dirty, u64);
-ocf_metadata_bit_func(dirty, u128);
-
-ocf_metadata_bit_func(valid, u8);
-ocf_metadata_bit_func(valid, u16);
-ocf_metadata_bit_func(valid, u32);
-ocf_metadata_bit_func(valid, u64);
-ocf_metadata_bit_func(valid, u128);
+ocf_metadata_bit_funcs(u8);
+ocf_metadata_bit_funcs(u16);
+ocf_metadata_bit_funcs(u32);
+ocf_metadata_bit_funcs(u64);
+ocf_metadata_bit_funcs(u128);
