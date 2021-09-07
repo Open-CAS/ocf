@@ -13,19 +13,31 @@
  * Dirty
  ******************************************************************************/
 
-bool ocf_metadata_test_dirty(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
-bool ocf_metadata_test_out_dirty(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop);
-bool ocf_metadata_clear_dirty(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop);
-bool ocf_metadata_set_dirty(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop);
-bool ocf_metadata_test_and_set_dirty(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
-bool ocf_metadata_test_and_clear_dirty(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
+bool ocf_metadata_test_dirty(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
+bool ocf_metadata_test_out_dirty(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop);
+bool ocf_metadata_clear_dirty(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop);
+bool ocf_metadata_set_dirty(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop);
+bool ocf_metadata_test_and_set_dirty(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
+bool ocf_metadata_test_and_clear_dirty(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
 
-bool ocf_metadata_test_valid(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
-bool ocf_metadata_test_out_valid(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop);
-bool ocf_metadata_clear_valid(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop);
-bool ocf_metadata_set_valid(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop);
-bool ocf_metadata_test_and_set_valid(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
-bool ocf_metadata_test_and_clear_valid(struct ocf_cache *cache, ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
+bool ocf_metadata_test_valid(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
+bool ocf_metadata_test_out_valid(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop);
+bool ocf_metadata_clear_valid(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop);
+bool ocf_metadata_set_valid(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop);
+bool ocf_metadata_test_and_set_valid(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
+bool ocf_metadata_test_and_clear_valid(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
 bool ocf_metadata_clear_valid_if_clean(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t start, uint8_t stop);
 
