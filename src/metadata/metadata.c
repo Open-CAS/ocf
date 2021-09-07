@@ -1146,102 +1146,75 @@ void ocf_metadata_load_all(ocf_cache_t cache,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _recovery_rebuild_cline_metadata(ocf_cache_t cache,
-		ocf_core_id_t core_id, uint64_t core_line,
-		ocf_cache_line_t cache_line)
-{
-	ocf_core_t core = ocf_cache_get_core(cache, core_id);
-	ocf_part_id_t part_id;
-	ocf_cache_line_t hash_index;
-	struct ocf_part_runtime *part;
-
-	part_id = PARTITION_DEFAULT;
-	part = cache->user_parts[part_id].part.runtime;
-
-	ocf_metadata_set_partition_id(cache, cache_line, part_id);
-	env_atomic_inc(&part->curr_size);
-
-	hash_index = ocf_metadata_hash_func(cache, core_line, core_id);
-	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,
-			cache_line);
-
-	ocf_lru_init_cline(cache, cache_line);
-
-	ocf_lru_add(cache, cache_line);
-
-	env_atomic_inc(&core->runtime_meta->cached_clines);
-	env_atomic_inc(&core->runtime_meta->
-			part_counters[part_id].cached_clines);
-
-	if (metadata_test_dirty(cache, cache_line)) {
-		env_atomic_inc(&core->runtime_meta->dirty_clines);
-		env_atomic_inc(&core->runtime_meta->
-				part_counters[part_id].dirty_clines);
-		if (!env_atomic64_read(&core->runtime_meta->dirty_since))
-			env_atomic64_cmpxchg(&core->runtime_meta->dirty_since, 0,
-					env_ticks_to_secs(env_get_tick_count()));
-	}
-}
-
-static void _recovery_invalidate_clean_sec(struct ocf_cache *cache,
-		ocf_cache_line_t cline)
-{
-	uint8_t i;
-
-	for (i = ocf_line_start_sector(cache);
-	     i <= ocf_line_end_sector(cache); i++) {
-		if (!metadata_test_dirty_one(cache, cline, i)) {
-			/* Invalidate clear sectors */
-			metadata_clear_valid_sec_one(cache, cline, i);
-		}
-	}
-}
-
-static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
-		ocf_cache_line_t cline)
-{
-
-	ocf_metadata_set_core_info(cache, cline, OCF_CORE_MAX, ULLONG_MAX);
-
-	metadata_clear_valid(cache, cline);
-
-	ocf_cleaning_init_cache_block(cache, cline);
-}
-
-static void _recovery_rebuild_metadata(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
+static void ocf_metadata_load_unsafe_finish(ocf_pipeline_t pipeline,
+		void *priv, int error)
 {
 	struct ocf_metadata_context *context = priv;
-	bool dirty_only = ocf_pipeline_arg_get_int(arg);
 	ocf_cache_t cache = context->cache;
-	ocf_cache_line_t cline;
-	ocf_core_id_t core_id;
-	uint64_t core_line;
-	unsigned char step = 0;
-	const uint64_t collision_table_entries =
-			ocf_metadata_collision_table_entries(cache);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
-
-	for (cline = 0; cline < collision_table_entries; cline++) {
-		ocf_metadata_get_core_info(cache, cline, &core_id, &core_line);
-		if (core_id != OCF_CORE_MAX &&
-				(!dirty_only || metadata_test_dirty(cache,
-						cline))) {
-			/* Rebuild metadata for mapped cache line */
-			_recovery_rebuild_cline_metadata(cache, core_id,
-					core_line, cline);
-			if (dirty_only)
-				_recovery_invalidate_clean_sec(cache, cline);
-		} else {
-			/* Reset metadata for not mapped or clean cache line */
-			_recovery_reset_cline_metadata(cache, cline);
-		}
-
-		OCF_COND_RESCHED(step, 128);
+	if (error) {
+		ocf_cache_log(cache, log_err, "Metadata read FAILURE\n");
+		ocf_metadata_error(cache);
+		goto out;
 	}
 
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_cache_log(cache, log_info, "Done loading cache state\n");
+
+out:
+	context->cmpl(context->priv, error);
+	ocf_pipeline_destroy(pipeline);
+}
+
+struct ocf_pipeline_arg ocf_metadata_load_unsafe_args[] = {
+	OCF_PL_ARG_INT(metadata_segment_sb_config),
+	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
+	OCF_PL_ARG_INT(metadata_segment_part_config),
+	OCF_PL_ARG_INT(metadata_segment_part_runtime),
+	OCF_PL_ARG_INT(metadata_segment_core_config),
+	OCF_PL_ARG_INT(metadata_segment_core_runtime),
+	OCF_PL_ARG_INT(metadata_segment_core_uuid),
+	OCF_PL_ARG_INT(metadata_segment_cleaning),
+	OCF_PL_ARG_INT(metadata_segment_lru),
+	OCF_PL_ARG_INT(metadata_segment_collision),
+	OCF_PL_ARG_INT(metadata_segment_list_info),
+	OCF_PL_ARG_INT(metadata_segment_hash),
+	OCF_PL_ARG_TERMINATOR(),
+};
+
+struct ocf_pipeline_properties ocf_metadata_load_unsafe_pipeline_props = {
+	.priv_size = sizeof(struct ocf_metadata_context),
+	.finish = ocf_metadata_load_unsafe_finish,
+	.steps = {
+		OCF_PL_STEP_FOREACH(ocf_metadata_load_segment,
+				ocf_metadata_load_unsafe_args),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+/*
+ * Load metadata unsafe
+ */
+void ocf_metadata_load_unsafe(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv)
+{
+	struct ocf_metadata_context *context;
+	ocf_pipeline_t pipeline;
+	int result;
+
+	OCF_DEBUG_TRACE(cache);
+
+	result = ocf_pipeline_create(&pipeline, cache,
+			&ocf_metadata_load_unsafe_pipeline_props);
+	if (result)
+		OCF_CMPL_RET(priv, result);
+
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->cmpl = cmpl;
+	context->priv = priv;
+	context->pipeline = pipeline;
+	context->cache = cache;
+	context->ctrl = cache->metadata.priv;
 
 	ocf_pipeline_next(pipeline);
 }
@@ -1273,7 +1246,6 @@ ocf_metadata_load_recovery_legacy_pl_props = {
 	.steps = {
 		OCF_PL_STEP_ARG_INT(ocf_metadata_load_segment,
 				metadata_segment_collision),
-		OCF_PL_STEP_ARG_INT(_recovery_rebuild_metadata, true),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
@@ -1415,7 +1387,6 @@ ocf_metadata_load_recovery_atomic_pl_props = {
 	.finish = ocf_metadata_load_recovery_atomic_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_metadata_load_atomic_metadata),
-		OCF_PL_STEP_ARG_INT(_recovery_rebuild_metadata, false),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
@@ -1617,102 +1588,6 @@ void ocf_metadata_error(struct ocf_cache *cache)
 	cache->device->metadata_error = -1;
 }
 
-struct ocf_metadata_read_sb_ctx;
-
-typedef void (*ocf_metadata_read_sb_end_t)(
-		struct ocf_metadata_read_sb_ctx *context);
-
-struct ocf_metadata_read_sb_ctx {
-	struct ocf_superblock_config superblock;
-	ocf_metadata_read_sb_end_t cmpl;
-	ocf_ctx_t ctx;
-	void *priv1;
-	void *priv2;
-	int error;
-};
-
-static void ocf_metadata_read_sb_complete(struct ocf_io *io, int error)
-{
-	struct ocf_metadata_read_sb_ctx *context = io->priv1;
-	ctx_data_t *data = ocf_io_get_data(io);
-
-	if (!error) {
-		/* Read data from data into super block buffer */
-		ctx_data_rd_check(context->ctx, &context->superblock, data,
-				sizeof(context->superblock));
-	}
-
-	ctx_data_free(context->ctx, data);
-	ocf_io_put(io);
-
-	context->error = error;
-	context->cmpl(context);
-
-	env_free(context);
-}
-
-static int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
-		ocf_metadata_read_sb_end_t cmpl, void *priv1, void *priv2)
-{
-	struct ocf_metadata_read_sb_ctx *context;
-	size_t sb_pages = BYTES_TO_PAGES(sizeof(context->superblock));
-	ctx_data_t *data;
-	struct ocf_io *io;
-	int result = 0;
-
-	/* Allocate memory for first page of super block */
-	context = env_zalloc(sizeof(*context), ENV_MEM_NORMAL);
-	if (!context) {
-		ocf_log(ctx, log_err, "Memory allocation error");
-		return -OCF_ERR_NO_MEM;
-	}
-
-	context->cmpl = cmpl;
-	context->ctx = ctx;
-	context->priv1 = priv1;
-	context->priv2 = priv2;
-
-	/* Allocate resources for IO */
-	io = ocf_volume_new_io(volume, NULL, 0, sb_pages * PAGE_SIZE,
-			OCF_READ, 0, 0);
-	if (!io) {
-		ocf_log(ctx, log_err, "Memory allocation error");
-		result = -OCF_ERR_NO_MEM;
-		goto err_io;
-	}
-
-	data = ctx_data_alloc(ctx, sb_pages);
-	if (!data) {
-		ocf_log(ctx, log_err, "Memory allocation error");
-		result = -OCF_ERR_NO_MEM;
-		goto err_data;
-	}
-
-	/*
-	 * Read first page of cache device in order to recover metadata
-	 * properties
-	 */
-	result = ocf_io_set_data(io, data, 0);
-	if (result) {
-		ocf_log(ctx, log_err, "Metadata IO configuration error\n");
-		result = -OCF_ERR_IO;
-		goto err_set_data;
-	}
-
-	ocf_io_set_cmpl(io, context, NULL, ocf_metadata_read_sb_complete);
-	ocf_volume_submit_io(io);
-
-	return 0;
-
-err_set_data:
-	ctx_data_free(ctx, data);
-err_data:
-	ocf_io_put(io);
-err_io:
-	env_free(context);
-	return result;
-}
-
 static void ocf_metadata_load_properties_cmpl(
 		struct ocf_metadata_read_sb_ctx *context)
 {
@@ -1721,41 +1596,11 @@ static void ocf_metadata_load_properties_cmpl(
 	ocf_metadata_load_properties_end_t cmpl = context->priv1;
 	void *priv = context->priv2;
 	ocf_ctx_t ctx = context->ctx;
+	int result;
 
-	if (superblock->magic_number != CACHE_MAGIC_NUMBER) {
-		ocf_log(ctx, log_info, "Cannot detect pre-existing metadata\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_NO_METADATA, NULL);
-	}
-
-	if (METADATA_VERSION() != superblock->metadata_version) {
-		ocf_log(ctx, log_err, "Metadata version mismatch!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_METADATA_VER, NULL);
-	}
-
-	if (!ocf_cache_line_size_is_valid(superblock->line_size)) {
-		ocf_log(ctx, log_err, "ERROR: Invalid cache line size!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, NULL);
-	}
-
-	if ((unsigned)superblock->metadata_layout >= ocf_metadata_layout_max) {
-		ocf_log(ctx, log_err, "ERROR: Invalid metadata layout!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, NULL);
-	}
-
-	if (superblock->cache_mode >= ocf_cache_mode_max) {
-		ocf_log(ctx, log_err, "ERROR: Invalid cache mode!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, NULL);
-	}
-
-	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
-		ocf_log(ctx, log_err, "ERROR: Invalid shutdown status!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, NULL);
-	}
-
-	if (superblock->dirty_flushed > DIRTY_FLUSHED) {
-		ocf_log(ctx, log_err, "ERROR: Invalid flush status!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, NULL);
-	}
+	result = ocf_metadata_validate_superblock(ctx, superblock);
+	if (result)
+		OCF_CMPL_RET(priv, result, NULL);
 
 	properties.line_size = superblock->line_size;
 	properties.layout = superblock->metadata_layout;
@@ -1772,7 +1617,7 @@ void ocf_metadata_load_properties(ocf_volume_t volume,
 {
 	int result;
 
-	OCF_DEBUG_TRACE(cache);
+	OCF_DEBUG_TRACE(volume->cache);
 
 	result = ocf_metadata_read_sb(volume->cache->owner, volume,
 			ocf_metadata_load_properties_cmpl, cmpl, priv);
@@ -2158,4 +2003,52 @@ void ocf_metadata_probe_cores(ocf_ctx_t ctx, ocf_volume_t volume,
 
 	ocf_metadata_query_cores(ctx, volume, uuids, uuids_count,
 			ocf_metadata_probe_cores_end, context);
+}
+
+int ocf_metadata_passive_update(ocf_cache_t cache, struct ocf_io *io)
+{
+	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
+	ctx_data_t *data = ocf_io_get_data(io);
+	uint64_t io_start_page = BYTES_TO_PAGES(io->addr);
+	uint64_t io_end_page = io_start_page + BYTES_TO_PAGES(io->bytes);
+	enum ocf_metadata_segment_id update_segments[] = {
+		metadata_segment_sb_config,
+		metadata_segment_part_config,
+		metadata_segment_core_config,
+		metadata_segment_core_uuid,
+		metadata_segment_collision,
+	};
+	int i;
+
+	if (io->dir == OCF_READ)
+		return 0;
+
+	if (io->addr % PAGE_SIZE || io->bytes % PAGE_SIZE) {
+		ocf_cache_log(cache, log_crit,
+				"Metadata update not aligned to page size!\n");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (io_end_page >= ctrl->count_pages)
+		return 0;
+
+	for (i = 0; i < ARRAY_SIZE(update_segments); i++) {
+		enum ocf_metadata_segment_id seg = update_segments[i];
+		struct ocf_metadata_raw *raw = &(ctrl->raw_desc[seg]);
+		uint64_t raw_start_page = raw->ssd_pages_offset;
+		uint64_t raw_end_page = raw_start_page + raw->ssd_pages;
+		uint64_t overlap_start = OCF_MAX(io_start_page, raw_start_page);
+		uint64_t overlap_end = OCF_MIN(io_end_page, raw_end_page);
+		uint64_t overlap_start_data = overlap_start - io_start_page;
+
+		if (overlap_start < overlap_end) {
+			ctx_data_seek(cache->owner, data, ctx_data_seek_begin,
+					PAGES_TO_BYTES(overlap_start_data));
+			ocf_metadata_raw_update(cache, raw, data,
+					overlap_start - raw_start_page,
+					overlap_end - overlap_start);
+		}
+	}
+
+	return 0;
 }

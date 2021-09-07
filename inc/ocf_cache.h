@@ -104,6 +104,15 @@ struct ocf_cache_info {
 ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache);
 
 /**
+ * @brief Obtain front volume from cache
+ *
+ * @param[in] cache Cache object
+ *
+ * @retval Volume, NULL if dettached.
+ */
+ocf_volume_t ocf_cache_get_front_volume(ocf_cache_t cache);
+
+/**
  * @brief Get name of given cache object
  *
  * @param[in] cache Cache object
@@ -137,10 +146,20 @@ bool ocf_cache_is_device_attached(ocf_cache_t cache);
  *
  * @param[in] cache Cache object
  *
- * @retval 1 Caching device is being stopped
- * @retval 0 Caching device is being stopped
+ * @retval 1 Caching device is running
+ * @retval 0 Caching device is not running
  */
 bool ocf_cache_is_running(ocf_cache_t cache);
+
+/**
+ * @brief Check if cache object is passive
+ *
+ * @param[in] cache Cache object
+ *
+ * @retval 1 Caching device is in passive state
+ * @retval 0 Caching device is not in passive state
+ */
+bool ocf_cache_is_passive(ocf_cache_t cache);
 
 /**
  * @brief Get cache mode of given cache object

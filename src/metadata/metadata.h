@@ -165,6 +165,16 @@ void ocf_metadata_load_all(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv);
 
 /**
+ * @brief Load metadata unsafe
+ *
+ * @param cache - Cache instance
+ * @param cmpl - Completion callback
+ * @param priv - Completion context
+ */
+void ocf_metadata_load_unsafe(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv);
+
+/**
  * @brief Load metadata required for recovery procedure
  *
  * @param cache Cache instance
@@ -215,5 +225,7 @@ static inline ocf_cache_line_t ocf_metadata_collision_table_entries(
 {
 	return cache->device->collision_table_entries;
 }
+
+int ocf_metadata_passive_update(ocf_cache_t cache, struct ocf_io *io);
 
 #endif /* METADATA_H_ */

@@ -10,6 +10,7 @@
 #include "metadata_superblock.h"
 #include "../ocf_priv.h"
 #include "../utils/utils_io.h"
+#include "../utils/utils_cache_line.h"
 
 #define OCF_METADATA_SUPERBLOCK_DEBUG 0
 
@@ -131,29 +132,9 @@ static void ocf_metadata_load_superblock_post(ocf_pipeline_t pipeline,
 	struct ocf_metadata_ctrl *ctrl;
 	struct ocf_superblock_config *sb_config;
 	ocf_cache_t cache = context->cache;
-	struct ocf_metadata_uuid *muuid;
-	struct ocf_volume_uuid uuid;
-	ocf_volume_type_t volume_type;
-	ocf_core_t core;
-	ocf_core_id_t core_id;
 
 	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
-
-	for_each_core_metadata(cache, core, core_id) {
-		muuid = ocf_metadata_get_core_uuid(cache, core_id);
-		uuid.data = muuid->data;
-		uuid.size = muuid->size;
-
-		volume_type = ocf_ctx_get_volume_type(cache->owner,
-				core->conf_meta->type);
-
-		/* Initialize core volume */
-		ocf_volume_init(&core->volume, volume_type, &uuid, false);
-		core->has_volume = true;
-	}
-
-	/* Restore all dynamics items */
 
 	if (sb_config->core_count > OCF_CORE_MAX) {
 		ocf_cache_log(cache, log_err,
@@ -503,3 +484,170 @@ bool ocf_metadata_superblock_get_clean_shutdown(
 	return sb->config->clean_shutdown;
 }
 
+int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
+		struct ocf_superblock_config *superblock)
+{
+	if (superblock->magic_number != CACHE_MAGIC_NUMBER) {
+		ocf_log(ctx, log_info, "Cannot detect pre-existing metadata\n");
+		return -OCF_ERR_NO_METADATA;
+	}
+
+	if (METADATA_VERSION() != superblock->metadata_version) {
+		ocf_log(ctx, log_err, "Metadata version mismatch!\n");
+		return -OCF_ERR_METADATA_VER;
+	}
+
+	if (!ocf_cache_line_size_is_valid(superblock->line_size)) {
+		ocf_log(ctx, log_err, "ERROR: Invalid cache line size!\n");
+		return -OCF_ERR_INVAL;
+	}
+
+	if ((unsigned)superblock->metadata_layout >= ocf_metadata_layout_max) {
+		ocf_log(ctx, log_err, "ERROR: Invalid metadata layout!\n");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->cache_mode >= ocf_cache_mode_max) {
+		ocf_log(ctx, log_err, "ERROR: Invalid cache mode!\n");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
+		ocf_log(ctx, log_err, "ERROR: Invalid shutdown status!\n");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->dirty_flushed > DIRTY_FLUSHED) {
+		ocf_log(ctx, log_err, "ERROR: Invalid flush status!\n");
+		return -OCF_ERR_INVAL;
+	}
+
+	return 0;
+}
+
+static void ocf_metadata_read_sb_complete(struct ocf_io *io, int error)
+{
+	struct ocf_metadata_read_sb_ctx *context = io->priv1;
+	ctx_data_t *data = ocf_io_get_data(io);
+
+	if (!error) {
+		/* Read data from data into super block buffer */
+		ctx_data_rd_check(context->ctx, &context->superblock, data,
+				sizeof(context->superblock));
+	}
+
+	ctx_data_free(context->ctx, data);
+	ocf_io_put(io);
+
+	context->error = error;
+	context->cmpl(context);
+
+	env_free(context);
+}
+
+int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
+		ocf_metadata_read_sb_end_t cmpl, void *priv1, void *priv2)
+{
+	struct ocf_metadata_read_sb_ctx *context;
+	size_t sb_pages = BYTES_TO_PAGES(sizeof(context->superblock));
+	ctx_data_t *data;
+	struct ocf_io *io;
+	int result = 0;
+
+	/* Allocate memory for first page of super block */
+	context = env_zalloc(sizeof(*context), ENV_MEM_NORMAL);
+	if (!context) {
+		ocf_log(ctx, log_err, "Memory allocation error");
+		return -OCF_ERR_NO_MEM;
+	}
+
+	context->cmpl = cmpl;
+	context->ctx = ctx;
+	context->priv1 = priv1;
+	context->priv2 = priv2;
+
+	/* Allocate resources for IO */
+	io = ocf_volume_new_io(volume, NULL, 0, sb_pages * PAGE_SIZE,
+			OCF_READ, 0, 0);
+	if (!io) {
+		ocf_log(ctx, log_err, "Memory allocation error");
+		result = -OCF_ERR_NO_MEM;
+		goto err_io;
+	}
+
+	data = ctx_data_alloc(ctx, sb_pages);
+	if (!data) {
+		ocf_log(ctx, log_err, "Memory allocation error");
+		result = -OCF_ERR_NO_MEM;
+		goto err_data;
+	}
+
+	/*
+	 * Read first page of cache device in order to recover metadata
+	 * properties
+	 */
+	result = ocf_io_set_data(io, data, 0);
+	if (result) {
+		ocf_log(ctx, log_err, "Metadata IO configuration error\n");
+		result = -OCF_ERR_IO;
+		goto err_set_data;
+	}
+
+	ocf_io_set_cmpl(io, context, NULL, ocf_metadata_read_sb_complete);
+	ocf_volume_submit_io(io);
+
+	return 0;
+
+err_set_data:
+	ctx_data_free(ctx, data);
+err_data:
+	ocf_io_put(io);
+err_io:
+	env_free(context);
+	return result;
+}
+
+static void ocf_metadata_sb_crc_recovery_finish(ocf_pipeline_t pipeline,
+		void *priv, int error)
+{
+	struct ocf_metadata_context *context = priv;
+
+	context->cmpl(context->priv, error);
+	ocf_pipeline_destroy(pipeline);
+}
+
+struct ocf_pipeline_properties ocf_metadata_sb_crc_recovery_pipeline_props = {
+	.priv_size = sizeof(struct ocf_metadata_context),
+	.finish = ocf_metadata_sb_crc_recovery_finish,
+	.steps = {
+		OCF_PL_STEP(ocf_metadata_check_crc_sb_config),
+		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc,
+				ocf_metadata_load_sb_check_crc_args),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+void ocf_metadata_sb_crc_recovery(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv)
+{
+	struct ocf_metadata_context *context;
+	ocf_pipeline_t pipeline;
+	int result;
+
+	OCF_DEBUG_TRACE(cache);
+
+	result = ocf_pipeline_create(&pipeline, cache,
+			&ocf_metadata_sb_crc_recovery_pipeline_props);
+	if (result)
+		OCF_CMPL_RET(priv, result);
+
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->cmpl = cmpl;
+	context->priv = priv;
+	context->pipeline = pipeline;
+	context->cache = cache;
+	context->ctrl = cache->metadata.priv;
+
+	ocf_pipeline_next(pipeline);
+}

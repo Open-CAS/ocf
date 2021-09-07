@@ -10,13 +10,14 @@
 #include "ocf_request.h"
 #include "ocf_logger_priv.h"
 #include "ocf_core_priv.h"
+#include "ocf_cache_priv.h"
 #include "mngt/ocf_mngt_core_pool_priv.h"
 #include "metadata/metadata_io.h"
 
 /*
  *
  */
-int ocf_ctx_register_volume_type_extended(ocf_ctx_t ctx, uint8_t type_id,
+int ocf_ctx_register_volume_type_internal(ocf_ctx_t ctx, uint8_t type_id,
 		const struct ocf_volume_properties *properties,
 		const struct ocf_volume_extended *extended)
 {
@@ -55,14 +56,17 @@ err:
 int ocf_ctx_register_volume_type(ocf_ctx_t ctx, uint8_t type_id,
 		const struct ocf_volume_properties *properties)
 {
-	return ocf_ctx_register_volume_type_extended(ctx, type_id,
+	if (type_id >= OCF_VOLUME_TYPE_MAX_USER)
+		return -EINVAL;
+
+	return ocf_ctx_register_volume_type_internal(ctx, type_id,
 			properties, NULL);
 }
 
 /*
  *
  */
-void ocf_ctx_unregister_volume_type(ocf_ctx_t ctx, uint8_t type_id)
+void ocf_ctx_unregister_volume_type_internal(ocf_ctx_t ctx, uint8_t type_id)
 {
 	OCF_CHECK_NULL(ctx);
 
@@ -76,17 +80,42 @@ void ocf_ctx_unregister_volume_type(ocf_ctx_t ctx, uint8_t type_id)
 	env_rmutex_unlock(&ctx->lock);
 }
 
+void ocf_ctx_unregister_volume_type(ocf_ctx_t ctx, uint8_t type_id)
+{
+	OCF_CHECK_NULL(ctx);
+
+	if (type_id < OCF_VOLUME_TYPE_MAX_USER)
+		ocf_ctx_unregister_volume_type_internal(ctx, type_id);
+}
+
 /*
  *
  */
-ocf_volume_type_t ocf_ctx_get_volume_type(ocf_ctx_t ctx, uint8_t type_id)
+ocf_volume_type_t ocf_ctx_get_volume_type_internal(ocf_ctx_t ctx,
+		uint8_t type_id)
 {
+	ocf_volume_type_t volume_type;
+
 	OCF_CHECK_NULL(ctx);
 
 	if (type_id >= OCF_VOLUME_TYPE_MAX)
 		return NULL;
 
-	return ctx->volume_type[type_id];
+	env_rmutex_lock(&ctx->lock);
+	volume_type = ctx->volume_type[type_id];
+	env_rmutex_unlock(&ctx->lock);
+
+	return volume_type;
+}
+
+ocf_volume_type_t ocf_ctx_get_volume_type(ocf_ctx_t ctx, uint8_t type_id)
+{
+	OCF_CHECK_NULL(ctx);
+
+	if (type_id >= OCF_VOLUME_TYPE_MAX_USER)
+		return NULL;
+
+	return ocf_ctx_get_volume_type_internal(ctx, type_id);
 }
 
 /*
@@ -98,12 +127,14 @@ int ocf_ctx_get_volume_type_id(ocf_ctx_t ctx, ocf_volume_type_t type)
 
 	OCF_CHECK_NULL(ctx);
 
+	env_rmutex_lock(&ctx->lock);
 	for (i = 0; i < OCF_VOLUME_TYPE_MAX; ++i) {
 		if (ctx->volume_type[i] == type)
-			return i;
+			break;
 	}
+	env_rmutex_unlock(&ctx->lock);
 
-	return -1;
+	return (i < OCF_VOLUME_TYPE_MAX) ? i : -1;
 }
 
 /*
@@ -112,12 +143,15 @@ int ocf_ctx_get_volume_type_id(ocf_ctx_t ctx, ocf_volume_type_t type)
 int ocf_ctx_volume_create(ocf_ctx_t ctx, ocf_volume_t *volume,
 		struct ocf_volume_uuid *uuid, uint8_t type_id)
 {
+	ocf_volume_type_t volume_type;
+
 	OCF_CHECK_NULL(ctx);
 
-	if (type_id >= OCF_VOLUME_TYPE_MAX)
+	volume_type = ocf_ctx_get_volume_type(ctx, type_id);
+	if (!volume_type)
 		return -EINVAL;
 
-	return ocf_volume_create(volume, ctx->volume_type[type_id], uuid);
+	return ocf_volume_create(volume, volume_type, uuid);
 }
 
 static void check_ops_provided(const struct ocf_ctx_ops *ops)
@@ -179,6 +213,10 @@ int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 		goto err_mio;
 
 	ret = ocf_core_volume_type_init(ocf_ctx);
+	if (ret)
+		goto err_utils;
+
+	ret = ocf_cache_volume_type_init(ocf_ctx);
 	if (ret)
 		goto err_utils;
 

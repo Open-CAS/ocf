@@ -519,7 +519,7 @@ const struct ocf_volume_extended ocf_core_volume_extended = {
 
 int ocf_core_volume_type_init(ocf_ctx_t ctx)
 {
-	return ocf_ctx_register_volume_type_extended(ctx, 0,
+	return ocf_ctx_register_volume_type_internal(ctx, OCF_VOLUME_TYPE_CORE,
 			&ocf_core_volume_properties,
 			&ocf_core_volume_extended);
 }

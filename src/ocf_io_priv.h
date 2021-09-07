@@ -22,6 +22,11 @@ struct ocf_io_internal {
 	struct ocf_io io;
 };
 
+static inline struct ocf_io_internal *ocf_io_get_internal(struct ocf_io* io)
+{
+	return container_of(io, struct ocf_io_internal, io);
+}
+
 int ocf_io_allocator_init(ocf_io_allocator_t allocator, ocf_io_allocator_type_t type,
 		uint32_t priv_size, const char *name);
 

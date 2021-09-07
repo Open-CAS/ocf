@@ -220,13 +220,16 @@ int ocf_mngt_core_init_front_volume(ocf_core_t core)
 	};
 	int ret;
 
-	type = ocf_ctx_get_volume_type(cache->owner, 0);
+	type = ocf_ctx_get_volume_type_internal(cache->owner,
+			OCF_VOLUME_TYPE_CORE);
 	if (!type)
 		return -OCF_ERR_INVAL;
 
 	ret = ocf_volume_init(&core->front_volume, type, &uuid, false);
 	if (ret)
 		return ret;
+
+	core->front_volume.cache = cache;
 
 	ret = ocf_volume_open(&core->front_volume, NULL);
 	if (ret)

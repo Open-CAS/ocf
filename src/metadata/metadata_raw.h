@@ -125,6 +125,9 @@ struct raw_iface {
 	void* (*access)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 			uint32_t entry);
 
+	int (*update)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+			ctx_data_t *data, uint64_t page, uint64_t count);
+
 	void (*load_all)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 			ocf_metadata_end_t cmpl, void *priv);
 
@@ -234,13 +237,29 @@ static inline void *ocf_metadata_raw_wr_access(ocf_cache_t cache,
  * @param cache - Cache instance
  * @param raw - RAW descriptor
  * @param entry - Entry to be get
- * @param data - Data where metadata entry will be copied into
  * @return 0 - Point to accessed data, in case of error NULL
  */
 static inline const void *ocf_metadata_raw_rd_access( ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, uint32_t entry)
 {
 	return raw->iface->access(cache, raw, entry);
+}
+
+/**
+ * @brief Update metadata based on cache device I/O
+ *
+ * @param cache - Cache instance
+ * @param raw - RAW descriptor
+ * @param data - Data buffer containing metadata pages
+ * @param page - First metadata page
+ * @param count - Number of metadata pages
+ * @return 0 - Operation success, otherwise error
+ */
+static inline int ocf_metadata_raw_update(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, ctx_data_t *data,
+		uint64_t page, uint64_t count)
+{
+	return raw->iface->update(cache, raw, data, page, count);
 }
 
 /**

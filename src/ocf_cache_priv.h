@@ -26,6 +26,7 @@
 
 /* Cache device */
 struct ocf_cache_device {
+	struct ocf_volume front_volume;
 	struct ocf_volume volume;
 
 	/* Hash Table contains contains pointer to the entry in
@@ -51,6 +52,8 @@ struct ocf_cache_device {
 };
 
 struct ocf_cache {
+	char name[OCF_CACHE_NAME_SIZE];
+
 	ocf_ctx_t owner;
 
 	struct list_head list;
@@ -168,5 +171,7 @@ static inline uint64_t ocf_get_cache_occupancy(ocf_cache_t cache)
 }
 
 int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size);
+
+int ocf_cache_volume_type_init(ocf_ctx_t ctx);
 
 #endif /* __OCF_CACHE_PRIV_H__ */

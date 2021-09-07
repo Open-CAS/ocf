@@ -78,11 +78,6 @@ ocf_io_allocator_type_t ocf_io_allocator_get_type_default(void)
  * IO internal API
  */
 
-static struct ocf_io_internal *ocf_io_get_internal(struct ocf_io* io)
-{
-	return container_of(io, struct ocf_io_internal, io);
-}
-
 struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir,
 		uint32_t io_class, uint64_t flags)

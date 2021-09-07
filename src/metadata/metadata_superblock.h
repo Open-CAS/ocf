@@ -97,4 +97,27 @@ void ocf_metadata_superblock_set_checksum(
 bool ocf_metadata_superblock_get_clean_shutdown(
 		struct ocf_metadata_segment *self);
 
+int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
+		struct ocf_superblock_config *superblock);
+
+struct ocf_metadata_read_sb_ctx;
+
+typedef void (*ocf_metadata_read_sb_end_t)(
+                struct ocf_metadata_read_sb_ctx *context);
+
+struct ocf_metadata_read_sb_ctx {
+        struct ocf_superblock_config superblock;
+        ocf_metadata_read_sb_end_t cmpl;
+        ocf_ctx_t ctx;
+        void *priv1;
+        void *priv2;
+        int error;
+};
+
+int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
+		ocf_metadata_read_sb_end_t cmpl, void *priv1, void *priv2);
+
+void ocf_metadata_sb_crc_recovery(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *priv);
+
 #endif /* METADATA_SUPERBLOCK_H_ */
