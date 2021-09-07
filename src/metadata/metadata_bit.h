@@ -221,10 +221,36 @@ static bool _ocf_metadata_test_and_clear_##what##_##type( \
 	return test; \
 } \
 
+#define ocf_metadata_bit_func_basic(type) \
+static bool _ocf_metadata_clear_valid_if_clean_##type(struct ocf_cache *cache, \
+		ocf_cache_line_t line, uint8_t start, uint8_t stop) \
+{ \
+	type mask = _get_mask_##type(start, stop); \
+\
+	struct ocf_metadata_ctrl *ctrl = \
+		(struct ocf_metadata_ctrl *) cache->metadata.priv; \
+\
+	struct ocf_metadata_raw *raw = \
+			&ctrl->raw_desc[metadata_segment_collision]; \
+\
+	struct ocf_metadata_map_##type *map = raw->mem_pool; \
+\
+	_raw_bug_on(raw, line); \
+\
+	map[line].valid &= ~mask & map[line].dirty; \
+\
+	if (map[line].valid) { \
+		return true; \
+	} else { \
+		return false; \
+	} \
+} \
+
 #define ocf_metadata_bit_funcs(type) \
 ocf_metadata_bit_struct(type); \
 ocf_metadata_bit_func(dirty, type); \
 ocf_metadata_bit_func(valid, type); \
+ocf_metadata_bit_func_basic(type); \
 
 ocf_metadata_bit_funcs(u8);
 ocf_metadata_bit_funcs(u16);

@@ -1540,6 +1540,32 @@ bool ocf_metadata_##what(struct ocf_cache *cache, \
 _ocf_metadata_funcs(dirty)
 _ocf_metadata_funcs(valid)
 
+bool ocf_metadata_clear_valid_if_clean(struct ocf_cache *cache,
+	 ocf_cache_line_t line, uint8_t start, uint8_t stop)
+{
+	switch (cache->metadata.line_size) {
+		case ocf_cache_line_size_4:
+			return _ocf_metadata_clear_valid_if_clean_u8(cache,
+					line, start, stop);
+		case ocf_cache_line_size_8:
+			return _ocf_metadata_clear_valid_if_clean_u16(cache,
+					line, start, stop);
+		case ocf_cache_line_size_16:
+			return _ocf_metadata_clear_valid_if_clean_u32(cache,
+					line, start, stop);
+		case ocf_cache_line_size_32:
+			return _ocf_metadata_clear_valid_if_clean_u64(cache,
+					line, start, stop);
+		case ocf_cache_line_size_64:
+			return _ocf_metadata_clear_valid_if_clean_u128(cache,
+					line, start, stop);
+		case ocf_cache_line_size_none:
+		default:
+			ENV_BUG_ON(1);
+			return false;
+	}
+}
+
 int ocf_metadata_init(struct ocf_cache *cache,
 		ocf_cache_line_size_t cache_line_size)
 {
