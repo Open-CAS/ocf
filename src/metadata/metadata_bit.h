@@ -221,20 +221,39 @@ static bool _ocf_metadata_test_and_clear_##what##_##type( \
 	return test; \
 } \
 
-ocf_metadata_bit_struct(u8);
-ocf_metadata_bit_struct(u16);
-ocf_metadata_bit_struct(u32);
-ocf_metadata_bit_struct(u64);
-ocf_metadata_bit_struct(u128);
+#define ocf_metadata_bit_func_basic(type) \
+static bool _ocf_metadata_clear_valid_if_clean_##type(struct ocf_cache *cache, \
+		ocf_cache_line_t line, uint8_t start, uint8_t stop) \
+{ \
+	type mask = _get_mask_##type(start, stop); \
+\
+	struct ocf_metadata_ctrl *ctrl = \
+		(struct ocf_metadata_ctrl *) cache->metadata.priv; \
+\
+	struct ocf_metadata_raw *raw = \
+			&ctrl->raw_desc[metadata_segment_collision]; \
+\
+	struct ocf_metadata_map_##type *map = raw->mem_pool; \
+\
+	_raw_bug_on(raw, line); \
+\
+	map[line].valid &= ~mask & map[line].dirty; \
+\
+	if (map[line].valid) { \
+		return true; \
+	} else { \
+		return false; \
+	} \
+} \
 
-ocf_metadata_bit_func(dirty, u8);
-ocf_metadata_bit_func(dirty, u16);
-ocf_metadata_bit_func(dirty, u32);
-ocf_metadata_bit_func(dirty, u64);
-ocf_metadata_bit_func(dirty, u128);
+#define ocf_metadata_bit_funcs(type) \
+ocf_metadata_bit_struct(type); \
+ocf_metadata_bit_func(dirty, type); \
+ocf_metadata_bit_func(valid, type); \
+ocf_metadata_bit_func_basic(type); \
 
-ocf_metadata_bit_func(valid, u8);
-ocf_metadata_bit_func(valid, u16);
-ocf_metadata_bit_func(valid, u32);
-ocf_metadata_bit_func(valid, u64);
-ocf_metadata_bit_func(valid, u128);
+ocf_metadata_bit_funcs(u8);
+ocf_metadata_bit_funcs(u16);
+ocf_metadata_bit_funcs(u32);
+ocf_metadata_bit_funcs(u64);
+ocf_metadata_bit_funcs(u128);
