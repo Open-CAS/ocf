@@ -2018,7 +2018,7 @@ int ocf_metadata_passive_update(ocf_cache_t cache, struct ocf_io *io)
 		return -OCF_ERR_INVAL;
 	}
 
-	if (io_end_page >= ctrl->count_pages)
+	if (io_start_page >= ctrl->count_pages)
 		return 0;
 
 	for (i = 0; i < ARRAY_SIZE(update_segments); i++) {
