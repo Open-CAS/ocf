@@ -20,9 +20,7 @@ import weakref
 
 from ..ocf import OcfLib
 
-logger = logging.getLogger("pyocf")
-logger.setLevel(logging.DEBUG)
-
+logging.basicConfig(level=logging.DEBUG, handlers=[logging.NullHandler()])
 
 class LogLevel(IntEnum):
     EMERG = 0
@@ -71,7 +69,7 @@ class LoggerPriv(Structure):
 class Logger(Structure):
     _instances_ = weakref.WeakValueDictionary()
 
-    _fields_ = [("logger", c_void_p)]
+    _fields_ = [("_logger", c_void_p)]
 
     def __init__(self):
         self.ops = LoggerOps(
@@ -118,23 +116,25 @@ class Logger(Structure):
 
 
 class DefaultLogger(Logger):
-    def __init__(self, level: LogLevel = LogLevel.WARN):
+    def __init__(self, level: LogLevel = LogLevel.WARN, name: str = ""):
         super().__init__()
         self.level = level
+        self.name = name
 
+        self.logger = logging.getLogger(name)
         ch = logging.StreamHandler()
         fmt = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         ch.setFormatter(fmt)
         ch.setLevel(LevelMapping[level])
-        logger.addHandler(ch)
+        self.logger.addHandler(ch)
 
     def log(self, lvl: int, msg: str):
-        logger.log(LevelMapping[lvl], msg)
+        self.logger.log(LevelMapping[lvl], msg)
 
     def close(self):
-        logger.handlers = []
+        self.logger.handlers = []
 
 
 class FileLogger(Logger):
