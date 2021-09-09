@@ -69,7 +69,7 @@ class LoggerPriv(Structure):
 
 
 class Logger(Structure):
-    _instances_ = {}
+    _instances_ = weakref.WeakValueDictionary()
 
     _fields_ = [("logger", c_void_p)]
 
@@ -81,7 +81,7 @@ class Logger(Structure):
         )
         self.priv = LoggerPriv(_log=self._log)
         self._as_parameter_ = cast(pointer(self.priv), c_void_p).value
-        self._instances_[self._as_parameter_] = weakref.ref(self)
+        self._instances_[self._as_parameter_] = self
 
     def get_ops(self):
         return self.ops
@@ -92,7 +92,7 @@ class Logger(Structure):
     @classmethod
     def get_instance(cls, ctx: int):
         priv = OcfLib.getInstance().ocf_logger_get_priv(ctx)
-        return cls._instances_[priv]()
+        return cls._instances_[priv]
 
     @staticmethod
     @LoggerOps.LOG

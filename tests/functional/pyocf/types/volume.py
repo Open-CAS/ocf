@@ -78,8 +78,8 @@ class Volume(Structure):
     VOLUME_POISON = 0x13
 
     _fields_ = [("_storage", c_void_p)]
-    _instances_ = {}
-    _uuid_ = {}
+    _instances_ = weakref.WeakValueDictionary()
+    _uuid_ = weakref.WeakValueDictionary()
 
     props = None
 
@@ -95,7 +95,7 @@ class Volume(Structure):
         else:
             self.uuid = str(id(self))
 
-        type(self)._uuid_[self.uuid] = weakref.ref(self)
+        type(self)._uuid_[self.uuid] = self
 
         self.data = create_string_buffer(int(self.size))
         memset(self.data, self.VOLUME_POISON, self.size)
@@ -138,7 +138,7 @@ class Volume(Structure):
 
     @classmethod
     def get_instance(cls, ref):
-        instance = cls._instances_[ref]()
+        instance = cls._instances_[ref]
         if instance is None:
             print("tried to access {} but it's gone".format(ref))
 
@@ -146,7 +146,7 @@ class Volume(Structure):
 
     @classmethod
     def get_by_uuid(cls, uuid):
-        return cls._uuid_[uuid]()
+        return cls._uuid_[uuid]
 
     @staticmethod
     @VolumeOps.SUBMIT_IO
@@ -205,7 +205,7 @@ class Volume(Structure):
         if volume.opened:
             return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
 
-        Volume._instances_[ref] = weakref.ref(volume)
+        Volume._instances_[ref] = volume
 
         return volume.open()
 
