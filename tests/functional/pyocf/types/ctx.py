@@ -4,6 +4,7 @@
 #
 
 from ctypes import c_void_p, Structure, c_char_p, cast, pointer, byref, c_int
+import weakref
 
 from .logger import LoggerOps, Logger
 from .data import DataOps, Data
@@ -27,6 +28,8 @@ class OcfCtxCfg(Structure):
 
 
 class OcfCtx:
+    default = None
+
     def __init__(self, lib, name, logger, data, cleaner):
         self.logger = logger
         self.data = data
@@ -51,10 +54,29 @@ class OcfCtx:
         if result != 0:
             raise OcfError("Context initialization failed", result)
 
+        if self.default is None or self.default() is None:
+            type(self).default = weakref.ref(self)
+
+    @classmethod
+    def with_defaults(cls, logger):
+        return cls(
+            OcfLib.getInstance(),
+            b"PyOCF default ctx",
+            logger,
+            Data,
+            Cleaner,
+        )
+
+    @classmethod
+    def get_default(cls):
+        if cls.default is None or cls.default() is None:
+            raise Exception("No context instantiated yet")
+
+        return cls.default()
+
     def register_volume_type(self, volume_type):
         self.volume_types[self.volume_types_count] = volume_type
         volume_type.type_id = self.volume_types_count
-        volume_type.owner = self
 
         result = self.lib.ocf_ctx_register_volume_type(
             self.ctx_handle,
@@ -90,26 +112,8 @@ class OcfCtx:
         self.cleanup_volume_types()
 
         self.lib.ocf_ctx_put(self.ctx_handle)
-
-        self.cfg = None
-        self.logger = None
-        self.data = None
-        self.cleaner = None
-        Queue._instances_ = {}
-        Volume._instances_ = {}
-        Volume._uuid_ = {}
-        Data._instances_ = {}
-        Logger._instances_ = {}
-
-
-def get_default_ctx(logger):
-    return OcfCtx(
-        OcfLib.getInstance(),
-        b"PyOCF default ctx",
-        logger,
-        Data,
-        Cleaner,
-    )
+        if type(self).default and type(self).default() == self:
+            type(self).default = None
 
 
 lib = OcfLib.getInstance()
