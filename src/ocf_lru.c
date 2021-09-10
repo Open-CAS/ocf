@@ -194,7 +194,7 @@ static void remove_lru_list_nobalance(ocf_cache_t cache,
 	node->hot = false;
 }
 
-static void remove_lru_list(ocf_cache_t cache, struct ocf_lru_list *list,
+void ocf_lru_remove_locked(ocf_cache_t cache, struct ocf_lru_list *list,
 		ocf_cache_line_t cline)
 {
 	remove_lru_list_nobalance(cache, list, cline);
@@ -221,7 +221,7 @@ void ocf_lru_init_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	node->next = end_marker;
 }
 
-static struct ocf_lru_list *ocf_lru_get_list(struct ocf_part *part,
+struct ocf_lru_list *ocf_lru_get_list(struct ocf_part *part,
 		uint32_t lru_idx, bool clean)
 {
 	if (part->id == PARTITION_FREELIST)
@@ -257,7 +257,7 @@ void ocf_lru_add(ocf_cache_t cache, ocf_cache_line_t cline)
 static inline void ocf_lru_move(ocf_cache_t cache, ocf_cache_line_t cline,
 		struct ocf_lru_list *src_list, struct ocf_lru_list *dst_list)
 {
-	remove_lru_list(cache, src_list, cline);
+	ocf_lru_remove_locked(cache, src_list, cline);
 	add_lru_head(cache, dst_list, cline);
 }
 
@@ -846,7 +846,7 @@ void ocf_lru_clean_cline(ocf_cache_t cache, struct ocf_part *part,
 	dirty_list = ocf_lru_get_list(part, lru_list, false);
 
 	OCF_METADATA_LRU_WR_LOCK(cline);
-	remove_lru_list(cache, dirty_list, cline);
+	ocf_lru_remove_locked(cache, dirty_list, cline);
 	add_lru_head(cache, clean_list, cline);
 	OCF_METADATA_LRU_WR_UNLOCK(cline);
 }
@@ -862,7 +862,7 @@ void ocf_lru_dirty_cline(ocf_cache_t cache, struct ocf_part *part,
 	dirty_list = ocf_lru_get_list(part, lru_list, false);
 
 	OCF_METADATA_LRU_WR_LOCK(cline);
-	remove_lru_list(cache, clean_list, cline);
+	ocf_lru_remove_locked(cache, clean_list, cline);
 	add_lru_head(cache, dirty_list, cline);
 	OCF_METADATA_LRU_WR_UNLOCK(cline);
 }
