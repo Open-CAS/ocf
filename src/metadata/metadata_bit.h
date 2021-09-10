@@ -237,7 +237,7 @@ static bool _ocf_metadata_clear_valid_if_clean_##type(struct ocf_cache *cache, \
 \
 	_raw_bug_on(raw, line); \
 \
-	map[line].valid &= ~mask & map[line].dirty; \
+	map[line].valid &= mask & map[line].dirty; \
 \
 	if (map[line].valid) { \
 		return true; \
