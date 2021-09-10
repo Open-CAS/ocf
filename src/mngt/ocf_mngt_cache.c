@@ -1036,7 +1036,8 @@ static void _ocf_mngt_init_properties(ocf_pipeline_t pipeline,
 
 	context->metadata.shutdown_status = ocf_metadata_clean_shutdown;
 	context->metadata.dirty_flushed = DIRTY_FLUSHED;
-	context->metadata.line_size = context->cfg.cache_line_size;
+	context->metadata.line_size = context->cfg.cache_line_size ?:
+			cache->metadata.line_size;
 
 	ocf_pipeline_next(pipeline);
 }
@@ -1070,9 +1071,6 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	int ret;
-
-	context->metadata.line_size = context->metadata.line_size ?:
-			cache->metadata.line_size;
 
 	/*
 	 * Initialize variable size metadata segments
@@ -2193,7 +2191,7 @@ static void _ocf_mngt_activate_init_properties(ocf_pipeline_t pipeline,
 
 	context->metadata.shutdown_status = ocf_metadata_dirty_shutdown;
 	context->metadata.dirty_flushed = DIRTY_NOT_FLUSHED;
-	context->metadata.line_size = context->cfg.cache_line_size;
+	context->metadata.line_size = cache->metadata.line_size;
 
 	ocf_pipeline_next(pipeline);
 }
