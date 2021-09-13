@@ -2732,19 +2732,21 @@ void ocf_mngt_cache_activate(ocf_cache_t cache,
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(cfg);
 
-	if (!cache->mngt_queue)
-		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
-
-	/* Activate is not allowed in volatile metadata mode */
-	if (cache->metadata.is_volatile)
-		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
-
-	/* Activate is not allowed with 'force' flag on */
 	if (cfg->force) {
 		ocf_cache_log(cache, log_err, "Using 'force' flag is forbidden "
 				"for activate operation.");
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 	}
+
+	if (cfg->cache_line_size != ocf_cache_line_size_none &&
+			cfg->cache_line_size != cache->metadata.line_size) {
+		ocf_cache_log(cache, log_err, "Specifying cache line size is "
+				"forbidden for activate operation.");
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+	}
+
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
 	result = _ocf_mngt_cache_validate_device_cfg(cfg);
 	if (result)
