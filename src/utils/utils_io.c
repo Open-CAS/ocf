@@ -21,9 +21,10 @@ struct ocf_submit_volume_context {
 static void _ocf_volume_flush_end(struct ocf_io *io, int error)
 {
 	ocf_submit_end_t cmpl = io->priv1;
+	void *priv2 = io->priv2;
 
-	cmpl(io->priv2, error);
 	ocf_io_put(io);
+	cmpl(priv2, error);
 }
 
 void ocf_submit_volume_flush(ocf_volume_t volume,
