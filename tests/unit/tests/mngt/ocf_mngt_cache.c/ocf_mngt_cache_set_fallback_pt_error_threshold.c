@@ -52,6 +52,11 @@ int __wrap_ocf_mngt_cache_set_fallback_pt(ocf_cache_t cache)
 	function_called();
 }
 
+bool __wrap_ocf_cache_is_standby(struct ocf_cache_t *cache)
+{
+	return false;
+}
+
 static void ocf_mngt_cache_set_fallback_pt_error_threshold_test01(void **state)
 {
 	struct ocf_cache *cache;

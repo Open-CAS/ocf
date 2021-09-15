@@ -203,9 +203,12 @@ void ocf_core_stats_initialize(ocf_core_t core)
 #endif
 }
 
-void ocf_core_stats_initialize_all(ocf_cache_t cache)
+int ocf_core_stats_initialize_all(ocf_cache_t cache)
 {
 	ocf_core_id_t id;
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	for (id = 0; id < OCF_CORE_MAX; id++) {
 		if (!env_bit_test(id, cache->conf_meta->valid_core_bitmap))
@@ -213,6 +216,8 @@ void ocf_core_stats_initialize_all(ocf_cache_t cache)
 
 		ocf_core_stats_initialize(&cache->core[id]);
 	}
+
+	return 0;
 }
 
 static void copy_req_stats(struct ocf_stats_req *dest,

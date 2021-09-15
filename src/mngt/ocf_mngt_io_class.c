@@ -285,6 +285,9 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(cfg);
 
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		result = _ocf_mngt_io_class_validate_cfg(cache, &cfg->config[i]);
 		if (result)

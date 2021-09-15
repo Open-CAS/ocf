@@ -88,6 +88,11 @@ int __wrap_ocf_metadata_flush_superblock(struct ocf_cache *cache)
 {
 }
 
+bool __wrap_ocf_cache_is_standby(struct ocf_cache *cache)
+{
+	return false;
+}
+
 /* Helper function for test prepration */
 static inline void setup_valid_config(struct ocf_mngt_io_class_config *cfg,
 		bool remove)
