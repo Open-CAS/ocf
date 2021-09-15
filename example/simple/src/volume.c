@@ -7,8 +7,16 @@
 #include "volume.h"
 #include "data.h"
 #include "ctx.h"
+#include <unistd.h>
+#include <fcntl.h>
 
 #define VOL_SIZE 200*1024*1024
+
+const char* core_path = "core";
+const char* cache_path = "cache";
+
+int core_fd = 0;
+int cache_fd = 0;
 
 /*
  * In open() function we store uuid data as volume name (for debug messages)
@@ -20,7 +28,22 @@ static int volume_open(ocf_volume_t volume, void *volume_params)
 	struct myvolume *myvolume = ocf_volume_get_priv(volume);
 
 	myvolume->name = ocf_uuid_to_str(uuid);
-	myvolume->mem = malloc(VOL_SIZE);
+
+    if (strcmp(myvolume->name, "cache") == 0) {
+        if (access(cache_path, F_OK) == 0) {
+            cache_fd = open(cache_path, O_RDWR, 0644);
+        } else {
+            cache_fd = open(cache_path, O_RDWR | O_CREAT | O_TRUNC, 0644);
+            ftruncate(cache_fd, VOL_SIZE);
+        }
+    } else {
+        if (access(core_path, F_OK) == 0) {
+            core_fd = open(core_path, O_RDWR, 0644);
+        } else {
+            core_fd = open(core_path, O_RDWR | O_CREAT | O_TRUNC, 0644);
+            ftruncate(core_fd, VOL_SIZE);
+        }
+    }
 
 	printf("VOL OPEN: (name: %s)\n", myvolume->name);
 
@@ -35,7 +58,12 @@ static void volume_close(ocf_volume_t volume)
 	struct myvolume *myvolume = ocf_volume_get_priv(volume);
 
 	printf("VOL CLOSE: (name: %s)\n", myvolume->name);
-	free(myvolume->mem);
+
+    if (strcmp(myvolume->name, "cache") == 0) {
+        close(cache_fd);
+    } else {
+        close(core_fd);
+    }
 }
 
 /*
@@ -50,13 +78,19 @@ static void volume_submit_io(struct ocf_io *io)
 	data = ocf_io_get_data(io);
 	myvolume = ocf_volume_get_priv(ocf_io_get_volume(io));
 
-	if (io->dir == OCF_WRITE) {
-		memcpy(myvolume->mem + io->addr,
-				data->ptr + data->offset, io->bytes);
-	} else {
-		memcpy(data->ptr + data->offset,
-				myvolume->mem + io->addr, io->bytes);
-	}
+    if (strcmp(myvolume->name, "cache") == 0) {
+        if (io->dir == OCF_WRITE) {
+            pwrite(cache_fd, (uint8_t*) data->ptr + data->offset, io->bytes, io->addr);
+        } else {
+            pread(cache_fd, (uint8_t*) data->ptr + data->offset, io->bytes, io->addr);
+        }
+    } else {
+        if (io->dir == OCF_WRITE) {
+            pwrite(core_fd, (uint8_t*) data->ptr + data->offset, io->bytes, io->addr);
+        } else {
+            pread(core_fd, (uint8_t*) data->ptr + data->offset, io->bytes, io->addr);
+        }
+    }
 
 	printf("VOL: (name: %s), IO: (dir: %s, addr: %ld, bytes: %d)\n",
 			myvolume->name, io->dir == OCF_READ ? "read" : "write",
@@ -165,4 +199,15 @@ int volume_init(ocf_ctx_t ocf_ctx)
 void volume_cleanup(ocf_ctx_t ocf_ctx)
 {
 	ocf_ctx_unregister_volume_type(ocf_ctx, VOL_TYPE);
+}
+
+static int need_reload = -1;    // -1 means not initialized
+
+bool need_reload_cache() {
+    if (need_reload != -1) {
+        return (bool) need_reload;
+    } else {
+        need_reload = access(cache_path, F_OK) == 0 ? 1 : 0;
+        return (bool) need_reload;
+    }
 }
