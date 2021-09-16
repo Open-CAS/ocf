@@ -1036,7 +1036,8 @@ static void _ocf_mngt_init_properties(ocf_pipeline_t pipeline,
 
 	context->metadata.shutdown_status = ocf_metadata_clean_shutdown;
 	context->metadata.dirty_flushed = DIRTY_FLUSHED;
-	context->metadata.line_size = context->cfg.cache_line_size;
+	context->metadata.line_size = context->cfg.cache_line_size ?:
+			cache->metadata.line_size;
 
 	ocf_pipeline_next(pipeline);
 }
@@ -1070,9 +1071,6 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	int ret;
-
-	context->metadata.line_size = context->metadata.line_size ?:
-			cache->metadata.line_size;
 
 	/*
 	 * Initialize variable size metadata segments
@@ -2193,7 +2191,7 @@ static void _ocf_mngt_activate_init_properties(ocf_pipeline_t pipeline,
 
 	context->metadata.shutdown_status = ocf_metadata_dirty_shutdown;
 	context->metadata.dirty_flushed = DIRTY_NOT_FLUSHED;
-	context->metadata.line_size = context->cfg.cache_line_size;
+	context->metadata.line_size = cache->metadata.line_size;
 
 	ocf_pipeline_next(pipeline);
 }
@@ -2734,19 +2732,21 @@ void ocf_mngt_cache_activate(ocf_cache_t cache,
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(cfg);
 
-	if (!cache->mngt_queue)
-		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
-
-	/* Activate is not allowed in volatile metadata mode */
-	if (cache->metadata.is_volatile)
-		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
-
-	/* Activate is not allowed with 'force' flag on */
 	if (cfg->force) {
 		ocf_cache_log(cache, log_err, "Using 'force' flag is forbidden "
 				"for activate operation.");
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 	}
+
+	if (cfg->cache_line_size != ocf_cache_line_size_none &&
+			cfg->cache_line_size != cache->metadata.line_size) {
+		ocf_cache_log(cache, log_err, "Specifying cache line size is "
+				"forbidden for activate operation.");
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+	}
+
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
 	result = _ocf_mngt_cache_validate_device_cfg(cfg);
 	if (result)
