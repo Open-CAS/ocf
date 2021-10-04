@@ -230,10 +230,10 @@ static inline void metadata_clear_valid(struct ocf_cache *cache,
 	ocf_metadata_clear_valid(cache, line, 0, ocf_line_end_sector(cache));
 }
 
-static inline void metadata_clear_valid_if_clean(struct ocf_cache *cache,
+static inline bool metadata_clear_valid_if_clean(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	ocf_metadata_clear_valid_if_clean(cache, line, 0,
+	return ocf_metadata_clear_valid_if_clean(cache, line, 0,
 			ocf_line_end_sector(cache));
 }
 
