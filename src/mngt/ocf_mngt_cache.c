@@ -321,10 +321,12 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache)
 	return 0;
 }
 
-static void init_attached_data_structures_recovery(ocf_cache_t cache)
+static void init_attached_data_structures_recovery(ocf_cache_t cache,
+		bool init_collision)
 {
 	ocf_metadata_init_hash_table(cache);
-	ocf_metadata_init_collision(cache);
+	if (init_collision)
+		ocf_metadata_init_collision(cache);
 	__init_parts_attached(cache);
 	__reset_stats(cache);
 	__init_metadata_version(cache);
@@ -587,7 +589,7 @@ static void _ocf_mngt_load_init_instance_recovery(
 {
 	ocf_cache_t cache = context->cache;
 
-	init_attached_data_structures_recovery(cache);
+	init_attached_data_structures_recovery(cache, true);
 
 	ocf_cache_log(cache, log_info, "Initiating recovery sequence...\n");
 
@@ -2005,7 +2007,7 @@ static void _ocf_mngt_bind_init_attached_structures(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	init_attached_data_structures_recovery(cache);
+	init_attached_data_structures_recovery(cache, false);
 
 	ocf_pipeline_next(context->pipeline);
 }
