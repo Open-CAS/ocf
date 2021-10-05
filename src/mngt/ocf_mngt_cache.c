@@ -534,12 +534,60 @@ static void _ocf_mngt_rebuild_metadata(ocf_cache_t cache, bool initialized)
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 }
 
+static void _ocf_mngt_recovery_rebuild_metadata(ocf_cache_t cache)
+{
+	_ocf_mngt_rebuild_metadata(cache, false);
+}
+
+static void _ocf_mngt_bind_rebuild_metadata(ocf_cache_t cache)
+{
+	ocf_cleaning_t clean_policy = cache->conf_meta->cleaning_policy_type;
+	cache->conf_meta->cleaning_policy_type = ocf_cleaning_nop;
+
+	_ocf_mngt_rebuild_metadata(cache, true);
+
+	cache->conf_meta->cleaning_policy_type = clean_policy;
+}
+
+static inline ocf_error_t _ocf_init_cleaning_policy(ocf_cache_t cache,
+		ocf_cleaning_t cleaning_policy,
+		enum ocf_metadata_shutdown_status shutdown_status)
+{
+	ocf_error_t result;
+
+	if (shutdown_status == ocf_metadata_clean_shutdown)
+		result = ocf_cleaning_initialize(cache, cleaning_policy, 0);
+	else
+		result = ocf_cleaning_initialize(cache, cleaning_policy, 1);
+
+	if (result)
+		ocf_cache_log(cache, log_err, "Cannot initialize cleaning policy\n");
+
+	return result;
+}
+
+static void _ocf_mngt_activate_init_cleaning(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_error_t result;
+
+	result = _ocf_init_cleaning_policy(cache,
+			cache->conf_meta->cleaning_policy_type,
+			context->metadata.shutdown_status);
+
+	if (result)
+		OCF_PL_FINISH_RET(pipeline, result);
+
+	ocf_pipeline_next(pipeline);
+}
+
 static void _ocf_mngt_load_post_metadata_load(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	ocf_cleaning_t cleaning_policy;
 	ocf_error_t result;
 
 	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown) {
@@ -547,18 +595,12 @@ static void _ocf_mngt_load_post_metadata_load(ocf_pipeline_t pipeline,
 		__populate_free_safe(cache);
 	}
 
-	cleaning_policy = cache->conf_meta->cleaning_policy_type;
+	result = _ocf_init_cleaning_policy(cache,
+			cache->conf_meta->cleaning_policy_type,
+			context->metadata.shutdown_status);
 
-	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown)
-		result = ocf_cleaning_initialize(cache, cleaning_policy, 0);
-	else
-		result = ocf_cleaning_initialize(cache, cleaning_policy, 1);
-
-	if (result) {
-		ocf_cache_log(cache, log_err,
-				"Cannot initialize cleaning policy\n");
+	if (result)
 		OCF_PL_FINISH_RET(pipeline, result);
-	}
 
 	ocf_pipeline_next(pipeline);
 }
@@ -2339,7 +2381,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_activate_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
 		OCF_PL_STEP(_ocf_mngt_init_promotion),
 		OCF_PL_STEP(_ocf_mngt_load_add_cores),
-		OCF_PL_STEP(_ocf_mngt_load_post_metadata_load),
+		OCF_PL_STEP(_ocf_mngt_activate_init_cleaning),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
 		OCF_PL_STEP(_ocf_mngt_attach_post_init),
 		OCF_PL_STEP_TERMINATOR(),
