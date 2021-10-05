@@ -5,6 +5,7 @@
 
 #include "ocf/ocf.h"
 #include "metadata/metadata.h"
+#include "metadata/metadata.h"
 #include "engine/cache_engine.h"
 #include "utils/utils_cache_line.h"
 #include "ocf_request.h"
@@ -260,6 +261,7 @@ struct ocf_cache_volume_io_priv {
 	struct ocf_io *io;
 	struct ctx_data_t *data;
 	env_atomic remaining;
+	env_atomic error;
 };
 
 struct ocf_cache_volume {
@@ -273,7 +275,8 @@ static inline ocf_cache_t ocf_volume_to_cache(ocf_volume_t volume)
 	return cache_volume->cache;
 }
 
-static void ocf_cache_volume_io_complete(struct ocf_io *vol_io, int error)
+static void ocf_cache_volume_io_complete_generic(struct ocf_io *vol_io,
+		int error)
 {
 	struct ocf_cache_volume_io_priv *priv;
 	struct ocf_io *io = vol_io->priv1;
@@ -287,6 +290,33 @@ static void ocf_cache_volume_io_complete(struct ocf_io *vol_io, int error)
 	ocf_io_put(vol_io);
 	ocf_io_end(io, error);
 	ocf_refcnt_dec(&cache->refcnt.metadata);
+}
+
+static void ocf_cache_io_complete(struct ocf_io *io, int error)
+{
+	struct ocf_cache_volume_io_priv *priv;
+	ocf_cache_t cache;
+
+	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
+
+	priv = ocf_io_get_priv(io);
+
+	env_atomic_cmpxchg(&priv->error, 0, error);
+
+	if (env_atomic_dec_return(&priv->remaining))
+		return;
+
+	ocf_refcnt_dec(&cache->refcnt.metadata);
+	ocf_io_end(io, env_atomic_read(&priv->error));
+}
+
+static void ocf_cache_volume_io_complete(struct ocf_io *vol_io, int error)
+{
+	struct ocf_io *io = vol_io->priv1;
+
+	ocf_io_put(vol_io);
+
+	ocf_cache_io_complete(io, error);
 }
 
 static int ocf_cache_volume_prepare_vol_io(struct ocf_io *io,
@@ -313,13 +343,10 @@ static int ocf_cache_volume_prepare_vol_io(struct ocf_io *io,
 		return result;
 	}
 
-	ocf_io_set_cmpl(tmp_io, io, NULL, ocf_cache_volume_io_complete);
-
 	*vol_io = tmp_io;
 
 	return 0;
 }
-
 
 static void ocf_cache_volume_submit_io(struct ocf_io *io)
 {
@@ -336,7 +363,8 @@ static void ocf_cache_volume_submit_io(struct ocf_io *io)
 		return;
 	}
 
-	env_atomic_set(&priv->remaining, 2);
+	env_atomic_set(&priv->remaining, 3);
+	env_atomic_set(&priv->error, 0);
 
 	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
 	if (result) {
@@ -344,20 +372,16 @@ static void ocf_cache_volume_submit_io(struct ocf_io *io)
 		return;
 	}
 
+	ocf_io_set_cmpl(vol_io, io, NULL, ocf_cache_volume_io_complete);
 	ocf_volume_submit_io(vol_io);
 
-	result = ocf_metadata_passive_update(cache, io);
+	result = ocf_metadata_passive_update(cache, io, ocf_cache_io_complete);
 	if (result) {
 		ocf_cache_log(cache, log_crit,
 				"Metadata update error (error=%d)!\n", result);
 	}
 
-	if (env_atomic_dec_return(&priv->remaining))
-		return;
-
-	ocf_io_put(vol_io);
-	ocf_io_end(io, 0);
-	ocf_refcnt_dec(&cache->refcnt.metadata);
+	ocf_cache_io_complete(io, 0);
 }
 
 
@@ -383,6 +407,7 @@ static void ocf_cache_volume_submit_flush(struct ocf_io *io)
 		ocf_io_end(io, result);
 		return;
 	}
+	ocf_io_set_cmpl(vol_io, io, NULL, ocf_cache_volume_io_complete_generic);
 
 	ocf_volume_submit_flush(vol_io);
 }
@@ -410,6 +435,7 @@ static void ocf_cache_volume_submit_discard(struct ocf_io *io)
 		ocf_io_end(io, result);
 		return;
 	}
+	ocf_io_set_cmpl(vol_io, io, NULL, ocf_cache_volume_io_complete_generic);
 
 	ocf_volume_submit_discard(vol_io);
 }

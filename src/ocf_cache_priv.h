@@ -85,6 +85,11 @@ struct ocf_cache {
 		struct ocf_refcnt metadata __attribute__((aligned(64)));
 	} refcnt;
 
+	struct {
+		env_allocator *allocator;
+		struct ocf_alock *concurrency;
+	} standby;
+
 	struct ocf_core core[OCF_CORE_MAX];
 
 	ocf_pipeline_t stop_pipeline;

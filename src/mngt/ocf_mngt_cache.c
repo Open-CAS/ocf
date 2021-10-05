@@ -25,6 +25,7 @@
 #include "../ocf_ctx_priv.h"
 #include "../cleaning/cleaning.h"
 #include "../promotion/ops.h"
+#include "../concurrency/ocf_pio_concurrency.h"
 
 #define OCF_ASSERT_PLUGGED(cache) ENV_BUG_ON(!(cache)->device)
 
@@ -144,6 +145,10 @@ struct ocf_cache_attach_context {
 			 */
 
 		bool concurrency_inited : 1;
+
+		bool pio_mpool : 1;
+
+		bool pio_concurrency : 1;
 	} flags;
 
 	struct {
@@ -433,8 +438,8 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 			} else {
 				core->opened = true;
 			}
-		}
 
+		}
 		env_bit_set(core_id, cache->conf_meta->valid_core_bitmap);
 		core->added = true;
 		cache->conf_meta->core_count++;
@@ -1646,6 +1651,12 @@ static void _ocf_mngt_attach_handle_error(
 		cache->device = NULL;
 	}
 
+	if (context->flags.pio_concurrency)
+		ocf_pio_concurrency_deinit(&cache->standby.concurrency);
+
+	if (context->flags.pio_mpool)
+		ocf_metadata_passive_io_ctx_deinit(cache);
+
 	ocf_pipeline_destroy(cache->stop_pipeline);
 }
 
@@ -2052,15 +2063,34 @@ static void _ocf_mngt_load_metadata_unsafe(ocf_pipeline_t pipeline,
 			_ocf_mngt_load_unsafe_complete, context);
 }
 
+static void _ocf_mngt_bind_preapre_mempool(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	int result;
+
+	result = ocf_metadata_passive_io_ctx_init(cache);
+	if(!result)
+		context->flags.pio_mpool = true;
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
+}
+
 static void _ocf_mngt_bind_init_attached_structures(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
+	int result;
 
 	init_attached_data_structures_recovery(cache, false);
 
-	ocf_pipeline_next(context->pipeline);
+	result = ocf_pio_concurrency_init(&cache->standby.concurrency, cache);
+	if (!result)
+		context->flags.pio_concurrency = true;
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
 
 static void _ocf_mngt_bind_recovery_unsafe(ocf_pipeline_t pipeline,
@@ -2115,6 +2145,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_test_volume),
 		OCF_PL_STEP(_ocf_mngt_attach_prepare_metadata),
 		OCF_PL_STEP(_ocf_mngt_load_metadata_unsafe),
+		OCF_PL_STEP(_ocf_mngt_bind_preapre_mempool),
 		OCF_PL_STEP(_ocf_mngt_bind_init_attached_structures),
 		OCF_PL_STEP(_ocf_mngt_bind_recovery_unsafe),
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
@@ -2935,6 +2966,9 @@ static void _ocf_mngt_cache_activate_complete(ocf_cache_t cache, void *priv1,
 
 	_ocf_mngt_cache_set_active(cache);
 	ocf_cache_log(cache, log_info, "Successfully activated\n");
+
+	ocf_pio_concurrency_deinit(&cache->standby.concurrency);
+	ocf_metadata_passive_io_ctx_deinit(cache);
 
 	OCF_CMPL_RET(cache, priv2, 0);
 }
