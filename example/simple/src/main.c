@@ -94,7 +94,7 @@ static void simple_complete(ocf_cache_t cache, void *priv, int error)
 int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 {
 	struct ocf_mngt_cache_config cache_cfg = { .name = "cache1" };
-	struct ocf_mngt_cache_device_config device_cfg = { };
+	struct ocf_mngt_cache_attach_config attach_cfg = { };
 	struct cache_priv *cache_priv;
 	struct simple_context context;
 	int ret;
@@ -110,9 +110,9 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	cache_cfg.metadata_volatile = true;
 
 	/* Cache deivce (volume) configuration */
-	ocf_mngt_cache_device_config_set_default(&device_cfg);
-	device_cfg.volume_type = VOL_TYPE;
-	ret = ocf_uuid_set_str(&device_cfg.uuid, "cache");
+	ocf_mngt_cache_attach_config_set_default(&attach_cfg);
+	attach_cfg.device.volume_type = VOL_TYPE;
+	ret = ocf_uuid_set_str(&attach_cfg.device.uuid, "cache");
 	if (ret)
 		return ret;
 
@@ -158,7 +158,7 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 		goto err_cache;
 
 	/* Attach volume to cache */
-	ocf_mngt_cache_attach(*cache, &device_cfg, simple_complete, &context);
+	ocf_mngt_cache_attach(*cache, &attach_cfg, simple_complete, &context);
 	if (ret)
 		goto err_cache;
 

@@ -359,7 +359,7 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 		ocf_mngt_cache_stop_end_t cmpl, void *priv);
 
 /**
- * @brief Cache attach configuration
+ * @brief Caching device configuration
  */
 struct ocf_mngt_cache_device_config {
 	/**
@@ -368,14 +368,36 @@ struct ocf_mngt_cache_device_config {
 	struct ocf_volume_uuid uuid;
 
 	/**
-	 * @brief Cache line size
-	 */
-	ocf_cache_line_size_t cache_line_size;
-
-	/**
 	 * @brief Cache volume type
 	 */
 	uint8_t volume_type;
+
+	/**
+	 * @brief If set, cache features (like discard) are tested
+	 *		before starting cache
+	 */
+	bool perform_test;
+
+	/**
+	 * @brief Optional opaque volume parameters, passed down to cache volume
+	 * open callback
+	 */
+	void *volume_params;
+};
+
+/**
+ * @brief Cache attach configuration
+ */
+struct ocf_mngt_cache_attach_config {
+	/**
+	 * @brief Cache device configuration - must be the first field
+	 */
+	struct ocf_mngt_cache_device_config device;
+
+	/**
+	 * @brief Cache line size
+	 */
+	ocf_cache_line_size_t cache_line_size;
 
 	/**
 	 * @brief Automatically open core volumes when loading cache
@@ -401,21 +423,9 @@ struct ocf_mngt_cache_device_config {
 	bool force;
 
 	/**
-	 * @brief If set, cache features (like discard) are tested
-	 *		before starting cache
-	 */
-	bool perform_test;
-
-	/**
 	 * @brief If set, cache device will be discarded on cache start
 	 */
 	bool discard_on_start;
-
-	/**
-	 * @brief Optional opaque volume parameters, passed down to cache volume
-	 * open callback
-	 */
-	void *volume_params;
 };
 
 /**
@@ -426,15 +436,15 @@ struct ocf_mngt_cache_device_config {
  *
  * @param[in] cfg Cache device config stucture
  */
-static inline void ocf_mngt_cache_device_config_set_default(
-		struct ocf_mngt_cache_device_config *cfg)
+static inline void ocf_mngt_cache_attach_config_set_default(
+		struct ocf_mngt_cache_attach_config *cfg)
 {
 	cfg->cache_line_size = ocf_cache_line_size_none;
 	cfg->open_cores = true;
 	cfg->force = false;
-	cfg->perform_test = true;
 	cfg->discard_on_start = true;
-	cfg->volume_params = NULL;
+	cfg->device.perform_test = true;
+	cfg->device.volume_params = NULL;
 }
 
 /**
@@ -469,7 +479,7 @@ typedef void (*ocf_mngt_cache_attach_end_t)(ocf_cache_t cache,
  * @param[in] priv Completion callback context
  */
 void ocf_mngt_cache_attach(ocf_cache_t cache,
-		struct ocf_mngt_cache_device_config *cfg,
+		struct ocf_mngt_cache_attach_config *cfg,
 		ocf_mngt_cache_attach_end_t cmpl, void *priv);
 
 /**
@@ -511,7 +521,7 @@ typedef void (*ocf_mngt_cache_load_end_t)(ocf_cache_t cache,
  * @param[in] priv Completion callback context
  */
 void ocf_mngt_cache_load(ocf_cache_t cache,
-		struct ocf_mngt_cache_device_config *cfg,
+		struct ocf_mngt_cache_attach_config *cfg,
 		ocf_mngt_cache_load_end_t cmpl, void *priv);
 
 /**
@@ -525,17 +535,21 @@ typedef void (*ocf_mngt_cache_bind_end_t)(ocf_cache_t cache,
 		void *priv, int error);
 
 /**
- * @brief Bind cache instance
+ * @brief Initiate failover standby
  *
  * @param[in] cache Cache handle
  * @param[in] cfg Caching device configuration
  * @param[in] cmpl Completion callback
  * @param[in] priv Completion callback context
  */
-void ocf_mngt_cache_bind(ocf_cache_t cache,
-		struct ocf_mngt_cache_device_config *cfg,
+void ocf_mngt_cache_standby(ocf_cache_t cache,
+		struct ocf_mngt_cache_attach_config *cfg,
 		ocf_mngt_cache_bind_end_t cmpl, void *priv);
 
+typedef void (*ocf_mngt_cache_failover_detach_end_t)(void *priv, int error);
+
+void ocf_mngt_cache_failover_detach(ocf_cache_t cache,
+		ocf_mngt_cache_failover_detach_end_t cmpl, void *priv);
 /**
  * @brief Completion callback of cache activate operation
  *
