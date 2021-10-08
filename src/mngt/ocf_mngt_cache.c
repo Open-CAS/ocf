@@ -2505,6 +2505,11 @@ static void _ocf_mngt_cache_activate(ocf_cache_t cache,
 	if (result)
 		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_NO_MEM);
 
+	if (!ocf_refcnt_frozen(&cache->refcnt.metadata) ||
+		device_cfg->uuid.size == 0) {
+		ocf_cache_log(cache, log_err, "not yet implemented.\n");
+		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_CACHE_EXIST);
+	}
 
 	context = ocf_pipeline_get_priv(pipeline);
 
