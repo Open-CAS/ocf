@@ -92,6 +92,9 @@ struct ocf_cache_info {
 
 	uint32_t metadata_end_offset;
 		/*!< LBA offset where metadata ends (in 4KiB blocks) */
+
+	bool failover_detached;
+		/*!< true if cache drive detached for failover */
 };
 
 /**
@@ -159,7 +162,7 @@ bool ocf_cache_is_running(ocf_cache_t cache);
  * @retval 1 Caching device is in passive state
  * @retval 0 Caching device is not in passive state
  */
-bool ocf_cache_is_passive(ocf_cache_t cache);
+bool ocf_cache_is_standby(ocf_cache_t cache);
 
 /**
  * @brief Get cache mode of given cache object

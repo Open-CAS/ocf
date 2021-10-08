@@ -56,10 +56,10 @@ bool ocf_cache_is_running(ocf_cache_t cache)
 	return env_bit_test(ocf_cache_state_running, &cache->cache_state);
 }
 
-bool ocf_cache_is_passive(ocf_cache_t cache)
+bool ocf_cache_is_standby(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	return env_bit_test(ocf_cache_state_passive, &cache->cache_state);
+	return env_bit_test(ocf_cache_state_standby, &cache->cache_state);
 }
 
 bool ocf_cache_is_device_attached(ocf_cache_t cache)
@@ -107,7 +107,9 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	_ocf_stats_zero(&info->inactive);
 
 	info->attached = ocf_cache_is_device_attached(cache);
-	if (info->attached) {
+	info->failover_detached = ocf_cache_is_standby(cache) &&
+		ocf_refcnt_frozen(&cache->refcnt.metadata);
+	if (info->attached && !info->failover_detached) {
 		info->volume_type = ocf_ctx_get_volume_type_id(cache->owner,
 				cache->device->volume.type);
 		info->size = cache->conf_meta->cachelines;
@@ -119,7 +121,7 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	info->metadata_footprint = ocf_cache_is_device_attached(cache) ?
 			ocf_metadata_size_of(cache) : 0;
 
-	if (env_bit_test(ocf_cache_state_passive, &cache->cache_state))
+	if (ocf_cache_is_standby(cache))
 		return 0;
 
 	info->core_count = cache->conf_meta->core_count;
