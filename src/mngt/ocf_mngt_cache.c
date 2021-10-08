@@ -488,7 +488,7 @@ static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
 {
 	ocf_metadata_set_core_info(cache, cline, OCF_CORE_MAX, ULLONG_MAX);
 
-	metadata_clear_valid(cache, cline);
+	metadata_init_status_bits(cache, cline);
 
 	ocf_cleaning_init_cache_block(cache, cline);
 }
