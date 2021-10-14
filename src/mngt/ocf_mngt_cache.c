@@ -227,7 +227,6 @@ static void __populate_free_safe(ocf_cache_t cache)
 
 static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
 {
-	ocf_cleaning_t cleaning_policy = ocf_cleaning_default;
 	int i;
 
 	OCF_ASSERT_PLUGGED(cache);
@@ -237,9 +236,7 @@ static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
 	for (i = 0; i < ocf_cleaning_max; i++)
 		ocf_cleaning_setup(cache, i);
 
-	cache->conf_meta->cleaning_policy_type = ocf_cleaning_default;
-
-	return ocf_cleaning_initialize(cache, cleaning_policy, 1);
+	return ocf_cleaning_initialize(cache, cache->cleaner.policy, 1);
 }
 
 static void __deinit_cleaning_policy(ocf_cache_t cache)
@@ -541,12 +538,7 @@ static void _ocf_mngt_recovery_rebuild_metadata(ocf_cache_t cache)
 
 static void _ocf_mngt_bind_rebuild_metadata(ocf_cache_t cache)
 {
-	ocf_cleaning_t clean_policy = cache->conf_meta->cleaning_policy_type;
-	cache->conf_meta->cleaning_policy_type = ocf_cleaning_nop;
-
 	_ocf_mngt_rebuild_metadata(cache, true);
-
-	cache->conf_meta->cleaning_policy_type = clean_policy;
 }
 
 static inline ocf_error_t _ocf_init_cleaning_policy(ocf_cache_t cache,
@@ -578,8 +570,7 @@ static void _ocf_mngt_load_post_metadata_load(ocf_pipeline_t pipeline,
 		__populate_free_safe(cache);
 	}
 
-	result = _ocf_init_cleaning_policy(cache,
-			cache->conf_meta->cleaning_policy_type,
+	result = _ocf_init_cleaning_policy(cache, cache->cleaner.policy,
 			context->metadata.shutdown_status);
 
 	if (result)
@@ -1222,6 +1213,7 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	cache->conf_meta->cache_mode = params->metadata.cache_mode;
 	cache->conf_meta->metadata_layout = params->metadata.layout;
 	cache->conf_meta->promotion_policy_type = params->metadata.promotion_policy;
+	__set_cleaning_policy(cache, ocf_cleaning_default);
 
 	INIT_LIST_HEAD(&cache->io_queues);
 
@@ -1410,6 +1402,7 @@ static void _ocf_mngt_load_superblock_complete(void *priv, int error)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
+	ocf_cleaning_t loaded_clean_policy = cache->conf_meta->cleaning_policy_type;
 
 	if (cache->conf_meta->cachelines !=
 			ocf_metadata_get_cachelines_count(cache)) {
@@ -1418,6 +1411,15 @@ static void _ocf_mngt_load_superblock_complete(void *priv, int error)
 		OCF_PL_FINISH_RET(context->pipeline,
 				-OCF_ERR_START_CACHE_FAIL);
 	}
+
+	if (loaded_clean_policy >= ocf_cleaning_max) {
+		ocf_cache_log(cache, log_err,
+				"ERROR: Invalid cleaning policy!\n");
+		OCF_PL_FINISH_RET(context->pipeline,
+				-OCF_ERR_START_CACHE_FAIL);
+	}
+
+	__set_cleaning_policy(cache, loaded_clean_policy);
 
 	if (error) {
 		ocf_cache_log(cache, log_err,
@@ -2080,8 +2082,7 @@ static void _ocf_mngt_bind_init_cleaning(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 	ocf_error_t result;
 
-	result = _ocf_init_cleaning_policy(cache,
-			cache->conf_meta->cleaning_policy_type,
+	result = _ocf_init_cleaning_policy(cache, cache->cleaner.policy,
 			context->metadata.shutdown_status);
 
 	if (result)
@@ -2821,7 +2822,7 @@ static int _ocf_mngt_cache_load_core_log(ocf_core_t core, void *cntx)
 static void _ocf_mngt_cache_load_log(ocf_cache_t cache)
 {
 	ocf_cache_mode_t cache_mode = ocf_cache_get_mode(cache);
-	ocf_cleaning_t cleaning_type = cache->conf_meta->cleaning_policy_type;
+	ocf_cleaning_t cleaning_type = cache->cleaner.policy;
 	ocf_promotion_t promotion_type = cache->conf_meta->promotion_policy_type;
 
 	ocf_cache_log(cache, log_info, "Successfully loaded\n");

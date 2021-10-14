@@ -30,4 +30,7 @@ void ocf_mngt_cache_lock_deinit(ocf_cache_t cache);
 
 bool ocf_mngt_cache_is_locked(ocf_cache_t cache);
 
+void __set_cleaning_policy(ocf_cache_t cache,
+		ocf_cleaning_t new_cleaning_policy);
+
 #endif /* __OCF_MNGT_COMMON_H__ */
