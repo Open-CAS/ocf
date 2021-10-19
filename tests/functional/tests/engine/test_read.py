@@ -1,4 +1,5 @@
-# Copyright(c) 2019-2021 Intel Corporation
+#
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -13,7 +14,7 @@ from datetime import datetime
 
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
-from pyocf.types.volume import Volume
+from pyocf.types.volume import RamVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size
@@ -259,8 +260,8 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
 
     result_b = bytes(WORKSET_SIZE)
 
-    cache_device = Volume(Size.from_MiB(50))
-    core_device = Volume(Size.from_MiB(50))
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(50))
 
     cache = Cache.start_on_device(
         cache_device, cache_mode=CacheMode.WO, cache_line_size=cacheline_size

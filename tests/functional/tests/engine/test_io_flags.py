@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2020-2021 Intel Corporation
+# Copyright(c) 2020-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -12,7 +12,7 @@ import pytest
 
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
-from pyocf.types.volume import Volume
+from pyocf.types.volume import RamVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size
@@ -53,7 +53,7 @@ def io_to_exp_obj(core, address, size, data, offset, direction, flags):
     )
 
 
-class FlagsValVolume(Volume):
+class FlagsValVolume(RamVolume):
     def __init__(self, size, flags):
         self.flags = flags
         self.check = False

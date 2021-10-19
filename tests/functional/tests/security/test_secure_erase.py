@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -8,7 +8,7 @@ from ctypes import c_int
 
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
-from pyocf.types.volume import Volume
+from pyocf.types.volume import RamVolume
 from pyocf.utils import Size as S
 from pyocf.types.data import Data, DataOps
 from pyocf.types.ctx import OcfCtx
@@ -75,12 +75,12 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
         Cleaner,
     )
 
-    ctx.register_volume_type(Volume)
+    ctx.register_volume_type(RamVolume)
 
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cache_mode)
 
-    core_device = Volume(S.from_MiB(50))
+    core_device = RamVolume(S.from_MiB(50))
     core = Core.using_device(core_device)
     cache.add_core(core)
 
@@ -168,12 +168,12 @@ def test_secure_erase_simple_io_cleaning():
         Cleaner,
     )
 
-    ctx.register_volume_type(Volume)
+    ctx.register_volume_type(RamVolume)
 
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=CacheMode.WB)
 
-    core_device = Volume(S.from_MiB(100))
+    core_device = RamVolume(S.from_MiB(100))
     core = Core.using_device(core_device)
     cache.add_core(core)
 

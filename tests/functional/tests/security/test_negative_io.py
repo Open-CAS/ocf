@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -12,7 +12,7 @@ from pyocf.types.cache import Cache, Core
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.types.shared import OcfCompletion
-from pyocf.types.volume import Volume
+from pyocf.types.volume import RamVolume
 from pyocf.utils import Size
 
 
@@ -183,8 +183,8 @@ def test_neg_io_direction(pyocf_ctx, c_int_randomize):
 
 
 def prepare_cache_and_core(core_size: Size, cache_size: Size = Size.from_MiB(50)):
-    cache_device = Volume(cache_size)
-    core_device = Volume(core_size)
+    cache_device = RamVolume(cache_size)
+    core_device = RamVolume(core_size)
 
     cache = Cache.start_on_device(cache_device)
     core = Core.using_device(core_device)

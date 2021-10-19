@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -18,7 +18,7 @@ from pyocf.types.cache import (
     ConfValidValues,
 )
 from pyocf.types.core import Core
-from pyocf.types.volume import Volume
+from pyocf.types.volume import RamVolume
 from pyocf.utils import Size as S
 from tests.utils.random import (
     Range,
@@ -41,7 +41,7 @@ def test_neg_change_cache_mode(pyocf_ctx, cm, cls):
     :param cls: cache line size we start with
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Change cache mode to invalid one and check if failed
@@ -65,7 +65,7 @@ def test_neg_set_cleaning_policy(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Set cleaning policy to invalid one and check if failed
@@ -90,7 +90,7 @@ def test_neg_attach_cls(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache(owner=cache_device.owner, cache_mode=cm, cache_line_size=cls)
     cache.start_cache()
 
@@ -115,13 +115,13 @@ def test_neg_cache_set_seq_cut_off_policy(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Create 2 core devices
-    core_device1 = Volume(S.from_MiB(10))
+    core_device1 = RamVolume(S.from_MiB(10))
     core1 = Core.using_device(core_device1, name="core1")
-    core_device2 = Volume(S.from_MiB(10))
+    core_device2 = RamVolume(S.from_MiB(10))
     core2 = Core.using_device(core_device2, name="core2")
 
     # Add cores
@@ -149,13 +149,13 @@ def test_neg_cache_set_seq_cut_off_promotion(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Create 2 core devices
-    core_device1 = Volume(S.from_MiB(10))
+    core_device1 = RamVolume(S.from_MiB(10))
     core1 = Core.using_device(core_device1, name="core1")
-    core_device2 = Volume(S.from_MiB(10))
+    core_device2 = RamVolume(S.from_MiB(10))
     core2 = Core.using_device(core_device2, name="core2")
 
     # Add cores
@@ -185,11 +185,11 @@ def test_neg_core_set_seq_cut_off_promotion(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Create core device
-    core_device1 = Volume(S.from_MiB(10))
+    core_device1 = RamVolume(S.from_MiB(10))
     core1 = Core.using_device(core_device1, name="core1")
 
     # Add core
@@ -218,13 +218,13 @@ def test_neg_cache_set_seq_cut_off_threshold(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Create 2 core devices
-    core_device1 = Volume(S.from_MiB(10))
+    core_device1 = RamVolume(S.from_MiB(10))
     core1 = Core.using_device(core_device1, name="core1")
-    core_device2 = Volume(S.from_MiB(10))
+    core_device2 = RamVolume(S.from_MiB(10))
     core2 = Core.using_device(core_device2, name="core2")
 
     # Add cores
@@ -254,11 +254,11 @@ def test_neg_core_set_seq_cut_off_threshold(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Create core device
-    core_device = Volume(S.from_MiB(10))
+    core_device = RamVolume(S.from_MiB(10))
     core = Core.using_device(core_device, name="core")
 
     # Add core
@@ -287,11 +287,11 @@ def test_neg_core_set_seq_cut_off_policy(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Create core device
-    core_device = Volume(S.from_MiB(10))
+    core_device = RamVolume(S.from_MiB(10))
     core = Core.using_device(core_device)
 
     # Add core
@@ -318,7 +318,7 @@ def test_neg_set_alru_param(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Change invalid alru param and check if failed
@@ -355,7 +355,7 @@ def test_neg_set_alru_param_value(pyocf_ctx, cm, cls, param):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     cache.set_cleaning_policy(CleaningPolicy.ALRU)
@@ -382,7 +382,7 @@ def test_neg_set_acp_param(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Change invalid acp param and check if failed
@@ -415,7 +415,7 @@ def test_neg_set_acp_param_value(pyocf_ctx, cm, cls, param):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     cache.set_cleaning_policy(CleaningPolicy.ACP)
@@ -442,7 +442,7 @@ def test_neg_set_promotion_policy(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Change to invalid promotion policy and check if failed
@@ -466,7 +466,7 @@ def test_neg_set_nhit_promotion_policy_param(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device,
         cache_mode=cm,
@@ -496,7 +496,7 @@ def test_neg_set_nhit_promotion_policy_param_trigger(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device,
         cache_mode=cm,
@@ -528,7 +528,7 @@ def test_neg_set_nhit_promotion_policy_param_threshold(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device,
         cache_mode=cm,
@@ -559,7 +559,7 @@ def test_neg_set_ioclass_max_size(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Set invalid max size and check if failed
@@ -589,7 +589,7 @@ def test_neg_set_ioclass_priority(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Set invalid priority and check if failed
@@ -619,7 +619,7 @@ def test_neg_set_ioclass_cache_mode(pyocf_ctx, cm, cls):
     :return:
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Set invalid cache mode and check if failed
@@ -644,7 +644,7 @@ def test_neg_set_ioclass_name(pyocf_ctx):
     invalid_chars += [",", '"']
 
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device, cache_mode=CacheMode.WT, cache_line_size=CacheLineSize.LINE_4KiB
     )
@@ -669,7 +669,7 @@ def test_neg_set_ioclass_name_len(pyocf_ctx):
     """
 
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device, cache_mode=CacheMode.WT, cache_line_size=CacheLineSize.LINE_4KiB
     )

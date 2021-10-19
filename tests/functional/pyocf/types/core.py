@@ -29,7 +29,7 @@ from .queue import Queue
 from .shared import Uuid, OcfCompletion, OcfError, SeqCutOffPolicy
 from .stats.core import CoreInfo
 from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
-from .volume import Volume
+from .volume import RamVolume
 from ..ocf import OcfLib
 from ..utils import Size, struct_to_dict
 
@@ -58,7 +58,7 @@ class Core:
 
     def __init__(
         self,
-        device: Volume,
+        device: RamVolume,
         name: str = "core",
         seq_cutoff_threshold: int = DEFAULT_SEQ_CUTOFF_THRESHOLD,
         seq_cutoff_promotion_count: int = DEFAULT_SEQ_CUTOFF_PROMOTION_COUNT,

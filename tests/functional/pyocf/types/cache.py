@@ -38,7 +38,7 @@ from .stats.cache import CacheInfo
 from .ioclass import IoClassesInfo, IoClassInfo
 from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
 from .ctx import OcfCtx
-from .volume import Volume
+from .volume import RamVolume
 
 
 class Backfill(Structure):
@@ -603,7 +603,7 @@ class Cache:
             raise OcfError("Failed getting core by name", result)
 
         uuid = self.owner.lib.ocf_core_get_uuid_wrapper(core_handle)
-        device = Volume.get_by_uuid(uuid.contents._data.decode("ascii"))
+        device = RamVolume.get_by_uuid(uuid.contents._data.decode("ascii"))
         core = Core(device)
         core.cache = self
         core.handle = core_handle

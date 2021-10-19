@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2020-2021 Intel Corporation
+# Copyright(c) 2020-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -10,7 +10,7 @@ import pytest
 
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
-from pyocf.types.volume import Volume
+from pyocf.types.volume import RamVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size
@@ -90,8 +90,8 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     non_active_stream = choice(streams)
     streams.remove(non_active_stream)
 
-    cache = Cache.start_on_device(Volume(Size.from_MiB(200)), cache_mode=CacheMode.WT)
-    core = Core.using_device(Volume(core_size), seq_cutoff_promotion_count=1)
+    cache = Cache.start_on_device(RamVolume(Size.from_MiB(200)), cache_mode=CacheMode.WT)
+    core = Core.using_device(RamVolume(core_size), seq_cutoff_promotion_count=1)
 
     cache.add_core(core)
 

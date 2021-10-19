@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -10,7 +10,7 @@ from datetime import timedelta
 
 from pyocf.types.cache import Cache, PromotionPolicy, NhitParams
 from pyocf.types.core import Core
-from pyocf.types.volume import Volume
+from pyocf.types.volume import RamVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size
@@ -28,8 +28,8 @@ def test_init_nhit(pyocf_ctx, promotion_policy):
         * verify that promotion policy type is properly reflected in stats
     """
 
-    cache_device = Volume(Size.from_MiB(50))
-    core_device = Volume(Size.from_MiB(50))
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(50))
 
     cache = Cache.start_on_device(cache_device, promotion_policy=promotion_policy)
     core = Core.using_device(core_device)
@@ -55,8 +55,8 @@ def test_change_to_nhit_and_back_io_in_flight(pyocf_ctx):
     """
 
     # Step 1
-    cache_device = Volume(Size.from_MiB(50))
-    core_device = Volume(Size.from_MiB(50))
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(50))
 
     cache = Cache.start_on_device(cache_device)
     core = Core.using_device(core_device)
@@ -137,8 +137,8 @@ def test_promoted_after_hits_various_thresholds(
     """
 
     # Step 1
-    cache_device = Volume(Size.from_MiB(50))
-    core_device = Volume(Size.from_MiB(50))
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(50))
 
     cache = Cache.start_on_device(cache_device, promotion_policy=PromotionPolicy.NHIT)
     core = Core.using_device(core_device)
@@ -207,8 +207,8 @@ def test_partial_hit_promotion(pyocf_ctx):
     """
 
     # Step 1
-    cache_device = Volume(Size.from_MiB(50))
-    core_device = Volume(Size.from_MiB(50))
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(50))
 
     cache = Cache.start_on_device(cache_device)
     core = Core.using_device(core_device)
