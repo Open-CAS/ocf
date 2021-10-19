@@ -13,7 +13,7 @@ from threading import Thread, Condition, Event
 from copy import deepcopy
 
 from pyocf.utils import Size
-from pyocf.types.volume import RamVolume
+from pyocf.types.volume import Volume
 from pyocf.types.io import Io, IoDir
 from pyocf.types.data import Data
 
@@ -67,7 +67,7 @@ class JobSpec:
     qd: int = 1
     size: Size = Size(0)
     io_size: Size = Size(0)
-    target: RamVolume = None
+    target: Volume = None
     time_based: bool = False
     time: timedelta = None
     continue_on_error: bool = False
@@ -211,7 +211,7 @@ class Rio:
         self.global_jobspec.qd = qd
         return self
 
-    def target(self, target: RamVolume):
+    def target(self, target: Volume):
         self.global_jobspec.target = target
         return self
 

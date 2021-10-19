@@ -24,7 +24,7 @@ from pyocf.types.core import Core
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.types.shared import OcfError, OcfCompletion, CacheLineSize, SeqCutOffPolicy
-from pyocf.types.volume import RamVolume
+from pyocf.types.volume import Volume, RamVolume
 from pyocf.utils import Size
 
 logger = logging.getLogger(__name__)
@@ -342,14 +342,14 @@ def test_start_cache_huge_device(pyocf_ctx_log_buffer, cls):
     pass_criteria:
       - Starting cache on device too big to handle should fail
     """
-    class HugeDevice(RamVolume):
+    class HugeDevice(Volume):
         def get_length(self):
             return Size.from_B((cls * c_uint32(-1).value))
 
         def submit_io(self, io):
             io.contents._end(io, 0)
 
-    cache_device = HugeDevice(Size.from_MiB(50))
+    cache_device = HugeDevice()
 
     with pytest.raises(OcfError, match="OCF_ERR_INVAL_CACHE_DEV"):
         cache = Cache.start_on_device(cache_device, cache_line_size=cls, metadata_volatile=True)
