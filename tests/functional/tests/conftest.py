@@ -16,6 +16,7 @@ from pyocf.types.volume_core import CoreVolume
 from pyocf.types.volume_replicated import ReplicatedVolume
 from pyocf.types.ctx import OcfCtx
 
+default_registered_volumes = [RamVolume, ErrorDevice, CacheVolume, CoreVolume, ReplicatedVolume]
 
 def pytest_configure(config):
     sys.path.append(os.path.join(os.path.dirname(__file__), os.path.pardir))
@@ -24,11 +25,8 @@ def pytest_configure(config):
 @pytest.fixture()
 def pyocf_ctx():
     c = OcfCtx.with_defaults(DefaultLogger(LogLevel.WARN))
-    c.register_volume_type(RamVolume)
-    c.register_volume_type(ErrorDevice)
-    c.register_volume_type(CacheVolume)
-    c.register_volume_type(CoreVolume)
-    c.register_volume_type(ReplicatedVolume)
+    for vol_type in default_registered_volumes:
+        c.register_volume_type(vol_type)
     yield c
     c.exit()
     gc.collect()
@@ -38,11 +36,21 @@ def pyocf_ctx():
 def pyocf_ctx_log_buffer():
     logger = BufferLogger(LogLevel.DEBUG)
     c = OcfCtx.with_defaults(logger)
-    c.register_volume_type(RamVolume)
-    c.register_volume_type(ErrorDevice)
-    c.register_volume_type(CacheVolume)
-    c.register_volume_type(CoreVolume)
-    c.register_volume_type(ReplicatedVolume)
+    for vol_type in default_registered_volumes:
+        c.register_volume_type(vol_type)
     yield logger
     c.exit()
+    gc.collect()
+
+
+@pytest.fixture()
+def pyocf_2_ctx():
+    c1 = OcfCtx.with_defaults(DefaultLogger(LogLevel.WARN, "Ctx1"))
+    c2 = OcfCtx.with_defaults(DefaultLogger(LogLevel.WARN, "Ctx2"))
+    for vol_type in default_registered_volumes:
+        c1.register_volume_type(vol_type)
+        c2.register_volume_type(vol_type)
+    yield [c1, c2]
+    c1.exit()
+    c2.exit()
     gc.collect()
