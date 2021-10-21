@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -97,6 +97,12 @@ class Io(Structure):
 
     def submit(self):
         return OcfLib.getInstance().ocf_core_submit_io_wrapper(byref(self))
+
+    def submit_flush(self):
+        return OcfLib.getInstance().ocf_core_submit_flush_wrapper(byref(self))
+
+    def submit_discard(self):
+        return OcfLib.getInstance().ocf_core_submit_discard_wrapper(byref(self))
 
     def set_data(self, data: Data, offset: int = 0):
         self.data = data

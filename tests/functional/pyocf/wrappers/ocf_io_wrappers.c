@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -34,3 +34,13 @@ void ocf_core_submit_io_wrapper(struct ocf_io *io)
 	ocf_core_submit_io(io);
 }
 
+
+void ocf_core_submit_flush_wrapper(struct ocf_io *io)
+{
+	ocf_core_submit_flush(io);
+}
+
+void ocf_core_submit_discard_wrapper(struct ocf_io *io)
+{
+	ocf_core_submit_discard(io);
+}
