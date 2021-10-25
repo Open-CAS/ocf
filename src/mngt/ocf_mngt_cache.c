@@ -1323,10 +1323,10 @@ static void _ocf_mngt_cache_set_valid(ocf_cache_t cache)
 	env_bit_set(ocf_cache_state_running, &cache->cache_state);
 }
 
-static void _ocf_mngt_cache_set_passive(ocf_cache_t cache)
+static void _ocf_mngt_cache_set_standby(ocf_cache_t cache)
 {
 	/*
-	 * Clear initialization state and set the passive bit.
+	 * Clear initialization state and set the standby bit.
 	 */
 	env_bit_clear(ocf_cache_state_initializing, &cache->cache_state);
 	env_bit_set(ocf_cache_state_standby, &cache->cache_state);
@@ -2386,7 +2386,7 @@ static void _ocf_mngt_cache_load(ocf_cache_t cache,
 }
 
 struct ocf_pipeline_properties
-ocf_mngt_cache_stop_passive_pipeline_properties = {
+ocf_mngt_cache_stop_standby_pipeline_properties = {
 	.priv_size = sizeof(struct ocf_mngt_cache_stop_context),
 	.finish = ocf_mngt_cache_stop_finish,
 	.steps = {
@@ -2411,7 +2411,7 @@ static void _ocf_mngt_cache_standby(ocf_cache_t cache,
 		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_NO_MEM);
 
 	result = ocf_pipeline_create(&cache->stop_pipeline, cache,
-			&ocf_mngt_cache_stop_passive_pipeline_properties);
+			&ocf_mngt_cache_stop_standby_pipeline_properties);
 	if (result) {
 		ocf_pipeline_destroy(pipeline);
 		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_NO_MEM);
@@ -2804,8 +2804,8 @@ static void _ocf_mngt_cache_standby_complete(ocf_cache_t cache, void *priv1,
 	if (error)
 		OCF_CMPL_RET(cache, priv2, error);
 
-	_ocf_mngt_cache_set_passive(cache);
-	ocf_cache_log(cache, log_info, "Successfully binded\n");
+	_ocf_mngt_cache_set_standby(cache);
+	ocf_cache_log(cache, log_info, "Successfully bound\n");
 
 	OCF_CMPL_RET(cache, priv2, 0);
 }
@@ -3053,6 +3053,9 @@ int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 
 	OCF_CHECK_NULL(cache);
 
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	if (!ocf_cache_mode_is_valid(mode)) {
 		ocf_cache_log(cache, log_err, "Cache mode %u is invalid\n",
 				mode);
@@ -3075,6 +3078,9 @@ int ocf_mngt_cache_promotion_set_policy(ocf_cache_t cache, ocf_promotion_t type)
 {
 	int result;
 
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	result = ocf_promotion_set_policy(cache->promotion_policy, type);
@@ -3084,23 +3090,29 @@ int ocf_mngt_cache_promotion_set_policy(ocf_cache_t cache, ocf_promotion_t type)
 	return result;
 }
 
-ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache)
+int ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache, ocf_promotion_t *type)
 {
-	ocf_promotion_t result;
+	OCF_CHECK_NULL(type);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	ocf_metadata_start_shared_access(&cache->metadata.lock, 0);
 
-	result = cache->conf_meta->promotion_policy_type;
+	*type = cache->conf_meta->promotion_policy_type;
 
 	ocf_metadata_end_shared_access(&cache->metadata.lock, 0);
 
-	return result;
+	return 0;
 }
 
 int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, ocf_promotion_t type,
 		uint8_t param_id, uint32_t *param_value)
 {
 	int result;
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	ocf_metadata_start_shared_access(&cache->metadata.lock, 0);
 
@@ -3116,6 +3128,9 @@ int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, ocf_promotion_t type,
 {
 	int result;
 
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	result = ocf_promotion_set_param(cache, type, param_id, param_value);
@@ -3128,6 +3143,9 @@ int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, ocf_promotion_t type,
 int ocf_mngt_cache_reset_fallback_pt_error_counter(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	if (ocf_fallback_pt_is_on(cache)) {
 		ocf_cache_log(cache, log_info,
@@ -3145,6 +3163,9 @@ int ocf_mngt_cache_set_fallback_pt_error_threshold(ocf_cache_t cache,
 	bool old_fallback_pt_state, new_fallback_pt_state;
 
 	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	if (new_threshold > OCF_CACHE_FALLBACK_PT_MAX_ERROR_THRESHOLD)
 		return -OCF_ERR_INVAL;
@@ -3173,6 +3194,9 @@ int ocf_mngt_cache_get_fallback_pt_error_threshold(ocf_cache_t cache,
 {
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(threshold);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	*threshold = cache->fallback_pt_error_threshold;
 

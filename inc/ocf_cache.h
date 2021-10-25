@@ -155,12 +155,12 @@ bool ocf_cache_is_device_attached(ocf_cache_t cache);
 bool ocf_cache_is_running(ocf_cache_t cache);
 
 /**
- * @brief Check if cache object is passive
+ * @brief Check if cache object is standby
  *
  * @param[in] cache Cache object
  *
- * @retval 1 Caching device is in passive state
- * @retval 0 Caching device is not in passive state
+ * @retval 1 Caching device is in standby state
+ * @retval 0 Caching device is not in standby state
  */
 bool ocf_cache_is_standby(ocf_cache_t cache);
 

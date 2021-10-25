@@ -53,6 +53,9 @@ int ocf_core_get_by_name(ocf_cache_t cache, const char *name, size_t name_len,
 	ocf_core_t i_core;
 	ocf_core_id_t i_core_id;
 
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	for_each_core(cache, i_core, i_core_id) {
 		if (!env_strncmp(ocf_core_get_name(i_core), OCF_CORE_NAME_SIZE,
 				name, name_len)) {

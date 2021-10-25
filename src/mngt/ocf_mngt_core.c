@@ -954,6 +954,9 @@ int ocf_mngt_core_set_seq_cutoff_threshold_all(ocf_cache_t cache,
 {
 	OCF_CHECK_NULL(cache);
 
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	return ocf_core_visit(cache, _cache_mngt_set_core_seq_cutoff_threshold,
 			&thresh, true);
 }
@@ -1022,9 +1025,11 @@ int ocf_mngt_core_set_seq_cutoff_policy_all(ocf_cache_t cache,
 		ocf_seq_cutoff_policy policy)
 {
 	OCF_CHECK_NULL(cache);
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	return ocf_core_visit(cache, _cache_mngt_set_core_seq_cutoff_policy,
-			&policy, true);
+						  &policy, true);
 }
 
 int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
@@ -1081,9 +1086,11 @@ int ocf_mngt_core_set_seq_cutoff_promotion_count_all(ocf_cache_t cache,
 {
 	OCF_CHECK_NULL(cache);
 
-	return ocf_core_visit(cache,
-			_cache_mngt_set_core_seq_cutoff_promo_count,
-			&count, true);
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
+	return ocf_core_visit(cache, _cache_mngt_set_core_seq_cutoff_promo_count,
+						  &count, true);
 }
 
 int ocf_mngt_core_get_seq_cutoff_promotion_count(ocf_core_t core,

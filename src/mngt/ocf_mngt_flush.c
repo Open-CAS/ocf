@@ -655,6 +655,11 @@ void ocf_mngt_cache_flush(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 
+	if (ocf_cache_is_standby(cache)) {
+		ocf_cache_log(cache, log_err, "Cannot flush cache - cache is standby\n");
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
+	}
+
 	if (!ocf_cache_is_device_attached(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush cache - "
 				"cache device is detached\n");
@@ -1006,6 +1011,9 @@ void ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache,
 	if (new_policy < 0 || new_policy >= ocf_cleaning_max)
 		OCF_CMPL_RET(priv, -OCF_ERR_INVAL);
 
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_STANDBY);
+
 	old_policy = cache->conf_meta->cleaning_policy_type;
 
 	if (new_policy == old_policy) {
@@ -1036,6 +1044,9 @@ int ocf_mngt_cache_cleaning_get_policy(ocf_cache_t cache, ocf_cleaning_t *type)
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(type);
 
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	*type = cache->conf_meta->cleaning_policy_type;
 
 	return 0;
@@ -1050,6 +1061,9 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
 
 	if (type < 0 || type >= ocf_cleaning_max)
 		return -OCF_ERR_INVAL;
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
@@ -1068,6 +1082,9 @@ int ocf_mngt_cache_cleaning_get_param(ocf_cache_t cache, ocf_cleaning_t type,
 
 	if (type < 0 || type >= ocf_cleaning_max)
 		return -OCF_ERR_INVAL;
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	return ocf_cleaning_get_param(cache, type, param_id, param_value);
 }

@@ -873,10 +873,12 @@ int ocf_mngt_cache_promotion_set_policy(ocf_cache_t cache, ocf_promotion_t type)
  * @brief Get promotion policy in given cache
  *
  * @param[in] cache Cache handle
+ * @param[out] type Policy type
  *
- * @retval Currently set promotion policy type
+ * @retval 0 success
+ * @retval Non-zero Error occurred and policy type could not be retrieved
  */
-ocf_promotion_t ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache);
+int ocf_mngt_cache_promotion_get_policy(ocf_cache_t cache, ocf_promotion_t *type);
 
 /**
  * @brief Set promotion policy parameter for given cache
@@ -1149,6 +1151,7 @@ int ocf_mngt_cache_get_fallback_pt_error_threshold(ocf_cache_t cache,
  * @param[in] cache Cache handle
  *
  * @retval 0 Threshold have been reset successfully
+ * @retval Non-zero Error occured
  */
 int ocf_mngt_cache_reset_fallback_pt_error_counter(ocf_cache_t cache);
 

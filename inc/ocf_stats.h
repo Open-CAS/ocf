@@ -233,7 +233,10 @@ void ocf_core_stats_initialize(ocf_core_t core);
  * Initialize or reset counters used for statistics.
  *
  * @param[in] cache Cache handle
+ *
+ * @retval 0 Success
+ * @retval Non-zero Error
  */
-void ocf_core_stats_initialize_all(ocf_cache_t cache);
+int ocf_core_stats_initialize_all(ocf_cache_t cache);
 
 #endif /* __OCF_STATS_H__ */
