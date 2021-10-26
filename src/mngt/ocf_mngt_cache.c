@@ -2183,11 +2183,15 @@ static void _ocf_mngt_activate_check_superblock_complete(void *priv, int error)
 		OCF_PL_FINISH_RET(context->pipeline, result);
 
 	if (cache->conf_meta->metadata_layout != cache->metadata.layout) {
+		ocf_cache_log(cache, log_err, "Failed to activate standby instance: "
+				"invaild metadata layout\n");
 		OCF_PL_FINISH_RET(context->pipeline,
 				-OCF_ERR_METADATA_LAYOUT_MISMATCH);
 	}
 
 	if (cache->conf_meta->line_size != cache->metadata.line_size) {
+		ocf_cache_log(cache, log_err, "Failed to activate standby instance: "
+				"invaild cache line size\n");
 		OCF_PL_FINISH_RET(context->pipeline,
 				-OCF_ERR_CACHE_LINE_SIZE_MISMATCH);
 	}
