@@ -210,7 +210,6 @@ class Cache:
         )
         if status:
             raise OcfError("Creating cache instance failed", status)
-        self.owner.caches.append(self)
 
         self.mngt_queue = mngt_queue or Queue(self, "mgmt-{}".format(self.get_name()))
 
@@ -224,6 +223,7 @@ class Cache:
             raise OcfError("Error setting management queue", status)
 
         self.started = True
+        self.owner.caches.append(self)
 
     def change_cache_mode(self, cache_mode: CacheMode):
         self.write_lock()
@@ -494,6 +494,7 @@ class Cache:
 
         c.wait()
         self.write_unlock()
+        self.device = None
 
         if c.results["error"]:
             raise OcfError("Attaching cache device failed", c.results["error"])
@@ -714,9 +715,10 @@ class Cache:
 
         self.mngt_queue.put()
         del self.io_queues[:]
-        self.started = False
 
         self.write_unlock()
+        self.device = None
+        self.started = False
 
         self.owner.caches.remove(self)
 
