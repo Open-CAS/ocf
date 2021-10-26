@@ -106,7 +106,6 @@ class Rio:
             return False
 
         def get_io_cb(self):
-            @CFUNCTYPE(c_void_p, c_int)
             def cb(error):
                 if error != 0:
                     self.errors.append(error)
