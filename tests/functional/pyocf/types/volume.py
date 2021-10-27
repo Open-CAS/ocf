@@ -239,6 +239,7 @@ class Volume:
         type(self)._uuid_[self.uuid] = self
 
         self.reset_stats()
+        self.is_online = True
         self.opened = False
 
     def do_open(self):
@@ -254,10 +255,10 @@ class Volume:
     def get_max_io_size(self):
         raise NotImplementedError
 
-    def submit_flush(self, flush):
+    def do_submit_flush(self, flush):
         raise NotImplementedError
 
-    def submit_discard(self, discard):
+    def do_submit_discard(self, discard):
         raise NotImplementedError
 
     def get_stats(self):
@@ -269,10 +270,6 @@ class Volume:
     def inc_stats(self, _dir):
         self.stats[_dir] += 1
 
-    def submit_io(self, io):
-        volume.inc_stats(IoDir(io.contents._dir))
-        volume.do_submit_io(io)
-
     def do_submit_io(self, io):
         raise NotImplementedError
 
@@ -281,6 +278,35 @@ class Volume:
 
     def md5(self):
         raise NotImplementedError
+
+    def offline(self):
+        self.is_online = False
+
+    def online(self):
+        self.is_online = True
+
+    def _reject_io(self, io):
+        cast(io, POINTER(Io)).contents._end(io, -OcfErrorCode.OCF_ERR_IO)
+
+    def submit_flush(self, io):
+        if self.is_online:
+            self.do_submit_flush(io)
+        else:
+            self._reject_io(io)
+
+    def submit_io(self, io):
+        if self.is_online:
+            self.inc_stats(IoDir(io.contents._dir))
+            self.do_submit_io(io)
+        else:
+            self._reject_io(io)
+
+    def submit_discard(self, io):
+        if self.is_online:
+            self.do_submit_discard(io)
+        else:
+            self._reject_io(io)
+
 
 class RamVolume(Volume):
     props = None
@@ -309,10 +335,10 @@ class RamVolume(Volume):
     def get_max_io_size(self):
         return S.from_KiB(128)
 
-    def submit_flush(self, flush):
+    def do_submit_flush(self, flush):
         flush.contents._end(flush, 0)
 
-    def submit_discard(self, discard):
+    def do_submit_discard(self, discard):
         try:
             dst = self.data_ptr + discard.contents._addr
             memset(dst, 0, discard.contents._bytes)
