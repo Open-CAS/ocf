@@ -1,6 +1,6 @@
 #
 # Copyright(c) 2019-2021 Intel Corporation
-# SPDX-License-Identifier: BSD-3-Clause-Clear
+# SPDX-License-Identifier: BSD-3-Clause
 #
 
 from ctypes import c_uint8, c_uint32, c_int, c_int16, c_uint16, c_char, c_char_p, Structure

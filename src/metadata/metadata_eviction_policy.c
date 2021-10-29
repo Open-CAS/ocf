@@ -1,6 +1,6 @@
 /*
- * copyright(c )2020 intel corporation
- * spdx-license-identifier: bsd-3-clause-clear
+ * Copyright(c) 2020-2021 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
