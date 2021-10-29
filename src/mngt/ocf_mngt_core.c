@@ -472,6 +472,8 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 			cfg->seq_cutoff_threshold);
 	env_atomic_set(&core->conf_meta->seq_cutoff_promo_count,
 			cfg->seq_cutoff_promotion_count);
+	env_atomic_set(&core->conf_meta->seq_cutoff_promote_on_threshold,
+			cfg->seq_cutoff_promote_on_threshold);
 
 	/* Add core sequence number for atomic metadata matching */
 	core_sequence_no = _ocf_mngt_get_core_seq_no(cache);
@@ -1100,6 +1102,61 @@ int ocf_mngt_core_get_seq_cutoff_promotion_count(ocf_core_t core,
 	OCF_CHECK_NULL(count);
 
 	*count = ocf_core_get_seq_cutoff_promotion_count(core);
+
+	return 0;
+}
+
+static int _cache_mngt_set_core_seq_cutoff_promote_on_threshold(
+		ocf_core_t core, void *cntx)
+{
+	bool promote = *(bool*) cntx;
+	bool promote_old = ocf_core_get_seq_cutoff_promote_on_threshold(core);
+
+	if (promote_old == promote) {
+		ocf_core_log(core, log_info,
+				"Sequential cutoff promote on threshold "
+				"is already set to %s\n", promote ? "true" : "false");
+		return 0;
+	}
+
+	env_atomic_set(&core->conf_meta->seq_cutoff_promote_on_threshold,
+			promote);
+
+	ocf_core_log(core, log_info, "Changing sequential cutoff promote "
+			"on threshold from %s to %s successful\n",
+			promote_old ? "true" : "false", promote ? "true" : "false");
+
+	return 0;
+}
+
+int ocf_mngt_core_set_seq_cutoff_promote_on_threshold(ocf_core_t core,
+		bool promote)
+{
+	OCF_CHECK_NULL(core);
+
+	return _cache_mngt_set_core_seq_cutoff_promote_on_threshold(core, &promote);
+}
+
+int ocf_mngt_core_set_seq_cutoff_promote_on_threshold_all(ocf_cache_t cache,
+		bool promote)
+{
+	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
+	return ocf_core_visit(cache,
+			_cache_mngt_set_core_seq_cutoff_promote_on_threshold,
+			&promote, true);
+}
+
+int ocf_mngt_core_get_seq_cutoff_promote_on_threshold(ocf_core_t core,
+		bool *promote)
+{
+	OCF_CHECK_NULL(core);
+	OCF_CHECK_NULL(promote);
+
+	*promote = ocf_core_get_seq_cutoff_promote_on_threshold(core);
 
 	return 0;
 }

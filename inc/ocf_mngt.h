@@ -45,6 +45,9 @@ struct ocf_mngt_core_config {
 	uint32_t seq_cutoff_promotion_count;
 		/*!< Sequential cutoff promotion request count */
 
+	bool seq_cutoff_promote_on_threshold;
+		/*!< Sequential cutoff promote on threshold */
+
 	struct {
 		void *data;
 		size_t size;
@@ -65,6 +68,7 @@ static inline void ocf_mngt_core_config_set_default(
 	cfg->try_add = false;
 	cfg->seq_cutoff_threshold = 1024;
 	cfg->seq_cutoff_promotion_count = 8;
+	cfg->seq_cutoff_promote_on_threshold = false;
 	cfg->user_metadata.data = NULL;
 	cfg->user_metadata.size = 0;
 }
@@ -1109,6 +1113,7 @@ int ocf_mngt_core_set_seq_cutoff_promotion_count(ocf_core_t core,
  */
 int ocf_mngt_core_set_seq_cutoff_promotion_count_all(ocf_cache_t cache,
 		uint32_t count);
+
 /**
  * @brief Get core sequential cutoff promotion threshold
  *
@@ -1120,6 +1125,50 @@ int ocf_mngt_core_set_seq_cutoff_promotion_count_all(ocf_cache_t cache,
  */
 int ocf_mngt_core_get_seq_cutoff_promotion_count(ocf_core_t core,
 		uint32_t *count);
+
+/**
+ * @brief Set whether to promote core sequential cutoff stream
+ * to global structures when threshold is reached
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
+ * @param[in] core Core handle
+ * @param[in] promote Whether to promote or not
+ *
+ * @retval 0 Sequential cutoff promote on threshold has been set successfully
+ * @retval Non-zero Error occured and promote on threshold hasn't been updated
+ */
+int ocf_mngt_core_set_seq_cutoff_promote_on_threshold(ocf_core_t core,
+		bool promote);
+
+/**
+ * @brief Set whether to promote sequential cutoff stream
+ * to global structures when threshold is reached for all cores in cache
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
+ * @param[in] cache Cache handle
+ * @param[in] promote Whether to promote or not
+ *
+ * @retval 0 Sequential cutoff promote on threshold has been set successfully
+ * @retval Non-zero Error occured and promote on threshold hasn't been updated
+ */
+int ocf_mngt_core_set_seq_cutoff_promote_on_threshold_all(ocf_cache_t cache,
+		bool promote);
+
+/**
+ * @brief Get core sequential cutoff promote on threshold switch value
+ *
+ * @param[in] core Core handle
+ * @param[out] promote Promote on threshold
+ *
+ * @retval 0 Sequential cutoff promote on threshold retrieved successfully
+ * @retval Non-zero Error occured and value could not be retrieved
+ */
+int ocf_mngt_core_get_seq_cutoff_promote_on_threshold(ocf_core_t core,
+		bool *promote);
 
 /**
  * @brief Set cache fallback Pass Through error threshold

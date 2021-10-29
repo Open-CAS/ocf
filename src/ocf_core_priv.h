@@ -47,6 +47,9 @@ struct ocf_core_meta_config {
 	/* Sequential cutoff stream promotion request count */
 	env_atomic seq_cutoff_promo_count;
 
+	/* Sequential cutoff stream promote on threshold */
+	env_atomic seq_cutoff_promote_on_threshold;
+
 	/* core object size in bytes */
 	uint64_t length;
 
