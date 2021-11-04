@@ -529,7 +529,8 @@ int ocf_metadata_io_ctx_init(struct ocf_ctx *ocf_ctx)
 {
 	uint32_t limits[] = {
 		[0 ... MIO_RPOOL_THRESHOLD - 1] = -1,
-		[MIO_RPOOL_THRESHOLD ... ocf_mio_size_max - 1] = MIO_RPOOL_LIMIT
+		[MIO_RPOOL_THRESHOLD ... ocf_mio_size_max - 1] = MIO_RPOOL_LIMIT,
+		[ocf_mio_size_max ... env_mpool_max] = -1,
 	};
 
 	ocf_ctx->resources.mio = env_mpool_create(
