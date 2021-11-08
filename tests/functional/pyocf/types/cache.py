@@ -205,10 +205,7 @@ class Cache:
         self.cores = []
 
     def start_cache(
-        self,
-        default_io_queue: Queue = None,
-        mngt_queue: Queue = None,
-        locked: bool = False,
+        self, init_mngmt_queue=True, init_default_io_queue=True, locked: bool = False,
     ):
         cfg = CacheConfig(
             _name=self.name.encode("ascii"),
@@ -231,19 +228,23 @@ class Cache:
         if status:
             raise OcfError("Creating cache instance failed", status)
 
-        self.mngt_queue = mngt_queue or Queue(self, "mgmt-{}".format(self.get_name()))
+        if init_mngmt_queue:
+            self.mngt_queue = Queue(self, "mgmt-{}".format(self.get_name()))
+            status = self.owner.lib.ocf_mngt_cache_set_mngt_queue(self, self.mngt_queue)
+            if status:
+                raise OcfError("Error setting management queue", status)
 
-        if default_io_queue:
-            self.io_queues += [default_io_queue]
+        if init_default_io_queue:
+            self.io_queues = [Queue(self, "default-io-{}".format(self.get_name()))]
         else:
-            self.io_queues += [Queue(self, "default-io-{}".format(self.get_name()))]
-
-        status = self.owner.lib.ocf_mngt_cache_set_mngt_queue(self, self.mngt_queue)
-        if status:
-            raise OcfError("Error setting management queue", status)
+            self.io_queues = []
 
         self.started = True
         self.owner.caches.append(self)
+
+    def add_io_queue(self, *args, **kwargs):
+        q = Queue(self, args, **kwargs)
+        self.io_queues += [q]
 
     def standby_detach(self):
         self.write_lock()
