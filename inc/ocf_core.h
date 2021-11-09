@@ -119,6 +119,16 @@ ocf_seq_cutoff_policy ocf_core_get_seq_cutoff_policy(ocf_core_t core);
 uint32_t ocf_core_get_seq_cutoff_promotion_count(ocf_core_t core);
 
 /**
+ * @brief Whether to promote sequential cutoff stream
+ * to global structures when threshold is reached
+ *
+ * @param[in] core Core object
+ *
+ * @retval Sequential cutoff stream promote_on_threshold switch value
+ */
+bool ocf_core_get_seq_cutoff_promote_on_threshold(ocf_core_t core);
+
+/**
  * @brief Get name of given core object
  *
  * @param[in] core Core object

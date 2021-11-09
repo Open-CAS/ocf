@@ -300,13 +300,15 @@ void ocf_core_seq_cutoff_update(ocf_core_t core, struct ocf_request *req)
 	uint32_t threshold = ocf_core_get_seq_cutoff_threshold(core);
 	uint32_t promotion_count =
 			ocf_core_get_seq_cutoff_promotion_count(core);
+	bool promote_on_threshold =
+			ocf_core_get_seq_cutoff_promote_on_threshold(core);
 	struct ocf_seq_cutoff_stream *stream;
 	bool promote = false;
 
 	if (policy == ocf_seq_cutoff_policy_never)
 		return;
 
-	if (req->byte_length >= threshold)
+	if (req->byte_length >= threshold && promote_on_threshold)
 		promote = true;
 
 	if (promotion_count == 1)
@@ -328,7 +330,7 @@ void ocf_core_seq_cutoff_update(ocf_core_t core, struct ocf_request *req)
 			req->byte_position, req->byte_length, req->rw, true);
 	env_rwlock_write_unlock(&req->io_queue->seq_cutoff->lock);
 
-	if (stream->bytes >= threshold)
+	if (stream->bytes >= threshold && promote_on_threshold)
 		promote = true;
 
 	if (stream->req_count >= promotion_count)
