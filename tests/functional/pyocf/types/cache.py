@@ -798,6 +798,9 @@ class Cache:
         finally:
             self.read_unlock()
 
+    # settle all queues accociated with this cache (mngt and I/O)
+    def settle(self):
+        Queue.settle_many(self.io_queues + [self.mngt_queue])
 
 lib = OcfLib.getInstance()
 lib.ocf_mngt_cache_remove_core.argtypes = [c_void_p, c_void_p, c_void_p]
