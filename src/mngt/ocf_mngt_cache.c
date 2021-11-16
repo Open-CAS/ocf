@@ -500,34 +500,35 @@ static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
 	ocf_cleaning_init_cache_block(cache, cline);
 }
 
-static void _ocf_mngt_recovery_rebuild_metadata(ocf_cache_t cache)
+static void _ocf_mngt_rebuild_metadata(ocf_cache_t cache, bool initialized)
 {
 	ocf_cache_line_t cline;
 	ocf_core_id_t core_id;
 	uint64_t core_line;
 	unsigned char step = 0;
-	bool dirty_only = !ocf_volume_is_atomic(ocf_cache_get_volume(cache));
 	const uint64_t collision_table_entries =
 			ocf_metadata_collision_table_entries(cache);
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	for (cline = 0; cline < collision_table_entries; cline++) {
-		ocf_metadata_get_core_info(cache, cline, &core_id, &core_line);
-		if (core_id != OCF_CORE_MAX &&
-				(!dirty_only || metadata_test_dirty(cache,
-						cline))) {
-			/* Rebuild metadata for mapped cache line */
-			ocf_cline_rebuild_metadata(cache, core_id,
-					core_line, cline);
-			if (dirty_only)
-				metadata_clear_valid_if_clean(cache, cline);
-		} else {
-			/* Reset metadata for not mapped or clean cache line */
-			_recovery_reset_cline_metadata(cache, cline);
-		}
+		bool any_valid = true;
 
 		OCF_COND_RESCHED(step, 128);
+		ocf_metadata_get_core_info(cache, cline, &core_id, &core_line);
+
+		if (!initialized)
+			metadata_clear_dirty_if_invalid(cache, cline);
+
+		any_valid = metadata_clear_valid_if_clean(cache, cline);
+		if (!any_valid || core_id >= OCF_CORE_MAX) {
+			/* Reset metadata for not mapped or clean cache line */
+			_recovery_reset_cline_metadata(cache, cline);
+			continue;
+		}
+
+		/* Rebuild metadata for mapped cache line */
+		ocf_cline_rebuild_metadata(cache, core_id, core_line, cline);
 	}
 
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
@@ -2035,6 +2036,18 @@ static void _ocf_mngt_bind_init_attached_structures(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(context->pipeline);
 }
 
+static void _ocf_mngt_bind_recovery_unsafe(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	_ocf_mngt_bind_rebuild_metadata(cache);
+	__populate_free_unsafe(cache);
+
+	ocf_pipeline_next(pipeline);
+}
+
 static void _ocf_mngt_bind_post_init(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -2060,6 +2073,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_attach_prepare_metadata),
 		OCF_PL_STEP(_ocf_mngt_load_metadata_unsafe),
 		OCF_PL_STEP(_ocf_mngt_bind_init_attached_structures),
+		OCF_PL_STEP(_ocf_mngt_bind_recovery_unsafe),
 		OCF_PL_STEP(_ocf_mngt_bind_post_init),
 		OCF_PL_STEP_TERMINATOR(),
 	},
