@@ -210,12 +210,19 @@ static void __init_parts_attached(ocf_cache_t cache)
 	ocf_lru_init(cache, &cache->free);
 }
 
-static void __populate_free(ocf_cache_t cache)
+static void __populate_free_unsafe(ocf_cache_t cache)
+{
+	uint64_t free_clines = ocf_metadata_collision_table_entries(cache);
+
+	ocf_lru_populate(cache, free_clines, false);
+}
+
+static void __populate_free_safe(ocf_cache_t cache)
 {
 	uint64_t free_clines = ocf_metadata_collision_table_entries(cache) -
 			ocf_get_cache_occupancy(cache);
 
-	ocf_lru_populate(cache, free_clines);
+	ocf_lru_populate(cache, free_clines, true);
 }
 
 static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
@@ -307,7 +314,7 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache)
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
 	__init_parts_attached(cache);
-	__populate_free(cache);
+	__populate_free_safe(cache);
 
 	result = __init_cleaning_policy(cache);
 	if (result) {
@@ -536,7 +543,7 @@ static void _ocf_mngt_load_post_metadata_load(ocf_pipeline_t pipeline,
 
 	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown) {
 		_ocf_mngt_recovery_rebuild_metadata(cache);
-		__populate_free(cache);
+		__populate_free_safe(cache);
 	}
 
 	cleaning_policy = cache->conf_meta->cleaning_policy_type;
