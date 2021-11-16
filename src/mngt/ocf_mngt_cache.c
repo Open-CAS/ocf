@@ -1997,6 +1997,22 @@ static void _ocf_mngt_load_unsafe_complete(void *priv, int error)
 	ocf_pipeline_next(context->pipeline);
 }
 
+static void _ocf_mngt_standby_init_properties(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	OCF_ASSERT_PLUGGED(cache);
+
+	context->metadata.shutdown_status = ocf_metadata_dirty_shutdown;
+	context->metadata.dirty_flushed = DIRTY_FLUSHED;
+	context->metadata.line_size = context->cfg.cache_line_size ?:
+			cache->metadata.line_size;
+
+	ocf_pipeline_next(pipeline);
+}
+
 static void _ocf_mngt_load_metadata_unsafe(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -2038,7 +2054,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_init_attached_nonpersistent),
 		OCF_PL_STEP(_ocf_mngt_attach_cache_device),
 		OCF_PL_STEP(_ocf_mngt_init_cache_front_volume),
-		OCF_PL_STEP(_ocf_mngt_init_properties),
+		OCF_PL_STEP(_ocf_mngt_standby_init_properties),
 		OCF_PL_STEP(_ocf_mngt_attach_check_ram),
 		OCF_PL_STEP(_ocf_mngt_test_volume),
 		OCF_PL_STEP(_ocf_mngt_attach_prepare_metadata),
