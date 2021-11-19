@@ -1566,6 +1566,31 @@ bool ocf_metadata_clear_valid_if_clean(struct ocf_cache *cache,
 	}
 }
 
+void ocf_metadata_clear_dirty_if_invalid(struct ocf_cache *cache,
+	 ocf_cache_line_t line, uint8_t start, uint8_t stop)
+{
+	switch (cache->metadata.line_size) {
+		case ocf_cache_line_size_4:
+			return _ocf_metadata_clear_dirty_if_invalid_u8(cache,
+					line, start, stop);
+		case ocf_cache_line_size_8:
+			return _ocf_metadata_clear_dirty_if_invalid_u16(cache,
+					line, start, stop);
+		case ocf_cache_line_size_16:
+			return _ocf_metadata_clear_dirty_if_invalid_u32(cache,
+					line, start, stop);
+		case ocf_cache_line_size_32:
+			return _ocf_metadata_clear_dirty_if_invalid_u64(cache,
+					line, start, stop);
+		case ocf_cache_line_size_64:
+			return _ocf_metadata_clear_dirty_if_invalid_u128(cache,
+					line, start, stop);
+		case ocf_cache_line_size_none:
+		default:
+			ENV_BUG();
+	}
+}
+
 int ocf_metadata_init(struct ocf_cache *cache,
 		ocf_cache_line_size_t cache_line_size)
 {
@@ -2018,52 +2043,4 @@ void ocf_metadata_probe_cores(ocf_ctx_t ctx, ocf_volume_t volume,
 
 	ocf_metadata_query_cores(ctx, volume, uuids, uuids_count,
 			ocf_metadata_probe_cores_end, context);
-}
-
-int ocf_metadata_passive_update(ocf_cache_t cache, struct ocf_io *io)
-{
-	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
-	ctx_data_t *data = ocf_io_get_data(io);
-	uint64_t io_start_page = BYTES_TO_PAGES(io->addr);
-	uint64_t io_end_page = io_start_page + BYTES_TO_PAGES(io->bytes);
-	enum ocf_metadata_segment_id update_segments[] = {
-		metadata_segment_sb_config,
-		metadata_segment_part_config,
-		metadata_segment_core_config,
-		metadata_segment_core_uuid,
-		metadata_segment_collision,
-	};
-	int i;
-
-	if (io->dir == OCF_READ)
-		return 0;
-
-	if (io->addr % PAGE_SIZE || io->bytes % PAGE_SIZE) {
-		ocf_cache_log(cache, log_crit,
-				"Metadata update not aligned to page size!\n");
-		return -OCF_ERR_INVAL;
-	}
-
-	if (io_start_page >= ctrl->count_pages)
-		return 0;
-
-	for (i = 0; i < ARRAY_SIZE(update_segments); i++) {
-		enum ocf_metadata_segment_id seg = update_segments[i];
-		struct ocf_metadata_raw *raw = &(ctrl->raw_desc[seg]);
-		uint64_t raw_start_page = raw->ssd_pages_offset;
-		uint64_t raw_end_page = raw_start_page + raw->ssd_pages;
-		uint64_t overlap_start = OCF_MAX(io_start_page, raw_start_page);
-		uint64_t overlap_end = OCF_MIN(io_end_page, raw_end_page);
-		uint64_t overlap_start_data = overlap_start - io_start_page;
-
-		if (overlap_start < overlap_end) {
-			ctx_data_seek(cache->owner, data, ctx_data_seek_begin,
-					PAGES_TO_BYTES(overlap_start_data));
-			ocf_metadata_raw_update(cache, raw, data,
-					overlap_start - raw_start_page,
-					overlap_end - overlap_start);
-		}
-	}
-
-	return 0;
 }

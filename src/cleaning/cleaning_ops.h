@@ -91,7 +91,7 @@ static inline void ocf_cleaning_deinitialize(ocf_cache_t cache)
 {
 	ocf_cleaning_t policy;
 
-	policy = cache->conf_meta->cleaning_policy_type;
+	policy = cache->cleaner.policy;
 
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
@@ -110,7 +110,7 @@ static inline int ocf_cleaning_add_core(ocf_cache_t cache,
 	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
 		return -OCF_ERR_NO_LOCK;
 
-	policy = cache->conf_meta->cleaning_policy_type;
+	policy = cache->cleaner.policy;
 
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
@@ -133,7 +133,7 @@ static inline void ocf_cleaning_remove_core(ocf_cache_t cache,
 	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
 		return;
 
-	policy = cache->conf_meta->cleaning_policy_type;
+	policy = cache->cleaner.policy;
 
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
@@ -154,7 +154,7 @@ static inline void ocf_cleaning_init_cache_block(ocf_cache_t cache,
 	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
 		return;
 
-	policy = cache->conf_meta->cleaning_policy_type;
+	policy = cache->cleaner.policy;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
 	if (unlikely(!cleaning_policy_ops[policy].init_cache_block))
@@ -174,7 +174,7 @@ static inline void ocf_cleaning_purge_cache_block(ocf_cache_t cache,
 	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
 		return;
 
-	policy = cache->conf_meta->cleaning_policy_type;
+	policy = cache->cleaner.policy;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
 	if (unlikely(!cleaning_policy_ops[policy].purge_cache_block))
@@ -194,7 +194,7 @@ static inline void ocf_cleaning_purge_range(ocf_cache_t cache,
 	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
 		return;
 
-	policy = cache->conf_meta->cleaning_policy_type;
+	policy = cache->cleaner.policy;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
 	if (unlikely(!cleaning_policy_ops[policy].purge_range))
@@ -215,7 +215,7 @@ static inline void ocf_cleaning_set_hot_cache_line(ocf_cache_t cache,
 	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
 		return;
 
-	policy = cache->conf_meta->cleaning_policy_type;
+	policy = cache->cleaner.policy;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
 	if (unlikely(!cleaning_policy_ops[policy].set_hot_cache_line))
@@ -259,7 +259,7 @@ static inline void ocf_cleaning_perform_cleaning(ocf_cache_t cache,
 	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
 		return;
 
-	policy = cache->conf_meta->cleaning_policy_type;
+	policy = cache->cleaner.policy;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
 	if (unlikely(!cleaning_policy_ops[policy].perform_cleaning))

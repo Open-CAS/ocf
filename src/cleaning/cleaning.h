@@ -41,6 +41,7 @@ struct cleaning_policy_meta {
 
 struct ocf_cleaner {
 	struct ocf_refcnt refcnt __attribute__((aligned(64)));
+	ocf_cleaning_t policy;
 	void *cleaning_policy_context;
 	ocf_queue_t io_queue;
 	ocf_cleaner_end_t end;

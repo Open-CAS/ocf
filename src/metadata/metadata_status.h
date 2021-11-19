@@ -40,6 +40,8 @@ bool ocf_metadata_test_and_clear_valid(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all);
 bool ocf_metadata_clear_valid_if_clean(struct ocf_cache *cache,
 		ocf_cache_line_t line, uint8_t start, uint8_t stop);
+void ocf_metadata_clear_dirty_if_invalid(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop);
 
 static inline void metadata_init_status_bits(struct ocf_cache *cache,
 		ocf_cache_line_t line)
@@ -228,10 +230,10 @@ static inline void metadata_clear_valid(struct ocf_cache *cache,
 	ocf_metadata_clear_valid(cache, line, 0, ocf_line_end_sector(cache));
 }
 
-static inline void metadata_clear_valid_if_clean(struct ocf_cache *cache,
+static inline bool metadata_clear_valid_if_clean(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	ocf_metadata_clear_valid_if_clean(cache, line, 0,
+	return ocf_metadata_clear_valid_if_clean(cache, line, 0,
 			ocf_line_end_sector(cache));
 }
 
@@ -247,6 +249,13 @@ static inline bool metadata_test_and_set_valid(struct ocf_cache *cache,
 {
 	return ocf_metadata_test_and_set_valid(cache, line, 0,
 			ocf_line_end_sector(cache), true);
+}
+
+static inline void metadata_clear_dirty_if_invalid(struct ocf_cache *cache,
+		ocf_cache_line_t line)
+{
+	ocf_metadata_clear_dirty_if_invalid(cache, line, 0,
+			ocf_line_end_sector(cache));
 }
 
 /*******************************************************************************

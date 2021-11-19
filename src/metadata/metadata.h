@@ -18,6 +18,7 @@
 #include "metadata_collision.h"
 #include "metadata_core.h"
 #include "metadata_misc.h"
+#include "metadata_passive_update.h"
 
 #define INVALID 0
 #define VALID 1
@@ -225,7 +226,5 @@ static inline ocf_cache_line_t ocf_metadata_collision_table_entries(
 {
 	return cache->device->collision_table_entries;
 }
-
-int ocf_metadata_passive_update(ocf_cache_t cache, struct ocf_io *io);
 
 #endif /* METADATA_H_ */

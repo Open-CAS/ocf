@@ -191,7 +191,6 @@ static void *_raw_ram_access(ocf_cache_t cache,
 static int _raw_ram_drain_page(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, ctx_data_t *data, uint32_t page)
 {
-
 	uint32_t size = raw->entry_size * raw->entries_in_page;
 	ocf_cache_line_t line;
 
@@ -222,6 +221,7 @@ static int _raw_ram_update(ocf_cache_t cache,
 		_raw_ram_drain_page(cache, raw, data, page + i);
 
 	return 0;
+
 }
 
 struct _raw_ram_load_all_context {

@@ -42,7 +42,7 @@ int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 	info->min_size = cache->user_parts[part_id].config->min_size;
 	info->max_size = cache->user_parts[part_id].config->max_size;
 
-	info->cleaning_policy_type = cache->conf_meta->cleaning_policy_type;
+	info->cleaning_policy_type = cache->cleaner.policy;
 
 	info->cache_mode = cache->user_parts[part_id].config->cache_mode;
 
