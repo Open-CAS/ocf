@@ -121,7 +121,7 @@ int ocf_read_pt(struct ocf_request *req)
 	ocf_engine_traverse(req);
 
 	if (req->seq_cutoff && ocf_engine_is_dirty_all(req) &&
-			!req->bf_blocked) {
+			!req->force_pt) {
 		use_cache = true;
 	} else {
 		if (ocf_engine_mapped_count(req)) {
