@@ -15,8 +15,10 @@
  * @brief OCF error enumerator
  */
 typedef enum {
+	OCF_ERR_MIN = 1000000,
+
 	/** Invalid input parameter value */
-	OCF_ERR_INVAL = 1000000,
+	OCF_ERR_INVAL = OCF_ERR_MIN,
 
 	/** Try again */
 	OCF_ERR_AGAIN,
@@ -137,6 +139,8 @@ typedef enum {
 
 	/** Invalid operation for cache in standby state. */
 	OCF_ERR_CACHE_STANDBY,
+
+	OCF_ERR_MAX = OCF_ERR_CACHE_STANDBY,
 } ocf_error_t;
 
 #endif /* __OCF_ERR_H__ */
