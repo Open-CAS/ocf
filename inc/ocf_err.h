@@ -15,8 +15,10 @@
  * @brief OCF error enumerator
  */
 typedef enum {
+	OCF_ERR_MIN = 1000000,
+
 	/** Invalid input parameter value */
-	OCF_ERR_INVAL = 1000000,
+	OCF_ERR_INVAL = OCF_ERR_MIN,
 
 	/** Try again */
 	OCF_ERR_AGAIN,
@@ -128,6 +130,8 @@ typedef enum {
 
 	/** Core with the uuid already exists */
 	OCF_ERR_CORE_UUID_EXISTS,
+
+	OCF_ERR_MAX = OCF_ERR_CORE_UUID_EXISTS,
 } ocf_error_t;
 
 #endif /* __OCF_ERR_H__ */
