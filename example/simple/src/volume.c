@@ -44,17 +44,19 @@ static void volume_close(ocf_volume_t volume)
  */
 static void volume_submit_io(struct ocf_io *io)
 {
+	struct myvolume_io *myvolume_io = ocf_io_get_priv(io);
 	struct volume_data *data;
 	struct myvolume *myvolume;
+	uint32_t offset = myvolume_io->offset;
 
 	data = ocf_io_get_data(io);
 	myvolume = ocf_volume_get_priv(ocf_io_get_volume(io));
 
 	if (io->dir == OCF_WRITE) {
 		memcpy(myvolume->mem + io->addr,
-				data->ptr + data->offset, io->bytes);
+				data->ptr + offset, io->bytes);
 	} else {
-		memcpy(data->ptr + data->offset,
+		memcpy(data->ptr + offset,
 				myvolume->mem + io->addr, io->bytes);
 	}
 
