@@ -32,8 +32,12 @@ static inline void _reset_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	ocf_lru_clean_cline(cache, &cache->user_parts[PARTITION_DEFAULT].part,
 			cline);
 
+	metadata_init_status_bits(cache, cline);
+
 	ocf_lru_rm_cline(cache, cline);
 	ocf_metadata_set_partition_id(cache, cline, PARTITION_FREELIST);
+
+	ocf_metadata_set_core_info(cache, cline, OCF_CORE_MAX, ULLONG_MAX);
 }
 
 static inline void remove_from_freelist(ocf_cache_t cache,
@@ -203,6 +207,9 @@ static void cleanup_old_mapping(ocf_cache_t cache, ocf_cache_line_t start,
 		core = ocf_cache_get_core(cache, core_id);
 		if (!core)
 			continue;
+
+		ENV_BUG_ON(ocf_metadata_get_partition_id(cache, cline) !=
+				PARTITION_DEFAULT);
 
 		_dec_core_stats(core);
 
