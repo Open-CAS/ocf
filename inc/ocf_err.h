@@ -140,7 +140,10 @@ typedef enum {
 	/** Invalid operation for cache in standby state. */
 	OCF_ERR_CACHE_STANDBY,
 
-	OCF_ERR_MAX = OCF_ERR_CACHE_STANDBY,
+	/** Operation invalid with cache drive atatched in failover standby */
+	OCF_ERR_FAILOVER_ATTACHED,
+
+	OCF_ERR_MAX = OCF_ERR_FAILOVER_ATTACHED,
 } ocf_error_t;
 
 #endif /* __OCF_ERR_H__ */
