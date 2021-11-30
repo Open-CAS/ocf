@@ -208,6 +208,9 @@ static void cleanup_old_mapping(ocf_cache_t cache, ocf_cache_line_t start,
 		if (!core)
 			continue;
 
+		ENV_BUG_ON(ocf_metadata_get_partition_id(cache, cline) !=
+				PARTITION_DEFAULT);
+
 		_dec_core_stats(core);
 
 		ocf_hb_cline_prot_lock_wr(&cache->metadata.lock, lock_idx, core_id,
