@@ -304,7 +304,7 @@ static void ocf_mngt_cache_try_add_core_insert(ocf_pipeline_t pipeline,
 	if (ocf_volume_get_length(volume) != core->conf_meta->length) {
 		ocf_cache_log(cache, log_err,
 				"Size of core volume doesn't match with"
-				" the size stored in cache metadata!");
+				" the size stored in cache metadata!\n");
 		result = -OCF_ERR_CORE_NOT_AVAIL;
 		goto error_after_open;
 	}
@@ -420,8 +420,10 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	context->flags.volume_opened = true;
 
 	length = ocf_volume_get_length(volume);
-	if (!length)
+	if (!length) {
+		ocf_cache_log(cache, log_err, "Core %s is zero size\n", cfg->name);
 		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_CORE_NOT_AVAIL);
+	}
 
 	core->conf_meta->length = length;
 
@@ -508,13 +510,7 @@ static void ocf_mngt_cache_add_core_finish(ocf_pipeline_t pipeline,
 	ocf_core_t core = context->core;
 
 	if (error) {
-
 		_ocf_mngt_cache_add_core_handle_error(context);
-
-		if (error == -OCF_ERR_CORE_NOT_AVAIL) {
-			ocf_cache_log(cache, log_err, "Core %s is zero size\n",
-					context->cfg.name);
-		}
 		ocf_cache_log(cache, log_err, "Adding core %s failed\n",
 				context->cfg.name);
 		goto out;
