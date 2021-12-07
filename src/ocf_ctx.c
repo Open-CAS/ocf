@@ -84,7 +84,7 @@ void ocf_ctx_unregister_volume_type(ocf_ctx_t ctx, uint8_t type_id)
 {
 	OCF_CHECK_NULL(ctx);
 
-	if (type_id < OCF_VOLUME_TYPE_MAX_USER)
+	if (type_id < OCF_VOLUME_TYPE_MAX)
 		ocf_ctx_unregister_volume_type_internal(ctx, type_id);
 }
 
