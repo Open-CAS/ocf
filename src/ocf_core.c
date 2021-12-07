@@ -310,12 +310,16 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 	ocf_core_update_stats(core, io);
 
 	ocf_io_get(io);
+	/* Prevent race condition */
+	ocf_req_get(req);
 
 	if (!ocf_core_submit_io_fast(io, req, core, cache)) {
 		ocf_core_seq_cutoff_update(core, req);
+		ocf_req_put(req);
 		return;
 	}
 
+	ocf_req_put(req);
 	ocf_req_clear_map(req);
 	ocf_core_seq_cutoff_update(core, req);
 
