@@ -256,18 +256,22 @@ static inline void ocf_cleaning_perform_cleaning(ocf_cache_t cache,
 {
 	ocf_cleaning_t policy;
 
-	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt))) {
+		cmpl(&cache->cleaner, 1000);
 		return;
+	}
 
 	policy = cache->conf_meta->cleaning_policy_type;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
-	if (unlikely(!cleaning_policy_ops[policy].perform_cleaning))
-		goto unlock;
+	if (unlikely(!cleaning_policy_ops[policy].perform_cleaning)) {
+		ocf_refcnt_dec(&cache->cleaner.refcnt);
+		cmpl(&cache->cleaner, 1000);
+		return;
+	}
 
 	cleaning_policy_ops[policy].perform_cleaning(cache, cmpl);
 
-unlock:
 	ocf_refcnt_dec(&cache->cleaner.refcnt);
 }
 
