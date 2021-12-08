@@ -247,6 +247,8 @@ void *raw_dynamic_access(ocf_cache_t cache,
 * RAM DYNAMIC Implementation - Load all
 */
 #define RAW_DYNAMIC_LOAD_PAGES 128
+#define metadata_io_size(__i_page, __pages_total) \
+	OCF_MIN(RAW_DYNAMIC_LOAD_PAGES, (__pages_total -__i_page))
 
 struct raw_dynamic_load_all_context {
 	struct ocf_metadata_raw *raw;
@@ -304,7 +306,7 @@ static int raw_dynamic_load_all_read(struct ocf_request *req)
 	uint64_t count;
 	int result;
 
-	count = OCF_MIN(RAW_DYNAMIC_LOAD_PAGES, raw->ssd_pages - context->i);
+	count = metadata_io_size(context->i, raw->ssd_pages);
 
 	/* Allocate IO */
 	context->io = ocf_new_cache_io(context->cache, req->io_queue,
@@ -343,8 +345,8 @@ static int raw_dynamic_load_all_update(struct ocf_request *req)
 	struct ocf_metadata_raw *raw = context->raw;
 	struct _raw_ctrl *ctrl = (struct _raw_ctrl *)raw->priv;
 	ocf_cache_t cache = context->cache;
-	uint64_t count = BYTES_TO_PAGES(context->io->bytes);
 	uint64_t i_page;
+	uint64_t count = metadata_io_size(context->i, raw->ssd_pages);
 	int result = 0;
 	int cmp;
 
