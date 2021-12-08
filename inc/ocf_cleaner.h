@@ -35,8 +35,10 @@ void ocf_cleaner_set_cmpl(ocf_cleaner_t cleaner, ocf_cleaner_end_t fn);
  *
  * @param[in] c Cleaner instance to run
  * @param[in] queue IO queue handle
+ *
+ * @retval Whether cleaning performed
  */
-void ocf_cleaner_run(ocf_cleaner_t c, ocf_queue_t queue);
+bool ocf_cleaner_run(ocf_cleaner_t c, ocf_queue_t queue);
 
 /**
  * @brief Set cleaner private data

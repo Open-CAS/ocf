@@ -79,7 +79,7 @@ static void ocf_cleaner_run_complete(ocf_cleaner_t cleaner, uint32_t interval)
 	cleaner->end(cleaner, interval);
 }
 
-void ocf_cleaner_run(ocf_cleaner_t cleaner, ocf_queue_t queue)
+bool ocf_cleaner_run(ocf_cleaner_t cleaner, ocf_queue_t queue)
 {
 	ocf_cache_t cache;
 
@@ -94,23 +94,26 @@ void ocf_cleaner_run(ocf_cleaner_t cleaner, ocf_queue_t queue)
 	if (!env_bit_test(ocf_cache_state_running, &cache->cache_state) ||
 			ocf_mngt_cache_is_locked(cache)) {
 		cleaner->end(cleaner, SLEEP_TIME_MS);
-		return;
+		return false;
 	}
 
 	/* Sleep in case there is management operation in progress. */
 	if (ocf_mngt_cache_trylock(cache)) {
 		cleaner->end(cleaner, SLEEP_TIME_MS);
-		return;
+		return false;
 	}
 
 	if (_ocf_cleaner_run_check_dirty_inactive(cache)) {
 		ocf_mngt_cache_unlock(cache);
 		cleaner->end(cleaner, SLEEP_TIME_MS);
-		return;
+		return false;
 	}
 
 	ocf_queue_get(queue);
 	cleaner->io_queue = queue;
 
-	ocf_cleaning_perform_cleaning(cache, ocf_cleaner_run_complete);
+	if (ocf_cleaning_perform_cleaning(cache, ocf_cleaner_run_complete))
+		return false;
+
+	return true;
 }

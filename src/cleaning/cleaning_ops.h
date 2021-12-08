@@ -251,13 +251,13 @@ static inline int ocf_cleaning_get_param(ocf_cache_t cache,
 			param_value);
 }
 
-static inline void ocf_cleaning_perform_cleaning(ocf_cache_t cache,
+static inline bool ocf_cleaning_perform_cleaning(ocf_cache_t cache,
 		ocf_cleaner_end_t cmpl)
 {
 	ocf_cleaning_t policy;
 
 	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
-		return;
+		return false;
 
 	policy = cache->cleaner.policy;
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
@@ -266,9 +266,11 @@ static inline void ocf_cleaning_perform_cleaning(ocf_cache_t cache,
 		goto unlock;
 
 	cleaning_policy_ops[policy].perform_cleaning(cache, cmpl);
+	return true;
 
 unlock:
 	ocf_refcnt_dec(&cache->cleaner.refcnt);
+	return false;
 }
 
 static inline const char *ocf_cleaning_get_name(ocf_cleaning_t policy)
