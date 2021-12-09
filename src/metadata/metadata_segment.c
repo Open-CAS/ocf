@@ -138,22 +138,32 @@ void ocf_metadata_flush_segment(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_metadata_context *context = priv;
-	int segment = ocf_pipeline_arg_get_int(arg);
-	struct ocf_metadata_ctrl *ctrl = context->ctrl;
+	int segment_id = ocf_pipeline_arg_get_int(arg);
+	struct ocf_metadata_segment *segment = context->ctrl->segment[segment_id];
 	ocf_cache_t cache = context->cache;
+	unsigned next_flapping_idx =
+			ocf_metadata_superblock_get_next_flapping_idx(
+					segment->superblock);
 
-	ocf_metadata_raw_flush_all(cache, &ctrl->raw_desc[segment],
-			ocf_metadata_generic_complete, context);
+	next_flapping_idx = segment->raw->flapping ? next_flapping_idx : 0;
+
+	ocf_metadata_raw_flush_all(cache, segment->raw,
+			ocf_metadata_generic_complete, context,
+			next_flapping_idx);
 }
 
 void ocf_metadata_load_segment(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_metadata_context *context = priv;
-	int segment = ocf_pipeline_arg_get_int(arg);
-	struct ocf_metadata_ctrl *ctrl = context->ctrl;
+	int segment_id = ocf_pipeline_arg_get_int(arg);
+	struct ocf_metadata_segment *segment = context->ctrl->segment[segment_id];
 	ocf_cache_t cache = context->cache;
+	unsigned flapping_idx = ocf_metadata_superblock_get_flapping_idx(
+			segment->superblock);
 
-	ocf_metadata_raw_load_all(cache, &ctrl->raw_desc[segment],
-			ocf_metadata_generic_complete, context);
+	flapping_idx = segment->raw->flapping ? flapping_idx : 0;
+
+	ocf_metadata_raw_load_all(cache, segment->raw,
+			ocf_metadata_generic_complete, context, flapping_idx);
 }
