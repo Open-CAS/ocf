@@ -323,6 +323,21 @@ static void ocf_metadata_flush_superblock_prepare(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+static void ocf_metadata_flush_superblock_flap(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_metadata_context *context = priv;
+	struct ocf_metadata_ctrl *ctrl;
+	struct ocf_superblock_config *sb_config;
+
+	ctrl = context->ctrl;
+	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
+
+	sb_config->flapping_idx = (sb_config->flapping_idx + 1) % 2;
+
+	ocf_pipeline_next(pipeline);
+}
+
 static void ocf_metadata_calculate_crc_sb_config(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -344,10 +359,18 @@ static void ocf_metadata_flush_superblock_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
 	struct ocf_metadata_context *context = priv;
+	struct ocf_metadata_ctrl *ctrl;
+	struct ocf_superblock_config *sb_config;
 	ocf_cache_t cache = context->cache;
 
-	if (error)
+	if (error) {
 		ocf_metadata_error(cache);
+
+		ctrl = context->ctrl;
+		sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
+
+		sb_config->flapping_idx = (sb_config->flapping_idx - 1) % 2;
+	}
 
 	context->cmpl(context->priv, error);
 	ocf_pipeline_destroy(pipeline);
@@ -376,15 +399,7 @@ static void ocf_metadata_flush_disk(ocf_pipeline_t pipeline,
 		ocf_metadata_flush_disk_end, context);
 }
 
-struct ocf_pipeline_arg ocf_metadata_flush_sb_calculate_crc_args[] = {
-	OCF_PL_ARG_INT(metadata_segment_part_config),
-	OCF_PL_ARG_INT(metadata_segment_core_config),
-	OCF_PL_ARG_INT(metadata_segment_core_uuid),
-	OCF_PL_ARG_TERMINATOR(),
-};
-
-struct ocf_pipeline_arg ocf_metadata_flush_sb_flush_segment_args[] = {
-	OCF_PL_ARG_INT(metadata_segment_sb_config),
+struct ocf_pipeline_arg ocf_metadata_flush_sb_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_part_config),
 	OCF_PL_ARG_INT(metadata_segment_core_config),
 	OCF_PL_ARG_INT(metadata_segment_core_uuid),
@@ -396,11 +411,15 @@ struct ocf_pipeline_properties ocf_metadata_flush_sb_pipeline_props = {
 	.finish = ocf_metadata_flush_superblock_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_metadata_flush_superblock_prepare),
-		OCF_PL_STEP(ocf_metadata_calculate_crc_sb_config),
 		OCF_PL_STEP_FOREACH(ocf_metadata_calculate_crc,
-				ocf_metadata_flush_sb_calculate_crc_args),
+				ocf_metadata_flush_sb_args),
 		OCF_PL_STEP_FOREACH(ocf_metadata_flush_segment,
-				ocf_metadata_flush_sb_flush_segment_args),
+				ocf_metadata_flush_sb_args),
+		OCF_PL_STEP(ocf_metadata_flush_disk),
+		OCF_PL_STEP(ocf_metadata_flush_superblock_flap),
+		OCF_PL_STEP(ocf_metadata_calculate_crc_sb_config),
+		OCF_PL_STEP_ARG_INT(ocf_metadata_flush_segment,
+				metadata_segment_sb_config),
 		OCF_PL_STEP(ocf_metadata_flush_disk),
 		OCF_PL_STEP_TERMINATOR(),
 	},
@@ -503,3 +522,18 @@ bool ocf_metadata_superblock_get_clean_shutdown(
 	return sb->config->clean_shutdown;
 }
 
+unsigned ocf_metadata_superblock_get_flapping_idx(
+		struct ocf_metadata_segment *self)
+{
+	struct ocf_metadata_superblock *sb = _ocf_segment_to_sb(self);
+
+	return sb->config->flapping_idx;
+}
+
+unsigned ocf_metadata_superblock_get_next_flapping_idx(
+		struct ocf_metadata_segment *self)
+{
+	struct ocf_metadata_superblock *sb = _ocf_segment_to_sb(self);
+
+	return (sb->config->flapping_idx + 1) % 2;
+}

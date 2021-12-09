@@ -188,6 +188,34 @@ static int64_t ocf_metadata_get_element_size(
 }
 
 /*
+ * Check if particular metadata type supports flapping
+ */
+static bool ocf_metadata_is_flapped(
+		enum ocf_metadata_segment_id type)
+{
+	switch (type) {
+	case metadata_segment_part_config:
+	case metadata_segment_core_config:
+	case metadata_segment_core_uuid:
+		return true;
+
+	case metadata_segment_sb_config:
+	case metadata_segment_sb_runtime:
+	case metadata_segment_reserved:
+	case metadata_segment_part_runtime:
+	case metadata_segment_core_runtime:
+	case metadata_segment_cleaning:
+	case metadata_segment_lru:
+	case metadata_segment_collision:
+	case metadata_segment_list_info:
+	case metadata_segment_hash:
+	default:
+		return false;
+
+	}
+}
+
+/*
  * Metadata calculation exception handling.
  *
  * @param unused_lines - Unused pages
@@ -490,6 +518,9 @@ static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(
 			= ocf_metadata_get_element_size(i, NULL);
 		raw->entries_in_page = PAGE_SIZE / raw->entry_size;
 
+		/* Setup flapping support */
+		raw->flapping = ocf_metadata_is_flapped(i);
+
 		/* Setup number of entries */
 		raw->entries = ocf_metadata_get_entries(i, 0);
 
@@ -685,6 +716,9 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		raw->entry_size
 			= ocf_metadata_get_element_size(i, settings);
 		raw->entries_in_page = PAGE_SIZE / raw->entry_size;
+
+		/* Setup flapping support */
+		raw->flapping = ocf_metadata_is_flapped(i);
 	}
 
 	if (0 != ocf_metadata_calculate_metadata_size(cache, ctrl,
@@ -1020,7 +1054,7 @@ void ocf_metadata_flush_collision(ocf_cache_t cache,
 	ctrl = cache->metadata.priv;
 	raw = &ctrl->raw_desc[metadata_segment_collision];
 
-	ocf_metadata_raw_flush_all(cache, raw, cmpl, priv);
+	ocf_metadata_raw_flush_all(cache, raw, cmpl, priv, 0);
 }
 
 /*
