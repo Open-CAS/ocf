@@ -65,14 +65,14 @@ int raw_dynamic_update(ocf_cache_t cache,
  * from cache device
  */
 void raw_dynamic_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		ocf_metadata_end_t cmpl, void *priv);
+		ocf_metadata_end_t cmpl, void *priv, unsigned flapping_idx);
 
 /*
  * RAW DYNAMIC - Flush all metadata of this RAW metadata container
  * to cache device
  */
 void raw_dynamic_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		ocf_metadata_end_t cmpl, void *priv);
+		ocf_metadata_end_t cmpl, void *priv, unsigned flapping_idx);
 
 /*
  * RAW DYNAMIC - Mark specified entry to be flushed
