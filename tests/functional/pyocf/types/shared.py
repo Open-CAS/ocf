@@ -52,6 +52,8 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_CORE_UUID_EXISTS = auto()
     OCF_ERR_METADATA_LAYOUT_MISMATCH = auto()
     OCF_ERR_CACHE_LINE_SIZE_MISMATCH = auto()
+    OCF_ERR_CACHE_STANDBY = auto()
+    OCF_ERR_FAILOVER_ATTACHED = auto()
 
 
 class OcfCompletion:
