@@ -182,7 +182,7 @@ def test_neg_io_direction(pyocf_ctx, c_int_randomize):
         assert completion.results["err"] != 0
 
 
-def prepare_cache_and_core(core_size: Size, cache_size: Size = Size.from_MiB(20)):
+def prepare_cache_and_core(core_size: Size, cache_size: Size = Size.from_MiB(50)):
     cache_device = Volume(cache_size)
     core_device = Volume(core_size)
 

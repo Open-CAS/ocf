@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def try_start_cache(**config):
-    cache_device = Volume(Size.from_MiB(30))
+    cache_device = Volume(Size.from_MiB(50))
     cache = Cache.start_on_device(cache_device, **config)
     cache.stop()
 
@@ -58,7 +58,7 @@ def test_fuzzy_start_name(pyocf_ctx, string_randomize, cm, cls):
     :param cm: cache mode value to start cache with
     :param cls: cache line size value to start cache with
     """
-    cache_device = Volume(Size.from_MiB(30))
+    cache_device = Volume(Size.from_MiB(50))
     incorrect_values = ['']
     try:
         cache = Cache.start_on_device(cache_device, name=string_randomize, cache_mode=cm,
