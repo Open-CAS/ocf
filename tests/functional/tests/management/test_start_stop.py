@@ -26,7 +26,7 @@ def test_start_check_default(pyocf_ctx):
     """Test if default values are correct after start.
     """
 
-    cache_device = Volume(Size.from_MiB(40))
+    cache_device = Volume(Size.from_MiB(50))
     core_device = Volume(Size.from_MiB(10))
     cache = Cache.start_on_device(cache_device)
 
@@ -50,7 +50,7 @@ def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: Cache
     After start check proper cache mode behaviour, starting with write operation.
     """
 
-    cache_device = Volume(Size.from_MiB(40))
+    cache_device = Volume(Size.from_MiB(50))
     core_device = Volume(Size.from_MiB(10))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
     core_exported = Core.using_device(core_device)
@@ -88,7 +88,7 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
     After start check proper cache mode behaviour, starting with read operation.
     """
 
-    cache_device = Volume(Size.from_MiB(20))
+    cache_device = Volume(Size.from_MiB(50))
     core_device = Volume(Size.from_MiB(5))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
     core_exported = Core.using_device(core_device)
@@ -131,7 +131,7 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     Check if cache starts without errors.
     If possible check whether cache reports properly set parameters.
     """
-    cache_device = Volume(Size.from_MiB(20))
+    cache_device = Volume(Size.from_MiB(50))
     queue_size = randrange(60000, 2**32)
     unblock_size = randrange(1, queue_size)
     volatile_metadata = randrange(2) == 1
@@ -169,7 +169,7 @@ def test_stop(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, with_flush: bool):
     Check if cache is stopped properly in different modes with or without preceding flush operation.
     """
 
-    cache_device = Volume(Size.from_MiB(20))
+    cache_device = Volume(Size.from_MiB(50))
     core_device = Volume(Size.from_MiB(5))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
     core_exported = Core.using_device(core_device)
@@ -204,7 +204,7 @@ def test_start_stop_multiple(pyocf_ctx):
     caches = []
     caches_no = randrange(6, 11)
     for i in range(1, caches_no):
-        cache_device = Volume(Size.from_MiB(20))
+        cache_device = Volume(Size.from_MiB(50))
         cache_name = f"cache{i}"
         cache_mode = CacheMode(randrange(0, len(CacheMode)))
         size = 4096 * 2**randrange(0, len(CacheLineSize))
@@ -236,7 +236,7 @@ def test_100_start_stop(pyocf_ctx):
     """
 
     for i in range(1, 101):
-        cache_device = Volume(Size.from_MiB(20))
+        cache_device = Volume(Size.from_MiB(50))
         cache_name = f"cache{i}"
         cache_mode = CacheMode(randrange(0, len(CacheMode)))
         size = 4096 * 2**randrange(0, len(CacheLineSize))
@@ -271,7 +271,7 @@ def test_start_stop_incrementally(pyocf_ctx):
     while run:
         if add:
             for i in range(0, randrange(3, 5) if increase else randrange(1, 3)):
-                cache_device = Volume(Size.from_MiB(20))
+                cache_device = Volume(Size.from_MiB(50))
                 cache_name = f"cache{next(counter)}"
                 cache_mode = CacheMode(randrange(0, len(CacheMode)))
                 size = 4096 * 2**randrange(0, len(CacheLineSize))
@@ -311,8 +311,8 @@ def test_start_cache_same_id(pyocf_ctx, mode, cls):
     Check that OCF does not allow for 2 caches to be started with the same cache_name
     """
 
-    cache_device1 = Volume(Size.from_MiB(20))
-    cache_device2 = Volume(Size.from_MiB(20))
+    cache_device1 = Volume(Size.from_MiB(50))
+    cache_device2 = Volume(Size.from_MiB(50))
     cache_name = "cache"
     cache = Cache.start_on_device(cache_device1,
                                   cache_mode=mode,
@@ -342,7 +342,7 @@ def test_start_cache_huge_device(pyocf_ctx_log_buffer, cls):
         def submit_io(self, io):
             io.contents._end(io, 0)
 
-    cache_device = HugeDevice(Size.from_MiB(20))
+    cache_device = HugeDevice(Size.from_MiB(50))
 
     with pytest.raises(OcfError, match="OCF_ERR_INVAL_CACHE_DEV"):
         cache = Cache.start_on_device(cache_device, cache_line_size=cls, metadata_volatile=True)
@@ -360,7 +360,7 @@ def test_start_cache_same_device(pyocf_ctx, mode, cls):
     Check that OCF does not allow for 2 caches using the same cache device to be started
     """
 
-    cache_device = Volume(Size.from_MiB(20))
+    cache_device = Volume(Size.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device, cache_mode=mode, cache_line_size=cls, name="cache1"
     )

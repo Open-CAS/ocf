@@ -77,7 +77,7 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
 
     ctx.register_volume_type(Volume)
 
-    cache_device = Volume(S.from_MiB(30))
+    cache_device = Volume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cache_mode)
 
     core_device = Volume(S.from_MiB(50))
@@ -170,7 +170,7 @@ def test_secure_erase_simple_io_cleaning():
 
     ctx.register_volume_type(Volume)
 
-    cache_device = Volume(S.from_MiB(30))
+    cache_device = Volume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=CacheMode.WB)
 
     core_device = Volume(S.from_MiB(100))
