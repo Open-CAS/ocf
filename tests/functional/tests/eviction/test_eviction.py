@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 @pytest.mark.parametrize("mode", [CacheMode.WT])
 def test_eviction_two_cores(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
     """Test if eviction works correctly when remapping cachelines between distinct cores."""
-    cache_device = Volume(Size.from_MiB(20))
+    cache_device = Volume(Size.from_MiB(50))
 
     core_device1 = Volume(Size.from_MiB(40))
     core_device2 = Volume(Size.from_MiB(40))
@@ -52,9 +52,9 @@ def test_eviction_two_cores(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
 @pytest.mark.parametrize("mode", [CacheMode.WT, CacheMode.WB, CacheMode.WO])
 def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
     """Test if eviction does not occur when IO greater than cache size is submitted."""
-    cache_device = Volume(Size.from_MiB(20))
+    cache_device = Volume(Size.from_MiB(50))
 
-    core_device = Volume(Size.from_MiB(5))
+    core_device = Volume(Size.from_MiB(200))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
     cache_size = cache.get_stats()["conf"]["size"]
     core_exported = Core.using_device(core_device)
@@ -74,10 +74,10 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
     ), "Occupancy after first IO"
     prev_writes_to_core = stats["block"]["core_volume_wr"]["value"]
 
-    # Anything below 5 MiB is a valid size (less than core device size)
+    # Anything below 200 MiB is a valid size (less than core device size)
     # Writing over cache size (to the offset above first io) in this case should go
     # directly to core and shouldn't trigger eviction
-    io_size_bigger_than_cache = Size.from_MiB(2)
+    io_size_bigger_than_cache = Size.from_MiB(100)
     io_offset = valid_io_size
     test_data = Data(io_size_bigger_than_cache)
     send_io(core_exported, test_data, io_offset)
@@ -106,7 +106,7 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     """ Verify if overflown pinned ioclass is evicted """
-    cache_device = Volume(Size.from_MiB(35))
+    cache_device = Volume(Size.from_MiB(50))
     core_device = Volume(Size.from_MiB(100))
     cache = Cache.start_on_device(
         cache_device, cache_mode=CacheMode.WT, cache_line_size=cls
