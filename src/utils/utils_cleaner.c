@@ -51,7 +51,7 @@ static struct ocf_request *_ocf_cleaner_alloc_req(struct ocf_cache *cache,
 
 	/* Allocate pages for cleaning IO */
 	req->data = ctx_data_alloc(cache->owner,
-			ocf_line_size(cache) / PAGE_SIZE * count);
+			OCF_DIV_ROUND_UP((uint64_t)count * ocf_line_size(cache), PAGE_SIZE));
 	if (!req->data) {
 		ocf_req_put(req);
 		return NULL;
