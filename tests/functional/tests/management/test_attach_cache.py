@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", [CacheMode.WB, CacheMode.WT, CacheMode.WO])
-@pytest.mark.parametrize("new_cache_size", [25, 45])
+@pytest.mark.parametrize("new_cache_size", [80, 120])
 def test_attach_different_size(
     pyocf_ctx, new_cache_size, mode: CacheMode, cls: CacheLineSize
 ):
@@ -43,7 +43,7 @@ def test_attach_different_size(
     attach cache with different size and trigger IO. Verify if occupancy thresold is
     respected with both original and new cache device.
     """
-    cache_device = Volume(Size.from_MiB(35))
+    cache_device = Volume(Size.from_MiB(100))
     core_device = Volume(Size.from_MiB(100))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
     core = Core.using_device(core_device)

@@ -234,9 +234,6 @@ static int passive_io_resume(struct ocf_request *req)
 	ocf_cache_line_t cache_etries = ocf_metadata_collision_table_entries(cache);
 	enum ocf_metadata_segment_id update_segments[] = {
 		metadata_segment_sb_config,
-		metadata_segment_part_config,
-		metadata_segment_core_config,
-		metadata_segment_core_uuid,
 		metadata_segment_collision,
 	};
 	int i;

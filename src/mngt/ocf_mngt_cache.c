@@ -2216,19 +2216,17 @@ static void _ocf_mngt_activate_set_cache_device(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_activate_check_superblock_complete(void *priv, int error)
+static void _ocf_mngt_activate_check_superblock(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	int result;
 
-	if (error)
-		OCF_PL_FINISH_RET(context->pipeline, error);
-
 	result = ocf_metadata_validate_superblock(cache->owner,
 			cache->conf_meta);
 	if (result)
-		OCF_PL_FINISH_RET(context->pipeline, result);
+		OCF_PL_FINISH_RET(pipeline, result);
 
 	if (cache->conf_meta->metadata_layout != cache->metadata.layout) {
 		ocf_cache_log(cache, log_err, "Failed to activate standby instance: "
@@ -2244,17 +2242,7 @@ static void _ocf_mngt_activate_check_superblock_complete(void *priv, int error)
 				-OCF_ERR_CACHE_LINE_SIZE_MISMATCH);
 	}
 
-	ocf_pipeline_next(context->pipeline);
-}
-
-static void _ocf_mngt_activate_check_superblock(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_cache_attach_context *context = priv;
-	ocf_cache_t cache = context->cache;
-
-	ocf_metadata_sb_crc_recovery(cache,
-			_ocf_mngt_activate_check_superblock_complete, context);
+	ocf_pipeline_next(pipeline);
 }
 
 static void _ocf_mngt_activate_compare_superblock_end(
@@ -2378,8 +2366,9 @@ struct ocf_pipeline_properties _ocf_mngt_cache_activate_pipeline_properties = {
 	.steps = {
 		OCF_PL_STEP(_ocf_mngt_copy_uuid_data),
 		OCF_PL_STEP(_ocf_mngt_activate_set_cache_device),
-		OCF_PL_STEP(_ocf_mngt_activate_check_superblock),
 		OCF_PL_STEP(_ocf_mngt_activate_compare_superblock),
+		OCF_PL_STEP(_ocf_mngt_load_superblock),
+		OCF_PL_STEP(_ocf_mngt_activate_check_superblock),
 		OCF_PL_STEP(_ocf_mngt_activate_init_properties),
 		OCF_PL_STEP(_ocf_mngt_test_volume),
 		OCF_PL_STEP(_ocf_mngt_init_promotion),

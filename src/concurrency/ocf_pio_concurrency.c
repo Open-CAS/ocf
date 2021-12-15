@@ -18,7 +18,7 @@ struct pio_ctx {
 		uint64_t first_entry;
 		uint64_t begin;
 		uint64_t end;
-	} segments[5];
+	} segments[2];
 };
 
 #define OUT_OF_RANGE -1
@@ -181,9 +181,6 @@ int ocf_pio_concurrency_init(struct ocf_alock **self, ocf_cache_t cache)
 	uint32_t pages_to_alloc = 0;
 	enum ocf_metadata_segment_id update_segments[] = {
 		metadata_segment_sb_config,
-		metadata_segment_part_config,
-		metadata_segment_core_config,
-		metadata_segment_core_uuid,
 		metadata_segment_collision,
 	};
 	int i;
