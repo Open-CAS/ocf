@@ -419,7 +419,12 @@ class Cache:
             raise OcfError("Error adding partition to cache", status)
 
     def configure_device(
-        self, device, force=False, perform_test=True, cache_line_size=None
+        self,
+        device,
+        force=False,
+        perform_test=True,
+        cache_line_size=None,
+        open_cores=True,
     ):
         self.device = device
         self.device_name = device.uuid
@@ -444,7 +449,7 @@ class Cache:
     def attach_device(
         self, device, force=False, perform_test=False, cache_line_size=None
     ):
-        self.configure_device(device, force, perform_test, cache_line_size)
+        self.configure_device(device, force, perform_test, cache_line_size, False)
         self.write_lock()
 
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
@@ -472,8 +477,8 @@ class Cache:
         if c.results["error"]:
             raise OcfError("Attaching cache device failed", c.results["error"])
 
-    def load_cache(self, device):
-        self.configure_device(device)
+    def load_cache(self, device, open_cores=True):
+        self.configure_device(device, open_cores=open_cores)
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
         device.owner.lib.ocf_mngt_cache_load(
             self.cache_handle, byref(self.dev_cfg), c, None
@@ -484,12 +489,12 @@ class Cache:
             raise OcfError("Loading cache device failed", c.results["error"])
 
     @classmethod
-    def load_from_device(cls, device, name="cache"):
+    def load_from_device(cls, device, name="cache", open_cores=True):
         c = cls(name=name, owner=device.owner)
 
         c.start_cache()
         try:
-            c.load_cache(device)
+            c.load_cache(device, open_cores=open_cores)
         except:  # noqa E722
             c.stop()
             raise
