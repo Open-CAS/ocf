@@ -304,6 +304,21 @@ static void ocf_metadata_flush_superblock_prepare(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+static void ocf_metadata_flush_superblock_flap(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_metadata_context *context = priv;
+	struct ocf_metadata_ctrl *ctrl;
+	struct ocf_superblock_config *sb_config;
+
+	ctrl = context->ctrl;
+	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
+
+	sb_config->flapping_idx = (sb_config->flapping_idx + 1) % 2;
+
+	ocf_pipeline_next(pipeline);
+}
+
 static void ocf_metadata_calculate_crc_sb_config(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -331,15 +346,13 @@ static void ocf_metadata_flush_superblock_finish(ocf_pipeline_t pipeline,
 
 	if (error) {
 		ocf_metadata_error(cache);
-		goto end;
+
+		ctrl = context->ctrl;
+		sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
+
+		sb_config->flapping_idx = (sb_config->flapping_idx - 1) % 2;
 	}
 
-	ctrl = context->ctrl;
-	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
-
-	sb_config->flapping_idx = (sb_config->flapping_idx + 1) % 2;
-
-end:
 	context->cmpl(context->priv, error);
 	ocf_pipeline_destroy(pipeline);
 }
@@ -379,12 +392,13 @@ struct ocf_pipeline_properties ocf_metadata_flush_sb_pipeline_props = {
 	.finish = ocf_metadata_flush_superblock_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_metadata_flush_superblock_prepare),
-		OCF_PL_STEP(ocf_metadata_calculate_crc_sb_config),
 		OCF_PL_STEP_FOREACH(ocf_metadata_calculate_crc,
 				ocf_metadata_flush_sb_args),
 		OCF_PL_STEP_FOREACH(ocf_metadata_flush_segment,
 				ocf_metadata_flush_sb_args),
 		OCF_PL_STEP(ocf_metadata_flush_disk),
+		OCF_PL_STEP(ocf_metadata_flush_superblock_flap),
+		OCF_PL_STEP(ocf_metadata_calculate_crc_sb_config),
 		OCF_PL_STEP_ARG_INT(ocf_metadata_flush_segment,
 				metadata_segment_sb_config),
 		OCF_PL_STEP(ocf_metadata_flush_disk),
