@@ -312,6 +312,9 @@ class Volume(Structure):
         m.update(string_at(self._storage, self.size))
         return m.hexdigest()
 
+    def get_bytes(self):
+        return string_at(self._storage, self.size)
+
 
 class ErrorDevice(Volume):
     def __init__(
