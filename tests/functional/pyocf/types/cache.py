@@ -64,10 +64,11 @@ class CacheDeviceConfig(Structure):
         ("_uuid", Uuid),
         ("_cache_line_size", c_uint64),
         ("_volume_type", c_uint8),
+        ("_open_cores", c_bool),
         ("_force", c_bool),
-        ("_min_free_ram", c_uint64),
         ("_perform_test", c_bool),
         ("_discard_on_start", c_bool),
+        ("_volume_params", c_void_p),
     ]
 
 
@@ -324,7 +325,9 @@ class Cache:
         self.write_unlock()
 
         if status:
-            raise OcfError("Error setting cache seq cut off policy promotion count", status)
+            raise OcfError(
+                "Error setting cache seq cut off policy promotion count", status
+            )
 
     def get_partition_info(self, part_id: int):
         ioclass_info = IoClassInfo()
@@ -349,7 +352,13 @@ class Cache:
         }
 
     def add_partition(
-        self, part_id: int, name: str, min_size: int, max_size: int, priority: int, valid: bool
+        self,
+        part_id: int,
+        name: str,
+        min_size: int,
+        max_size: int,
+        priority: int,
+        valid: bool,
     ):
         self.write_lock()
 
@@ -421,14 +430,15 @@ class Cache:
                 ),
                 _size=len(self.device_name) + 1,
             ),
-            _volume_type=device.type_id,
             _cache_line_size=cache_line_size
             if cache_line_size
             else self.cache_line_size,
+            _volume_type=device.type_id,
+            _open_cores=open_cores,
             _force=force,
-            _min_free_ram=0,
             _perform_test=perform_test,
             _discard_on_start=False,
+            _volume_params=None,
         )
 
     def attach_device(
@@ -454,9 +464,7 @@ class Cache:
 
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
 
-        self.owner.lib.ocf_mngt_cache_detach(
-            self.cache_handle, c, None
-        )
+        self.owner.lib.ocf_mngt_cache_detach(self.cache_handle, c, None)
 
         c.wait()
         self.write_unlock()
@@ -706,7 +714,12 @@ lib.ocf_mngt_cache_remove_core.argtypes = [c_void_p, c_void_p, c_void_p]
 lib.ocf_mngt_cache_add_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p]
 lib.ocf_cache_get_name.argtypes = [c_void_p]
 lib.ocf_cache_get_name.restype = c_char_p
-lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [c_void_p, c_uint32, c_void_p, c_void_p]
+lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [
+    c_void_p,
+    c_uint32,
+    c_void_p,
+    c_void_p,
+]
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_threshold_all.argtypes = [c_void_p, c_uint32]
