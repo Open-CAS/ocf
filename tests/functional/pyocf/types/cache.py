@@ -75,6 +75,7 @@ class CacheAttachConfig(Structure):
         ("_open_cores", c_bool),
         ("_force", c_bool),
         ("_discard_on_start", c_bool),
+        ("_volume_params", c_void_p),
     ]
 
 
@@ -447,8 +448,8 @@ class Cache:
             _cache_line_size=cache_line_size
             if cache_line_size
             else self.cache_line_size,
-            _force=force,
             _open_cores=True,
+            _force=force,
             _discard_on_start=False,
         )
 
