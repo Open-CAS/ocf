@@ -226,4 +226,3 @@ class Data:
 
     def get_bytes(self):
         return string_at(self.handle, self.size)
-
