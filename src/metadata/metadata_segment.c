@@ -90,19 +90,11 @@ static void ocf_metadata_check_crc_skip(ocf_pipeline_t pipeline,
 	crc = ocf_metadata_raw_checksum(cache, segment->raw);
 	superblock_crc = ocf_metadata_superblock_get_checksum(segment->superblock,
 			segment_id);
-
 	if (crc != superblock_crc) {
-		/* Checksum does not match */
-		if (!clean_shutdown) {
-			ocf_cache_log(cache, log_warn,
-					"Loading %s WARNING, invalid checksum\n",
-					ocf_metadata_segment_names[segment_id]);
-		} else {
-			ocf_cache_log(cache, log_err,
-					"Loading %s ERROR, invalid checksum\n",
-					ocf_metadata_segment_names[segment_id]);
-			OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
-		}
+		ocf_cache_log(cache, log_err,
+				"Loading %s ERROR, invalid checksum\n",
+				ocf_metadata_segment_names[segment_id]);
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
 	}
 
 	ocf_pipeline_next(pipeline);
