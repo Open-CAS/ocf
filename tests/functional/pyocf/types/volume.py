@@ -203,7 +203,7 @@ class Volume(Structure):
             return -1
 
         if volume.opened:
-            return OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
+            return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
 
         Volume._instances_[ref] = weakref.ref(volume)
 
@@ -269,7 +269,7 @@ class Volume(Structure):
 
             discard.contents._end(discard, 0)
         except:  # noqa E722
-            discard.contents._end(discard, -5)
+            discard.contents._end(discard, -OcfErrorCode.OCF_ERR_NOT_SUPP)
 
     def get_stats(self):
         return self.stats
@@ -299,7 +299,7 @@ class Volume(Structure):
 
             io.contents._end(io, 0)
         except:  # noqa E722
-            io.contents._end(io, -5)
+            io.contents._end(io, -OcfErrorCode.OCF_ERR_IO)
 
     def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
         if size == 0:
@@ -359,7 +359,7 @@ class ErrorDevice(Volume):
             error = False
         if error:
             self.error = True
-            io.contents._end(io, -5)
+            io.contents._end(io, -OcfErrorCode.OCF_ERR_IO)
             self.stats["errors"][direction] += 1
         else:
             super().submit_io(io)
