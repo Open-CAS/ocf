@@ -1202,11 +1202,11 @@ static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
 {
 
 	ocf_metadata_set_core_info(cache, cline, OCF_CORE_MAX, ULLONG_MAX);
-
-	metadata_clear_valid(cache, cline);
-
+	metadata_init_status_bits(cache, cline);
 	ocf_cleaning_init_cache_block(cache, cline);
 }
+
+bool ocf_metadata_check(struct ocf_cache *cache, ocf_cache_line_t line);
 
 static void _recovery_rebuild_metadata(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
@@ -1225,7 +1225,13 @@ static void _recovery_rebuild_metadata(ocf_pipeline_t pipeline,
 
 	for (cline = 0; cline < collision_table_entries; cline++) {
 		ocf_metadata_get_core_info(cache, cline, &core_id, &core_line);
+		if (!ocf_metadata_check(cache, cline) ||
+				core_id > OCF_CORE_MAX) {
+			ocf_pipeline_finish(pipeline, -OCF_ERR_INVAL);
+			return;
+		}
 		if (core_id != OCF_CORE_MAX &&
+				cache->core[core_id].added &&
 				(!dirty_only || metadata_test_dirty(cache,
 						cline))) {
 			/* Rebuild metadata for mapped cache line */
@@ -1579,6 +1585,26 @@ bool ocf_metadata_##what(struct ocf_cache *cache, \
 
 _ocf_metadata_funcs(dirty)
 _ocf_metadata_funcs(valid)
+
+bool ocf_metadata_check(struct ocf_cache *cache, ocf_cache_line_t line)
+{
+	switch (cache->metadata.settings.size) {
+		case ocf_cache_line_size_4:
+			return _ocf_metadata_check_u8(cache, line);
+		case ocf_cache_line_size_8:
+			return _ocf_metadata_check_u16(cache, line);
+		case ocf_cache_line_size_16:
+			return _ocf_metadata_check_u32(cache, line);
+		case ocf_cache_line_size_32:
+			return _ocf_metadata_check_u64(cache, line);
+		case ocf_cache_line_size_64:
+			return _ocf_metadata_check_u128(cache, line);
+		case ocf_cache_line_size_none:
+		default:
+			ENV_BUG_ON(1);
+			return false;
+	}
+}
 
 int ocf_metadata_init(struct ocf_cache *cache,
 		ocf_cache_line_size_t cache_line_size)
