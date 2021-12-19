@@ -220,4 +220,14 @@ static inline ocf_cache_line_t ocf_metadata_collision_table_entries(
 void ocf_metadata_zero_superblock(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *context);
 
+/**
+ * @brief Check for incorrect status bits combinations
+ *
+ * @param cache Cache instance
+ * @param line Cache line
+ * @return true - status bits are correct
+ * @return false - status bits have illegal value
+ */
+bool ocf_metadata_check(struct ocf_cache *cache, ocf_cache_line_t line);
+
 #endif /* METADATA_H_ */

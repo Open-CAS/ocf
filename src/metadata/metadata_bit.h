@@ -263,6 +263,23 @@ static void _ocf_metadata_clear_dirty_if_invalid_##type(struct ocf_cache *cache,
 \
 	map[line].dirty &= (mask & map[line].valid) | (~mask); \
 } \
+\
+/* true if no incorrect combination of status bits */ \
+static bool _ocf_metadata_check_##type(struct ocf_cache *cache, \
+		ocf_cache_line_t line) \
+{ \
+	struct ocf_metadata_ctrl *ctrl = \
+		(struct ocf_metadata_ctrl *) cache->metadata.priv; \
+\
+	struct ocf_metadata_raw *raw = \
+			&ctrl->raw_desc[metadata_segment_collision]; \
+\
+	struct ocf_metadata_map_##type *map = raw->mem_pool; \
+\
+	_raw_bug_on(raw, line); \
+\
+	return (map[line].dirty & (~map[line].valid)) == 0; \
+} \
 
 #define ocf_metadata_bit_funcs(type) \
 ocf_metadata_bit_struct(type); \

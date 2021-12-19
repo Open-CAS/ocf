@@ -1552,6 +1552,26 @@ void ocf_metadata_clear_dirty_if_invalid(struct ocf_cache *cache,
 	}
 }
 
+bool ocf_metadata_check(struct ocf_cache *cache, ocf_cache_line_t line)
+{
+	switch (cache->metadata.line_size) {
+		case ocf_cache_line_size_4:
+			return _ocf_metadata_check_u8(cache, line);
+		case ocf_cache_line_size_8:
+			return _ocf_metadata_check_u16(cache, line);
+		case ocf_cache_line_size_16:
+			return _ocf_metadata_check_u32(cache, line);
+		case ocf_cache_line_size_32:
+			return _ocf_metadata_check_u64(cache, line);
+		case ocf_cache_line_size_64:
+			return _ocf_metadata_check_u128(cache, line);
+		case ocf_cache_line_size_none:
+		default:
+			ENV_BUG_ON(1);
+			return false;
+	}
+}
+
 int ocf_metadata_init(struct ocf_cache *cache,
 		ocf_cache_line_size_t cache_line_size)
 {
