@@ -36,10 +36,21 @@
 /*
  * Check if page is valid for specified RAW descriptor
  */
+
+uint32_t raw_dynamic_segment_size_on_ssd(struct ocf_metadata_raw *raw)
+{
+	const size_t alignment = 128 * KiB / PAGE_SIZE;
+
+	return OCF_DIV_ROUND_UP(raw->ssd_pages, alignment) * alignment;
+}
+
 static bool _raw_ssd_page_is_valid(struct ocf_metadata_raw *raw, uint32_t page)
 {
+	uint32_t size = raw_dynamic_segment_size_on_ssd(raw) *
+			(raw->flapping ? 2 : 1);
+
 	ENV_BUG_ON(page < raw->ssd_pages_offset);
-	ENV_BUG_ON(page >= (raw->ssd_pages_offset + raw->ssd_pages));
+	ENV_BUG_ON(page >= (raw->ssd_pages_offset + size));
 
 	return true;
 }
@@ -212,9 +223,9 @@ size_t raw_dynamic_size_of(ocf_cache_t cache,
  */
 uint32_t raw_dynamic_size_on_ssd(struct ocf_metadata_raw *raw)
 {
-	const size_t alignment = 128 * KiB / PAGE_SIZE;
+	size_t flapping_factor = raw->flapping ? 2 : 1;
 
-	return OCF_DIV_ROUND_UP(raw->ssd_pages, alignment) * alignment;
+	return raw_dynamic_segment_size_on_ssd(raw) * flapping_factor;
 }
 
 /*
@@ -265,6 +276,7 @@ void *raw_dynamic_access(ocf_cache_t cache,
 
 struct raw_dynamic_load_all_context {
 	struct ocf_metadata_raw *raw;
+	unsigned flapping_idx;
 	struct ocf_request *req;
 	ocf_cache_t cache;
 	struct ocf_io *io;
@@ -316,14 +328,19 @@ static int raw_dynamic_load_all_read(struct ocf_request *req)
 {
 	struct raw_dynamic_load_all_context *context = req->priv;
 	struct ocf_metadata_raw *raw = context->raw;
+	uint64_t ssd_pages_offset;
 	uint64_t count;
 	int result;
+
+	ssd_pages_offset = raw->ssd_pages_offset +
+			raw_dynamic_segment_size_on_ssd(raw) *
+					context->flapping_idx;
 
 	count = metadata_io_size(context->i, raw->ssd_pages);
 
 	/* Allocate IO */
 	context->io = ocf_new_cache_io(context->cache, req->io_queue,
-		PAGES_TO_BYTES(raw->ssd_pages_offset + context->i),
+		PAGES_TO_BYTES(ssd_pages_offset + context->i),
 		PAGES_TO_BYTES(count), OCF_READ, 0, 0);
 
 	if (!context->io) {
@@ -414,11 +431,12 @@ static int raw_dynamic_load_all_update(struct ocf_request *req)
 }
 
 void raw_dynamic_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		ocf_metadata_end_t cmpl, void *priv)
+		ocf_metadata_end_t cmpl, void *priv, unsigned flapping_idx)
 {
 	struct raw_dynamic_load_all_context *context;
 	int result;
 
+	ENV_BUG_ON(raw->flapping ? flapping_idx > 1 : flapping_idx != 0);
 	OCF_DEBUG_TRACE(cache);
 
 	context = env_vzalloc(sizeof(*context));
@@ -426,6 +444,7 @@ void raw_dynamic_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
 	context->raw = raw;
+	context->flapping_idx = flapping_idx;
 	context->cache = cache;
 	context->cmpl = cmpl;
 	context->priv = priv;
@@ -470,6 +489,7 @@ err_data:
 
 struct raw_dynamic_flush_all_context {
 	struct ocf_metadata_raw *raw;
+	uint64_t ssd_pages_offset;
 	ocf_metadata_end_t cmpl;
 	void *priv;
 };
@@ -487,7 +507,7 @@ static int raw_dynamic_flush_all_fill(ocf_cache_t cache,
 
 	ENV_BUG_ON(!_raw_ssd_page_is_valid(raw, page));
 
-	raw_page = page - raw->ssd_pages_offset;
+	raw_page = page - context->ssd_pages_offset;
 
 	if (ctrl->pages[raw_page]) {
 		OCF_DEBUG_PARAM(cache, "Page = %u", raw_page);
@@ -516,11 +536,12 @@ static void raw_dynamic_flush_all_complete(ocf_cache_t cache,
 }
 
 void raw_dynamic_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		ocf_metadata_end_t cmpl, void *priv)
+		ocf_metadata_end_t cmpl, void *priv, unsigned flapping_idx)
 {
 	struct raw_dynamic_flush_all_context *context;
 	int result;
 
+	ENV_BUG_ON(raw->flapping ? flapping_idx > 1 : flapping_idx != 0);
 	OCF_DEBUG_TRACE(cache);
 
 	context = env_vmalloc(sizeof(*context));
@@ -530,9 +551,11 @@ void raw_dynamic_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	context->raw = raw;
 	context->cmpl = cmpl;
 	context->priv = priv;
+	context->ssd_pages_offset = raw->ssd_pages_offset +
+			raw_dynamic_segment_size_on_ssd(raw) * flapping_idx;
 
 	result = metadata_io_write_i_asynch(cache, cache->mngt_queue, context,
-			raw->ssd_pages_offset, raw->ssd_pages, 0,
+			context->ssd_pages_offset, raw->ssd_pages, 0,
 			raw_dynamic_flush_all_fill,
 			raw_dynamic_flush_all_complete,
 			raw->mio_conc);

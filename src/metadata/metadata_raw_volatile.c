@@ -30,7 +30,7 @@ uint32_t raw_volatile_checksum(ocf_cache_t cache,
  * RAW volatile Implementation - Load all metadata elements from SSD
  */
 void raw_volatile_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		ocf_metadata_end_t cmpl, void *priv)
+		ocf_metadata_end_t cmpl, void *priv, unsigned flapping_idx)
 {
 	cmpl(priv, -OCF_ERR_NOT_SUPP);
 }
@@ -39,7 +39,7 @@ void raw_volatile_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
  * RAM Implementation - Flush all elements
  */
 void raw_volatile_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		ocf_metadata_end_t cmpl, void *priv)
+		ocf_metadata_end_t cmpl, void *priv, unsigned flapping_idx)
 {
 	cmpl(priv, 0);
 }

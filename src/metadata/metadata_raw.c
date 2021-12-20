@@ -33,13 +33,24 @@
 /*******************************************************************************
  * Common RAW Implementation
  ******************************************************************************/
+
+static uint32_t _raw_ram_segment_size_on_ssd(struct ocf_metadata_raw *raw)
+{
+	const size_t alignment = 128 * KiB / PAGE_SIZE;
+
+	return OCF_DIV_ROUND_UP(raw->ssd_pages, alignment) * alignment;
+}
+
 /*
  * Check if page is valid for specified RAW descriptor
  */
 static bool _raw_ssd_page_is_valid(struct ocf_metadata_raw *raw, uint32_t page)
 {
+	uint32_t size = _raw_ram_segment_size_on_ssd(raw) *
+			(raw->flapping ? 2 : 1);
+
 	ENV_BUG_ON(page < raw->ssd_pages_offset);
-	ENV_BUG_ON(page >= (raw->ssd_pages_offset + raw->ssd_pages));
+	ENV_BUG_ON(page >= (raw->ssd_pages_offset + size));
 
 	return true;
 }
@@ -144,9 +155,9 @@ static size_t _raw_ram_size_of(ocf_cache_t cache, struct ocf_metadata_raw *raw)
  */
 static uint32_t _raw_ram_size_on_ssd(struct ocf_metadata_raw *raw)
 {
-	const size_t alignment = 128 * KiB / PAGE_SIZE;
+	size_t flapping_factor = raw->flapping ? 2 : 1;
 
-	return OCF_DIV_ROUND_UP(raw->ssd_pages, alignment) * alignment;
+	return _raw_ram_segment_size_on_ssd(raw) * flapping_factor;
 }
 
 /*
@@ -190,6 +201,7 @@ static void *_raw_ram_access(ocf_cache_t cache,
 
 struct _raw_ram_load_all_context {
 	struct ocf_metadata_raw *raw;
+	uint64_t ssd_pages_offset;
 	ocf_metadata_end_t cmpl;
 	void *priv;
 };
@@ -209,7 +221,7 @@ static int _raw_ram_load_all_drain(ocf_cache_t cache,
 	ENV_BUG_ON(!_raw_ssd_page_is_valid(raw, page));
 	ENV_BUG_ON(size > PAGE_SIZE);
 
-	raw_page = page - raw->ssd_pages_offset;
+	raw_page = page - context->ssd_pages_offset;
 	line = raw_page * raw->entries_in_page;
 
 	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
@@ -234,11 +246,12 @@ static void _raw_ram_load_all_complete(ocf_cache_t cache,
  * RAM Implementation - Load all metadata elements from SSD
  */
 static void _raw_ram_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		ocf_metadata_end_t cmpl, void *priv)
+		ocf_metadata_end_t cmpl, void *priv, unsigned flapping_idx)
 {
 	struct _raw_ram_load_all_context *context;
 	int result;
 
+	ENV_BUG_ON(raw->flapping ? flapping_idx > 1 : flapping_idx != 0);
 	OCF_DEBUG_TRACE(cache);
 
 	context = env_vmalloc(sizeof(*context));
@@ -248,9 +261,11 @@ static void _raw_ram_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	context->raw = raw;
 	context->cmpl = cmpl;
 	context->priv = priv;
+	context->ssd_pages_offset = raw->ssd_pages_offset +
+			_raw_ram_segment_size_on_ssd(raw) * flapping_idx;
 
 	result = metadata_io_read_i_asynch(cache, cache->mngt_queue, context,
-			raw->ssd_pages_offset, raw->ssd_pages, 0,
+			context->ssd_pages_offset, raw->ssd_pages, 0,
 			_raw_ram_load_all_drain, _raw_ram_load_all_complete);
 	if (result)
 		_raw_ram_load_all_complete(cache, context, result);
@@ -258,6 +273,7 @@ static void _raw_ram_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 
 struct _raw_ram_flush_all_context {
 	struct ocf_metadata_raw *raw;
+	uint64_t ssd_pages_offset;
 	ocf_metadata_end_t cmpl;
 	void *priv;
 };
@@ -277,7 +293,7 @@ static int _raw_ram_flush_all_fill(ocf_cache_t cache,
 	ENV_BUG_ON(!_raw_ssd_page_is_valid(raw, page));
 	ENV_BUG_ON(size > PAGE_SIZE);
 
-	raw_page = page - raw->ssd_pages_offset;
+	raw_page = page - context->ssd_pages_offset;
 	line = raw_page * raw->entries_in_page;
 
 	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
@@ -306,11 +322,11 @@ static void _raw_ram_flush_all_complete(ocf_cache_t cache,
  * RAM Implementation - Flush all elements
  */
 static void _raw_ram_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-		ocf_metadata_end_t cmpl, void *priv)
+		ocf_metadata_end_t cmpl, void *priv, unsigned flapping_idx)
 {
 	struct _raw_ram_flush_all_context *context;
 	int result;
-
+	ENV_BUG_ON(raw->flapping ? flapping_idx > 1 : flapping_idx != 0);
 	OCF_DEBUG_TRACE(cache);
 
 	context = env_vmalloc(sizeof(*context));
@@ -320,9 +336,11 @@ static void _raw_ram_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	context->raw = raw;
 	context->cmpl = cmpl;
 	context->priv = priv;
+	context->ssd_pages_offset = raw->ssd_pages_offset +
+			_raw_ram_segment_size_on_ssd(raw) * flapping_idx;
 
 	result = metadata_io_write_i_asynch(cache, cache->mngt_queue, context,
-			raw->ssd_pages_offset, raw->ssd_pages, 0,
+			context->ssd_pages_offset, raw->ssd_pages, 0,
 			_raw_ram_flush_all_fill, _raw_ram_flush_all_complete,
 			raw->mio_conc);
 	if (result)
