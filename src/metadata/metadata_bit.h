@@ -221,6 +221,25 @@ static bool _ocf_metadata_test_and_clear_##what##_##type( \
 	return test; \
 } \
 
+/* true if no incorrect combination of status bits */
+#define ocf_metadata_bit_check_func(type) \
+static bool _ocf_metadata_check_##type(struct ocf_cache *cache, \
+		ocf_cache_line_t line) \
+{ \
+	struct ocf_metadata_ctrl *ctrl = \
+		(struct ocf_metadata_ctrl *) cache->metadata.priv; \
+\
+	struct ocf_metadata_raw *raw = \
+			&ctrl->raw_desc[metadata_segment_collision]; \
+\
+	const struct ocf_metadata_map_##type *map = raw->mem_pool; \
+\
+	_raw_bug_on(raw, line); \
+\
+	/* dirty bits must have valid bit set */ \
+	return (map[line].dirty & (~map[line].valid)) == 0; \
+} \
+
 ocf_metadata_bit_struct(u8);
 ocf_metadata_bit_struct(u16);
 ocf_metadata_bit_struct(u32);
@@ -238,3 +257,9 @@ ocf_metadata_bit_func(valid, u16);
 ocf_metadata_bit_func(valid, u32);
 ocf_metadata_bit_func(valid, u64);
 ocf_metadata_bit_func(valid, u128);
+
+ocf_metadata_bit_check_func(u8);
+ocf_metadata_bit_check_func(u16);
+ocf_metadata_bit_check_func(u32);
+ocf_metadata_bit_check_func(u64);
+ocf_metadata_bit_check_func(u128);
