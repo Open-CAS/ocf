@@ -350,6 +350,7 @@ class Cache:
             raise OcfError("Error retriving ioclass info", status)
 
         return {
+            "_class_id": part_id,
             "_name": ioclass_info._name.decode("ascii"),
             "_cache_mode": ioclass_info._cache_mode,
             "_priority": int(ioclass_info._priority),
@@ -405,7 +406,7 @@ class Cache:
             ioclasses_info._config[i]._name = (
                 ioclass_info._name if len(ioclass_info._name) > 0 else 0
             )
-            ioclasses_info._config[i]._prio = ioclass_info._priority
+            ioclasses_info._config[i]._priority = ioclass_info._priority
             ioclasses_info._config[i]._cache_mode = ioclass_info._cache_mode
             ioclasses_info._config[i]._max_size = ioclass_info._max_size
 
@@ -413,7 +414,7 @@ class Cache:
 
         ioclasses_info._config[part_id]._name = name.encode("utf-8")
         ioclasses_info._config[part_id]._cache_mode = int(cache_mode)
-        ioclasses_info._config[part_id]._prio = priority
+        ioclasses_info._config[part_id]._priority = priority
         ioclasses_info._config[part_id]._max_size = max_size
 
         self.write_lock()
