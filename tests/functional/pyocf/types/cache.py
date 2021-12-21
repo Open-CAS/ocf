@@ -64,10 +64,11 @@ class CacheDeviceConfig(Structure):
         ("_uuid", Uuid),
         ("_cache_line_size", c_uint64),
         ("_volume_type", c_uint8),
+        ("_open_cores", c_bool),
         ("_force", c_bool),
-        ("_min_free_ram", c_uint64),
         ("_perform_test", c_bool),
         ("_discard_on_start", c_bool),
+        ("_volume_params", c_void_p),
     ]
 
 
@@ -324,7 +325,9 @@ class Cache:
         self.write_unlock()
 
         if status:
-            raise OcfError("Error setting cache seq cut off policy promotion count", status)
+            raise OcfError(
+                "Error setting cache seq cut off policy promotion count", status
+            )
 
     def get_partition_info(self, part_id: int):
         ioclass_info = IoClassInfo()
@@ -339,6 +342,7 @@ class Cache:
             raise OcfError("Error retriving ioclass info", status)
 
         return {
+            "_class_id": part_id,
             "_name": ioclass_info._name.decode("ascii"),
             "_cache_mode": ioclass_info._cache_mode,
             "_priority": int(ioclass_info._priority),
@@ -349,7 +353,13 @@ class Cache:
         }
 
     def add_partition(
-        self, part_id: int, name: str, min_size: int, max_size: int, priority: int, valid: bool
+        self,
+        part_id: int,
+        name: str,
+        min_size: int,
+        max_size: int,
+        priority: int,
+        valid: bool,
     ):
         self.write_lock()
 
@@ -387,7 +397,7 @@ class Cache:
             ioclasses_info._config[i]._name = (
                 ioclass_info._name if len(ioclass_info._name) > 0 else 0
             )
-            ioclasses_info._config[i]._prio = ioclass_info._priority
+            ioclasses_info._config[i]._priority = ioclass_info._priority
             ioclasses_info._config[i]._cache_mode = ioclass_info._cache_mode
             ioclasses_info._config[i]._max_size = ioclass_info._max_size
 
@@ -395,7 +405,7 @@ class Cache:
 
         ioclasses_info._config[part_id]._name = name.encode("utf-8")
         ioclasses_info._config[part_id]._cache_mode = int(cache_mode)
-        ioclasses_info._config[part_id]._prio = priority
+        ioclasses_info._config[part_id]._priority = priority
         ioclasses_info._config[part_id]._max_size = max_size
 
         self.write_lock()
@@ -410,7 +420,12 @@ class Cache:
             raise OcfError("Error adding partition to cache", status)
 
     def configure_device(
-        self, device, force=False, perform_test=True, cache_line_size=None
+        self,
+        device,
+        force=False,
+        perform_test=True,
+        cache_line_size=None,
+        open_cores=True,
     ):
         self.device = device
         self.device_name = device.uuid
@@ -421,20 +436,21 @@ class Cache:
                 ),
                 _size=len(self.device_name) + 1,
             ),
-            _volume_type=device.type_id,
             _cache_line_size=cache_line_size
             if cache_line_size
             else self.cache_line_size,
+            _volume_type=device.type_id,
+            _open_cores=open_cores,
             _force=force,
-            _min_free_ram=0,
             _perform_test=perform_test,
             _discard_on_start=False,
+            _volume_params=None,
         )
 
     def attach_device(
         self, device, force=False, perform_test=False, cache_line_size=None
     ):
-        self.configure_device(device, force, perform_test, cache_line_size)
+        self.configure_device(device, force, perform_test, cache_line_size, False)
         self.write_lock()
 
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
@@ -454,9 +470,7 @@ class Cache:
 
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
 
-        self.owner.lib.ocf_mngt_cache_detach(
-            self.cache_handle, c, None
-        )
+        self.owner.lib.ocf_mngt_cache_detach(self.cache_handle, c, None)
 
         c.wait()
         self.write_unlock()
@@ -464,8 +478,8 @@ class Cache:
         if c.results["error"]:
             raise OcfError("Attaching cache device failed", c.results["error"])
 
-    def load_cache(self, device):
-        self.configure_device(device)
+    def load_cache(self, device, open_cores=True):
+        self.configure_device(device, open_cores=open_cores)
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
         device.owner.lib.ocf_mngt_cache_load(
             self.cache_handle, byref(self.dev_cfg), c, None
@@ -476,12 +490,12 @@ class Cache:
             raise OcfError("Loading cache device failed", c.results["error"])
 
     @classmethod
-    def load_from_device(cls, device, name="cache"):
+    def load_from_device(cls, device, name="cache", open_cores=True):
         c = cls(name=name, owner=device.owner)
 
         c.start_cache()
         try:
-            c.load_cache(device)
+            c.load_cache(device, open_cores=open_cores)
         except:  # noqa E722
             c.stop()
             raise
@@ -667,7 +681,8 @@ class Cache:
         self.owner.lib.ocf_mngt_cache_stop(self.cache_handle, c, None)
 
         c.wait()
-        if c.results["error"]:
+        err = OcfErrorCode(-1 * c.results["error"])
+        if err != OcfErrorCode.OCF_OK and err != OcfErrorCode.OCF_ERR_WRITE_CACHE:
             self.write_unlock()
             raise OcfError("Failed stopping cache", c.results["error"])
 
@@ -678,6 +693,9 @@ class Cache:
         self.write_unlock()
 
         self.owner.caches.remove(self)
+
+        if err != OcfErrorCode.OCF_OK:
+            raise OcfError("Failed stopping cache", c.results["error"])
 
     def flush(self):
         self.write_lock()
@@ -706,7 +724,12 @@ lib.ocf_mngt_cache_remove_core.argtypes = [c_void_p, c_void_p, c_void_p]
 lib.ocf_mngt_cache_add_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p]
 lib.ocf_cache_get_name.argtypes = [c_void_p]
 lib.ocf_cache_get_name.restype = c_char_p
-lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [c_void_p, c_uint32, c_void_p, c_void_p]
+lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [
+    c_void_p,
+    c_uint32,
+    c_void_p,
+    c_void_p,
+]
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_threshold_all.argtypes = [c_void_p, c_uint32]

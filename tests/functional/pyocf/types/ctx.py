@@ -97,6 +97,7 @@ class OcfCtx:
         self.cleaner = None
         Queue._instances_ = {}
         Volume._instances_ = {}
+        Volume._uuid_ = {}
         Data._instances_ = {}
         Logger._instances_ = {}
 

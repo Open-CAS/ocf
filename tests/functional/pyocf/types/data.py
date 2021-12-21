@@ -223,3 +223,6 @@ class Data:
         m = md5()
         m.update(string_at(self.handle, self.size))
         return m.hexdigest()
+
+    def get_bytes(self):
+        return string_at(self.handle, self.size)

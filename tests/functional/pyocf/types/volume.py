@@ -203,7 +203,7 @@ class Volume(Structure):
             return -1
 
         if volume.opened:
-            return OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
+            return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
 
         Volume._instances_[ref] = weakref.ref(volume)
 
@@ -269,7 +269,7 @@ class Volume(Structure):
 
             discard.contents._end(discard, 0)
         except:  # noqa E722
-            discard.contents._end(discard, -5)
+            discard.contents._end(discard, -OcfErrorCode.OCF_ERR_NOT_SUPP)
 
     def get_stats(self):
         return self.stats
@@ -299,39 +299,79 @@ class Volume(Structure):
 
             io.contents._end(io, 0)
         except:  # noqa E722
-            io.contents._end(io, -5)
+            io.contents._end(io, -OcfErrorCode.OCF_ERR_IO)
 
     def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
         if size == 0:
             size = int(self.size) - int(offset)
 
-        print_buffer(
-            self._storage,
-            size,
-            ignore=ignore,
-            **kwargs
-        )
+        print_buffer(self._storage, size, ignore=ignore, **kwargs)
 
     def md5(self):
         m = md5()
         m.update(string_at(self._storage, self.size))
         return m.hexdigest()
 
+    def get_bytes(self):
+        return string_at(self._storage, self.size)
+
 
 class ErrorDevice(Volume):
-    def __init__(self, size, error_sectors: set = None, uuid=None):
+    def __init__(
+        self,
+        size,
+        error_sectors: set = None,
+        error_seq_no: dict = None,
+        armed=True,
+        uuid=None,
+    ):
         super().__init__(size, uuid)
-        self.error_sectors = error_sectors or set()
+        self.error_sectors = error_sectors
+        self.error_seq_no = error_seq_no
+        self.armed = armed
+        self.io_seq_no = {IoDir.WRITE: 0, IoDir.READ: 0}
+        self.error = False
 
     def set_mapping(self, error_sectors: set):
         self.error_sectors = error_sectors
 
     def submit_io(self, io):
-        if io.contents._addr in self.error_sectors:
-            io.contents._end(io, -5)
-            self.stats["errors"][io.contents._dir] += 1
+        if not self.armed:
+            super().submit_io(io)
+            return
+
+        direction = IoDir(io.contents._dir)
+        seq_no_match = (
+            self.error_seq_no is not None
+            and direction in self.error_seq_no
+            and self.error_seq_no[direction] <= self.io_seq_no[direction]
+        )
+        sector_match = (
+            self.error_sectors is not None and io.contents._addr in self.error_sectors
+        )
+
+        self.io_seq_no[direction] += 1
+
+        error = True
+        if self.error_seq_no is not None and not seq_no_match:
+            error = False
+        if self.error_sectors is not None and not sector_match:
+            error = False
+        if error:
+            self.error = True
+            io.contents._end(io, -OcfErrorCode.OCF_ERR_IO)
+            self.stats["errors"][direction] += 1
         else:
             super().submit_io(io)
+
+    def arm(self):
+        self.armed = True
+
+    def disarm(self):
+        self.armed = False
+
+    def error_triggered(self):
+        return self.error
 
     def reset_stats(self):
         super().reset_stats()
