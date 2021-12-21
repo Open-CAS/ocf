@@ -323,6 +323,7 @@ static void ocf_volume_close_end(void *ctx)
 	env_completion *cmpl = ctx;
 
 	env_completion_complete(cmpl);
+	env_completion_destroy(cmpl);
 }
 
 void ocf_volume_close(ocf_volume_t volume)
@@ -337,7 +338,6 @@ void ocf_volume_close(ocf_volume_t volume)
 	ocf_refcnt_register_zero_cb(&volume->refcnt, ocf_volume_close_end,
 			&cmpl);
 	env_completion_wait(&cmpl);
-	env_completion_destroy(&cmpl);
 
 	volume->type->properties->ops.close(volume);
 	volume->opened = false;
