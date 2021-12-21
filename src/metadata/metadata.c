@@ -1628,6 +1628,16 @@ void ocf_metadata_load_properties(ocf_volume_t volume,
 		OCF_CMPL_RET(priv, result, NULL);
 }
 
+void ocf_metadata_zero_superblock(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *context)
+{
+	struct ocf_metadata_ctrl *ctrl = (struct ocf_metadata_ctrl *)
+			cache->metadata.priv;
+
+	ocf_metadata_sb_zero(ctrl->segment[metadata_segment_sb_config],
+			cmpl, context);
+}
+
 /* metadata segment data + iterators */
 struct query_cores_data
 {

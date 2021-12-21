@@ -217,4 +217,7 @@ static inline ocf_cache_line_t ocf_metadata_collision_table_entries(
 	return cache->device->collision_table_entries;
 }
 
+void ocf_metadata_zero_superblock(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *context);
+
 #endif /* METADATA_H_ */

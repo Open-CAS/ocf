@@ -129,6 +129,9 @@ struct raw_iface {
 	int (*update)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 			ctx_data_t *data, uint64_t page, uint64_t count);
 
+	void (*zero)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+			ocf_metadata_end_t cmpl, void *priv);
+
 	void (*load_all)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 			ocf_metadata_end_t cmpl, void *priv,
 			unsigned flapping_idx);
@@ -263,6 +266,23 @@ static inline int ocf_metadata_raw_update(ocf_cache_t cache,
 		uint64_t page, uint64_t count)
 {
 	return raw->iface->update(cache, raw, data, page, count);
+}
+
+/**
+ * @brief Zero metadata
+ * @details NOTE: this is fo management purposes only, no synchronization with
+ * 		I/O is guarangeed
+ *
+ * @param cache - Cache instance
+ * @param raw - RAW descriptor
+ * @param cmpl - completion callback
+ * @param priv - completion callback private context
+ */
+static inline void ocf_metadata_raw_zero(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, ocf_metadata_end_t cmpl,
+		void *priv)
+{
+	raw->iface->zero(cache, raw, cmpl, priv);
 }
 
 /**
