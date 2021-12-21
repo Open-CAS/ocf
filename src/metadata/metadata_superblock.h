@@ -29,6 +29,8 @@ struct ocf_superblock_config {
 
 	uint32_t metadata_version;
 
+	unsigned flapping_idx;
+
 	/* Currently set cache mode */
 	ocf_cache_mode_t cache_mode;
 
@@ -99,4 +101,9 @@ void ocf_metadata_superblock_set_checksum(
 bool ocf_metadata_superblock_get_clean_shutdown(
 		struct ocf_metadata_segment *self);
 
+unsigned ocf_metadata_superblock_get_flapping_idx(
+		struct ocf_metadata_segment *self);
+
+unsigned ocf_metadata_superblock_get_next_flapping_idx(
+		struct ocf_metadata_segment *self);
 #endif /* METADATA_SUPERBLOCK_H_ */

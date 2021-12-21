@@ -68,6 +68,7 @@ struct ocf_metadata_raw {
 	uint32_t entry_size; /*!< Size of particular entry */
 	uint32_t entries_in_page; /*!< Numbers of entries in one page*/
 	uint64_t entries; /*!< Numbers of entries */
+	bool flapping; /* !< Supports flapping */
 
 	/**
 	 * @name Location on cache device description
@@ -123,10 +124,12 @@ struct raw_iface {
 			uint32_t entry);
 
 	void (*load_all)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-			ocf_metadata_end_t cmpl, void *priv);
+			ocf_metadata_end_t cmpl, void *priv,
+			unsigned flapping_idx);
 
 	void (*flush_all)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
-			ocf_metadata_end_t cmpl, void *priv);
+			ocf_metadata_end_t cmpl, void *priv,
+			unsigned flapping_idx);
 
 	void (*flush_mark)(ocf_cache_t cache, struct ocf_request *req,
 			uint32_t map_idx, int to_state, uint8_t start,
@@ -247,12 +250,13 @@ static inline const void *ocf_metadata_raw_rd_access( ocf_cache_t cache,
  * @param raw - RAW descriptor
  * @param cmpl - Completion callback
  * @param priv - Completion callback context
+ * @param flapping_idx - Index of flapping segment version
  */
 static inline void ocf_metadata_raw_load_all(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw,
-		ocf_metadata_end_t cmpl, void *priv)
+		struct ocf_metadata_raw *raw, ocf_metadata_end_t cmpl,
+		void *priv, unsigned flapping_idx)
 {
-	raw->iface->load_all(cache, raw, cmpl, priv);
+	raw->iface->load_all(cache, raw, cmpl, priv, flapping_idx);
 }
 
 /**
@@ -262,12 +266,13 @@ static inline void ocf_metadata_raw_load_all(ocf_cache_t cache,
  * @param raw - RAW descriptor
  * @param cmpl - Completion callback
  * @param priv - Completion callback context
+ * @param flapping_idx - Index of flapping segment version
  */
 static inline void ocf_metadata_raw_flush_all(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw,
-		ocf_metadata_end_t cmpl, void *priv)
+		struct ocf_metadata_raw *raw, ocf_metadata_end_t cmpl,
+		void *priv, unsigned flapping_idx)
 {
-	raw->iface->flush_all(cache, raw, cmpl, priv);
+	raw->iface->flush_all(cache, raw, cmpl, priv, flapping_idx);
 }
 
 

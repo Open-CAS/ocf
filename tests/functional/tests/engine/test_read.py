@@ -259,8 +259,8 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
 
     result_b = bytes(WORKSET_SIZE)
 
-    cache_device = Volume(Size.from_MiB(30))
-    core_device = Volume(Size.from_MiB(30))
+    cache_device = Volume(Size.from_MiB(50))
+    core_device = Volume(Size.from_MiB(50))
 
     cache = Cache.start_on_device(
         cache_device, cache_mode=CacheMode.WO, cache_line_size=cacheline_size

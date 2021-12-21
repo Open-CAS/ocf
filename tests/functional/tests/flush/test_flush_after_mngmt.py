@@ -75,8 +75,8 @@ def test_flush_after_mngmt(pyocf_ctx):
 
     data = bytes(block_size)
 
-    cache_device = FlushValVolume(Size.from_MiB(30))
-    core_device = FlushValVolume(Size.from_MiB(30))
+    cache_device = FlushValVolume(Size.from_MiB(50))
+    core_device = FlushValVolume(Size.from_MiB(50))
 
     # after start cache VC must be cleared
     cache = Cache.start_on_device(cache_device, cache_mode=CacheMode.WT)
