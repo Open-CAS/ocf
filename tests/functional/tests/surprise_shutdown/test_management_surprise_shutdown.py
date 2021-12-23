@@ -427,14 +427,23 @@ def test_surprise_shutdown_cache_reinit(pyocf_ctx):
 
         device.disarm()
 
-        cache = Cache.load_from_device(device)
+        cache = None
+        status = OcfErrorCode.OCF_OK
+        try:
+            cache = Cache.load_from_device(device)
+        except OcfError as ex:
+            status = ex.error_code
 
-        stats = cache.get_stats()
-        if stats["conf"]["core_count"] == 0:
-            cache.add_core(core)
-            assert ocf_read(cache, core, io_offset) == Volume.VOLUME_POISON
+        if not cache:
+            assert status == OcfErrorCode.OCF_ERR_NO_METADATA
+        else:
+            stats = cache.get_stats()
+            if stats["conf"]["core_count"] == 0:
+                assert stats["usage"]["occupancy"]["value"] == 0
+                cache.add_core(core)
+                assert ocf_read(cache, core, io_offset) == Volume.VOLUME_POISON
 
-        cache.stop()
+            cache.stop()
 
         error_io[IoDir.WRITE] += 1
 
