@@ -2456,6 +2456,34 @@ static void ocf_mngt_stop_standby_stop_cleaner(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+static void ocf_mngt_cache_standby_close_cache_volume(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (!ocf_refcnt_frozen(&cache->refcnt.metadata))
+		ocf_volume_close(&cache->device->volume);
+
+	ocf_pipeline_next(pipeline);
+}
+
+static void ocf_mngt_cache_standby_deinit_cache_volume(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (!ocf_refcnt_frozen(&cache->refcnt.metadata)) {
+		ocf_volume_deinit(&cache->device->volume);
+
+		env_vfree(cache->device);
+		cache->device = NULL;
+	}
+
+	ocf_pipeline_next(pipeline);
+}
+
 struct ocf_pipeline_properties
 ocf_mngt_cache_stop_standby_pipeline_properties = {
 	.priv_size = sizeof(struct ocf_mngt_cache_stop_context),
@@ -2463,9 +2491,9 @@ ocf_mngt_cache_stop_standby_pipeline_properties = {
 	.steps = {
 		OCF_PL_STEP(ocf_mngt_cache_stop_wait_metadata_io),
 		OCF_PL_STEP(ocf_mngt_stop_standby_stop_cleaner),
-		OCF_PL_STEP(ocf_mngt_cache_close_cache_volume),
+		OCF_PL_STEP(ocf_mngt_cache_standby_close_cache_volume),
 		OCF_PL_STEP(ocf_mngt_cache_deinit_metadata),
-		OCF_PL_STEP(ocf_mngt_cache_deinit_cache_volume),
+		OCF_PL_STEP(ocf_mngt_cache_standby_deinit_cache_volume),
 		OCF_PL_STEP(ocf_mngt_cache_stop_put_io_queues),
 		OCF_PL_STEP_TERMINATOR(),
 	},
