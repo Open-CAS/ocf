@@ -2300,9 +2300,6 @@ static void _ocf_mngt_activate_handle_error(
 {
 	ocf_cache_t cache = context->cache;
 
-	if (context->flags.cleaner_started)
-		ocf_stop_cleaner(cache);
-
 	if (context->flags.promotion_initialized)
 		__deinit_promotion_policy(cache);
 
