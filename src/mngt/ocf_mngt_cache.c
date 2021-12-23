@@ -1737,6 +1737,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_load_add_cores),
 		OCF_PL_STEP(_ocf_mngt_load_metadata),
 		OCF_PL_STEP(_ocf_mngt_load_post_metadata_load),
+		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
 		OCF_PL_STEP(_ocf_mngt_attach_post_init),

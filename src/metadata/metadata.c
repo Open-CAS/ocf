@@ -991,8 +991,6 @@ struct ocf_pipeline_properties ocf_metadata_flush_all_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_context),
 	.finish = ocf_metadata_flush_all_finish,
 	.steps = {
-		OCF_PL_STEP_ARG_INT(ocf_metadata_flush_all_set_status,
-				ocf_metadata_dirty_shutdown),
 		OCF_PL_STEP_FOREACH(ocf_metadata_flush_segment,
 				ocf_metadata_flush_all_args),
 		OCF_PL_STEP_FOREACH(ocf_metadata_calculate_crc,
