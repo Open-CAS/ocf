@@ -138,6 +138,7 @@ def test_surprise_shutdown_add_core(pyocf_ctx):
 
 # power failure during core removal
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_remove_core(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
     core = Core.using_device(core_device)
@@ -156,6 +157,7 @@ def test_surprise_shutdown_remove_core(pyocf_ctx):
 
 
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_remove_core_with_data(pyocf_ctx):
     io_offset = mngmt_op_surprise_shutdown_test_io_offset
     core_device = Volume(S.from_MiB(10))
@@ -183,6 +185,7 @@ def test_surprise_shutdown_remove_core_with_data(pyocf_ctx):
 
 # power failure during core add after previous core removed
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_swap_core(pyocf_ctx):
     core_device_1 = Volume(S.from_MiB(10), uuid="dev1")
     core_device_2 = Volume(S.from_MiB(10), uuid="dev2")
@@ -225,6 +228,7 @@ def test_surprise_shutdown_swap_core(pyocf_ctx):
 
 # power failure during core add after previous core removed
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_swap_core_with_data(pyocf_ctx):
     core_device_1 = Volume(S.from_MiB(10), uuid="dev1")
     core_device_2 = Volume(S.from_MiB(10), uuid="dev2")
@@ -274,6 +278,7 @@ def test_surprise_shutdown_swap_core_with_data(pyocf_ctx):
 #       to avoid loading improperly initialized cache?
 #    2. uuid checksum mismatch should not allow cache to load
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_start_cache(pyocf_ctx):
     error_triggered = True
     error_io_seq_no = 0
@@ -320,6 +325,7 @@ def test_surprise_shutdown_start_cache(pyocf_ctx):
 
 
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_stop_cache(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
     error_triggered = True
@@ -463,6 +469,7 @@ def _test_surprise_shutdown_mngmt_generic(pyocf_ctx, func):
 
 
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_change_cache_mode(pyocf_ctx):
     _test_surprise_shutdown_mngmt_generic(
         pyocf_ctx, lambda cache, core: cache.change_cache_mode(CacheMode.WT)
@@ -470,6 +477,7 @@ def test_surprise_shutdown_change_cache_mode(pyocf_ctx):
 
 
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_set_cleaning_policy(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
     core = Core(device=core_device, try_add=False)
@@ -490,6 +498,7 @@ def test_surprise_shutdown_set_cleaning_policy(pyocf_ctx):
 
 
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_set_seq_cut_off_policy(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
     core = Core(device=core_device, try_add=False)
@@ -510,6 +519,7 @@ def test_surprise_shutdown_set_seq_cut_off_policy(pyocf_ctx):
 
 
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_set_seq_cut_off_promotion(pyocf_ctx):
     _test_surprise_shutdown_mngmt_generic(
         pyocf_ctx, lambda cache, core: cache.set_seq_cut_off_promotion(256)
@@ -517,6 +527,7 @@ def test_surprise_shutdown_set_seq_cut_off_promotion(pyocf_ctx):
 
 
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_set_seq_cut_off_threshold(pyocf_ctx):
     _test_surprise_shutdown_mngmt_generic(
         pyocf_ctx, lambda cache, core: cache.set_seq_cut_off_threshold(S.from_MiB(2).B)
@@ -524,6 +535,7 @@ def test_surprise_shutdown_set_seq_cut_off_threshold(pyocf_ctx):
 
 
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_set_cleaning_policy_param(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
     core = Core(device=core_device, try_add=False)
@@ -575,6 +587,7 @@ def test_surprise_shutdown_set_cleaning_policy_param(pyocf_ctx):
 
 
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_set_promotion_policy(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
     core = Core(device=core_device, try_add=False)
@@ -595,6 +608,7 @@ def test_surprise_shutdown_set_promotion_policy(pyocf_ctx):
 
 
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_set_promotion_policy_param(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
     core = Core(device=core_device, try_add=False)
@@ -632,6 +646,7 @@ def test_surprise_shutdown_set_promotion_policy_param(pyocf_ctx):
 
 
 @pytest.mark.security
+@pytest.mark.long
 def test_surprise_shutdown_set_io_class_config(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
     core = Core(device=core_device, try_add=False)
