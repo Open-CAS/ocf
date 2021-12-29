@@ -541,7 +541,7 @@ static void _ocf_mngt_recovery_rebuild_metadata(ocf_cache_t cache)
 	_ocf_mngt_rebuild_metadata(cache, false);
 }
 
-static void _ocf_mngt_bind_rebuild_metadata(ocf_cache_t cache)
+static void _ocf_mngt_standby_rebuild_metadata(ocf_cache_t cache)
 {
 	_ocf_mngt_rebuild_metadata(cache, true);
 }
@@ -2043,7 +2043,7 @@ static void _ocf_mngt_standby_init_properties(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_bind_preapre_mempool(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_preapre_mempool(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -2057,7 +2057,7 @@ static void _ocf_mngt_bind_preapre_mempool(ocf_pipeline_t pipeline,
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
 
-static void _ocf_mngt_bind_init_structures_attach(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_init_structures_attach(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -2069,7 +2069,7 @@ static void _ocf_mngt_bind_init_structures_attach(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_bind_init_structures_load(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_init_structures_load(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -2080,7 +2080,7 @@ static void _ocf_mngt_bind_init_structures_load(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_bind_init_pio_concurrency(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_init_pio_concurrency(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -2094,19 +2094,19 @@ static void _ocf_mngt_bind_init_pio_concurrency(ocf_pipeline_t pipeline,
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
 
-static void _ocf_mngt_bind_recovery_unsafe(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_recovery_unsafe(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	_ocf_mngt_bind_rebuild_metadata(cache);
+	_ocf_mngt_standby_rebuild_metadata(cache);
 	__populate_free_unsafe(cache);
 
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_bind_init_cleaning(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_init_cleaning(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -2122,7 +2122,7 @@ static void _ocf_mngt_bind_init_cleaning(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_bind_post_init(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_post_init(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -2147,14 +2147,14 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_attach_pipeline_propertie
 		OCF_PL_STEP(_ocf_mngt_attach_prepare_metadata),
 		OCF_PL_STEP(_ocf_mngt_test_volume),
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
-		OCF_PL_STEP(_ocf_mngt_bind_init_structures_attach),
-		OCF_PL_STEP(_ocf_mngt_bind_init_cleaning),
-		OCF_PL_STEP(_ocf_mngt_bind_preapre_mempool),
-		OCF_PL_STEP(_ocf_mngt_bind_init_pio_concurrency),
+		OCF_PL_STEP(_ocf_mngt_standby_init_structures_attach),
+		OCF_PL_STEP(_ocf_mngt_standby_init_cleaning),
+		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
+		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_discard),
 		OCF_PL_STEP(_ocf_mngt_attach_flush),
-		OCF_PL_STEP(_ocf_mngt_bind_post_init),
+		OCF_PL_STEP(_ocf_mngt_standby_post_init),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
@@ -2174,12 +2174,12 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_load_pipeline_properties 
 		OCF_PL_STEP(_ocf_mngt_load_superblock),
 		OCF_PL_STEP(_ocf_mngt_load_metadata_recovery),
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
-		OCF_PL_STEP(_ocf_mngt_bind_init_structures_load),
-		OCF_PL_STEP(_ocf_mngt_bind_init_cleaning),
-		OCF_PL_STEP(_ocf_mngt_bind_preapre_mempool),
-		OCF_PL_STEP(_ocf_mngt_bind_init_pio_concurrency),
-		OCF_PL_STEP(_ocf_mngt_bind_recovery_unsafe),
-		OCF_PL_STEP(_ocf_mngt_bind_post_init),
+		OCF_PL_STEP(_ocf_mngt_standby_init_structures_load),
+		OCF_PL_STEP(_ocf_mngt_standby_init_cleaning),
+		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
+		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
+		OCF_PL_STEP(_ocf_mngt_standby_recovery_unsafe),
+		OCF_PL_STEP(_ocf_mngt_standby_post_init),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
