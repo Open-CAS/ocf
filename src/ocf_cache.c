@@ -108,9 +108,9 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	_ocf_stats_zero(&info->inactive);
 
 	info->attached = ocf_cache_is_device_attached(cache);
-	info->failover_detached = ocf_cache_is_standby(cache) &&
+	info->standby_detached = ocf_cache_is_standby(cache) &&
 		ocf_refcnt_frozen(&cache->refcnt.metadata);
-	if (info->attached && !info->failover_detached) {
+	if (info->attached && !info->standby_detached) {
 		info->volume_type = ocf_ctx_get_volume_type_id(cache->owner,
 				cache->device->volume.type);
 		info->size = cache->conf_meta->cachelines;
