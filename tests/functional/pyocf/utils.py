@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -72,6 +72,7 @@ class Size:
     _GiB = _MiB * 1024
     _TiB = _GiB * 1024
     _SECTOR_SIZE = 512
+    _PAGE_SIZE = 4096
 
     def __init__(self, b: int, sector_aligned: bool = False):
         if sector_aligned:
@@ -129,6 +130,10 @@ class Size:
     @classmethod
     def from_sector(cls, value):
         return cls(value * cls._SECTOR_SIZE)
+
+    @classmethod
+    def from_page(cls, value):
+        return cls(value * cls._PAGE_SIZE)
 
     @property
     def B(self):
