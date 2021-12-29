@@ -1443,8 +1443,13 @@ static void _ocf_mngt_load_superblock(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 
 	ocf_cache_log(cache, log_info, "Loading cache state...\n");
-	ocf_metadata_load_superblock(cache,
-			_ocf_mngt_load_superblock_complete, context);
+	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown) {
+		ocf_metadata_load_superblock(cache,
+				_ocf_mngt_load_superblock_complete, context);
+	} else {
+		ocf_metadata_load_superblock_recovery(cache,
+				_ocf_mngt_load_superblock_complete, context);
+	}
 }
 
 static void _ocf_mngt_init_cleaner(ocf_pipeline_t pipeline,

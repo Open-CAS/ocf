@@ -27,9 +27,6 @@ int ocf_metadata_segment_init(
 void ocf_metadata_segment_destroy(struct ocf_cache *cache,
 		struct ocf_metadata_segment *self);
 
-void ocf_metadata_check_crc_if_clean(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg);
-
 void ocf_metadata_check_crc(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg);
 

@@ -71,8 +71,8 @@ static void ocf_metadata_generic_complete(void *priv, int error)
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
 }
 
-static void ocf_metadata_check_crc_skip(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg, bool skip_on_dirty_shutdown)
+void ocf_metadata_check_crc(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_metadata_context *context = priv;
 	int segment_id = ocf_pipeline_arg_get_int(arg);
@@ -80,12 +80,6 @@ static void ocf_metadata_check_crc_skip(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 	uint32_t crc;
 	uint32_t superblock_crc;
-	bool clean_shutdown;
-
-	clean_shutdown = ocf_metadata_superblock_get_clean_shutdown(
-			segment->superblock);
-	if (!clean_shutdown && skip_on_dirty_shutdown)
-		OCF_PL_NEXT_RET(pipeline);
 
 	crc = ocf_metadata_raw_checksum(cache, segment->raw);
 	superblock_crc = ocf_metadata_superblock_get_checksum(segment->superblock,
@@ -99,19 +93,6 @@ static void ocf_metadata_check_crc_skip(ocf_pipeline_t pipeline,
 
 	ocf_pipeline_next(pipeline);
 }
-
-void ocf_metadata_check_crc(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	ocf_metadata_check_crc_skip(pipeline, priv, arg, false);
-}
-
-void ocf_metadata_check_crc_if_clean(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	ocf_metadata_check_crc_skip(pipeline, priv, arg, true);
-}
-
 
 void ocf_metadata_calculate_crc(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
