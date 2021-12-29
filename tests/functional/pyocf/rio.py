@@ -35,7 +35,7 @@ class IoGen:
         self.random = random
         self.randommap = randommap
 
-        gen = list(range(extent[0], extent[1], blocksize))
+        gen = list(range(extent[0].B, extent[0].B + extent[1].B, blocksize.B))
         self.cycle_len = len(gen)
 
         if random:
