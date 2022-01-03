@@ -134,7 +134,7 @@ class Rio:
             if self.jobspec.time_based:
                 self.finish_time = datetime.now() + self.jobspec.time
             else:
-                if self.jobspec.io_size != 0:
+                if int(self.jobspec.io_size) != 0:
                     self.io_target = min(
                         self.jobspec.io_size, self.jobspec.size - self.jobspec.offset
                     )
