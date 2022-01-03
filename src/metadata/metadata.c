@@ -670,7 +670,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		/* TODO: This is just a rough check. Most optimal one would be
 		 * located in calculate_metadata_size. */
 		ocf_cache_log(cache, log_err, "Device exceeds maximum suported size "
-				"with this cache line size. Try bigger cache line size.");
+				"with this cache line size. Try bigger cache line size.\n");
 		return -OCF_ERR_INVAL_CACHE_DEV;
 	}
 
@@ -712,7 +712,9 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	}
 
 	if (0 != ocf_metadata_calculate_metadata_size(cache, ctrl, line_size)) {
-		return -1;
+		ocf_cache_log(cache, log_err, "Couldn't fit metadata structure "
+				"on device. Please try bigger cache device.\n");
+		return -OCF_ERR_INVAL_CACHE_DEV;
 	}
 
 	OCF_DEBUG_PARAM(cache, "Metadata begin pages = %u", ctrl->start_page);

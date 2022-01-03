@@ -735,8 +735,8 @@ static void _ocf_mngt_attach_cache_device(ocf_pipeline_t pipeline,
 
 	/* Check minimum size of cache device */
 	if (context->volume_size < OCF_CACHE_SIZE_MIN) {
-		ocf_cache_log(cache, log_err, "ERROR: Cache cache size must "
-			"be at least %llu [MiB]\n", OCF_CACHE_SIZE_MIN / MiB);
+		ocf_cache_log(cache, log_err, "Cache device size must "
+			"be at least %llu MiB\n", OCF_CACHE_SIZE_MIN / MiB);
 		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL_CACHE_DEV);
 	}
 
