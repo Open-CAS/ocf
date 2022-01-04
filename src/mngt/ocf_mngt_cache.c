@@ -215,19 +215,12 @@ static void __init_parts_attached(ocf_cache_t cache)
 	ocf_lru_init(cache, &cache->free);
 }
 
-static void __populate_free_unsafe(ocf_cache_t cache)
-{
-	uint64_t free_clines = ocf_metadata_collision_table_entries(cache);
-
-	ocf_lru_populate(cache, free_clines, false);
-}
-
-static void __populate_free_safe(ocf_cache_t cache)
+static void __populate_free(ocf_cache_t cache)
 {
 	uint64_t free_clines = ocf_metadata_collision_table_entries(cache) -
 			ocf_get_cache_occupancy(cache);
 
-	ocf_lru_populate(cache, free_clines, true);
+	ocf_lru_populate(cache, free_clines);
 }
 
 static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
@@ -316,7 +309,7 @@ static ocf_error_t init_attached_data_structures(ocf_cache_t cache)
 	ocf_metadata_init_hash_table(cache);
 	ocf_metadata_init_collision(cache);
 	__init_parts_attached(cache);
-	__populate_free_safe(cache);
+	__populate_free(cache);
 
 	result = __init_cleaning_policy(cache);
 	if (result) {
@@ -502,7 +495,7 @@ static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
 	ocf_cleaning_init_cache_block(cache, cline);
 }
 
-static void _ocf_mngt_rebuild_metadata(ocf_cache_t cache, bool initialized)
+static void _ocf_mngt_rebuild_metadata(ocf_cache_t cache)
 {
 	ocf_cache_line_t cline;
 	ocf_core_id_t core_id;
@@ -519,8 +512,7 @@ static void _ocf_mngt_rebuild_metadata(ocf_cache_t cache, bool initialized)
 		OCF_COND_RESCHED(step, 128);
 		ocf_metadata_get_core_info(cache, cline, &core_id, &core_line);
 
-		if (!initialized)
-			metadata_clear_dirty_if_invalid(cache, cline);
+		metadata_clear_dirty_if_invalid(cache, cline);
 
 		any_valid = metadata_clear_valid_if_clean(cache, cline);
 		if (!any_valid || core_id >= OCF_CORE_MAX) {
@@ -538,12 +530,7 @@ static void _ocf_mngt_rebuild_metadata(ocf_cache_t cache, bool initialized)
 
 static void _ocf_mngt_recovery_rebuild_metadata(ocf_cache_t cache)
 {
-	_ocf_mngt_rebuild_metadata(cache, false);
-}
-
-static void _ocf_mngt_bind_rebuild_metadata(ocf_cache_t cache)
-{
-	_ocf_mngt_rebuild_metadata(cache, true);
+	_ocf_mngt_rebuild_metadata(cache);
 }
 
 static inline ocf_error_t _ocf_init_cleaning_policy(ocf_cache_t cache,
@@ -572,7 +559,7 @@ static void _ocf_mngt_load_post_metadata_load(ocf_pipeline_t pipeline,
 
 	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown) {
 		_ocf_mngt_recovery_rebuild_metadata(cache);
-		__populate_free_safe(cache);
+		__populate_free(cache);
 	}
 
 	result = _ocf_init_cleaning_policy(cache, cache->cleaner.policy,
@@ -584,7 +571,7 @@ static void _ocf_mngt_load_post_metadata_load(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-void _ocf_mngt_load_init_instance_complete(void *priv, int error)
+void _ocf_mngt_load_metadata_complete(void *priv, int error)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
@@ -601,43 +588,44 @@ void _ocf_mngt_load_init_instance_complete(void *priv, int error)
 /**
  * handle load variant
  */
-static void _ocf_mngt_load_init_instance_clean_load(
-		struct ocf_cache_attach_context *context)
+static void _ocf_mngt_load_metadata_clean(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
 {
+	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	ocf_metadata_load_all(cache,
-			_ocf_mngt_load_init_instance_complete, context);
+			_ocf_mngt_load_metadata_complete, context);
 }
 
 /**
  * handle recovery variant
  */
-static void _ocf_mngt_load_init_instance_recovery(
-		struct ocf_cache_attach_context *context)
+static void _ocf_mngt_load_metadata_recovery(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
 {
+	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	init_attached_data_structures_recovery(cache, true);
-
-	ocf_cache_log(cache, log_info, "Initiating recovery sequence...\n");
-
 	ocf_metadata_load_recovery(cache,
-			_ocf_mngt_load_init_instance_complete, context);
+			_ocf_mngt_load_metadata_complete, context);
 }
 
-static void _ocf_mngt_load_init_instance(ocf_pipeline_t pipeline,
+static void _ocf_mngt_load_metadata(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown) {
-		_ocf_mngt_load_init_instance_clean_load(context);
+		_ocf_mngt_load_metadata_clean(pipeline, priv, arg);
 	} else {
 		ocf_cache_log(cache, log_warn,
 			"ERROR: Cache device did not shut down properly!\n");
-		_ocf_mngt_load_init_instance_recovery(context);
+		init_attached_data_structures_recovery(cache, true);
+
+		ocf_cache_log(cache, log_info, "Initiating recovery sequence...\n");
+		_ocf_mngt_load_metadata_recovery(pipeline, priv, arg);
 	}
 }
 
@@ -1443,8 +1431,13 @@ static void _ocf_mngt_load_superblock(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 
 	ocf_cache_log(cache, log_info, "Loading cache state...\n");
-	ocf_metadata_load_superblock(cache,
-			_ocf_mngt_load_superblock_complete, context);
+	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown) {
+		ocf_metadata_load_superblock(cache,
+				_ocf_mngt_load_superblock_complete, context);
+	} else {
+		ocf_metadata_load_superblock_recovery(cache,
+				_ocf_mngt_load_superblock_complete, context);
+	}
 }
 
 static void _ocf_mngt_init_cleaner(ocf_pipeline_t pipeline,
@@ -1717,7 +1710,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
 		OCF_PL_STEP(_ocf_mngt_init_promotion),
 		OCF_PL_STEP(_ocf_mngt_load_add_cores),
-		OCF_PL_STEP(_ocf_mngt_load_init_instance),
+		OCF_PL_STEP(_ocf_mngt_load_metadata),
 		OCF_PL_STEP(_ocf_mngt_load_post_metadata_load),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
@@ -2022,21 +2015,6 @@ static void _ocf_mngt_init_cache_front_volume(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void _ocf_mngt_load_unsafe_complete(void *priv, int error)
-{
-	struct ocf_cache_attach_context *context = priv;
-	ocf_cache_t cache = context->cache;
-
-	if (error) {
-		ocf_cache_log(cache, log_err,
-				"ERROR: Cannot load metadata\n");
-		OCF_PL_FINISH_RET(context->pipeline,
-				-OCF_ERR_START_CACHE_FAIL);
-	}
-
-	ocf_pipeline_next(context->pipeline);
-}
-
 static void _ocf_mngt_standby_init_properties(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -2053,18 +2031,7 @@ static void _ocf_mngt_standby_init_properties(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_load_metadata_unsafe(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_cache_attach_context *context = priv;
-	ocf_cache_t cache = context->cache;
-
-	ocf_cache_log(cache, log_info, "Loading cache state...\n");
-	ocf_metadata_load_unsafe(cache,
-			_ocf_mngt_load_unsafe_complete, context);
-}
-
-static void _ocf_mngt_bind_preapre_mempool(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_preapre_mempool(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -2078,14 +2045,35 @@ static void _ocf_mngt_bind_preapre_mempool(ocf_pipeline_t pipeline,
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
 
-static void _ocf_mngt_bind_init_attached_structures(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_init_structures_attach(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	init_attached_data_structures_recovery(cache, true);
+	__populate_free(cache);
+
+	ocf_pipeline_next(pipeline);
+}
+
+static void _ocf_mngt_standby_init_structures_load(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	init_attached_data_structures_recovery(cache, false);
+
+	ocf_pipeline_next(pipeline);
+}
+
+static void _ocf_mngt_standby_init_pio_concurrency(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	int result;
-
-	init_attached_data_structures_recovery(cache, false);
 
 	result = ocf_pio_concurrency_init(&cache->standby.concurrency, cache);
 	if (!result)
@@ -2094,19 +2082,19 @@ static void _ocf_mngt_bind_init_attached_structures(ocf_pipeline_t pipeline,
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
 
-static void _ocf_mngt_bind_recovery_unsafe(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_recovery(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	_ocf_mngt_bind_rebuild_metadata(cache);
-	__populate_free_unsafe(cache);
+	_ocf_mngt_recovery_rebuild_metadata(cache);
+	__populate_free(cache);
 
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_bind_init_cleaning(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_init_cleaning(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -2122,7 +2110,7 @@ static void _ocf_mngt_bind_init_cleaning(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_bind_post_init(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_post_init(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -2133,7 +2121,33 @@ static void _ocf_mngt_bind_post_init(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-struct ocf_pipeline_properties _ocf_mngt_cache_standby_pipeline_properties = {
+struct ocf_pipeline_properties _ocf_mngt_cache_standby_attach_pipeline_properties = {
+	.priv_size = sizeof(struct ocf_cache_attach_context),
+	.finish = _ocf_mngt_cache_attach_finish,
+	.steps = {
+		OCF_PL_STEP(_ocf_mngt_copy_uuid_data),
+		OCF_PL_STEP(_ocf_mngt_init_attached_nonpersistent),
+		OCF_PL_STEP(_ocf_mngt_attach_cache_device),
+		OCF_PL_STEP(_ocf_mngt_attach_read_properties),
+		OCF_PL_STEP(_ocf_mngt_standby_init_properties),
+		OCF_PL_STEP(_ocf_mngt_init_cache_front_volume),
+		OCF_PL_STEP(_ocf_mngt_attach_check_ram),
+		OCF_PL_STEP(_ocf_mngt_attach_prepare_metadata),
+		OCF_PL_STEP(_ocf_mngt_test_volume),
+		OCF_PL_STEP(_ocf_mngt_init_cleaner),
+		OCF_PL_STEP(_ocf_mngt_standby_init_structures_attach),
+		OCF_PL_STEP(_ocf_mngt_standby_init_cleaning),
+		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
+		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
+		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
+		OCF_PL_STEP(_ocf_mngt_attach_discard),
+		OCF_PL_STEP(_ocf_mngt_attach_flush),
+		OCF_PL_STEP(_ocf_mngt_standby_post_init),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+struct ocf_pipeline_properties _ocf_mngt_cache_standby_load_pipeline_properties = {
 	.priv_size = sizeof(struct ocf_cache_attach_context),
 	.finish = _ocf_mngt_cache_attach_finish,
 	.steps = {
@@ -2145,40 +2159,42 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_attach_check_ram),
 		OCF_PL_STEP(_ocf_mngt_test_volume),
 		OCF_PL_STEP(_ocf_mngt_attach_prepare_metadata),
-		OCF_PL_STEP(_ocf_mngt_load_metadata_unsafe),
-		OCF_PL_STEP(_ocf_mngt_bind_preapre_mempool),
-		OCF_PL_STEP(_ocf_mngt_bind_init_attached_structures),
-		OCF_PL_STEP(_ocf_mngt_bind_recovery_unsafe),
+		OCF_PL_STEP(_ocf_mngt_load_superblock),
+		OCF_PL_STEP(_ocf_mngt_load_metadata_recovery),
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
-		OCF_PL_STEP(_ocf_mngt_bind_init_cleaning),
-		OCF_PL_STEP(_ocf_mngt_bind_post_init),
+		OCF_PL_STEP(_ocf_mngt_standby_init_structures_load),
+		OCF_PL_STEP(_ocf_mngt_standby_init_cleaning),
+		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
+		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
+		OCF_PL_STEP(_ocf_mngt_standby_recovery),
+		OCF_PL_STEP(_ocf_mngt_standby_post_init),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
 
-struct ocf_cache_failover_detach_context {
+struct ocf_cache_standby_detach_context {
 	ocf_pipeline_t pipeline;
 	ocf_cache_t cache;
-	ocf_mngt_cache_failover_detach_end_t cmpl;
+	ocf_mngt_cache_standby_detach_end_t cmpl;
 	void *priv;
 };
 
-static void _ocf_mngt_failover_detach_wait_metadata_io_finish(void *priv)
+static void _ocf_mngt_standby_detach_wait_metadata_io_finish(void *priv)
 {
-	struct ocf_cache_failover_detach_context *context = priv;
+	struct ocf_cache_standby_detach_context *context = priv;
 
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void _ocf_mngt_failover_detach_wait_metadata_io(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_detach_wait_metadata_io(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_cache_failover_detach_context *context = priv;
+	struct ocf_cache_standby_detach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	ocf_refcnt_freeze(&cache->refcnt.metadata);
 	ocf_refcnt_register_zero_cb(&cache->refcnt.metadata,
-			_ocf_mngt_failover_detach_wait_metadata_io_finish, context);
+			_ocf_mngt_standby_detach_wait_metadata_io_finish, context);
 }
 
 static void _ocf_mngt_activate_set_cache_device(ocf_pipeline_t pipeline,
@@ -2509,7 +2525,7 @@ ocf_mngt_cache_stop_standby_pipeline_properties = {
 	},
 };
 
-static void _ocf_mngt_cache_standby(ocf_cache_t cache,
+static void _ocf_mngt_cache_standby_attach(ocf_cache_t cache,
 		struct ocf_mngt_cache_attach_config *cfg,
 		_ocf_mngt_cache_attach_end_t cmpl, void *priv1, void *priv2)
 {
@@ -2518,7 +2534,7 @@ static void _ocf_mngt_cache_standby(ocf_cache_t cache,
 	int result;
 
 	result = ocf_pipeline_create(&pipeline, cache,
-			&_ocf_mngt_cache_standby_pipeline_properties);
+			&_ocf_mngt_cache_standby_attach_pipeline_properties);
 	if (result)
 		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_NO_MEM);
 
@@ -2542,10 +2558,43 @@ static void _ocf_mngt_cache_standby(ocf_cache_t cache,
 	OCF_PL_NEXT_RET(pipeline);
 }
 
-static void _ocf_mngt_failover_detach_close_volume(ocf_pipeline_t pipeline,
+static void _ocf_mngt_cache_standby_load(ocf_cache_t cache,
+		struct ocf_mngt_cache_attach_config *cfg,
+		_ocf_mngt_cache_attach_end_t cmpl, void *priv1, void *priv2)
+{
+	struct ocf_cache_attach_context *context;
+	ocf_pipeline_t pipeline;
+	int result;
+
+	result = ocf_pipeline_create(&pipeline, cache,
+			&_ocf_mngt_cache_standby_load_pipeline_properties);
+	if (result)
+		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_NO_MEM);
+
+	result = ocf_pipeline_create(&cache->stop_pipeline, cache,
+			&ocf_mngt_cache_stop_standby_pipeline_properties);
+	if (result) {
+		ocf_pipeline_destroy(pipeline);
+		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_NO_MEM);
+	}
+
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->cmpl = cmpl;
+	context->priv1 = priv1;
+	context->priv2 = priv2;
+	context->pipeline = pipeline;
+
+	context->cache = cache;
+	context->cfg = *cfg;
+
+	OCF_PL_NEXT_RET(pipeline);
+}
+
+static void _ocf_mngt_standby_detach_close_volume(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_cache_failover_detach_context *context = priv;
+	struct ocf_cache_standby_detach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	ocf_volume_close(&cache->device->volume);
@@ -2554,10 +2603,10 @@ static void _ocf_mngt_failover_detach_close_volume(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void ocf_mngt_cache_failover_detach_finish(ocf_pipeline_t pipeline,
+static void ocf_mngt_cache_standby_detach_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
-	struct ocf_cache_failover_detach_context *context = priv;
+	struct ocf_cache_standby_detach_context *context = priv;
 
 	context->cmpl(context->priv, error);
 
@@ -2565,25 +2614,25 @@ static void ocf_mngt_cache_failover_detach_finish(ocf_pipeline_t pipeline,
 }
 
 struct ocf_pipeline_properties
-_ocf_mngt_cache_failover_detach_pipeline_properties = {
-	.priv_size = sizeof(struct ocf_cache_failover_detach_context),
-	.finish = ocf_mngt_cache_failover_detach_finish,
+_ocf_mngt_cache_standby_detach_pipeline_properties = {
+	.priv_size = sizeof(struct ocf_cache_standby_detach_context),
+	.finish = ocf_mngt_cache_standby_detach_finish,
 	.steps = {
-		OCF_PL_STEP(_ocf_mngt_failover_detach_wait_metadata_io),
-		OCF_PL_STEP(_ocf_mngt_failover_detach_close_volume),
+		OCF_PL_STEP(_ocf_mngt_standby_detach_wait_metadata_io),
+		OCF_PL_STEP(_ocf_mngt_standby_detach_close_volume),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
 
-void _ocf_mngt_cache_failover_detach(ocf_cache_t cache,
-		ocf_mngt_cache_failover_detach_end_t cmpl, void *priv)
+void _ocf_mngt_cache_standby_detach(ocf_cache_t cache,
+		ocf_mngt_cache_standby_detach_end_t cmpl, void *priv)
 {
-	struct ocf_cache_failover_detach_context *context;
+	struct ocf_cache_standby_detach_context *context;
 	ocf_pipeline_t pipeline;
 	int result;
 
 	result = ocf_pipeline_create(&pipeline, cache,
-			&_ocf_mngt_cache_failover_detach_pipeline_properties);
+			&_ocf_mngt_cache_standby_detach_pipeline_properties);
 	if (result)
 		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
@@ -2598,9 +2647,8 @@ void _ocf_mngt_cache_failover_detach(ocf_cache_t cache,
 	OCF_PL_NEXT_RET(pipeline);
 }
 
-
-static void _ocf_mngt_cache_activate(ocf_cache_t cache,
-		struct ocf_mngt_cache_device_config *device_cfg,
+static void _ocf_mngt_cache_standby_activate(ocf_cache_t cache,
+		struct ocf_mngt_cache_standby_activate_config *cfg,
 		_ocf_mngt_cache_attach_end_t cmpl, void *priv1, void *priv2)
 {
 	struct ocf_cache_attach_context *context;
@@ -2611,7 +2659,7 @@ static void _ocf_mngt_cache_activate(ocf_cache_t cache,
 		OCF_CMPL_RET(cache, priv1, priv2, -OCF_ERR_CACHE_EXIST);
 
 	if (!ocf_refcnt_frozen(&cache->refcnt.metadata))
-		OCF_CMPL_RET(cache, priv1, priv2, OCF_ERR_FAILOVER_ATTACHED);
+		OCF_CMPL_RET(cache, priv1, priv2, OCF_ERR_STANDBY_ATTACHED);
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&_ocf_mngt_cache_activate_pipeline_properties);
@@ -2626,12 +2674,11 @@ static void _ocf_mngt_cache_activate(ocf_cache_t cache,
 	context->pipeline = pipeline;
 	context->cache = cache;
 
-	context->cfg.device = *device_cfg;
+	context->cfg.device = cfg->device;
 	context->cfg.cache_line_size = cache->metadata.line_size;
-	context->cfg.open_cores = true;
+	context->cfg.open_cores = cfg->open_cores;
 	context->cfg.force = false;
 	context->cfg.discard_on_start = false;
-
 
 	OCF_PL_NEXT_RET(pipeline);
 }
@@ -2898,23 +2945,23 @@ void ocf_mngt_cache_load(ocf_cache_t cache,
 	_ocf_mngt_cache_load(cache, cfg, _ocf_mngt_cache_load_complete, cmpl, priv);
 }
 
-static void _ocf_mngt_cache_standby_complete(ocf_cache_t cache, void *priv1,
-		void *priv2, int error)
+static void _ocf_mngt_cache_standby_attach_complete(ocf_cache_t cache,
+		void *priv1, void *priv2, int error)
 {
-	ocf_mngt_cache_bind_end_t cmpl = priv1;
+	ocf_mngt_cache_standby_attach_end_t cmpl = priv1;
 
 	if (error)
 		OCF_CMPL_RET(cache, priv2, error);
 
 	_ocf_mngt_cache_set_standby(cache);
-	ocf_cache_log(cache, log_info, "Successfully bound\n");
+	ocf_cache_log(cache, log_info, "Successfully attached standby cache\n");
 
 	OCF_CMPL_RET(cache, priv2, 0);
 }
 
-void ocf_mngt_cache_standby(ocf_cache_t cache,
+void ocf_mngt_cache_standby_attach(ocf_cache_t cache,
 		struct ocf_mngt_cache_attach_config *cfg,
-		ocf_mngt_cache_bind_end_t cmpl, void *priv)
+		ocf_mngt_cache_standby_attach_end_t cmpl, void *priv)
 {
 	int result;
 
@@ -2924,14 +2971,52 @@ void ocf_mngt_cache_standby(ocf_cache_t cache,
 	if (!cache->mngt_queue)
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
-	/* Bind is not allowed in volatile metadata mode */
+	/* Standby is not allowed in volatile metadata mode */
 	if (cache->metadata.is_volatile)
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
-	/* Bind is not allowed with 'force' flag on */
+	result = _ocf_mngt_cache_validate_attach_cfg(cfg);
+	if (result)
+		OCF_CMPL_RET(cache, priv, result);
+
+	_ocf_mngt_cache_standby_attach(cache, cfg,
+			_ocf_mngt_cache_standby_attach_complete, cmpl, priv);
+}
+
+static void _ocf_mngt_cache_standby_load_complete(ocf_cache_t cache,
+		void *priv1, void *priv2, int error)
+{
+	ocf_mngt_cache_standby_attach_end_t cmpl = priv1;
+
+	if (error)
+		OCF_CMPL_RET(cache, priv2, error);
+
+	_ocf_mngt_cache_set_standby(cache);
+	ocf_cache_log(cache, log_info, "Successfully loaded standby cache\n");
+
+	OCF_CMPL_RET(cache, priv2, 0);
+}
+
+void ocf_mngt_cache_standby_load(ocf_cache_t cache,
+		struct ocf_mngt_cache_attach_config *cfg,
+		ocf_mngt_cache_standby_load_end_t cmpl, void *priv)
+{
+	int result;
+
+	OCF_CHECK_NULL(cache);
+	OCF_CHECK_NULL(cfg);
+
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
+	/* Standby is not allowed in volatile metadata mode */
+	if (cache->metadata.is_volatile)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
+	/* Standby load is not allowed with 'force' flag on */
 	if (cfg->force) {
 		ocf_cache_log(cache, log_err, "Using 'force' flag is forbidden "
-				"for bind operation.");
+				"for standby load operation.");
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 	}
 
@@ -2939,14 +3024,31 @@ void ocf_mngt_cache_standby(ocf_cache_t cache,
 	if (result)
 		OCF_CMPL_RET(cache, priv, result);
 
-	_ocf_mngt_cache_standby(cache, cfg, _ocf_mngt_cache_standby_complete,
-			cmpl, priv);
+	_ocf_mngt_cache_standby_load(cache, cfg,
+			_ocf_mngt_cache_standby_load_complete, cmpl, priv);
 }
 
-static void _ocf_mngt_cache_activate_complete(ocf_cache_t cache, void *priv1,
-		void *priv2, int error)
+void ocf_mngt_cache_standby_detach(ocf_cache_t cache,
+		ocf_mngt_cache_standby_detach_end_t cmpl, void *priv)
 {
-	ocf_mngt_cache_activate_end_t cmpl = priv1;
+	OCF_CHECK_NULL(cache);
+
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(priv, -OCF_ERR_INVAL);
+
+	if (!ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_EXIST);
+
+	if (ocf_refcnt_frozen(&cache->refcnt.metadata))
+		OCF_CMPL_RET(priv, -OCF_ERR_INVAL);
+
+	_ocf_mngt_cache_standby_detach(cache, cmpl, priv);
+}
+
+static void _ocf_mngt_cache_standby_activate_complete(ocf_cache_t cache,
+		void *priv1, void *priv2, int error)
+{
+	ocf_mngt_cache_standby_activate_end_t cmpl = priv1;
 
 	if (error)
 		OCF_CMPL_RET(cache, priv2, error);
@@ -2960,26 +3062,9 @@ static void _ocf_mngt_cache_activate_complete(ocf_cache_t cache, void *priv1,
 	OCF_CMPL_RET(cache, priv2, 0);
 }
 
-void ocf_mngt_cache_failover_detach(ocf_cache_t cache,
-		ocf_mngt_cache_failover_detach_end_t cmpl, void *priv)
-{
-	OCF_CHECK_NULL(cache);
-
-	if (!cache->mngt_queue)
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL);
-
-	if (!ocf_cache_is_standby(cache))
-		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_EXIST);
-
-	if (ocf_refcnt_frozen(&cache->refcnt.metadata))
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL);
-
-	_ocf_mngt_cache_failover_detach(cache, cmpl, priv);
-}
-
-void ocf_mngt_cache_activate(ocf_cache_t cache,
-		struct ocf_mngt_cache_device_config *cfg,
-		ocf_mngt_cache_activate_end_t cmpl, void *priv)
+void ocf_mngt_cache_standby_activate(ocf_cache_t cache,
+		struct ocf_mngt_cache_standby_activate_config *cfg,
+		ocf_mngt_cache_standby_activate_end_t cmpl, void *priv)
 {
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(cfg);
@@ -2987,10 +3072,11 @@ void ocf_mngt_cache_activate(ocf_cache_t cache,
 	if (!cache->mngt_queue)
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
-	if (_ocf_mngt_cache_validate_device_cfg(cfg))
+	if (_ocf_mngt_cache_validate_device_cfg(&cfg->device))
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
-	_ocf_mngt_cache_activate(cache, cfg, _ocf_mngt_cache_activate_complete,
+	_ocf_mngt_cache_standby_activate(cache, cfg,
+			_ocf_mngt_cache_standby_activate_complete,
 			cmpl, priv);
 }
 

@@ -891,8 +891,7 @@ static ocf_cache_line_t next_phys_invalid(ocf_cache_t cache,
 }
 
 /* put invalid cachelines on freelist partition lru list  */
-void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines,
-		bool safe)
+void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines)
 {
 	ocf_cache_line_t phys, cline;
 	ocf_cache_line_t collision_table_entries =
@@ -906,10 +905,7 @@ void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines,
 	for (i = 0; i < num_free_clines; i++) {
 		/* find first invalid cacheline */
 		phys = next_phys_invalid(cache, phys);
-		if (safe)
-			ENV_BUG_ON(phys == collision_table_entries);
-		else if (phys == collision_table_entries)
-			break;
+		ENV_BUG_ON(phys == collision_table_entries);
 		cline = ocf_metadata_map_phy2lg(cache, phys);
 		++phys;
 
@@ -925,7 +921,7 @@ void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines,
 
 	/* we should have reached the last invalid cache line */
 	phys = next_phys_invalid(cache, phys);
-	ENV_BUG_ON(safe && phys != collision_table_entries);
+	ENV_BUG_ON(phys != collision_table_entries);
 
 	env_atomic_set(&cache->free.runtime->curr_size, i);
 }

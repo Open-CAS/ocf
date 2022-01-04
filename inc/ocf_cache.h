@@ -93,8 +93,8 @@ struct ocf_cache_info {
 	uint32_t metadata_end_offset;
 		/*!< LBA offset where metadata ends (in 4KiB blocks) */
 
-	bool failover_detached;
-		/*!< true if cache drive detached for failover */
+	bool standby_detached;
+		/*!< true if cache volume detached in standby mode */
 };
 
 /**

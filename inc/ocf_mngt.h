@@ -529,52 +529,108 @@ void ocf_mngt_cache_load(ocf_cache_t cache,
 		ocf_mngt_cache_load_end_t cmpl, void *priv);
 
 /**
- * @brief Completion callback of cache bind operation
+ * @brief Completion callback of cache standby attach operation
  *
  * @param[in] cache Cache handle
  * @param[in] priv Callback context
  * @param[in] error Error code (zero on success)
  */
-typedef void (*ocf_mngt_cache_bind_end_t)(ocf_cache_t cache,
+typedef void (*ocf_mngt_cache_standby_attach_end_t)(ocf_cache_t cache,
 		void *priv, int error);
 
 /**
- * @brief Initiate failover standby
+ * @brief Attach caching device to cache instance in failover standby mode
  *
  * @param[in] cache Cache handle
  * @param[in] cfg Caching device configuration
  * @param[in] cmpl Completion callback
  * @param[in] priv Completion callback context
  */
-void ocf_mngt_cache_standby(ocf_cache_t cache,
+void ocf_mngt_cache_standby_attach(ocf_cache_t cache,
 		struct ocf_mngt_cache_attach_config *cfg,
-		ocf_mngt_cache_bind_end_t cmpl, void *priv);
+		ocf_mngt_cache_standby_attach_end_t cmpl, void *priv);
 
-typedef void (*ocf_mngt_cache_failover_detach_end_t)(void *priv, int error);
-
-void ocf_mngt_cache_failover_detach(ocf_cache_t cache,
-		ocf_mngt_cache_failover_detach_end_t cmpl, void *priv);
 /**
- * @brief Completion callback of cache activate operation
+ * @brief Completion callback of cache standby load operation
  *
  * @param[in] cache Cache handle
  * @param[in] priv Callback context
  * @param[in] error Error code (zero on success)
  */
-typedef void (*ocf_mngt_cache_activate_end_t)(ocf_cache_t cache,
+typedef void (*ocf_mngt_cache_standby_load_end_t)(ocf_cache_t cache,
 		void *priv, int error);
-
 /**
- * @brief Activate cache instance
+ * @brief Load cache instance in failover standby mode
  *
  * @param[in] cache Cache handle
  * @param[in] cfg Caching device configuration
  * @param[in] cmpl Completion callback
  * @param[in] priv Completion callback context
  */
-void ocf_mngt_cache_activate(ocf_cache_t cache,
-		struct ocf_mngt_cache_device_config *cfg,
-		ocf_mngt_cache_activate_end_t cmpl, void *priv);
+void ocf_mngt_cache_standby_load(ocf_cache_t cache,
+		struct ocf_mngt_cache_attach_config *cfg,
+		ocf_mngt_cache_standby_load_end_t cmpl, void *priv);
+
+/**
+ * @brief Completion callback of cache standby detach operation
+ *
+ * @param[in] cache Cache handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_standby_detach_end_t)(void *priv, int error);
+
+/**
+ * @brief Detach cache volume from cache in standby mode
+ *
+ * @param[in] cache Cache handle
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
+ */
+void ocf_mngt_cache_standby_detach(ocf_cache_t cache,
+		ocf_mngt_cache_standby_detach_end_t cmpl, void *priv);
+
+/**
+ * @brief Cache standby activate configuration
+ */
+struct ocf_mngt_cache_standby_activate_config {
+	/**
+	 * @brief Cache device configuration - must be the first field
+	 */
+	struct ocf_mngt_cache_device_config device;
+
+	/**
+	 * @brief Automatically open core volumes when activating cache
+	 *
+	 * If set to false, cache load will not attempt to open core volumes,
+	 * and so cores will be marked "inactive" unless their volumes were
+	 * earlier added to the core pool. In such case user will be expected
+	 * to add cores later using function ocf_mngt_cache_add_core().
+	 */
+	bool open_cores;
+};
+
+/**
+ * @brief Completion callback of standby cache activate operation
+ *
+ * @param[in] cache Cache handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_standby_activate_end_t)(ocf_cache_t cache,
+		void *priv, int error);
+
+/**
+ * @brief Activate standby cache instance
+ *
+ * @param[in] cache Cache handle
+ * @param[in] cfg Caching device configuration
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
+ */
+void ocf_mngt_cache_standby_activate(ocf_cache_t cache,
+		struct ocf_mngt_cache_standby_activate_config *cfg,
+		ocf_mngt_cache_standby_activate_end_t cmpl, void *priv);
 
 /* Adding and removing cores */
 
