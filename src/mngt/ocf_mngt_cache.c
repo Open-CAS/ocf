@@ -495,7 +495,7 @@ static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
 	ocf_cleaning_init_cache_block(cache, cline);
 }
 
-static void _ocf_mngt_rebuild_metadata(ocf_cache_t cache)
+static int _ocf_mngt_rebuild_metadata(ocf_cache_t cache)
 {
 	ocf_cache_line_t cline;
 	ocf_core_id_t core_id;
@@ -512,13 +512,26 @@ static void _ocf_mngt_rebuild_metadata(ocf_cache_t cache)
 		OCF_COND_RESCHED(step, 128);
 		ocf_metadata_get_core_info(cache, cline, &core_id, &core_line);
 
-		metadata_clear_dirty_if_invalid(cache, cline);
+		if (!ocf_metadata_check(cache, cline) ||
+				core_id > OCF_CORE_MAX) {
+			ocf_cache_log(cache, log_err, "Inconsistent mapping "
+					"detected in on-disk metadata - "
+					"refusing to recover cache.\n");
+			return -OCF_ERR_INVAL;
+		}
 
 		any_valid = metadata_clear_valid_if_clean(cache, cline);
-		if (!any_valid || core_id >= OCF_CORE_MAX) {
+		if (!any_valid || core_id == OCF_CORE_MAX) {
 			/* Reset metadata for not mapped or clean cache line */
 			_recovery_reset_cline_metadata(cache, cline);
 			continue;
+		}
+
+		if (!cache->core[core_id].added) {
+			ocf_cache_log(cache, log_err, "Stale mapping in "
+					"on-disk metadata - refusing to "
+					"recover cache.\n");
+			return -OCF_ERR_INVAL;
 		}
 
 		/* Rebuild metadata for mapped cache line */
@@ -526,11 +539,13 @@ static void _ocf_mngt_rebuild_metadata(ocf_cache_t cache)
 	}
 
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+
+	return 0;
 }
 
-static void _ocf_mngt_recovery_rebuild_metadata(ocf_cache_t cache)
+static int _ocf_mngt_recovery_rebuild_metadata(ocf_cache_t cache)
 {
-	_ocf_mngt_rebuild_metadata(cache);
+	return _ocf_mngt_rebuild_metadata(cache);
 }
 
 static inline ocf_error_t _ocf_init_cleaning_policy(ocf_cache_t cache,
@@ -556,9 +571,12 @@ static void _ocf_mngt_load_post_metadata_load(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_error_t result;
+	int ret;
 
 	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown) {
-		_ocf_mngt_recovery_rebuild_metadata(cache);
+		ret = _ocf_mngt_recovery_rebuild_metadata(cache);
+		if (ret)
+			OCF_PL_FINISH_RET(pipeline, ret);
 		__populate_free(cache);
 	}
 
@@ -2113,8 +2131,11 @@ static void _ocf_mngt_standby_recovery(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
+	int ret;
 
-	_ocf_mngt_recovery_rebuild_metadata(cache);
+	ret = _ocf_mngt_recovery_rebuild_metadata(cache);
+	if (ret)
+		OCF_PL_FINISH_RET(pipeline, ret);
 	__populate_free(cache);
 
 	ocf_pipeline_next(pipeline);
