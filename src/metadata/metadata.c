@@ -991,8 +991,6 @@ struct ocf_pipeline_properties ocf_metadata_flush_all_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_context),
 	.finish = ocf_metadata_flush_all_finish,
 	.steps = {
-		OCF_PL_STEP_ARG_INT(ocf_metadata_flush_all_set_status,
-				ocf_metadata_dirty_shutdown),
 		OCF_PL_STEP_FOREACH(ocf_metadata_flush_segment,
 				ocf_metadata_flush_all_args),
 		OCF_PL_STEP_FOREACH(ocf_metadata_calculate_crc,
@@ -1626,6 +1624,16 @@ void ocf_metadata_load_properties(ocf_volume_t volume,
 			ocf_metadata_load_properties_cmpl, cmpl, priv);
 	if (result)
 		OCF_CMPL_RET(priv, result, NULL);
+}
+
+void ocf_metadata_zero_superblock(ocf_cache_t cache,
+		ocf_metadata_end_t cmpl, void *context)
+{
+	struct ocf_metadata_ctrl *ctrl = (struct ocf_metadata_ctrl *)
+			cache->metadata.priv;
+
+	ocf_metadata_sb_zero(ctrl->segment[metadata_segment_sb_config],
+			cmpl, context);
 }
 
 /* metadata segment data + iterators */

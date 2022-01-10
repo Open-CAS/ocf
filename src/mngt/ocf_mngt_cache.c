@@ -1476,6 +1476,30 @@ static void _ocf_mngt_init_promotion(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+static void _ocf_mngt_zero_superblock_complete(void *priv, int error)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (error) {
+		ocf_cache_log(cache, log_err,
+				"ERROR: Failed to clear superblock\n");
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_WRITE_CACHE);
+	}
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+static void _ocf_mngt_zero_superblock(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_metadata_zero_superblock(cache,
+			_ocf_mngt_zero_superblock_complete, context);
+}
+
 static void _ocf_mngt_attach_flush_metadata_complete(void *priv, int error)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -1685,6 +1709,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
 		OCF_PL_STEP(_ocf_mngt_init_promotion),
 		OCF_PL_STEP(_ocf_mngt_attach_init_instance),
+		OCF_PL_STEP(_ocf_mngt_zero_superblock),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_discard),
 		OCF_PL_STEP(_ocf_mngt_attach_flush),
@@ -1712,6 +1737,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_load_add_cores),
 		OCF_PL_STEP(_ocf_mngt_load_metadata),
 		OCF_PL_STEP(_ocf_mngt_load_post_metadata_load),
+		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
 		OCF_PL_STEP(_ocf_mngt_attach_post_init),
@@ -2139,6 +2165,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_attach_pipeline_propertie
 		OCF_PL_STEP(_ocf_mngt_standby_init_cleaning),
 		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
 		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
+		OCF_PL_STEP(_ocf_mngt_zero_superblock),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_discard),
 		OCF_PL_STEP(_ocf_mngt_attach_flush),

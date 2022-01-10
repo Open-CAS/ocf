@@ -504,6 +504,7 @@ struct ocf_metadata_superblock
 {
 	struct ocf_metadata_segment segment;
 	struct ocf_superblock_config *config;
+	ocf_cache_t cache;
 };
 
 #define _ocf_segment_to_sb(_segment) \
@@ -529,6 +530,7 @@ int ocf_metadata_superblock_init(
 	}
 
 	sb->config = ocf_metadata_raw_get_mem(sb->segment.raw);
+	sb->cache = cache;
 
 	*self = &sb->segment;
 	return 0;
@@ -751,4 +753,12 @@ void ocf_metadata_sb_crc_recovery(ocf_cache_t cache,
 	context->ctrl = cache->metadata.priv;
 
 	ocf_pipeline_next(pipeline);
+}
+
+void ocf_metadata_sb_zero(struct ocf_metadata_segment *self,
+		ocf_metadata_end_t cmpl, void *priv)
+{
+	struct ocf_metadata_superblock *sb = _ocf_segment_to_sb(self);
+
+	ocf_metadata_raw_zero(sb->cache, sb->segment.raw, cmpl, priv);
 }
