@@ -53,6 +53,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_METADATA_LAYOUT_MISMATCH = auto()
     OCF_ERR_CACHE_LINE_SIZE_MISMATCH = auto()
     OCF_ERR_CACHE_STANDBY = auto()
+    OCF_ERR_CORE_SIZE_MISMATCH = auto()
     OCF_ERR_STANDBY_ATTACHED = auto()
 
 

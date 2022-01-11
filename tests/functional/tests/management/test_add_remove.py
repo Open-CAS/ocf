@@ -313,3 +313,69 @@ def _io_to_core(exported_obj: Core, data: Data):
     completion.wait()
 
     assert completion.results["err"] == 0, "IO to exported object completion"
+
+
+@pytest.mark.xfail
+@pytest.mark.parametrize("cache_mode", CacheMode)
+@pytest.mark.parametrize("cls", CacheLineSize)
+def test_try_add_with_changed_core_size(pyocf_ctx, cache_mode, cls):
+    """
+    Test changing volume size before load
+    :param pyocf_ctx: basic pyocf context fixture
+    :param cm: cache mode we start with
+    :param cls: cache line size we start with
+    """
+    # Start cache device
+    cache_device = Volume(S.from_MiB(50))
+    cache = Cache.start_on_device(
+        cache_device, cache_mode=cache_mode, cache_line_size=cls
+    )
+
+    # Add core to cache
+    core_device = Volume(S.from_MiB(10))
+    core = Core.using_device(core_device)
+    cache.add_core(core)
+
+    # Stop cache
+    cache.stop()
+
+    # Change core device size
+    core_device.resize(S.from_MiB(12))
+
+    # Load cache with changed core size
+    cache = Cache.load_from_device(cache_device, open_cores=False)
+    core = Core(device=core_device, try_add=True)
+
+    with pytest.raises(OcfError, match="OCF_ERR_CORE_SIZE_MISMATCH"):
+        cache.add_core(core)
+
+
+@pytest.mark.parametrize("cache_mode", CacheMode)
+@pytest.mark.parametrize("cls", CacheLineSize)
+def test_load_with_changed_core_size(pyocf_ctx, cache_mode, cls):
+    """
+    Test changing volume size before load
+    :param pyocf_ctx: basic pyocf context fixture
+    :param cm: cache mode we start with
+    :param cls: cache line size we start with
+    """
+    # Start cache device
+    cache_device = Volume(S.from_MiB(50))
+    cache = Cache.start_on_device(
+        cache_device, cache_mode=cache_mode, cache_line_size=cls
+    )
+
+    # Add core to cache
+    core_device = Volume(S.from_MiB(10))
+    core = Core.using_device(core_device)
+    cache.add_core(core)
+
+    # Stop cache
+    cache.stop()
+
+    # Change core device size
+    core_device.resize(S.from_MiB(12))
+
+    # Load cache with changed core size
+    with pytest.raises(OcfError, match="OCF_ERR_CORE_SIZE_MISMATCH"):
+        cache = Cache.load_from_device(cache_device)

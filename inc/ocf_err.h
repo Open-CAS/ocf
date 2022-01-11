@@ -140,6 +140,9 @@ typedef enum {
 	/** Invalid operation for cache in standby state. */
 	OCF_ERR_CACHE_STANDBY,
 
+	/** Size of core volume doesn't match the size stored in cache metadata */
+	OCF_ERR_CORE_SIZE_MISMATCH,
+
 	/** Operation invalid with cache drive atatched in failover standby */
 	OCF_ERR_STANDBY_ATTACHED,
 
