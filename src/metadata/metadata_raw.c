@@ -272,8 +272,11 @@ static void raw_ram_zero(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	struct ocf_raw_ram_zero_ctx *ctx;
 
 	ctx = env_malloc(sizeof(*ctx), ENV_MEM_NORMAL);
-	if (!ctx)
+	if (!ctx) {
 		cmpl(priv, -OCF_ERR_NO_MEM);
+		return;
+	}
+
 	ctx->cmpl = cmpl;
 	ctx->priv = priv;
 
