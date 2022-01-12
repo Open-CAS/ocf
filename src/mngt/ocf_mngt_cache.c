@@ -215,14 +215,6 @@ static void __init_parts_attached(ocf_cache_t cache)
 	ocf_lru_init(cache, &cache->free);
 }
 
-static void __populate_free(ocf_cache_t cache)
-{
-	uint64_t free_clines = ocf_metadata_collision_table_entries(cache) -
-			ocf_get_cache_occupancy(cache);
-
-	ocf_lru_populate(cache, free_clines);
-}
-
 static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
 {
 	int i;
@@ -298,29 +290,6 @@ static void __reset_stats(ocf_cache_t cache)
 					part_counters[i].dirty_clines, 0);
 		}
 	}
-}
-
-static ocf_error_t init_attached_data_structures(ocf_cache_t cache)
-{
-	ocf_error_t result;
-
-	/* Lock to ensure consistency */
-
-	ocf_metadata_init_hash_table(cache);
-	ocf_metadata_init_collision(cache);
-	__init_parts_attached(cache);
-	__populate_free(cache);
-
-	result = __init_cleaning_policy(cache);
-	if (result) {
-		ocf_cache_log(cache, log_err,
-				"Cannot initialize cleaning policy\n");
-		return result;
-	}
-
-	__setup_promotion_policy(cache);
-
-	return 0;
 }
 
 static void init_attached_data_structures_recovery(ocf_cache_t cache,
@@ -565,20 +534,28 @@ static inline ocf_error_t _ocf_init_cleaning_policy(ocf_cache_t cache,
 	return result;
 }
 
-static void _ocf_mngt_load_post_metadata_load(ocf_pipeline_t pipeline,
+static void _ocf_mngt_load_rebuild_metadata(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	ocf_error_t result;
 	int ret;
 
 	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown) {
 		ret = _ocf_mngt_recovery_rebuild_metadata(cache);
 		if (ret)
 			OCF_PL_FINISH_RET(pipeline, ret);
-		__populate_free(cache);
 	}
+
+	ocf_pipeline_next(pipeline);
+}
+
+static void _ocf_mngt_load_init_cleaning(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_error_t result;
 
 	result = _ocf_init_cleaning_policy(cache, cache->cleaner.policy,
 			context->metadata.shutdown_status);
@@ -1106,16 +1083,51 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 /**
  * @brief initializing cache anew (not loading or recovering)
  */
-static void _ocf_mngt_attach_init_instance(ocf_pipeline_t pipeline,
+static void _ocf_mngt_attach_init_metadata(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_metadata_init_hash_table(cache);
+	ocf_metadata_init_collision(cache);
+	__init_parts_attached(cache);
+
+	ocf_pipeline_next(pipeline);
+}
+
+static void _ocf_mngt_attach_populate_free_complete(void *priv, int error)
+{
+	struct ocf_cache_attach_context *context = priv;
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
+}
+
+static void _ocf_mngt_attach_populate_free(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_lru_populate(cache, _ocf_mngt_attach_populate_free_complete,
+			context);
+}
+
+static void _ocf_mngt_attach_init_services(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_error_t result;
 
-	result = init_attached_data_structures(cache);
-	if (result)
+	result = __init_cleaning_policy(cache);
+	if (result) {
+		ocf_cache_log(cache, log_err,
+				"Cannot initialize cleaning policy\n");
 		OCF_PL_FINISH_RET(pipeline, result);
+	}
+
+	__setup_promotion_policy(cache);
 
 	/* In initial cache state there is no dirty data, so all dirty data is
 	   considered to be flushed
@@ -1726,7 +1738,9 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_test_volume),
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
 		OCF_PL_STEP(_ocf_mngt_init_promotion),
-		OCF_PL_STEP(_ocf_mngt_attach_init_instance),
+		OCF_PL_STEP(_ocf_mngt_attach_init_metadata),
+		OCF_PL_STEP(_ocf_mngt_attach_populate_free),
+		OCF_PL_STEP(_ocf_mngt_attach_init_services),
 		OCF_PL_STEP(_ocf_mngt_zero_superblock),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_discard),
@@ -1736,6 +1750,19 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
+
+static void _ocf_mngt_load_populate_free(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+
+	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown) {
+		_ocf_mngt_attach_populate_free(pipeline, priv, arg);
+		return;
+	}
+
+	ocf_pipeline_next(pipeline);
+}
 
 struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 	.priv_size = sizeof(struct ocf_cache_attach_context),
@@ -1754,7 +1781,9 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_init_promotion),
 		OCF_PL_STEP(_ocf_mngt_load_add_cores),
 		OCF_PL_STEP(_ocf_mngt_load_metadata),
-		OCF_PL_STEP(_ocf_mngt_load_post_metadata_load),
+		OCF_PL_STEP(_ocf_mngt_load_rebuild_metadata),
+		OCF_PL_STEP(_ocf_mngt_load_populate_free),
+		OCF_PL_STEP(_ocf_mngt_load_init_cleaning),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
@@ -2096,7 +2125,6 @@ static void _ocf_mngt_standby_init_structures_attach(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 
 	init_attached_data_structures_recovery(cache, true);
-	__populate_free(cache);
 
 	ocf_pipeline_next(pipeline);
 }
@@ -2136,23 +2164,6 @@ static void _ocf_mngt_standby_recovery(ocf_pipeline_t pipeline,
 	ret = _ocf_mngt_recovery_rebuild_metadata(cache);
 	if (ret)
 		OCF_PL_FINISH_RET(pipeline, ret);
-	__populate_free(cache);
-
-	ocf_pipeline_next(pipeline);
-}
-
-static void _ocf_mngt_standby_init_cleaning(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_cache_attach_context *context = priv;
-	ocf_cache_t cache = context->cache;
-	ocf_error_t result;
-
-	result = _ocf_init_cleaning_policy(cache, cache->cleaner.policy,
-			context->metadata.shutdown_status);
-
-	if (result)
-		OCF_PL_FINISH_RET(pipeline, result);
 
 	ocf_pipeline_next(pipeline);
 }
@@ -2183,7 +2194,8 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_attach_pipeline_propertie
 		OCF_PL_STEP(_ocf_mngt_test_volume),
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
 		OCF_PL_STEP(_ocf_mngt_standby_init_structures_attach),
-		OCF_PL_STEP(_ocf_mngt_standby_init_cleaning),
+		OCF_PL_STEP(_ocf_mngt_attach_populate_free),
+		OCF_PL_STEP(_ocf_mngt_load_init_cleaning),
 		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
 		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
 		OCF_PL_STEP(_ocf_mngt_zero_superblock),
@@ -2211,10 +2223,11 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_load_pipeline_properties 
 		OCF_PL_STEP(_ocf_mngt_load_metadata_recovery),
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
 		OCF_PL_STEP(_ocf_mngt_standby_init_structures_load),
-		OCF_PL_STEP(_ocf_mngt_standby_init_cleaning),
+		OCF_PL_STEP(_ocf_mngt_load_init_cleaning),
 		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
 		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
 		OCF_PL_STEP(_ocf_mngt_standby_recovery),
+		OCF_PL_STEP(_ocf_mngt_attach_populate_free),
 		OCF_PL_STEP(_ocf_mngt_standby_post_init),
 		OCF_PL_STEP_TERMINATOR(),
 	},

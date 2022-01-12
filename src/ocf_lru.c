@@ -7,6 +7,7 @@
 #include "ocf_lru.h"
 #include "utils/utils_cleaner.h"
 #include "utils/utils_cache_line.h"
+#include "utils/utils_parallelize.h"
 #include "concurrency/ocf_concurrency.h"
 #include "mngt/ocf_mngt_common.h"
 #include "engine/engine_zero.h"
@@ -867,17 +868,27 @@ void ocf_lru_dirty_cline(ocf_cache_t cache, struct ocf_part *part,
 	OCF_METADATA_LRU_WR_UNLOCK(cline);
 }
 
-/* put invalid cachelines on freelist partition lru list  */
-void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines)
+struct ocf_lru_populate_context {
+	ocf_cache_t cache;
+	env_atomic curr_size;
+
+	ocf_lru_populate_end_t cmpl;
+	void *priv;
+};
+
+static int ocf_lru_populate_handle(ocf_parallelize_t parallelize,
+		void *priv, unsigned shard_id, unsigned shards_cnt)
 {
+	struct ocf_lru_populate_context *context = priv;
+	ocf_cache_t cache = context->cache;
 	ocf_cache_line_t cnt, cline;
 	ocf_cache_line_t entries = ocf_metadata_collision_table_entries(cache);
 	struct ocf_lru_list *list;
-	unsigned lru_list;
+	unsigned lru_list = shard_id;
 	unsigned step = 0;
 
 	cnt = 0;
-	for (cline = 0; cline < entries; cline++) {
+	for (cline = shard_id; cline < entries; cline += shards_cnt) {
 		OCF_COND_RESCHED_DEFAULT(step);
 
 		if (metadata_test_valid_any(cache, cline))
@@ -885,7 +896,6 @@ void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines)
 
 		ocf_metadata_set_partition_id(cache, cline, PARTITION_FREELIST);
 
-		lru_list = (cline % OCF_NUM_LRU_LISTS);
 		list = ocf_lru_get_list(&cache->free, lru_list, true);
 
 		add_lru_head_nobalance(cache, list, cline);
@@ -893,9 +903,47 @@ void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines)
 		cnt++;
 	}
 
-	ENV_BUG_ON(cnt != num_free_clines);
+	env_atomic_add(cnt, &context->curr_size);
 
-	env_atomic_set(&cache->free.runtime->curr_size, cnt);
+	return 0;
+}
+
+static void ocf_lru_populate_finish(ocf_parallelize_t parallelize,
+		void *priv, int error)
+{
+	struct ocf_lru_populate_context *context = priv;
+
+	env_atomic_set(&context->cache->free.runtime->curr_size,
+		env_atomic_read(&context->curr_size));
+
+	context->cmpl(context->priv, error);
+
+	ocf_parallelize_destroy(parallelize);
+}
+
+/* put invalid cachelines on freelist partition lru list  */
+void ocf_lru_populate(ocf_cache_t cache,
+		ocf_lru_populate_end_t cmpl, void *priv)
+{
+	struct ocf_lru_populate_context *context;
+	ocf_parallelize_t parallelize;
+	int result;
+
+	result = ocf_parallelize_create(&parallelize, cache, OCF_NUM_LRU_LISTS,
+			sizeof(*context), ocf_lru_populate_handle,
+			ocf_lru_populate_finish);
+	if (result) {
+		cmpl(priv, result);
+		return;
+	}
+
+	context = ocf_parallelize_get_priv(parallelize);
+	context->cache = cache;
+	env_atomic_set(&context->curr_size, 0);
+	context->cmpl = cmpl;
+	context->priv = priv;
+
+	ocf_parallelize_run(parallelize);
 }
 
 static bool _is_cache_line_acting(struct ocf_cache *cache,
