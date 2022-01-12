@@ -867,63 +867,35 @@ void ocf_lru_dirty_cline(ocf_cache_t cache, struct ocf_part *part,
 	OCF_METADATA_LRU_WR_UNLOCK(cline);
 }
 
-static ocf_cache_line_t next_phys_invalid(ocf_cache_t cache,
-		ocf_cache_line_t phys)
-{
-	ocf_cache_line_t lg;
-	ocf_cache_line_t collision_table_entries =
-			ocf_metadata_collision_table_entries(cache);
-
-	if (phys == collision_table_entries)
-		return collision_table_entries;
-
-	lg = ocf_metadata_map_phy2lg(cache, phys);
-	while (metadata_test_valid_any(cache, lg)) {
-		++phys;
-
-		if (phys == collision_table_entries)
-			break;
-
-		lg = ocf_metadata_map_phy2lg(cache, phys);
-	}
-
-	return phys;
-}
-
 /* put invalid cachelines on freelist partition lru list  */
 void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines)
 {
-	ocf_cache_line_t phys, cline;
-	ocf_cache_line_t collision_table_entries =
-			ocf_metadata_collision_table_entries(cache);
+	ocf_cache_line_t cnt, cline;
+	ocf_cache_line_t entries = ocf_metadata_collision_table_entries(cache);
 	struct ocf_lru_list *list;
 	unsigned lru_list;
-	unsigned i;
 	unsigned step = 0;
 
-	phys = 0;
-	for (i = 0; i < num_free_clines; i++) {
-		/* find first invalid cacheline */
-		phys = next_phys_invalid(cache, phys);
-		ENV_BUG_ON(phys == collision_table_entries);
-		cline = ocf_metadata_map_phy2lg(cache, phys);
-		++phys;
+	cnt = 0;
+	for (cline = 0; cline < entries; cline++) {
+		OCF_COND_RESCHED_DEFAULT(step);
+
+		if (metadata_test_valid_any(cache, cline))
+			continue;
 
 		ocf_metadata_set_partition_id(cache, cline, PARTITION_FREELIST);
 
 		lru_list = (cline % OCF_NUM_LRU_LISTS);
 		list = ocf_lru_get_list(&cache->free, lru_list, true);
 
-		add_lru_head(cache, list, cline);
+		add_lru_head_nobalance(cache, list, cline);
 
-		OCF_COND_RESCHED_DEFAULT(step);
+		cnt++;
 	}
 
-	/* we should have reached the last invalid cache line */
-	phys = next_phys_invalid(cache, phys);
-	ENV_BUG_ON(phys != collision_table_entries);
+	ENV_BUG_ON(cnt != num_free_clines);
 
-	env_atomic_set(&cache->free.runtime->curr_size, i);
+	env_atomic_set(&cache->free.runtime->curr_size, cnt);
 }
 
 static bool _is_cache_line_acting(struct ocf_cache *cache,
