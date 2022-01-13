@@ -17,10 +17,12 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
+#include "../utils/utils_parallelize.h"
 #include "../utils/utils_pipeline.h"
 #include "../utils/utils_refcnt.h"
 #include "../utils/utils_async_lock.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 #include "../ocf_lru.h"
 #include "../ocf_ctx_priv.h"
 #include "../cleaning/cleaning.h"
@@ -464,18 +466,70 @@ static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
 	ocf_cleaning_init_cache_block(cache, cline);
 }
 
-static int _ocf_mngt_rebuild_metadata(ocf_cache_t cache)
+typedef void (*ocf_mngt_rebuild_metadata_end_t)(void *priv, int error);
+
+/*
+ * IMPORTANT: This value must match number of LRU lists so that adding
+ * cache lines to the list can be implemented without locking (each shard
+ * owns it's own LRU list). Don't change this value unless you are really
+ * sure you know what you're doing.
+ */
+#define OCF_MNGT_REBUILD_METADATA_SHARDS_CNT OCF_NUM_LRU_LISTS
+
+struct ocf_mngt_rebuild_metadata_context {
+	ocf_cache_t cache;
+
+	struct {
+		env_atomic lines;
+	} core[OCF_CORE_MAX];
+
+	struct {
+		struct {
+			uint32_t lines;
+		} core[OCF_CORE_MAX];
+	} shard[OCF_MNGT_REBUILD_METADATA_SHARDS_CNT];
+
+	ocf_mngt_rebuild_metadata_end_t cmpl;
+	void *priv;
+};
+
+static void ocf_mngt_cline_rebuild_metadata(ocf_cache_t cache,
+		ocf_core_id_t core_id, uint64_t core_line,
+		ocf_cache_line_t cline)
 {
-	ocf_cache_line_t cline;
+	ocf_part_id_t part_id = PARTITION_DEFAULT;
+	ocf_cache_line_t hash_index;
+
+	ocf_metadata_set_partition_id(cache, cline, part_id);
+
+	hash_index = ocf_metadata_hash_func(cache, core_line, core_id);
+
+	ocf_hb_id_naked_lock_wr(&cache->metadata.lock, hash_index);
+	ocf_metadata_add_to_collision(cache, core_id, core_line, hash_index,
+			cline);
+	ocf_hb_id_naked_unlock_wr(&cache->metadata.lock, hash_index);
+
+	ocf_lru_init_cline(cache, cline);
+
+	ocf_lru_add(cache, cline);
+}
+
+static int ocf_mngt_rebuild_metadata_handle(ocf_parallelize_t parallelize,
+		void *priv, unsigned shard_id, unsigned shards_cnt)
+{
+	struct ocf_mngt_rebuild_metadata_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_cache_line_t begin, increment, cline;
+	ocf_core_t core;
 	ocf_core_id_t core_id;
 	uint64_t core_line;
 	unsigned char step = 0;
-	const uint64_t collision_table_entries =
-			ocf_metadata_collision_table_entries(cache);
+	const uint64_t entries = ocf_metadata_collision_table_entries(cache);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	begin = shard_id;
+	increment = shards_cnt;
 
-	for (cline = 0; cline < collision_table_entries; cline++) {
+	for (cline = begin; cline < entries; cline += increment) {
 		bool any_valid = true;
 
 		OCF_COND_RESCHED(step, 128);
@@ -504,17 +558,78 @@ static int _ocf_mngt_rebuild_metadata(ocf_cache_t cache)
 		}
 
 		/* Rebuild metadata for mapped cache line */
-		ocf_cline_rebuild_metadata(cache, core_id, core_line, cline);
+		ocf_mngt_cline_rebuild_metadata(cache, core_id,
+				core_line, cline);
+
+		context->shard[shard_id].core[core_id].lines++;
 	}
 
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	for_each_core(cache, core, core_id) {
+		env_atomic_add(context->shard[shard_id].core[core_id].lines,
+				&context->core[core_id].lines);
+	}
 
 	return 0;
 }
 
-static int _ocf_mngt_recovery_rebuild_metadata(ocf_cache_t cache)
+static void ocf_mngt_rebuild_metadata_finish(ocf_parallelize_t parallelize,
+		void *priv, int error)
 {
-	return _ocf_mngt_rebuild_metadata(cache);
+	struct ocf_mngt_rebuild_metadata_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_part_id_t part_id = PARTITION_DEFAULT;
+	struct ocf_part_runtime *part;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	uint32_t lines_total = 0;
+
+	for_each_core(cache, core, core_id) {
+		uint32_t lines = env_atomic_read(&context->core[core_id].lines);
+
+		env_atomic_set(&core->runtime_meta->cached_clines, lines);
+		env_atomic_set(&core->runtime_meta->
+				part_counters[part_id].cached_clines, lines);
+		env_atomic_set(&core->runtime_meta->dirty_clines, lines);
+		env_atomic_set(&core->runtime_meta->
+				part_counters[part_id].dirty_clines, lines);
+		if (lines) {
+			env_atomic64_set(&core->runtime_meta->dirty_since,
+					env_ticks_to_secs(env_get_tick_count()));
+		}
+
+		lines_total += lines;
+	}
+
+	part = cache->user_parts[part_id].part.runtime;
+	env_atomic_set(&part->curr_size, lines_total);
+
+	context->cmpl(context->priv, error);
+
+	ocf_parallelize_destroy(parallelize);
+}
+
+static void ocf_mngt_rebuild_metadata(ocf_cache_t cache,
+		ocf_mngt_rebuild_metadata_end_t cmpl, void *priv)
+{
+	struct ocf_mngt_rebuild_metadata_context *context;
+	ocf_parallelize_t parallelize;
+	int result;
+
+	result = ocf_parallelize_create(&parallelize, cache,
+			OCF_MNGT_REBUILD_METADATA_SHARDS_CNT,
+			sizeof(*context), ocf_mngt_rebuild_metadata_handle,
+			ocf_mngt_rebuild_metadata_finish);
+        if (result) {
+                cmpl(priv, result);
+                return;
+	}
+
+	context = ocf_parallelize_get_priv(parallelize);
+	context->cache = cache;
+	context->cmpl = cmpl;
+	context->priv = priv;
+
+	ocf_parallelize_run(parallelize);
 }
 
 static inline ocf_error_t _ocf_init_cleaning_policy(ocf_cache_t cache,
@@ -534,17 +649,24 @@ static inline ocf_error_t _ocf_init_cleaning_policy(ocf_cache_t cache,
 	return result;
 }
 
+static void _ocf_mngt_load_rebuild_metadata_complete(void *priv, int error)
+{
+	struct ocf_cache_attach_context *context = priv;
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
+}
+
 static void _ocf_mngt_load_rebuild_metadata(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	int ret;
 
 	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown) {
-		ret = _ocf_mngt_recovery_rebuild_metadata(cache);
-		if (ret)
-			OCF_PL_FINISH_RET(pipeline, ret);
+		ocf_mngt_rebuild_metadata(cache,
+				_ocf_mngt_load_rebuild_metadata_complete,
+				context);
+		return;
 	}
 
 	ocf_pipeline_next(pipeline);
@@ -2154,20 +2276,6 @@ static void _ocf_mngt_standby_init_pio_concurrency(ocf_pipeline_t pipeline,
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
 
-static void _ocf_mngt_standby_recovery(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_cache_attach_context *context = priv;
-	ocf_cache_t cache = context->cache;
-	int ret;
-
-	ret = _ocf_mngt_recovery_rebuild_metadata(cache);
-	if (ret)
-		OCF_PL_FINISH_RET(pipeline, ret);
-
-	ocf_pipeline_next(pipeline);
-}
-
 static void _ocf_mngt_standby_post_init(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -2226,7 +2334,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_load_pipeline_properties 
 		OCF_PL_STEP(_ocf_mngt_load_init_cleaning),
 		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
 		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
-		OCF_PL_STEP(_ocf_mngt_standby_recovery),
+		OCF_PL_STEP(_ocf_mngt_load_rebuild_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_populate_free),
 		OCF_PL_STEP(_ocf_mngt_standby_post_init),
 		OCF_PL_STEP_TERMINATOR(),
