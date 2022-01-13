@@ -340,8 +340,9 @@ static void init_attached_data_structures_recovery(ocf_cache_t cache,
  * Used in case of cache initialization errors.			*
  ****************************************************************/
 static void _ocf_mngt_close_all_uninitialized_cores(
-		ocf_cache_t cache)
+		struct ocf_cache_attach_context *context)
 {
+	ocf_cache_t cache = context->cache;
 	ocf_volume_t volume;
 	int j, i;
 
@@ -350,7 +351,8 @@ static void _ocf_mngt_close_all_uninitialized_cores(
 			continue;
 
 		volume = &(cache->core[i].volume);
-		ocf_volume_close(volume);
+		if (context->cfg.open_cores)
+			ocf_volume_close(volume);
 
 		--j;
 
@@ -480,7 +482,7 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 	OCF_PL_NEXT_RET(context->pipeline);
 
 err:
-	_ocf_mngt_close_all_uninitialized_cores(cache);
+	_ocf_mngt_close_all_uninitialized_cores(context);
 
 	OCF_PL_FINISH_RET(pipeline, -OCF_ERR_START_CACHE_FAIL);
 }
@@ -1661,7 +1663,7 @@ static void _ocf_mngt_attach_handle_error(
 		__deinit_promotion_policy(cache);
 
 	if (context->flags.cores_opened)
-		_ocf_mngt_close_all_uninitialized_cores(cache);
+		_ocf_mngt_close_all_uninitialized_cores(context);
 
 	if (context->flags.attached_metadata_inited)
 		ocf_metadata_deinit_variable_size(cache);
@@ -2369,7 +2371,7 @@ static void _ocf_mngt_activate_handle_error(
 		__deinit_promotion_policy(cache);
 
 	if (context->flags.cores_opened)
-		_ocf_mngt_close_all_uninitialized_cores(cache);
+		_ocf_mngt_close_all_uninitialized_cores(context);
 
 	if (context->flags.volume_opened)
 		ocf_volume_close(&cache->device->volume);
