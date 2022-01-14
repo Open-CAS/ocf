@@ -1027,3 +1027,12 @@ uint32_t ocf_lru_num_free(ocf_cache_t cache)
 {
 	return env_atomic_read(&cache->free.runtime->curr_size);
 }
+
+void ocf_lru_add_free(ocf_cache_t cache, ocf_cache_line_t cline)
+{
+	uint32_t lru_list = (cline % OCF_NUM_LRU_LISTS);
+	struct ocf_lru_list *list;
+
+	list = ocf_lru_get_list(&cache->free, lru_list, true);
+	add_lru_head_nobalance(cache, list, cline);
+}
