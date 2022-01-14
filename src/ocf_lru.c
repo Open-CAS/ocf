@@ -891,9 +891,6 @@ static int ocf_lru_populate_handle(ocf_parallelize_t parallelize,
 	for (cline = shard_id; cline < entries; cline += shards_cnt) {
 		OCF_COND_RESCHED_DEFAULT(step);
 
-		if (metadata_test_valid_any(cache, cline))
-			continue;
-
 		ocf_metadata_set_partition_id(cache, cline, PARTITION_FREELIST);
 
 		list = ocf_lru_get_list(&cache->free, lru_list, true);

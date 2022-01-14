@@ -456,16 +456,6 @@ err:
 	OCF_PL_FINISH_RET(pipeline, -OCF_ERR_START_CACHE_FAIL);
 }
 
-static void _recovery_reset_cline_metadata(struct ocf_cache *cache,
-		ocf_cache_line_t cline)
-{
-	ocf_metadata_set_core_info(cache, cline, OCF_CORE_MAX, ULLONG_MAX);
-
-	metadata_init_status_bits(cache, cline);
-
-	ocf_cleaning_init_cache_block(cache, cline);
-}
-
 typedef void (*ocf_mngt_rebuild_metadata_end_t)(void *priv, int error);
 
 /*
@@ -489,9 +479,24 @@ struct ocf_mngt_rebuild_metadata_context {
 		} core[OCF_CORE_MAX];
 	} shard[OCF_MNGT_REBUILD_METADATA_SHARDS_CNT];
 
+	env_atomic free_lines;
+
 	ocf_mngt_rebuild_metadata_end_t cmpl;
 	void *priv;
 };
+
+static void ocf_mngt_cline_reset_metadata(ocf_cache_t cache,
+		ocf_cache_line_t cline, uint32_t lru_list)
+{
+	ocf_metadata_set_core_info(cache, cline, OCF_CORE_MAX, ULLONG_MAX);
+	metadata_init_status_bits(cache, cline);
+
+	ocf_metadata_set_partition_id(cache, cline, PARTITION_FREELIST);
+
+	ocf_lru_add_free(cache, cline);
+
+	ocf_cleaning_init_cache_block(cache, cline);
+}
 
 static void ocf_mngt_cline_rebuild_metadata(ocf_cache_t cache,
 		ocf_core_id_t core_id, uint64_t core_line,
@@ -519,7 +524,7 @@ static int ocf_mngt_rebuild_metadata_handle(ocf_parallelize_t parallelize,
 {
 	struct ocf_mngt_rebuild_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	ocf_cache_line_t begin, increment, cline;
+	ocf_cache_line_t begin, increment, cline, free_lines;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
 	uint64_t core_line;
@@ -529,6 +534,7 @@ static int ocf_mngt_rebuild_metadata_handle(ocf_parallelize_t parallelize,
 	begin = shard_id;
 	increment = shards_cnt;
 
+	free_lines = 0;
 	for (cline = begin; cline < entries; cline += increment) {
 		bool any_valid = true;
 
@@ -546,7 +552,8 @@ static int ocf_mngt_rebuild_metadata_handle(ocf_parallelize_t parallelize,
 		any_valid = metadata_clear_valid_if_clean(cache, cline);
 		if (!any_valid || core_id == OCF_CORE_MAX) {
 			/* Reset metadata for not mapped or clean cache line */
-			_recovery_reset_cline_metadata(cache, cline);
+			ocf_mngt_cline_reset_metadata(cache, cline, shard_id);
+			free_lines++;
 			continue;
 		}
 
@@ -568,6 +575,8 @@ static int ocf_mngt_rebuild_metadata_handle(ocf_parallelize_t parallelize,
 		env_atomic_add(context->shard[shard_id].core[core_id].lines,
 				&context->core[core_id].lines);
 	}
+
+	env_atomic_add(free_lines, &context->free_lines);
 
 	return 0;
 }
@@ -602,6 +611,9 @@ static void ocf_mngt_rebuild_metadata_finish(ocf_parallelize_t parallelize,
 
 	part = cache->user_parts[part_id].part.runtime;
 	env_atomic_set(&part->curr_size, lines_total);
+
+	env_atomic_set(&cache->free.runtime->curr_size,
+			env_atomic_read(&context->free_lines));
 
 	context->cmpl(context->priv, error);
 
@@ -1873,19 +1885,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 	},
 };
 
-static void _ocf_mngt_load_populate_free(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_cache_attach_context *context = priv;
-
-	if (context->metadata.shutdown_status != ocf_metadata_clean_shutdown) {
-		_ocf_mngt_attach_populate_free(pipeline, priv, arg);
-		return;
-	}
-
-	ocf_pipeline_next(pipeline);
-}
-
 struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 	.priv_size = sizeof(struct ocf_cache_attach_context),
 	.finish = _ocf_mngt_cache_attach_finish,
@@ -1904,7 +1903,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_load_add_cores),
 		OCF_PL_STEP(_ocf_mngt_load_metadata),
 		OCF_PL_STEP(_ocf_mngt_load_rebuild_metadata),
-		OCF_PL_STEP(_ocf_mngt_load_populate_free),
 		OCF_PL_STEP(_ocf_mngt_load_init_cleaning),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
@@ -2335,7 +2333,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_load_pipeline_properties 
 		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
 		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
 		OCF_PL_STEP(_ocf_mngt_load_rebuild_metadata),
-		OCF_PL_STEP(_ocf_mngt_attach_populate_free),
 		OCF_PL_STEP(_ocf_mngt_standby_post_init),
 		OCF_PL_STEP_TERMINATOR(),
 	},
