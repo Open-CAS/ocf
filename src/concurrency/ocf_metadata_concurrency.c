@@ -299,6 +299,18 @@ void ocf_hb_cline_naked_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 	ocf_hb_id_naked_unlock(metadata_lock, hash, OCF_METADATA_WR);
 }
 
+void ocf_hb_id_naked_lock_wr(struct ocf_metadata_lock *metadata_lock,
+                ocf_cache_line_t hash)
+{
+	ocf_hb_id_naked_lock(metadata_lock, hash, OCF_METADATA_WR);
+}
+
+void ocf_hb_id_naked_unlock_wr(struct ocf_metadata_lock *metadata_lock,
+                ocf_cache_line_t hash)
+{
+	ocf_hb_id_naked_unlock(metadata_lock, hash, OCF_METADATA_WR);
+}
+
 /* common part of protected hash bucket lock routines */
 static inline void ocf_hb_id_prot_lock_common(
 		struct ocf_metadata_lock *metadata_lock,
