@@ -206,16 +206,6 @@ struct ocf_pipeline_arg ocf_metadata_load_sb_store_segment_args[] = {
 };
 
 struct ocf_pipeline_arg ocf_metadata_load_sb_load_segment_args[] = {
-	OCF_PL_ARG_INT(metadata_segment_sb_config),
-	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
-	OCF_PL_ARG_INT(metadata_segment_part_config),
-	OCF_PL_ARG_INT(metadata_segment_part_runtime),
-	OCF_PL_ARG_INT(metadata_segment_core_config),
-	OCF_PL_ARG_INT(metadata_segment_core_uuid),
-	OCF_PL_ARG_TERMINATOR(),
-};
-
-struct ocf_pipeline_arg ocf_metadata_load_sb_check_crc_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
 	OCF_PL_ARG_INT(metadata_segment_part_config),
 	OCF_PL_ARG_INT(metadata_segment_part_runtime),
@@ -230,11 +220,13 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_pipeline_props = {
 	.steps = {
 		OCF_PL_STEP_FOREACH(ocf_metadata_store_segment,
 				ocf_metadata_load_sb_store_segment_args),
+		OCF_PL_STEP_ARG_INT(ocf_metadata_load_segment,
+				metadata_segment_sb_config),
+		OCF_PL_STEP(ocf_metadata_check_crc_sb_config),
 		OCF_PL_STEP_FOREACH(ocf_metadata_load_segment,
 				ocf_metadata_load_sb_load_segment_args),
-		OCF_PL_STEP(ocf_metadata_check_crc_sb_config),
 		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc,
-				ocf_metadata_load_sb_check_crc_args),
+				ocf_metadata_load_sb_load_segment_args),
 		OCF_PL_STEP(ocf_metadata_load_superblock_post),
 		OCF_PL_STEP_TERMINATOR(),
 	},
@@ -282,14 +274,6 @@ void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
 }
 
 struct ocf_pipeline_arg ocf_metadata_load_sb_recov_load_segment_args[] = {
-	OCF_PL_ARG_INT(metadata_segment_sb_config),
-	OCF_PL_ARG_INT(metadata_segment_part_config),
-	OCF_PL_ARG_INT(metadata_segment_core_config),
-	OCF_PL_ARG_INT(metadata_segment_core_uuid),
-	OCF_PL_ARG_TERMINATOR(),
-};
-
-struct ocf_pipeline_arg ocf_metadata_load_sb_recov_check_crc_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_part_config),
 	OCF_PL_ARG_INT(metadata_segment_core_config),
 	OCF_PL_ARG_INT(metadata_segment_core_uuid),
@@ -302,11 +286,13 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_recov_pipeline_props = {
 	.steps = {
 		OCF_PL_STEP_FOREACH(ocf_metadata_store_segment,
 				ocf_metadata_load_sb_store_segment_args),
+		OCF_PL_STEP_ARG_INT(ocf_metadata_load_segment,                                      
+				metadata_segment_sb_config),  
+		OCF_PL_STEP(ocf_metadata_check_crc_sb_config),
 		OCF_PL_STEP_FOREACH(ocf_metadata_load_segment,
 				ocf_metadata_load_sb_recov_load_segment_args),
-		OCF_PL_STEP(ocf_metadata_check_crc_sb_config),
 		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc,
-				ocf_metadata_load_sb_recov_check_crc_args),
+				ocf_metadata_load_sb_recov_load_segment_args),
 		OCF_PL_STEP(ocf_metadata_load_superblock_post),
 		OCF_PL_STEP_TERMINATOR(),
 	},
