@@ -527,7 +527,7 @@ static int _ocf_mngt_rebuild_metadata(ocf_cache_t cache)
 			continue;
 		}
 
-		if (!cache->core[core_id].added) {
+		if (!cache->core[core_id].conf_meta->valid) {
 			ocf_cache_log(cache, log_err, "Stale mapping in "
 					"on-disk metadata - refusing to "
 					"recover cache.\n");
