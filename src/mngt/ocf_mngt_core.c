@@ -373,7 +373,7 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	struct ocf_volume_uuid new_uuid;
 	ocf_volume_t volume;
 	ocf_volume_type_t type;
-	ocf_seq_no_t core_sequence_no;
+	ocf_seq_no_t core_sequence_no = 0;
 	uint64_t length;
 	int i, result = 0;
 
@@ -478,9 +478,11 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 			cfg->seq_cutoff_promote_on_threshold);
 
 	/* Add core sequence number for atomic metadata matching */
-	core_sequence_no = _ocf_mngt_get_core_seq_no(cache);
-	if (core_sequence_no == OCF_SEQ_NO_INVALID)
-		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_TOO_MANY_CORES);
+	if (ocf_volume_is_atomic(&cache->device->volume)) {
+		core_sequence_no = _ocf_mngt_get_core_seq_no(cache);
+		if (core_sequence_no == OCF_SEQ_NO_INVALID)
+			OCF_PL_FINISH_RET(pipeline, -OCF_ERR_TOO_MANY_CORES);
+	}
 
 	core->conf_meta->seq_no = core_sequence_no;
 
