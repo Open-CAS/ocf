@@ -323,6 +323,15 @@ int cleaning_policy_acp_initialize(struct ocf_cache *cache,
 	return 0;
 }
 
+void cleaning_policy_acp_recovery(ocf_cache_t cache,
+                ocf_cleaning_recovery_end_t cmpl, void *priv)
+{
+	int result;
+
+	result = cleaning_policy_acp_initialize(cache, 1);
+	cmpl(priv, result);
+}
+
 int cleaning_policy_acp_set_cleaning_param(ocf_cache_t cache,
 		uint32_t param_id, uint32_t param_value)
 {

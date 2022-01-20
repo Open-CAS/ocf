@@ -642,23 +642,6 @@ static void ocf_mngt_rebuild_metadata(ocf_cache_t cache,
 	ocf_parallelize_run(parallelize);
 }
 
-static inline ocf_error_t _ocf_init_cleaning_policy(ocf_cache_t cache,
-		ocf_cleaning_t cleaning_policy,
-		enum ocf_metadata_shutdown_status shutdown_status)
-{
-	ocf_error_t result;
-
-	if (shutdown_status == ocf_metadata_clean_shutdown)
-		result = ocf_cleaning_initialize(cache, cleaning_policy, 0);
-	else
-		result = ocf_cleaning_initialize(cache, cleaning_policy, 1);
-
-	if (result)
-		ocf_cache_log(cache, log_err, "Cannot initialize cleaning policy\n");
-
-	return result;
-}
-
 static void _ocf_mngt_load_rebuild_metadata_complete(void *priv, int error)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -682,6 +665,13 @@ static void _ocf_mngt_load_rebuild_metadata(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+static void _ocf_mngt_cleaning_recovery_complete(void *priv, int error)
+{
+	struct ocf_cache_attach_context *context = priv;
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
+}
+
 static void _ocf_mngt_load_init_cleaning(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -689,13 +679,14 @@ static void _ocf_mngt_load_init_cleaning(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 	ocf_error_t result;
 
-	result = _ocf_init_cleaning_policy(cache, cache->cleaner.policy,
-			context->metadata.shutdown_status);
+	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown) {
+		result = ocf_cleaning_initialize(cache,
+				cache->cleaner.policy, 0);
+		OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, result);
+	}
 
-	if (result)
-		OCF_PL_FINISH_RET(pipeline, result);
-
-	ocf_pipeline_next(pipeline);
+	ocf_cleaning_recovery(cache, cache->cleaner.policy,
+			_ocf_mngt_cleaning_recovery_complete, context);
 }
 
 void _ocf_mngt_load_metadata_complete(void *priv, int error)

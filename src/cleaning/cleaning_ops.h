@@ -14,6 +14,8 @@
 struct cleaning_policy_ops {
 	void (*setup)(ocf_cache_t cache);
 	int (*initialize)(ocf_cache_t cache, int init_metadata);
+	void (*recovery)(ocf_cache_t cache,
+			ocf_cleaning_recovery_end_t cmpl, void *priv);
 	void (*deinitialize)(ocf_cache_t cache);
 	int (*add_core)(ocf_cache_t cache, ocf_core_id_t core_id);
 	void (*remove_core)(ocf_cache_t cache, ocf_core_id_t core_id);
@@ -43,6 +45,7 @@ static struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max] = {
 		.purge_range = cleaning_policy_alru_purge_range,
 		.set_hot_cache_line = cleaning_policy_alru_set_hot_cache_line,
 		.initialize = cleaning_policy_alru_initialize,
+		.recovery = cleaning_policy_alru_recovery,
 		.deinitialize = cleaning_policy_alru_deinitialize,
 		.set_cleaning_param = cleaning_policy_alru_set_cleaning_param,
 		.get_cleaning_param = cleaning_policy_alru_get_cleaning_param,
@@ -56,6 +59,7 @@ static struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max] = {
 		.purge_range = cleaning_policy_acp_purge_range,
 		.set_hot_cache_line = cleaning_policy_acp_set_hot_cache_line,
 		.initialize = cleaning_policy_acp_initialize,
+		.recovery = cleaning_policy_acp_recovery,
 		.deinitialize = cleaning_policy_acp_deinitialize,
 		.set_cleaning_param = cleaning_policy_acp_set_cleaning_param,
 		.get_cleaning_param = cleaning_policy_acp_get_cleaning_param,
@@ -85,6 +89,20 @@ static inline int ocf_cleaning_initialize(ocf_cache_t cache,
 		return 0;
 
 	return cleaning_policy_ops[policy].initialize(cache, init_metadata);
+}
+
+static inline void ocf_cleaning_recovery(ocf_cache_t cache,
+		ocf_cleaning_t policy,
+		ocf_cleaning_recovery_end_t cmpl, void *priv)
+{
+	ENV_BUG_ON(policy >= ocf_cleaning_max);
+
+	if (unlikely(!cleaning_policy_ops[policy].recovery)) {
+		cmpl(priv, 0);
+		return;
+	}
+
+	cleaning_policy_ops[policy].recovery(cache, cmpl, priv);
 }
 
 static inline void ocf_cleaning_deinitialize(ocf_cache_t cache)
