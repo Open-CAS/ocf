@@ -2428,6 +2428,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_activate_pipeline_properties = {
 	.steps = {
 		OCF_PL_STEP(_ocf_mngt_copy_uuid_data),
 		OCF_PL_STEP(_ocf_mngt_activate_set_cache_device),
+		OCF_PL_STEP(_ocf_mngt_activate_init_properties),
 		OCF_PL_STEP(_ocf_mngt_activate_compare_superblock),
 		OCF_PL_STEP(_ocf_mngt_load_superblock),
 		OCF_PL_STEP(_ocf_mngt_activate_check_superblock),
