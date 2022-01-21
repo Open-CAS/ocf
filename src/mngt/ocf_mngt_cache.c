@@ -494,8 +494,6 @@ static void ocf_mngt_cline_reset_metadata(ocf_cache_t cache,
 	ocf_metadata_set_partition_id(cache, cline, PARTITION_FREELIST);
 
 	ocf_lru_add_free(cache, cline);
-
-	ocf_cleaning_init_cache_block(cache, cline);
 }
 
 static void ocf_mngt_cline_rebuild_metadata(ocf_cache_t cache,
