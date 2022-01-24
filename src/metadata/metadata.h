@@ -207,7 +207,7 @@ struct ocf_metadata_load_properties {
 typedef void (*ocf_metadata_load_properties_end_t)(void *priv, int error,
 		struct ocf_metadata_load_properties *properties);
 
-void ocf_metadata_load_properties(ocf_volume_t volume,
+void ocf_metadata_load_properties(ocf_cache_t cache,
 		ocf_metadata_load_properties_end_t cmpl, void *priv);
 
 static inline ocf_cache_line_t ocf_metadata_collision_table_entries(

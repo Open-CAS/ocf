@@ -53,17 +53,7 @@ static inline const char *ocf_get_io_iface_name(ocf_cache_mode_t cache_mode)
 	return iface ? iface->name : "Unknown";
 }
 
-static inline bool ocf_cache_mode_is_valid(ocf_cache_mode_t mode)
-{
-	return mode >= ocf_cache_mode_wt && mode < ocf_cache_mode_max;
-}
-
-static inline bool ocf_req_cache_mode_has_lazy_write(ocf_req_cache_mode_t mode)
-{
-	return ocf_cache_mode_is_valid((ocf_cache_mode_t)mode) &&
-			ocf_mngt_cache_mode_has_lazy_write(
-					(ocf_cache_mode_t)mode);
-}
+bool ocf_req_cache_mode_has_lazy_write(ocf_req_cache_mode_t mode);
 
 bool ocf_fallback_pt_is_on(ocf_cache_t cache);
 

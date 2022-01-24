@@ -950,7 +950,7 @@ static void _ocf_mngt_attach_read_properties(ocf_pipeline_t pipeline,
 	if (context->cfg.force)
 		OCF_PL_NEXT_RET(pipeline);
 
-	ocf_metadata_load_properties(&cache->device->volume,
+	ocf_metadata_load_properties(cache,
 			_ocf_mngt_attach_read_properties_end, context);
 }
 
@@ -960,7 +960,7 @@ static void _ocf_mngt_load_read_properties(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_metadata_load_properties(&cache->device->volume,
+	ocf_metadata_load_properties(cache,
 			_ocf_mngt_load_read_properties_end, context);
 }
 
