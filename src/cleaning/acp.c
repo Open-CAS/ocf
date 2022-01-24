@@ -9,6 +9,7 @@
 #include "../metadata/metadata.h"
 #include "../utils/utils_cleaner.h"
 #include "../utils/utils_cache_line.h"
+#include "../utils/utils_parallelize.h"
 #include "../ocf_request.h"
 #include "../cleaning/acp.h"
 #include "../engine/engine_common.h"
@@ -270,8 +271,7 @@ void cleaning_policy_acp_setup(struct ocf_cache *cache)
 	config->flush_max_buffers = OCF_ACP_DEFAULT_FLUSH_MAX_BUFFERS;
 }
 
-int cleaning_policy_acp_initialize(struct ocf_cache *cache,
-		int init_metadata)
+int cleaning_policy_acp_init_common(ocf_cache_t cache)
 {
 	struct acp_context *acp;
 	int err, i;
@@ -317,18 +317,203 @@ int cleaning_policy_acp_initialize(struct ocf_cache *cache,
 		}
 	}
 
+	return 0;
+}
+
+int cleaning_policy_acp_initialize(ocf_cache_t cache, int init_metadata)
+{
+	int result;
+
+	result = cleaning_policy_acp_init_common(cache);
+	if (result)
+		return result;
+
 	_acp_rebuild(cache);
 	ocf_kick_cleaner(cache);
 
 	return 0;
 }
 
+#define OCF_ACP_RECOVERY_SHARDS_CNT 32
+
+struct ocf_acp_recovery_context {
+	ocf_cache_t cache;
+
+	struct {
+		uint16_t *chunk[OCF_CORE_MAX];
+		struct {
+			struct list_head chunk_list;
+		} bucket[ACP_MAX_BUCKETS];
+	} shard[OCF_ACP_RECOVERY_SHARDS_CNT];
+
+	ocf_cleaning_recovery_end_t cmpl;
+	void *priv;
+};
+
+static int ocf_acp_recovery_handle(ocf_parallelize_t parallelize,
+		void *priv, unsigned shard_id, unsigned shards_cnt)
+{
+	struct ocf_acp_recovery_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_cache_line_t entries = cache->device->collision_table_entries;
+	ocf_cache_line_t cline, portion;
+	uint64_t begin, end;
+	struct acp_cleaning_policy_meta *acp_meta;
+	struct acp_chunk_info *chunk;
+	ocf_core_id_t core_id;
+	uint32_t step = 0;
+
+	portion = DIV_ROUND_UP((uint64_t)entries, shards_cnt);
+	begin = portion*shard_id;
+	end = OCF_MIN(portion*(shard_id + 1), entries);
+
+	for (cline = begin; cline < end; cline++) {
+		ocf_metadata_get_core_and_part_id(cache, cline, &core_id, NULL);
+
+		OCF_COND_RESCHED_DEFAULT(step);
+
+		if (core_id == OCF_CORE_MAX)
+			continue;
+
+		if (!metadata_test_dirty(cache, cline)) {
+			cleaning_policy_acp_init_cache_block(cache, cline);
+			continue;
+		}
+
+		acp_meta = _acp_meta_get(cache, cline);
+		acp_meta->dirty = 1;
+
+		chunk = _acp_get_chunk(cache, cline);
+		context->shard[shard_id].chunk[core_id][chunk->chunk_id]++;
+	}
+
+	return 0;
+}
+
+static void ocf_acp_recovery_chunk(struct ocf_acp_recovery_context *context,
+		struct acp_chunk_info *chunk)
+{
+	ocf_cache_t cache = context->cache;
+	struct acp_context *acp = _acp_get_ctx_from_cache(cache);
+	struct acp_bucket *bucket;
+	unsigned shard_id;
+	uint8_t bucket_id;
+
+	chunk->num_dirty = 0;
+	for (shard_id = 0; shard_id < OCF_ACP_RECOVERY_SHARDS_CNT; shard_id++) {
+		chunk->num_dirty += context->shard[shard_id]
+				.chunk[chunk->core_id][chunk->chunk_id];
+	}
+
+	for (bucket_id = 0; bucket_id < ACP_MAX_BUCKETS; bucket_id++) {
+		bucket = &acp->bucket_info[bucket_id];
+		if (chunk->num_dirty < bucket->threshold)
+			break;
+	}
+
+	bucket = &acp->bucket_info[--bucket_id];
+	chunk->bucket_id = bucket_id;
+
+	list_move_tail(&chunk->list, &bucket->chunk_list);
+}
+
+static void ocf_acp_recovery_finish(ocf_parallelize_t parallelize,
+		void *priv, int error)
+{
+	struct ocf_acp_recovery_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	struct acp_context *acp = _acp_get_ctx_from_cache(cache);
+	ocf_core_id_t core_id;
+	ocf_core_t core;
+	uint64_t core_size;
+	uint64_t num_chunks;
+	uint64_t chunk_id;
+	uint32_t step = 0;
+
+	for_each_core(cache, core, core_id) {
+		core_size = core->conf_meta->length;
+		num_chunks = OCF_DIV_ROUND_UP(core_size, ACP_CHUNK_SIZE);
+
+		for (chunk_id = 0; chunk_id < num_chunks; chunk_id++) {
+			ocf_acp_recovery_chunk(context,
+					&acp->chunk_info[core_id][chunk_id]);
+			OCF_COND_RESCHED_DEFAULT(step);
+		}
+	}
+
+	ocf_cache_log(cache, log_info, "Finished rebuilding ACP metadata\n");
+
+	ocf_kick_cleaner(cache);
+
+	context->cmpl(context->priv, error);
+
+	for_each_core(cache, core, core_id) {
+		if (context->shard[0].chunk[core_id])
+			env_vfree(context->shard[0].chunk[core_id]);
+	}
+
+	ocf_parallelize_destroy(parallelize);
+}
+
 void cleaning_policy_acp_recovery(ocf_cache_t cache,
                 ocf_cleaning_recovery_end_t cmpl, void *priv)
 {
+	struct ocf_acp_recovery_context *context;
+	ocf_parallelize_t parallelize;
+	ocf_core_id_t core_id;
+	ocf_core_t core;
+	unsigned shards_cnt = OCF_ACP_RECOVERY_SHARDS_CNT;
+	unsigned shard_id;
+	uint64_t core_size;
+	uint64_t num_chunks;
+	uint16_t *chunks;
 	int result;
 
-	result = cleaning_policy_acp_initialize(cache, 1);
+	result = ocf_parallelize_create(&parallelize, cache,
+			OCF_ACP_RECOVERY_SHARDS_CNT, sizeof(*context),
+			ocf_acp_recovery_handle, ocf_acp_recovery_finish);
+	if (result) {
+		cmpl(priv, result);
+		return;
+	}
+
+	context = ocf_parallelize_get_priv(parallelize);
+	context->cache = cache;
+	context->cmpl = cmpl;
+	context->priv = priv;
+
+	for_each_core(cache, core, core_id) {
+		core_size = core->conf_meta->length;
+		num_chunks = OCF_DIV_ROUND_UP(core_size, ACP_CHUNK_SIZE);
+
+		chunks = env_vzalloc(sizeof(*chunks) * num_chunks * shards_cnt);
+		if (!chunks) {
+			result = -OCF_ERR_NO_MEM;
+			goto err;
+		}
+
+		for (shard_id = 0; shard_id < shards_cnt; shard_id++) {
+			context->shard[shard_id].chunk[core_id] =
+					&chunks[num_chunks * shard_id];
+		}
+	}
+
+	result = cleaning_policy_acp_init_common(cache);
+	if (result)
+		goto err;
+
+	ocf_parallelize_run(parallelize);
+
+	return;
+
+err:
+	for_each_core(cache, core, core_id) {
+		if (context->shard[0].chunk[core_id])
+			env_vfree(context->shard[0].chunk[core_id]);
+	}
+
+	ocf_parallelize_destroy(parallelize);
+
 	cmpl(priv, result);
 }
 
