@@ -1773,49 +1773,29 @@ err_io:
 	return result;
 }
 
+struct ocf_metadata_load_properties_ctx
+{
+	ocf_cache_t cache;
+	ocf_metadata_load_properties_end_t cmpl;
+	void *priv;
+};
+
 static void ocf_metadata_load_properties_cmpl(
 		struct ocf_metadata_read_sb_ctx *context)
 {
 	struct ocf_metadata_load_properties properties;
 	struct ocf_superblock_config *superblock = &context->superblock;
-	ocf_metadata_load_properties_end_t cmpl = context->priv1;
-	void *priv = context->priv2;
-	ocf_ctx_t ctx = context->ctx;
+	struct ocf_metadata_load_properties_ctx *load_context = context->priv1;
+	ocf_metadata_load_properties_end_t cmpl = load_context->cmpl;
+	void *priv = load_context->priv;
+	ocf_cache_t cache = load_context->cache;
+	int ret;
 
-	if (superblock->magic_number != CACHE_MAGIC_NUMBER) {
-		ocf_log(ctx, log_info, "Cannot detect pre-existing metadata\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_NO_METADATA, NULL);
-	}
+	env_vfree(load_context);
 
-	if (METADATA_VERSION() != superblock->metadata_version) {
-		ocf_log(ctx, log_err, "Metadata version mismatch!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_METADATA_VER, NULL);
-	}
-
-	if (!ocf_cache_line_size_is_valid(superblock->line_size)) {
-		ocf_log(ctx, log_err, "ERROR: Invalid cache line size!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, NULL);
-	}
-
-	if ((unsigned)superblock->metadata_layout >= ocf_metadata_layout_max) {
-		ocf_log(ctx, log_err, "ERROR: Invalid metadata layout!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, NULL);
-	}
-
-	if (superblock->cache_mode >= ocf_cache_mode_max) {
-		ocf_log(ctx, log_err, "ERROR: Invalid cache mode!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, NULL);
-	}
-
-	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
-		ocf_log(ctx, log_err, "ERROR: Invalid shutdown status!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, NULL);
-	}
-
-	if (superblock->dirty_flushed > DIRTY_FLUSHED) {
-		ocf_log(ctx, log_err, "ERROR: Invalid flush status!\n");
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL, NULL);
-	}
+	ret = ocf_metadata_validate_superblock(cache, superblock);
+	if (ret)
+		OCF_CMPL_RET(priv, ret, NULL);
 
 	properties.line_size = superblock->line_size;
 	properties.layout = superblock->metadata_layout;
@@ -1827,17 +1807,28 @@ static void ocf_metadata_load_properties_cmpl(
 	OCF_CMPL_RET(priv, 0, &properties);
 }
 
-void ocf_metadata_load_properties(ocf_volume_t volume,
+void ocf_metadata_load_properties(ocf_cache_t cache,
 		ocf_metadata_load_properties_end_t cmpl, void *priv)
 {
+	ocf_volume_t volume = &cache->device->volume;
+	struct ocf_metadata_load_properties_ctx *context;
 	int result;
+
+	context = env_vmalloc(sizeof(*context));
+	if (!context)
+		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM, NULL);
+	context->cmpl = cmpl;
+	context->priv = priv;
+	context->cache = cache;
 
 	OCF_DEBUG_TRACE(cache);
 
-	result = ocf_metadata_read_sb(volume->cache->owner, volume,
-			ocf_metadata_load_properties_cmpl, cmpl, priv);
-	if (result)
+	result = ocf_metadata_read_sb(cache->owner, volume,
+			ocf_metadata_load_properties_cmpl, context, NULL);
+	if (result) {
+		env_vfree(context);
 		OCF_CMPL_RET(priv, result, NULL);
+	}
 }
 
 /* metadata segment data + iterators */

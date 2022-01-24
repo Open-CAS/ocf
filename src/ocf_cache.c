@@ -26,6 +26,11 @@ int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size)
 			src, src_size);
 }
 
+bool ocf_cache_mode_is_valid(ocf_cache_mode_t mode)
+{
+	return mode >= ocf_cache_mode_wt && mode < ocf_cache_mode_max;
+}
+
 const char *ocf_cache_get_name(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
