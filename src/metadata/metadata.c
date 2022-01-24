@@ -1609,6 +1609,16 @@ void ocf_metadata_error(struct ocf_cache *cache)
 	cache->device->metadata_error = -1;
 }
 
+typedef void (*ocf_metadata_read_sb_end_t)(
+		struct ocf_metadata_read_sb_ctx *context);
+
+struct ocf_metadata_load_properties_ctx
+{
+	ocf_cache_t cache;
+	ocf_metadata_load_properties_end_t cmpl;
+	void *priv;
+};
+
 static void ocf_metadata_load_properties_cmpl(
 		struct ocf_metadata_read_sb_ctx *context)
 {
