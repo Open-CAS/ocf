@@ -106,4 +106,8 @@ unsigned ocf_metadata_superblock_get_flapping_idx(
 
 unsigned ocf_metadata_superblock_get_next_flapping_idx(
 		struct ocf_metadata_segment *self);
+
+int ocf_metadata_validate_superblock(ocf_cache_t cache,
+		struct ocf_superblock_config *superblock);
+
 #endif /* METADATA_SUPERBLOCK_H_ */

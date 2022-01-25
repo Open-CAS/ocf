@@ -83,7 +83,7 @@
 /**
  * Maximum value of a valid core sequence number
  */
-#define OCF_SEQ_NO_MAX (65535UL)
+#define OCF_SEQ_NO_MAX ((1ULL << (sizeof(ocf_core_id_t) * 8)) - 1)
 /*
  * Invalid value of core sequence number
  */
