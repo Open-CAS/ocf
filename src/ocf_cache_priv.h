@@ -185,4 +185,6 @@ static inline uint64_t ocf_get_cache_occupancy(ocf_cache_t cache)
 
 int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size);
 
+bool ocf_cache_mode_is_valid(ocf_cache_mode_t mode);
+
 #endif /* __OCF_CACHE_PRIV_H__ */

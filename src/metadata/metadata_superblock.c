@@ -10,6 +10,7 @@
 #include "metadata_superblock.h"
 #include "../ocf_priv.h"
 #include "../utils/utils_io.h"
+#include "../utils/utils_cache_line.h"
 
 #define OCF_METADATA_SUPERBLOCK_DEBUG 0
 
@@ -97,29 +98,117 @@ static void ocf_metadata_store_segment(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void ocf_metadata_check_crc_sb_config(ocf_pipeline_t pipeline,
+
+#define ocf_log_invalid_superblock(param) \
+	ocf_cache_log(cache, log_err, \
+			"Loading %s: invalid %s\n", \
+			ocf_metadata_segment_names[ \
+					metadata_segment_sb_config], \
+			param);
+
+
+int ocf_metadata_validate_superblock(ocf_cache_t cache,
+		struct ocf_superblock_config *superblock)
+{
+	uint32_t crc;
+
+	if (superblock->magic_number != CACHE_MAGIC_NUMBER) {
+		ocf_cache_log(cache, log_info, "Cannot detect pre-existing "
+				"metadata\n");
+		return -OCF_ERR_NO_METADATA;
+	}
+
+	if (METADATA_VERSION() != superblock->metadata_version) {
+		ocf_cache_log(cache, log_err, "Metadata version mismatch!\n");
+		return -OCF_ERR_METADATA_VER;
+	}
+
+	crc = env_crc32(0, (void *)superblock,
+			offsetof(struct ocf_superblock_config, checksum));
+
+	if (crc != superblock->checksum[metadata_segment_sb_config]) {
+		ocf_log_invalid_superblock("checksum");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
+		ocf_log_invalid_superblock("shutdown status");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->dirty_flushed > DIRTY_FLUSHED) {
+		ocf_log_invalid_superblock("flush status");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->flapping_idx > 1) {
+		ocf_log_invalid_superblock("flapping index");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->cache_mode < 0 ||
+			superblock->cache_mode >= ocf_cache_mode_max) {
+		ocf_log_invalid_superblock("cache mode");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (env_strnlen(superblock->name, sizeof(superblock->name)) >=
+			OCF_CACHE_NAME_SIZE) {
+		ocf_log_invalid_superblock("name");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->valid_parts_no > OCF_USER_IO_CLASS_MAX) {
+		ocf_log_invalid_superblock("partition count");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (!ocf_cache_line_size_is_valid(superblock->line_size)) {
+		ocf_log_invalid_superblock("cache line size");
+		return -OCF_ERR_INVAL;
+	}
+
+	if ((unsigned)superblock->metadata_layout >= ocf_metadata_layout_max) {
+		ocf_log_invalid_superblock("metadata layout");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->core_count > OCF_CORE_MAX) {
+		ocf_log_invalid_superblock("core count");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->cleaning_policy_type < 0 ||
+			superblock->cleaning_policy_type >= ocf_cleaning_max) {
+		ocf_log_invalid_superblock("cleaning policy");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->promotion_policy_type < 0 ||
+			superblock->promotion_policy_type >=
+					ocf_promotion_max) {
+		ocf_log_invalid_superblock("promotion policy");
+		return -OCF_ERR_INVAL;
+	}
+
+	return 0;
+}
+
+static void _ocf_metadata_validate_superblock(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_metadata_context *context = priv;
 	struct ocf_metadata_ctrl *ctrl;
-	struct ocf_superblock_config *sb_config;
+	struct ocf_superblock_config *superblock;
 	ocf_cache_t cache = context->cache;
-	int segment = metadata_segment_sb_config;
-	uint32_t crc;
+	int ret;
 
 	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
-	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
+	superblock = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 
-	crc = env_crc32(0, (void *)sb_config,
-			offsetof(struct ocf_superblock_config, checksum));
-
-	if (crc != sb_config->checksum[segment]) {
-		/* Checksum does not match */
-		ocf_cache_log(cache, log_err,
-				"Loading %s ERROR, invalid checksum\n",
-				ocf_metadata_segment_names[segment]);
-		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
-	}
+	ret = ocf_metadata_validate_superblock(cache, superblock);
+	if (ret)
+		OCF_PL_FINISH_RET(pipeline, ret);
 
 	ocf_pipeline_next(pipeline);
 }
@@ -128,17 +217,12 @@ static void ocf_metadata_load_superblock_post(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_metadata_context *context = priv;
-	struct ocf_metadata_ctrl *ctrl;
-	struct ocf_superblock_config *sb_config;
 	ocf_cache_t cache = context->cache;
 	struct ocf_metadata_uuid *muuid;
 	struct ocf_volume_uuid uuid;
 	ocf_volume_type_t volume_type;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
-
-	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
-	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 
 	for_each_core_metadata(cache, core, core_id) {
 		muuid = ocf_metadata_get_core_uuid(cache, core_id);
@@ -151,20 +235,6 @@ static void ocf_metadata_load_superblock_post(ocf_pipeline_t pipeline,
 		/* Initialize core volume */
 		ocf_volume_init(&core->volume, volume_type, &uuid, false);
 		core->has_volume = true;
-	}
-
-	/* Restore all dynamics items */
-
-	if (sb_config->core_count > OCF_CORE_MAX) {
-		ocf_cache_log(cache, log_err,
-			"Loading cache state ERROR, invalid cores count\n");
-		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
-	}
-
-	if (sb_config->valid_parts_no > OCF_USER_IO_CLASS_MAX) {
-		ocf_cache_log(cache, log_err,
-			"Loading cache state ERROR, invalid partition count\n");
-		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
 	}
 
 	ocf_pipeline_next(pipeline);
@@ -225,7 +295,6 @@ struct ocf_pipeline_arg ocf_metadata_load_sb_store_segment_args[] = {
 };
 
 struct ocf_pipeline_arg ocf_metadata_load_sb_load_segment_args[] = {
-	OCF_PL_ARG_INT(metadata_segment_sb_config),
 	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
 	OCF_PL_ARG_INT(metadata_segment_part_config),
 	OCF_PL_ARG_INT(metadata_segment_part_runtime),
@@ -253,9 +322,11 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_pipeline_props = {
 	.steps = {
 		OCF_PL_STEP_FOREACH(ocf_metadata_store_segment,
 				ocf_metadata_load_sb_store_segment_args),
+		OCF_PL_STEP_ARG_INT(ocf_metadata_load_segment,
+				metadata_segment_sb_config),
+		OCF_PL_STEP(_ocf_metadata_validate_superblock),
 		OCF_PL_STEP_FOREACH(ocf_metadata_load_segment,
 				ocf_metadata_load_sb_load_segment_args),
-		OCF_PL_STEP(ocf_metadata_check_crc_sb_config),
 		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc,
 				ocf_metadata_load_sb_check_crc_args),
 		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc_if_clean,
