@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef __PROMOTION_NHIT_STRUCTS_H_
