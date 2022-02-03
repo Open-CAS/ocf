@@ -2327,7 +2327,7 @@ static void _ocf_mngt_activate_compare_superblock_end(
 
 	if (diff) {
 		ocf_cache_log(cache, log_err, "Superblock mismatch!\n");
-		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_INVAL);
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_SUPERBLOCK_MISMATCH);
 	}
 
 	ocf_pipeline_next(context->pipeline);

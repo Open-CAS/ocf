@@ -44,6 +44,9 @@ typedef enum {
 	/** Cache metadata found on device */
 	OCF_ERR_METADATA_FOUND,
 
+	/** Metadata on the device doesn't match with metadata in DRAM */
+	OCF_ERR_SUPERBLOCK_MISMATCH,
+
 	/** Invalid volume type */
 	OCF_ERR_INVAL_VOLUME_TYPE,
 
@@ -144,6 +147,7 @@ typedef enum {
 	OCF_ERR_STANDBY_ATTACHED,
 
 	OCF_ERR_MAX = OCF_ERR_STANDBY_ATTACHED,
+
 } ocf_error_t;
 
 #endif /* __OCF_ERR_H__ */
