@@ -11,8 +11,8 @@
  * @brief Logger API
  */
 
+#include <ocf_env.h>
 #include <ocf/ocf_types.h>
-#include <stdarg.h>
 
 /**
  * @brief Verbosity levels of context log
