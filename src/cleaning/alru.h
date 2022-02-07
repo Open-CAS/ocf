@@ -11,6 +11,8 @@
 
 void cleaning_policy_alru_setup(ocf_cache_t cache);
 int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata);
+void cleaning_policy_alru_recovery(ocf_cache_t cache,
+                ocf_cleaning_recovery_end_t cmpl, void *priv);
 void cleaning_policy_alru_deinitialize(ocf_cache_t cache);
 void cleaning_policy_alru_init_cache_block(ocf_cache_t cache,
 		uint32_t cache_line);

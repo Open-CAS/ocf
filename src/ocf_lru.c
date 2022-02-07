@@ -7,6 +7,8 @@
 #include "ocf_lru.h"
 #include "utils/utils_cleaner.h"
 #include "utils/utils_cache_line.h"
+#include "utils/utils_generator.h"
+#include "utils/utils_parallelize.h"
 #include "concurrency/ocf_concurrency.h"
 #include "mngt/ocf_mngt_common.h"
 #include "engine/engine_zero.h"
@@ -867,63 +869,91 @@ void ocf_lru_dirty_cline(ocf_cache_t cache, struct ocf_part *part,
 	OCF_METADATA_LRU_WR_UNLOCK(cline);
 }
 
-static ocf_cache_line_t next_phys_invalid(ocf_cache_t cache,
-		ocf_cache_line_t phys)
+struct ocf_lru_populate_context {
+	ocf_cache_t cache;
+	env_atomic curr_size;
+
+	ocf_lru_populate_end_t cmpl;
+	void *priv;
+};
+
+static int ocf_lru_populate_handle(ocf_parallelize_t parallelize,
+		void *priv, unsigned shard_id, unsigned shards_cnt)
 {
-	ocf_cache_line_t lg;
-	ocf_cache_line_t collision_table_entries =
-			ocf_metadata_collision_table_entries(cache);
-
-	if (phys == collision_table_entries)
-		return collision_table_entries;
-
-	lg = ocf_metadata_map_phy2lg(cache, phys);
-	while (metadata_test_valid_any(cache, lg)) {
-		++phys;
-
-		if (phys == collision_table_entries)
-			break;
-
-		lg = ocf_metadata_map_phy2lg(cache, phys);
-	}
-
-	return phys;
-}
-
-/* put invalid cachelines on freelist partition lru list  */
-void ocf_lru_populate(ocf_cache_t cache, ocf_cache_line_t num_free_clines)
-{
-	ocf_cache_line_t phys, cline;
-	ocf_cache_line_t collision_table_entries =
-			ocf_metadata_collision_table_entries(cache);
+	struct ocf_lru_populate_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_cache_line_t cnt, cline;
+	ocf_cache_line_t entries = ocf_metadata_collision_table_entries(cache);
+	struct ocf_generator_bisect_state generator;
 	struct ocf_lru_list *list;
-	unsigned lru_list;
-	unsigned i;
+	unsigned lru_list = shard_id;
 	unsigned step = 0;
+	uint32_t portion, offset;
+	uint32_t i, idx;
 
-	phys = 0;
-	for (i = 0; i < num_free_clines; i++) {
-		/* find first invalid cacheline */
-		phys = next_phys_invalid(cache, phys);
-		ENV_BUG_ON(phys == collision_table_entries);
-		cline = ocf_metadata_map_phy2lg(cache, phys);
-		++phys;
+	portion = DIV_ROUND_UP((uint64_t)entries, shards_cnt);
+	offset = shard_id * portion / shards_cnt;
+	ocf_generator_bisect_init(&generator, portion, offset);
+
+	list = ocf_lru_get_list(&cache->free, lru_list, true);
+
+	cnt = 0;
+	for (i = 0; i < portion; i++) {
+		OCF_COND_RESCHED_DEFAULT(step);
+
+		idx = ocf_generator_bisect_next(&generator);
+		cline = idx * shards_cnt + shard_id;
+		if (cline >= entries)
+			continue;
 
 		ocf_metadata_set_partition_id(cache, cline, PARTITION_FREELIST);
 
-		lru_list = (cline % OCF_NUM_LRU_LISTS);
-		list = ocf_lru_get_list(&cache->free, lru_list, true);
+		add_lru_head_nobalance(cache, list, cline);
 
-		add_lru_head(cache, list, cline);
-
-		OCF_COND_RESCHED_DEFAULT(step);
+		cnt++;
 	}
 
-	/* we should have reached the last invalid cache line */
-	phys = next_phys_invalid(cache, phys);
-	ENV_BUG_ON(phys != collision_table_entries);
+	env_atomic_add(cnt, &context->curr_size);
 
-	env_atomic_set(&cache->free.runtime->curr_size, i);
+	return 0;
+}
+
+static void ocf_lru_populate_finish(ocf_parallelize_t parallelize,
+		void *priv, int error)
+{
+	struct ocf_lru_populate_context *context = priv;
+
+	env_atomic_set(&context->cache->free.runtime->curr_size,
+		env_atomic_read(&context->curr_size));
+
+	context->cmpl(context->priv, error);
+
+	ocf_parallelize_destroy(parallelize);
+}
+
+/* put invalid cachelines on freelist partition lru list  */
+void ocf_lru_populate(ocf_cache_t cache,
+		ocf_lru_populate_end_t cmpl, void *priv)
+{
+	struct ocf_lru_populate_context *context;
+	ocf_parallelize_t parallelize;
+	int result;
+
+	result = ocf_parallelize_create(&parallelize, cache, OCF_NUM_LRU_LISTS,
+			sizeof(*context), ocf_lru_populate_handle,
+			ocf_lru_populate_finish);
+	if (result) {
+		cmpl(priv, result);
+		return;
+	}
+
+	context = ocf_parallelize_get_priv(parallelize);
+	context->cache = cache;
+	env_atomic_set(&context->curr_size, 0);
+	context->cmpl = cmpl;
+	context->priv = priv;
+
+	ocf_parallelize_run(parallelize);
 }
 
 static bool _is_cache_line_acting(struct ocf_cache *cache,
@@ -1026,4 +1056,13 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 uint32_t ocf_lru_num_free(ocf_cache_t cache)
 {
 	return env_atomic_read(&cache->free.runtime->curr_size);
+}
+
+void ocf_lru_add_free(ocf_cache_t cache, ocf_cache_line_t cline)
+{
+	uint32_t lru_list = (cline % OCF_NUM_LRU_LISTS);
+	struct ocf_lru_list *list;
+
+	list = ocf_lru_get_list(&cache->free, lru_list, true);
+	add_lru_head_nobalance(cache, list, cline);
 }

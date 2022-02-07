@@ -12,6 +12,9 @@ void cleaning_policy_acp_setup(ocf_cache_t cache);
 
 int cleaning_policy_acp_initialize(ocf_cache_t cache, int init_metadata);
 
+void cleaning_policy_acp_recovery(ocf_cache_t cache,
+                ocf_cleaning_recovery_end_t cmpl, void *priv);
+
 void cleaning_policy_acp_deinitialize(ocf_cache_t cache);
 
 void cleaning_policy_acp_perform_cleaning(ocf_cache_t cache,

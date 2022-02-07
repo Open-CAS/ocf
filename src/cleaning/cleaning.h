@@ -54,4 +54,6 @@ void ocf_kick_cleaner(ocf_cache_t cache);
 
 void ocf_stop_cleaner(ocf_cache_t cache);
 
+typedef void (*ocf_cleaning_recovery_end_t)(void *priv, int error);
+
 #endif
