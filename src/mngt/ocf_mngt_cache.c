@@ -353,6 +353,7 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 	int ret = -1;
 	uint64_t hd_lines = 0;
 	uint64_t length;
+	ocf_error_t error = -OCF_ERR_START_CACHE_FAIL;
 
 	OCF_ASSERT_PLUGGED(cache);
 
@@ -435,10 +436,11 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 
 		length = ocf_volume_get_length(&core->volume);
 		if (length != core->conf_meta->length) {
-			ocf_cache_log(cache, log_err,
+			ocf_core_log(core, log_err,
 					"Size of core volume doesn't match with"
 					" the size stored in cache metadata!");
-			goto err;
+			error = -OCF_ERR_CORE_SIZE_MISMATCH;	
+			goto err;	
 		}
 
 		hd_lines = ocf_bytes_2_lines(cache, length);
@@ -455,7 +457,7 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 err:
 	_ocf_mngt_close_all_uninitialized_cores(context);
 
-	OCF_PL_FINISH_RET(pipeline, -OCF_ERR_START_CACHE_FAIL);
+	OCF_PL_FINISH_RET(pipeline, error);
 }
 
 typedef void (*ocf_mngt_rebuild_metadata_end_t)(void *priv, int error);

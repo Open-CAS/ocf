@@ -256,6 +256,12 @@ class Volume(Structure):
     def get_length(self):
         return self.size
 
+    def resize(self, size):
+        self.size = size
+        self.data = create_string_buffer(int(self.size))
+        memset(self.data, self.VOLUME_POISON, self.size)
+        self._storage = cast(self.data, c_void_p)
+
     def get_max_io_size(self):
         return S.from_KiB(128)
 
