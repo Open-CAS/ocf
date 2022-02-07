@@ -123,10 +123,6 @@ void set_cache_line_clean(struct ocf_cache *cache, uint8_t start_bit,
 void set_cache_line_dirty(struct ocf_cache *cache, uint8_t start_bit,
 		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx);
 
-void ocf_cline_rebuild_metadata(ocf_cache_t cache,
-		ocf_core_id_t core_id, uint64_t core_line,
-		ocf_cache_line_t cache_line);
-
 /**
  * @brief Remove cache line from cleaning policy
  *
