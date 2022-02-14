@@ -12,6 +12,7 @@ from ..utils import Size as S
 
 
 class OcfErrorCode(IntEnum):
+    OCF_OK = 0
     OCF_ERR_INVAL = 1000000
     OCF_ERR_AGAIN = auto()
     OCF_ERR_INTR = auto()

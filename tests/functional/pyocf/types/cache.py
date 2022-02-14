@@ -75,6 +75,7 @@ class CacheAttachConfig(Structure):
         ("_open_cores", c_bool),
         ("_force", c_bool),
         ("_discard_on_start", c_bool),
+        ("_volume_params", c_void_p),
     ]
 
 
@@ -348,6 +349,7 @@ class Cache:
             raise OcfError("Error retriving ioclass info", status)
 
         return {
+            "_class_id": part_id,
             "_name": ioclass_info._name.decode("ascii"),
             "_cache_mode": ioclass_info._cache_mode,
             "_priority": int(ioclass_info._priority),
@@ -402,7 +404,7 @@ class Cache:
             ioclasses_info._config[i]._name = (
                 ioclass_info._name if len(ioclass_info._name) > 0 else 0
             )
-            ioclasses_info._config[i]._prio = ioclass_info._priority
+            ioclasses_info._config[i]._priority = ioclass_info._priority
             ioclasses_info._config[i]._cache_mode = ioclass_info._cache_mode
             ioclasses_info._config[i]._max_size = ioclass_info._max_size
 
@@ -410,7 +412,7 @@ class Cache:
 
         ioclasses_info._config[part_id]._name = name.encode("utf-8")
         ioclasses_info._config[part_id]._cache_mode = int(cache_mode)
-        ioclasses_info._config[part_id]._prio = priority
+        ioclasses_info._config[part_id]._priority = priority
         ioclasses_info._config[part_id]._max_size = max_size
 
         self.write_lock()
@@ -425,7 +427,12 @@ class Cache:
             raise OcfError("Error adding partition to cache", status)
 
     def configure_device(
-        self, device, force=False, perform_test=True, cache_line_size=None
+        self,
+        device,
+        force=False,
+        perform_test=True,
+        cache_line_size=None,
+        open_cores=True,
     ):
         self.device = device
         self.device_name = device.uuid
@@ -447,15 +454,22 @@ class Cache:
             _cache_line_size=cache_line_size
             if cache_line_size
             else self.cache_line_size,
+            _open_cores=open_cores,
             _force=force,
-            _open_cores=True,
             _discard_on_start=False,
         )
 
     def attach_device(
-        self, device, force=False, perform_test=False, cache_line_size=None
+        self,
+        device,
+        force=False,
+        perform_test=False,
+        cache_line_size=None,
+        open_cores=True,
     ):
-        self.configure_device(device, force, perform_test, cache_line_size)
+        self.configure_device(
+            device, force, perform_test, cache_line_size, open_cores=open_cores
+        )
         self.write_lock()
 
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
@@ -483,8 +497,8 @@ class Cache:
         if c.results["error"]:
             raise OcfError("Attaching cache device failed", c.results["error"])
 
-    def load_cache(self, device):
-        self.configure_device(device)
+    def load_cache(self, device, open_cores=True):
+        self.configure_device(device, open_cores=open_cores)
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
         device.owner.lib.ocf_mngt_cache_load(
             self.cache_handle, byref(self.dev_cfg), c, None
@@ -495,12 +509,12 @@ class Cache:
             raise OcfError("Loading cache device failed", c.results["error"])
 
     @classmethod
-    def load_from_device(cls, device, name="cache"):
+    def load_from_device(cls, device, name="cache", open_cores=True):
         c = cls(name=name, owner=device.owner)
 
         c.start_cache()
         try:
-            c.load_cache(device)
+            c.load_cache(device, open_cores=open_cores)
         except:  # noqa E722
             c.stop()
             raise
@@ -686,7 +700,8 @@ class Cache:
         self.owner.lib.ocf_mngt_cache_stop(self.cache_handle, c, None)
 
         c.wait()
-        if c.results["error"]:
+        err = OcfErrorCode(-1 * c.results["error"])
+        if err != OcfErrorCode.OCF_OK and err != OcfErrorCode.OCF_ERR_WRITE_CACHE:
             self.write_unlock()
             raise OcfError("Failed stopping cache", c.results["error"])
 
@@ -697,6 +712,9 @@ class Cache:
         self.write_unlock()
 
         self.owner.caches.remove(self)
+
+        if err != OcfErrorCode.OCF_OK:
+            raise OcfError("Failed stopping cache", c.results["error"])
 
     def flush(self):
         self.write_lock()
