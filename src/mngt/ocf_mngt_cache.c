@@ -2416,6 +2416,13 @@ static void _ocf_mngt_activate_check_superblock(ocf_pipeline_t pipeline,
 				-OCF_ERR_CACHE_LINE_SIZE_MISMATCH);
 	}
 
+	if (env_strncmp(cache->conf_meta->name, OCF_CACHE_NAME_SIZE,
+				cache->name, OCF_CACHE_NAME_SIZE)) {
+		ocf_cache_log(cache, log_err, "Failed to activate standby instance: "
+				"cache name mismtach\n");
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CACHE_NAME_MISMATCH);
+	}
+
 	ocf_pipeline_next(pipeline);
 }
 
