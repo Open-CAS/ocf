@@ -19,6 +19,7 @@ from ctypes import (
     cast,
     byref,
     create_string_buffer,
+    POINTER,
 )
 from datetime import timedelta
 
@@ -58,7 +59,6 @@ class Core:
     def __init__(
         self,
         device: Volume,
-        try_add: bool,
         name: str = "core",
         seq_cutoff_threshold: int = DEFAULT_SEQ_CUTOFF_THRESHOLD,
         seq_cutoff_promotion_count: int = DEFAULT_SEQ_CUTOFF_PROMOTION_COUNT,
@@ -73,7 +73,7 @@ class Core:
 
     @classmethod
     def using_device(cls, device, **kwargs):
-        c = cls(device=device, try_add=False, **kwargs)
+        c = cls(device=device, **kwargs)
 
         return c
 
@@ -222,6 +222,8 @@ class Core:
 
 
 lib = OcfLib.getInstance()
+lib.ocf_core_get_uuid_wrapper.restype = POINTER(Uuid)
+lib.ocf_core_get_uuid_wrapper.argtypes = [c_void_p]
 lib.ocf_core_get_volume.restype = c_void_p
 lib.ocf_volume_new_io.argtypes = [
     c_void_p,

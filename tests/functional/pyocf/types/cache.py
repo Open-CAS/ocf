@@ -38,6 +38,7 @@ from .stats.cache import CacheInfo
 from .ioclass import IoClassesInfo, IoClassInfo
 from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
 from .ctx import OcfCtx
+from .volume import Volume
 
 
 class Backfill(Structure):
@@ -593,6 +594,27 @@ class Cache:
     def write_unlock(self):
         self.owner.lib.ocf_mngt_cache_unlock(self.cache_handle)
 
+    def get_core_by_name(self, name: str):
+        core_handle = c_void_p()
+
+        result = self.owner.lib.ocf_core_get_by_name(
+            self.cache_handle,
+            name.encode("ascii"),
+            len(name),
+            byref(core_handle),
+        )
+        if result != 0:
+            raise OcfError("Failed getting core by name", result)
+
+        uuid = self.owner.lib.ocf_core_get_uuid_wrapper(core_handle)
+        device = Volume.get_by_uuid(uuid.contents._data.decode("ascii"))
+        core = Core(device)
+        core.cache = self
+        core.handle = core_handle
+        self.cores.append(core)
+
+        return core
+
     def add_core(self, core: Core, try_add=False):
         cfg = core.get_config()
 
@@ -740,6 +762,11 @@ class Cache:
 
         self.mngt_queue.put()
         del self.io_queues[:]
+
+        self.started = False
+        for core in self.cores:
+            core.cache = None
+            core.handle = None
 
         self.write_unlock()
         self.device = None
