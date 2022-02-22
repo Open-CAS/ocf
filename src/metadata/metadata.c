@@ -680,7 +680,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	ctrl = cache->metadata.priv;
 
 	device_lines = device_size / line_size;
-	if (device_lines >= (ocf_cache_line_t)(-1)){
+	if (device_lines > OCF_CACHE_LINE_MAX) {
 		/* TODO: This is just a rough check. Most optimal one would be
 		 * located in calculate_metadata_size. */
 		ocf_cache_log(cache, log_err, "Device exceeds maximum suported size "

@@ -9,18 +9,20 @@
 #define __EVICTION_LRU_STRUCTS_H__
 
 struct ocf_lru_meta {
-	uint32_t prev;
-	uint32_t next;
-	uint8_t hot;
+	uint64_t prev : OCF_CACHE_LINE_BITS;
+	uint64_t unused : 3;
+	uint64_t next : OCF_CACHE_LINE_BITS;
+	uint64_t hot : 1;
+	uint64_t unused2 : 2;
 	ocf_part_id_t partition_id : 8;
 } __attribute__((packed));
 
 struct ocf_lru_list {
 	uint32_t num_nodes;
-	uint32_t head;
-	uint32_t tail;
+	uint32_t head : OCF_CACHE_LINE_BITS;
+	uint32_t tail : OCF_CACHE_LINE_BITS;
 	uint32_t num_hot;
-	uint32_t last_hot;
+	uint32_t last_hot : OCF_CACHE_LINE_BITS;
 	bool track_hot;
 };
 

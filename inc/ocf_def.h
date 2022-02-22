@@ -42,6 +42,19 @@
  */
 #define OCF_CACHE_SIZE_MIN	(40 * MiB)
 /**
+ * Number of cache line bits
+ */
+#define OCF_CACHE_LINE_BITS 29
+/**
+ * Max number of cache lines
+ * The (1 << OCF_CACHE_LINE_BITS) left for invalid value.
+ */
+#define OCF_CACHE_LINE_MAX (OCF_MAX_T(uint32_t, OCF_CACHE_LINE_BITS) - 1)
+/**
+ * Invalid value of cache line number
+ */
+#define OCF_CACHE_LINE_INVALID OCF_MAX_T(uint32_t, OCF_CACHE_LINE_BITS)
+/**
  * Size of cache name
  */
 #define OCF_CACHE_NAME_SIZE 32
