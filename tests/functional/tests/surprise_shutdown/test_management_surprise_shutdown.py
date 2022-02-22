@@ -102,9 +102,7 @@ def mngmt_op_surprise_shutdown_test(
         # disable error injection and load the cache
         device.disarm()
 
-        # load cache with open_cores = False to allow consistency check to add
-        # core with WA for pyocf object management
-        cache = Cache.load_from_device(device, open_cores=False)
+        cache = Cache.load_from_device(device, open_cores=True)
 
         # run consistency check
         if consistency_check_func is not None:
@@ -127,7 +125,7 @@ def test_surprise_shutdown_add_core(pyocf_ctx):
         assert stats["conf"]["core_count"] == (0 if error_triggered else 1)
 
     def tested_func(cache):
-        core = Core(device=core_device, try_add=False)
+        core = Core(device=core_device)
         cache.add_core(core)
 
     def check_func(cache, error_triggered):
@@ -161,7 +159,7 @@ def test_surprise_shutdown_remove_core(pyocf_ctx):
 def test_surprise_shutdown_remove_core_with_data(pyocf_ctx):
     io_offset = mngmt_op_surprise_shutdown_test_io_offset
     core_device = Volume(S.from_MiB(10))
-    core = Core.using_device(core_device)
+    core = Core.using_device(core_device, name="core1")
 
     def prepare_func(cache):
         cache.add_core(core)
@@ -176,8 +174,7 @@ def test_surprise_shutdown_remove_core_with_data(pyocf_ctx):
         if stats["conf"]["core_count"] == 0:
             assert core_device.get_bytes()[io_offset] == 0xAA
         else:
-            core = Core(device=core_device, try_add=True)
-            cache.add_core(core)
+            core = cache.get_core_by_name("core1")
             assert ocf_read(cache, core, io_offset) == 0xAA
 
     mngmt_op_surprise_shutdown_test(pyocf_ctx, tested_func, prepare_func, check_func)
@@ -204,24 +201,16 @@ def test_surprise_shutdown_swap_core(pyocf_ctx):
     def check_func(cache, error_triggered):
         stats = cache.get_stats()
         assert stats["conf"]["core_count"] == (0 if error_triggered else 1)
-        core1_ptr = c_void_p()
-        core2_ptr = c_void_p()
-        ret1 = OcfLib.getInstance().ocf_core_get_by_name(
-            cache, "core1".encode("utf-8"), 6, byref(core1_ptr)
-        )
-        ret2 = OcfLib.getInstance().ocf_core_get_by_name(
-            cache, "core2".encode("utf-8"), 6, byref(core2_ptr)
-        )
-        assert ret1 != 0
+
+        with pytest.raises(OcfError):
+            core1 = cache.get_core_by_name("core1")
+
         if error_triggered:
-            assert ret2 != 0
+            with pytest.raises(OcfError):
+                core2 = cache.get_core_by_name("core2")
         else:
-            assert ret2 == 0
-            uuid_ptr = cast(
-                cache.owner.lib.ocf_core_get_uuid_wrapper(core2_ptr), POINTER(Uuid)
-            )
-            uuid = str(uuid_ptr.contents._data, encoding="ascii")
-            assert uuid == "dev2"
+            core2 = cache.get_core_by_name("core2")
+            assert core2.device.uuid == "dev2"
 
     mngmt_op_surprise_shutdown_test(pyocf_ctx, tested_func, prepare, check_func)
 
@@ -248,23 +237,19 @@ def test_surprise_shutdown_swap_core_with_data(pyocf_ctx):
     def check_func(cache, error_triggered):
         stats = cache.get_stats()
         assert stats["conf"]["core_count"] == (0 if error_triggered else 1)
-        core1_ptr = c_void_p()
-        core2_ptr = c_void_p()
-        ret1 = OcfLib.getInstance().ocf_core_get_by_name(
-            cache, "core1".encode("utf-8"), 6, byref(core1_ptr)
-        )
-        ret2 = OcfLib.getInstance().ocf_core_get_by_name(
-            cache, "core2".encode("utf-8"), 6, byref(core2_ptr)
-        )
-        assert ret1 != 0
-        if ret2 == 0:
-            uuid_ptr = cast(
-                cache.owner.lib.ocf_core_get_uuid_wrapper(core2_ptr), POINTER(Uuid)
-            )
-            uuid = str(uuid_ptr.contents._data, encoding="ascii")
-            assert uuid == "dev2"
-            core2 = Core(device=core_device_2, try_add=True, name="core2")
-            cache.add_core(core2)
+
+        with pytest.raises(OcfError):
+            core1 = cache.get_core_by_name("core1")
+
+        core2 = None
+        if error_triggered:
+            with pytest.raises(OcfError):
+                core2 = cache.get_core_by_name("core2")
+        else:
+            core2 = cache.get_core_by_name("core2")
+
+        if core2 is not None:
+            assert core2.device.uuid == "dev2"
             assert (
                 ocf_read(cache, core2, mngmt_op_surprise_shutdown_test_io_offset)
                 == Volume.VOLUME_POISON
@@ -341,7 +326,7 @@ def test_surprise_shutdown_stop_cache(pyocf_ctx):
 
         # setup cache and insert some data
         cache = Cache.start_on_device(device, cache_mode=CacheMode.WB)
-        core = Core(device=core_device, try_add=False)
+        core = Core(device=core_device)
         cache.add_core(core)
         ocf_write(cache, core, 0xAA, io_offset)
 
@@ -374,8 +359,8 @@ def test_surprise_shutdown_stop_cache(pyocf_ctx):
         stats = cache.get_stats()
         if stats["conf"]["core_count"] == 1:
             assert stats["usage"]["occupancy"]["value"] == 1
-            core = Core(device=core_device, try_add=True)
-            cache.add_core(core)
+            core = Core(device=core_device)
+            cache.add_core(core, try_add=True)
             assert ocf_read(cache, core, io_offset) == 0xAA
 
         cache.stop()
@@ -401,7 +386,7 @@ def test_surprise_shutdown_cache_reinit(pyocf_ctx):
 
         # start WB
         cache = Cache.start_on_device(device, cache_mode=CacheMode.WB)
-        core = Core(device=core_device, try_add=False)
+        core = Core(device=core_device)
         cache.add_core(core)
 
         # insert dirty cacheline
@@ -456,7 +441,7 @@ def test_surprise_shutdown_cache_reinit(pyocf_ctx):
 
 def _test_surprise_shutdown_mngmt_generic(pyocf_ctx, func):
     core_device = Volume(S.from_MiB(10))
-    core = Core(device=core_device, try_add=False)
+    core = Core(device=core_device)
 
     def prepare(cache):
         cache.add_core(core)
@@ -480,7 +465,7 @@ def test_surprise_shutdown_change_cache_mode(pyocf_ctx):
 @pytest.mark.long
 def test_surprise_shutdown_set_cleaning_policy(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
-    core = Core(device=core_device, try_add=False)
+    core = Core(device=core_device)
 
     for c1 in CleaningPolicy:
         for c2 in CleaningPolicy:
@@ -501,7 +486,7 @@ def test_surprise_shutdown_set_cleaning_policy(pyocf_ctx):
 @pytest.mark.long
 def test_surprise_shutdown_set_seq_cut_off_policy(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
-    core = Core(device=core_device, try_add=False)
+    core = Core(device=core_device)
 
     for s1 in SeqCutOffPolicy:
         for s2 in SeqCutOffPolicy:
@@ -538,7 +523,7 @@ def test_surprise_shutdown_set_seq_cut_off_threshold(pyocf_ctx):
 @pytest.mark.long
 def test_surprise_shutdown_set_cleaning_policy_param(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
-    core = Core(device=core_device, try_add=False)
+    core = Core(device=core_device)
 
     for pol in CleaningPolicy:
         if pol == CleaningPolicy.NOP:
@@ -590,7 +575,7 @@ def test_surprise_shutdown_set_cleaning_policy_param(pyocf_ctx):
 @pytest.mark.long
 def test_surprise_shutdown_set_promotion_policy(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
-    core = Core(device=core_device, try_add=False)
+    core = Core(device=core_device)
 
     for pp1 in PromotionPolicy:
         for pp2 in PromotionPolicy:
@@ -611,7 +596,7 @@ def test_surprise_shutdown_set_promotion_policy(pyocf_ctx):
 @pytest.mark.long
 def test_surprise_shutdown_set_promotion_policy_param(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
-    core = Core(device=core_device, try_add=False)
+    core = Core(device=core_device)
 
     for pp in PromotionPolicy:
         if pp == PromotionPolicy.ALWAYS:
@@ -649,7 +634,7 @@ def test_surprise_shutdown_set_promotion_policy_param(pyocf_ctx):
 @pytest.mark.long
 def test_surprise_shutdown_set_io_class_config(pyocf_ctx):
     core_device = Volume(S.from_MiB(10))
-    core = Core(device=core_device, try_add=False)
+    core = Core(device=core_device)
 
     class_range = range(0, IoClassesInfo.MAX_IO_CLASSES)
     old_ioclass = [
