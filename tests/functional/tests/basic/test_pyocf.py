@@ -92,7 +92,7 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     core_device = Volume(S.from_MiB(40))
 
     cache = Cache.start_on_device(cache_device)
-    core = Core.using_device(core_device)
+    core = Core.using_device(core_device, name="test_core")
 
     cache.add_core(core)
 
@@ -111,6 +111,8 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     cache = Cache.load_from_device(cache_device, open_cores=open_cores)
     if not open_cores:
         cache.add_core(core, try_add=True)
+    else:
+        core = cache.get_core_by_name("test_core")
 
     read_data = Data(write_data.size)
     io = core.new_io(cache.get_default_queue(), S.from_sector(3).B,
