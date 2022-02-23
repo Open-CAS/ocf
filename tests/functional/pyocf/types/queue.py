@@ -38,7 +38,7 @@ def io_queue_run(*, queue: Queue, kick: Condition, stop: Event):
 
 
 class Queue:
-    _instances_ = {}
+    _instances_ = weakref.WeakValueDictionary()
 
     def __init__(self, cache, name):
 
@@ -51,7 +51,7 @@ class Queue:
         if status:
             raise OcfError("Couldn't create queue object", status)
 
-        Queue._instances_[self.handle.value] = weakref.ref(self)
+        Queue._instances_[self.handle.value] = self
         self._as_parameter_ = self.handle
 
         self.stop_event = Event()
@@ -70,7 +70,7 @@ class Queue:
 
     @classmethod
     def get_instance(cls, ref):
-        return cls._instances_[ref]()
+        return cls._instances_[ref]
 
     @staticmethod
     @QueueOps.KICK_SYNC

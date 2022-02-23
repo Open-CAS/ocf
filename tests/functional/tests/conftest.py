@@ -11,7 +11,7 @@ import gc
 sys.path.append(os.path.join(os.path.dirname(__file__), os.path.pardir))
 from pyocf.types.logger import LogLevel, DefaultLogger, BufferLogger
 from pyocf.types.volume import Volume, ErrorDevice
-from pyocf.types.ctx import get_default_ctx
+from pyocf.types.ctx import OcfCtx
 
 
 def pytest_configure(config):
@@ -20,7 +20,7 @@ def pytest_configure(config):
 
 @pytest.fixture()
 def pyocf_ctx():
-    c = get_default_ctx(DefaultLogger(LogLevel.WARN))
+    c = OcfCtx.with_defaults(DefaultLogger(LogLevel.WARN))
     c.register_volume_type(Volume)
     c.register_volume_type(ErrorDevice)
     yield c
@@ -31,7 +31,7 @@ def pyocf_ctx():
 @pytest.fixture()
 def pyocf_ctx_log_buffer():
     logger = BufferLogger(LogLevel.DEBUG)
-    c = get_default_ctx(logger)
+    c = OcfCtx.with_defaults(logger)
     c.register_volume_type(Volume)
     c.register_volume_type(ErrorDevice)
     yield logger

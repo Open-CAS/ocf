@@ -20,9 +20,7 @@ import weakref
 
 from ..ocf import OcfLib
 
-logger = logging.getLogger("pyocf")
-logger.setLevel(logging.DEBUG)
-
+logging.basicConfig(level=logging.DEBUG, handlers=[logging.NullHandler()])
 
 class LogLevel(IntEnum):
     EMERG = 0
@@ -69,9 +67,9 @@ class LoggerPriv(Structure):
 
 
 class Logger(Structure):
-    _instances_ = {}
+    _instances_ = weakref.WeakValueDictionary()
 
-    _fields_ = [("logger", c_void_p)]
+    _fields_ = [("_logger", c_void_p)]
 
     def __init__(self):
         self.ops = LoggerOps(
@@ -81,7 +79,7 @@ class Logger(Structure):
         )
         self.priv = LoggerPriv(_log=self._log)
         self._as_parameter_ = cast(pointer(self.priv), c_void_p).value
-        self._instances_[self._as_parameter_] = weakref.ref(self)
+        self._instances_[self._as_parameter_] = self
 
     def get_ops(self):
         return self.ops
@@ -92,7 +90,7 @@ class Logger(Structure):
     @classmethod
     def get_instance(cls, ctx: int):
         priv = OcfLib.getInstance().ocf_logger_get_priv(ctx)
-        return cls._instances_[priv]()
+        return cls._instances_[priv]
 
     @staticmethod
     @LoggerOps.LOG
@@ -118,23 +116,25 @@ class Logger(Structure):
 
 
 class DefaultLogger(Logger):
-    def __init__(self, level: LogLevel = LogLevel.WARN):
+    def __init__(self, level: LogLevel = LogLevel.WARN, name: str = ""):
         super().__init__()
         self.level = level
+        self.name = name
 
+        self.logger = logging.getLogger(name)
         ch = logging.StreamHandler()
         fmt = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         ch.setFormatter(fmt)
         ch.setLevel(LevelMapping[level])
-        logger.addHandler(ch)
+        self.logger.addHandler(ch)
 
     def log(self, lvl: int, msg: str):
-        logger.log(LevelMapping[lvl], msg)
+        self.logger.log(LevelMapping[lvl], msg)
 
     def close(self):
-        logger.handlers = []
+        self.logger.handlers = []
 
 
 class FileLogger(Logger):

@@ -37,6 +37,7 @@ from .queue import Queue
 from .stats.cache import CacheInfo
 from .ioclass import IoClassesInfo, IoClassInfo
 from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
+from .ctx import OcfCtx
 
 
 class Backfill(Structure):
@@ -209,7 +210,6 @@ class Cache:
         )
         if status:
             raise OcfError("Creating cache instance failed", status)
-        self.owner.caches.append(self)
 
         self.mngt_queue = mngt_queue or Queue(self, "mgmt-{}".format(self.get_name()))
 
@@ -223,6 +223,7 @@ class Cache:
             raise OcfError("Error setting management queue", status)
 
         self.started = True
+        self.owner.caches.append(self)
 
     def change_cache_mode(self, cache_mode: CacheMode):
         self.write_lock()
@@ -474,7 +475,7 @@ class Cache:
 
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
 
-        device.owner.lib.ocf_mngt_cache_attach(
+        self.owner.lib.ocf_mngt_cache_attach(
             self.cache_handle, byref(self.dev_cfg), c, None
         )
 
@@ -493,6 +494,7 @@ class Cache:
 
         c.wait()
         self.write_unlock()
+        self.device = None
 
         if c.results["error"]:
             raise OcfError("Attaching cache device failed", c.results["error"])
@@ -500,7 +502,7 @@ class Cache:
     def load_cache(self, device, open_cores=True):
         self.configure_device(device, open_cores=open_cores)
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
-        device.owner.lib.ocf_mngt_cache_load(
+        self.owner.lib.ocf_mngt_cache_load(
             self.cache_handle, byref(self.dev_cfg), c, None
         )
 
@@ -509,8 +511,11 @@ class Cache:
             raise OcfError("Loading cache device failed", c.results["error"])
 
     @classmethod
-    def load_from_device(cls, device, name="cache", open_cores=True):
-        c = cls(name=name, owner=device.owner)
+    def load_from_device(cls, device, owner=None, name="cache", open_cores=True):
+        if owner is None:
+            owner = OcfCtx.get_default()
+
+        c = cls(name=name, owner=owner)
 
         c.start_cache()
         try:
@@ -522,8 +527,11 @@ class Cache:
         return c
 
     @classmethod
-    def start_on_device(cls, device, **kwargs):
-        c = cls(owner=device.owner, **kwargs)
+    def start_on_device(cls, device, owner=None, **kwargs):
+        if owner is None:
+            owner = OcfCtx.get_default()
+
+        c = cls(owner=owner, **kwargs)
 
         c.start_cache()
         try:
@@ -707,9 +715,10 @@ class Cache:
 
         self.mngt_queue.put()
         del self.io_queues[:]
-        self.started = False
 
         self.write_unlock()
+        self.device = None
+        self.started = False
 
         self.owner.caches.remove(self)
 
