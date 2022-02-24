@@ -11,7 +11,15 @@ from itertools import count
 import pytest
 
 from pyocf.ocf import OcfLib
-from pyocf.types.cache import Cache, CacheMode, MetadataLayout,  CleaningPolicy
+from pyocf.types.cache import (
+    Cache,
+    CacheMode,
+    MetadataLayout,
+    CleaningPolicy,
+    CacheConfig,
+    PromotionPolicy,
+    Backfill
+)
 from pyocf.types.core import Core
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
@@ -387,12 +395,14 @@ def test_start_too_small_device(pyocf_ctx, mode, cls):
 
 
 def test_start_stop_noqueue(pyocf_ctx):
-    # cache object just to construct cfg conveniently
-    _cache = Cache(pyocf_ctx.ctx_handle)
+    cfg = CacheConfig()
+    pyocf_ctx.lib.ocf_mngt_cache_config_set_default_wrapper(byref(cfg))
+    cfg._metadata_volatile = True
+    cfg._name = "Test".encode("ascii")
 
     cache_handle = c_void_p()
     status = pyocf_ctx.lib.ocf_mngt_cache_start(
-        pyocf_ctx.ctx_handle, byref(cache_handle), byref(_cache.cfg), None
+        pyocf_ctx.ctx_handle, byref(cache_handle), byref(cfg), None
     )
     assert not status, "Failed to start cache: {}".format(status)
 

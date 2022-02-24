@@ -84,3 +84,45 @@ def test_load_cache_recovery(pyocf_ctx):
     cache.stop()
 
     cache = Cache.load_from_device(device_copy)
+
+
+@pytest.mark.parametrize("open_cores", [True, False])
+def test_load_cache_with_cores(pyocf_ctx, open_cores):
+    cache_device = Volume(S.from_MiB(40))
+    core_device = Volume(S.from_MiB(40))
+
+    cache = Cache.start_on_device(cache_device)
+    core = Core.using_device(core_device, name="test_core")
+
+    cache.add_core(core)
+
+    write_data = Data.from_string("This is test data")
+    io = core.new_io(cache.get_default_queue(), S.from_sector(3).B,
+                     write_data.size, IoDir.WRITE, 0, 0)
+    io.set_data(write_data)
+
+    cmpl = OcfCompletion([("err", c_int)])
+    io.callback = cmpl.callback
+    io.submit()
+    cmpl.wait()
+
+    cache.stop()
+
+    cache = Cache.load_from_device(cache_device, open_cores=open_cores)
+    if not open_cores:
+        cache.add_core(core, try_add=True)
+    else:
+        core = cache.get_core_by_name("test_core")
+
+    read_data = Data(write_data.size)
+    io = core.new_io(cache.get_default_queue(), S.from_sector(3).B,
+                     read_data.size, IoDir.READ, 0, 0)
+    io.set_data(read_data)
+
+    cmpl = OcfCompletion([("err", c_int)])
+    io.callback = cmpl.callback
+    io.submit()
+    cmpl.wait()
+
+    assert read_data.md5() == write_data.md5()
+    assert core.exp_obj_md5() == core_device.md5()
