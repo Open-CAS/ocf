@@ -14,6 +14,7 @@
 #include "ocf_types.h"
 #include "ocf_env_headers.h"
 #include "ocf/ocf_err.h"
+#include "ocf/ocf_io.h"
 
 struct ocf_io;
 
