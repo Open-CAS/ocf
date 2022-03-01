@@ -256,8 +256,8 @@ static void ocf_mngt_cache_try_add_core_prepare(ocf_pipeline_t pipeline,
 		goto err;
 
 	if (core->opened) {
-		result = -OCF_ERR_INVAL;
-		goto err;
+		ocf_cache_log(cache, log_err, "Core already opened\n");
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CORE_UUID_EXISTS);
 	}
 
 	volume = ocf_core_get_volume(core);
