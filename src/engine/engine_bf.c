@@ -54,6 +54,8 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
+	backfill_queue_dec_unblock(req->cache);
+
 	/* We must free the pages we have allocated */
 	ctx_data_secure_erase(cache->owner, req->data);
 	ctx_data_munlock(cache->owner, req->data);
@@ -74,8 +76,6 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 static int _ocf_backfill_do(struct ocf_request *req)
 {
 	unsigned int reqs_to_issue;
-
-	backfill_queue_dec_unblock(req->cache);
 
 	reqs_to_issue = ocf_engine_io_count(req);
 
