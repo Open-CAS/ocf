@@ -315,10 +315,9 @@ def _io_to_core(exported_obj: Core, data: Data):
     assert completion.results["err"] == 0, "IO to exported object completion"
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize("cache_mode", CacheMode)
 @pytest.mark.parametrize("cls", CacheLineSize)
-def test_try_add_with_changed_core_size(pyocf_ctx, cache_mode, cls):
+def test_try_add_core_with_changed_size(pyocf_ctx, cache_mode, cls):
     """
     Test changing volume size before load
     :param pyocf_ctx: basic pyocf context fixture
@@ -344,10 +343,10 @@ def test_try_add_with_changed_core_size(pyocf_ctx, cache_mode, cls):
 
     # Load cache with changed core size
     cache = Cache.load_from_device(cache_device, open_cores=False)
-    core = Core(device=core_device, try_add=True)
+    core = Core(device=core_device)
 
     with pytest.raises(OcfError, match="OCF_ERR_CORE_SIZE_MISMATCH"):
-        cache.add_core(core)
+        cache.add_core(core, try_add=True)
 
 
 @pytest.mark.parametrize("cache_mode", CacheMode)
