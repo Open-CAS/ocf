@@ -26,6 +26,18 @@ struct ocf_metadata_list_info {
 /* Keep the struct ocf_metadata_list_info size of 8 bytes */
 _Static_assert(sizeof(struct ocf_metadata_list_info) == sizeof(uint64_t));
 
+struct ocf_hash_entry {
+	union {
+		struct {
+			uint32_t line : OCF_CACHE_LINE_BITS;
+			/* Hash lock bits */
+			uint32_t rd : 2;
+			uint32_t wr : 1;
+		};
+		uint32_t raw;
+	};
+};
+
 /**
  * @brief Metadata map structure
  */
