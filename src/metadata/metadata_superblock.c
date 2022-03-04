@@ -710,51 +710,6 @@ err_io:
 	return result;
 }
 
-static void ocf_metadata_sb_crc_recovery_finish(ocf_pipeline_t pipeline,
-		void *priv, int error)
-{
-	struct ocf_metadata_context *context = priv;
-
-	context->cmpl(context->priv, error);
-	ocf_pipeline_destroy(pipeline);
-}
-
-struct ocf_pipeline_properties ocf_metadata_sb_crc_recovery_pipeline_props = {
-	.priv_size = sizeof(struct ocf_metadata_context),
-	.finish = ocf_metadata_sb_crc_recovery_finish,
-	.steps = {
-		OCF_PL_STEP(ocf_metadata_check_crc_sb_config),
-		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc,
-				ocf_metadata_load_sb_check_crc_args),
-		OCF_PL_STEP_TERMINATOR(),
-	},
-};
-
-void ocf_metadata_sb_crc_recovery(ocf_cache_t cache,
-		ocf_metadata_end_t cmpl, void *priv)
-{
-	struct ocf_metadata_context *context;
-	ocf_pipeline_t pipeline;
-	int result;
-
-	OCF_DEBUG_TRACE(cache);
-
-	result = ocf_pipeline_create(&pipeline, cache,
-			&ocf_metadata_sb_crc_recovery_pipeline_props);
-	if (result)
-		OCF_CMPL_RET(priv, result);
-
-	context = ocf_pipeline_get_priv(pipeline);
-
-	context->cmpl = cmpl;
-	context->priv = priv;
-	context->pipeline = pipeline;
-	context->cache = cache;
-	context->ctrl = cache->metadata.priv;
-
-	ocf_pipeline_next(pipeline);
-}
-
 void ocf_metadata_sb_zero(struct ocf_metadata_segment *self,
 		ocf_metadata_end_t cmpl, void *priv)
 {
