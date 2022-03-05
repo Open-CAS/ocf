@@ -286,3 +286,10 @@ void ocf_engine_hndl_ops_req(struct ocf_request *req)
 
 	ocf_engine_push_req_back(req, true);
 }
+
+bool ocf_req_cache_mode_has_lazy_write(ocf_req_cache_mode_t mode)
+{
+	return ocf_cache_mode_is_valid((ocf_cache_mode_t)mode) &&
+			ocf_mngt_cache_mode_has_lazy_write(
+					(ocf_cache_mode_t)mode);
+}
