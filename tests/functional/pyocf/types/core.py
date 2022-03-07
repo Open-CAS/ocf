@@ -114,6 +114,12 @@ class Core:
 
         return Io.from_pointer(io)
 
+    def get_front_volume(self):
+        return Volume.get_instance(lib.ocf_core_get_front_volume(self.handle))
+
+    def get_volume(self):
+        return Volume.get_instance(lib.ocf_core_get_volume(self.handle))
+
     def new_core_io(
         self, queue: Queue, addr: int, length: int, direction: IoDir,
         io_class: int, flags: int
@@ -227,7 +233,6 @@ class Core:
 lib = OcfLib.getInstance()
 lib.ocf_core_get_uuid_wrapper.restype = POINTER(Uuid)
 lib.ocf_core_get_uuid_wrapper.argtypes = [c_void_p]
-lib.ocf_core_get_volume.restype = c_void_p
 lib.ocf_volume_new_io.argtypes = [
     c_void_p,
     c_void_p,
@@ -240,6 +245,8 @@ lib.ocf_volume_new_io.argtypes = [
 lib.ocf_volume_new_io.restype = c_void_p
 lib.ocf_core_get_volume.argtypes = [c_void_p]
 lib.ocf_core_get_volume.restype = c_void_p
+lib.ocf_core_get_front_volume.argtypes = [c_void_p]
+lib.ocf_core_get_front_volume.restype = c_void_p
 lib.ocf_mngt_core_set_seq_cutoff_policy.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_threshold.argtypes = [c_void_p, c_uint32]
