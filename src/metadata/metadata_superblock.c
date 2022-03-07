@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2020-2021 Intel Corporation
+ * Copyright(c) 2020-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -164,11 +164,6 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 
 	if (!ocf_cache_line_size_is_valid(superblock->line_size)) {
 		ocf_log_invalid_superblock("cache line size");
-		return -OCF_ERR_INVAL;
-	}
-
-	if ((unsigned)superblock->metadata_layout >= ocf_metadata_layout_max) {
-		ocf_log_invalid_superblock("metadata layout");
 		return -OCF_ERR_INVAL;
 	}
 

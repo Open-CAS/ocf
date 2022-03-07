@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -107,8 +107,8 @@ static inline bool ocf_engine_clines_phys_cont(struct ocf_request *req,
 	if (entry1->status == LOOKUP_MISS || entry2->status == LOOKUP_MISS)
 		return false;
 
-	phys1 = ocf_metadata_map_lg2phy(req->cache, entry1->coll_idx);
-	phys2 = ocf_metadata_map_lg2phy(req->cache, entry2->coll_idx);
+	phys1 = entry1->coll_idx;
+	phys2 = entry2->coll_idx;
 
 	return phys1 < phys2 && phys1 + 1 == phys2;
 }

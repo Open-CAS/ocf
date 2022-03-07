@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -109,7 +109,7 @@ void raw_atomic_flush_mark(struct ocf_cache *cache, struct ocf_request *req,
 static inline void _raw_atomic_add_page(struct ocf_cache *cache,
 		uint32_t *clines_tab, uint64_t line, int *idx)
 {
-	clines_tab[*idx] = ocf_metadata_map_lg2phy(cache, line);
+	clines_tab[*idx] = line;
 	(*idx)++;
 }
 
@@ -122,7 +122,7 @@ static int _raw_atomic_flush_do_asynch_sec(struct ocf_cache *cache,
 	uint64_t start_addr;
 	int result = 0;
 
-	start_addr = ocf_metadata_map_lg2phy(cache, map->coll_idx);
+	start_addr = map->coll_idx;
 	start_addr *= ocf_line_size(cache);
 	start_addr += cache->device->metadata_offset;
 

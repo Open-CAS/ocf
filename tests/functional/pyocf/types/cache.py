@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -52,7 +52,6 @@ class CacheConfig(Structure):
         ("_cache_mode", c_uint32),
         ("_promotion_policy", c_uint32),
         ("_cache_line_size", c_uint64),
-        ("_metadata_layout", c_uint32),
         ("_metadata_volatile", c_bool),
         ("_locked", c_bool),
         ("_pt_unaligned_io", c_bool),
@@ -173,7 +172,6 @@ class Cache:
         cache_mode: CacheMode = CacheMode.DEFAULT,
         promotion_policy: PromotionPolicy = PromotionPolicy.DEFAULT,
         cache_line_size: CacheLineSize = CacheLineSize.DEFAULT,
-        metadata_layout: MetadataLayout = MetadataLayout.DEFAULT,
         metadata_volatile: bool = False,
         max_queue_size: int = DEFAULT_BACKFILL_QUEUE_SIZE,
         queue_unblock_size: int = DEFAULT_BACKFILL_UNBLOCK,
@@ -188,7 +186,6 @@ class Cache:
         self.cache_mode = cache_mode
         self.promotion_policy = promotion_policy
         self.cache_line_size = cache_line_size
-        self.metadata_layout = metadata_layout
         self.metadata_volatile = metadata_volatile
         self.max_queue_size = max_queue_size
         self.queue_unblock_size = queue_unblock_size
@@ -211,7 +208,6 @@ class Cache:
             _cache_mode=self.cache_mode,
             _promotion_policy=self.promotion_policy,
             _cache_line_size=self.cache_line_size,
-            _metadata_layout=self.metadata_layout,
             _metadata_volatile=self.metadata_volatile,
             _backfill=Backfill(
                 _max_queue_size=self.max_queue_size,

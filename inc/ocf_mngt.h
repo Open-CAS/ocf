@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -260,11 +260,6 @@ struct ocf_mngt_cache_config {
 	 */
 	ocf_cache_line_size_t cache_line_size;
 
-	/**
-	 * @brief Metadata layout (stripping/sequential)
-	 */
-	ocf_metadata_layout_t metadata_layout;
-
 	bool metadata_volatile;
 
 	/**
@@ -308,7 +303,6 @@ static inline void ocf_mngt_cache_config_set_default(
 	cfg->cache_mode = ocf_cache_mode_default;
 	cfg->promotion_policy = ocf_promotion_default;
 	cfg->cache_line_size = ocf_cache_line_size_4;
-	cfg->metadata_layout = ocf_metadata_layout_default;
 	cfg->metadata_volatile = false;
 	cfg->backfill.max_queue_size = 65536;
 	cfg->backfill.queue_unblock_size = 60000;

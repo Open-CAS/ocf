@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -71,25 +71,6 @@ def test_fuzzy_start_name(pyocf_ctx, string_randomize, cm, cls):
     if string_randomize in incorrect_values:
         logger.error(f"Cache started with incorrect name value: '{string_randomize}'")
     cache.stop()
-
-
-@pytest.mark.security
-@pytest.mark.parametrize("cm", CacheMode)
-@pytest.mark.parametrize("cls", CacheLineSize)
-def test_fuzzy_start_metadata_layout(pyocf_ctx, not_metadata_layout_randomize, cm, cls):
-    """
-    Test whether it is impossible to start cache with invalid metadata layout value.
-    :param pyocf_ctx: basic pyocf context fixture
-    :param c_uint32_randomize: metadata layout enum value to start cache with
-    :param cm: cache mode value to start cache with
-    :param cls: cache line size value to start cache with
-    """
-    with pytest.raises(OcfError, match="OCF_ERR_INVAL"):
-        try_start_cache(
-            metadata_layout=not_metadata_layout_randomize,
-            cache_mode=cm,
-            cache_line_size=cls
-        )
 
 
 @pytest.mark.security

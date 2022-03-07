@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -280,16 +280,6 @@ typedef enum {
 	ocf_cache_line_size_inf = ~0ULL,
 		/*!< Force enum to be 64-bit */
 } ocf_cache_line_size_t;
-
-/**
- * Metadata layout
- */
-typedef enum {
-	ocf_metadata_layout_striping = 0,
-	ocf_metadata_layout_seq = 1,
-	ocf_metadata_layout_max,
-	ocf_metadata_layout_default = ocf_metadata_layout_striping
-} ocf_metadata_layout_t;
 
 /**
  * @name OCF IO class definitions

@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -40,7 +40,6 @@ struct ocf_superblock_config {
 	uint32_t valid_parts_no;
 
 	ocf_cache_line_size_t line_size;
-	ocf_metadata_layout_t metadata_layout;
 	uint32_t core_count;
 
 	unsigned long valid_core_bitmap[(OCF_CORE_MAX /

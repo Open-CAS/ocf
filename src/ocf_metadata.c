@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf_priv.h"
@@ -10,8 +10,7 @@ static inline ocf_cache_line_t ocf_atomic_addr2line(
 		struct ocf_cache *cache, uint64_t addr)
 {
 	addr -= cache->device->metadata_offset;
-	addr = ocf_bytes_2_lines(cache, addr);
-	return ocf_metadata_map_phy2lg(cache, addr);
+	return ocf_bytes_2_lines(cache, addr);
 }
 
 static inline uint8_t ocf_atomic_addr2pos(struct ocf_cache *cache,
