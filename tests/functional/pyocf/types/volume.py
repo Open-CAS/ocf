@@ -74,8 +74,10 @@ class VolumeIoPriv(Structure):
     _fields_ = [("_data", c_void_p), ("_offset", c_uint64)]
 
 
+VOLUME_POISON = 0x13
+
+
 class Volume(Structure):
-    VOLUME_POISON = 0x13
 
     _fields_ = [("_storage", c_void_p)]
     _instances_ = weakref.WeakValueDictionary()
@@ -98,7 +100,7 @@ class Volume(Structure):
         type(self)._uuid_[self.uuid] = self
 
         self.data = create_string_buffer(int(self.size))
-        memset(self.data, self.VOLUME_POISON, self.size)
+        memset(self.data, VOLUME_POISON, self.size)
         self._storage = cast(self.data, c_void_p)
 
         self.reset_stats()
@@ -259,7 +261,7 @@ class Volume(Structure):
     def resize(self, size):
         self.size = size
         self.data = create_string_buffer(int(self.size))
-        memset(self.data, self.VOLUME_POISON, self.size)
+        memset(self.data, VOLUME_POISON, self.size)
         self._storage = cast(self.data, c_void_p)
 
     def get_max_io_size(self):

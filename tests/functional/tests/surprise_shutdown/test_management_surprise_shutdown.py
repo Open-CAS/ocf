@@ -17,7 +17,7 @@ from pyocf.types.cache import (
 )
 from pyocf.types.data import Data
 from pyocf.types.core import Core
-from pyocf.types.volume import ErrorDevice, Volume
+from pyocf.types.volume import ErrorDevice, Volume, VOLUME_POISON
 from pyocf.types.io import IoDir
 from pyocf.types.ioclass import IoClassesInfo, IoClassInfo
 from pyocf.utils import Size as S
@@ -252,7 +252,7 @@ def test_surprise_shutdown_swap_core_with_data(pyocf_ctx):
             assert core2.device.uuid == "dev2"
             assert (
                 ocf_read(cache, core2, mngmt_op_surprise_shutdown_test_io_offset)
-                == Volume.VOLUME_POISON
+                == VOLUME_POISON
             )
 
     mngmt_op_surprise_shutdown_test(pyocf_ctx, tested_func, prepare, check_func)
@@ -353,7 +353,7 @@ def test_surprise_shutdown_stop_cache(pyocf_ctx):
         device.disarm()
         cache = None
 
-        assert core_device.get_bytes()[io_offset] == Volume.VOLUME_POISON
+        assert core_device.get_bytes()[io_offset] == VOLUME_POISON
 
         cache = Cache.load_from_device(device, open_cores=False)
         stats = cache.get_stats()
@@ -394,7 +394,7 @@ def test_surprise_shutdown_cache_reinit(pyocf_ctx):
 
         cache.stop()
 
-        assert core_device.get_bytes()[io_offset] == Volume.VOLUME_POISON
+        assert core_device.get_bytes()[io_offset] == VOLUME_POISON
 
         # start error injection
         device.arm()
@@ -432,7 +432,7 @@ def test_surprise_shutdown_cache_reinit(pyocf_ctx):
             if stats["conf"]["core_count"] == 0:
                 assert stats["usage"]["occupancy"]["value"] == 0
                 cache.add_core(core)
-                assert ocf_read(cache, core, io_offset) == Volume.VOLUME_POISON
+                assert ocf_read(cache, core, io_offset) == VOLUME_POISON
 
             cache.stop()
 
