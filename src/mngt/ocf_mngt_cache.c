@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -75,9 +75,6 @@ struct ocf_cache_mngt_init_params {
 	struct ocf_metadata_init_params {
 		ocf_cache_line_size_t line_size;
 		/*!< Metadata cache line size */
-
-		ocf_metadata_layout_t layout;
-		/*!< Metadata layout (striping/sequential) */
 
 		ocf_cache_mode_t cache_mode;
 		/*!< cache mode */
@@ -156,9 +153,6 @@ struct ocf_cache_attach_context {
 	struct {
 		ocf_cache_line_size_t line_size;
 		/*!< Metadata cache line size */
-
-		ocf_metadata_layout_t layout;
-		/*!< Metadata layout (striping/sequential) */
 
 		ocf_cache_mode_t cache_mode;
 		/*!< cache mode */
@@ -1135,7 +1129,6 @@ static void _ocf_mngt_load_read_properties_end(void *priv, int error,
 	context->metadata.shutdown_status = properties->shutdown_status;
 	context->metadata.dirty_flushed = properties->dirty_flushed;
 	context->metadata.line_size = properties->line_size;
-	cache->conf_meta->metadata_layout = properties->layout;
 	cache->conf_meta->cache_mode = properties->cache_mode;
 
 	ocf_pipeline_next(context->pipeline);
@@ -1191,8 +1184,7 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 	 * Initialize variable size metadata segments
 	 */
 	ret = ocf_metadata_init_variable_size(cache, context->volume_size,
-			context->metadata.line_size,
-			cache->conf_meta->metadata_layout);
+			context->metadata.line_size);
 	if (ret)
 		OCF_PL_FINISH_RET(pipeline, ret);
 
@@ -1361,7 +1353,6 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	 * Super block elements initialization
 	 */
 	cache->conf_meta->cache_mode = params->metadata.cache_mode;
-	cache->conf_meta->metadata_layout = params->metadata.layout;
 	cache->conf_meta->promotion_policy_type = params->metadata.promotion_policy;
 	__set_cleaning_policy(cache, ocf_cleaning_default);
 
@@ -1387,7 +1378,6 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	params.ctx = ctx;
 	params.metadata.cache_mode = cfg->cache_mode;
-	params.metadata.layout = cfg->metadata_layout;
 	params.metadata.line_size = cfg->cache_line_size;
 	params.metadata_volatile = cfg->metadata_volatile;
 	params.metadata.promotion_policy = cfg->promotion_policy;
@@ -2402,13 +2392,6 @@ static void _ocf_mngt_activate_check_superblock(ocf_pipeline_t pipeline,
 	if (result)
 		OCF_PL_FINISH_RET(pipeline, result);
 
-	if (cache->conf_meta->metadata_layout != cache->metadata.layout) {
-		ocf_cache_log(cache, log_err, "Failed to activate standby instance: "
-				"invaild metadata layout\n");
-		OCF_PL_FINISH_RET(context->pipeline,
-				-OCF_ERR_METADATA_LAYOUT_MISMATCH);
-	}
-
 	if (cache->conf_meta->line_size != cache->metadata.line_size) {
 		ocf_cache_log(cache, log_err, "Failed to activate standby instance: "
 				"invaild cache line size\n");
@@ -2866,11 +2849,6 @@ static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 
 	if (!ocf_cache_line_size_is_valid(cfg->cache_line_size))
 		return -OCF_ERR_INVALID_CACHE_LINE_SIZE;
-
-	if (cfg->metadata_layout >= ocf_metadata_layout_max ||
-			cfg->metadata_layout < 0) {
-		return -OCF_ERR_INVAL;
-	}
 
 	if (cfg->backfill.queue_unblock_size > cfg->backfill.max_queue_size )
 		return -OCF_ERR_INVAL;

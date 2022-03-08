@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -153,7 +153,6 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
         cache_mode=mode,
         cache_line_size=cls,
         name=name,
-        metadata_layout=MetadataLayout.SEQUENTIAL,
         metadata_volatile=volatile_metadata,
         max_queue_size=queue_size,
         queue_unblock_size=unblock_size,
@@ -164,7 +163,7 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     assert stats["conf"]["cache_mode"] == mode, "Cache mode"
     assert stats["conf"]["cache_line_size"] == cls, "Cache line size"
     assert cache.get_name() == name, "Cache name"
-    # TODO: metadata_layout, metadata_volatile, max_queue_size,
+    # TODO: metadata_volatile, max_queue_size,
     #  queue_unblock_size, pt_unaligned_io, use_submit_fast
     # TODO: test in functional tests
 

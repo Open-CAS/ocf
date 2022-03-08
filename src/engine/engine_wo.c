@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2019-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -79,8 +79,7 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 		 * previous cacheline(s) */
 		phys_prev = phys_curr;
 		if (entry->status != LOOKUP_MISS)
-			phys_curr = ocf_metadata_map_lg2phy(cache,
-					entry->coll_idx);
+			phys_curr = entry->coll_idx;
 		if (io && phys_prev + 1 != phys_curr) {
 			ocf_read_wo_cache_io(req, io_start, offset - io_start);
 			io = false;

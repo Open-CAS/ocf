@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -241,8 +241,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 	ENV_BUG_ON(first_cl + reqs > req->core_line_count);
 
 	if (reqs == 1) {
-		addr = ocf_metadata_map_lg2phy(cache,
-					req->map[first_cl].coll_idx);
+		addr = req->map[first_cl].coll_idx;
 		addr *= ocf_line_size(cache);
 		addr += cache->device->metadata_offset;
 		addr += ((req->byte_position + offset) % ocf_line_size(cache));
@@ -273,8 +272,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 
 	/* Issue requests to cache. */
 	for (i = 0; i < reqs; i++) {
-		addr  = ocf_metadata_map_lg2phy(cache,
-				req->map[first_cl + i].coll_idx);
+		addr  = req->map[first_cl + i].coll_idx;
 		addr *= ocf_line_size(cache);
 		addr += cache->device->metadata_offset;
 		bytes = ocf_line_size(cache);

@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -33,12 +33,6 @@ struct ocf_metadata_map {
 	uint8_t status[];
 		/*!<  Entry status structure e.g. valid, dirty...*/
 } __attribute__((packed));
-
-ocf_cache_line_t ocf_metadata_map_lg2phy(
-		struct ocf_cache *cache, ocf_cache_line_t coll_idx);
-
-ocf_cache_line_t ocf_metadata_map_phy2lg(
-		struct ocf_cache *cache, ocf_cache_line_t cache_line);
 
 void ocf_metadata_set_collision_info(
 		struct ocf_cache *cache, ocf_cache_line_t line,

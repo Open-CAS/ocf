@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -684,8 +684,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 		OCF_DEBUG_PARAM(req->cache, "Cache read, line =  %u",
 				iter->coll_idx);
 
-		addr = ocf_metadata_map_lg2phy(cache,
-				iter->coll_idx);
+		addr = iter->coll_idx;
 		addr *= ocf_line_size(cache);
 		addr += cache->device->metadata_offset;
 

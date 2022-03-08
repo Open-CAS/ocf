@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -634,23 +634,11 @@ static void ocf_metadata_flush_unlock_collision_page(
 			page);
 }
 
-static void ocf_metadata_init_layout(struct ocf_cache *cache,
-		ocf_metadata_layout_t layout)
-{
-	ENV_BUG_ON(layout >= ocf_metadata_layout_max || layout < 0);
-
-	/* Initialize metadata location interface*/
-	if (cache->metadata.is_volatile)
-		layout = ocf_metadata_layout_seq;
-	cache->metadata.layout = layout;
-}
-
 /*
  * Initialize hash metadata interface
  */
 int ocf_metadata_init_variable_size(struct ocf_cache *cache,
-		uint64_t device_size, ocf_cache_line_size_t line_size,
-		ocf_metadata_layout_t layout)
+		uint64_t device_size, ocf_cache_line_size_t line_size)
 {
 	int result = 0;
 	uint32_t i = 0;
@@ -682,8 +670,6 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 
 	ctrl->mapping_size = ocf_metadata_status_sizeof(line_size)
 		+ sizeof(struct ocf_metadata_map);
-
-	ocf_metadata_init_layout(cache, layout);
 
 	/* Initial setup of dynamic size RAW containers */
 	for (i = metadata_segment_variable_size_start;
@@ -1268,7 +1254,6 @@ static int ocf_metadata_load_atomic_metadata_drain(void *priv,
 		ctx_data_rd_check(cache->owner, &meta, data, sizeof(meta));
 
 		line = (sector_addr + i) / ocf_line_sectors(cache);
-		line = ocf_metadata_map_phy2lg(cache, line);
 		pos = (sector_addr + i) % ocf_line_sectors(cache);
 		core_seq_no = meta.core_seq_no;
 		core_line = meta.core_line;
@@ -1631,7 +1616,6 @@ static void ocf_metadata_load_properties_cmpl(
 		OCF_CMPL_RET(priv, result, NULL);
 
 	properties.line_size = superblock->line_size;
-	properties.layout = superblock->metadata_layout;
 	properties.cache_mode = superblock->cache_mode;
 	properties.shutdown_status = superblock->clean_shutdown;
 	properties.dirty_flushed = superblock->dirty_flushed;

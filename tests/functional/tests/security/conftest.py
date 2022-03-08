@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -81,11 +81,4 @@ def not_cache_line_size_randomize(request):
     params=RandomGenerator(DefaultRanges.UINT32).exclude_range(enum_range(PromotionPolicy))
 )
 def not_promotion_policy_randomize(request):
-    return request.param
-
-
-@pytest.fixture(
-    params=RandomGenerator(DefaultRanges.UINT32).exclude_range(enum_range(MetadataLayout))
-)
-def not_metadata_layout_randomize(request):
     return request.param

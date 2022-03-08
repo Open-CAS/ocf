@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -60,9 +60,6 @@ struct ocf_metadata_lock
  * @brief Metadata control structure
  */
 struct ocf_metadata {
-	ocf_metadata_layout_t layout;
-		/*!< Per-cacheline metadata layout */
-
 	void *priv;
 		/*!< Private data of metadata service interface */
 

@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -44,8 +44,7 @@ int ocf_metadata_init(struct ocf_cache *cache,
  * @return 0 - Operation success otherwise failure
  */
 int ocf_metadata_init_variable_size(struct ocf_cache *cache,
-		uint64_t device_size, ocf_cache_line_size_t cache_line_size,
-		ocf_metadata_layout_t layout);
+		uint64_t device_size, ocf_cache_line_size_t cache_line_size);
 
 /**
  * @brief Initialize collision table
@@ -199,7 +198,6 @@ void ocf_metadata_set_hash(struct ocf_cache *cache,
 struct ocf_metadata_load_properties {
 	enum ocf_metadata_shutdown_status shutdown_status;
 	uint8_t dirty_flushed;
-	ocf_metadata_layout_t layout;
 	ocf_cache_mode_t cache_mode;
 	ocf_cache_line_size_t line_size;
 	char *cache_name;
