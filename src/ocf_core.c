@@ -361,6 +361,12 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 		return;
 	}
 
+	ret = ocf_req_alloc_map_flush(req);
+	if (ret) {
+		ocf_io_end(io, -OCF_ERR_NO_MEM);
+		return;
+	}
+
 	req->core = core;
 	req->complete = ocf_req_complete;
 

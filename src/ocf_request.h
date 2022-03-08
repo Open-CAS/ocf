@@ -279,6 +279,16 @@ int ocf_req_alloc_map(struct ocf_request *req);
 int ocf_req_alloc_map_discard(struct ocf_request *req);
 
 /**
+ * @brief Allocate OCF request map for flush request
+ *
+ * @param req OCF request
+ *
+ * @retval 0 Allocation succeed
+ * @retval non-zero Allocation failed
+ */
+int ocf_req_alloc_map_flush(struct ocf_request *req);
+
+/**
  * @brief Allocate new OCF request with NOIO map allocation for huge request
  *
  * @param queue - I/O queue handle

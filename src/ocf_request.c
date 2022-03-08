@@ -105,7 +105,6 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 		req->alloc_core_line_count = 1;
 	}
 
-
 	OCF_DEBUG_TRACE(cache);
 
 	ocf_queue_get(queue);
@@ -170,6 +169,26 @@ int ocf_req_alloc_map_discard(struct ocf_request *req)
 	req->core_line_last = ocf_bytes_2_lines(req->cache,
 			req->byte_position + req->byte_length - 1);
 	req->core_line_count = req->core_line_last - req->core_line_first + 1;
+
+	return ocf_req_alloc_map(req);
+}
+
+int ocf_req_alloc_map_flush(struct ocf_request *req)
+{
+	if (req->map)
+		return 0;
+
+	/*
+	 * Flush requests always apply to the whole disk. So in case the user
+	 * tries to submit an io request that failed to allocate mapping (e.g.
+	 * SPDK create a request with total disk size as request's length),
+	 * then allocate a small dummy mapping in order not to break future
+	 * actions on req->map.
+	 */
+	req->byte_length = 0;
+	req->core_line_first = 0;
+	req->core_line_last = 0;
+	req->core_line_count = 1;
 
 	return ocf_req_alloc_map(req);
 }
