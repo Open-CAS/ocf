@@ -340,8 +340,8 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_recov_pipeline_props = {
 	.steps = {
 		OCF_PL_STEP_FOREACH(ocf_metadata_store_segment,
 				ocf_metadata_load_sb_store_segment_args),
-		OCF_PL_STEP_ARG_INT(ocf_metadata_load_segment,                                      
-				metadata_segment_sb_config),  
+		OCF_PL_STEP_ARG_INT(ocf_metadata_load_segment,
+				metadata_segment_sb_config),
 		OCF_PL_STEP(_ocf_metadata_validate_superblock),
 		OCF_PL_STEP_FOREACH(ocf_metadata_load_segment,
 				ocf_metadata_load_sb_recov_load_segment_args),
