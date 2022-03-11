@@ -24,6 +24,7 @@ from hashlib import md5
 import weakref
 
 from .io import Io, IoOps, IoDir
+from .queue import Queue
 from .shared import OcfErrorCode, Uuid
 from ..ocf import OcfLib
 from ..utils import print_buffer, Size as S
@@ -139,6 +140,7 @@ class Volume:
                 return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
 
             Volume._instances_[ref] = volume
+            volume.handle = ref
 
             return volume.do_open()
 
@@ -306,6 +308,21 @@ class Volume:
         else:
             self._reject_io(io)
 
+    def new_io(
+        self,
+        queue: Queue,
+        addr: int,
+        length: int,
+        direction: IoDir,
+        io_class: int,
+        flags: int,
+    ):
+        lib = OcfLib.getInstance()
+        io = lib.ocf_volume_new_io(
+            self.handle, queue.handle, addr, length, direction, io_class, flags
+        )
+        return Io.from_pointer(io)
+
 
 class RamVolume(Volume):
     props = None
@@ -451,3 +468,13 @@ lib.ocf_io_get_volume.argtypes = [c_void_p]
 lib.ocf_io_get_volume.restype = c_void_p
 lib.ocf_io_get_data.argtypes = [c_void_p]
 lib.ocf_io_get_data.restype = c_void_p
+lib.ocf_volume_new_io.argtypes = [
+    c_void_p,
+    c_void_p,
+    c_uint64,
+    c_uint32,
+    c_uint32,
+    c_uint32,
+    c_uint64,
+]
+lib.ocf_volume_new_io.restype = c_void_p

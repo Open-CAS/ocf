@@ -121,14 +121,17 @@ class Core:
         return Volume.get_instance(lib.ocf_core_get_volume(self.handle))
 
     def new_core_io(
-        self, queue: Queue, addr: int, length: int, direction: IoDir,
-        io_class: int, flags: int
+        self,
+        queue: Queue,
+        addr: int,
+        length: int,
+        direction: IoDir,
+        io_class: int,
+        flags: int,
     ):
-        lib = OcfLib.getInstance()
-        volume = lib.ocf_core_get_volume(self.handle)
-        io = lib.ocf_volume_new_io(
-            volume, queue.handle, addr, length, direction, io_class, flags)
-        return Io.from_pointer(io)
+        return self.get_volume().new_io(
+            queue, addr, length, direction, io_class, flags
+        )
 
     def get_default_queue(self):
         return self.cache.get_default_queue()
@@ -233,16 +236,6 @@ class Core:
 lib = OcfLib.getInstance()
 lib.ocf_core_get_uuid_wrapper.restype = POINTER(Uuid)
 lib.ocf_core_get_uuid_wrapper.argtypes = [c_void_p]
-lib.ocf_volume_new_io.argtypes = [
-    c_void_p,
-    c_void_p,
-    c_uint64,
-    c_uint32,
-    c_uint32,
-    c_uint32,
-    c_uint64,
-]
-lib.ocf_volume_new_io.restype = c_void_p
 lib.ocf_core_get_volume.argtypes = [c_void_p]
 lib.ocf_core_get_volume.restype = c_void_p
 lib.ocf_core_get_front_volume.argtypes = [c_void_p]
