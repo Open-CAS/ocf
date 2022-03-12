@@ -66,9 +66,8 @@ class VolumeProperties(Structure):
         ("_caps", VolumeCaps),
         ("_io_ops", IoOps),
         ("_deinit", c_char_p),
-        ("_ops", VolumeOps),
+        ("_ops_", VolumeOps),
     ]
-
 
 class VolumeIoPriv(Structure):
     _fields_ = [("_data", c_void_p), ("_offset", c_uint64)]
@@ -80,21 +79,96 @@ VOLUME_POISON = 0x13
 class Volume:
     _instances_ = weakref.WeakValueDictionary()
     _uuid_ = weakref.WeakValueDictionary()
+    _ops_ = {}
+    _props_ = {}
 
     @classmethod
     def get_ops(cls):
-        cls.ops = VolumeOps(
-            _submit_io=cls._submit_io,
-            _submit_flush=cls._submit_flush,
-            _submit_metadata=cls._submit_metadata,
-            _submit_discard=cls._submit_discard,
-            _submit_write_zeroes=cls._submit_write_zeroes,
-            _open=cls._open,
-            _close=cls._close,
-            _get_max_io_size=cls._get_max_io_size,
-            _get_length=cls._get_length,
+        if cls in Volume._ops_:
+            return Volume._ops_[cls]
+
+        @VolumeOps.SUBMIT_IO
+        def _submit_io(io):
+            io_structure = cast(io, POINTER(Io))
+            volume = Volume.get_instance(
+                OcfLib.getInstance().ocf_io_get_volume(io_structure)
+            )
+
+            volume.submit_io(io_structure)
+
+        @VolumeOps.SUBMIT_FLUSH
+        def _submit_flush(flush):
+            io_structure = cast(flush, POINTER(Io))
+            volume = Volume.get_instance(
+                OcfLib.getInstance().ocf_io_get_volume(io_structure)
+            )
+
+            volume.submit_flush(io_structure)
+
+        @VolumeOps.SUBMIT_METADATA
+        def _submit_metadata(meta):
+            raise NotImplementedError
+
+        @VolumeOps.SUBMIT_DISCARD
+        def _submit_discard(discard):
+            io_structure = cast(discard, POINTER(Io))
+            volume = Volume.get_instance(
+                OcfLib.getInstance().ocf_io_get_volume(io_structure)
+            )
+
+            volume.submit_discard(io_structure)
+
+        @VolumeOps.SUBMIT_WRITE_ZEROES
+        def _submit_write_zeroes(write_zeroes):
+            raise NotImplementedError
+
+        @VolumeOps.OPEN
+        def _open(ref):
+            uuid_ptr = cast(
+                OcfLib.getInstance().ocf_volume_get_uuid(ref), POINTER(Uuid)
+            )
+            uuid = str(uuid_ptr.contents._data, encoding="ascii")
+            try:
+                volume = Volume.get_by_uuid(uuid)
+            except:  # noqa E722 TODO:Investigate whether this really should be so broad
+                print("Tried to access unallocated volume {}".format(uuid))
+                print("{}".format(Volume._uuid_))
+                return -1
+
+            if volume.opened:
+                return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
+
+            Volume._instances_[ref] = volume
+
+            return volume.do_open()
+
+        @VolumeOps.CLOSE
+        def _close(ref):
+            volume = Volume.get_instance(ref)
+            volume.close()
+            volume.opened = False
+
+        @VolumeOps.GET_MAX_IO_SIZE
+        def _get_max_io_size(ref):
+            return Volume.get_instance(ref).get_max_io_size()
+
+        @VolumeOps.GET_LENGTH
+        def _get_length(ref):
+            return Volume.get_instance(ref).get_length()
+
+        Volume._ops_[cls] = VolumeOps(
+            _submit_io=_submit_io,
+            _submit_flush=_submit_flush,
+            _submit_metadata=_submit_metadata,
+            _submit_discard=_submit_discard,
+            _submit_write_zeroes=_submit_write_zeroes,
+            _open=_open,
+            _close=_close,
+            _get_max_io_size=_get_max_io_size,
+            _get_length=_get_length,
         )
-        return cls.ops
+
+        return Volume._ops_[cls]
 
     @classmethod
     def get_io_ops(cls):
@@ -102,16 +176,19 @@ class Volume:
 
     @classmethod
     def get_props(cls):
-        cls.props = VolumeProperties(
+        if cls in Volume._props_:
+            return Volume._props_[cls]
+
+        Volume._props_[cls] = VolumeProperties(
             _name=str(cls.__name__).encode("ascii"),
             _io_priv_size=sizeof(VolumeIoPriv),
             _volume_priv_size=0,
             _caps=VolumeCaps(_atomic_writes=0),
-            _ops=cls.get_ops(),
+            _ops_=cls.get_ops(),
             _io_ops=cls.get_io_ops(),
             _deinit=0,
         )
-        return cls.props
+        return Volume._props_[cls]
 
     def get_copy(self):
         raise NotImplementedError
@@ -127,84 +204,6 @@ class Volume:
     @classmethod
     def get_by_uuid(cls, uuid):
         return cls._uuid_[uuid]
-
-    @staticmethod
-    @VolumeOps.SUBMIT_IO
-    def _submit_io(io):
-        io_structure = cast(io, POINTER(Io))
-        volume = Volume.get_instance(
-            OcfLib.getInstance().ocf_io_get_volume(io_structure)
-        )
-
-        volume.submit_io(io_structure)
-
-    @staticmethod
-    @VolumeOps.SUBMIT_FLUSH
-    def _submit_flush(flush):
-        io_structure = cast(flush, POINTER(Io))
-        volume = Volume.get_instance(
-            OcfLib.getInstance().ocf_io_get_volume(io_structure)
-        )
-
-        volume.submit_flush(io_structure)
-
-    @staticmethod
-    @VolumeOps.SUBMIT_METADATA
-    def _submit_metadata(meta):
-        raise NotImplementedError
-
-    @staticmethod
-    @VolumeOps.SUBMIT_DISCARD
-    def _submit_discard(discard):
-        io_structure = cast(discard, POINTER(Io))
-        volume = Volume.get_instance(
-            OcfLib.getInstance().ocf_io_get_volume(io_structure)
-        )
-
-        volume.submit_discard(io_structure)
-
-    @staticmethod
-    @VolumeOps.SUBMIT_WRITE_ZEROES
-    def _submit_write_zeroes(write_zeroes):
-        raise NotImplementedError
-
-    @staticmethod
-    @CFUNCTYPE(c_int, c_void_p)
-    def _open(ref):
-        uuid_ptr = cast(
-            OcfLib.getInstance().ocf_volume_get_uuid(ref), POINTER(Uuid)
-        )
-        uuid = str(uuid_ptr.contents._data, encoding="ascii")
-        try:
-            volume = Volume.get_by_uuid(uuid)
-        except:  # noqa E722 TODO:Investigate whether this really should be so broad
-            print("Tried to access unallocated volume {}".format(uuid))
-            print("{}".format(Volume._uuid_))
-            return -1
-
-        if volume.opened:
-            return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
-
-        Volume._instances_[ref] = volume
-
-        return volume.do_open()
-
-    @staticmethod
-    @VolumeOps.CLOSE
-    def _close(ref):
-        volume = Volume.get_instance(ref)
-        volume.close()
-        volume.opened = False
-
-    @staticmethod
-    @VolumeOps.GET_MAX_IO_SIZE
-    def _get_max_io_size(ref):
-        return Volume.get_instance(ref).get_max_io_size()
-
-    @staticmethod
-    @VolumeOps.GET_LENGTH
-    def _get_length(ref):
-        return Volume.get_instance(ref).get_length()
 
     @staticmethod
     @IoOps.SET_DATA

@@ -21,6 +21,7 @@ from pyocf.types.cache import (
     Backfill
 )
 from pyocf.types.core import Core
+from pyocf.types.ctx import OcfCtx
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.types.shared import OcfError, OcfCompletion, CacheLineSize, SeqCutOffPolicy
@@ -348,6 +349,8 @@ def test_start_cache_huge_device(pyocf_ctx_log_buffer, cls):
 
         def submit_io(self, io):
             io.contents._end(io, 0)
+
+    OcfCtx.get_default().register_volume_type(HugeDevice)
 
     cache_device = HugeDevice()
 
