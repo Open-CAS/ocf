@@ -11,6 +11,7 @@ from ctypes import (
     c_uint16,
     c_int
 )
+from pathlib import Path
 from tests.utils.random import RandomStringGenerator, RandomGenerator, DefaultRanges, Range
 
 from pyocf.types.cache import CacheMode, MetadataLayout, PromotionPolicy
@@ -19,6 +20,14 @@ from pyocf.types.shared import CacheLineSize
 import pytest
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.path.pardir))
+
+
+def pytest_collection_modifyitems(session, config, items):
+    base_dir = Path(config.rootdir)
+    for item in items:
+        rel_path = Path(item.fspath).relative_to(base_dir)
+        if rel_path.match("*/security/*"):
+            item.add_marker(pytest.mark.security)
 
 
 def enum_min(enum):
