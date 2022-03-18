@@ -461,6 +461,7 @@ def io_from_exported_object(exported_obj: Core, buffer_size: int, offset: int):
 
 
 def check_stats_read_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineSize):
+    exported_obj.cache.settle()
     stats = exported_obj.cache.get_stats()
     assert stats["conf"]["cache_mode"] == mode, "Cache mode"
     assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == (1 if mode.read_insert() else 0), \
@@ -473,6 +474,7 @@ def check_stats_read_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineSi
 
 
 def check_stats_write_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineSize):
+    exported_obj.cache.settle()
     stats = exported_obj.cache.get_stats()
     assert stats["conf"]["cache_mode"] == mode, "Cache mode"
     # TODO(ajrutkow): why 1 for WT ??
@@ -492,6 +494,7 @@ def check_stats_write_after_read(exported_obj: Core,
                                  mode: CacheMode,
                                  cls: CacheLineSize,
                                  read_from_empty=False):
+    exported_obj.cache.settle()
     stats = exported_obj.cache.get_stats()
     assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == \
         (0 if mode in {CacheMode.WI, CacheMode.PT} else
@@ -509,6 +512,7 @@ def check_stats_write_after_read(exported_obj: Core,
 
 
 def check_stats_read_after_write(exported_obj, mode, cls, write_to_empty=False):
+    exported_obj.cache.settle()
     stats = exported_obj.cache.get_stats()
     assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == \
         (2 if mode.lazy_write() else (0 if mode == CacheMode.PT else 1)), \
