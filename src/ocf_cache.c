@@ -327,26 +327,17 @@ static void ocf_cache_volume_io_complete(struct ocf_io *vol_io, int error)
 static int ocf_cache_volume_prepare_vol_io(struct ocf_io *io,
 		struct ocf_io **vol_io)
 {
-	struct ocf_cache_volume_io_priv *priv;
 	ocf_cache_t cache;
 	struct ocf_io *tmp_io;
-	int result;
 
 	OCF_CHECK_NULL(io);
 
-	priv = ocf_io_get_priv(io);
 	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
 
 	tmp_io = ocf_volume_new_io(ocf_cache_get_volume(cache), io->io_queue,
 			io->addr, io->bytes, io->dir, io->io_class, io->flags);
 	if (!tmp_io)
 		return -OCF_ERR_NO_MEM;
-
-	result = ocf_io_set_data(tmp_io, priv->data, 0);
-	if (result) {
-		ocf_io_put(tmp_io);
-		return result;
-	}
 
 	*vol_io = tmp_io;
 
@@ -373,6 +364,13 @@ static void ocf_cache_volume_submit_io(struct ocf_io *io)
 
 	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
 	if (result) {
+		ocf_io_end(io, result);
+		return;
+	}
+
+	result = ocf_io_set_data(vol_io, priv->data, 0);
+	if (result) {
+		ocf_io_put(vol_io);
 		ocf_io_end(io, result);
 		return;
 	}
