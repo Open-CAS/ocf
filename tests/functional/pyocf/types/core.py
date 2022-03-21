@@ -99,39 +99,11 @@ class Core:
     def get_handle(self):
         return self.handle
 
-    def new_io(
-        self, queue: Queue, addr: int, length: int, direction: IoDir,
-        io_class: int, flags: int
-    ):
-        if not self.cache:
-            raise Exception("Core isn't attached to any cache")
-
-        io = OcfLib.getInstance().ocf_core_new_io_wrapper(
-            self.handle, queue.handle, addr, length, direction, io_class, flags)
-
-        if io is None:
-            raise Exception("Failed to create io!")
-
-        return Io.from_pointer(io)
-
     def get_front_volume(self):
         return Volume.get_instance(lib.ocf_core_get_front_volume(self.handle))
 
     def get_volume(self):
         return Volume.get_instance(lib.ocf_core_get_volume(self.handle))
-
-    def new_core_io(
-        self,
-        queue: Queue,
-        addr: int,
-        length: int,
-        direction: IoDir,
-        io_class: int,
-        flags: int,
-    ):
-        return self.get_volume().new_io(
-            queue, addr, length, direction, io_class, flags
-        )
 
     def get_default_queue(self):
         return self.cache.get_default_queue()
@@ -250,13 +222,3 @@ lib.ocf_stats_collect_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c
 lib.ocf_stats_collect_core.restype = c_int
 lib.ocf_core_get_info.argtypes = [c_void_p, c_void_p]
 lib.ocf_core_get_info.restype = c_int
-lib.ocf_core_new_io_wrapper.argtypes = [
-    c_void_p,
-    c_void_p,
-    c_uint64,
-    c_uint32,
-    c_uint32,
-    c_uint32,
-    c_uint64,
-]
-lib.ocf_core_new_io_wrapper.restype = c_void_p

@@ -117,9 +117,6 @@ IoOps._fields_ = [("_set_data", IoOps.SET_DATA), ("_get_data", IoOps.GET_DATA)]
 lib = OcfLib.getInstance()
 lib.ocf_io_set_cmpl_wrapper.argtypes = [POINTER(Io), c_void_p, c_void_p, Io.END]
 
-lib.ocf_core_new_io_wrapper.argtypes = [c_void_p]
-lib.ocf_core_new_io_wrapper.restype = c_void_p
-
 lib.ocf_io_set_data.argtypes = [POINTER(Io), c_void_p, c_uint32]
 lib.ocf_io_set_data.restype = c_int
 
