@@ -29,6 +29,7 @@ from .shared import OcfErrorCode, Uuid
 from ..ocf import OcfLib
 from ..utils import print_buffer, Size as S
 from .data import Data
+from .queue import Queue
 
 
 class VolumeCaps(Structure):
@@ -136,13 +137,7 @@ class Volume:
                 print("{}".format(Volume._uuid_))
                 return -1
 
-            if volume.opened:
-                return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
-
-            Volume._instances_[ref] = volume
-            volume.handle = ref
-
-            return volume.do_open()
+            return Volume.open(ref, volume)
 
         @VolumeOps.CLOSE
         def _close(ref):
@@ -171,6 +166,16 @@ class Volume:
         )
 
         return Volume._ops_[cls]
+
+    @staticmethod
+    def open(ref, volume):
+        if volume.opened:
+            return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
+
+        Volume._instances_[ref] = volume
+        volume.handle = ref
+
+        return volume.do_open()
 
     @classmethod
     def get_io_ops(cls):
