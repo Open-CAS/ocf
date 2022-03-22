@@ -9,6 +9,7 @@ from ctypes import c_int
 from pyocf.types.cache import Cache
 from pyocf.types.core import Core
 from pyocf.types.volume import RamVolume, ErrorDevice
+from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size as S
@@ -26,13 +27,15 @@ def test_simple_wt_write(pyocf_ctx):
 
     cache = Cache.start_on_device(cache_device)
     core = Core.using_device(core_device)
+    queue = cache.get_default_queue()
 
     cache.add_core(core)
+    vol = CoreVolume(core, open=True)
 
     cache_device.reset_stats()
     core_device.reset_stats()
 
-    r = Rio().target(core).readwrite(ReadWrite.WRITE).size(S.from_sector(1)).run()
+    r = Rio().target(vol).readwrite(ReadWrite.WRITE).size(S.from_sector(1)).run([queue])
     assert cache_device.get_stats()[IoDir.WRITE] == 1
     cache.settle()
     stats = cache.get_stats()
@@ -87,9 +90,10 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     core = Core.using_device(core_device, name="test_core")
 
     cache.add_core(core)
+    vol = CoreVolume(core, open=True)
 
     write_data = Data.from_string("This is test data")
-    io = core.new_io(cache.get_default_queue(), S.from_sector(3).B,
+    io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B,
                      write_data.size, IoDir.WRITE, 0, 0)
     io.set_data(write_data)
 
@@ -107,7 +111,7 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
         core = cache.get_core_by_name("test_core")
 
     read_data = Data(write_data.size)
-    io = core.new_io(cache.get_default_queue(), S.from_sector(3).B,
+    io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B,
                      read_data.size, IoDir.READ, 0, 0)
     io.set_data(read_data)
 

@@ -9,9 +9,11 @@ from ctypes import c_int
 from random import randint
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
-from pyocf.types.volume import RamVolume
+from pyocf.types.volume import RamVolume, Volume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
+from pyocf.types.queue import Queue
 from pyocf.utils import Size as S
 from pyocf.types.shared import OcfError, OcfCompletion, CacheLineSize
 
@@ -79,11 +81,14 @@ def test_remove_dirty_no_flush(pyocf_ctx, cache_mode, cls):
     core = Core.using_device(core_device)
     cache.add_core(core)
 
+    vol = CoreVolume(core, open=True)
+    queue = core.cache.get_default_queue()
+
     # Prepare data
     core_size = core.get_stats()["size"]
     data = Data(core_size.B)
 
-    _io_to_core(core, data)
+    _io_to_core(vol, queue, data)
 
     # Remove core from cache
     cache.remove_core(core)
@@ -122,11 +127,12 @@ def test_10add_remove_with_io(pyocf_ctx):
     # Add and remove core 10 times in a loop with io in between
     for i in range(0, 10):
         cache.add_core(core)
+        vol = CoreVolume(core, open=True)
         stats = cache.get_stats()
         assert stats["conf"]["core_count"] == 1
 
         write_data = Data.from_string("Test data")
-        io = core.new_io(
+        io = vol.new_io(
             cache.get_default_queue(), S.from_sector(1).B, write_data.size,
             IoDir.WRITE, 0, 0
         )
@@ -303,8 +309,8 @@ def test_add_remove_incrementally(pyocf_ctx, cache_mode, cls):
     assert stats["conf"]["core_count"] == core_amount
 
 
-def _io_to_core(exported_obj: Core, data: Data):
-    io = exported_obj.new_io(exported_obj.cache.get_default_queue(), 0, data.size,
+def _io_to_core(vol: Volume, queue: Queue, data: Data):
+    io = vol.new_io(queue, 0, data.size,
             IoDir.WRITE, 0, 0)
     io.set_data(data)
 

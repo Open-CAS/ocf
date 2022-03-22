@@ -13,6 +13,7 @@ import pytest
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
 from pyocf.types.volume import RamVolume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size
@@ -28,8 +29,8 @@ def __io(io, queue, address, size, data, direction):
     return int(completion.results["err"])
 
 
-def _io(new_io, queue, address, size, data, offset, direction, flags):
-    io = new_io(queue, address, size, direction, 0, flags)
+def io_to_exp_obj(vol, queue, address, size, data, offset, direction, flags):
+    io = vol.new_io(queue, address, size, direction, 0, flags)
     if direction == IoDir.READ:
         _data = Data.from_bytes(bytes(size))
     else:
@@ -38,19 +39,6 @@ def _io(new_io, queue, address, size, data, offset, direction, flags):
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
     return ret
-
-
-def io_to_exp_obj(core, address, size, data, offset, direction, flags):
-    return _io(
-        core.new_io,
-        core.cache.get_default_queue(),
-        address,
-        size,
-        data,
-        offset,
-        direction,
-        flags,
-    )
 
 
 class FlushValVolume(RamVolume):
@@ -87,12 +75,15 @@ def test_flush_after_mngmt(pyocf_ctx):
     cache.add_core(core)
     assert cache_device.flush_last
 
+    vol = CoreVolume(core, open=True)
+    queue = cache.get_default_queue()
+
     # WT I/O to write data to core and cache VC
-    io_to_exp_obj(core, block_size * 0, block_size, data, 0, IoDir.WRITE, 0)
+    io_to_exp_obj(vol, queue, block_size * 0, block_size, data, 0, IoDir.WRITE, 0)
 
     # WB I/O to produce dirty cachelines in CAS
     cache.change_cache_mode(CacheMode.WB)
-    io_to_exp_obj(core, block_size * 1, block_size, data, 0, IoDir.WRITE, 0)
+    io_to_exp_obj(vol, queue, block_size * 1, block_size, data, 0, IoDir.WRITE, 0)
 
     # after cache flush VCs are expected to be cleared
     cache.flush()
@@ -100,14 +91,14 @@ def test_flush_after_mngmt(pyocf_ctx):
     assert core_device.flush_last
 
     # I/O to write data to cache device VC
-    io_to_exp_obj(core, block_size * 0, block_size, data, 0, IoDir.WRITE, 0)
+    io_to_exp_obj(vol, queue, block_size * 0, block_size, data, 0, IoDir.WRITE, 0)
 
     # cache save must flush VC
     cache.save()
     assert cache_device.flush_last
 
     # I/O to write data to cache device VC
-    io_to_exp_obj(core, block_size * 0, block_size, data, 0, IoDir.WRITE, 0)
+    io_to_exp_obj(vol, queue, block_size * 0, block_size, data, 0, IoDir.WRITE, 0)
 
     # cache stop must flush VC
     cache.stop()

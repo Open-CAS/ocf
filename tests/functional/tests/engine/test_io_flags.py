@@ -13,6 +13,7 @@ import pytest
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
 from pyocf.types.volume import RamVolume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size
@@ -28,8 +29,10 @@ def __io(io, queue, address, size, data, direction):
     return int(completion.results["err"])
 
 
-def _io(new_io, queue, address, size, data, offset, direction, flags):
-    io = new_io(queue, address, size, direction, 0, flags)
+def io_to_exp_obj(core, address, size, data, offset, direction, flags):
+    vol = core.get_front_volume()
+    queue = core.cache.get_default_queue()
+    io = vol.new_io(queue, address, size, direction, 0, flags)
     if direction == IoDir.READ:
         _data = Data.from_bytes(bytes(size))
     else:
@@ -38,19 +41,6 @@ def _io(new_io, queue, address, size, data, offset, direction, flags):
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
     return ret
-
-
-def io_to_exp_obj(core, address, size, data, offset, direction, flags):
-    return _io(
-        core.new_io,
-        core.cache.get_default_queue(),
-        address,
-        size,
-        data,
-        offset,
-        direction,
-        flags,
-    )
 
 
 class FlagsValVolume(RamVolume):
@@ -91,6 +81,7 @@ def test_io_flags(pyocf_ctx, cache_mode):
     core = Core.using_device(core_device)
 
     cache.add_core(core)
+    vol = CoreVolume(core, open=True)
 
     cache_device.set_check(True)
     core_device.set_check(True)

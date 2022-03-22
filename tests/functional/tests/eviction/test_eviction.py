@@ -15,6 +15,7 @@ from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.types.shared import OcfCompletion, CacheLineSize, SeqCutOffPolicy, CacheLines
 from pyocf.types.volume import RamVolume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.utils import Size
 
 logger = logging.getLogger(__name__)
@@ -31,18 +32,20 @@ def test_eviction_two_cores(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
     cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)
     cache_size = cache.get_stats()["conf"]["size"]
-    core_exported1 = Core.using_device(core_device1, name="core1")
-    core_exported2 = Core.using_device(core_device2, name="core2")
-    cache.add_core(core_exported1)
-    cache.add_core(core_exported2)
+    core1 = Core.using_device(core_device1, name="core1")
+    core2 = Core.using_device(core_device2, name="core2")
+    cache.add_core(core1)
+    vol1 = CoreVolume(core1, open=True)
+    cache.add_core(core2)
+    vol2 = CoreVolume(core2, open=True)
 
     valid_io_size = Size.from_B(cache_size.B)
     test_data = Data(valid_io_size)
-    send_io(core_exported1, test_data)
-    send_io(core_exported2, test_data)
+    send_io(core1, test_data)
+    send_io(core2, test_data)
 
-    stats1 = core_exported1.get_stats()
-    stats2 = core_exported2.get_stats()
+    stats1 = core1.get_stats()
+    stats2 = core2.get_stats()
     # IO to the second core should evict all the data from the first core
     assert stats1["usage"]["occupancy"]["value"] == 0
     assert stats2["usage"]["occupancy"]["value"] == valid_io_size.blocks_4k
@@ -57,15 +60,16 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
     core_device = RamVolume(Size.from_MiB(200))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
     cache_size = cache.get_stats()["conf"]["size"]
-    core_exported = Core.using_device(core_device)
-    cache.add_core(core_exported)
+    core = Core.using_device(core_device)
+    cache.add_core(core)
+    vol = CoreVolume(core, open=True)
     cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)
 
     valid_io_size = Size.from_B(cache_size.B // 2)
     test_data = Data(valid_io_size)
-    send_io(core_exported, test_data)
+    send_io(core, test_data)
 
-    stats = core_exported.cache.get_stats()
+    stats = core.cache.get_stats()
     first_block_sts = stats["block"]
     first_usage_sts = stats["usage"]
     pt_writes_first = stats["req"]["wr_pt"]
@@ -80,12 +84,12 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
     io_size_bigger_than_cache = Size.from_MiB(100)
     io_offset = valid_io_size
     test_data = Data(io_size_bigger_than_cache)
-    send_io(core_exported, test_data, io_offset)
+    send_io(core, test_data, io_offset)
 
     if mode is not CacheMode.WT:
         # Flush first write
         cache.flush()
-    stats = core_exported.cache.get_stats()
+    stats = core.cache.get_stats()
     second_block_sts = stats["block"]
     second_usage_sts = stats["usage"]
     pt_writes_second = stats["req"]["wr_pt"]
@@ -113,6 +117,7 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     )
     core = Core.using_device(core_device)
     cache.add_core(core)
+    vol = CoreVolume(core, open=True)
 
     test_ioclass_id = 1
     pinned_ioclass_id = 2
@@ -176,9 +181,10 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     ), "Overflown part has not been evicted"
 
 
-def send_io(exported_obj: Core, data: Data, addr: int = 0, target_ioclass: int = 0):
-    io = exported_obj.new_io(
-        exported_obj.cache.get_default_queue(),
+def send_io(core: Core, data: Data, addr: int = 0, target_ioclass: int = 0):
+    vol = core.get_front_volume()
+    io = vol.new_io(
+        core.cache.get_default_queue(),
         addr,
         data.size,
         IoDir.WRITE,

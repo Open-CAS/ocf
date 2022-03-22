@@ -11,6 +11,7 @@ from datetime import timedelta
 from pyocf.types.cache import Cache, PromotionPolicy, NhitParams
 from pyocf.types.core import Core
 from pyocf.types.volume import RamVolume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size
@@ -62,11 +63,13 @@ def test_change_to_nhit_and_back_io_in_flight(pyocf_ctx):
     core = Core.using_device(core_device)
 
     cache.add_core(core)
+    vol = CoreVolume(core, open=True)
+    queue = cache.get_default_queue()
 
     # Step 2
     r = (
         Rio()
-        .target(core)
+        .target(vol)
         .njobs(10)
         .bs(Size.from_KiB(4))
         .readwrite(ReadWrite.RANDWRITE)
@@ -74,7 +77,7 @@ def test_change_to_nhit_and_back_io_in_flight(pyocf_ctx):
         .time_based()
         .time(timedelta(minutes=1))
         .qd(10)
-        .run_async()
+        .run_async([queue])
     )
 
     # Step 3
@@ -85,7 +88,7 @@ def test_change_to_nhit_and_back_io_in_flight(pyocf_ctx):
     assert r.error_count == 0, "No IO's should fail when turning NHIT policy on"
 
     # Step 5
-    r.run_async()
+    r.run_async([queue])
 
     # Step 6
     cache.set_promotion_policy(PromotionPolicy.ALWAYS)
@@ -107,15 +110,17 @@ def fill_cache(cache, fill_ratio):
     bytes_to_fill = Size(round(cache_lines.bytes * fill_ratio))
 
     core = cache.cores[0]
+    vol = CoreVolume(core, open=True)
+    queue = cache.get_default_queue()
 
     r = (
         Rio()
-        .target(core)
+        .target(vol)
         .readwrite(ReadWrite.RANDWRITE)
         .size(bytes_to_fill)
         .bs(Size(512))
         .qd(10)
-        .run()
+        .run([queue])
     )
 
 
@@ -143,6 +148,8 @@ def test_promoted_after_hits_various_thresholds(
     cache = Cache.start_on_device(cache_device, promotion_policy=PromotionPolicy.NHIT)
     core = Core.using_device(core_device)
     cache.add_core(core)
+    vol = CoreVolume(core, open=True)
+    queue = cache.get_default_queue()
 
     # Step 2
     cache.set_promotion_policy_param(
@@ -167,12 +174,12 @@ def test_promoted_after_hits_various_thresholds(
         .readwrite(ReadWrite.WRITE)
         .bs(Size(4096))
         .offset(last_core_line)
-        .target(core)
+        .target(vol)
         .size(Size(4096) + last_core_line)
     )
 
     for i in range(insertion_threshold - 1):
-        r.run()
+        r.run([queue])
 
     cache.settle()
     stats = cache.get_stats()
@@ -183,7 +190,7 @@ def test_promoted_after_hits_various_thresholds(
     )
 
     # Step 5
-    r.run()
+    r.run([queue])
 
     cache.settle()
     stats = cache.get_stats()
@@ -213,9 +220,11 @@ def test_partial_hit_promotion(pyocf_ctx):
     cache = Cache.start_on_device(cache_device)
     core = Core.using_device(core_device)
     cache.add_core(core)
+    vol = CoreVolume(core, open=True)
+    queue = cache.get_default_queue()
 
     # Step 2
-    r = Rio().readwrite(ReadWrite.READ).bs(Size(512)).size(Size(512)).target(core).run()
+    r = Rio().readwrite(ReadWrite.READ).bs(Size(512)).size(Size(512)).target(vol).run([queue])
 
     stats = cache.get_stats()
     cache_lines = stats["conf"]["size"]
@@ -232,7 +241,7 @@ def test_partial_hit_promotion(pyocf_ctx):
 
     # Step 4
     req_size = Size(2 * cache_lines.line_size)
-    r.size(req_size).bs(req_size).readwrite(ReadWrite.WRITE).run()
+    r.size(req_size).bs(req_size).readwrite(ReadWrite.WRITE).run([queue])
 
     cache.settle()
     stats = cache.get_stats()
