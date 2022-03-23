@@ -57,6 +57,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_CORE_SIZE_MISMATCH = auto()
     OCF_ERR_STANDBY_ATTACHED = auto()
     OCF_ERR_CORE_NOT_REMOVED = auto()
+    OCF_ERR_CACHE_NOT_STANDBY = auto()
 
 
 class OcfCompletion:

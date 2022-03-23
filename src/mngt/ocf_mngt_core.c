@@ -559,6 +559,9 @@ void ocf_mngt_cache_add_core(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, NULL, priv, -OCF_ERR_CACHE_STANDBY);
+
 	if (!cache->mngt_queue)
 		OCF_CMPL_RET(cache, NULL, priv, -OCF_ERR_INVAL);
 
@@ -735,6 +738,9 @@ void ocf_mngt_cache_remove_core(ocf_core_t core,
 
 	cache = ocf_core_get_cache(core);
 
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, -OCF_ERR_CACHE_STANDBY);
+
 	if (!cache->mngt_queue)
 		OCF_CMPL_RET(cache, -OCF_ERR_INVAL);
 
@@ -852,6 +858,9 @@ void ocf_mngt_cache_detach_core(ocf_core_t core,
 
 	cache = ocf_core_get_cache(core);
 
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, -OCF_ERR_CACHE_STANDBY);
+
 	if (!cache->mngt_queue)
 		OCF_CMPL_RET(cache, -OCF_ERR_INVAL);
 
@@ -877,10 +886,16 @@ int ocf_mngt_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
 	struct ocf_volume_uuid *current_uuid;
 	int result;
 	int diff;
+	ocf_cache_t cache;
 
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(uuid);
 	OCF_CHECK_NULL(uuid->data);
+
+	cache = ocf_core_get_cache(core);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	current_uuid = &ocf_core_get_volume(core)->uuid;
 
@@ -905,8 +920,15 @@ int ocf_mngt_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
 
 int ocf_mngt_core_set_user_metadata(ocf_core_t core, void *data, size_t size)
 {
+	ocf_cache_t cache;
+
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(data);
+
+	cache = ocf_core_get_cache(core);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	if (size > OCF_CORE_USER_DATA_SIZE)
 		return -EINVAL;
@@ -917,8 +939,15 @@ int ocf_mngt_core_set_user_metadata(ocf_core_t core, void *data, size_t size)
 
 int ocf_mngt_core_get_user_metadata(ocf_core_t core, void *data, size_t size)
 {
+	ocf_cache_t cache;
+
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(data);
+
+	cache = ocf_core_get_cache(core);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	if (size > sizeof(core->conf_meta->user_data))
 		return -EINVAL;
@@ -957,7 +986,13 @@ static int _cache_mngt_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx
 
 int ocf_mngt_core_set_seq_cutoff_threshold(ocf_core_t core, uint32_t thresh)
 {
+	ocf_cache_t cache;
+
 	OCF_CHECK_NULL(core);
+
+	cache = ocf_core_get_cache(core);
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	return _cache_mngt_set_core_seq_cutoff_threshold(core, &thresh);
 }
@@ -976,8 +1011,14 @@ int ocf_mngt_core_set_seq_cutoff_threshold_all(ocf_cache_t cache,
 
 int ocf_mngt_core_get_seq_cutoff_threshold(ocf_core_t core, uint32_t *thresh)
 {
+	ocf_cache_t cache;
+
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(thresh);
+
+	cache = ocf_core_get_cache(core);
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	*thresh = ocf_core_get_seq_cutoff_threshold(core);
 
@@ -1030,7 +1071,13 @@ static int _cache_mngt_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
 int ocf_mngt_core_set_seq_cutoff_policy(ocf_core_t core,
 		ocf_seq_cutoff_policy policy)
 {
+	ocf_cache_t cache;
+
 	OCF_CHECK_NULL(core);
+
+	cache = ocf_core_get_cache(core);
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	return _cache_mngt_set_core_seq_cutoff_policy(core, &policy);
 }
@@ -1038,6 +1085,7 @@ int ocf_mngt_core_set_seq_cutoff_policy_all(ocf_cache_t cache,
 		ocf_seq_cutoff_policy policy)
 {
 	OCF_CHECK_NULL(cache);
+
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
 
@@ -1048,8 +1096,14 @@ int ocf_mngt_core_set_seq_cutoff_policy_all(ocf_cache_t cache,
 int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
 		ocf_seq_cutoff_policy *policy)
 {
+	ocf_cache_t cache;
+
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(policy);
+
+	cache = ocf_core_get_cache(core);
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	*policy = ocf_core_get_seq_cutoff_policy(core);
 
@@ -1089,7 +1143,13 @@ static int _cache_mngt_set_core_seq_cutoff_promo_count(ocf_core_t core,
 int ocf_mngt_core_set_seq_cutoff_promotion_count(ocf_core_t core,
 		uint32_t count)
 {
+	ocf_cache_t cache;
+
 	OCF_CHECK_NULL(core);
+
+	cache = ocf_core_get_cache(core);
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	return _cache_mngt_set_core_seq_cutoff_promo_count(core, &count);
 }
@@ -1109,8 +1169,14 @@ int ocf_mngt_core_set_seq_cutoff_promotion_count_all(ocf_cache_t cache,
 int ocf_mngt_core_get_seq_cutoff_promotion_count(ocf_core_t core,
 		uint32_t *count)
 {
+	ocf_cache_t cache;
+
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(count);
+
+	cache = ocf_core_get_cache(core);
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	*count = ocf_core_get_seq_cutoff_promotion_count(core);
 
@@ -1143,7 +1209,13 @@ static int _cache_mngt_set_core_seq_cutoff_promote_on_threshold(
 int ocf_mngt_core_set_seq_cutoff_promote_on_threshold(ocf_core_t core,
 		bool promote)
 {
+	ocf_cache_t cache;
+
 	OCF_CHECK_NULL(core);
+
+	cache = ocf_core_get_cache(core);
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	return _cache_mngt_set_core_seq_cutoff_promote_on_threshold(core, &promote);
 }
@@ -1164,8 +1236,14 @@ int ocf_mngt_core_set_seq_cutoff_promote_on_threshold_all(ocf_cache_t cache,
 int ocf_mngt_core_get_seq_cutoff_promote_on_threshold(ocf_core_t core,
 		bool *promote)
 {
+	ocf_cache_t cache;
+
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(promote);
+
+	cache = ocf_core_get_cache(core);
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	*promote = ocf_core_get_seq_cutoff_promote_on_threshold(core);
 

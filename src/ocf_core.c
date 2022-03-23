@@ -134,6 +134,9 @@ int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
 
 	OCF_CHECK_NULL(cache);
 
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	if (!visitor)
 		return -OCF_ERR_INVAL;
 
@@ -287,6 +290,11 @@ void ocf_core_volume_submit_io(struct ocf_io *io)
 		return;
 	}
 
+	if (unlikely(ocf_cache_is_standby(cache))) {
+		ocf_io_end(io, -OCF_ERR_CACHE_STANDBY);
+		return;
+	}
+
 	ret = ocf_req_alloc_map(req);
 	if (ret) {
 		ocf_io_end(io, ret);
@@ -348,6 +356,11 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 		return;
 	}
 
+	if (unlikely(ocf_cache_is_standby(cache))) {
+		ocf_io_end(io, -OCF_ERR_CACHE_STANDBY);
+		return;
+	}
+
 	req->core = core;
 	req->complete = ocf_req_complete;
 
@@ -383,6 +396,11 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 	if (unlikely(!env_bit_test(ocf_cache_state_running,
 			&cache->cache_state))) {
 		ocf_io_end(io, -OCF_ERR_CACHE_NOT_AVAIL);
+		return;
+	}
+
+	if (unlikely(ocf_cache_is_standby(cache))) {
+		ocf_io_end(io, -OCF_ERR_CACHE_STANDBY);
 		return;
 	}
 
@@ -543,6 +561,9 @@ int ocf_core_get_info(ocf_core_t core, struct ocf_core_info *info)
 	OCF_CHECK_NULL(core);
 
 	cache = ocf_core_get_cache(core);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	if (!info)
 		return -OCF_ERR_INVAL;

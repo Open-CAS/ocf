@@ -2963,6 +2963,9 @@ void ocf_mngt_cache_attach(ocf_cache_t cache,
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(cfg);
 
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
+
 	if (!cache->mngt_queue)
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
@@ -3069,6 +3072,9 @@ void ocf_mngt_cache_load(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(cfg);
+
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
 
 	if (!cache->mngt_queue)
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
@@ -3321,6 +3327,9 @@ void ocf_mngt_cache_save(ocf_cache_t cache,
 	int result;
 
 	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
 
 	if (!cache->mngt_queue)
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
@@ -3705,6 +3714,9 @@ void ocf_mngt_cache_detach(ocf_cache_t cache,
 	int result;
 
 	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
 
 	if (!cache->mngt_queue)
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);

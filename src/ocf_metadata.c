@@ -63,6 +63,9 @@ int ocf_metadata_check_invalid_before(ocf_cache_t cache, uint64_t addr)
 
 	OCF_CHECK_NULL(cache);
 
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	line = ocf_atomic_addr2line(cache, addr);
 	pos = ocf_atomic_addr2pos(cache, addr);
 
@@ -85,6 +88,9 @@ int ocf_metadata_check_invalid_after(ocf_cache_t cache, uint64_t addr,
 	int i, count = 0;
 
 	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	line = ocf_atomic_addr2line(cache, addr + bytes);
 	pos = ocf_atomic_addr2pos(cache, addr + bytes);
