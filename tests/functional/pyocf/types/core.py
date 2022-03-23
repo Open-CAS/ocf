@@ -175,36 +175,6 @@ class Core:
     def reset_stats(self):
         self.cache.owner.lib.ocf_core_stats_initialize(self.handle)
 
-    def exp_obj_md5(self):
-        logging.getLogger("pyocf").warning(
-            "Reading whole exported object! This disturbs statistics values"
-        )
-
-        cache_line_size = int(self.cache.get_stats()['conf']['cache_line_size'])
-        read_buffer_all = Data(self.device.size)
-
-        read_buffer = Data(cache_line_size)
-
-        position = 0
-        while position < read_buffer_all.size:
-            io = self.new_io(self.cache.get_default_queue(), position,
-                             cache_line_size, IoDir.READ, 0, 0)
-            io.set_data(read_buffer)
-
-            cmpl = OcfCompletion([("err", c_int)])
-            io.callback = cmpl.callback
-            io.submit()
-            cmpl.wait()
-
-            if cmpl.results["err"]:
-                raise Exception("Error reading whole exported object")
-
-            read_buffer_all.copy(read_buffer, position, 0, cache_line_size)
-            position += cache_line_size
-
-        return read_buffer_all.md5()
-
-
 lib = OcfLib.getInstance()
 lib.ocf_core_get_uuid_wrapper.restype = POINTER(Uuid)
 lib.ocf_core_get_uuid_wrapper.argtypes = [c_void_p]

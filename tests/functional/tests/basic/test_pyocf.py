@@ -42,7 +42,7 @@ def test_simple_wt_write(pyocf_ctx):
     assert stats["req"]["wr_full_misses"]["value"] == 1
     assert stats["usage"]["occupancy"]["value"] == 1
 
-    assert core.exp_obj_md5() == core_device.md5()
+    assert vol.md5() == core_device.md5()
     cache.stop()
 
 
@@ -110,6 +110,8 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     else:
         core = cache.get_core_by_name("test_core")
 
+    vol = CoreVolume(core, open=True)
+
     read_data = Data(write_data.size)
     io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B,
                      read_data.size, IoDir.READ, 0, 0)
@@ -121,4 +123,4 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     cmpl.wait()
 
     assert read_data.md5() == write_data.md5()
-    assert core.exp_obj_md5() == core_device.md5()
+    assert vol.md5() == core_device.md5()

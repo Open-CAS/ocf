@@ -201,7 +201,7 @@ def test_stop(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, with_flush: bool):
     assert int(stats["conf"]["dirty"]) == (cls_no if mode.lazy_write() else 0),\
         "Dirty data before MD5"
 
-    md5_exported_core = core.exp_obj_md5()
+    md5_exported_core = front_vol.md5()
 
     if with_flush:
         cache.flush()
@@ -554,13 +554,13 @@ def check_stats_read_after_write(core, mode, cls, write_to_empty=False):
 
 def check_md5_sums(core: Core, mode: CacheMode):
     if mode.lazy_write():
-        assert core.device.md5() != core.exp_obj_md5(), \
+        assert core.device.md5() != core.get_front_volume().md5(), \
             "MD5 check: core device vs exported object without flush"
         core.cache.flush()
-        assert core.device.md5() == core.exp_obj_md5(), \
+        assert core.device.md5() == core.get_front_volume().md5(), \
             "MD5 check: core device vs exported object after flush"
     else:
-        assert core.device.md5() == core.exp_obj_md5(), \
+        assert core.device.md5() == core.get_front_volume().md5(), \
             "MD5 check: core device vs exported object"
 
 

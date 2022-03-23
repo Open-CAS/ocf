@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
+import logging
 from ctypes import c_int, c_void_p, CFUNCTYPE, byref, c_uint32, c_uint64, cast, POINTER
 
 from ..ocf import OcfLib
@@ -86,6 +87,34 @@ class ExpObjVolume(Volume):
 
     def md5(self):
         raise NotImplementedError
+
+    def _exp_obj_md5(self, read_size):
+        logging.getLogger("pyocf").warning(
+            "Reading whole exported object! This disturbs statistics values"
+        )
+
+        read_buffer_all = Data(self.parent.device.size)
+
+        read_buffer = Data(read_size)
+
+        position = 0
+        while position < read_buffer_all.size:
+            io = self.new_io(self.parent.get_default_queue(), position,
+                             read_size, IoDir.READ, 0, 0)
+            io.set_data(read_buffer)
+
+            cmpl = OcfCompletion([("err", c_int)])
+            io.callback = cmpl.callback
+            io.submit()
+            cmpl.wait()
+
+            if cmpl.results["err"]:
+                raise Exception("Error reading whole exported object")
+
+            read_buffer_all.copy(read_buffer, position, 0, read_size)
+            position += read_size
+
+        return read_buffer_all.md5()
 
 
 lib = OcfLib.getInstance()
