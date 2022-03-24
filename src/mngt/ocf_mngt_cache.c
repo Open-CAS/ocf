@@ -3009,6 +3009,12 @@ static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
 	__deinit_cleaning_policy(cache);
 	__deinit_promotion_policy(cache);
 
+	if (ocf_cache_is_standby(cache)) {
+		/* Don't flush metadata and set shutdown status while stopping
+		 * standby cache */
+		context->cmpl(context->priv, 0);
+	}
+
 	if (!stop) {
 		/* Just set correct shutdown status */
 		ocf_metadata_set_shutdown_status(cache, ocf_metadata_detached,
