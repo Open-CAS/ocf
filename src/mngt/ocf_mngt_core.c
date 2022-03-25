@@ -632,15 +632,16 @@ static void ocf_mngt_cache_remove_core_finish(ocf_pipeline_t pipeline,
 	ocf_pipeline_destroy(context->pipeline);
 }
 
-static void ocf_mngt_cache_remove_core_flush_meta_complete(void *priv, int error)
+static void ocf_mngt_cache_remove_core_flush_collision_complete(void *priv,
+		int error)
 {
 	struct ocf_mngt_cache_remove_core_context *context = priv;
 
-	error = error ? -OCF_ERR_WRITE_CACHE : 0;
+	error = error ? -OCF_ERR_CORE_NOT_REMOVED : 0;
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
 }
 
-static void _ocf_mngt_cache_remove_core_attached(ocf_pipeline_t pipeline,
+static void _ocf_mngt_cache_remove_core_mapping(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_remove_core_context *context = priv;
@@ -651,14 +652,22 @@ static void _ocf_mngt_cache_remove_core_attached(ocf_pipeline_t pipeline,
 		OCF_PL_NEXT_RET(pipeline);
 
 	cache_mngt_core_deinit_attached_meta(core);
-	cache_mngt_core_remove_from_cleaning_pol(core);
 
 	if (env_atomic_read(&core->runtime_meta->dirty_clines) == 0)
 		OCF_PL_NEXT_RET(pipeline);
 
 	ocf_metadata_flush_collision(cache,
-			ocf_mngt_cache_remove_core_flush_meta_complete,
+			ocf_mngt_cache_remove_core_flush_collision_complete,
 			context);
+}
+
+static void ocf_mngt_cache_remove_core_flush_superblock_complete(void *priv,
+		int error)
+{
+	struct ocf_mngt_cache_remove_core_context *context = priv;
+
+	error = error ? -OCF_ERR_WRITE_CACHE : 0;
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
 }
 
 static void _ocf_mngt_cache_remove_core(ocf_pipeline_t pipeline, void *priv,
@@ -670,12 +679,15 @@ static void _ocf_mngt_cache_remove_core(ocf_pipeline_t pipeline, void *priv,
 
 	ocf_core_log(core, log_debug, "Removing core\n");
 
+	if (ocf_cache_is_device_attached(cache))
+		cache_mngt_core_remove_from_cleaning_pol(core);
+
 	cache_mngt_core_remove_from_meta(core);
 	cache_mngt_core_remove_from_cache(core);
 	cache_mngt_core_deinit(core);
 
 	ocf_metadata_flush_superblock(cache,
-			ocf_mngt_cache_remove_core_flush_meta_complete,
+			ocf_mngt_cache_remove_core_flush_superblock_complete,
 			context);
 }
 
@@ -705,7 +717,7 @@ struct ocf_pipeline_properties ocf_mngt_cache_remove_core_pipeline_props = {
 	.finish = ocf_mngt_cache_remove_core_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_mngt_cache_remove_core_wait_cleaning),
-		OCF_PL_STEP(_ocf_mngt_cache_remove_core_attached),
+		OCF_PL_STEP(_ocf_mngt_cache_remove_core_mapping),
 		OCF_PL_STEP(_ocf_mngt_cache_remove_core),
 		OCF_PL_STEP_TERMINATOR(),
 	},

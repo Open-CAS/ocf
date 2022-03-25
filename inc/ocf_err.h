@@ -146,7 +146,10 @@ typedef enum {
 	/** Operation invalid with cache drive atatched in failover standby */
 	OCF_ERR_STANDBY_ATTACHED,
 
-	OCF_ERR_MAX = OCF_ERR_STANDBY_ATTACHED,
+	/** Failed to remove the core */
+	OCF_ERR_CORE_NOT_REMOVED,
+
+	OCF_ERR_MAX = OCF_ERR_CORE_NOT_REMOVED,
 
 } ocf_error_t;
 
