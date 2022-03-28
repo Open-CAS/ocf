@@ -470,6 +470,9 @@ static int ocf_cache_volume_open(ocf_volume_t volume, void *volume_params)
 
 static void ocf_cache_volume_close(ocf_volume_t volume)
 {
+	struct ocf_cache_volume *cache_volume = ocf_volume_get_priv(volume);
+
+	cache_volume->cache = NULL;
 }
 
 static unsigned int ocf_cache_volume_get_max_io_size(ocf_volume_t volume)
