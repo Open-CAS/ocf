@@ -97,6 +97,11 @@ void ocf_cleaner_run(ocf_cleaner_t cleaner, ocf_queue_t queue)
 		return;
 	}
 
+	if (ocf_cache_is_standby(cache)) {
+		cleaner->end(cleaner, SLEEP_TIME_MS);
+		return;
+	}
+
 	/* Sleep in case there is management operation in progress. */
 	if (ocf_mngt_cache_trylock(cache)) {
 		cleaner->end(cleaner, SLEEP_TIME_MS);

@@ -358,6 +358,10 @@ static void ocf_cache_volume_submit_io(struct ocf_io *io)
 		ocf_io_end(io, -OCF_ERR_IO);
 		return;
 	}
+	if (unlikely(!ocf_cache_is_standby(cache))) {
+		ocf_io_end(io, -OCF_ERR_CACHE_NOT_STANDBY);
+		return;
+	}
 
 	env_atomic_set(&priv->remaining, 3);
 	env_atomic_set(&priv->error, 0);
@@ -402,6 +406,10 @@ static void ocf_cache_volume_submit_flush(struct ocf_io *io)
 		ocf_io_end(io, -OCF_ERR_IO);
 		return;
 	}
+	if (unlikely(!ocf_cache_is_standby(cache))) {
+		ocf_io_end(io, -OCF_ERR_CACHE_NOT_STANDBY);
+		return;
+	}
 
 	env_atomic_set(&priv->remaining, 1);
 
@@ -428,6 +436,10 @@ static void ocf_cache_volume_submit_discard(struct ocf_io *io)
 
 	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
 		ocf_io_end(io, -OCF_ERR_IO);
+		return;
+	}
+	if (unlikely(!ocf_cache_is_standby(cache))) {
+		ocf_io_end(io, -OCF_ERR_CACHE_NOT_STANDBY);
 		return;
 	}
 

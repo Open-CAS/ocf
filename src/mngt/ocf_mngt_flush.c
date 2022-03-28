@@ -110,6 +110,12 @@ static void _ocf_mngt_begin_flush(ocf_pipeline_t pipeline, void *priv,
 
 bool ocf_mngt_core_is_dirty(ocf_core_t core)
 {
+	ocf_cache_t cache;
+
+	cache = ocf_core_get_cache(core);
+	if (ocf_cache_is_standby(cache))
+		return false;
+
 	return !!env_atomic_read(&core->runtime_meta->dirty_clines);
 }
 
@@ -119,6 +125,9 @@ bool ocf_mngt_cache_is_dirty(ocf_cache_t cache)
 	ocf_core_id_t core_id;
 
 	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		return false;
 
 	for_each_core(cache, core, core_id) {
 		if (ocf_mngt_core_is_dirty(core))
@@ -655,6 +664,9 @@ void ocf_mngt_cache_flush(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
+
 	if (ocf_cache_is_standby(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush cache - cache is standby\n");
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
@@ -749,6 +761,9 @@ void ocf_mngt_core_flush(ocf_core_t core,
 
 	cache = ocf_core_get_cache(core);
 
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(core, priv, -OCF_ERR_CACHE_STANDBY);
+
 	if (!ocf_cache_is_device_attached(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush core - "
 				"cache device is detached\n");
@@ -820,6 +835,9 @@ void ocf_mngt_cache_purge(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
+
 	if (!cache->mngt_queue) {
 		ocf_cache_log(cache, log_err,
 				"Cannot purge cache - no flush queue set\n");
@@ -871,6 +889,9 @@ void ocf_mngt_core_purge(ocf_core_t core,
 	cache = ocf_core_get_cache(core);
 	core_id = ocf_core_get_id(core);
 
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(core, priv, -OCF_ERR_CACHE_STANDBY);
+
 	if (!cache->mngt_queue) {
 		ocf_core_log(core, log_err,
 				"Cannot purge core - no flush queue set\n");
@@ -901,6 +922,9 @@ void ocf_mngt_core_purge(ocf_core_t core,
 void ocf_mngt_cache_flush_interrupt(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		return;
 
 	ocf_cache_log(cache, log_alert, "Flushing interrupt\n");
 	cache->flushing_interrupted = 1;

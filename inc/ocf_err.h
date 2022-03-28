@@ -149,7 +149,10 @@ typedef enum {
 	/** Failed to remove the core */
 	OCF_ERR_CORE_NOT_REMOVED,
 
-	OCF_ERR_MAX = OCF_ERR_CORE_NOT_REMOVED,
+	/** Operation only allowed in standby mode **/
+	OCF_ERR_CACHE_NOT_STANDBY,
+
+	OCF_ERR_MAX = OCF_ERR_CACHE_NOT_STANDBY,
 
 } ocf_error_t;
 

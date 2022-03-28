@@ -17,6 +17,9 @@ int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 
 	OCF_CHECK_NULL(cache);
 
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	if (!info)
 		return -OCF_ERR_INVAL;
 
@@ -57,6 +60,9 @@ int ocf_io_class_visit(ocf_cache_t cache, ocf_io_class_visitor_t visitor,
 	int result = 0;
 
 	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	if (!visitor)
 		return -OCF_ERR_INVAL;
