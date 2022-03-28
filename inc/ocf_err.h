@@ -47,6 +47,9 @@ typedef enum {
 	/** Metadata on the device doesn't match with metadata in DRAM */
 	OCF_ERR_SUPERBLOCK_MISMATCH,
 
+	/** Metadata checksum is not correct. Metadata is damaged */
+	OCF_ERR_CRC_MISMATCH,
+
 	/** Invalid volume type */
 	OCF_ERR_INVAL_VOLUME_TYPE,
 

@@ -1547,8 +1547,7 @@ static void _ocf_mngt_load_superblock_complete(void *priv, int error)
 	if (error) {
 		ocf_cache_log(cache, log_err,
 				"ERROR: Cannot load cache state\n");
-		OCF_PL_FINISH_RET(context->pipeline,
-				-OCF_ERR_START_CACHE_FAIL);
+		OCF_PL_FINISH_RET(context->pipeline, error);
 	}
 
 	if (cache->conf_meta->cachelines !=
