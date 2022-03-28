@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "metadata.h"
@@ -228,6 +228,8 @@ static int metadata_io_do(struct ocf_request *req)
 	ocf_cache_t cache = req->cache;
 	struct ocf_io *io;
 	int ret;
+
+	ctx_data_seek(cache->owner, m_req->data, ctx_data_seek_begin, 0);
 
 	/* Fill with the latest metadata. */
 	if (m_req->req.rw == OCF_WRITE) {
