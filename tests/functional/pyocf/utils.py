@@ -61,11 +61,28 @@ class Size:
     _SECTOR_SIZE = 512
     _PAGE_SIZE = 4096
 
+    _unit_mapping = {
+        "B": 1,
+        "kiB": _KiB,
+        "MiB": _MiB,
+        "GiB": _GiB,
+        "TiB": _TiB,
+    }
+
     def __init__(self, b: int, sector_aligned: bool = False):
         if sector_aligned:
             self.bytes = int(((b + self._SECTOR_SIZE - 1) // self._SECTOR_SIZE) * self._SECTOR_SIZE)
         else:
             self.bytes = int(b)
+
+    @classmethod
+    def from_string(cls, string):
+        string = string.strip()
+        number, unit = string.split(" ")
+        number = float(number)
+        unit = cls._unit_mapping[unit]
+
+        return cls(int(number * unit))
 
     def __lt__(self, other):
         return int(self) < int(other)
