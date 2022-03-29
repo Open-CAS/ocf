@@ -61,3 +61,18 @@ def pyocf_2_ctx():
     c1.exit()
     c2.exit()
     gc.collect()
+
+
+@pytest.fixture()
+def pyocf_2_ctx_log_buffer():
+    logger1 = BufferLogger(LogLevel.WARN, LogLevel.DEBUG, "Ctx1")
+    logger2 = BufferLogger(LogLevel.WARN, LogLevel.DEBUG, "Ctx2")
+    c1 = OcfCtx.with_defaults(logger1)
+    c2 = OcfCtx.with_defaults(logger2)
+    for vol_type in default_registered_volumes:
+        c1.register_volume_type(vol_type)
+        c2.register_volume_type(vol_type)
+    yield (c1, logger1, c2, logger2)
+    c1.exit()
+    c2.exit()
+    gc.collect()
