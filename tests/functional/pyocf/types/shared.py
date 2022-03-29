@@ -23,6 +23,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_NO_METADATA = auto()
     OCF_ERR_METADATA_FOUND = auto()
     OCF_ERR_SUPERBLOCK_MISMATCH = auto()
+    OCF_ERR_CRC_MISMATCH = auto()
     OCF_ERR_INVAL_VOLUME_TYPE = auto()
     OCF_ERR_UNKNOWN = auto()
     OCF_ERR_TOO_MANY_CACHES = auto()

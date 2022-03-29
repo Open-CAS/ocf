@@ -88,7 +88,7 @@ void ocf_metadata_check_crc(ocf_pipeline_t pipeline,
 		ocf_cache_log(cache, log_err,
 				"Loading %s ERROR, invalid checksum\n",
 				ocf_metadata_segment_names[segment_id]);
-		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_CRC_MISMATCH);
 	}
 
 	ocf_pipeline_next(pipeline);

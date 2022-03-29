@@ -1544,6 +1544,12 @@ static void _ocf_mngt_load_superblock_complete(void *priv, int error)
 	ocf_cache_t cache = context->cache;
 	ocf_cleaning_t loaded_clean_policy = cache->conf_meta->cleaning_policy_type;
 
+	if (error) {
+		ocf_cache_log(cache, log_err,
+				"ERROR: Cannot load cache state\n");
+		OCF_PL_FINISH_RET(context->pipeline, error);
+	}
+
 	if (cache->conf_meta->cachelines !=
 			ocf_metadata_get_cachelines_count(cache)) {
 		ocf_cache_log(cache, log_err,
@@ -1560,13 +1566,6 @@ static void _ocf_mngt_load_superblock_complete(void *priv, int error)
 	}
 
 	__set_cleaning_policy(cache, loaded_clean_policy);
-
-	if (error) {
-		ocf_cache_log(cache, log_err,
-				"ERROR: Cannot load cache state\n");
-		OCF_PL_FINISH_RET(context->pipeline,
-				-OCF_ERR_START_CACHE_FAIL);
-	}
 
 	ocf_pipeline_next(context->pipeline);
 }
