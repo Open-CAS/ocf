@@ -704,6 +704,22 @@ class Cache:
             raise OcfError("Loading cache device failed", c.results["error"])
 
     @classmethod
+    def load_standby_from_device(cls, device, owner=None, name="cache", cache_line_size=None):
+        if owner is None:
+            owner = OcfCtx.get_default()
+
+        c = cls(name=name, owner=owner, cache_line_size=cache_line_size)
+
+        c.start_cache()
+        try:
+            c.standby_load(device)
+        except:  # noqa E722
+            c.stop()
+            raise
+
+        return c
+
+    @classmethod
     def load_from_device(
         cls, device, owner=None, name="cache", open_cores=True, disable_cleaner=False
     ):
