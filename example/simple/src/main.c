@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2019-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -260,11 +260,12 @@ int submit_io(ocf_core_t core, struct volume_data *data,
 		uint64_t addr, uint64_t len, int dir, ocf_end_io_t cmpl)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
+	ocf_volume_t core_vol = ocf_core_get_front_volume(core);
 	struct cache_priv *cache_priv = ocf_cache_get_priv(cache);
 	struct ocf_io *io;
 
 	/* Allocate new io */
-	io = ocf_core_new_io(core, cache_priv->io_queue, addr, len, dir, 0, 0);
+	io = ocf_volume_new_io(core_vol, cache_priv->io_queue, addr, len, dir, 0, 0);
 	if (!io)
 		return -ENOMEM;
 

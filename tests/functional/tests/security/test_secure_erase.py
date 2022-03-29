@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -8,7 +8,8 @@ from ctypes import c_int
 
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
-from pyocf.types.volume import Volume
+from pyocf.types.volume import Volume, RamVolume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.utils import Size as S
 from pyocf.types.data import Data, DataOps
 from pyocf.types.ctx import OcfCtx
@@ -75,18 +76,20 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
         Cleaner,
     )
 
-    ctx.register_volume_type(Volume)
+    ctx.register_volume_type(RamVolume)
 
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=cache_mode)
 
-    core_device = Volume(S.from_MiB(50))
+    core_device = RamVolume(S.from_MiB(50))
     core = Core.using_device(core_device)
     cache.add_core(core)
+    vol = CoreVolume(core, open=True)
+    queue = cache.get_default_queue()
 
     write_data = DataCopyTracer(S.from_sector(1))
-    io = core.new_io(
-        cache.get_default_queue(),
+    io = vol.new_io(
+        queue,
         S.from_sector(1).B,
         write_data.size,
         IoDir.WRITE,
@@ -103,8 +106,8 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
     cmpls = []
     for i in range(100):
         read_data = DataCopyTracer(S.from_sector(1))
-        io = core.new_io(
-            cache.get_default_queue(),
+        io = vol.new_io(
+            queue,
             i * S.from_sector(1).B,
             read_data.size,
             IoDir.READ,
@@ -122,9 +125,7 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
         c.wait()
 
     write_data = DataCopyTracer.from_string("TEST DATA" * 100)
-    io = core.new_io(
-        cache.get_default_queue(), S.from_sector(1), write_data.size, IoDir.WRITE, 0, 0
-    )
+    io = vol.new_io(queue, S.from_sector(1), write_data.size, IoDir.WRITE, 0, 0)
     io.set_data(write_data)
 
     cmpl = OcfCompletion([("err", c_int)])
@@ -147,7 +148,6 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
         + stats["req"]["rd_full_misses"]["value"]
     ) > 0
 
-
 @pytest.mark.security
 def test_secure_erase_simple_io_cleaning():
     """
@@ -168,19 +168,19 @@ def test_secure_erase_simple_io_cleaning():
         Cleaner,
     )
 
-    ctx.register_volume_type(Volume)
+    ctx.register_volume_type(RamVolume)
 
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device, cache_mode=CacheMode.WB)
 
-    core_device = Volume(S.from_MiB(100))
+    core_device = RamVolume(S.from_MiB(100))
     core = Core.using_device(core_device)
     cache.add_core(core)
+    vol = CoreVolume(core, open=True)
+    queue = cache.get_default_queue()
 
     read_data = Data(S.from_sector(1).B)
-    io = core.new_io(
-        cache.get_default_queue(), S.from_sector(1).B, read_data.size, IoDir.WRITE, 0, 0
-    )
+    io = vol.new_io(queue, S.from_sector(1).B, read_data.size, IoDir.WRITE, 0, 0)
     io.set_data(read_data)
 
     cmpl = OcfCompletion([("err", c_int)])
@@ -189,9 +189,7 @@ def test_secure_erase_simple_io_cleaning():
     cmpl.wait()
 
     read_data = Data(S.from_sector(8).B)
-    io = core.new_io(
-        cache.get_default_queue(), S.from_sector(1).B, read_data.size, IoDir.READ, 0, 0
-    )
+    io = vol.new_io(queue, S.from_sector(1).B, read_data.size, IoDir.READ, 0, 0)
     io.set_data(read_data)
 
     cmpl = OcfCompletion([("err", c_int)])

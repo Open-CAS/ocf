@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2020-2021 Intel Corporation
+# Copyright(c) 2020-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -10,7 +10,8 @@ import pytest
 
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
-from pyocf.types.volume import Volume
+from pyocf.types.volume import RamVolume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size
@@ -27,11 +28,11 @@ class Stream:
         return f"{self.last} {self.length} {self.direction}"
 
 
-def _io(core, addr, size, direction, context):
+def _io(vol, queue, addr, size, direction, context):
     comp = OcfCompletion([("error", c_int)], context=context)
     data = Data(size)
 
-    io = core.new_io(core.cache.get_default_queue(), addr, size, direction, 0, 0)
+    io = vol.new_io(queue, addr, size, direction, 0, 0)
     io.set_data(data)
     io.callback = comp.callback
     io.submit()
@@ -39,11 +40,11 @@ def _io(core, addr, size, direction, context):
     return comp
 
 
-def io_to_streams(core, streams, io_size):
+def io_to_streams(vol, queue, streams, io_size):
     completions = []
     for stream in streams:
         completions.append(
-            _io(core, stream.last, io_size, stream.direction, context=(io_size, stream))
+            _io(vol, queue, stream.last, io_size, stream.direction, context=(io_size, stream))
         )
 
     for c in completions:
@@ -90,10 +91,12 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     non_active_stream = choice(streams)
     streams.remove(non_active_stream)
 
-    cache = Cache.start_on_device(Volume(Size.from_MiB(200)), cache_mode=CacheMode.WT)
-    core = Core.using_device(Volume(core_size), seq_cutoff_promotion_count=1)
+    cache = Cache.start_on_device(RamVolume(Size.from_MiB(200)), cache_mode=CacheMode.WT)
+    core = Core.using_device(RamVolume(core_size), seq_cutoff_promotion_count=1)
 
     cache.add_core(core)
+    vol = CoreVolume(core, open=True)
+    queue = cache.get_default_queue()
 
     cache.set_seq_cut_off_policy(SeqCutOffPolicy.ALWAYS)
     cache.set_seq_cut_off_threshold(threshold)
@@ -101,7 +104,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     # STEP 1
     shuffle(streams)
     io_size = threshold - Size.from_sector(1)
-    io_to_streams(core, streams, io_size)
+    io_to_streams(vol, queue, streams, io_size)
 
     stats = cache.get_stats()
     assert (
@@ -115,7 +118,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     streams.remove(lru_stream)
 
     shuffle(streams)
-    io_to_streams(core, streams, Size.from_sector(1))
+    io_to_streams(vol, queue, streams, Size.from_sector(1))
 
     stats = cache.get_stats()
     assert (
@@ -126,7 +129,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     ), "All streams should be handled in PT - cutoff engaged for all streams"
 
     # STEP 3
-    io_to_streams(core, [non_active_stream], Size.from_sector(1))
+    io_to_streams(vol, queue, [non_active_stream], Size.from_sector(1))
 
     stats = cache.get_stats()
     assert (
@@ -134,7 +137,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     ), "This request should be serviced by cache - no cutoff for inactive stream"
 
     # STEP 4
-    io_to_streams(core, [lru_stream], Size.from_sector(1))
+    io_to_streams(vol, queue, [lru_stream], Size.from_sector(1))
 
     stats = cache.get_stats()
     assert (

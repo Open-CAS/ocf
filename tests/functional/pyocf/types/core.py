@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -99,30 +99,14 @@ class Core:
     def get_handle(self):
         return self.handle
 
-    def new_io(
-        self, queue: Queue, addr: int, length: int, direction: IoDir,
-        io_class: int, flags: int
-    ):
-        if not self.cache:
-            raise Exception("Core isn't attached to any cache")
+    def get_front_volume(self):
+        return Volume.get_instance(lib.ocf_core_get_front_volume(self.handle))
 
-        io = OcfLib.getInstance().ocf_core_new_io_wrapper(
-            self.handle, queue.handle, addr, length, direction, io_class, flags)
+    def get_volume(self):
+        return Volume.get_instance(lib.ocf_core_get_volume(self.handle))
 
-        if io is None:
-            raise Exception("Failed to create io!")
-
-        return Io.from_pointer(io)
-
-    def new_core_io(
-        self, queue: Queue, addr: int, length: int, direction: IoDir,
-        io_class: int, flags: int
-    ):
-        lib = OcfLib.getInstance()
-        volume = lib.ocf_core_get_volume(self.handle)
-        io = lib.ocf_volume_new_io(
-            volume, queue.handle, addr, length, direction, io_class, flags)
-        return Io.from_pointer(io)
+    def get_default_queue(self):
+        return self.cache.get_default_queue()
 
     def get_stats(self):
         core_info = CoreInfo()
@@ -191,52 +175,13 @@ class Core:
     def reset_stats(self):
         self.cache.owner.lib.ocf_core_stats_initialize(self.handle)
 
-    def exp_obj_md5(self):
-        logging.getLogger("pyocf").warning(
-            "Reading whole exported object! This disturbs statistics values"
-        )
-
-        cache_line_size = int(self.cache.get_stats()['conf']['cache_line_size'])
-        read_buffer_all = Data(self.device.size)
-
-        read_buffer = Data(cache_line_size)
-
-        position = 0
-        while position < read_buffer_all.size:
-            io = self.new_io(self.cache.get_default_queue(), position,
-                             cache_line_size, IoDir.READ, 0, 0)
-            io.set_data(read_buffer)
-
-            cmpl = OcfCompletion([("err", c_int)])
-            io.callback = cmpl.callback
-            io.submit()
-            cmpl.wait()
-
-            if cmpl.results["err"]:
-                raise Exception("Error reading whole exported object")
-
-            read_buffer_all.copy(read_buffer, position, 0, cache_line_size)
-            position += cache_line_size
-
-        return read_buffer_all.md5()
-
-
 lib = OcfLib.getInstance()
 lib.ocf_core_get_uuid_wrapper.restype = POINTER(Uuid)
 lib.ocf_core_get_uuid_wrapper.argtypes = [c_void_p]
-lib.ocf_core_get_volume.restype = c_void_p
-lib.ocf_volume_new_io.argtypes = [
-    c_void_p,
-    c_void_p,
-    c_uint64,
-    c_uint32,
-    c_uint32,
-    c_uint32,
-    c_uint64,
-]
-lib.ocf_volume_new_io.restype = c_void_p
 lib.ocf_core_get_volume.argtypes = [c_void_p]
 lib.ocf_core_get_volume.restype = c_void_p
+lib.ocf_core_get_front_volume.argtypes = [c_void_p]
+lib.ocf_core_get_front_volume.restype = c_void_p
 lib.ocf_mngt_core_set_seq_cutoff_policy.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_threshold.argtypes = [c_void_p, c_uint32]
@@ -247,13 +192,3 @@ lib.ocf_stats_collect_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c
 lib.ocf_stats_collect_core.restype = c_int
 lib.ocf_core_get_info.argtypes = [c_void_p, c_void_p]
 lib.ocf_core_get_info.restype = c_int
-lib.ocf_core_new_io_wrapper.argtypes = [
-    c_void_p,
-    c_void_p,
-    c_uint64,
-    c_uint32,
-    c_uint32,
-    c_uint32,
-    c_uint64,
-]
-lib.ocf_core_new_io_wrapper.restype = c_void_p

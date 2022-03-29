@@ -1,4 +1,5 @@
-# Copyright(c) 2019-2021 Intel Corporation
+#
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -13,7 +14,8 @@ from datetime import datetime
 
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
-from pyocf.types.volume import Volume
+from pyocf.types.volume import RamVolume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size
@@ -37,8 +39,8 @@ def __io(io, queue, address, size, data, direction):
     return int(completion.results["err"])
 
 
-def _io(new_io, queue, address, size, data, offset, direction):
-    io = new_io(queue, address, size, direction, 0, 0)
+def io_to_exp_obj(vol, queue, address, size, data, offset, direction):
+    io = vol.new_io(queue, address, size, direction, 0, 0)
     if direction == IoDir.READ:
         _data = Data.from_bytes(bytes(size))
     else:
@@ -47,30 +49,6 @@ def _io(new_io, queue, address, size, data, offset, direction):
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
     return ret
-
-
-def io_to_core(core, address, size, data, offset, direction):
-    return _io(
-        core.new_core_io,
-        core.cache.get_default_queue(),
-        address,
-        size,
-        data,
-        offset,
-        direction,
-    )
-
-
-def io_to_exp_obj(core, address, size, data, offset, direction):
-    return _io(
-        core.new_io,
-        core.cache.get_default_queue(),
-        address,
-        size,
-        data,
-        offset,
-        direction,
-    )
 
 
 def sector_to_region(sector, region_start):
@@ -259,15 +237,17 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
 
     result_b = bytes(WORKSET_SIZE)
 
-    cache_device = Volume(Size.from_MiB(50))
-    core_device = Volume(Size.from_MiB(50))
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(50))
 
     cache = Cache.start_on_device(
         cache_device, cache_mode=CacheMode.WO, cache_line_size=cacheline_size
     )
-    core = Core.using_device(core_device)
 
+    core = Core.using_device(core_device)
     cache.add_core(core)
+    queue = cache.get_default_queue()
+    vol = CoreVolume(core, open=True)
 
     insert_order = list(range(CACHELINE_COUNT))
 
@@ -310,7 +290,8 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
         # write data to core and invalidate all CL and write data pattern to core
         cache.change_cache_mode(cache_mode=CacheMode.PT)
         io_to_exp_obj(
-            core,
+            vol,
+            queue,
             WORKSET_OFFSET,
             len(data[SectorStatus.INVALID]),
             data[SectorStatus.INVALID],
@@ -331,7 +312,8 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
             region = sector_to_region(sec, region_start)
             if region_state[region] != SectorStatus.INVALID:
                 io_to_exp_obj(
-                    core,
+                    vol,
+                    queue,
                     WORKSET_OFFSET + SECTOR_SIZE * sec,
                     SECTOR_SIZE,
                     data[SectorStatus.CLEAN],
@@ -345,7 +327,8 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
             region = sector_to_region(sec, region_start)
             if region_state[region] == SectorStatus.DIRTY:
                 io_to_exp_obj(
-                    core,
+                    vol,
+                    queue,
                     WORKSET_OFFSET + SECTOR_SIZE * sec,
                     SECTOR_SIZE,
                     data[SectorStatus.DIRTY],
@@ -372,7 +355,7 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
             END = end * SECTOR_SIZE
             size = (end - start + 1) * SECTOR_SIZE
             assert 0 == io_to_exp_obj(
-                core, WORKSET_OFFSET + START, size, result_b, START, IoDir.READ
+                vol, queue, WORKSET_OFFSET + START, size, result_b, START, IoDir.READ
             ), "error reading in {}: region_state={}, start={}, end={}, insert_order={}".format(
                 cache_mode, region_state, start, end, insert_order
             )

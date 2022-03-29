@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -12,8 +12,6 @@ from .cleaner import CleanerOps, Cleaner
 from .shared import OcfError
 from ..ocf import OcfLib
 from .queue import Queue
-from .volume import Volume
-
 
 class OcfCtxOps(Structure):
     _fields_ = [

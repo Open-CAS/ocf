@@ -21,10 +21,13 @@ from pyocf.types.cache import (
     Backfill
 )
 from pyocf.types.core import Core
+from pyocf.types.ctx import OcfCtx
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
+from pyocf.types.queue import Queue
 from pyocf.types.shared import OcfError, OcfCompletion, CacheLineSize, SeqCutOffPolicy
-from pyocf.types.volume import Volume
+from pyocf.types.volume import Volume, RamVolume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.utils import Size
 
 logger = logging.getLogger(__name__)
@@ -34,8 +37,8 @@ def test_start_check_default(pyocf_ctx):
     """Test if default values are correct after start.
     """
 
-    cache_device = Volume(Size.from_MiB(50))
-    core_device = Volume(Size.from_MiB(10))
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(10))
     cache = Cache.start_on_device(cache_device)
 
     core = Core.using_device(core_device)
@@ -58,24 +61,26 @@ def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: Cache
     After start check proper cache mode behaviour, starting with write operation.
     """
 
-    cache_device = Volume(Size.from_MiB(50))
-    core_device = Volume(Size.from_MiB(10))
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(10))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
-    core_exported = Core.using_device(core_device)
+    core = Core.using_device(core_device)
 
-    cache.add_core(core_exported)
+    cache.add_core(core)
+    vol = CoreVolume(core, open=True)
+    queue = cache.get_default_queue()
 
     logger.info("[STAGE] Initial write to exported object")
     cache_device.reset_stats()
     core_device.reset_stats()
 
     test_data = Data.from_string("This is test data")
-    io_to_core(core_exported, test_data, Size.from_sector(1).B)
-    check_stats_write_empty(core_exported, mode, cls)
+    io_to_core(vol, queue, test_data, Size.from_sector(1).B)
+    check_stats_write_empty(core, mode, cls)
 
     logger.info("[STAGE] Read from exported object after initial write")
-    io_from_exported_object(core_exported, test_data.size, Size.from_sector(1).B)
-    check_stats_read_after_write(core_exported, mode, cls, True)
+    io_from_exported_object(vol, queue, test_data.size, Size.from_sector(1).B)
+    check_stats_read_after_write(core, mode, cls, True)
 
     logger.info("[STAGE] Write to exported object after read")
     cache_device.reset_stats()
@@ -83,10 +88,10 @@ def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: Cache
 
     test_data = Data.from_string("Changed test data")
 
-    io_to_core(core_exported, test_data, Size.from_sector(1).B)
-    check_stats_write_after_read(core_exported, mode, cls)
+    io_to_core(vol, queue, test_data, Size.from_sector(1).B)
+    check_stats_write_after_read(core, mode, cls)
 
-    check_md5_sums(core_exported, mode)
+    check_md5_sums(core, mode)
 
 
 @pytest.mark.parametrize("cls", CacheLineSize)
@@ -96,23 +101,26 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
     After start check proper cache mode behaviour, starting with read operation.
     """
 
-    cache_device = Volume(Size.from_MiB(50))
-    core_device = Volume(Size.from_MiB(5))
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(5))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
-    core_exported = Core.using_device(core_device)
+    core = Core.using_device(core_device)
 
-    cache.add_core(core_exported)
+    cache.add_core(core)
+    front_vol = CoreVolume(core, open=True)
+    bottom_vol = core.get_volume()
+    queue = cache.get_default_queue()
 
     logger.info("[STAGE] Initial write to core device")
     test_data = Data.from_string("This is test data")
-    io_to_core(core_exported, test_data, Size.from_sector(1).B, True)
+    io_to_core(bottom_vol, queue, test_data, Size.from_sector(1).B)
 
     cache_device.reset_stats()
     core_device.reset_stats()
 
     logger.info("[STAGE] Initial read from exported object")
-    io_from_exported_object(core_exported, test_data.size, Size.from_sector(1).B)
-    check_stats_read_empty(core_exported, mode, cls)
+    io_from_exported_object(front_vol, queue, test_data.size, Size.from_sector(1).B)
+    check_stats_read_empty(core, mode, cls)
 
     logger.info("[STAGE] Write to exported object after initial read")
     cache_device.reset_stats()
@@ -120,15 +128,15 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
 
     test_data = Data.from_string("Changed test data")
 
-    io_to_core(core_exported, test_data, Size.from_sector(1).B)
+    io_to_core(front_vol, queue, test_data, Size.from_sector(1).B)
 
-    check_stats_write_after_read(core_exported, mode, cls, True)
+    check_stats_write_after_read(core, mode, cls, True)
 
     logger.info("[STAGE] Read from exported object after write")
-    io_from_exported_object(core_exported, test_data.size, Size.from_sector(1).B)
-    check_stats_read_after_write(core_exported, mode, cls)
+    io_from_exported_object(front_vol, queue, test_data.size, Size.from_sector(1).B)
+    check_stats_read_after_write(core, mode, cls)
 
-    check_md5_sums(core_exported, mode)
+    check_md5_sums(core, mode)
 
 
 @pytest.mark.parametrize("cls", CacheLineSize)
@@ -139,7 +147,7 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     Check if cache starts without errors.
     If possible check whether cache reports properly set parameters.
     """
-    cache_device = Volume(Size.from_MiB(50))
+    cache_device = RamVolume(Size.from_MiB(50))
     queue_size = randrange(60000, 2**32)
     unblock_size = randrange(1, queue_size)
     volatile_metadata = randrange(2) == 1
@@ -176,20 +184,24 @@ def test_stop(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, with_flush: bool):
     Check if cache is stopped properly in different modes with or without preceding flush operation.
     """
 
-    cache_device = Volume(Size.from_MiB(50))
-    core_device = Volume(Size.from_MiB(5))
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(5))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
-    core_exported = Core.using_device(core_device)
-    cache.add_core(core_exported)
+    core = Core.using_device(core_device)
+
+    cache.add_core(core)
+    front_vol = CoreVolume(core, open=True)
+    queue = cache.get_default_queue()
+
     cls_no = 10
 
-    run_io_and_cache_data_if_possible(core_exported, mode, cls, cls_no)
+    run_io_and_cache_data_if_possible(core, mode, cls, cls_no)
 
     stats = cache.get_stats()
     assert int(stats["conf"]["dirty"]) == (cls_no if mode.lazy_write() else 0),\
         "Dirty data before MD5"
 
-    md5_exported_core = core_exported.exp_obj_md5()
+    md5_exported_core = front_vol.md5()
 
     if with_flush:
         cache.flush()
@@ -211,7 +223,7 @@ def test_start_stop_multiple(pyocf_ctx):
     caches = []
     caches_no = randrange(6, 11)
     for i in range(1, caches_no):
-        cache_device = Volume(Size.from_MiB(50))
+        cache_device = RamVolume(Size.from_MiB(50))
         cache_name = f"cache{i}"
         cache_mode = CacheMode(randrange(0, len(CacheMode)))
         size = 4096 * 2**randrange(0, len(CacheLineSize))
@@ -243,7 +255,7 @@ def test_100_start_stop(pyocf_ctx):
     """
 
     for i in range(1, 101):
-        cache_device = Volume(Size.from_MiB(50))
+        cache_device = RamVolume(Size.from_MiB(50))
         cache_name = f"cache{i}"
         cache_mode = CacheMode(randrange(0, len(CacheMode)))
         size = 4096 * 2**randrange(0, len(CacheLineSize))
@@ -278,7 +290,7 @@ def test_start_stop_incrementally(pyocf_ctx):
     while run:
         if add:
             for i in range(0, randrange(3, 5) if increase else randrange(1, 3)):
-                cache_device = Volume(Size.from_MiB(50))
+                cache_device = RamVolume(Size.from_MiB(50))
                 cache_name = f"cache{next(counter)}"
                 cache_mode = CacheMode(randrange(0, len(CacheMode)))
                 size = 4096 * 2**randrange(0, len(CacheLineSize))
@@ -318,8 +330,8 @@ def test_start_cache_same_id(pyocf_ctx, mode, cls):
     Check that OCF does not allow for 2 caches to be started with the same cache_name
     """
 
-    cache_device1 = Volume(Size.from_MiB(50))
-    cache_device2 = Volume(Size.from_MiB(50))
+    cache_device1 = RamVolume(Size.from_MiB(50))
+    cache_device2 = RamVolume(Size.from_MiB(50))
     cache_name = "cache"
     cache = Cache.start_on_device(cache_device1,
                                   cache_mode=mode,
@@ -349,7 +361,9 @@ def test_start_cache_huge_device(pyocf_ctx_log_buffer, cls):
         def submit_io(self, io):
             io.contents._end(io, 0)
 
-    cache_device = HugeDevice(Size.from_MiB(50))
+    OcfCtx.get_default().register_volume_type(HugeDevice)
+
+    cache_device = HugeDevice()
 
     with pytest.raises(OcfError, match="OCF_ERR_INVAL_CACHE_DEV"):
         cache = Cache.start_on_device(cache_device, cache_line_size=cls, metadata_volatile=True)
@@ -367,7 +381,7 @@ def test_start_cache_same_device(pyocf_ctx, mode, cls):
     Check that OCF does not allow for 2 caches using the same cache device to be started
     """
 
-    cache_device = Volume(Size.from_MiB(50))
+    cache_device = RamVolume(Size.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device, cache_mode=mode, cache_line_size=cls, name="cache1"
     )
@@ -387,7 +401,7 @@ def test_start_too_small_device(pyocf_ctx, mode, cls):
     Check if starting cache with device below minimum size is blocked
     """
 
-    cache_device = Volume(Size.from_B(20 * 1024 * 1024 - 1))
+    cache_device = RamVolume(Size.from_B(20 * 1024 * 1024 - 1))
 
     with pytest.raises(OcfError, match="OCF_ERR_INVAL_CACHE_DEV"):
         Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
@@ -414,27 +428,29 @@ def test_start_stop_noqueue(pyocf_ctx):
     assert not c.results["error"], "Failed to stop cache: {}".format(c.results["error"])
 
 
-def run_io_and_cache_data_if_possible(exported_obj, mode, cls, cls_no):
+def run_io_and_cache_data_if_possible(core, mode, cls, cls_no):
+    front_vol = core.get_front_volume()
+    bottom_vol = core.get_volume()
+    queue = core.cache.get_default_queue()
+
     test_data = Data(cls_no * cls)
 
     if mode in {CacheMode.WI, CacheMode.WA}:
         logger.info("[STAGE] Write to core device")
-        io_to_core(exported_obj, test_data, 0, True)
+        io_to_core(bottom_vol, queue, test_data, 0)
         logger.info("[STAGE] Read from exported object")
-        io_from_exported_object(exported_obj, test_data.size, 0)
+        io_from_exported_object(front_vol, queue, test_data.size, 0)
     else:
         logger.info("[STAGE] Write to exported object")
-        io_to_core(exported_obj, test_data, 0)
+        io_to_core(front_vol, queue, test_data, 0)
 
-    stats = exported_obj.cache.get_stats()
+    stats = core.cache.get_stats()
     assert stats["usage"]["occupancy"]["value"] == \
         ((cls_no * cls / CacheLineSize.LINE_4KiB) if mode != CacheMode.PT else 0), "Occupancy"
 
 
-def io_to_core(exported_obj: Core, data: Data, offset: int, to_core_device=False):
-    new_io = exported_obj.new_core_io if to_core_device else exported_obj.new_io
-    io = new_io(exported_obj.cache.get_default_queue(), offset, data.size,
-                IoDir.WRITE, 0, 0)
+def io_to_core(vol: Volume, queue: Queue, data: Data, offset: int):
+    io = vol.new_io(queue, offset, data.size, IoDir.WRITE, 0, 0)
     io.set_data(data)
 
     completion = OcfCompletion([("err", c_int)])
@@ -445,10 +461,9 @@ def io_to_core(exported_obj: Core, data: Data, offset: int, to_core_device=False
     assert completion.results["err"] == 0, "IO to exported object completion"
 
 
-def io_from_exported_object(exported_obj: Core, buffer_size: int, offset: int):
+def io_from_exported_object(vol: Volume, queue: Queue, buffer_size: int, offset: int):
     read_buffer = Data(buffer_size)
-    io = exported_obj.new_io(exported_obj.cache.get_default_queue(), offset,
-                             read_buffer.size, IoDir.READ, 0, 0)
+    io = vol.new_io(queue, offset, read_buffer.size, IoDir.READ, 0, 0)
     io.set_data(read_buffer)
 
     completion = OcfCompletion([("err", c_int)])
@@ -460,28 +475,28 @@ def io_from_exported_object(exported_obj: Core, buffer_size: int, offset: int):
     return read_buffer
 
 
-def check_stats_read_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineSize):
-    exported_obj.cache.settle()
-    stats = exported_obj.cache.get_stats()
+def check_stats_read_empty(core: Core, mode: CacheMode, cls: CacheLineSize):
+    core.cache.settle()
+    stats = core.cache.get_stats()
     assert stats["conf"]["cache_mode"] == mode, "Cache mode"
-    assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == (1 if mode.read_insert() else 0), \
+    assert core.cache.device.get_stats()[IoDir.WRITE] == (1 if mode.read_insert() else 0), \
         "Writes to cache device"
-    assert exported_obj.device.get_stats()[IoDir.READ] == 1, "Reads from core device"
+    assert core.device.get_stats()[IoDir.READ] == 1, "Reads from core device"
     assert stats["req"]["rd_full_misses"]["value"] == (0 if mode == CacheMode.PT else 1), \
         "Read full misses"
     assert stats["usage"]["occupancy"]["value"] == \
         ((cls / CacheLineSize.LINE_4KiB) if mode.read_insert() else 0), "Occupancy"
 
 
-def check_stats_write_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineSize):
-    exported_obj.cache.settle()
-    stats = exported_obj.cache.get_stats()
+def check_stats_write_empty(core: Core, mode: CacheMode, cls: CacheLineSize):
+    core.cache.settle()
+    stats = core.cache.get_stats()
     assert stats["conf"]["cache_mode"] == mode, "Cache mode"
     # TODO(ajrutkow): why 1 for WT ??
-    assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == \
+    assert core.cache.device.get_stats()[IoDir.WRITE] == \
         (2 if mode.lazy_write() else (1 if mode == CacheMode.WT else 0)), \
         "Writes to cache device"
-    assert exported_obj.device.get_stats()[IoDir.WRITE] == (0 if mode.lazy_write() else 1), \
+    assert core.device.get_stats()[IoDir.WRITE] == (0 if mode.lazy_write() else 1), \
         "Writes to core device"
     assert stats["req"]["wr_full_misses"]["value"] == (1 if mode.write_insert() else 0), \
         "Write full misses"
@@ -490,17 +505,17 @@ def check_stats_write_empty(exported_obj: Core, mode: CacheMode, cls: CacheLineS
         "Occupancy"
 
 
-def check_stats_write_after_read(exported_obj: Core,
+def check_stats_write_after_read(core: Core,
                                  mode: CacheMode,
                                  cls: CacheLineSize,
                                  read_from_empty=False):
-    exported_obj.cache.settle()
-    stats = exported_obj.cache.get_stats()
-    assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == \
+    core.cache.settle()
+    stats = core.cache.get_stats()
+    assert core.cache.device.get_stats()[IoDir.WRITE] == \
         (0 if mode in {CacheMode.WI, CacheMode.PT} else
             (2 if read_from_empty and mode.lazy_write() else 1)), \
         "Writes to cache device"
-    assert exported_obj.device.get_stats()[IoDir.WRITE] == (0 if mode.lazy_write() else 1), \
+    assert core.device.get_stats()[IoDir.WRITE] == (0 if mode.lazy_write() else 1), \
         "Writes to core device"
     assert stats["req"]["wr_hits"]["value"] == \
         (1 if (mode.read_insert() and mode != CacheMode.WI)
@@ -511,17 +526,17 @@ def check_stats_write_after_read(exported_obj: Core,
         "Occupancy"
 
 
-def check_stats_read_after_write(exported_obj, mode, cls, write_to_empty=False):
-    exported_obj.cache.settle()
-    stats = exported_obj.cache.get_stats()
-    assert exported_obj.cache.device.get_stats()[IoDir.WRITE] == \
+def check_stats_read_after_write(core, mode, cls, write_to_empty=False):
+    core.cache.settle()
+    stats = core.cache.get_stats()
+    assert core.cache.device.get_stats()[IoDir.WRITE] == \
         (2 if mode.lazy_write() else (0 if mode == CacheMode.PT else 1)), \
         "Writes to cache device"
-    assert exported_obj.cache.device.get_stats()[IoDir.READ] == \
+    assert core.cache.device.get_stats()[IoDir.READ] == \
         (1 if mode in {CacheMode.WT, CacheMode.WB, CacheMode.WO}
             or (mode == CacheMode.WA and not write_to_empty) else 0), \
         "Reads from cache device"
-    assert exported_obj.device.get_stats()[IoDir.READ] == \
+    assert core.device.get_stats()[IoDir.READ] == \
         (0 if mode in {CacheMode.WB, CacheMode.WO, CacheMode.WT}
             or (mode == CacheMode.WA and not write_to_empty) else 1), \
         "Reads from core device"
@@ -537,15 +552,15 @@ def check_stats_read_after_write(exported_obj, mode, cls, write_to_empty=False):
         (0 if mode == CacheMode.PT else (cls / CacheLineSize.LINE_4KiB)), "Occupancy"
 
 
-def check_md5_sums(exported_obj: Core, mode: CacheMode):
+def check_md5_sums(core: Core, mode: CacheMode):
     if mode.lazy_write():
-        assert exported_obj.device.md5() != exported_obj.exp_obj_md5(), \
+        assert core.device.md5() != core.get_front_volume().md5(), \
             "MD5 check: core device vs exported object without flush"
-        exported_obj.cache.flush()
-        assert exported_obj.device.md5() == exported_obj.exp_obj_md5(), \
+        core.cache.flush()
+        assert core.device.md5() == core.get_front_volume().md5(), \
             "MD5 check: core device vs exported object after flush"
     else:
-        assert exported_obj.device.md5() == exported_obj.exp_obj_md5(), \
+        assert core.device.md5() == core.get_front_volume().md5(), \
             "MD5 check: core device vs exported object"
 
 

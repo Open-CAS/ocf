@@ -1,4 +1,5 @@
-# Copyright(c) 2019-2021 Intel Corporation
+#
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -8,9 +9,11 @@ from ctypes import c_int
 from random import randint
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
-from pyocf.types.volume import Volume
+from pyocf.types.volume import RamVolume, Volume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
+from pyocf.types.queue import Queue
 from pyocf.utils import Size as S
 from pyocf.types.shared import OcfError, OcfCompletion, CacheLineSize
 
@@ -19,13 +22,13 @@ from pyocf.types.shared import OcfError, OcfCompletion, CacheLineSize
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_adding_core(pyocf_ctx, cache_mode, cls):
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device, cache_mode=cache_mode, cache_line_size=cls
     )
 
     # Create core device
-    core_device = Volume(S.from_MiB(10))
+    core_device = RamVolume(S.from_MiB(10))
     core = Core.using_device(core_device)
 
     # Check statistics before adding core
@@ -44,13 +47,13 @@ def test_adding_core(pyocf_ctx, cache_mode, cls):
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_removing_core(pyocf_ctx, cache_mode, cls):
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device, cache_mode=cache_mode, cache_line_size=cls
     )
 
     # Create core device
-    core_device = Volume(S.from_MiB(10))
+    core_device = RamVolume(S.from_MiB(10))
     core = Core.using_device(core_device)
 
     # Add core to cache
@@ -68,21 +71,24 @@ def test_removing_core(pyocf_ctx, cache_mode, cls):
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_remove_dirty_no_flush(pyocf_ctx, cache_mode, cls):
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device, cache_mode=cache_mode, cache_line_size=cls
     )
 
     # Create core device
-    core_device = Volume(S.from_MiB(10))
+    core_device = RamVolume(S.from_MiB(10))
     core = Core.using_device(core_device)
     cache.add_core(core)
+
+    vol = CoreVolume(core, open=True)
+    queue = core.cache.get_default_queue()
 
     # Prepare data
     core_size = core.get_stats()["size"]
     data = Data(core_size.B)
 
-    _io_to_core(core, data)
+    _io_to_core(vol, queue, data)
 
     # Remove core from cache
     cache.remove_core(core)
@@ -90,11 +96,11 @@ def test_remove_dirty_no_flush(pyocf_ctx, cache_mode, cls):
 
 def test_30add_remove(pyocf_ctx):
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device)
 
     # Create core device
-    core_device = Volume(S.from_MiB(10))
+    core_device = RamVolume(S.from_MiB(10))
     core = Core.using_device(core_device)
 
     # Add and remove core device in a loop 100 times
@@ -111,21 +117,22 @@ def test_30add_remove(pyocf_ctx):
 
 def test_10add_remove_with_io(pyocf_ctx):
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device)
 
     # Create core device
-    core_device = Volume(S.from_MiB(10))
+    core_device = RamVolume(S.from_MiB(10))
     core = Core.using_device(core_device)
 
     # Add and remove core 10 times in a loop with io in between
     for i in range(0, 10):
         cache.add_core(core)
+        vol = CoreVolume(core, open=True)
         stats = cache.get_stats()
         assert stats["conf"]["core_count"] == 1
 
         write_data = Data.from_string("Test data")
-        io = core.new_io(
+        io = vol.new_io(
             cache.get_default_queue(), S.from_sector(1).B, write_data.size,
             IoDir.WRITE, 0, 0
         )
@@ -143,7 +150,7 @@ def test_10add_remove_with_io(pyocf_ctx):
 
 def test_add_remove_30core(pyocf_ctx):
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(cache_device)
     core_devices = []
     core_amount = 30
@@ -152,7 +159,7 @@ def test_add_remove_30core(pyocf_ctx):
     for i in range(0, core_amount):
         stats = cache.get_stats()
         assert stats["conf"]["core_count"] == i
-        core_device = Volume(S.from_MiB(10))
+        core_device = RamVolume(S.from_MiB(10))
         core = Core.using_device(core_device, name=f"core{i}")
         core_devices.append(core)
         cache.add_core(core)
@@ -176,13 +183,13 @@ def test_adding_to_random_cache(pyocf_ctx):
 
     # Create 5 cache devices
     for i in range(0, cache_amount):
-        cache_device = Volume(S.from_MiB(50))
+        cache_device = RamVolume(S.from_MiB(50))
         cache = Cache.start_on_device(cache_device, name=f"cache{i}")
         cache_devices.append(cache)
 
     # Create 50 core devices and add to random cache
     for i in range(0, core_amount):
-        core_device = Volume(S.from_MiB(10))
+        core_device = RamVolume(S.from_MiB(10))
         core = Core.using_device(core_device, name=f"core{i}")
         core_devices[core] = randint(0, cache_amount - 1)
         cache_devices[core_devices[core]].add_core(core)
@@ -202,13 +209,13 @@ def test_adding_to_random_cache(pyocf_ctx):
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_adding_core_twice(pyocf_ctx, cache_mode, cls):
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device, cache_mode=cache_mode, cache_line_size=cls
     )
 
     # Create core device
-    core_device = Volume(S.from_MiB(10))
+    core_device = RamVolume(S.from_MiB(10))
     core = Core.using_device(core_device)
 
     # Add core
@@ -227,19 +234,19 @@ def test_adding_core_twice(pyocf_ctx, cache_mode, cls):
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_adding_core_already_used(pyocf_ctx, cache_mode, cls):
     # Start first cache device
-    cache_device1 = Volume(S.from_MiB(50))
+    cache_device1 = RamVolume(S.from_MiB(50))
     cache1 = Cache.start_on_device(
         cache_device1, cache_mode=cache_mode, cache_line_size=cls, name="cache1"
     )
 
     # Start second cache device
-    cache_device2 = Volume(S.from_MiB(50))
+    cache_device2 = RamVolume(S.from_MiB(50))
     cache2 = Cache.start_on_device(
         cache_device2, cache_mode=cache_mode, cache_line_size=cls, name="cache2"
     )
 
     # Create core device
-    core_device = Volume(S.from_MiB(10))
+    core_device = RamVolume(S.from_MiB(10))
     core = Core.using_device(core_device)
 
     # Add core to first cache
@@ -261,7 +268,7 @@ def test_adding_core_already_used(pyocf_ctx, cache_mode, cls):
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_add_remove_incrementally(pyocf_ctx, cache_mode, cls):
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device, cache_mode=cache_mode, cache_line_size=cls
     )
@@ -270,7 +277,7 @@ def test_add_remove_incrementally(pyocf_ctx, cache_mode, cls):
 
     # Create 5 core devices and add to cache
     for i in range(0, core_amount):
-        core_device = Volume(S.from_MiB(10))
+        core_device = RamVolume(S.from_MiB(10))
         core = Core.using_device(core_device, name=f"core{i}")
         core_devices.append(core)
         cache.add_core(core)
@@ -302,8 +309,8 @@ def test_add_remove_incrementally(pyocf_ctx, cache_mode, cls):
     assert stats["conf"]["core_count"] == core_amount
 
 
-def _io_to_core(exported_obj: Core, data: Data):
-    io = exported_obj.new_io(exported_obj.cache.get_default_queue(), 0, data.size,
+def _io_to_core(vol: Volume, queue: Queue, data: Data):
+    io = vol.new_io(queue, 0, data.size,
             IoDir.WRITE, 0, 0)
     io.set_data(data)
 
@@ -325,13 +332,13 @@ def test_try_add_core_with_changed_size(pyocf_ctx, cache_mode, cls):
     :param cls: cache line size we start with
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device, cache_mode=cache_mode, cache_line_size=cls
     )
 
     # Add core to cache
-    core_device = Volume(S.from_MiB(10))
+    core_device = RamVolume(S.from_MiB(10))
     core = Core.using_device(core_device)
     cache.add_core(core)
 
@@ -359,13 +366,13 @@ def test_load_with_changed_core_size(pyocf_ctx, cache_mode, cls):
     :param cls: cache line size we start with
     """
     # Start cache device
-    cache_device = Volume(S.from_MiB(50))
+    cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
         cache_device, cache_mode=cache_mode, cache_line_size=cls
     )
 
     # Add core to cache
-    core_device = Volume(S.from_MiB(10))
+    core_device = RamVolume(S.from_MiB(10))
     core = Core.using_device(core_device)
     cache.add_core(core)
 

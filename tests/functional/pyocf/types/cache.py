@@ -35,11 +35,11 @@ from ..utils import Size, struct_to_dict
 from .core import Core
 from .queue import Queue
 from .stats.cache import CacheInfo
+from .io import IoDir
 from .ioclass import IoClassesInfo, IoClassInfo
 from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
 from .ctx import OcfCtx
-from .volume import Volume
-
+from .volume import RamVolume
 
 class Backfill(Structure):
     _fields_ = [("_max_queue_size", c_uint32), ("_queue_unblock_size", c_uint32)]
@@ -697,7 +697,7 @@ class Cache:
             raise OcfError("Failed getting core by name", result)
 
         uuid = self.owner.lib.ocf_core_get_uuid_wrapper(core_handle)
-        device = Volume.get_by_uuid(uuid.contents._data.decode("ascii"))
+        device = RamVolume.get_by_uuid(uuid.contents._data.decode("ascii"))
         core = Core(device)
         core.cache = self
         core.handle = core_handle
@@ -748,6 +748,12 @@ class Cache:
             raise OcfError("Failed removing core", c.results["error"])
 
         self.cores.remove(core)
+
+    def get_front_volume(self):
+        return Volume.get_instance(lib.ocf_cache_get_front_volume(self.cache_handle))
+
+    def get_volume(self):
+        return Volume.get_instance(lib.ocf_cache_get_volume(self.cache_handle))
 
     def get_stats(self):
         cache_info = CacheInfo()
@@ -897,6 +903,10 @@ lib.ocf_mngt_cache_remove_core.argtypes = [c_void_p, c_void_p, c_void_p]
 lib.ocf_mngt_cache_add_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p]
 lib.ocf_cache_get_name.argtypes = [c_void_p]
 lib.ocf_cache_get_name.restype = c_char_p
+lib.ocf_cache_get_front_volume.argtypes = [c_void_p]
+lib.ocf_cache_get_front_volume.restype = c_void_p
+lib.ocf_cache_get_volume.argtypes = [c_void_p]
+lib.ocf_cache_get_volume.restype = c_void_p
 lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [
     c_void_p,
     c_uint32,

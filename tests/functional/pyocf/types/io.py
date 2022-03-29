@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -96,7 +96,13 @@ class Io(Structure):
         self.del_object()
 
     def submit(self):
-        return OcfLib.getInstance().ocf_core_submit_io_wrapper(byref(self))
+        return OcfLib.getInstance().ocf_volume_submit_io(byref(self))
+
+    def submit_flush(self):
+        return OcfLib.getInstance().ocf_volume_submit_flush(byref(self))
+
+    def submit_discard(self):
+        return OcfLib.getInstance().ocf_volume_submit_discard(byref(self))
 
     def set_data(self, data: Data, offset: int = 0):
         self.data = data
@@ -111,8 +117,14 @@ IoOps._fields_ = [("_set_data", IoOps.SET_DATA), ("_get_data", IoOps.GET_DATA)]
 lib = OcfLib.getInstance()
 lib.ocf_io_set_cmpl_wrapper.argtypes = [POINTER(Io), c_void_p, c_void_p, Io.END]
 
-lib.ocf_core_new_io_wrapper.argtypes = [c_void_p]
-lib.ocf_core_new_io_wrapper.restype = c_void_p
-
 lib.ocf_io_set_data.argtypes = [POINTER(Io), c_void_p, c_uint32]
 lib.ocf_io_set_data.restype = c_int
+
+lib.ocf_volume_submit_io.argtypes = [POINTER(Io)]
+lib.ocf_volume_submit_io.restype = None
+
+lib.ocf_volume_submit_flush.argtypes = [POINTER(Io)]
+lib.ocf_volume_submit_flush.restype = None
+
+lib.ocf_volume_submit_discard.argtypes = [POINTER(Io)]
+lib.ocf_volume_submit_discard.restype = None

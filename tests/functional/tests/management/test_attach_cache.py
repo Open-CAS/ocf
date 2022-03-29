@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -27,7 +27,8 @@ from pyocf.types.shared import (
     CacheLineSize,
     SeqCutOffPolicy,
 )
-from pyocf.types.volume import Volume
+from pyocf.types.volume import RamVolume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.utils import Size
 
 logger = logging.getLogger(__name__)
@@ -43,11 +44,14 @@ def test_attach_different_size(
     attach cache with different size and trigger IO. Verify if occupancy thresold is
     respected with both original and new cache device.
     """
-    cache_device = Volume(Size.from_MiB(100))
-    core_device = Volume(Size.from_MiB(100))
+    cache_device = RamVolume(Size.from_MiB(100))
+    core_device = RamVolume(Size.from_MiB(100))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
     core = Core.using_device(core_device)
     cache.add_core(core)
+
+    vol = CoreVolume(core, open=True)
+    queue = cache.get_default_queue()
 
     cache.configure_partition(
         part_id=1, name="test_part", max_size=50, priority=1
@@ -61,7 +65,7 @@ def test_attach_different_size(
     data = bytes(block_size)
 
     for i in range(cache_size.blocks_4k):
-        io_to_exp_obj(core, block_size * i, block_size, data, 0, IoDir.WRITE, 1, 0)
+        io_to_exp_obj(vol, queue, block_size * i, block_size, data, 0, IoDir.WRITE, 1, 0)
 
     part_current_size = CacheLines(
         cache.get_partition_info(part_id=1)["_curr_size"], cls
@@ -70,13 +74,13 @@ def test_attach_different_size(
     assert part_current_size.blocks_4k == cache_size.blocks_4k * 0.5
 
     cache.detach_device()
-    new_cache_device = Volume(Size.from_MiB(new_cache_size))
+    new_cache_device = RamVolume(Size.from_MiB(new_cache_size))
     cache.attach_device(new_cache_device, force=True)
 
     cache_size = cache.get_stats()["conf"]["size"]
 
     for i in range(cache_size.blocks_4k):
-        io_to_exp_obj(core, block_size * i, block_size, data, 0, IoDir.WRITE, 1, 0)
+        io_to_exp_obj(vol, queue, block_size * i, block_size, data, 0, IoDir.WRITE, 1, 0)
 
     part_current_size = CacheLines(
         cache.get_partition_info(part_id=1)["_curr_size"], cls
@@ -85,22 +89,8 @@ def test_attach_different_size(
     assert part_current_size.blocks_4k == cache_size.blocks_4k * 0.5
 
 
-def io_to_exp_obj(core, address, size, data, offset, direction, target_ioclass, flags):
-    return _io(
-        core.new_io,
-        core.cache.get_default_queue(),
-        address,
-        size,
-        data,
-        offset,
-        direction,
-        target_ioclass,
-        flags,
-    )
-
-
-def _io(new_io, queue, address, size, data, offset, direction, target_ioclass, flags):
-    io = new_io(queue, address, size, direction, target_ioclass, flags)
+def io_to_exp_obj(vol, queue, address, size, data, offset, direction, target_ioclass, flags):
+    io = vol.new_io(queue, address, size, direction, target_ioclass, flags)
     if direction == IoDir.READ:
         _data = Data.from_bytes(bytes(size))
     else:
