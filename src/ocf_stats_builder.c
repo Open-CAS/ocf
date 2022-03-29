@@ -410,6 +410,9 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
 	_ocf_stats_zero(blocks);
 	_ocf_stats_zero(errors);
 
+	if (ocf_cache_is_standby(cache))
+		return 0;
+
 	result = ocf_core_visit(cache, _accumulate_stats, &s, true);
 	if (result)
 		return result;
