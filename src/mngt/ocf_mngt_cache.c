@@ -89,6 +89,8 @@ typedef void (*_ocf_mngt_cache_attach_end_t)(ocf_cache_t, void *priv1,
 struct ocf_cache_attach_context {
 	struct ocf_mngt_cache_attach_config cfg;
 
+	struct ocf_superblock_config sb_config_copy;
+
 	ocf_cache_t cache;
 		/*!< cache that is being initialized */
 
@@ -148,6 +150,10 @@ struct ocf_cache_attach_context {
 		bool pio_mpool : 1;
 
 		bool pio_concurrency : 1;
+
+		bool sb_copy : 1;
+			/*!< captured superblock copy
+			 */
 	} flags;
 
 	struct {
@@ -2426,6 +2432,10 @@ static void _ocf_mngt_activate_compare_superblock_end(
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_SUPERBLOCK_MISMATCH);
 	}
 
+	env_memcpy(&context->sb_config_copy, sizeof(context->sb_config_copy),
+			superblock, sizeof(*superblock));
+	context->flags.sb_copy = 1;
+
 	ocf_pipeline_next(context->pipeline);
 }
 
@@ -2478,6 +2488,12 @@ static void _ocf_mngt_activate_handle_error(
 	if (context->flags.volume_stored)
 		ocf_volume_move(&cache->device->volume, &context->cache_volume);
 
+	if (context->flags.sb_copy) {
+		env_memcpy(cache->conf_meta, sizeof(*cache->conf_meta),
+				&context->sb_config_copy,
+				sizeof(context->sb_config_copy));
+	}
+
 	if (context->flags.metadata_frozen)
 		ocf_refcnt_unfreeze(&cache->refcnt.metadata);
 }
@@ -2510,7 +2526,6 @@ static void _ocf_mngt_cache_activate_finish(ocf_pipeline_t pipeline,
 			ocf_volume_close(&context->cache_volume);
 		ocf_volume_deinit(&context->cache_volume);
 	}
-
 
 out:
 	context->cmpl(context->cache, context->priv1, context->priv2, error);
