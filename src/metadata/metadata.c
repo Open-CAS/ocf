@@ -316,7 +316,7 @@ static int ocf_metadata_calculate_metadata_size(
 		/* Cache size in bytes */
 		diff_lines = ctrl->device_lines * line_size;
 		/* Sub metadata size which is in 4 kiB unit */
-		diff_lines -= count_pages * PAGE_SIZE;
+		diff_lines -= (int64_t)count_pages * PAGE_SIZE;
 		/* Convert back to cache lines */
 		diff_lines /= line_size;
 		/* Calculate difference */
