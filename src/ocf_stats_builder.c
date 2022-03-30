@@ -260,10 +260,13 @@ int ocf_stats_collect_part_core(ocf_core_t core, ocf_part_id_t part_id,
 
 	OCF_CHECK_NULL(core);
 
+	cache = ocf_core_get_cache(core);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	if (part_id > OCF_IO_CLASS_ID_MAX)
 		return -OCF_ERR_INVAL;
-
-	cache = ocf_core_get_cache(core);
 
 	_ocf_stats_zero(usage);
 	_ocf_stats_zero(req);
@@ -287,6 +290,9 @@ int ocf_stats_collect_part_cache(ocf_cache_t cache, ocf_part_id_t part_id,
 	int result = 0;
 
 	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	if (part_id > OCF_IO_CLASS_ID_MAX)
 		return -OCF_ERR_INVAL;
@@ -320,11 +326,15 @@ int ocf_stats_collect_core(ocf_core_t core,
 
 	OCF_CHECK_NULL(core);
 
+	cache = ocf_core_get_cache(core);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	result = ocf_core_get_stats(core, &s);
 	if (result)
 		return result;
 
-	cache = ocf_core_get_cache(core);
 	cache_line_size = ocf_cache_get_line_size(cache);
 	cache_size = cache->conf_meta->cachelines;
 	cache_occupancy = ocf_get_cache_occupancy(cache);
@@ -398,6 +408,9 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
 	int result;
 
 	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	result = ocf_cache_get_info(cache, &info);
 	if (result)

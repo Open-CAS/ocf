@@ -291,6 +291,9 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 
 	cache = ocf_core_get_cache(core);
 
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
 	if (!ocf_user_part_is_valid(&cache->user_parts[part_id]))
 		return -OCF_ERR_IO_CLASS_NOT_EXIST;
 
@@ -318,11 +321,16 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 	uint32_t i;
 	struct ocf_counters_core *core_stats = NULL;
 	struct ocf_counters_part *curr = NULL;
+	ocf_cache_t cache;
 
 	OCF_CHECK_NULL(core);
 
 	if (!stats)
 		return -OCF_ERR_INVAL;
+
+	cache = ocf_core_get_cache(core);
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
 
 	core_stats = core->counters;
 
