@@ -433,8 +433,8 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 			ocf_core_log(core, log_err,
 					"Size of core volume doesn't match with"
 					" the size stored in cache metadata!");
-			error = -OCF_ERR_CORE_SIZE_MISMATCH;	
-			goto err;	
+			error = -OCF_ERR_CORE_SIZE_MISMATCH;
+			goto err;
 		}
 
 		hd_lines = ocf_bytes_2_lines(cache, length);
