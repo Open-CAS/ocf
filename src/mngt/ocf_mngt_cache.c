@@ -312,7 +312,7 @@ static void _ocf_mngt_close_all_uninitialized_cores(
 	int j, i;
 
 	for (j = cache->conf_meta->core_count, i = 0; j > 0; ++i) {
-		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
+		if (!cache->core[i].added)
 			continue;
 
 		volume = &(cache->core[i].volume);
@@ -326,8 +326,7 @@ static void _ocf_mngt_close_all_uninitialized_cores(
 
 		env_free(cache->core[i].counters);
 		cache->core[i].counters = NULL;
-
-		env_bit_clear(i, cache->conf_meta->valid_core_bitmap);
+		cache->core[i].added = false;
 	}
 
 	cache->conf_meta->core_count = 0;
@@ -401,7 +400,6 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 			}
 
 		}
-		env_bit_set(core_id, cache->conf_meta->valid_core_bitmap);
 		core->added = true;
 		cache->conf_meta->core_count++;
 		core->volume.cache = cache;
@@ -1963,10 +1961,7 @@ static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache, bool attached)
 	int no = cache->conf_meta->core_count;
 
 	/* All exported objects removed, cleaning up rest. */
-	for_each_core_all(cache, core, core_id) {
-		if (!env_bit_test(core_id, cache->conf_meta->valid_core_bitmap))
-			continue;
-
+	for_each_core(cache, core, core_id) {
 		cache_mngt_core_remove_from_cache(core);
 		if (attached)
 			cache_mngt_core_remove_from_cleaning_pol(core);

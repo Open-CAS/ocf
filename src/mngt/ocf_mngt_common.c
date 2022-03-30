@@ -106,6 +106,7 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 void cache_mngt_core_remove_from_meta(ocf_core_t core)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
+	ocf_core_id_t core_id = ocf_core_get_id(core);
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
@@ -116,6 +117,8 @@ void cache_mngt_core_remove_from_meta(ocf_core_t core)
 	ocf_mngt_core_clear_uuid_metadata(core);
 	core->conf_meta->seq_no = OCF_SEQ_NO_INVALID;
 
+	env_bit_clear(core_id, cache->conf_meta->valid_core_bitmap);
+
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 }
 
@@ -123,13 +126,11 @@ void cache_mngt_core_remove_from_meta(ocf_core_t core)
 void cache_mngt_core_remove_from_cache(ocf_core_t core)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
-	ocf_core_id_t core_id = ocf_core_get_id(core);
 
 	ocf_core_seq_cutoff_deinit(core);
 	env_free(core->counters);
 	core->counters = NULL;
 	core->added = false;
-	env_bit_clear(core_id, cache->conf_meta->valid_core_bitmap);
 
 	if (!core->opened && --cache->ocf_core_inactive_count == 0)
 		env_bit_clear(ocf_cache_state_incomplete, &cache->cache_state);
