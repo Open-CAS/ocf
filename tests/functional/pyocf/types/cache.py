@@ -756,8 +756,51 @@ class Cache:
     def get_volume(self):
         return Volume.get_instance(lib.ocf_cache_get_volume(self.cache_handle))
 
-    def get_stats(self):
+    def get_conf(self):
         cache_info = CacheInfo()
+
+        self.read_lock()
+
+        status = self.owner.lib.ocf_cache_get_info(self.cache_handle, byref(cache_info))
+
+        self.read_unlock()
+
+        if status:
+            raise OcfError("Failed getting cache info", status)
+
+        line_size = CacheLineSize(cache_info.cache_line_size)
+        cache_name = self.owner.lib.ocf_cache_get_name(self).decode("ascii")
+
+        return {
+            "attached": cache_info.attached,
+            "volume_type": self.owner.volume_types[cache_info.volume_type],
+            "size": CacheLines(cache_info.size, line_size),
+            "inactive": {
+                "occupancy": CacheLines(cache_info.inactive.occupancy.value, line_size),
+                "dirty": CacheLines(cache_info.inactive.dirty.value, line_size),
+                "clean": CacheLines(cache_info.inactive.clean.value, line_size),
+            },
+            "occupancy": CacheLines(cache_info.occupancy, line_size),
+            "dirty": CacheLines(cache_info.dirty, line_size),
+            "dirty_initial": CacheLines(cache_info.dirty_initial, line_size),
+            "dirty_for": timedelta(seconds=cache_info.dirty_for),
+            "cache_mode": CacheMode(cache_info.cache_mode),
+            "fallback_pt": {
+                "error_counter": cache_info.fallback_pt.error_counter,
+                "status": cache_info.fallback_pt.status,
+            },
+            "state": cache_info.state,
+            "cleaning_policy": CleaningPolicy(cache_info.cleaning_policy),
+            "promotion_policy": PromotionPolicy(cache_info.promotion_policy),
+            "cache_line_size": line_size,
+            "flushed": CacheLines(cache_info.flushed, line_size),
+            "core_count": cache_info.core_count,
+            "metadata_footprint": Size(cache_info.metadata_footprint),
+            "metadata_end_offset": Size(cache_info.metadata_end_offset),
+            "cache_name": cache_name,
+        }
+
+    def get_stats(self):
         usage = UsageStats()
         req = RequestsStats()
         block = BlocksStats()
@@ -765,53 +808,19 @@ class Cache:
 
         self.read_lock()
 
-        status = self.owner.lib.ocf_cache_get_info(self.cache_handle, byref(cache_info))
-        if status:
-            self.read_unlock()
-            raise OcfError("Failed getting cache info", status)
+        conf = self.get_conf()
 
         status = self.owner.lib.ocf_stats_collect_cache(
             self.cache_handle, byref(usage), byref(req), byref(block), byref(errors)
         )
-        if status:
-            self.read_unlock()
-            raise OcfError("Failed getting stats", status)
-
-        line_size = CacheLineSize(cache_info.cache_line_size)
-        cache_name = self.owner.lib.ocf_cache_get_name(self).decode("ascii")
 
         self.read_unlock()
+
+        if status:
+            raise OcfError("Failed getting stats", status)
+
         return {
-            "conf": {
-                "attached": cache_info.attached,
-                "volume_type": self.owner.volume_types[cache_info.volume_type],
-                "size": CacheLines(cache_info.size, line_size),
-                "inactive": {
-                    "occupancy": CacheLines(
-                        cache_info.inactive.occupancy.value, line_size
-                    ),
-                    "dirty": CacheLines(cache_info.inactive.dirty.value, line_size),
-                    "clean": CacheLines(cache_info.inactive.clean.value, line_size),
-                },
-                "occupancy": CacheLines(cache_info.occupancy, line_size),
-                "dirty": CacheLines(cache_info.dirty, line_size),
-                "dirty_initial": CacheLines(cache_info.dirty_initial, line_size),
-                "dirty_for": timedelta(seconds=cache_info.dirty_for),
-                "cache_mode": CacheMode(cache_info.cache_mode),
-                "fallback_pt": {
-                    "error_counter": cache_info.fallback_pt.error_counter,
-                    "status": cache_info.fallback_pt.status,
-                },
-                "state": cache_info.state,
-                "cleaning_policy": CleaningPolicy(cache_info.cleaning_policy),
-                "promotion_policy": PromotionPolicy(cache_info.promotion_policy),
-                "cache_line_size": line_size,
-                "flushed": CacheLines(cache_info.flushed, line_size),
-                "core_count": cache_info.core_count,
-                "metadata_footprint": Size(cache_info.metadata_footprint),
-                "metadata_end_offset": Size(cache_info.metadata_end_offset),
-                "cache_name": cache_name,
-            },
+            "conf": conf,
             "block": struct_to_dict(block),
             "req": struct_to_dict(req),
             "usage": struct_to_dict(usage),

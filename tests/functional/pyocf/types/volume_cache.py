@@ -27,5 +27,6 @@ class CacheVolume(ExpObjVolume):
         )
 
     def md5(self):
-        cache_line_size = int(self.cache.get_stats()['conf']['cache_line_size'])
+        out = self.cache.get_conf()
+        cache_line_size = int(out['cache_line_size'])
         return self._exp_obj_md5(cache_line_size)
