@@ -134,6 +134,7 @@ static void _ocf_mngt_cache_add_core_handle_error(
 	if (context->flags.counters_allocated) {
 		env_bit_clear(core_id,
 				cache->conf_meta->valid_core_bitmap);
+		cache->conf_meta->core_count--;
 		core->conf_meta->valid = false;
 		core->added = false;
 		core->opened = false;
@@ -356,9 +357,6 @@ static void _ocf_mngt_cache_add_core_flush_sb_complete(void *priv, int error)
 	if (error)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_WRITE_CACHE);
 
-	/* Increase value of added cores */
-	context->cache->conf_meta->core_count++;
-
 	ocf_pipeline_next(context->pipeline);
 }
 
@@ -463,6 +461,8 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 
 	/* In metadata mark data this core was added into cache */
 	env_bit_set(core_id, cache->conf_meta->valid_core_bitmap);
+	context->cache->conf_meta->core_count++;
+
 	core->conf_meta->valid = true;
 	core->added = true;
 	core->opened = true;

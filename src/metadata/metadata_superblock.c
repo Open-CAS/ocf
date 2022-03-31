@@ -206,6 +206,41 @@ static void _ocf_metadata_validate_superblock(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+static void _ocf_metadata_validate_core_config(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_metadata_context *context = priv;
+	ocf_ctx_t ctx = context->cache->owner;
+	struct ocf_metadata_ctrl *ctrl;
+	struct ocf_superblock_config *superblock;
+	struct ocf_core_meta_config *core_config;
+	ocf_core_id_t core_id;
+	bool valid_in_bitmap;
+
+	ctrl = (struct ocf_metadata_ctrl *)context->ctrl;
+	superblock = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
+	core_config = METADATA_MEM_POOL(ctrl, metadata_segment_core_config);
+
+	for (core_id = 0; core_id < OCF_CORE_MAX; core_id++) {
+		valid_in_bitmap = env_bit_test(core_id,
+				superblock->valid_core_bitmap);
+
+		if (valid_in_bitmap && !core_config[core_id].valid) {
+			ocf_log(ctx, log_err, "Core is marked as valid in "
+					"bitmap but not in core metadata!\n");
+			OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
+		}
+
+		if (core_config[core_id].valid && !valid_in_bitmap) {
+			ocf_log(ctx, log_err, "Core is marked as valid in "
+					"core metadata but not in bitmap!\n");
+			OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
+		}
+	}
+
+	ocf_pipeline_next(pipeline);
+}
+
 static void ocf_metadata_load_sb_restore(
 		struct ocf_metadata_context *context)
 {
@@ -282,6 +317,7 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_pipeline_props = {
 				ocf_metadata_load_sb_load_segment_args),
 		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc,
 				ocf_metadata_load_sb_load_segment_args),
+		OCF_PL_STEP(_ocf_metadata_validate_core_config),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
@@ -347,6 +383,7 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_recov_pipeline_props = {
 				ocf_metadata_load_sb_recov_load_segment_args),
 		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc,
 				ocf_metadata_load_sb_recov_load_segment_args),
+		OCF_PL_STEP(_ocf_metadata_validate_core_config),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };

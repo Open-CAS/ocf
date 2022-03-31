@@ -312,7 +312,7 @@ static void _ocf_mngt_close_all_uninitialized_cores(
 	int j, i;
 
 	for (j = cache->conf_meta->core_count, i = 0; j > 0; ++i) {
-		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
+		if (!cache->core[i].added)
 			continue;
 
 		volume = &(cache->core[i].volume);
@@ -326,11 +326,8 @@ static void _ocf_mngt_close_all_uninitialized_cores(
 
 		env_free(cache->core[i].counters);
 		cache->core[i].counters = NULL;
-
-		env_bit_clear(i, cache->conf_meta->valid_core_bitmap);
+		cache->core[i].added = false;
 	}
-
-	cache->conf_meta->core_count = 0;
 }
 
 /**
@@ -350,9 +347,6 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 	ocf_error_t error = -OCF_ERR_START_CACHE_FAIL;
 
 	OCF_ASSERT_PLUGGED(cache);
-
-	/* Count value will be re-calculated on the basis of 'valid' flag */
-	cache->conf_meta->core_count = 0;
 
 	/* Check in metadata which cores were saved in cache metadata */
 	for_each_core_metadata(cache, core, core_id) {
@@ -401,9 +395,7 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 			}
 
 		}
-		env_bit_set(core_id, cache->conf_meta->valid_core_bitmap);
 		core->added = true;
-		cache->conf_meta->core_count++;
 		core->volume.cache = cache;
 
 		if (ocf_mngt_core_init_front_volume(core))
@@ -433,8 +425,8 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 			ocf_core_log(core, log_err,
 					"Size of core volume doesn't match with"
 					" the size stored in cache metadata!");
-			error = -OCF_ERR_CORE_SIZE_MISMATCH;	
-			goto err;	
+			error = -OCF_ERR_CORE_SIZE_MISMATCH;
+			goto err;
 		}
 
 		hd_lines = ocf_bytes_2_lines(cache, length);
@@ -1963,10 +1955,7 @@ static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache, bool attached)
 	int no = cache->conf_meta->core_count;
 
 	/* All exported objects removed, cleaning up rest. */
-	for_each_core_all(cache, core, core_id) {
-		if (!env_bit_test(core_id, cache->conf_meta->valid_core_bitmap))
-			continue;
-
+	for_each_core(cache, core, core_id) {
 		cache_mngt_core_remove_from_cache(core);
 		if (attached)
 			cache_mngt_core_remove_from_cleaning_pol(core);
@@ -1974,7 +1963,6 @@ static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache, bool attached)
 		if (--no == 0)
 			break;
 	}
-	ENV_BUG_ON(cache->conf_meta->core_count != 0);
 }
 
 static void ocf_mngt_cache_stop_remove_cores(ocf_pipeline_t pipeline,
@@ -3000,8 +2988,6 @@ static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
 		struct _ocf_mngt_cache_unplug_context *context,
 		_ocf_mngt_cache_unplug_end_t cmpl, void *priv)
 {
-	ENV_BUG_ON(stop && cache->conf_meta->core_count != 0);
-
 	context->cmpl = cmpl;
 	context->priv = priv;
 	context->cache = cache;
