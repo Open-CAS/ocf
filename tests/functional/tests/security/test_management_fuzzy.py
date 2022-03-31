@@ -91,7 +91,7 @@ def test_neg_attach_cls(pyocf_ctx, cm, cls):
     """
     # Start cache device
     cache_device = RamVolume(S.from_MiB(50))
-    cache = Cache(owner=cache_device.owner, cache_mode=cm, cache_line_size=cls)
+    cache = Cache(owner=pyocf_ctx, cache_mode=cm, cache_line_size=cls)
     cache.start_cache()
 
     # Check whether it is possible to attach cache device with invalid cache line size

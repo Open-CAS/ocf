@@ -128,9 +128,10 @@ def test_neg_offset_unaligned(pyocf_ctx, c_int_randomize):
     """
 
     vol, queue = prepare_cache_and_core(Size.from_MiB(2))
+    vol = vol.get_front_volume()
     data = Data(int(Size.from_KiB(1)))
     if c_int_randomize % 512 != 0:
-        with pytest.raises(Exception, match="Failed to create io!"):
+        with pytest.raises(Exception):
             vol.new_io(queue, c_int_randomize, data.size,
                         IoDir.WRITE, 0, 0)
 
@@ -145,7 +146,7 @@ def test_neg_size_unaligned(pyocf_ctx, c_uint16_randomize):
     vol, queue = prepare_cache_and_core(Size.from_MiB(2))
     data = Data(int(Size.from_B(c_uint16_randomize)))
     if c_uint16_randomize % 512 != 0:
-        with pytest.raises(Exception, match="Failed to create io!"):
+        with pytest.raises(Exception):
             vol.new_io(queue, 0, data.size,
                         IoDir.WRITE, 0, 0)
 
