@@ -118,6 +118,7 @@ void cache_mngt_core_remove_from_meta(ocf_core_t core)
 	core->conf_meta->seq_no = OCF_SEQ_NO_INVALID;
 
 	env_bit_clear(core_id, cache->conf_meta->valid_core_bitmap);
+	cache->conf_meta->core_count--;
 
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 }
@@ -134,8 +135,6 @@ void cache_mngt_core_remove_from_cache(ocf_core_t core)
 
 	if (!core->opened && --cache->ocf_core_inactive_count == 0)
 		env_bit_clear(ocf_cache_state_incomplete, &cache->cache_state);
-
-	cache->conf_meta->core_count--;
 }
 
 void ocf_mngt_cache_put(ocf_cache_t cache)

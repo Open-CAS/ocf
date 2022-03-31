@@ -328,8 +328,6 @@ static void _ocf_mngt_close_all_uninitialized_cores(
 		cache->core[i].counters = NULL;
 		cache->core[i].added = false;
 	}
-
-	cache->conf_meta->core_count = 0;
 }
 
 /**
@@ -349,9 +347,6 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 	ocf_error_t error = -OCF_ERR_START_CACHE_FAIL;
 
 	OCF_ASSERT_PLUGGED(cache);
-
-	/* Count value will be re-calculated on the basis of 'valid' flag */
-	cache->conf_meta->core_count = 0;
 
 	/* Check in metadata which cores were saved in cache metadata */
 	for_each_core_metadata(cache, core, core_id) {
@@ -401,7 +396,6 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 
 		}
 		core->added = true;
-		cache->conf_meta->core_count++;
 		core->volume.cache = cache;
 
 		if (ocf_mngt_core_init_front_volume(core))
@@ -1969,7 +1963,6 @@ static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache, bool attached)
 		if (--no == 0)
 			break;
 	}
-	ENV_BUG_ON(cache->conf_meta->core_count != 0);
 }
 
 static void ocf_mngt_cache_stop_remove_cores(ocf_pipeline_t pipeline,
@@ -2995,8 +2988,6 @@ static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
 		struct _ocf_mngt_cache_unplug_context *context,
 		_ocf_mngt_cache_unplug_end_t cmpl, void *priv)
 {
-	ENV_BUG_ON(stop && cache->conf_meta->core_count != 0);
-
 	context->cmpl = cmpl;
 	context->priv = priv;
 	context->cache = cache;
