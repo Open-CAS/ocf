@@ -405,16 +405,17 @@ class RamVolume(Volume):
         return string_at(self.data_ptr, self.size)
 
 
-class ErrorDevice(RamVolume):
+class ErrorDevice(Volume):
     def __init__(
         self,
-        size,
+        vol,
         error_sectors: set = None,
         error_seq_no: dict = None,
         armed=True,
         uuid=None,
     ):
-        super().__init__(size, uuid)
+        self.vol = vol
+        super().__init__(uuid)
         self.error_sectors = error_sectors
         self.error_seq_no = error_seq_no
         self.armed = armed
@@ -426,7 +427,7 @@ class ErrorDevice(RamVolume):
 
     def do_submit_io(self, io):
         if not self.armed:
-            super().do_submit_io(io)
+            self.vol.do_submit_io(io)
             return
 
         direction = IoDir(io.contents._dir)
@@ -451,7 +452,7 @@ class ErrorDevice(RamVolume):
             io.contents._end(io, -OcfErrorCode.OCF_ERR_IO)
             self.stats["errors"][direction] += 1
         else:
-            super().do_submit_io(io)
+            self.vol.do_submit_io(io)
 
     def arm(self):
         self.armed = True
@@ -463,9 +464,29 @@ class ErrorDevice(RamVolume):
         return self.error
 
     def reset_stats(self):
+        self.vol.reset_stats()
         super().reset_stats()
-        self.stats["errors"] = {IoDir.WRITE: 0, IoDir.READ: 0}
 
+    def get_length(self):
+        return self.vol.get_length()
+
+    def get_max_io_size(self):
+        return self.vol.get_max_io_size()
+
+    def do_submit_flush(self, flush):
+        return self.vol.do_submit_flush(flush)
+
+    def do_submit_discard(self, discard):
+        return self.vol.do_submit_discard(discard)
+
+    def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
+        return self.vol.dump(offset, size, ignore=ignore, **kwargs)
+
+    def md5(self):
+        return self.vol.md5()
+
+    def get_copy(self):
+        return self.vol.get_copy()
 
 lib = OcfLib.getInstance()
 lib.ocf_io_get_priv.restype = POINTER(VolumeIoPriv)
