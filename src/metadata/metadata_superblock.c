@@ -127,7 +127,7 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 
 	if (crc != superblock->checksum[metadata_segment_sb_config]) {
 		ocf_log_invalid_superblock("checksum");
-		return -OCF_ERR_INVAL;
+		return -OCF_ERR_CRC_MISMATCH;
 	}
 
 	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
