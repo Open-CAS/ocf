@@ -22,7 +22,7 @@ class CacheVolume(ExpObjVolume):
 
     def open(self):
         return Volume.open(
-            self.lib.ocf_cache_get_front_volume(self.cache.handle),
+            self.lib.ocf_cache_get_front_volume(self.cache.cache_handle),
             self
         )
 

@@ -49,10 +49,10 @@ class ExpObjVolume(Volume):
         return exp_obj_io
 
     def get_length(self):
-        return Size.from_B(OcfLib.getInstance().ocf_volume_get_length(self.c_vol))
+        return Size.from_B(OcfLib.getInstance().ocf_volume_get_length(self.handle))
 
     def get_max_io_size(self):
-        return Size.from_B(OcfLib.getInstance().ocf_volume_get_max_io_size(self.c_vol))
+        return Size.from_B(OcfLib.getInstance().ocf_volume_get_max_io_size(self.handle))
 
     def do_submit_io(self, io):
         io = self._alloc_io(io)
