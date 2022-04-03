@@ -466,6 +466,7 @@ class ErrorDevice(Volume):
     def reset_stats(self):
         self.vol.reset_stats()
         super().reset_stats()
+        self.stats["errors"] = {IoDir.WRITE: 0, IoDir.READ: 0}
 
     def get_length(self):
         return self.vol.get_length()
