@@ -261,12 +261,12 @@ class Rio:
         self._threads = []
         self.errors = {}
 
-    def run(self, queues=None):
+    def run(self, queues):
         self.run_async(queues)
         self.wait_for_completion()
         return self
 
-    def run_async(self, queues=None):
+    def run_async(self, queues):
         self.clear()
 
         jobs = deepcopy(self.jobs)
@@ -274,8 +274,6 @@ class Rio:
         if not jobs:
             jobs = [self.global_jobspec for _ in range(self.global_jobspec.njobs)]
 
-        if not queues:
-            queues = [self.global_jobspec.target.cache.get_default_queue()]
         queues = cycle(queues)
 
         for job in jobs:
