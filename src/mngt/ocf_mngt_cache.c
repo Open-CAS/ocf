@@ -2267,7 +2267,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_attach_pipeline_propertie
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
 		OCF_PL_STEP(_ocf_mngt_standby_init_structures_attach),
 		OCF_PL_STEP(_ocf_mngt_attach_populate_free),
-		OCF_PL_STEP(_ocf_mngt_load_init_cleaning),
 		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
 		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
 		OCF_PL_STEP(_ocf_mngt_zero_superblock),
