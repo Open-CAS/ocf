@@ -8,16 +8,13 @@ from datetime import timedelta
 
 from pyocf.types.volume import RamVolume
 from pyocf.types.volume_cache import CacheVolume
-from pyocf.types.cache import Cache
+from pyocf.types.cache import Cache, CacheMetadataSegment
 from pyocf.types.queue import Queue
 from pyocf.utils import Size
 from pyocf.types.shared import CacheLineSize
 from pyocf.types.ctx import OcfCtx
 from pyocf.rio import Rio, ReadWrite
-from pyocf.helpers import (
-    get_collision_segment_page_location,
-    get_collision_segment_size,
-)
+from pyocf.helpers import get_metadata_segment_page_location, get_metadata_segment_size
 
 
 @pytest.mark.parametrize("cacheline_size", CacheLineSize)
@@ -71,8 +68,8 @@ def test_test_standby_io_metadata(pyocf_ctx, cacheline_size):
 
     cache.standby_attach(cache_vol)
 
-    start = get_collision_segment_page_location(cache)
-    count = get_collision_segment_size(cache)
+    start = get_metadata_segment_page_location(cache, CacheMetadataSegment.COLLISION)
+    count = get_metadata_segment_size(cache, CacheMetadataSegment.COLLISION)
     io_offset = Size.from_page(start)
     io_size = Size.from_page(count)
 
