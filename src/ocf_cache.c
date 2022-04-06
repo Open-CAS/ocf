@@ -512,7 +512,7 @@ static ctx_data_t *ocf_cache_io_get_data(struct ocf_io *io)
 }
 
 const struct ocf_volume_properties ocf_cache_volume_properties = {
-	.name = "OCF Cache",
+	.name = "OCF_Cache",
 	.io_priv_size = sizeof(struct ocf_cache_volume_io_priv),
 	.volume_priv_size = sizeof(struct ocf_cache_volume),
 	.caps = {

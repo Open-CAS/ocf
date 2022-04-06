@@ -479,7 +479,7 @@ static ctx_data_t *ocf_core_io_get_data(struct ocf_io *io)
 }
 
 const struct ocf_volume_properties ocf_core_volume_properties = {
-	.name = "OCF Core",
+	.name = "OCF_Core",
 	.io_priv_size = 0, /* Not used - custom allocator */
 	.volume_priv_size = sizeof(struct ocf_core_volume),
 	.caps = {
