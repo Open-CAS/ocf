@@ -2190,7 +2190,7 @@ static void _ocf_mngt_standby_init_properties(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_standby_preapre_mempool(ocf_pipeline_t pipeline,
+static void _ocf_mngt_standby_prepare_mempool(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -2267,7 +2267,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_attach_pipeline_propertie
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
 		OCF_PL_STEP(_ocf_mngt_standby_init_structures_attach),
 		OCF_PL_STEP(_ocf_mngt_attach_populate_free),
-		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
+		OCF_PL_STEP(_ocf_mngt_standby_prepare_mempool),
 		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
 		OCF_PL_STEP(_ocf_mngt_zero_superblock),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
@@ -2293,7 +2293,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_load_pipeline_properties 
 		OCF_PL_STEP(_ocf_mngt_load_superblock),
 		OCF_PL_STEP(_ocf_mngt_load_metadata_recovery),
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
-		OCF_PL_STEP(_ocf_mngt_standby_preapre_mempool),
+		OCF_PL_STEP(_ocf_mngt_standby_prepare_mempool),
 		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
 		OCF_PL_STEP(_ocf_mngt_load_rebuild_metadata),
 		OCF_PL_STEP(_ocf_mngt_standby_post_init),
@@ -2626,6 +2626,18 @@ static void ocf_mngt_cache_standby_close_cache_volume(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+static void ocf_mngt_cache_standby_deinit_pio(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_metadata_passive_io_ctx_deinit(cache);
+	ocf_pio_concurrency_deinit(&cache->standby.concurrency);
+
+	ocf_pipeline_next(pipeline);
+}
+
 static void ocf_mngt_cache_standby_deinit_cache_volume(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -2654,6 +2666,7 @@ ocf_mngt_cache_stop_standby_pipeline_properties = {
 		OCF_PL_STEP(ocf_mngt_cache_deinit_metadata),
 		OCF_PL_STEP(ocf_mngt_cache_standby_deinit_cache_volume),
 		OCF_PL_STEP(ocf_mngt_cache_stop_put_io_queues),
+		OCF_PL_STEP(ocf_mngt_cache_standby_deinit_pio),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
