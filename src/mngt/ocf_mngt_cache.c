@@ -2626,6 +2626,18 @@ static void ocf_mngt_cache_standby_close_cache_volume(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+static void ocf_mngt_cache_standby_deinit_pio(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_stop_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_metadata_passive_io_ctx_deinit(cache);
+	ocf_pio_concurrency_deinit(&cache->standby.concurrency);
+
+	ocf_pipeline_next(pipeline);
+}
+
 static void ocf_mngt_cache_standby_deinit_cache_volume(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -2654,6 +2666,7 @@ ocf_mngt_cache_stop_standby_pipeline_properties = {
 		OCF_PL_STEP(ocf_mngt_cache_deinit_metadata),
 		OCF_PL_STEP(ocf_mngt_cache_standby_deinit_cache_volume),
 		OCF_PL_STEP(ocf_mngt_cache_stop_put_io_queues),
+		OCF_PL_STEP(ocf_mngt_cache_standby_deinit_pio),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
