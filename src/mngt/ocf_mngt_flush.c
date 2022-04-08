@@ -664,9 +664,6 @@ void ocf_mngt_cache_flush(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 
-	if (ocf_cache_is_standby(cache))
-		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
-
 	if (ocf_cache_is_standby(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush cache - cache is standby\n");
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
