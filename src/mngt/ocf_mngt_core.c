@@ -63,10 +63,12 @@ static int _ocf_uuid_set(const struct ocf_volume_uuid *uuid,
 	if (result)
 		return result;
 
-	result = env_memset(muuid->data + uuid->size,
-			sizeof(muuid->data) - uuid->size, 0);
-	if (result)
-		return result;
+	if (uuid->size < sizeof(muuid->data)) {
+		result = env_memset(muuid->data + uuid->size,
+				sizeof(muuid->data) - uuid->size, 0);
+		if (result)
+			return result;
+	}
 
 	muuid->size = uuid->size;
 
