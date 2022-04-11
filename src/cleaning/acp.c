@@ -405,7 +405,7 @@ static void ocf_acp_recovery_chunk(struct ocf_acp_recovery_context *context,
 				.chunk[chunk->core_id][chunk->chunk_id];
 	}
 
-	for (bucket_id = 0; bucket_id < ACP_MAX_BUCKETS; bucket_id++) {
+	for (bucket_id = 1; bucket_id < ACP_MAX_BUCKETS; bucket_id++) {
 		bucket = &acp->bucket_info[bucket_id];
 		if (chunk->num_dirty < bucket->threshold)
 			break;
