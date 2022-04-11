@@ -512,13 +512,13 @@ static int ocf_alru_recovery_handle(ocf_parallelize_t parallelize,
 	ocf_part_id_t part_id;
 	ocf_core_id_t core_id;
 	ocf_cache_line_t cline, portion;
-	uint64_t begin, end;
+	uint32_t begin, end;
 	uint32_t step = 0;
 	int i;
 
 	portion = DIV_ROUND_UP((uint64_t)entries, shards_cnt);
 	begin = portion*shard_id;
-	end = OCF_MIN(portion*(shard_id + 1), entries);
+	end = OCF_MIN((uint64_t)portion*(shard_id + 1), entries);
 
 	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		context->shard[shard_id].part[i].head = terminator;
