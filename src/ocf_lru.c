@@ -310,7 +310,7 @@ static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
 
 	/* entire iterator implementation depends on gcc builtins for
 	   bit operations which works on 64 bit integers at most */
-	ENV_BUILD_BUG_ON(OCF_NUM_LRU_LISTS > sizeof(iter->lru_idx) * 8);
+	ENV_BUILD_BUG_ON(sizeof(iter->next_avail_lru) * 8 < OCF_NUM_LRU_LISTS);
 
 	iter->cache = cache;
 	iter->c = ocf_cache_line_concurrency(cache);
