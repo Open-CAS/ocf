@@ -462,6 +462,75 @@ static inline void lru_change_lock(struct ocf_metadata_lock *mdlock,
 	}
 }
 
+/* Get requested cacheline from its lru list. Caller may hold one
+ * lru list lock.
+ * - returned cacheline is write locked
+ * - returned cacheline has the corresponding metadata LRU list write locked
+ * - if different from current LRU lock, previous LRU lock is released
+ * - returned cacheline has the corresponding metadata hash bucket write locked
+ * - cacheline is moved to the head of destination partition lru list before
+ *   being returned.
+ * All this is packed into a single function to lock LRU list once per each
+ * usage.
+ **/
+static inline ocf_cache_line_t lru_req_next_cline(struct ocf_request *req,
+		ocf_cache_t cache, struct ocf_lru_iter *iter,
+		ocf_cache_line_t cline, struct ocf_part *dst_part,
+		ocf_core_id_t *core_id, uint64_t *core_line,
+		ocf_part_id_t *src_part_id, uint32_t *prev_lru)
+{
+	uint32_t curr_lru = OCF_LRU_GET_LIST_INDEX(cline);
+	struct ocf_alock *c = iter->c;
+	struct ocf_part *part;
+	ocf_cache_line_t ret = end_marker;
+	ocf_core_id_t t_core_id;
+	uint64_t t_core_line;
+
+	lru_change_lock(&cache->metadata.lock, curr_lru, prev_lru);
+
+	if (!ocf_cache_line_try_lock_wr(c, cline))
+		goto lru_wr_unlock;
+
+	ocf_metadata_get_core_info(cache, cline, &t_core_id, &t_core_line);
+	if ((t_core_id == ocf_core_get_id(req->core))
+		&& (t_core_line >= req->core_line_first)
+		&& (t_core_line <= req->core_line_last))
+		goto line_unlock_wr;
+
+	if (ocf_metadata_get_lru(cache, cline)->hot)
+		goto line_unlock_wr;
+
+	if (metadata_test_dirty(cache, cline))
+		goto line_unlock_wr;
+
+	*src_part_id = ocf_metadata_get_partition_id(cache, cline);
+	if (*src_part_id != PARTITION_FREELIST) {
+		if (!_lru_trylock_hash(iter, t_core_id, t_core_line))
+			goto line_unlock_wr;
+		*core_id = t_core_id;
+		*core_line = t_core_line;
+		part = &cache->user_parts[*src_part_id].part;
+	} else {
+		part = &cache->free;
+	}
+
+	if (dst_part->id != *src_part_id) {
+		ocf_lru_repart_locked(cache, cline, part, dst_part);
+	} else {
+		ocf_lru_set_hot(cache,
+			lru_get_cline_list(cache, cline), cline);
+	}
+
+	_lru_next_lru(iter);
+	ret = cline;
+
+line_unlock_wr:
+	if (ret == end_marker)
+		ocf_cache_line_unlock_wr(c, cline);
+lru_wr_unlock:
+	return ret;
+}
+
 /* Get next clean cacheline from tail of lru lists. Caller may hold one
  * lru list lock.
  * - returned cacheline is write locked
@@ -706,14 +775,14 @@ uint32_t ocf_lru_req_clines(struct ocf_request *req,
 	struct ocf_alock* alock;
 	struct ocf_lru_iter iter;
 	uint32_t i;
-	ocf_cache_line_t cline;
+	ocf_cache_line_t cline = end_marker;
 	uint64_t core_line;
 	ocf_core_id_t core_id;
 	ocf_cache_t cache = req->cache;
 	unsigned lru_idx;
 	unsigned req_idx = 0;
 	struct ocf_part *dst_part;
-
+	ocf_part_id_t actual_src_part_id;
 	uint32_t prev_lru = OCF_NUM_LRU_LISTS;
 
 	if (cline_no == 0)
@@ -737,15 +806,31 @@ uint32_t ocf_lru_req_clines(struct ocf_request *req,
 	i = 0;
 	while (i < cline_no) {
 		if (src_part->id != PARTITION_FREELIST) {
+			/*
+			 * Check if there is a sequential successor line.
+			 * We know that end_marker > number of cache lines,
+			 * so this is also an end_marker check.
+			 */
+			if (cline < cache->conf_meta->cachelines - 1) {
+				cline = lru_req_next_cline(req, cache, &iter,
+						cline + 1, dst_part, &core_id,
+						&core_line, &actual_src_part_id,
+						&prev_lru);
+				if (cline != end_marker)
+					goto got_cline;
+			}
+			actual_src_part_id = src_part->id;
 			cline = lru_iter_eviction_next(&iter, dst_part, &core_id,
 					&core_line, &prev_lru);
 		} else {
+			actual_src_part_id = src_part->id;
 			cline = lru_iter_free_next(&iter, dst_part, &prev_lru);
 		}
 
 		if (cline == end_marker)
 			break;
-
+got_cline:
+		ENV_BUG_ON(!ocf_cache_line_is_used(iter.c, cline));
 		ENV_BUG_ON(metadata_test_dirty(cache, cline));
 
 		/* TODO: if atomic mode is restored, need to zero metadata
@@ -759,8 +844,9 @@ uint32_t ocf_lru_req_clines(struct ocf_request *req,
 
 		ENV_BUG_ON(req->map[req_idx].status != LOOKUP_MISS);
 
-		if (src_part->id != PARTITION_FREELIST) {
-			ocf_lru_invalidate(cache, cline, core_id, src_part->id);
+		if (actual_src_part_id != PARTITION_FREELIST) {
+			ocf_lru_invalidate(cache, cline, core_id,
+				actual_src_part_id);
 			_lru_unlock_hash(&iter, core_id, core_line);
 		}
 
