@@ -20,6 +20,8 @@
 #include "ocf_request.h"
 #include "engine/engine_common.h"
 
+#define OCF_LRU_MAX_LRU_ELEMENT_IDX 256
+
 static const ocf_cache_line_t end_marker = (ocf_cache_line_t)-1;
 
 /* update list last_hot index. returns pivot element (the one for which hot
@@ -318,6 +320,7 @@ static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
 	/* set iterator value to start_lru - 1 modulo OCF_NUM_LRU_LISTS */
 	iter->lru_idx = (start_lru + OCF_NUM_LRU_LISTS - 1) %
 			OCF_NUM_LRU_LISTS;
+	iter->lru_element_idx = 0;
 	iter->num_avail_lrus = OCF_NUM_LRU_LISTS;
 	iter->next_avail_lru = ((1ULL << OCF_NUM_LRU_LISTS) - 1);
 	iter->clean = clean;
@@ -348,7 +351,7 @@ static inline void lru_iter_eviction_init(struct ocf_lru_iter *iter,
 			req);
 }
 
-static inline uint32_t _lru_next_lru(struct ocf_lru_iter *iter)
+static inline uint32_t _lru_next_lru_list(struct ocf_lru_iter *iter)
 {
 	unsigned increment;
 
@@ -363,6 +366,17 @@ static inline uint32_t _lru_next_lru(struct ocf_lru_iter *iter)
 static inline bool _lru_lru_is_empty(struct ocf_lru_iter *iter)
 {
 	return !(iter->next_avail_lru & (1ULL << (OCF_NUM_LRU_LISTS - 1)));
+}
+
+static inline uint32_t _lru_next_lru(struct ocf_lru_iter *iter)
+{
+	iter->lru_element_idx++;
+	if ((iter->lru_element_idx >= OCF_LRU_MAX_LRU_ELEMENT_IDX)
+			|| _lru_lru_is_empty(iter)) {
+		_lru_next_lru_list(iter);
+		iter->lru_element_idx = 0;
+	}
+	return iter->lru_idx;
 }
 
 static inline void _lru_lru_set_empty(struct ocf_lru_iter *iter)
