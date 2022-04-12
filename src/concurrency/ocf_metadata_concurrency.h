@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
  * Copyright(c) 2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "../ocf_cache_priv.h"
@@ -72,19 +73,19 @@ static inline void ocf_metadata_lru_wr_unlock_all(
 
 #define OCF_METADATA_LRU_WR_LOCK(cline) \
 		ocf_metadata_lru_wr_lock(&cache->metadata.lock, \
-				cline % OCF_NUM_LRU_LISTS)
+				OCF_LRU_GET_LIST_INDEX(cline))
 
 #define OCF_METADATA_LRU_WR_UNLOCK(cline) \
 		ocf_metadata_lru_wr_unlock(&cache->metadata.lock, \
-				cline % OCF_NUM_LRU_LISTS)
+				OCF_LRU_GET_LIST_INDEX(cline))
 
 #define OCF_METADATA_LRU_RD_LOCK(cline) \
 		ocf_metadata_lru_rd_lock(&cache->metadata.lock, \
-				cline % OCF_NUM_LRU_LISTS)
+				OCF_LRU_GET_LIST_INDEX(cline))
 
 #define OCF_METADATA_LRU_RD_UNLOCK(cline) \
 		ocf_metadata_lru_rd_unlock(&cache->metadata.lock, \
-				cline % OCF_NUM_LRU_LISTS)
+				OCF_LRU_GET_LIST_INDEX(cline))
 
 
 #define OCF_METADATA_LRU_WR_LOCK_ALL() \

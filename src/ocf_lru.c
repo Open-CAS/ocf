@@ -240,7 +240,7 @@ struct ocf_lru_list *ocf_lru_get_list(struct ocf_part *part,
 static inline struct ocf_lru_list *lru_get_cline_list(ocf_cache_t cache,
 		ocf_cache_line_t cline)
 {
-	uint32_t lru_list = (cline % OCF_NUM_LRU_LISTS);
+	uint32_t lru_list = OCF_LRU_GET_LIST_INDEX(cline);
 	ocf_part_id_t part_id;
 	struct ocf_part *part;
 
@@ -270,7 +270,7 @@ static inline void ocf_lru_move(ocf_cache_t cache, ocf_cache_line_t cline,
 static void ocf_lru_repart_locked(ocf_cache_t cache, ocf_cache_line_t cline,
 		struct ocf_part *src_part, struct ocf_part *dst_part)
 {
-	uint32_t lru_list = (cline % OCF_NUM_LRU_LISTS);
+	uint32_t lru_list = OCF_LRU_GET_LIST_INDEX(cline);
 	struct ocf_lru_list *src_list, *dst_list;
 	bool clean;
 
@@ -762,7 +762,7 @@ uint32_t ocf_lru_req_clines(struct ocf_request *req,
 /* the caller must hold the metadata lock */
 void ocf_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
-	const uint32_t lru_list = (cline % OCF_NUM_LRU_LISTS);
+	const uint32_t lru_list = OCF_LRU_GET_LIST_INDEX(cline);
 	struct ocf_lru_meta *node;
 	struct ocf_lru_list *list;
 	ocf_part_id_t part_id;
@@ -829,7 +829,7 @@ void ocf_lru_init(ocf_cache_t cache, struct ocf_part *part)
 void ocf_lru_clean_cline(ocf_cache_t cache, struct ocf_part *part,
 		ocf_cache_line_t cline)
 {
-	uint32_t lru_list = (cline % OCF_NUM_LRU_LISTS);
+	uint32_t lru_list = OCF_LRU_GET_LIST_INDEX(cline);
 	struct ocf_lru_list *clean_list;
 	struct ocf_lru_list *dirty_list;
 
@@ -845,7 +845,7 @@ void ocf_lru_clean_cline(ocf_cache_t cache, struct ocf_part *part,
 void ocf_lru_dirty_cline(ocf_cache_t cache, struct ocf_part *part,
 		ocf_cache_line_t cline)
 {
-	uint32_t lru_list = (cline % OCF_NUM_LRU_LISTS);
+	uint32_t lru_list = OCF_LRU_GET_LIST_INDEX(cline);
 	struct ocf_lru_list *clean_list;
 	struct ocf_lru_list *dirty_list;
 
@@ -1049,7 +1049,7 @@ uint32_t ocf_lru_num_free(ocf_cache_t cache)
 
 void ocf_lru_add_free(ocf_cache_t cache, ocf_cache_line_t cline)
 {
-	uint32_t lru_list = (cline % OCF_NUM_LRU_LISTS);
+	uint32_t lru_list = OCF_LRU_GET_LIST_INDEX(cline);
 	struct ocf_lru_list *list;
 
 	list = ocf_lru_get_list(&cache->free, lru_list, true);
