@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -347,7 +348,6 @@ static inline void lru_iter_eviction_init(struct ocf_lru_iter *iter,
 			req);
 }
 
-
 static inline uint32_t _lru_next_lru(struct ocf_lru_iter *iter)
 {
 	unsigned increment;
@@ -359,8 +359,6 @@ static inline uint32_t _lru_next_lru(struct ocf_lru_iter *iter)
 
 	return iter->lru_idx;
 }
-
-
 
 static inline bool _lru_lru_is_empty(struct ocf_lru_iter *iter)
 {
@@ -404,7 +402,7 @@ static inline void _lru_unlock_hash(struct ocf_lru_iter *iter,
 			core_id, core_line);
 }
 
-static inline bool _lru_iter_evition_lock(struct ocf_lru_iter *iter,
+static inline bool _lru_iter_eviction_lock(struct ocf_lru_iter *iter,
 		ocf_cache_line_t cache_line,
 		ocf_core_id_t *core_id, uint64_t *core_line)
 
@@ -453,7 +451,7 @@ static inline ocf_cache_line_t lru_iter_eviction_next(struct ocf_lru_iter *iter,
 		uint64_t *core_line)
 {
 	uint32_t curr_lru;
-	ocf_cache_line_t  cline;
+	ocf_cache_line_t cline;
 	ocf_cache_t cache = iter->cache;
 	struct ocf_part *part = iter->part;
 	struct ocf_lru_list *list;
@@ -466,7 +464,7 @@ static inline ocf_cache_line_t lru_iter_eviction_next(struct ocf_lru_iter *iter,
 		list = ocf_lru_get_list(part, curr_lru, iter->clean);
 
 		cline = list->tail;
-		while (cline != end_marker && !_lru_iter_evition_lock(iter,
+		while (cline != end_marker && !_lru_iter_eviction_lock(iter,
 				cline, core_id, core_line)) {
 			cline = ocf_metadata_get_lru(iter->cache, cline)->prev;
 		}
@@ -755,7 +753,7 @@ uint32_t ocf_lru_req_clines(struct ocf_request *req,
 		++i;
 		/* Number of cachelines to evict have to match space in the
 		 * request */
-		ENV_BUG_ON(req_idx == req->core_line_count && i != cline_no );
+		ENV_BUG_ON(req_idx == req->core_line_count && i != cline_no);
 	}
 
 	return i;
