@@ -41,10 +41,12 @@ int ocf_metadata_init(struct ocf_cache *cache,
  * @param cache - Cache instance
  * @param device_size - Device size in bytes
  * @param cache_line_size Cache line size
+ * @param cleaner_disabled Cleaner is disabled
  * @return 0 - Operation success otherwise failure
  */
 int ocf_metadata_init_variable_size(struct ocf_cache *cache,
-		uint64_t device_size, ocf_cache_line_size_t cache_line_size);
+		uint64_t device_size, ocf_cache_line_size_t line_size,
+		bool cleaner_disabled);
 
 /**
  * @brief Initialize collision table
@@ -201,6 +203,7 @@ struct ocf_metadata_load_properties {
 	ocf_cache_mode_t cache_mode;
 	ocf_cache_line_size_t line_size;
 	char *cache_name;
+	bool cleaner_disabled;
 };
 
 typedef void (*ocf_metadata_load_properties_end_t)(void *priv, int error,

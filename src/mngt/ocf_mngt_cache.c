@@ -162,6 +162,9 @@ struct ocf_cache_attach_context {
 
 		uint8_t dirty_flushed;
 		/*!< is dirty data fully flushed */
+
+		bool cleaner_disabled;
+		/*!< is cleaner disabled */
 	} metadata;
 
 	struct {
@@ -1117,6 +1120,7 @@ static void _ocf_mngt_load_read_properties_end(void *priv, int error,
 	context->metadata.shutdown_status = properties->shutdown_status;
 	context->metadata.dirty_flushed = properties->dirty_flushed;
 	context->metadata.line_size = properties->line_size;
+	context->metadata.cleaner_disabled = properties->cleaner_disabled;
 	cache->conf_meta->cache_mode = properties->cache_mode;
 
 	ocf_pipeline_next(context->pipeline);
@@ -1134,6 +1138,7 @@ static void _ocf_mngt_init_properties(ocf_pipeline_t pipeline,
 	context->metadata.dirty_flushed = DIRTY_FLUSHED;
 	context->metadata.line_size = context->cfg.cache_line_size ?:
 			cache->metadata.line_size;
+	context->metadata.cleaner_disabled = context->cfg.disable_cleaner;
 
 	ocf_pipeline_next(pipeline);
 }
@@ -1172,7 +1177,8 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 	 * Initialize variable size metadata segments
 	 */
 	ret = ocf_metadata_init_variable_size(cache, context->volume_size,
-			context->metadata.line_size);
+			context->metadata.line_size,
+			context->metadata.cleaner_disabled);
 	if (ret)
 		OCF_PL_FINISH_RET(pipeline, ret);
 
@@ -1226,6 +1232,9 @@ static void _ocf_mngt_attach_init_services(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_error_t result;
+
+	if (context->metadata.cleaner_disabled)
+		__set_cleaning_policy(cache, ocf_cleaning_nop);
 
 	result = __init_cleaning_policy(cache);
 	if (result) {
@@ -2186,6 +2195,7 @@ static void _ocf_mngt_standby_init_properties(ocf_pipeline_t pipeline,
 	context->metadata.dirty_flushed = DIRTY_FLUSHED;
 	context->metadata.line_size = context->cfg.cache_line_size ?:
 			cache->metadata.line_size;
+	context->metadata.cleaner_disabled = context->cfg.disable_cleaner;
 
 	ocf_pipeline_next(pipeline);
 }

@@ -110,7 +110,10 @@ static void ocf_metadata_store_segment(ocf_pipeline_t pipeline,
 int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 		struct ocf_superblock_config *superblock)
 {
+	const char *segment_name;
 	uint32_t crc;
+
+	segment_name = ocf_metadata_segment_names[metadata_segment_sb_config];
 
 	if (superblock->magic_number != CACHE_MAGIC_NUMBER) {
 		ocf_log(ctx, log_info, "Cannot detect pre-existing metadata\n");
@@ -175,6 +178,14 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 	if (superblock->cleaning_policy_type < 0 ||
 			superblock->cleaning_policy_type >= ocf_cleaning_max) {
 		ocf_log_invalid_superblock("cleaning policy");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (superblock->cleaner_disabled &&
+			superblock->cleaning_policy_type != ocf_cleaning_nop) {
+		ocf_log(ctx, log_err, "Loading %s: cleaner is disabled, but "
+				"cleaning policy is not set to nop!\n",
+				segment_name);
 		return -OCF_ERR_INVAL;
 	}
 
