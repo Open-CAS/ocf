@@ -76,6 +76,7 @@ class CacheAttachConfig(Structure):
         ("_open_cores", c_bool),
         ("_force", c_bool),
         ("_discard_on_start", c_bool),
+        ("_disable_cleaner", c_bool)
     ]
 
 
