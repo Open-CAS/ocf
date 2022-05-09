@@ -46,3 +46,12 @@ def pyocf_ctx_log_buffer():
     yield logger
     c.exit()
     gc.collect()
+
+
+def pytest_addoption(parser):
+    parser.addoption("--debug-log", action="store_true", help="enable debug logs")
+
+
+@pytest.fixture
+def debug_log(request):
+    return request.config.getoption("--debug-log")
