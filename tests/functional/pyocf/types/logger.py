@@ -22,6 +22,7 @@ from ..ocf import OcfLib
 
 logging.basicConfig(level=logging.DEBUG, handlers=[logging.NullHandler()])
 
+
 class LogLevel(IntEnum):
     EMERG = 0
     ALERT = 1
@@ -123,9 +124,7 @@ class DefaultLogger(Logger):
 
         self.logger = logging.getLogger(name)
         ch = logging.StreamHandler()
-        fmt = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        fmt = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         ch.setFormatter(fmt)
         ch.setLevel(LevelMapping[level])
         self.logger.addHandler(ch)
@@ -140,9 +139,7 @@ class DefaultLogger(Logger):
 class FileLogger(Logger):
     def __init__(self, f, console_level=None):
         super().__init__()
-        fmt = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        fmt = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
         fh = logging.FileHandler(f)
         fh.setLevel(logging.DEBUG)

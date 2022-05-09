@@ -53,9 +53,7 @@ class Io(Structure):
     def from_pointer(cls, ref):
         c = cls.from_address(ref)
         cls._instances_[ref] = c
-        OcfLib.getInstance().ocf_io_set_cmpl_wrapper(
-            byref(c), None, None, c.c_end
-        )
+        OcfLib.getInstance().ocf_io_set_cmpl_wrapper(byref(c), None, None, c.c_end)
         return c
 
     @classmethod

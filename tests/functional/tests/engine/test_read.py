@@ -61,11 +61,7 @@ def sector_to_region(sector, region_start):
 
 def region_end(region_start, region_no, total_sectors):
     num_regions = len(region_start)
-    return (
-        region_start[region_no + 1] - 1
-        if region_no < num_regions - 1
-        else total_sectors - 1
-    )
+    return region_start[region_no + 1] - 1 if region_no < num_regions - 1 else total_sectors - 1
 
 
 class SectorStatus(IntEnum):
@@ -281,9 +277,7 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
 
     # add randomly generated sector statuses
     for _ in range(ITRATION_COUNT - len(region_statuses)):
-        region_statuses.append(
-            [random.choice(list(SectorStatus)) for _ in range(num_regions)]
-        )
+        region_statuses.append([random.choice(list(SectorStatus)) for _ in range(num_regions)])
 
     # iterate over generated status combinations and perform the test
     for region_state in region_statuses:
@@ -302,9 +296,7 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
         # randomize cacheline insertion order to exercise different
         # paths with regard to cache I/O physical addresses continuousness
         random.shuffle(insert_order)
-        sectors = [
-            insert_order[i // CLS] * CLS + (i % CLS) for i in range(SECTOR_COUNT)
-        ]
+        sectors = [insert_order[i // CLS] * CLS + (i % CLS) for i in range(SECTOR_COUNT)]
 
         # insert clean sectors - iterate over cachelines in @insert_order order
         cache.change_cache_mode(cache_mode=CacheMode.WT)

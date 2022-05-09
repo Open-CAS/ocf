@@ -331,9 +331,7 @@ def test_failover_passive_first(pyocf_2_ctx):
     cache1_cache_vol = ReplicatedVolume(prim_cache_backend_vol, cache2_exp_obj_vol)
 
     # active cache
-    cache1 = Cache.start_on_device(
-        cache1_cache_vol, ctx1, cache_mode=mode, cache_line_size=cls
-    )
+    cache1 = Cache.start_on_device(cache1_cache_vol, ctx1, cache_mode=mode, cache_line_size=cls)
     core = Core(core_backend_vol)
     cache1.add_core(core)
     core_vol = CoreVolume(core, open=True)
@@ -550,9 +548,7 @@ def test_failover_passive_first(pyocf_2_ctx):
     cache1_cache_vol = ReplicatedVolume(prim_cache_backend_vol, cache2_exp_obj_vol)
 
     # active cache
-    cache1 = Cache.start_on_device(
-        cache1_cache_vol, ctx1, cache_mode=mode, cache_line_size=cls
-    )
+    cache1 = Cache.start_on_device(cache1_cache_vol, ctx1, cache_mode=mode, cache_line_size=cls)
     core = Core(core_backend_vol)
     cache1.add_core(core)
     core_vol = CoreVolume(core, open=True)

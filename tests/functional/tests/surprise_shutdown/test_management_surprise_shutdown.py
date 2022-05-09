@@ -101,9 +101,7 @@ def mngmt_op_surprise_shutdown_test(
                 pyocf_2_ctx, cache_backend_vol, error_io_seq_no
             )
         else:
-            cache, err_vol = prepare_normal(
-                pyocf_2_ctx, cache_backend_vol, error_io_seq_no
-            )
+            cache, err_vol = prepare_normal(pyocf_2_ctx, cache_backend_vol, error_io_seq_no)
 
         if prepare_func:
             prepare_func(cache)
@@ -125,10 +123,7 @@ def mngmt_op_surprise_shutdown_test(
         error_triggered = err_vol.error_triggered()
         assert error_triggered == (status != 0)
         if error_triggered:
-            assert (
-                status == OcfErrorCode.OCF_ERR_WRITE_CACHE
-                or status == OcfErrorCode.OCF_ERR_IO
-            )
+            assert status == OcfErrorCode.OCF_ERR_WRITE_CACHE or status == OcfErrorCode.OCF_ERR_IO
 
         # stop cache with error injection still on
         with pytest.raises(OcfError) as ex:
@@ -174,9 +169,7 @@ def test_surprise_shutdown_add_core(pyocf_2_ctx, failover):
     def check_func(cache, error_triggered):
         check_core(cache, error_triggered)
 
-    mngmt_op_surprise_shutdown_test(
-        pyocf_2_ctx, failover, tested_func, None, check_func
-    )
+    mngmt_op_surprise_shutdown_test(pyocf_2_ctx, failover, tested_func, None, check_func)
 
 
 # power failure during core removal
@@ -197,9 +190,7 @@ def test_surprise_shutdown_remove_core(pyocf_2_ctx, failover):
         stats = cache.get_stats()
         assert stats["conf"]["core_count"] == (1 if error_triggered else 0)
 
-    mngmt_op_surprise_shutdown_test(
-        pyocf_2_ctx, failover, tested_func, prepare_func, check_func
-    )
+    mngmt_op_surprise_shutdown_test(pyocf_2_ctx, failover, tested_func, prepare_func, check_func)
 
 
 @pytest.mark.security
@@ -228,9 +219,7 @@ def test_surprise_shutdown_remove_core_with_data(pyocf_2_ctx, failover):
             vol = CoreVolume(core, open=True)
             assert ocf_read(vol, cache.get_default_queue(), io_offset) == 0xAA
 
-    mngmt_op_surprise_shutdown_test(
-        pyocf_2_ctx, failover, tested_func, prepare_func, check_func
-    )
+    mngmt_op_surprise_shutdown_test(pyocf_2_ctx, failover, tested_func, prepare_func, check_func)
 
 
 # power failure during core add after previous core removed
@@ -266,9 +255,7 @@ def test_surprise_shutdown_swap_core(pyocf_2_ctx, failover):
             core2 = cache.get_core_by_name("core2")
             assert core2.device.uuid == "dev2"
 
-    mngmt_op_surprise_shutdown_test(
-        pyocf_2_ctx, failover, tested_func, prepare, check_func
-    )
+    mngmt_op_surprise_shutdown_test(pyocf_2_ctx, failover, tested_func, prepare, check_func)
 
 
 # power failure during core add after previous core removed
@@ -286,10 +273,7 @@ def test_surprise_shutdown_swap_core_with_data(pyocf_2_ctx, failover):
         vol = CoreVolume(core1, open=True)
         cache.save()
         ocf_write(
-            vol,
-            cache.get_default_queue(),
-            0xAA,
-            mngmt_op_surprise_shutdown_test_io_offset,
+            vol, cache.get_default_queue(), 0xAA, mngmt_op_surprise_shutdown_test_io_offset,
         )
         cache.remove_core(core1)
         cache.save()
@@ -316,16 +300,12 @@ def test_surprise_shutdown_swap_core_with_data(pyocf_2_ctx, failover):
             assert core2.device.uuid == "dev2"
             assert (
                 ocf_read(
-                    vol2,
-                    cache.get_default_queue(),
-                    mngmt_op_surprise_shutdown_test_io_offset,
+                    vol2, cache.get_default_queue(), mngmt_op_surprise_shutdown_test_io_offset,
                 )
                 == VOLUME_POISON
             )
 
-    mngmt_op_surprise_shutdown_test(
-        pyocf_2_ctx, failover, tested_func, prepare, check_func
-    )
+    mngmt_op_surprise_shutdown_test(pyocf_2_ctx, failover, tested_func, prepare, check_func)
 
 
 # make sure there are no crashes when cache start is interrupted
@@ -350,9 +330,7 @@ def test_surprise_shutdown_start_cache(pyocf_2_ctx, failover):
             cache2.start_cache()
             cache2.standby_attach(ramdisk)
             cache2_exp_obj_vol = CacheVolume(cache2, open=True)
-            err_device = ErrorDevice(
-                cache2_exp_obj_vol, error_seq_no=error_io, armed=True
-            )
+            err_device = ErrorDevice(cache2_exp_obj_vol, error_seq_no=error_io, armed=True)
         else:
             err_device = ErrorDevice(ramdisk, error_seq_no=error_io, armed=True)
 
@@ -415,9 +393,7 @@ def test_surprise_shutdown_stop_cache(pyocf_2_ctx, failover):
         ramdisk = RamVolume(mngmt_op_surprise_shutdown_test_cache_size)
 
         if failover:
-            cache, cache2, device = prepare_failover(
-                pyocf_2_ctx, ramdisk, error_io_seq_no
-            )
+            cache, cache2, device = prepare_failover(pyocf_2_ctx, ramdisk, error_io_seq_no)
         else:
             cache, device = prepare_normal(pyocf_2_ctx, ramdisk, error_io_seq_no)
 
@@ -486,9 +462,7 @@ def test_surprise_shutdown_cache_reinit(pyocf_2_ctx, failover):
         ramdisk = RamVolume(mngmt_op_surprise_shutdown_test_cache_size)
 
         if failover:
-            cache, cache2, device = prepare_failover(
-                pyocf_2_ctx, ramdisk, error_io_seq_no
-            )
+            cache, cache2, device = prepare_failover(pyocf_2_ctx, ramdisk, error_io_seq_no)
         else:
             cache, device = prepare_normal(pyocf_2_ctx, ramdisk, error_io_seq_no)
 
@@ -553,9 +527,7 @@ def test_surprise_shutdown_cache_reinit(pyocf_2_ctx, failover):
                 assert stats["usage"]["occupancy"]["value"] == 0
                 cache.add_core(core)
                 vol = CoreVolume(core, open=True)
-                assert (
-                    ocf_read(vol, cache.get_default_queue(), io_offset) == VOLUME_POISON
-                )
+                assert ocf_read(vol, cache.get_default_queue(), io_offset) == VOLUME_POISON
 
             cache.stop()
             cache = None
@@ -591,9 +563,7 @@ def test_surprise_shutdown_change_cache_mode(pyocf_2_ctx, failover):
 @pytest.mark.parametrize("failover", [False, True])
 @pytest.mark.parametrize("start_clp", CleaningPolicy)
 @pytest.mark.parametrize("end_clp", CleaningPolicy)
-def test_surprise_shutdown_set_cleaning_policy(
-    pyocf_2_ctx, failover, start_clp, end_clp
-):
+def test_surprise_shutdown_set_cleaning_policy(pyocf_2_ctx, failover, start_clp, end_clp):
     core_device = RamVolume(S.from_MiB(10))
     core = Core(device=core_device)
 
@@ -644,9 +614,7 @@ def test_surprise_shutdown_set_seq_cut_off_promotion(pyocf_2_ctx, failover):
 @pytest.mark.parametrize("failover", [False, True])
 def test_surprise_shutdown_set_seq_cut_off_threshold(pyocf_2_ctx, failover):
     _test_surprise_shutdown_mngmt_generic(
-        pyocf_2_ctx,
-        failover,
-        lambda cache, core: cache.set_seq_cut_off_threshold(S.from_MiB(2).B),
+        pyocf_2_ctx, failover, lambda cache, core: cache.set_seq_cut_off_threshold(S.from_MiB(2).B),
     )
 
 
@@ -706,9 +674,7 @@ def test_surprise_shutdown_set_cleaning_policy_param(pyocf_2_ctx, failover, clp)
 @pytest.mark.parametrize("failover", [False, True])
 @pytest.mark.parametrize("start_pp", PromotionPolicy)
 @pytest.mark.parametrize("end_pp", PromotionPolicy)
-def test_surprise_shutdown_set_promotion_policy(
-    pyocf_2_ctx, failover, start_pp, end_pp
-):
+def test_surprise_shutdown_set_promotion_policy(pyocf_2_ctx, failover, start_pp, end_pp):
     core_device = RamVolume(S.from_MiB(10))
     core = Core(device=core_device)
 
@@ -801,9 +767,7 @@ def test_surprise_shutdown_set_io_class_config(pyocf_2_ctx, failover):
             ioclasses_info._config[i]._priority = desc[i]["_priority"]
             ioclasses_info._config[i]._cache_mode = desc[i]["_cache_mode"]
             ioclasses_info._config[i]._max_size = desc[i]["_max_size"]
-        OcfLib.getInstance().ocf_mngt_cache_io_classes_configure(
-            cache, byref(ioclasses_info)
-        )
+        OcfLib.getInstance().ocf_mngt_cache_io_classes_configure(cache, byref(ioclasses_info))
 
     def prepare(cache):
         cache.add_core(core)
@@ -1041,9 +1005,7 @@ def test_surprise_shutdown_standby_init_force_1(pyocf_ctx):
                 core = Core(device=core_device)
                 cache.add_core(core)
                 vol = CoreVolume(core, open=True)
-                assert (
-                    ocf_read(vol, cache.get_default_queue(), io_offset) == VOLUME_POISON
-                )
+                assert ocf_read(vol, cache.get_default_queue(), io_offset) == VOLUME_POISON
 
         cache.stop()
 
@@ -1128,9 +1090,7 @@ def test_surprise_shutdown_standby_init_force_2(pyocf_ctx):
                 core = Core(device=core_device)
                 cache.add_core(core)
                 vol = CoreVolume(core, open=True)
-                assert (
-                    ocf_read(vol, cache.get_default_queue(), io_offset) == VOLUME_POISON
-                )
+                assert ocf_read(vol, cache.get_default_queue(), io_offset) == VOLUME_POISON
 
         if cache:
             cache.stop()
