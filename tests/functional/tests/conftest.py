@@ -105,3 +105,12 @@ def pyocf_2_ctx_log_buffer(request):
         return
     if len(Volume._instances_) > 0:
         warnings.warn("Not all Volumes have been closed!!!")
+
+
+def pytest_addoption(parser):
+    parser.addoption("--debug-log", action="store_true", help="enable debug logs")
+
+
+@pytest.fixture
+def debug_log(request):
+    return request.config.getoption("--debug-log")
