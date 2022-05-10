@@ -155,7 +155,10 @@ typedef enum {
 	/** Operation only allowed in standby mode **/
 	OCF_ERR_CACHE_NOT_STANDBY,
 
-	OCF_ERR_MAX = OCF_ERR_CACHE_NOT_STANDBY,
+	/** Operation not allowed when cleaner is disabled **/
+	OCF_ERR_CLEANER_DISABLED,
+
+	OCF_ERR_MAX = OCF_ERR_CLEANER_DISABLED,
 
 } ocf_error_t;
 

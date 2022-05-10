@@ -424,6 +424,21 @@ struct ocf_mngt_cache_attach_config {
 	 * @brief If set, cache device will be discarded on cache start
 	 */
 	bool discard_on_start;
+
+	/**
+	 * @brief If set, asynchronous cleaning will be disabled
+	 *
+	 * Has similar effect to setting cleaning policy to NOP, but
+	 * additionally prevents allocating "cleaning" metadata section,
+	 * which can reduce memory footprint by up to 20%.
+	 *
+	 * When this option is selected, any attempt to change the cleaning
+	 * policy will fail.
+	 *
+	 * @note This option is meaningful only with ocf_mngt_cache_attach().
+	 *       When used with ocf_mngt_cache_load() it's ignored.
+	 */
+	bool disable_cleaner;
 };
 
 /**
@@ -441,6 +456,7 @@ static inline void ocf_mngt_cache_attach_config_set_default(
 	cfg->open_cores = true;
 	cfg->force = false;
 	cfg->discard_on_start = true;
+	cfg->disable_cleaner = false;
 	cfg->device.perform_test = true;
 	cfg->device.volume_params = NULL;
 }

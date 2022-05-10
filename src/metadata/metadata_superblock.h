@@ -45,6 +45,7 @@ struct ocf_superblock_config {
 	unsigned long valid_core_bitmap[(OCF_CORE_MAX /
 			(sizeof(unsigned long) * 8)) + 1];
 
+	bool cleaner_disabled;
 	ocf_cleaning_t cleaning_policy_type;
 	struct cleaning_policy_config cleaning[CLEANING_POLICY_TYPE_MAX];
 

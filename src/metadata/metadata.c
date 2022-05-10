@@ -638,7 +638,8 @@ static void ocf_metadata_flush_unlock_collision_page(
  * Initialize hash metadata interface
  */
 int ocf_metadata_init_variable_size(struct ocf_cache *cache,
-		uint64_t device_size, ocf_cache_line_size_t line_size)
+		uint64_t device_size, ocf_cache_line_size_t line_size,
+		bool cleaner_disabled)
 {
 	int result = 0;
 	uint32_t i = 0;
@@ -688,6 +689,12 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 			raw->raw_type = metadata_raw_type_atomic;
 		}
 
+		if (i == metadata_segment_cleaning && cleaner_disabled) {
+			raw->entry_size = 0;
+			raw->entries_in_page = 1;
+			continue;
+		}
+
 		/* Entry size configuration */
 		raw->entry_size
 			= ocf_metadata_get_element_size(i, line_size);
@@ -715,6 +722,9 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	 */
 	for (i = metadata_segment_variable_size_start;
 			i < metadata_segment_max; i++) {
+		if (i == metadata_segment_cleaning && cleaner_disabled)
+			continue;
+
 		if (i == metadata_segment_collision) {
 			lock_page =
 				ocf_metadata_flush_lock_collision_page;
@@ -779,6 +789,7 @@ finalize:
 
 	cache->conf_meta->cachelines = ctrl->cachelines;
 	cache->conf_meta->line_size = line_size;
+	cache->conf_meta->cleaner_disabled = cleaner_disabled;
 
 	ocf_metadata_raw_info(cache, ctrl);
 
@@ -1620,6 +1631,7 @@ static void ocf_metadata_load_properties_cmpl(
 	properties.shutdown_status = superblock->clean_shutdown;
 	properties.dirty_flushed = superblock->dirty_flushed;
 	properties.cache_name = superblock->name;
+	properties.cleaner_disabled = superblock->cleaner_disabled;
 
 	OCF_CMPL_RET(priv, 0, &properties);
 }
