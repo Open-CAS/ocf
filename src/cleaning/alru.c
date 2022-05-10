@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -516,7 +516,7 @@ static int ocf_alru_recovery_handle(ocf_parallelize_t parallelize,
 	uint32_t step = 0;
 	int i;
 
-	portion = DIV_ROUND_UP((uint64_t)entries, shards_cnt);
+	portion = OCF_DIV_ROUND_UP((uint64_t)entries, shards_cnt);
 	begin = portion*shard_id;
 	end = OCF_MIN((uint64_t)portion*(shard_id + 1), entries);
 

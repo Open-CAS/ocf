@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -363,7 +363,7 @@ static int ocf_acp_recovery_handle(ocf_parallelize_t parallelize,
 	ocf_core_id_t core_id;
 	uint32_t step = 0;
 
-	portion = DIV_ROUND_UP((uint64_t)entries, shards_cnt);
+	portion = OCF_DIV_ROUND_UP((uint64_t)entries, shards_cnt);
 	begin = portion*shard_id;
 	end = OCF_MIN(portion*(shard_id + 1), entries);
 
