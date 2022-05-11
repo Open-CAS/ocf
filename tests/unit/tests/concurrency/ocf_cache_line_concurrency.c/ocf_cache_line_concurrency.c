@@ -2,6 +2,7 @@
  * Copyright(c) 2021-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
+
 /*
  * <tested_file_path>src/concurrency/ocf_cache_line_concurrency.c</tested_file_path>
  * <tested_function>ocf_req_async_lock_rd</tested_function>

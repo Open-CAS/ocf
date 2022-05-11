@@ -1,4 +1,9 @@
 /*
+ * Copyright(c) 2019-2022 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * <tested_file_path>src/utils/utils_refcnt.c</tested_file_path>
  * <tested_function>ocf_refcnt_register_zero_cb</tested_function>
  * <functions_to_leave>
