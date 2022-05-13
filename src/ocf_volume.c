@@ -138,6 +138,7 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 err:
 	ocf_refcnt_unfreeze(&volume->refcnt);
 	env_free(volume->priv);
+	volume->priv = NULL;
 	if (volume->uuid_copy && volume->uuid.data)
 		env_vfree(volume->uuid.data);
 	volume->uuid.data = NULL;
@@ -150,6 +151,7 @@ void ocf_volume_deinit(ocf_volume_t volume)
 	OCF_CHECK_NULL(volume);
 
 	env_free(volume->priv);
+	volume->priv = NULL;
 
 	if (volume->uuid_copy && volume->uuid.data) {
 		env_vfree(volume->uuid.data);
