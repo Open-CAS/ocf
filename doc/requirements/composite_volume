@@ -1,0 +1,172 @@
+---
+group: composite_volume
+---
+
+The OCF composite volume provides functionality of composing mutiple OCF volume
+instances into one bigger volume. The component volumes are linearly mapped into
+address space of the composite volume (unlike RAID0, which uses interleaved
+mapping a.k.a. striping).
+
+     +-----------------------+---------------+-----------------------------+
+     |        volume A       |    volume B   |           volume C          |
+     *-----------------------|---------------|-----------------------------+
+ LBA | 0 | 1 | 2 | 3 | 4 | 5 | 0 | 1 | 2 | 3 |  0 |  1 |  2 |  3 |  4 |  5 |
+     +---------------------------------------------------------------------+
+     |                          composite volume                           |
+     +---------------------------------------------------------------------+
+ LBA | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
+     +---------------------------------------------------------------------+
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Creation of composite volume instance
+id: creation
+---
+
+It shall be possible to create an instance of a composite volume using a
+constructor function.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Destruction of composite volume instance
+id: destruction
+---
+
+It shall be possible to destroy an instance of a composite volume using
+standard ocf_volume API.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Adding new component volume
+id: adding_component_volume
+---
+
+If shall be possible to add new component volume to the composite volume using
+dedicated function.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Instatiation of component volumes
+id: instatiation_component_volumes
+---
+
+Adding component volume to composite volume shall automatically instatiate
+component volume based on type, uuid and volume_params parameters.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Destrution of component volumes
+id: destruction_component_volumes
+---
+
+Component volume instances shall be destroyed on composite volume destruction.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Adding component volumes of different types
+id: component_volume_types
+---
+
+It shall be possible to add component volumes of different volume types to
+single composite volume. The only requirement is that those types shall be
+registered within the same ocf_ctx.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Maximum number of composite volumes
+id: max_composite_volumes
+---
+
+It shall be possible to add up to 16 component volumes to a single composite
+volume.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Volume API
+id: volume_api
+---
+
+Composite volume shall conform to regular ocf_volume API. I.e. it shall be
+possible to perform on it following volume operations: open, close,
+get_max_io_size, get_length, submit_io, submit_flush and submit_discard.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Volume open
+id: volume_open
+---
+
+Composite volume shall open all component volumes when it's being opened.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Volume close
+id: volume_close
+---
+
+Composite volume shall close all component volumes when it's being closed.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Getting maximum io size
+id: get_max_io_size
+---
+
+Composite volume shall report a maximum io size being the lowest maximum io
+size among all the component volumes.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Getting volume length
+id: get_length
+---
+
+Composite volume shall report a lenght being a sum of lenghs of all component
+volumes.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Request passing
+id: request_passing
+---
+
+Composite volume shall pass io, flush and discard request or its fragments to
+component volumes based on their mapping.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: IO Flags passing
+id: io_flags_passing
+---
+
+Composite volume shall pass all IO flags associated with request to all requests
+issued to component volumes as part of fulfilling the master request.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: I/O request completion
+id: io_request_completion
+---
+
+The I/O request shall be completed only when all sub-I/Os submitted to component
+volumes are completed.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: I/O error handling
+id: io_error_handling
+---
+
+If I/O error occures on any I/O request submitted to composite volume, that
+error shall be passed to the completion of the original I/O request. If multiple
+sub-I/Os reported errors, the first error that occured shall be passed to the
+completion of the original I/O request.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Attaching/loading the cache
+id: cache_attach_load
+---
+
+It shall be possible to attach/load the cache using instance of a composite
+volume.
