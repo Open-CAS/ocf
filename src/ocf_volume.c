@@ -133,6 +133,12 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 
 	volume->uuid.size = uuid->size;
 
+	if (volume->type->properties->ops.on_init) {
+		ret = volume->type->properties->ops.on_init(volume);
+		if (ret)
+			goto err;
+	}
+
 	return 0;
 
 err:
@@ -149,6 +155,9 @@ err:
 void ocf_volume_deinit(ocf_volume_t volume)
 {
 	OCF_CHECK_NULL(volume);
+
+	if (volume->type && volume->type->properties->ops.on_deinit)
+		volume->type->properties->ops.on_deinit(volume);
 
 	env_free(volume->priv);
 	volume->priv = NULL;
