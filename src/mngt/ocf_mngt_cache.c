@@ -135,10 +135,6 @@ struct ocf_cache_attach_context {
 			 * load or recovery
 			 */
 
-		bool uuid_copied : 1;
-			/*!< copied uuid data to context.
-			 */
-
 		bool metadata_frozen : 1;
 			/*!< metadata reference counter frozen
 			 */
@@ -790,7 +786,6 @@ static void _ocf_mngt_attach_cache_device(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	struct ocf_mngt_cache_device_config *device_cfg = &context->cfg.device;
 	ocf_cache_t cache = context->cache;
-	ocf_volume_type_t type;
 	int ret;
 
 	cache->device = env_vzalloc(sizeof(*cache->device));
@@ -799,20 +794,9 @@ static void _ocf_mngt_attach_cache_device(ocf_pipeline_t pipeline,
 
 	context->flags.device_alloc = true;
 
-	/* Prepare UUID of cache volume */
-	type = ocf_ctx_get_volume_type(cache->owner, device_cfg->volume_type);
-	if (!type) {
-		OCF_PL_FINISH_RET(pipeline,
-				-OCF_ERR_INVAL_VOLUME_TYPE);
-	}
-
-	ret = ocf_volume_init(&cache->device->volume, type,
-			&device_cfg->uuid, true);
-	if (ret)
-		OCF_PL_FINISH_RET(pipeline, ret);
-
-	cache->device->volume.cache = cache;
+	ocf_volume_move(&cache->device->volume, device_cfg->volume);
 	context->flags.volume_inited = true;
+	cache->device->volume.cache = cache;
 
 	/*
 	 * Open cache device, It has to be done first because metadata service
@@ -1279,8 +1263,6 @@ uint64_t _ocf_mngt_calculate_ram_needed(ocf_cache_line_size_t line_size,
 int ocf_mngt_get_ram_needed(ocf_cache_t cache,
 		struct ocf_mngt_cache_device_config *cfg, uint64_t *ram_needed)
 {
-	ocf_volume_t volume;
-	ocf_volume_type_t type;
 	ocf_cache_line_size_t line_size;
 	uint64_t volume_size;
 	int result;
@@ -1289,26 +1271,15 @@ int ocf_mngt_get_ram_needed(ocf_cache_t cache,
 	OCF_CHECK_NULL(cfg);
 	OCF_CHECK_NULL(ram_needed);
 
-	type = ocf_ctx_get_volume_type(cache->owner, cfg->volume_type);
-	if (!type)
-		return -OCF_ERR_INVAL_VOLUME_TYPE;
-
-	result = ocf_volume_create(&volume, type, &cfg->uuid);
+	result = ocf_volume_open(cfg->volume, cfg->volume_params);
 	if (result)
 		return result;
 
-	result = ocf_volume_open(volume, cfg->volume_params);
-	if (result) {
-		ocf_volume_destroy(volume);
-		return result;
-	}
-
 	line_size = ocf_line_size(cache);
-	volume_size = ocf_volume_get_length(volume);
+	volume_size = ocf_volume_get_length(cfg->volume);
 	*ram_needed = _ocf_mngt_calculate_ram_needed(line_size, volume_size);
 
-	ocf_volume_close(volume);
-	ocf_volume_destroy(volume);
+	ocf_volume_close(cfg->volume);
 
 	return 0;
 }
@@ -1475,34 +1446,6 @@ static void _ocf_mngt_init_attached_nonpersistent(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 
 	env_atomic_set(&cache->fallback_pt_error_counter, 0);
-
-	ocf_pipeline_next(pipeline);
-}
-
-static void _ocf_mngt_copy_uuid_data(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_cache_attach_context *context = priv;
-	struct ocf_mngt_cache_device_config *device_cfg = &context->cfg.device;
-	void *data;
-	int result;
-
-	if (device_cfg->uuid.size == 0)
-		OCF_PL_NEXT_RET(pipeline);
-
-	data = env_vmalloc(device_cfg->uuid.size);
-	if (!data)
-		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_NO_MEM);
-
-	result = env_memcpy(data, device_cfg->uuid.size, device_cfg->uuid.data,
-			device_cfg->uuid.size);
-	if (result) {
-		env_vfree(data);
-		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_INVAL);
-	}
-
-	device_cfg->uuid.data = data;
-	context->flags.uuid_copied = true;
 
 	ocf_pipeline_next(pipeline);
 }
@@ -1799,6 +1742,8 @@ static void _ocf_mngt_attach_handle_error(
 
 	if (context->flags.volume_inited)
 		ocf_volume_deinit(&cache->device->volume);
+	else
+		ocf_volume_deinit(context->cfg.device.volume);
 
 	if (context->flags.front_volume_opened)
 		ocf_volume_close(&cache->device->front_volume);
@@ -1824,15 +1769,11 @@ static void _ocf_mngt_cache_attach_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
 	struct ocf_cache_attach_context *context = priv;
-	struct ocf_mngt_cache_device_config *device_cfg = &context->cfg.device;
 
 	if (error)
 		_ocf_mngt_attach_handle_error(context);
 
 	context->cmpl(context->cache, context->priv1, context->priv2, error);
-
-	if (context->flags.uuid_copied)
-		env_vfree(device_cfg->uuid.data);
 
 	ocf_pipeline_destroy(context->pipeline);
 }
@@ -1841,7 +1782,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 	.priv_size = sizeof(struct ocf_cache_attach_context),
 	.finish = _ocf_mngt_cache_attach_finish,
 	.steps = {
-		OCF_PL_STEP(_ocf_mngt_copy_uuid_data),
 		OCF_PL_STEP(_ocf_mngt_init_attached_nonpersistent),
 		OCF_PL_STEP(_ocf_mngt_attach_cache_device),
 		OCF_PL_STEP(_ocf_mngt_init_properties),
@@ -1868,7 +1808,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 	.priv_size = sizeof(struct ocf_cache_attach_context),
 	.finish = _ocf_mngt_cache_attach_finish,
 	.steps = {
-		OCF_PL_STEP(_ocf_mngt_copy_uuid_data),
 		OCF_PL_STEP(_ocf_mngt_init_attached_nonpersistent),
 		OCF_PL_STEP(_ocf_mngt_attach_cache_device),
 		OCF_PL_STEP(_ocf_mngt_init_properties),
@@ -2265,7 +2204,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_attach_pipeline_propertie
 	.priv_size = sizeof(struct ocf_cache_attach_context),
 	.finish = _ocf_mngt_cache_attach_finish,
 	.steps = {
-		OCF_PL_STEP(_ocf_mngt_copy_uuid_data),
 		OCF_PL_STEP(_ocf_mngt_init_attached_nonpersistent),
 		OCF_PL_STEP(_ocf_mngt_attach_cache_device),
 		OCF_PL_STEP(_ocf_mngt_attach_read_properties),
@@ -2292,7 +2230,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_load_pipeline_properties 
 	.priv_size = sizeof(struct ocf_cache_attach_context),
 	.finish = _ocf_mngt_cache_attach_finish,
 	.steps = {
-		OCF_PL_STEP(_ocf_mngt_copy_uuid_data),
 		OCF_PL_STEP(_ocf_mngt_init_attached_nonpersistent),
 		OCF_PL_STEP(_ocf_mngt_attach_cache_device),
 		OCF_PL_STEP(_ocf_mngt_init_cache_front_volume),
@@ -2342,20 +2279,9 @@ static void _ocf_mngt_activate_set_cache_device(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	struct ocf_mngt_cache_device_config *device_cfg = &context->cfg.device;
 	ocf_cache_t cache = context->cache;
-	ocf_volume_type_t type;
 	int ret;
 
-	type = ocf_ctx_get_volume_type(cache->owner, device_cfg->volume_type);
-	if (!type) {
-		OCF_PL_FINISH_RET(pipeline,
-				-OCF_ERR_INVAL_VOLUME_TYPE);
-	}
-
-	ret = ocf_volume_init(&cache->device->volume, type,
-			&device_cfg->uuid, true);
-	if (ret)
-		OCF_PL_FINISH_RET(pipeline, ret);
-
+	ocf_volume_move(&cache->device->volume, device_cfg->volume);
 	cache->device->volume.cache = cache;
 	context->flags.volume_inited = true;
 
@@ -2467,6 +2393,8 @@ static void _ocf_mngt_activate_handle_error(
 
 	if (context->flags.volume_inited)
 		ocf_volume_deinit(&cache->device->volume);
+	else
+		ocf_volume_deinit(context->cfg.device.volume);
 
 	if (context->flags.volume_stored)
 		ocf_volume_move(&cache->device->volume, &context->cache_volume);
@@ -2479,7 +2407,6 @@ static void _ocf_mngt_cache_activate_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
 	struct ocf_cache_attach_context *context = priv;
-	struct ocf_mngt_cache_device_config *device_cfg = &context->cfg.device;
 	ocf_cache_t cache = context->cache;
 	ocf_pipeline_t stop_pipeline;
 
@@ -2504,12 +2431,9 @@ static void _ocf_mngt_cache_activate_finish(ocf_pipeline_t pipeline,
 		ocf_volume_deinit(&context->cache_volume);
 	}
 
-
 out:
 	context->cmpl(context->cache, context->priv1, context->priv2, error);
 
-	if (context->flags.uuid_copied)
-		env_vfree(device_cfg->uuid.data);
 	ocf_pipeline_destroy(context->pipeline);
 }
 
@@ -2517,7 +2441,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_activate_pipeline_properties = {
 	.priv_size = sizeof(struct ocf_cache_attach_context),
 	.finish = _ocf_mngt_cache_activate_finish,
 	.steps = {
-		OCF_PL_STEP(_ocf_mngt_copy_uuid_data),
 		OCF_PL_STEP(_ocf_mngt_activate_set_cache_device),
 		OCF_PL_STEP(_ocf_mngt_activate_init_properties),
 		OCF_PL_STEP(_ocf_mngt_activate_compare_superblock),
@@ -2864,10 +2787,7 @@ static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 static int _ocf_mngt_cache_validate_device_cfg(
 		struct ocf_mngt_cache_device_config *device_cfg)
 {
-	if (!device_cfg->uuid.data)
-		return -OCF_ERR_INVAL;
-
-	if (device_cfg->uuid.size > OCF_VOLUME_UUID_MAX_SIZE)
+	if (!device_cfg->volume)
 		return -OCF_ERR_INVAL;
 
 	return 0;
