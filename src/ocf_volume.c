@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -94,38 +94,39 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 		return -OCF_ERR_INVAL;
 
 	priv_size = type->properties->volume_priv_size;
-
-	volume->opened = false;
-	volume->type = type;
-
 	volume->priv = env_zalloc(priv_size, ENV_MEM_NORMAL);
 	if (!volume->priv)
 		return -OCF_ERR_NO_MEM;
 
+	volume->opened = false;
+	volume->type = type;
+
+	volume->uuid.size = 0;
+	volume->uuid.data = NULL;
+	volume->uuid_copy = false;
+
 	ocf_refcnt_init(&volume->refcnt);
 	ocf_refcnt_freeze(&volume->refcnt);
 
-	if (!uuid) {
-		volume->uuid.size = 0;
-		volume->uuid.data = NULL;
-		volume->uuid_copy = false;
+	if (!uuid)
 		return 0;
-	}
 
 	volume->uuid_copy = uuid_copy;
 
 	if (uuid_copy) {
 		data = env_vmalloc(uuid->size);
-		if (!data)
-			goto err;
-
-		ret = env_memcpy(data, uuid->size, uuid->data, uuid->size);
-		if (ret) {
-			env_vfree(data);
+		if (!data) {
+			ret = -OCF_ERR_NO_MEM;
 			goto err;
 		}
 
 		volume->uuid.data = data;
+
+		ret = env_memcpy(data, uuid->size, uuid->data, uuid->size);
+		if (ret) {
+			ret = -OCF_ERR_INVAL;
+			goto err;
+		}
 	} else {
 		volume->uuid.data = uuid->data;
 	}
@@ -137,7 +138,11 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 err:
 	ocf_refcnt_unfreeze(&volume->refcnt);
 	env_free(volume->priv);
-	return -OCF_ERR_NO_MEM;
+	if (volume->uuid_copy && volume->uuid.data)
+		env_vfree(volume->uuid.data);
+	volume->uuid.data = NULL;
+	volume->uuid.size = 0;
+	return ret;
 }
 
 void ocf_volume_deinit(ocf_volume_t volume)
