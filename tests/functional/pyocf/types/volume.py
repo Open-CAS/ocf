@@ -42,6 +42,8 @@ class VolumeOps(Structure):
     SUBMIT_METADATA = CFUNCTYPE(None, c_void_p)
     SUBMIT_DISCARD = CFUNCTYPE(None, c_void_p)
     SUBMIT_WRITE_ZEROES = CFUNCTYPE(None, c_void_p)
+    ON_INIT = CFUNCTYPE(c_int, c_void_p)
+    ON_DEINIT = CFUNCTYPE(None, c_void_p)
     OPEN = CFUNCTYPE(c_int, c_void_p, c_void_p)
     CLOSE = CFUNCTYPE(None, c_void_p)
     GET_MAX_IO_SIZE = CFUNCTYPE(c_uint, c_void_p)
@@ -53,6 +55,8 @@ class VolumeOps(Structure):
         ("_submit_metadata", SUBMIT_METADATA),
         ("_submit_discard", SUBMIT_DISCARD),
         ("_submit_write_zeroes", SUBMIT_WRITE_ZEROES),
+        ("_on_init", ON_INIT),
+        ("_on_deinit", ON_DEINIT),
         ("_open", OPEN),
         ("_close", CLOSE),
         ("_get_length", GET_LENGTH),
@@ -119,6 +123,13 @@ class Volume:
         def _submit_write_zeroes(write_zeroes):
             raise NotImplementedError
 
+        @VolumeOps.ON_INIT
+        def _on_init(ref):
+            return 0
+
+        @VolumeOps.ON_DEINIT
+        def _on_deinit(ref):
+            return
 
         @VolumeOps.OPEN
         def _open(ref, params):
@@ -157,6 +168,8 @@ class Volume:
             _close=_close,
             _get_max_io_size=_get_max_io_size,
             _get_length=_get_length,
+            _on_init=_on_init,
+            _on_deinit=_on_deinit,
         )
 
         return Volume._ops_[cls]
