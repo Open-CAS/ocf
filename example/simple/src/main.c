@@ -72,6 +72,9 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 {
 	struct ocf_mngt_cache_config cache_cfg = { .name = "cache1" };
 	struct ocf_mngt_cache_attach_config attach_cfg = { };
+	ocf_volume_t volume;
+	ocf_volume_type_t type;
+	struct ocf_volume_uuid uuid;
 	struct cache_priv *cache_priv;
 	struct simple_context context;
 	int ret;
@@ -92,11 +95,17 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	cache_cfg.metadata_volatile = true;
 
 	/* Cache deivce (volume) configuration */
-	ocf_mngt_cache_attach_config_set_default(&attach_cfg);
-	attach_cfg.device.volume_type = VOL_TYPE;
-	ret = ocf_uuid_set_str(&attach_cfg.device.uuid, "cache");
+	type = ocf_ctx_get_volume_type(ctx, VOL_TYPE);
+	ret = ocf_uuid_set_str(&uuid, "cache");
 	if (ret)
 		goto err_sem;
+
+	ret = ocf_volume_create(&volume, type, &uuid);
+	if (ret)
+		goto err_sem;
+
+	ocf_mngt_cache_attach_config_set_default(&attach_cfg);
+	attach_cfg.device.volume = volume;
 
 	/*
 	 * Allocate cache private structure. We can not initialize it
@@ -104,8 +113,10 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	 * throughout the entire live span of cache object.
 	 */
 	cache_priv = malloc(sizeof(*cache_priv));
-	if (!cache_priv)
-		return -ENOMEM;
+	if (!cache_priv) {
+		ret = -ENOMEM;
+		goto err_vol;
+	}
 
 	/* Start cache */
 	ret = ocf_mngt_cache_start(ctx, cache, &cache_cfg, NULL);
@@ -157,6 +168,8 @@ err_cache:
 	ocf_queue_put(cache_priv->mngt_queue);
 err_priv:
 	free(cache_priv);
+err_vol:
+	ocf_volume_destroy(&volume);
 err_sem:
 	sem_destroy(&context.sem);
 	return ret;
