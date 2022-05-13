@@ -63,8 +63,7 @@ class CacheConfig(Structure):
 
 class CacheDeviceConfig(Structure):
     _fields_ = [
-        ("_uuid", Uuid),
-        ("_volume_type", c_uint8),
+        ("_volume", c_void_p),
         ("_perform_test", c_bool),
         ("_volume_params", c_void_p),
     ]
@@ -459,12 +458,23 @@ class Cache:
 
     @staticmethod
     def generate_device_config(device, perform_test=True):
+        uuid = Uuid(
+            _data=cast(create_string_buffer(device.uuid.encode("ascii")), c_char_p),
+            _size=len(device.uuid) + 1,
+        )
+        volume = c_void_p()
+
+        lib = OcfLib.getInstance()
+        result = lib.ocf_volume_create(
+            byref(volume),
+            device.type,
+            byref(uuid)
+        )
+        if result != 0:
+            raise OcfError("Cache volume initialization failed", result)
+
         device_config = CacheDeviceConfig(
-            _uuid=Uuid(
-                _data=cast(create_string_buffer(device.uuid.encode("ascii")), c_char_p),
-                _size=len(device.uuid) + 1,
-            ),
-            _volume_type=device.type_id,
+            _volume=volume,
             _perform_test=perform_test,
             _volume_params=None,
         )

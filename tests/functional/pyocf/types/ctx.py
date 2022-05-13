@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-from ctypes import c_void_p, Structure, c_char_p, cast, pointer, byref, c_int
+from ctypes import c_void_p, Structure, c_char_p, cast, pointer, byref, c_int, c_uint8
 import weakref
 
 from .logger import LoggerOps, Logger
@@ -77,6 +77,11 @@ class OcfCtx:
         if result != 0:
             raise OcfError("Volume type registration failed", result)
 
+        volume_type.type = self.lib.ocf_ctx_get_volume_type(
+            self.ctx_handle,
+            volume_type.type_id
+        )
+
         self.volume_types_count += 1
 
     def unregister_volume_type(self, vol_type):
@@ -108,3 +113,5 @@ class OcfCtx:
 lib = OcfLib.getInstance()
 lib.ocf_mngt_cache_get_by_name.argtypes = [c_void_p, c_void_p, c_void_p]
 lib.ocf_mngt_cache_get_by_name.restype = c_int
+lib.ocf_ctx_get_volume_type.argtypes = [c_void_p, c_uint8]
+lib.ocf_ctx_get_volume_type.restype = c_void_p
