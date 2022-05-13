@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -18,6 +18,7 @@
 #include "ocf_types.h"
 #include "ocf_io.h"
 #include "ocf_volume.h"
+#include "ocf_composite_volume.h"
 #include "ocf_cache.h"
 #include "ocf_core.h"
 #include "ocf_queue.h"
