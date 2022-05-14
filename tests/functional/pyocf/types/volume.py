@@ -42,7 +42,7 @@ class VolumeOps(Structure):
     SUBMIT_METADATA = CFUNCTYPE(None, c_void_p)
     SUBMIT_DISCARD = CFUNCTYPE(None, c_void_p)
     SUBMIT_WRITE_ZEROES = CFUNCTYPE(None, c_void_p)
-    OPEN = CFUNCTYPE(c_int, c_void_p)
+    OPEN = CFUNCTYPE(c_int, c_void_p, c_void_p)
     CLOSE = CFUNCTYPE(None, c_void_p)
     GET_MAX_IO_SIZE = CFUNCTYPE(c_uint, c_void_p)
     GET_LENGTH = CFUNCTYPE(c_uint64, c_void_p)
@@ -119,8 +119,9 @@ class Volume:
         def _submit_write_zeroes(write_zeroes):
             raise NotImplementedError
 
+
         @VolumeOps.OPEN
-        def _open(ref):
+        def _open(ref, params):
             uuid_ptr = cast(OcfLib.getInstance().ocf_volume_get_uuid(ref), POINTER(Uuid))
             uuid = str(uuid_ptr.contents._data, encoding="ascii")
             try:
