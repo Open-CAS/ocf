@@ -22,12 +22,17 @@ from ctypes import (
 )
 from hashlib import md5
 import weakref
+from enum import IntEnum
 
 from .io import Io, IoOps, IoDir
 from .shared import OcfErrorCode, Uuid
 from ..ocf import OcfLib
 from ..utils import print_buffer, Size as S
 from .data import Data
+
+
+class IoFlags(IntEnum):
+    FLUSH = 1
 
 
 class VolumeCaps(Structure):
@@ -278,6 +283,11 @@ class Volume(Structure):
         self.stats = {IoDir.WRITE: 0, IoDir.READ: 0}
 
     def submit_io(self, io):
+        flags = int(io.contents._flags)
+        if flags & IoFlags.FLUSH:
+            self.submit_flush(io)
+            return
+
         try:
             self.stats[IoDir(io.contents._dir)] += 1
 
