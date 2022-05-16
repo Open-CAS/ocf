@@ -22,6 +22,7 @@ from ctypes import (
 )
 from hashlib import md5
 import weakref
+from enum import IntEnum
 
 from .io import Io, IoOps, IoDir
 from .queue import Queue
@@ -30,6 +31,10 @@ from ..ocf import OcfLib
 from ..utils import print_buffer, Size as S
 from .data import Data
 from .queue import Queue
+
+
+class IoFlags(IntEnum):
+    FLUSH = 1
 
 
 class VolumeCaps(Structure):
@@ -350,6 +355,11 @@ class RamVolume(Volume):
             discard.contents._end(discard, -OcfErrorCode.OCF_ERR_NOT_SUPP)
 
     def do_submit_io(self, io):
+        flags = int(io.contents._flags)
+        if flags & IoFlags.FLUSH:
+            self.do_submit_flush(io)
+            return
+
         try:
             io_priv = cast(OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv))
             offset = io_priv.contents._offset
