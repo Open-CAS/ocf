@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2019-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -67,11 +67,13 @@ typedef uint64_t sector_t;
 #define ENV_MEM_ATOMIC	0
 
 /* DEBUGING */
+void env_stack_trace(void);
+
 #define ENV_WARN(cond, fmt...)		printf(fmt)
 #define ENV_WARN_ON(cond)		;
 #define ENV_WARN_ONCE(cond, fmt...)	ENV_WARN(cond, fmt)
 
-#define ENV_BUG()			assert(0)
+#define ENV_BUG()			do {env_stack_trace(); assert(0);} while(0)
 #define ENV_BUG_ON(cond)		do { if (cond) ENV_BUG(); } while (0)
 #define ENV_BUILD_BUG_ON(cond)		_Static_assert(!(cond), "static "\
 					"assertion failure")

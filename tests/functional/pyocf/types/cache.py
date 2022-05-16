@@ -39,7 +39,7 @@ from .io import IoDir
 from .ioclass import IoClassesInfo, IoClassInfo
 from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
 from .ctx import OcfCtx
-from .volume import RamVolume
+from .volume import RamVolume, Volume
 
 class Backfill(Structure):
     _fields_ = [("_max_queue_size", c_uint32), ("_queue_unblock_size", c_uint32)]
@@ -205,10 +205,7 @@ class Cache:
         self.cores = []
 
     def start_cache(
-        self,
-        default_io_queue: Queue = None,
-        mngt_queue: Queue = None,
-        locked: bool = False,
+        self, init_mngmt_queue=True, init_default_io_queue=True, locked: bool = False,
     ):
         cfg = CacheConfig(
             _name=self.name.encode("ascii"),
@@ -231,19 +228,23 @@ class Cache:
         if status:
             raise OcfError("Creating cache instance failed", status)
 
-        self.mngt_queue = mngt_queue or Queue(self, "mgmt-{}".format(self.get_name()))
+        if init_mngmt_queue:
+            self.mngt_queue = Queue(self, "mgmt-{}".format(self.get_name()))
+            status = self.owner.lib.ocf_mngt_cache_set_mngt_queue(self, self.mngt_queue)
+            if status:
+                raise OcfError("Error setting management queue", status)
 
-        if default_io_queue:
-            self.io_queues += [default_io_queue]
+        if init_default_io_queue:
+            self.io_queues = [Queue(self, "default-io-{}".format(self.get_name()))]
         else:
-            self.io_queues += [Queue(self, "default-io-{}".format(self.get_name()))]
-
-        status = self.owner.lib.ocf_mngt_cache_set_mngt_queue(self, self.mngt_queue)
-        if status:
-            raise OcfError("Error setting management queue", status)
+            self.io_queues = []
 
         self.started = True
         self.owner.caches.append(self)
+
+    def add_io_queue(self, *args, **kwargs):
+        q = Queue(self, args, **kwargs)
+        self.io_queues += [q]
 
     def standby_detach(self):
         self.write_lock()
@@ -560,11 +561,11 @@ class Cache:
                 c.results["error"],
             )
 
-    def standby_load(self, device):
+    def standby_load(self, device, perform_test=True):
         self.device = device
         self.device_name = device.uuid
 
-        device_config = Cache.generate_device_config(device)
+        device_config = Cache.generate_device_config(device, perform_test=perform_test)
 
         attach_cfg = CacheAttachConfig(
             _device=device_config,
@@ -755,8 +756,51 @@ class Cache:
     def get_volume(self):
         return Volume.get_instance(lib.ocf_cache_get_volume(self.cache_handle))
 
-    def get_stats(self):
+    def get_conf(self):
         cache_info = CacheInfo()
+
+        self.read_lock()
+
+        status = self.owner.lib.ocf_cache_get_info(self.cache_handle, byref(cache_info))
+
+        self.read_unlock()
+
+        if status:
+            raise OcfError("Failed getting cache info", status)
+
+        line_size = CacheLineSize(cache_info.cache_line_size)
+        cache_name = self.owner.lib.ocf_cache_get_name(self).decode("ascii")
+
+        return {
+            "attached": cache_info.attached,
+            "volume_type": self.owner.volume_types[cache_info.volume_type],
+            "size": CacheLines(cache_info.size, line_size),
+            "inactive": {
+                "occupancy": CacheLines(cache_info.inactive.occupancy.value, line_size),
+                "dirty": CacheLines(cache_info.inactive.dirty.value, line_size),
+                "clean": CacheLines(cache_info.inactive.clean.value, line_size),
+            },
+            "occupancy": CacheLines(cache_info.occupancy, line_size),
+            "dirty": CacheLines(cache_info.dirty, line_size),
+            "dirty_initial": CacheLines(cache_info.dirty_initial, line_size),
+            "dirty_for": timedelta(seconds=cache_info.dirty_for),
+            "cache_mode": CacheMode(cache_info.cache_mode),
+            "fallback_pt": {
+                "error_counter": cache_info.fallback_pt.error_counter,
+                "status": cache_info.fallback_pt.status,
+            },
+            "state": cache_info.state,
+            "cleaning_policy": CleaningPolicy(cache_info.cleaning_policy),
+            "promotion_policy": PromotionPolicy(cache_info.promotion_policy),
+            "cache_line_size": line_size,
+            "flushed": CacheLines(cache_info.flushed, line_size),
+            "core_count": cache_info.core_count,
+            "metadata_footprint": Size(cache_info.metadata_footprint),
+            "metadata_end_offset": Size(cache_info.metadata_end_offset),
+            "cache_name": cache_name,
+        }
+
+    def get_stats(self):
         usage = UsageStats()
         req = RequestsStats()
         block = BlocksStats()
@@ -764,53 +808,19 @@ class Cache:
 
         self.read_lock()
 
-        status = self.owner.lib.ocf_cache_get_info(self.cache_handle, byref(cache_info))
-        if status:
-            self.read_unlock()
-            raise OcfError("Failed getting cache info", status)
+        conf = self.get_conf()
 
         status = self.owner.lib.ocf_stats_collect_cache(
             self.cache_handle, byref(usage), byref(req), byref(block), byref(errors)
         )
-        if status:
-            self.read_unlock()
-            raise OcfError("Failed getting stats", status)
-
-        line_size = CacheLineSize(cache_info.cache_line_size)
-        cache_name = self.owner.lib.ocf_cache_get_name(self).decode("ascii")
 
         self.read_unlock()
+
+        if status:
+            raise OcfError("Failed getting stats", status)
+
         return {
-            "conf": {
-                "attached": cache_info.attached,
-                "volume_type": self.owner.volume_types[cache_info.volume_type],
-                "size": CacheLines(cache_info.size, line_size),
-                "inactive": {
-                    "occupancy": CacheLines(
-                        cache_info.inactive.occupancy.value, line_size
-                    ),
-                    "dirty": CacheLines(cache_info.inactive.dirty.value, line_size),
-                    "clean": CacheLines(cache_info.inactive.clean.value, line_size),
-                },
-                "occupancy": CacheLines(cache_info.occupancy, line_size),
-                "dirty": CacheLines(cache_info.dirty, line_size),
-                "dirty_initial": CacheLines(cache_info.dirty_initial, line_size),
-                "dirty_for": timedelta(seconds=cache_info.dirty_for),
-                "cache_mode": CacheMode(cache_info.cache_mode),
-                "fallback_pt": {
-                    "error_counter": cache_info.fallback_pt.error_counter,
-                    "status": cache_info.fallback_pt.status,
-                },
-                "state": cache_info.state,
-                "cleaning_policy": CleaningPolicy(cache_info.cleaning_policy),
-                "promotion_policy": PromotionPolicy(cache_info.promotion_policy),
-                "cache_line_size": line_size,
-                "flushed": CacheLines(cache_info.flushed, line_size),
-                "core_count": cache_info.core_count,
-                "metadata_footprint": Size(cache_info.metadata_footprint),
-                "metadata_end_offset": Size(cache_info.metadata_end_offset),
-                "cache_name": cache_name,
-            },
+            "conf": conf,
             "block": struct_to_dict(block),
             "req": struct_to_dict(req),
             "usage": struct_to_dict(usage),

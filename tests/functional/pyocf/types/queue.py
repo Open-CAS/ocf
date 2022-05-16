@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -45,6 +45,7 @@ class Queue:
     def __init__(self, cache, name):
 
         self.ops = QueueOps(kick=type(self)._kick, stop=type(self)._stop)
+        self.name = name
 
         self.handle = c_void_p()
         status = OcfLib.getInstance().ocf_queue_create(

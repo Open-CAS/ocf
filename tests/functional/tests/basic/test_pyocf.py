@@ -47,7 +47,8 @@ def test_simple_wt_write(pyocf_ctx):
 
 
 def test_start_corrupted_metadata_lba(pyocf_ctx):
-    cache_device = ErrorDevice(S.from_MiB(50), error_sectors=set([0]))
+    ramdisk = RamVolume(S.from_MiB(50))
+    cache_device = ErrorDevice(ramdisk, error_sectors=set([0]))
 
     with pytest.raises(OcfError, match="OCF_ERR_WRITE_CACHE"):
         cache = Cache.start_on_device(cache_device)
