@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef OCF_UTILS_ALOCK_H_
@@ -26,10 +26,14 @@ typedef int (*ocf_cl_lock_fast)(struct ocf_alock *alock,
 typedef int (*ocf_cl_lock_slow)(struct ocf_alock *alock,
 		struct ocf_request *req, int rw, ocf_req_async_lock_cb cmpl);
 
+typedef uint32_t (*ocf_cl_lock_get_count)(struct ocf_alock *alock,
+		struct ocf_request *req);
+
 struct ocf_alock_lock_cbs
 {
 	ocf_cl_lock_fast lock_entries_fast;
 	ocf_cl_lock_slow lock_entries_slow;
+	ocf_cl_lock_get_count get_entries_count;
 };
 
 bool ocf_alock_trylock_one_rd(struct ocf_alock *alock,

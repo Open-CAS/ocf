@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2021 Intel Corporation
+ * Copyright(c) 2021-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -136,9 +136,26 @@ err:
 	return ret;
 }
 
+static uint32_t ocf_pio_lock_get_entries_count(struct ocf_alock *alock,
+		struct ocf_request *req)
+{
+	uint32_t i, count = 0;
+	ocf_cache_line_t entry;
+
+	for (i = 0; i < req->core_line_count; i++) {
+		entry = ocf_pio_lock_get_entry(alock, req, i);
+		if (entry == OUT_OF_RANGE)
+			continue;
+		count++;
+	}
+
+	return count;
+}
+
 static struct ocf_alock_lock_cbs ocf_pio_conc_cbs = {
 		.lock_entries_fast = ocf_pio_lock_fast,
-		.lock_entries_slow = ocf_pio_lock_slow
+		.lock_entries_slow = ocf_pio_lock_slow,
+		.get_entries_count = ocf_pio_lock_get_entries_count
 };
 
 int ocf_pio_async_lock(struct ocf_alock *alock, struct ocf_request *req,
