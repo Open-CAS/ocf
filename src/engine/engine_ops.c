@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -37,10 +37,6 @@ static void _ocf_engine_ops_complete(struct ocf_request *req, int error)
 
 int ocf_engine_ops(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-
-	OCF_DEBUG_TRACE(req->cache);
-
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
@@ -51,8 +47,9 @@ int ocf_engine_ops(struct ocf_request *req)
 	ocf_submit_volume_req(&req->core->volume, req,
 			_ocf_engine_ops_complete);
 
-	ocf_submit_cache_reqs(cache, req, req->rw, 0, req->byte_length,
-			1, _ocf_engine_ops_complete);
+
+	/* submit flush to cache device */
+	ocf_submit_cache_flush(req,  _ocf_engine_ops_complete);
 
 	/* Put OCF request - decrease reference counter */
 	ocf_req_put(req);
