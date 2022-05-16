@@ -224,6 +224,21 @@ static void ocf_submit_volume_req_cmpl(struct ocf_io *io, int error)
 	ocf_io_put(io);
 }
 
+void ocf_submit_cache_flush(struct ocf_request *req, ocf_req_end_t callback)
+{
+	struct ocf_io *io;
+
+	io = ocf_new_cache_io(req->cache, req->io_queue, 0, 0, OCF_WRITE, 0, 0);
+	if (!io) {
+		callback(req, -OCF_ERR_NO_MEM);
+		return;
+	}
+
+	ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
+
+	ocf_volume_submit_flush(io);
+}
+
 void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		struct ocf_request *req, int dir, uint64_t offset,
 		uint64_t size, unsigned int reqs, ocf_req_end_t callback)

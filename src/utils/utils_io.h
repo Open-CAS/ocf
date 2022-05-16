@@ -64,6 +64,8 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 		struct ocf_request *req, int dir, uint64_t offset,
 		uint64_t size, unsigned int reqs, ocf_req_end_t callback);
 
+void ocf_submit_cache_flush(struct ocf_request *req, ocf_req_end_t callback);
+
 static inline struct ocf_io *ocf_new_cache_io(ocf_cache_t cache,
 		ocf_queue_t queue, uint64_t addr, uint32_t bytes,
 		uint32_t dir, uint32_t io_class, uint64_t flags)
