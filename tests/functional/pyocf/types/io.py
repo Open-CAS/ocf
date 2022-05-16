@@ -98,6 +98,12 @@ class Io(Structure):
     def submit(self):
         return OcfLib.getInstance().ocf_core_submit_io_wrapper(byref(self))
 
+    def submit_flush(self):
+        return OcfLib.getInstance().ocf_volume_submit_flush(byref(self))
+
+    def submit_discard(self):
+        return OcfLib.getInstance().ocf_volume_submit_discard(byref(self))
+
     def set_data(self, data: Data, offset: int = 0):
         self.data = data
         OcfLib.getInstance().ocf_io_set_data(byref(self), data, offset)
@@ -116,3 +122,9 @@ lib.ocf_core_new_io_wrapper.restype = c_void_p
 
 lib.ocf_io_set_data.argtypes = [POINTER(Io), c_void_p, c_uint32]
 lib.ocf_io_set_data.restype = c_int
+
+lib.ocf_volume_submit_flush.argtypes = [POINTER(Io)]
+lib.ocf_volume_submit_flush.restype = None
+
+lib.ocf_volume_submit_discard.argtypes = [POINTER(Io)]
+lib.ocf_volume_submit_discard.restype = None
