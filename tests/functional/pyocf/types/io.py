@@ -104,6 +104,12 @@ class Io(Structure):
     def submit_discard(self):
         return OcfLib.getInstance().ocf_volume_submit_discard(byref(self))
 
+    def submit_flush(self):
+        return OcfLib.getInstance().ocf_volume_submit_flush(byref(self))
+
+    def submit_discard(self):
+        return OcfLib.getInstance().ocf_volume_submit_discard(byref(self))
+
     def set_data(self, data: Data, offset: int = 0):
         self.data = data
         OcfLib.getInstance().ocf_io_set_data(byref(self), data, offset)
