@@ -226,9 +226,11 @@ static void ocf_submit_volume_req_cmpl(struct ocf_io *io, int error)
 
 void ocf_submit_cache_flush(struct ocf_request *req, ocf_req_end_t callback)
 {
+	uint64_t flags = req->ioi.io.flags;
 	struct ocf_io *io;
 
-	io = ocf_new_cache_io(req->cache, req->io_queue, 0, 0, OCF_WRITE, 0, 0);
+	io = ocf_new_cache_io(req->cache, req->io_queue, 0, 0, OCF_WRITE, 0,
+			flags);
 	if (!io) {
 		callback(req, -OCF_ERR_NO_MEM);
 		return;
