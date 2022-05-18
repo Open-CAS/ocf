@@ -2415,6 +2415,12 @@ static void _ocf_mngt_activate_compare_superblock_end(
 		OCF_PL_FINISH_RET(context->pipeline, result);
 
 	if (diff) {
+		if (cache->conf_meta->line_size != superblock->line_size) {
+                	ocf_cache_log(cache, log_err, "Superblock mismatch. Cache line size in RAM: %lu KiB. "
+                                "Cache line size on disk: %lu KiB.\n", cache->conf_meta->line_size, superblock->line_size);
+			OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CACHE_LINE_SIZE_MISMATCH);
+		}
+
 		ocf_cache_log(cache, log_err, "Superblock mismatch!\n");
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_SUPERBLOCK_MISMATCH);
 	}
