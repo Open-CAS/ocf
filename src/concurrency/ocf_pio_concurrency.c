@@ -68,7 +68,7 @@ static int ocf_pio_lock_fast(struct ocf_alock *alock,
 
 	for (i = 0; i < req->core_line_count; i++) {
 		entry = ocf_pio_lock_get_entry(alock, req, i);
-		if (entry == OUT_OF_RANGE)
+		if (unlikely(entry == OUT_OF_RANGE))
 			continue;
 
 		ENV_BUG_ON(ocf_alock_is_index_locked(alock, req, i));
@@ -87,7 +87,7 @@ static int ocf_pio_lock_fast(struct ocf_alock *alock,
 	/* Request is not locked, discard acquired locks */
 	for (; i >= 0; i--) {
 		entry = ocf_pio_lock_get_entry(alock, req, i);
-		if (entry == OUT_OF_RANGE)
+		if (unlikely(entry == OUT_OF_RANGE))
 			continue;
 
 		if (ocf_alock_is_index_locked(alock, req, i)) {
@@ -109,7 +109,7 @@ static int ocf_pio_lock_slow(struct ocf_alock *alock,
 
 	for (i = 0; i < req->core_line_count; i++) {
 		entry = ocf_pio_lock_get_entry(alock, req, i);
-		if (entry == OUT_OF_RANGE)
+		if (unlikely(entry == OUT_OF_RANGE))
 			continue;
 
 		ENV_BUG_ON(ocf_alock_is_index_locked(alock, req, i));
@@ -127,7 +127,7 @@ static int ocf_pio_lock_slow(struct ocf_alock *alock,
 err:
 	for (; i >= 0; i--) {
 		entry = ocf_pio_lock_get_entry(alock, req, i);
-		if (entry == OUT_OF_RANGE)
+		if (unlikely(entry == OUT_OF_RANGE))
 			continue;
 
 		ocf_alock_waitlist_remove_entry(alock, req, i, entry, OCF_WRITE);
@@ -144,7 +144,7 @@ static uint32_t ocf_pio_lock_get_entries_count(struct ocf_alock *alock,
 
 	for (i = 0; i < req->core_line_count; i++) {
 		entry = ocf_pio_lock_get_entry(alock, req, i);
-		if (entry == OUT_OF_RANGE)
+		if (unlikely(entry == OUT_OF_RANGE))
 			continue;
 		count++;
 	}
@@ -174,7 +174,7 @@ void ocf_pio_async_unlock(struct ocf_alock *alock, struct ocf_request *req)
 			continue;
 
 		entry = ocf_pio_lock_get_entry(alock, req, i);
-		if (entry == OUT_OF_RANGE)
+		if (unlikely(entry == OUT_OF_RANGE))
 			continue;
 
 		ocf_alock_unlock_one_wr(alock, entry);
