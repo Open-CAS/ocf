@@ -92,8 +92,8 @@ class Io(Structure):
         except:  # noqa E722
             pass
 
-        self.put()
         self.del_object()
+        self.put()
 
     def submit(self):
         return OcfLib.getInstance().ocf_volume_submit_io(byref(self))
