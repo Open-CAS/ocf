@@ -124,9 +124,9 @@ class Rio:
 
         def run(self):
             iogen = IoGen(
-                (self.jobspec.offset, self.jobspec.size),
+                (self.jobspec.offset, self.jobspec.size - self.jobspec.offset),
                 self.jobspec.bs,
-                self.jobspec.randseed,
+                self.jobspec.randseed + hash(self.name),
                 self.jobspec.readwrite.is_random(),
                 self.jobspec.randommap,
             )
@@ -150,7 +150,7 @@ class Rio:
 
             while not self.should_finish():
                 with self.qd_condition:
-                    self.qd_condition.wait_for(lambda: self.qd <= self.jobspec.qd)
+                    self.qd_condition.wait_for(lambda: self.qd < self.jobspec.qd)
 
                 data = Data(self.jobspec.bs)  # TODO pattern and verify
                 io = self.jobspec.target.new_io(
@@ -193,6 +193,10 @@ class Rio:
 
     def norandommap(self):
         self.global_jobspec.randommap = False
+        return self
+
+    def randseed(self, seed):
+        self.global_jobspec.randseed = seed
         return self
 
     def bs(self, bs: Size):
