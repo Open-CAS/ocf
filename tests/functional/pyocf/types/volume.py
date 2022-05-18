@@ -62,7 +62,6 @@ class VolumeOps(Structure):
         ("_get_max_io_size", GET_MAX_IO_SIZE),
     ]
 
-
 class VolumeProperties(Structure):
     _fields_ = [
         ("_name", c_char_p),
@@ -349,18 +348,36 @@ class ErrorDevice(Volume):
 
 
 class TraceDevice(Volume):
+    class IoType(IntEnum):
+        Data = 1
+        Flush = 2
+        Discard = 3
+
     def __init__(self, size, trace_fcn=None, uuid=None):
         super().__init__(size, uuid)
         self.trace_fcn = trace_fcn
 
-    def submit_io(self, io):
+    def _trace(self, io, io_type):
         submit = True
 
         if self.trace_fcn:
-            submit = self.trace_fcn(self, io)
+            submit = self.trace_fcn(self, io, io_type)
+
+        return submit
+
+    def submit_io(self, io):
+        submit = self._trace(io, TraceDevice.IoType.Data)
 
         if submit:
             super().submit_io(io)
+
+    def submit_flush(self, io):
+        submit = self._trace(io, TraceDevice.IoType.Flush)
+
+        if submit:
+            super().submit_flush(io)
+
+
 
 
 lib = OcfLib.getInstance()
