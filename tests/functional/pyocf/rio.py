@@ -154,12 +154,7 @@ class Rio:
 
                 data = Data(self.jobspec.bs)  # TODO pattern and verify
                 io = self.jobspec.target.new_io(
-                    self.queue,
-                    next(iogen),
-                    self.jobspec.bs,
-                    iodir,
-                    0,
-                    0,
+                    self.queue, next(iogen), self.jobspec.bs, iodir, 0, 0,
                 )
                 io.set_data(data)
                 io.callback = self.get_io_cb()

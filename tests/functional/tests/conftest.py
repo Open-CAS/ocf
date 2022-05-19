@@ -18,6 +18,7 @@ from pyocf.types.ctx import OcfCtx
 
 default_registered_volumes = [RamVolume, ErrorDevice, CacheVolume, CoreVolume, ReplicatedVolume]
 
+
 def pytest_configure(config):
     sys.path.append(os.path.join(os.path.dirname(__file__), os.path.pardir))
 

@@ -97,6 +97,7 @@ def test_change_to_nhit_and_back_io_in_flight(pyocf_ctx):
     r.abort()
     assert r.error_count == 0, "No IO's should fail when turning NHIT policy off"
 
+
 def fill_cache(cache, fill_ratio):
     """
     Helper to fill cache from LBA 0.
@@ -126,9 +127,7 @@ def fill_cache(cache, fill_ratio):
 
 @pytest.mark.parametrize("fill_percentage", [0, 1, 50, 99])
 @pytest.mark.parametrize("insertion_threshold", [2, 8])
-def test_promoted_after_hits_various_thresholds(
-    pyocf_ctx, insertion_threshold, fill_percentage
-):
+def test_promoted_after_hits_various_thresholds(pyocf_ctx, insertion_threshold, fill_percentage):
     """
     Check promotion policy behavior with various set thresholds
 
@@ -195,8 +194,7 @@ def test_promoted_after_hits_various_thresholds(
     cache.settle()
     stats = cache.get_stats()
     assert (
-        threshold_reached_occupancy
-        == stats["usage"]["occupancy"]["value"] - 1
+        threshold_reached_occupancy == stats["usage"]["occupancy"]["value"] - 1
     ), "Previous request should be promoted and occupancy should rise"
 
 
@@ -232,12 +230,8 @@ def test_partial_hit_promotion(pyocf_ctx):
 
     # Step 3
     cache.set_promotion_policy(PromotionPolicy.NHIT)
-    cache.set_promotion_policy_param(
-        PromotionPolicy.NHIT, NhitParams.TRIGGER_THRESHOLD, 0
-    )
-    cache.set_promotion_policy_param(
-        PromotionPolicy.NHIT, NhitParams.INSERTION_THRESHOLD, 100
-    )
+    cache.set_promotion_policy_param(PromotionPolicy.NHIT, NhitParams.TRIGGER_THRESHOLD, 0)
+    cache.set_promotion_policy_param(PromotionPolicy.NHIT, NhitParams.INSERTION_THRESHOLD, 100)
 
     # Step 4
     req_size = Size(2 * cache_lines.line_size)
@@ -245,6 +239,4 @@ def test_partial_hit_promotion(pyocf_ctx):
 
     cache.settle()
     stats = cache.get_stats()
-    assert (
-        stats["usage"]["occupancy"]["value"] == 2
-    ), "Second cache line should be mapped"
+    assert stats["usage"]["occupancy"]["value"] == 2, "Second cache line should be mapped"

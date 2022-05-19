@@ -112,9 +112,7 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     """ Verify if overflown pinned ioclass is evicted """
     cache_device = RamVolume(Size.from_MiB(50))
     core_device = RamVolume(Size.from_MiB(100))
-    cache = Cache.start_on_device(
-        cache_device, cache_mode=CacheMode.WT, cache_line_size=cls
-    )
+    cache = Cache.start_on_device(cache_device, cache_mode=CacheMode.WT, cache_line_size=cls)
     core = Core.using_device(core_device)
     cache.add_core(core)
     vol = CoreVolume(core, open=True)
@@ -124,10 +122,7 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     pinned_ioclass_max_occupancy = 10
 
     cache.configure_partition(
-        part_id=test_ioclass_id,
-        name="default_ioclass",
-        max_size=100,
-        priority=1,
+        part_id=test_ioclass_id, name="default_ioclass", max_size=100, priority=1,
     )
     cache.configure_partition(
         part_id=pinned_ioclass_id,
@@ -154,9 +149,7 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     ), "Failed to populate the default partition"
 
     # Repart - force overflow of second partition occupancy limit
-    pinned_double_size = ceil(
-        (cache_size.blocks_4k * pinned_ioclass_max_occupancy * 2) / 100
-    )
+    pinned_double_size = ceil((cache_size.blocks_4k * pinned_ioclass_max_occupancy * 2) / 100)
     for i in range(pinned_double_size):
         send_io(core, data, i * 4096, pinned_ioclass_id)
 
@@ -175,21 +168,14 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
         cache.get_partition_info(part_id=pinned_ioclass_id)["_curr_size"], cls
     )
     assert isclose(
-        part_current_size.blocks_4k,
-        ceil(cache_size.blocks_4k * 0.1),
-        abs_tol=Size(cls).blocks_4k,
+        part_current_size.blocks_4k, ceil(cache_size.blocks_4k * 0.1), abs_tol=Size(cls).blocks_4k,
     ), "Overflown part has not been evicted"
 
 
 def send_io(core: Core, data: Data, addr: int = 0, target_ioclass: int = 0):
     vol = core.get_front_volume()
     io = vol.new_io(
-        core.cache.get_default_queue(),
-        addr,
-        data.size,
-        IoDir.WRITE,
-        target_ioclass,
-        0,
+        core.cache.get_default_queue(), addr, data.size, IoDir.WRITE, target_ioclass, 0,
     )
 
     io.set_data(data)

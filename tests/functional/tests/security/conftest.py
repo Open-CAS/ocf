@@ -5,12 +5,7 @@
 
 import os
 import sys
-from ctypes import (
-    c_uint64,
-    c_uint32,
-    c_uint16,
-    c_int
-)
+from ctypes import c_uint64, c_uint32, c_uint16, c_int
 from tests.utils.random import RandomStringGenerator, RandomGenerator, DefaultRanges, Range
 
 from pyocf.types.cache import CacheMode, MetadataLayout, PromotionPolicy
@@ -63,9 +58,7 @@ def string_randomize(request):
     return request.param
 
 
-@pytest.fixture(
-    params=RandomGenerator(DefaultRanges.UINT32).exclude_range(enum_range(CacheMode))
-)
+@pytest.fixture(params=RandomGenerator(DefaultRanges.UINT32).exclude_range(enum_range(CacheMode)))
 def not_cache_mode_randomize(request):
     return request.param
 

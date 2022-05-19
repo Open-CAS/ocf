@@ -161,9 +161,7 @@ class Data:
     @staticmethod
     @DataOps.COPY
     def _copy(dst, src, skip, seek, size):
-        return Data.get_instance(dst).copy(
-            Data.get_instance(src), skip, seek, size
-        )
+        return Data.get_instance(dst).copy(Data.get_instance(src), skip, seek, size)
 
     @staticmethod
     @DataOps.SECURE_ERASE

@@ -199,9 +199,7 @@ def test_neg_core_set_seq_cut_off_promotion(pyocf_ctx, cm, cls):
     for i in RandomGenerator(DefaultRanges.UINT32):
         if i in ConfValidValues.seq_cutoff_promotion_range:
             continue
-        with pytest.raises(
-            OcfError, match="Error setting core seq cut off policy promotion count"
-        ):
+        with pytest.raises(OcfError, match="Error setting core seq cut off policy promotion count"):
             core1.set_seq_cut_off_promotion(i)
             print(f"\n{i}")
 
@@ -235,9 +233,7 @@ def test_neg_cache_set_seq_cut_off_threshold(pyocf_ctx, cm, cls):
     for i in RandomGenerator(DefaultRanges.UINT32):
         if i in ConfValidValues.seq_cutoff_threshold_rage:
             continue
-        with pytest.raises(
-            OcfError, match="Error setting cache seq cut off policy threshold"
-        ):
+        with pytest.raises(OcfError, match="Error setting cache seq cut off policy threshold"):
             cache.set_seq_cut_off_threshold(i)
             print(f"\n{i}")
 
@@ -268,9 +264,7 @@ def test_neg_core_set_seq_cut_off_threshold(pyocf_ctx, cm, cls):
     for i in RandomGenerator(DefaultRanges.UINT32):
         if i in ConfValidValues.seq_cutoff_threshold_rage:
             continue
-        with pytest.raises(
-            OcfError, match="Error setting core seq cut off policy threshold"
-        ):
+        with pytest.raises(OcfError, match="Error setting core seq cut off policy threshold"):
             core.set_seq_cut_off_threshold(i)
             print(f"\n{i}")
 
@@ -468,10 +462,7 @@ def test_neg_set_nhit_promotion_policy_param(pyocf_ctx, cm, cls):
     # Start cache device
     cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
-        cache_device,
-        cache_mode=cm,
-        cache_line_size=cls,
-        promotion_policy=PromotionPolicy.NHIT,
+        cache_device, cache_mode=cm, cache_line_size=cls, promotion_policy=PromotionPolicy.NHIT,
     )
 
     # Set invalid promotion policy param id and check if failed
@@ -498,10 +489,7 @@ def test_neg_set_nhit_promotion_policy_param_trigger(pyocf_ctx, cm, cls):
     # Start cache device
     cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
-        cache_device,
-        cache_mode=cm,
-        cache_line_size=cls,
-        promotion_policy=PromotionPolicy.NHIT,
+        cache_device, cache_mode=cm, cache_line_size=cls, promotion_policy=PromotionPolicy.NHIT,
     )
 
     # Set to invalid promotion policy trigger threshold and check if failed
@@ -509,9 +497,7 @@ def test_neg_set_nhit_promotion_policy_param_trigger(pyocf_ctx, cm, cls):
         if i in ConfValidValues.promotion_nhit_trigger_threshold_range:
             continue
         with pytest.raises(OcfError, match="Error setting promotion policy parameter"):
-            cache.set_promotion_policy_param(
-                PromotionPolicy.NHIT, NhitParams.TRIGGER_THRESHOLD, i
-            )
+            cache.set_promotion_policy_param(PromotionPolicy.NHIT, NhitParams.TRIGGER_THRESHOLD, i)
             print(f"\n{i}")
 
 
@@ -530,10 +516,7 @@ def test_neg_set_nhit_promotion_policy_param_threshold(pyocf_ctx, cm, cls):
     # Start cache device
     cache_device = RamVolume(S.from_MiB(50))
     cache = Cache.start_on_device(
-        cache_device,
-        cache_mode=cm,
-        cache_line_size=cls,
-        promotion_policy=PromotionPolicy.NHIT,
+        cache_device, cache_mode=cm, cache_line_size=cls, promotion_policy=PromotionPolicy.NHIT,
     )
 
     # Set to invalid promotion policy insertion threshold and check if failed
@@ -568,11 +551,7 @@ def test_neg_set_ioclass_max_size(pyocf_ctx, cm, cls):
             continue
         with pytest.raises(OcfError, match="Error adding partition to cache"):
             cache.configure_partition(
-                part_id=1,
-                name="unclassified",
-                max_size=i,
-                priority=0,
-                cache_mode=CACHE_MODE_NONE,
+                part_id=1, name="unclassified", max_size=i, priority=0, cache_mode=CACHE_MODE_NONE,
             )
             print(f"\n{i}")
 

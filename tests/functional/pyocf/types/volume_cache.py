@@ -21,12 +21,9 @@ class CacheVolume(ExpObjVolume):
             self.open()
 
     def open(self):
-        return Volume.open(
-            self.lib.ocf_cache_get_front_volume(self.cache.cache_handle),
-            self
-        )
+        return Volume.open(self.lib.ocf_cache_get_front_volume(self.cache.cache_handle), self)
 
     def md5(self):
         out = self.cache.get_conf()
-        cache_line_size = int(out['cache_line_size'])
+        cache_line_size = int(out["cache_line_size"])
         return self._exp_obj_md5(cache_line_size)

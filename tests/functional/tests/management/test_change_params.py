@@ -18,9 +18,7 @@ from pyocf.types.shared import CacheLineSize
 def test_change_cache_mode(pyocf_ctx, from_cm, to_cm, cls):
     # Start cache device
     cache_device = RamVolume(S.from_MiB(50))
-    cache = Cache.start_on_device(
-        cache_device, cache_mode=from_cm, cache_line_size=cls
-    )
+    cache = Cache.start_on_device(cache_device, cache_mode=from_cm, cache_line_size=cls)
 
     # Change cache mode and check if stats are as expected
     cache.change_cache_mode(to_cm)
@@ -33,9 +31,7 @@ def test_change_cache_mode(pyocf_ctx, from_cm, to_cm, cls):
 def test_change_cleaning_policy(pyocf_ctx, cm, cls):
     # Start cache device
     cache_device = RamVolume(S.from_MiB(50))
-    cache = Cache.start_on_device(
-        cache_device, cache_mode=cm, cache_line_size=cls
-    )
+    cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Check all possible cleaning policy switches
     for cp_from in CleaningPolicy:
@@ -58,9 +54,7 @@ def test_change_cleaning_policy(pyocf_ctx, cm, cls):
 def test_cache_change_seq_cut_off_policy(pyocf_ctx, cm, cls):
     # Start cache device
     cache_device = RamVolume(S.from_MiB(50))
-    cache = Cache.start_on_device(
-        cache_device, cache_mode=cm, cache_line_size=cls
-    )
+    cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Create 2 core devices
     core_device1 = RamVolume(S.from_MiB(10))
@@ -97,9 +91,7 @@ def test_cache_change_seq_cut_off_policy(pyocf_ctx, cm, cls):
 def test_core_change_seq_cut_off_policy(pyocf_ctx, cm, cls):
     # Start cache device
     cache_device = RamVolume(S.from_MiB(50))
-    cache = Cache.start_on_device(
-        cache_device, cache_mode=cm, cache_line_size=cls
-    )
+    cache = Cache.start_on_device(cache_device, cache_mode=cm, cache_line_size=cls)
 
     # Create 2 core devices
     core_device1 = RamVolume(S.from_MiB(10))

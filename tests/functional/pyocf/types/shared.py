@@ -69,9 +69,7 @@ class OcfCompletion:
 
     class CompletionResult:
         def __init__(self, completion_args):
-            self.completion_args = {
-                x[0]: i for i, x in enumerate(completion_args)
-            }
+            self.completion_args = {x[0]: i for i, x in enumerate(completion_args)}
             self.results = None
             self.arg_types = [x[1] for x in completion_args]
 
@@ -131,9 +129,7 @@ class SharedOcfObject(Structure):
             return cls._instances_[ref]
         except:  # noqa E722
             logging.getLogger("pyocf").error(
-                "OcfSharedObject corruption. wanted: {} instances: {}".format(
-                    ref, cls._instances_
-                )
+                "OcfSharedObject corruption. wanted: {} instances: {}".format(ref, cls._instances_)
             )
             return None
 

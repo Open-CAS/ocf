@@ -94,8 +94,9 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     vol = CoreVolume(core, open=True)
 
     write_data = Data.from_string("This is test data")
-    io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B,
-                     write_data.size, IoDir.WRITE, 0, 0)
+    io = vol.new_io(
+        cache.get_default_queue(), S.from_sector(3).B, write_data.size, IoDir.WRITE, 0, 0
+    )
     io.set_data(write_data)
 
     cmpl = OcfCompletion([("err", c_int)])
@@ -114,8 +115,7 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     vol = CoreVolume(core, open=True)
 
     read_data = Data(write_data.size)
-    io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B,
-                     read_data.size, IoDir.READ, 0, 0)
+    io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B, read_data.size, IoDir.READ, 0, 0)
     io.set_data(read_data)
 
     cmpl = OcfCompletion([("err", c_int)])

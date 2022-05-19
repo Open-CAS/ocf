@@ -7,13 +7,7 @@ from ctypes import string_at
 
 
 def print_buffer(
-    buf,
-    length,
-    offset=0,
-    width=16,
-    ignore=0,
-    stop_after_count_ignored=0,
-    print_fcn=print,
+    buf, length, offset=0, width=16, ignore=0, stop_after_count_ignored=0, print_fcn=print,
 ):
     end = int(offset) + int(length)
     offset = int(offset)
@@ -27,10 +21,7 @@ def print_buffer(
         byteline = ""
         asciiline = ""
         if not any(x != ignore for x in cur_line):
-            if (
-                stop_after_count_ignored
-                and ignored_lines > stop_after_count_ignored
-            ):
+            if stop_after_count_ignored and ignored_lines > stop_after_count_ignored:
                 print_fcn(
                     "<{} bytes of '0x{:02X}' encountered, stopping>".format(
                         stop_after_count_ignored * width, ignore
@@ -41,11 +32,7 @@ def print_buffer(
             continue
 
         if ignored_lines:
-            print_fcn(
-                "<{} of '0x{:02X}' bytes omitted>".format(
-                    ignored_lines * width, ignore
-                )
-            )
+            print_fcn("<{} of '0x{:02X}' bytes omitted>".format(ignored_lines * width, ignore))
             ignored_lines = 0
 
         for byte in cur_line:
@@ -76,10 +63,7 @@ class Size:
 
     def __init__(self, b: int, sector_aligned: bool = False):
         if sector_aligned:
-            self.bytes = int(
-                ((b + self._SECTOR_SIZE - 1) // self._SECTOR_SIZE)
-                * self._SECTOR_SIZE
-            )
+            self.bytes = int(((b + self._SECTOR_SIZE - 1) // self._SECTOR_SIZE) * self._SECTOR_SIZE)
         else:
             self.bytes = int(b)
 
