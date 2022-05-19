@@ -477,6 +477,37 @@ class ErrorDevice(RamVolume):
         self.stats["errors"] = {IoDir.WRITE: 0, IoDir.READ: 0}
 
 
+class TraceDevice(RamVolume):
+    class IoType(IntEnum):
+        Data = 1
+        Flush = 2
+        Discard = 3
+
+    def __init__(self, size, trace_fcn=None, uuid=None):
+        super().__init__(size, uuid)
+        self.trace_fcn = trace_fcn
+
+    def _trace(self, io, io_type):
+        submit = True
+
+        if self.trace_fcn:
+            submit = self.trace_fcn(self, io, io_type)
+
+        return submit
+
+    def do_submit_io(self, io):
+        submit = self._trace(io, TraceDevice.IoType.Data)
+
+        if submit:
+            super().do_submit_io(io)
+
+    def do_submit_flush(self, io):
+        submit = self._trace(io, TraceDevice.IoType.Flush)
+
+        if submit:
+            super().do_submit_flush(io)
+
+
 lib = OcfLib.getInstance()
 lib.ocf_io_get_priv.restype = POINTER(VolumeIoPriv)
 lib.ocf_io_get_volume.argtypes = [c_void_p]
