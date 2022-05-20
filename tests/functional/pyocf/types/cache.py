@@ -917,3 +917,5 @@ lib.ocf_mngt_add_partition_to_cache.argtypes = [
 ]
 lib.ocf_mngt_cache_io_classes_configure.restype = c_int
 lib.ocf_mngt_cache_io_classes_configure.argtypes = [c_void_p, c_void_p]
+lib.ocf_volume_create.restype = c_int
+lib.ocf_volume_create.argtypes = [c_void_p, c_void_p, c_void_p]
