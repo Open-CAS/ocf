@@ -172,7 +172,7 @@ class Core:
             raise OcfError("Error setting core seq cut off policy promotion count", status)
 
     def reset_stats(self):
-        self.cache.owner.lib.ocf_core_stats_initialize(self.handle)
+        lib.ocf_core_stats_initialize(self.handle)
 
 
 lib = OcfLib.getInstance()
@@ -192,3 +192,5 @@ lib.ocf_stats_collect_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c
 lib.ocf_stats_collect_core.restype = c_int
 lib.ocf_core_get_info.argtypes = [c_void_p, c_void_p]
 lib.ocf_core_get_info.restype = c_int
+lib.ocf_core_stats_initialize.argtypes = [c_void_p]
+lib.ocf_core_stats_initialize.restype = c_void_p
