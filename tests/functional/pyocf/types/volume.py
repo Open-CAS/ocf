@@ -22,6 +22,7 @@ from ctypes import (
 )
 from hashlib import md5
 import weakref
+from enum import IntEnum
 
 from .io import Io, IoOps, IoDir
 from .queue import Queue
@@ -30,6 +31,10 @@ from ..ocf import OcfLib
 from ..utils import print_buffer, Size as S
 from .data import Data
 from .queue import Queue
+
+
+class IoFlags(IntEnum):
+    FLUSH = 1
 
 
 class VolumeCaps(Structure):
@@ -369,6 +374,11 @@ class RamVolume(Volume):
             discard.contents._end(discard, -OcfErrorCode.OCF_ERR_NOT_SUPP)
 
     def do_submit_io(self, io):
+        flags = int(io.contents._flags)
+        if flags & IoFlags.FLUSH:
+            self.do_submit_flush(io)
+            return
+
         try:
             io_priv = cast(
                 OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv))
@@ -465,6 +475,37 @@ class ErrorDevice(RamVolume):
     def reset_stats(self):
         super().reset_stats()
         self.stats["errors"] = {IoDir.WRITE: 0, IoDir.READ: 0}
+
+
+class TraceDevice(RamVolume):
+    class IoType(IntEnum):
+        Data = 1
+        Flush = 2
+        Discard = 3
+
+    def __init__(self, size, trace_fcn=None, uuid=None):
+        super().__init__(size, uuid)
+        self.trace_fcn = trace_fcn
+
+    def _trace(self, io, io_type):
+        submit = True
+
+        if self.trace_fcn:
+            submit = self.trace_fcn(self, io, io_type)
+
+        return submit
+
+    def do_submit_io(self, io):
+        submit = self._trace(io, TraceDevice.IoType.Data)
+
+        if submit:
+            super().do_submit_io(io)
+
+    def do_submit_flush(self, io):
+        submit = self._trace(io, TraceDevice.IoType.Flush)
+
+        if submit:
+            super().do_submit_flush(io)
 
 
 lib = OcfLib.getInstance()
