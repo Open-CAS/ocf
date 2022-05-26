@@ -582,7 +582,8 @@ void ocf_engine_update_block_stats(struct ocf_request *req)
 void ocf_engine_update_request_stats(struct ocf_request *req)
 {
 	ocf_core_stats_request_update(req->core, req->part_id, req->rw,
-			req->info.hit_no, req->core_line_count);
+			req->is_deferred ? 0 : req->info.hit_no,
+			req->core_line_count);
 }
 
 void inc_fallback_pt_error_counter(ocf_cache_t cache)
