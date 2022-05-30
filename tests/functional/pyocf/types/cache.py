@@ -256,7 +256,7 @@ class Cache:
             raise OcfError("Failed to detach failover cache device", c.results["error"])
 
     def standby_activate(self, device, open_cores=True):
-        device_cfg = Cache.generate_device_config(device)
+        device_cfg = self.generate_device_config(device)
 
         activate_cfg = CacheStandbyActivateConfig(_device=device_cfg, _open_cores=open_cores,)
 
@@ -456,8 +456,7 @@ class Cache:
         if status:
             raise OcfError("Error adding partition to cache", status)
 
-    @staticmethod
-    def generate_device_config(device, perform_test=True):
+    def generate_device_config(self, device, perform_test=True):
         uuid = Uuid(
             _data=cast(create_string_buffer(device.uuid.encode("ascii")), c_char_p),
             _size=len(device.uuid) + 1,
@@ -467,7 +466,7 @@ class Cache:
         lib = OcfLib.getInstance()
         result = lib.ocf_volume_create(
             byref(volume),
-            device.type,
+            self.owner.ocf_volume_type[type(device)],
             byref(uuid)
         )
         if result != 0:
@@ -487,7 +486,7 @@ class Cache:
         self.device = device
         self.device_name = device.uuid
 
-        device_config = Cache.generate_device_config(device, perform_test=perform_test)
+        device_config = self.generate_device_config(device, perform_test=perform_test)
 
         attach_cfg = CacheAttachConfig(
             _device=device_config,
@@ -515,7 +514,7 @@ class Cache:
         self.device = device
         self.device_name = device.uuid
 
-        device_config = Cache.generate_device_config(device, perform_test=False)
+        device_config = self.generate_device_config(device, perform_test=False)
 
         attach_cfg = CacheAttachConfig(
             _device=device_config,
@@ -543,7 +542,7 @@ class Cache:
         self.device = device
         self.device_name = device.uuid
 
-        device_config = Cache.generate_device_config(device, perform_test=perform_test)
+        device_config = self.generate_device_config(device, perform_test=perform_test)
 
         attach_cfg = CacheAttachConfig(
             _device=device_config,
@@ -580,7 +579,7 @@ class Cache:
         self.device = device
         self.device_name = device.uuid
 
-        device_config = Cache.generate_device_config(device)
+        device_config = self.generate_device_config(device)
 
         attach_cfg = CacheAttachConfig(
             _device=device_config,

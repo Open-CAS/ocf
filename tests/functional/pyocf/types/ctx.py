@@ -37,6 +37,7 @@ class OcfCtx:
         self.lib = lib
         self.volume_types_count = 1
         self.volume_types = {}
+        self.ocf_volume_type = {}
         self.caches = []
 
         self.cfg = OcfCtxCfg(
@@ -77,7 +78,7 @@ class OcfCtx:
         if result != 0:
             raise OcfError("Volume type registration failed", result)
 
-        volume_type.type = self.lib.ocf_ctx_get_volume_type(
+        self.ocf_volume_type[volume_type] = self.lib.ocf_ctx_get_volume_type(
             self.ctx_handle,
             volume_type.type_id
         )
@@ -91,6 +92,7 @@ class OcfCtx:
         self.lib.ocf_ctx_unregister_volume_type(self.ctx_handle, vol_type.type_id)
 
         del self.volume_types[vol_type.type_id]
+        del self.ocf_volume_type[vol_type]
 
     def cleanup_volume_types(self):
         for k, vol_type in list(self.volume_types.items()):
