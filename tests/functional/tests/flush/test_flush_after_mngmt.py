@@ -63,6 +63,8 @@ def test_flush_after_mngmt(pyocf_ctx):
 
     data = bytes(block_size)
 
+    pyocf_ctx.register_volume_type(FlushValVolume)
+
     cache_device = FlushValVolume(Size.from_MiB(50))
     core_device = FlushValVolume(Size.from_MiB(50))
 

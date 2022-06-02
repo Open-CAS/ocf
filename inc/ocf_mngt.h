@@ -361,14 +361,17 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
  */
 struct ocf_mngt_cache_device_config {
 	/**
-	 * @brief Cache volume UUID
+	 * @brief Cache volume
+	 *
+	 * The volume ownership is moved to the context of operation that takes
+	 * this config. Thus the volume is being effectively moved using
+	 * ocf_volume_move(), leaving the original volume uninitialized.
+	 *
+	 * Note that if the original volume was instantiated using *_create
+	 * function, it still needs to be destroyed using ocf_volume_destroy()
+	 * to deallocate the memory.
 	 */
-	struct ocf_volume_uuid uuid;
-
-	/**
-	 * @brief Cache volume type
-	 */
-	uint8_t volume_type;
+	ocf_volume_t volume;
 
 	/**
 	 * @brief If set, cache features (like discard) are tested

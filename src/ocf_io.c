@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -31,7 +31,7 @@
 #define OCF_IO_TOTAL(priv_size) \
 		(sizeof(struct ocf_io_internal) + priv_size)
 
-static int ocf_io_allocator_default_init(ocf_io_allocator_t allocator,
+int ocf_io_allocator_default_init(ocf_io_allocator_t allocator,
 		uint32_t priv_size, const char *name)
 {
 	allocator->priv = env_allocator_create(OCF_IO_TOTAL(priv_size), name,
@@ -42,20 +42,20 @@ static int ocf_io_allocator_default_init(ocf_io_allocator_t allocator,
 	return 0;
 }
 
-static void ocf_io_allocator_default_deinit(ocf_io_allocator_t allocator)
+void ocf_io_allocator_default_deinit(ocf_io_allocator_t allocator)
 {
 	env_allocator_destroy(allocator->priv);
 	allocator->priv = NULL;
 }
 
-static void *ocf_io_allocator_default_new(ocf_io_allocator_t allocator,
+void *ocf_io_allocator_default_new(ocf_io_allocator_t allocator,
 		ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir)
 {
 	return env_allocator_new(allocator->priv);
 }
 
-static void ocf_io_allocator_default_del(ocf_io_allocator_t allocator, void *obj)
+void ocf_io_allocator_default_del(ocf_io_allocator_t allocator, void *obj)
 {
 	env_allocator_del(allocator->priv, obj);
 }

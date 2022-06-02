@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -81,6 +81,24 @@ struct ocf_volume_ops {
 	 * @param[in] io IO description (addr, size)
 	 */
 	void (*submit_write_zeroes)(struct ocf_io *io);
+
+	/**
+	 * @brief Volume initialization callback, called when volume object
+	 *        is being initialized
+	 *
+	 * @param[in] volume Volume
+	 *
+	 * @return Zero on success, otherwise error code
+	 */
+	int (*on_init)(ocf_volume_t volume);
+
+	/**
+	 * @brief Volume deinitialization callback, called when volume object
+	 *        is being deinitialized
+	 *
+	 * @param[in] volume Volume
+	 */
+	void (*on_deinit)(ocf_volume_t volume);
 
 	/**
 	 * @brief Open volume

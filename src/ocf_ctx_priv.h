@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -12,13 +12,14 @@
 #include "ocf_volume_priv.h"
 
 #define OCF_VOLUME_TYPE_CNT_USER 8
-#define OCF_VOLUME_TYPE_CNT_PRIV 2
+#define OCF_VOLUME_TYPE_CNT_PRIV 3
 #define OCF_VOLUME_TYPE_MAX_USER OCF_VOLUME_TYPE_CNT_USER
 #define OCF_VOLUME_TYPE_MAX \
 		(OCF_VOLUME_TYPE_CNT_USER + OCF_VOLUME_TYPE_CNT_PRIV)
 
 #define OCF_VOLUME_TYPE_CORE (OCF_VOLUME_TYPE_MAX_USER + 0)
 #define OCF_VOLUME_TYPE_CACHE (OCF_VOLUME_TYPE_MAX_USER + 1)
+#define OCF_VOLUME_TYPE_COMPOSITE (OCF_VOLUME_TYPE_MAX_USER + 2)
 
 /**
  * @brief OCF main control structure
