@@ -22,6 +22,7 @@ from ctypes import (
 )
 from hashlib import md5
 import weakref
+from enum import IntEnum
 
 from .io import Io, IoOps, IoDir
 from .queue import Queue
@@ -30,6 +31,10 @@ from ..ocf import OcfLib
 from ..utils import print_buffer, Size as S
 from .data import Data
 from .queue import Queue
+
+
+class IoFlags(IntEnum):
+    FLUSH = 1
 
 
 class VolumeCaps(Structure):
@@ -350,6 +355,11 @@ class RamVolume(Volume):
             discard.contents._end(discard, -OcfErrorCode.OCF_ERR_NOT_SUPP)
 
     def do_submit_io(self, io):
+        flags = int(io.contents._flags)
+        if flags & IoFlags.FLUSH:
+            self.do_submit_flush(io)
+            return
+
         try:
             io_priv = cast(OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv))
             offset = io_priv.contents._offset
@@ -449,6 +459,56 @@ class ErrorDevice(Volume):
 
     def do_submit_flush(self, flush):
         return self.vol.do_submit_flush(flush)
+
+    def do_submit_discard(self, discard):
+        return self.vol.do_submit_discard(discard)
+
+    def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
+        return self.vol.dump(offset, size, ignore=ignore, **kwargs)
+
+    def md5(self):
+        return self.vol.md5()
+
+    def get_copy(self):
+        return self.vol.get_copy()
+
+
+class TraceDevice(Volume):
+    class IoType(IntEnum):
+        Data = 1
+        Flush = 2
+        Discard = 3
+
+    def __init__(self, vol, trace_fcn=None, uuid=None):
+        self.vol = vol
+        super().__init__(uuid)
+        self.trace_fcn = trace_fcn
+
+    def _trace(self, io, io_type):
+        submit = True
+
+        if self.trace_fcn:
+            submit = self.trace_fcn(self, io, io_type)
+
+        return submit
+
+    def do_submit_io(self, io):
+        submit = self._trace(io, TraceDevice.IoType.Data)
+
+        if submit:
+            self.vol.do_submit_io(io)
+
+    def do_submit_flush(self, io):
+        submit = self._trace(io, TraceDevice.IoType.Flush)
+
+        if submit:
+            self.vol.do_submit_flush(io)
+
+    def get_length(self):
+        return self.vol.get_length()
+
+    def get_max_io_size(self):
+        return self.vol.get_max_io_size()
 
     def do_submit_discard(self, discard):
         return self.vol.do_submit_discard(discard)
