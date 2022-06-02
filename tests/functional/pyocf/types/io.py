@@ -53,9 +53,7 @@ class Io(Structure):
     def from_pointer(cls, ref):
         c = cls.from_address(ref)
         cls._instances_[ref] = c
-        OcfLib.getInstance().ocf_io_set_cmpl_wrapper(
-            byref(c), None, None, c.c_end
-        )
+        OcfLib.getInstance().ocf_io_set_cmpl_wrapper(byref(c), None, None, c.c_end)
         return c
 
     @classmethod
@@ -92,8 +90,8 @@ class Io(Structure):
         except:  # noqa E722
             pass
 
-        self.put()
         self.del_object()
+        self.put()
 
     def submit(self):
         return OcfLib.getInstance().ocf_volume_submit_io(byref(self))

@@ -14,10 +14,7 @@ class OcfLib:
     def getInstance(cls):
         if cls.__lib__ is None:
             lib = cdll.LoadLibrary(
-                os.path.join(
-                    os.path.dirname(inspect.getfile(inspect.currentframe())),
-                    "libocf.so",
-                )
+                os.path.join(os.path.dirname(inspect.getfile(inspect.currentframe())), "libocf.so",)
             )
             lib.ocf_volume_get_uuid.restype = c_void_p
             lib.ocf_volume_get_uuid.argtypes = [c_void_p]

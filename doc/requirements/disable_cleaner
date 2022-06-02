@@ -1,0 +1,67 @@
+---
+group: disable_cleaner
+---
+
+Disabling cleaner is a feature that is intented to be used with read cache
+(Write-Thourgh and Write-Around modes), where no dirty data is produced, so
+the cleaning is not necessary. Its major benefit is metadata memory footprint
+reduction, which is result of not allocating "cleaning" metatada section,
+that constitutes about 20% of total metadata capacity.
+
+While it is possible to use disable_cleaner option Write-Back and Write-Only
+modes, it may result in performance degradation due to necessity to perform
+cleaning on eviction.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Setting cleaner_disabled mode
+id: set_cleaner_disabled
+---
+
+It shall be possible to select cleaner_disabled mode during cache attach
+operation by setting apropirate field in attach config.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Loading cache cleaner_disabled mode
+id: load_cleaner_disabled
+---
+
+The cleaner_disabled setting should be preserved in cache metadata, i.e. on the
+cache load/recovery the setting should be restored to the value it had before
+the cache stop.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Metadata "cleaning" section allocation
+id: cleaning_section_alocation
+---
+
+When disable_cleaner option is selected the "cleaning" section in OCF metadata
+shall not be allocated neither in DRAM nor on the cache drive.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Starting with NOP cleaning policy
+id: starting_with_nop_policy
+---
+
+When attaching/loading cache with disable_cleaner option selected, the cleaning
+policy shall always be NOP.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: NOP cleaning policy enforcement
+id: nop_enforcement
+---
+
+When disable_cleaner option is selected it shall not be possible to change the
+cleaning policy to other than NOP.
+
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+title: Default setting
+id: default_setting
+---
+
+By default the disable_cleaner option shall not be selected.

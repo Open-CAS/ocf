@@ -39,7 +39,8 @@ from .io import IoDir
 from .ioclass import IoClassesInfo, IoClassInfo
 from .stats.shared import UsageStats, RequestsStats, BlocksStats, ErrorsStats
 from .ctx import OcfCtx
-from .volume import RamVolume
+from .volume import RamVolume, Volume
+
 
 class Backfill(Structure):
     _fields_ = [("_max_queue_size", c_uint32), ("_queue_unblock_size", c_uint32)]
@@ -76,7 +77,7 @@ class CacheAttachConfig(Structure):
         ("_open_cores", c_bool),
         ("_force", c_bool),
         ("_discard_on_start", c_bool),
-        ("_volume_params", c_void_p),
+        ("_disable_cleaner", c_bool),
     ]
 
 
@@ -205,10 +206,7 @@ class Cache:
         self.cores = []
 
     def start_cache(
-        self,
-        default_io_queue: Queue = None,
-        mngt_queue: Queue = None,
-        locked: bool = False,
+        self, init_mngmt_queue=True, init_default_io_queue=True, locked: bool = False,
     ):
         cfg = CacheConfig(
             _name=self.name.encode("ascii"),
@@ -217,8 +215,7 @@ class Cache:
             _cache_line_size=self.cache_line_size,
             _metadata_volatile=self.metadata_volatile,
             _backfill=Backfill(
-                _max_queue_size=self.max_queue_size,
-                _queue_unblock_size=self.queue_unblock_size,
+                _max_queue_size=self.max_queue_size, _queue_unblock_size=self.queue_unblock_size,
             ),
             _locked=locked,
             _pt_unaligned_io=self.pt_unaligned_io,
@@ -231,19 +228,23 @@ class Cache:
         if status:
             raise OcfError("Creating cache instance failed", status)
 
-        self.mngt_queue = mngt_queue or Queue(self, "mgmt-{}".format(self.get_name()))
+        if init_mngmt_queue:
+            self.mngt_queue = Queue(self, "mgmt-{}".format(self.get_name()))
+            status = self.owner.lib.ocf_mngt_cache_set_mngt_queue(self, self.mngt_queue)
+            if status:
+                raise OcfError("Error setting management queue", status)
 
-        if default_io_queue:
-            self.io_queues += [default_io_queue]
+        if init_default_io_queue:
+            self.io_queues = [Queue(self, "default-io-{}".format(self.get_name()))]
         else:
-            self.io_queues += [Queue(self, "default-io-{}".format(self.get_name()))]
-
-        status = self.owner.lib.ocf_mngt_cache_set_mngt_queue(self, self.mngt_queue)
-        if status:
-            raise OcfError("Error setting management queue", status)
+            self.io_queues = []
 
         self.started = True
         self.owner.caches.append(self)
+
+    def add_io_queue(self, *args, **kwargs):
+        q = Queue(self, args, **kwargs)
+        self.io_queues += [q]
 
     def standby_detach(self):
         self.write_lock()
@@ -258,9 +259,7 @@ class Cache:
     def standby_activate(self, device, open_cores=True):
         device_cfg = Cache.generate_device_config(device)
 
-        activate_cfg = CacheStandbyActivateConfig(
-            _device=device_cfg, _open_cores=open_cores,
-        )
+        activate_cfg = CacheStandbyActivateConfig(_device=device_cfg, _open_cores=open_cores,)
 
         self.write_lock()
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
@@ -296,9 +295,7 @@ class Cache:
         if c.results["error"]:
             raise OcfError("Error changing cleaning policy", c.results["error"])
 
-    def set_cleaning_policy_param(
-        self, cleaning_policy: CleaningPolicy, param_id, param_value
-    ):
+    def set_cleaning_policy_param(self, cleaning_policy: CleaningPolicy, param_id, param_value):
         self.write_lock()
 
         status = self.owner.lib.ocf_mngt_cache_cleaning_set_param(
@@ -350,9 +347,7 @@ class Cache:
     def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
         self.write_lock()
 
-        status = self.owner.lib.ocf_mngt_core_set_seq_cutoff_policy_all(
-            self.cache_handle, policy
-        )
+        status = self.owner.lib.ocf_mngt_core_set_seq_cutoff_policy_all(self.cache_handle, policy)
 
         self.write_unlock()
 
@@ -381,9 +376,7 @@ class Cache:
         self.write_unlock()
 
         if status:
-            raise OcfError(
-                "Error setting cache seq cut off policy promotion count", status
-            )
+            raise OcfError("Error setting cache seq cut off policy promotion count", status)
 
     def get_partition_info(self, part_id: int):
         ioclass_info = IoClassInfo()
@@ -409,13 +402,7 @@ class Cache:
         }
 
     def add_partition(
-        self,
-        part_id: int,
-        name: str,
-        min_size: int,
-        max_size: int,
-        priority: int,
-        valid: bool,
+        self, part_id: int, name: str, min_size: int, max_size: int, priority: int, valid: bool,
     ):
         self.write_lock()
 
@@ -431,12 +418,7 @@ class Cache:
             raise OcfError("Error adding partition to cache", status)
 
     def configure_partition(
-        self,
-        part_id: int,
-        name: str,
-        max_size: int,
-        priority: int,
-        cache_mode=CACHE_MODE_NONE,
+        self, part_id: int, name: str, max_size: int, priority: int, cache_mode=CACHE_MODE_NONE,
     ):
         ioclasses_info = IoClassesInfo()
 
@@ -490,12 +472,7 @@ class Cache:
         return device_config
 
     def attach_device(
-        self,
-        device,
-        force=False,
-        perform_test=False,
-        cache_line_size=None,
-        open_cores=False,
+        self, device, force=False, perform_test=False, cache_line_size=None, open_cores=False,
     ):
         self.device = device
         self.device_name = device.uuid
@@ -504,9 +481,7 @@ class Cache:
 
         attach_cfg = CacheAttachConfig(
             _device=device_config,
-            _cache_line_size=cache_line_size
-            if cache_line_size
-            else self.cache_line_size,
+            _cache_line_size=cache_line_size if cache_line_size else self.cache_line_size,
             _open_cores=open_cores,
             _force=force,
             _discard_on_start=False,
@@ -516,17 +491,14 @@ class Cache:
 
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
 
-        self.owner.lib.ocf_mngt_cache_attach(
-            self.cache_handle, byref(attach_cfg), c, None
-        )
+        self.owner.lib.ocf_mngt_cache_attach(self.cache_handle, byref(attach_cfg), c, None)
         c.wait()
 
         self.write_unlock()
 
         if c.results["error"]:
             raise OcfError(
-                f"Attaching cache device failed",
-                c.results["error"],
+                f"Attaching cache device failed", c.results["error"],
             )
 
     def standby_attach(self, device, force=False):
@@ -547,24 +519,21 @@ class Cache:
 
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
 
-        self.owner.lib.ocf_mngt_cache_standby_attach(
-            self.cache_handle, byref(attach_cfg), c, None
-        )
+        self.owner.lib.ocf_mngt_cache_standby_attach(self.cache_handle, byref(attach_cfg), c, None)
         c.wait()
 
         self.write_unlock()
 
         if c.results["error"]:
             raise OcfError(
-                f"Attaching to standby cache failed",
-                c.results["error"],
+                f"Attaching to standby cache failed", c.results["error"],
             )
 
-    def standby_load(self, device):
+    def standby_load(self, device, perform_test=True):
         self.device = device
         self.device_name = device.uuid
 
-        device_config = Cache.generate_device_config(device)
+        device_config = Cache.generate_device_config(device, perform_test=perform_test)
 
         attach_cfg = CacheAttachConfig(
             _device=device_config,
@@ -576,9 +545,7 @@ class Cache:
 
         self.write_lock()
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
-        self.owner.lib.ocf_mngt_cache_standby_load(
-            self.cache_handle, byref(attach_cfg), c, None
-        )
+        self.owner.lib.ocf_mngt_cache_standby_load(self.cache_handle, byref(attach_cfg), c, None)
         c.wait()
         self.write_unlock()
 
@@ -615,9 +582,7 @@ class Cache:
 
         self.write_lock()
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
-        self.owner.lib.ocf_mngt_cache_load(
-            self.cache_handle, byref(attach_cfg), c, None
-        )
+        self.owner.lib.ocf_mngt_cache_load(self.cache_handle, byref(attach_cfg), c, None)
         c.wait()
         self.write_unlock()
 
@@ -688,10 +653,7 @@ class Cache:
         core_handle = c_void_p()
 
         result = self.owner.lib.ocf_core_get_by_name(
-            self.cache_handle,
-            name.encode("ascii"),
-            len(name),
-            byref(core_handle),
+            self.cache_handle, name.encode("ascii"), len(name), byref(core_handle),
         )
         if result != 0:
             raise OcfError("Failed getting core by name", result)
@@ -713,12 +675,7 @@ class Cache:
         self.write_lock()
 
         c = OcfCompletion(
-            [
-                ("cache", c_void_p),
-                ("core", c_void_p),
-                ("priv", c_void_p),
-                ("error", c_int),
-            ]
+            [("cache", c_void_p), ("core", c_void_p), ("priv", c_void_p), ("error", c_int),]
         )
 
         self.owner.lib.ocf_mngt_cache_add_core(self.cache_handle, byref(cfg), c, None)
@@ -755,8 +712,51 @@ class Cache:
     def get_volume(self):
         return Volume.get_instance(lib.ocf_cache_get_volume(self.cache_handle))
 
-    def get_stats(self):
+    def get_conf(self):
         cache_info = CacheInfo()
+
+        self.read_lock()
+
+        status = self.owner.lib.ocf_cache_get_info(self.cache_handle, byref(cache_info))
+
+        self.read_unlock()
+
+        if status:
+            raise OcfError("Failed getting cache info", status)
+
+        line_size = CacheLineSize(cache_info.cache_line_size)
+        cache_name = self.owner.lib.ocf_cache_get_name(self).decode("ascii")
+
+        return {
+            "attached": cache_info.attached,
+            "volume_type": self.owner.volume_types[cache_info.volume_type],
+            "size": CacheLines(cache_info.size, line_size),
+            "inactive": {
+                "occupancy": CacheLines(cache_info.inactive.occupancy.value, line_size),
+                "dirty": CacheLines(cache_info.inactive.dirty.value, line_size),
+                "clean": CacheLines(cache_info.inactive.clean.value, line_size),
+            },
+            "occupancy": CacheLines(cache_info.occupancy, line_size),
+            "dirty": CacheLines(cache_info.dirty, line_size),
+            "dirty_initial": CacheLines(cache_info.dirty_initial, line_size),
+            "dirty_for": timedelta(seconds=cache_info.dirty_for),
+            "cache_mode": CacheMode(cache_info.cache_mode),
+            "fallback_pt": {
+                "error_counter": cache_info.fallback_pt.error_counter,
+                "status": cache_info.fallback_pt.status,
+            },
+            "state": cache_info.state,
+            "cleaning_policy": CleaningPolicy(cache_info.cleaning_policy),
+            "promotion_policy": PromotionPolicy(cache_info.promotion_policy),
+            "cache_line_size": line_size,
+            "flushed": CacheLines(cache_info.flushed, line_size),
+            "core_count": cache_info.core_count,
+            "metadata_footprint": Size(cache_info.metadata_footprint),
+            "metadata_end_offset": Size(cache_info.metadata_end_offset),
+            "cache_name": cache_name,
+        }
+
+    def get_stats(self):
         usage = UsageStats()
         req = RequestsStats()
         block = BlocksStats()
@@ -764,53 +764,19 @@ class Cache:
 
         self.read_lock()
 
-        status = self.owner.lib.ocf_cache_get_info(self.cache_handle, byref(cache_info))
-        if status:
-            self.read_unlock()
-            raise OcfError("Failed getting cache info", status)
+        conf = self.get_conf()
 
         status = self.owner.lib.ocf_stats_collect_cache(
             self.cache_handle, byref(usage), byref(req), byref(block), byref(errors)
         )
-        if status:
-            self.read_unlock()
-            raise OcfError("Failed getting stats", status)
-
-        line_size = CacheLineSize(cache_info.cache_line_size)
-        cache_name = self.owner.lib.ocf_cache_get_name(self).decode("ascii")
 
         self.read_unlock()
+
+        if status:
+            raise OcfError("Failed getting stats", status)
+
         return {
-            "conf": {
-                "attached": cache_info.attached,
-                "volume_type": self.owner.volume_types[cache_info.volume_type],
-                "size": CacheLines(cache_info.size, line_size),
-                "inactive": {
-                    "occupancy": CacheLines(
-                        cache_info.inactive.occupancy.value, line_size
-                    ),
-                    "dirty": CacheLines(cache_info.inactive.dirty.value, line_size),
-                    "clean": CacheLines(cache_info.inactive.clean.value, line_size),
-                },
-                "occupancy": CacheLines(cache_info.occupancy, line_size),
-                "dirty": CacheLines(cache_info.dirty, line_size),
-                "dirty_initial": CacheLines(cache_info.dirty_initial, line_size),
-                "dirty_for": timedelta(seconds=cache_info.dirty_for),
-                "cache_mode": CacheMode(cache_info.cache_mode),
-                "fallback_pt": {
-                    "error_counter": cache_info.fallback_pt.error_counter,
-                    "status": cache_info.fallback_pt.status,
-                },
-                "state": cache_info.state,
-                "cleaning_policy": CleaningPolicy(cache_info.cleaning_policy),
-                "promotion_policy": PromotionPolicy(cache_info.promotion_policy),
-                "cache_line_size": line_size,
-                "flushed": CacheLines(cache_info.flushed, line_size),
-                "core_count": cache_info.core_count,
-                "metadata_footprint": Size(cache_info.metadata_footprint),
-                "metadata_end_offset": Size(cache_info.metadata_end_offset),
-                "cache_name": cache_name,
-            },
+            "conf": conf,
             "block": struct_to_dict(block),
             "req": struct_to_dict(req),
             "usage": struct_to_dict(usage),
@@ -897,6 +863,7 @@ class Cache:
     # settle all queues accociated with this cache (mngt and I/O)
     def settle(self):
         Queue.settle_many(self.io_queues + [self.mngt_queue])
+
 
 lib = OcfLib.getInstance()
 lib.ocf_mngt_cache_remove_core.argtypes = [c_void_p, c_void_p, c_void_p]

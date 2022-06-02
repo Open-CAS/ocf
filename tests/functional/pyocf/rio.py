@@ -124,9 +124,9 @@ class Rio:
 
         def run(self):
             iogen = IoGen(
-                (self.jobspec.offset, self.jobspec.size),
+                (self.jobspec.offset, self.jobspec.size - self.jobspec.offset),
                 self.jobspec.bs,
-                self.jobspec.randseed,
+                self.jobspec.randseed + hash(self.name),
                 self.jobspec.readwrite.is_random(),
                 self.jobspec.randommap,
             )
@@ -150,16 +150,11 @@ class Rio:
 
             while not self.should_finish():
                 with self.qd_condition:
-                    self.qd_condition.wait_for(lambda: self.qd <= self.jobspec.qd)
+                    self.qd_condition.wait_for(lambda: self.qd < self.jobspec.qd)
 
                 data = Data(self.jobspec.bs)  # TODO pattern and verify
                 io = self.jobspec.target.new_io(
-                    self.queue,
-                    next(iogen),
-                    self.jobspec.bs,
-                    iodir,
-                    0,
-                    0,
+                    self.queue, next(iogen), self.jobspec.bs, iodir, 0, 0,
                 )
                 io.set_data(data)
                 io.callback = self.get_io_cb()
@@ -193,6 +188,10 @@ class Rio:
 
     def norandommap(self):
         self.global_jobspec.randommap = False
+        return self
+
+    def randseed(self, seed):
+        self.global_jobspec.randseed = seed
         return self
 
     def bs(self, bs: Size):
@@ -261,12 +260,12 @@ class Rio:
         self._threads = []
         self.errors = {}
 
-    def run(self, queues=None):
+    def run(self, queues):
         self.run_async(queues)
         self.wait_for_completion()
         return self
 
-    def run_async(self, queues=None):
+    def run_async(self, queues):
         self.clear()
 
         jobs = deepcopy(self.jobs)
@@ -274,8 +273,6 @@ class Rio:
         if not jobs:
             jobs = [self.global_jobspec for _ in range(self.global_jobspec.njobs)]
 
-        if not queues:
-            queues = [self.global_jobspec.target.cache.get_default_queue()]
         queues = cycle(queues)
 
         for job in jobs:

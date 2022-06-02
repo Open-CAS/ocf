@@ -13,6 +13,7 @@ from .shared import OcfError
 from ..ocf import OcfLib
 from .queue import Queue
 
+
 class OcfCtxOps(Structure):
     _fields_ = [
         ("data", DataOps),
@@ -41,9 +42,7 @@ class OcfCtx:
         self.cfg = OcfCtxCfg(
             name=name,
             ops=OcfCtxOps(
-                data=self.data.get_ops(),
-                cleaner=self.cleaner.get_ops(),
-                logger=logger.get_ops(),
+                data=self.data.get_ops(), cleaner=self.cleaner.get_ops(), logger=logger.get_ops(),
             ),
             logger_priv=cast(pointer(logger.get_priv()), c_void_p),
         )
@@ -57,13 +56,7 @@ class OcfCtx:
 
     @classmethod
     def with_defaults(cls, logger):
-        return cls(
-            OcfLib.getInstance(),
-            b"PyOCF default ctx",
-            logger,
-            Data,
-            Cleaner,
-        )
+        return cls(OcfLib.getInstance(), b"PyOCF default ctx", logger, Data, Cleaner,)
 
     @classmethod
     def get_default(cls):
@@ -90,9 +83,7 @@ class OcfCtx:
         if not vol_type.type_id:
             raise Exception("Already unregistered")
 
-        self.lib.ocf_ctx_unregister_volume_type(
-            self.ctx_handle, vol_type.type_id
-        )
+        self.lib.ocf_ctx_unregister_volume_type(self.ctx_handle, vol_type.type_id)
 
         del self.volume_types[vol_type.type_id]
 

@@ -18,10 +18,7 @@ class CoreVolume(ExpObjVolume):
             self.open()
 
     def open(self):
-        return Volume.open(
-            self.lib.ocf_core_get_front_volume(self.core.handle),
-            self
-        )
+        return Volume.open(self.lib.ocf_core_get_front_volume(self.core.handle), self)
 
     def md5(self):
         return self._exp_obj_md5(4096)

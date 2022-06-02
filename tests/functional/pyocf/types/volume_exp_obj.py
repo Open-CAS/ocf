@@ -22,9 +22,7 @@ class ExpObjVolume(Volume):
     def __alloc_io(self, addr, _bytes, _dir, _class, _flags):
         vol = self.parent.get_front_volume()
         queue = self.parent.get_default_queue()  # TODO multiple queues?
-        return vol.new_io(
-            queue, addr, _bytes, _dir, _class, _flags
-        )
+        return vol.new_io(queue, addr, _bytes, _dir, _class, _flags)
 
     def _alloc_io(self, io):
         exp_obj_io = self.__alloc_io(
@@ -49,10 +47,10 @@ class ExpObjVolume(Volume):
         return exp_obj_io
 
     def get_length(self):
-        return Size.from_B(OcfLib.getInstance().ocf_volume_get_length(self.c_vol))
+        return Size.from_B(OcfLib.getInstance().ocf_volume_get_length(self.handle))
 
     def get_max_io_size(self):
-        return Size.from_B(OcfLib.getInstance().ocf_volume_get_max_io_size(self.c_vol))
+        return Size.from_B(OcfLib.getInstance().ocf_volume_get_max_io_size(self.handle))
 
     def do_submit_io(self, io):
         io = self._alloc_io(io)
@@ -99,8 +97,7 @@ class ExpObjVolume(Volume):
 
         position = 0
         while position < read_buffer_all.size:
-            io = self.new_io(self.parent.get_default_queue(), position,
-                             read_size, IoDir.READ, 0, 0)
+            io = self.new_io(self.parent.get_default_queue(), position, read_size, IoDir.READ, 0, 0)
             io.set_data(read_buffer)
 
             cmpl = OcfCompletion([("err", c_int)])

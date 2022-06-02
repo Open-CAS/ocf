@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -891,7 +891,7 @@ static int ocf_lru_populate_handle(ocf_parallelize_t parallelize,
 	uint32_t portion, offset;
 	uint32_t i, idx;
 
-	portion = DIV_ROUND_UP((uint64_t)entries, shards_cnt);
+	portion = OCF_DIV_ROUND_UP((uint64_t)entries, shards_cnt);
 	offset = shard_id * portion / shards_cnt;
 	ocf_generator_bisect_init(&generator, portion, offset);
 

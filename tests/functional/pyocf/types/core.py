@@ -80,10 +80,7 @@ class Core:
     def get_config(self):
         cfg = CoreConfig(
             _uuid=Uuid(
-                _data=cast(
-                    create_string_buffer(self.device.uuid.encode("ascii")),
-                    c_char_p,
-                ),
+                _data=cast(create_string_buffer(self.device.uuid.encode("ascii")), c_char_p,),
                 _size=len(self.device.uuid) + 1,
             ),
             _name=self.name.encode("ascii"),
@@ -123,9 +120,7 @@ class Core:
             self.cache.read_unlock()
             raise OcfError("Failed collecting core stats", status)
 
-        status = self.cache.owner.lib.ocf_core_get_info(
-            self.handle, byref(core_info)
-        )
+        status = self.cache.owner.lib.ocf_core_get_info(self.handle, byref(core_info))
         if status:
             self.cache.read_unlock()
             raise OcfError("Failed getting core stats", status)
@@ -145,9 +140,7 @@ class Core:
     def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
         self.cache.write_lock()
 
-        status = self.cache.owner.lib.ocf_mngt_core_set_seq_cutoff_policy(
-            self.handle, policy
-        )
+        status = self.cache.owner.lib.ocf_mngt_core_set_seq_cutoff_policy(self.handle, policy)
         self.cache.write_unlock()
         if status:
             raise OcfError("Error setting core seq cut off policy", status)
@@ -155,9 +148,7 @@ class Core:
     def set_seq_cut_off_threshold(self, threshold):
         self.cache.write_lock()
 
-        status = self.cache.owner.lib.ocf_mngt_core_set_seq_cutoff_threshold(
-            self.handle, threshold
-        )
+        status = self.cache.owner.lib.ocf_mngt_core_set_seq_cutoff_threshold(self.handle, threshold)
         self.cache.write_unlock()
         if status:
             raise OcfError("Error setting core seq cut off policy threshold", status)
@@ -174,6 +165,7 @@ class Core:
 
     def reset_stats(self):
         self.cache.owner.lib.ocf_core_stats_initialize(self.handle)
+
 
 lib = OcfLib.getInstance()
 lib.ocf_core_get_uuid_wrapper.restype = POINTER(Uuid)

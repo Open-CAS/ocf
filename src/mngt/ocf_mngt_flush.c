@@ -1043,6 +1043,9 @@ void ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache,
 		OCF_CMPL_RET(priv, 0);
 	}
 
+	if (cache->conf_meta->cleaner_disabled)
+		OCF_CMPL_RET(priv, -OCF_ERR_CLEANER_DISABLED);
+
 	ret = ocf_pipeline_create(&pipeline, cache,
 			&_ocf_mngt_cache_set_cleaning_policy);
 	if (ret)

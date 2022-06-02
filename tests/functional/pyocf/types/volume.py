@@ -71,6 +71,7 @@ class VolumeProperties(Structure):
         ("_ops_", VolumeOps),
     ]
 
+
 class VolumeIoPriv(Structure):
     _fields_ = [("_data", c_void_p), ("_offset", c_uint64)]
 
@@ -92,18 +93,14 @@ class Volume:
         @VolumeOps.SUBMIT_IO
         def _submit_io(io):
             io_structure = cast(io, POINTER(Io))
-            volume = Volume.get_instance(
-                OcfLib.getInstance().ocf_io_get_volume(io_structure)
-            )
+            volume = Volume.get_instance(OcfLib.getInstance().ocf_io_get_volume(io_structure))
 
             volume.submit_io(io_structure)
 
         @VolumeOps.SUBMIT_FLUSH
         def _submit_flush(flush):
             io_structure = cast(flush, POINTER(Io))
-            volume = Volume.get_instance(
-                OcfLib.getInstance().ocf_io_get_volume(io_structure)
-            )
+            volume = Volume.get_instance(OcfLib.getInstance().ocf_io_get_volume(io_structure))
 
             volume.submit_flush(io_structure)
 
@@ -114,9 +111,7 @@ class Volume:
         @VolumeOps.SUBMIT_DISCARD
         def _submit_discard(discard):
             io_structure = cast(discard, POINTER(Io))
-            volume = Volume.get_instance(
-                OcfLib.getInstance().ocf_io_get_volume(io_structure)
-            )
+            volume = Volume.get_instance(OcfLib.getInstance().ocf_io_get_volume(io_structure))
 
             volume.submit_discard(io_structure)
 
@@ -126,9 +121,7 @@ class Volume:
 
         @VolumeOps.OPEN
         def _open(ref):
-            uuid_ptr = cast(
-                OcfLib.getInstance().ocf_volume_get_uuid(ref), POINTER(Uuid)
-            )
+            uuid_ptr = cast(OcfLib.getInstance().ocf_volume_get_uuid(ref), POINTER(Uuid))
             uuid = str(uuid_ptr.contents._data, encoding="ascii")
             try:
                 volume = Volume.get_by_uuid(uuid)
@@ -215,9 +208,7 @@ class Volume:
     @staticmethod
     @IoOps.SET_DATA
     def _io_set_data(io, data, offset):
-        io_priv = cast(
-            OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv)
-        )
+        io_priv = cast(OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv))
         data = Data.get_instance(data)
         io_priv.contents._offset = offset
         io_priv.contents._data = data.handle
@@ -227,17 +218,13 @@ class Volume:
     @staticmethod
     @IoOps.GET_DATA
     def _io_get_data(io):
-        io_priv = cast(
-            OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv)
-        )
+        io_priv = cast(OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv))
         return io_priv.contents._data
 
     def __init__(self, uuid=None):
         if uuid:
             if uuid in type(self)._uuid_:
-                raise Exception(
-                    "Volume with uuid {} already created".format(uuid)
-                )
+                raise Exception("Volume with uuid {} already created".format(uuid))
             self.uuid = uuid
         else:
             self.uuid = str(id(self))
@@ -314,13 +301,7 @@ class Volume:
             self._reject_io(io)
 
     def new_io(
-        self,
-        queue: Queue,
-        addr: int,
-        length: int,
-        direction: IoDir,
-        io_class: int,
-        flags: int,
+        self, queue: Queue, addr: int, length: int, direction: IoDir, io_class: int, flags: int,
     ):
         lib = OcfLib.getInstance()
         io = lib.ocf_volume_new_io(
@@ -370,8 +351,7 @@ class RamVolume(Volume):
 
     def do_submit_io(self, io):
         try:
-            io_priv = cast(
-                OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv))
+            io_priv = cast(OcfLib.getInstance().ocf_io_get_priv(io), POINTER(VolumeIoPriv))
             offset = io_priv.contents._offset
 
             if io.contents._dir == IoDir.WRITE:
@@ -405,16 +385,12 @@ class RamVolume(Volume):
         return string_at(self.data_ptr, self.size)
 
 
-class ErrorDevice(RamVolume):
+class ErrorDevice(Volume):
     def __init__(
-        self,
-        size,
-        error_sectors: set = None,
-        error_seq_no: dict = None,
-        armed=True,
-        uuid=None,
+        self, vol, error_sectors: set = None, error_seq_no: dict = None, armed=True, uuid=None,
     ):
-        super().__init__(size, uuid)
+        self.vol = vol
+        super().__init__(uuid)
         self.error_sectors = error_sectors
         self.error_seq_no = error_seq_no
         self.armed = armed
@@ -426,7 +402,7 @@ class ErrorDevice(RamVolume):
 
     def do_submit_io(self, io):
         if not self.armed:
-            super().do_submit_io(io)
+            self.vol.do_submit_io(io)
             return
 
         direction = IoDir(io.contents._dir)
@@ -435,9 +411,7 @@ class ErrorDevice(RamVolume):
             and direction in self.error_seq_no
             and self.error_seq_no[direction] <= self.io_seq_no[direction]
         )
-        sector_match = (
-            self.error_sectors is not None and io.contents._addr in self.error_sectors
-        )
+        sector_match = self.error_sectors is not None and io.contents._addr in self.error_sectors
 
         self.io_seq_no[direction] += 1
 
@@ -451,7 +425,7 @@ class ErrorDevice(RamVolume):
             io.contents._end(io, -OcfErrorCode.OCF_ERR_IO)
             self.stats["errors"][direction] += 1
         else:
-            super().do_submit_io(io)
+            self.vol.do_submit_io(io)
 
     def arm(self):
         self.armed = True
@@ -463,8 +437,30 @@ class ErrorDevice(RamVolume):
         return self.error
 
     def reset_stats(self):
+        self.vol.reset_stats()
         super().reset_stats()
         self.stats["errors"] = {IoDir.WRITE: 0, IoDir.READ: 0}
+
+    def get_length(self):
+        return self.vol.get_length()
+
+    def get_max_io_size(self):
+        return self.vol.get_max_io_size()
+
+    def do_submit_flush(self, flush):
+        return self.vol.do_submit_flush(flush)
+
+    def do_submit_discard(self, discard):
+        return self.vol.do_submit_discard(discard)
+
+    def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
+        return self.vol.dump(offset, size, ignore=ignore, **kwargs)
+
+    def md5(self):
+        return self.vol.md5()
+
+    def get_copy(self):
+        return self.vol.get_copy()
 
 
 lib = OcfLib.getInstance()

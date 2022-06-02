@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -697,6 +697,7 @@ int ocf_alock_lock_rd(struct ocf_alock *alock,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl)
 {
 	int lock, status;
+	uint32_t to_lock;
 
 	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
 	req->alock_rw = OCF_READ;
@@ -709,8 +710,10 @@ int ocf_alock_lock_rd(struct ocf_alock *alock,
 		ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
 		ENV_BUG_ON(!cmpl);
 
+		to_lock = alock->cbs->get_entries_count(alock, req);
+
 		env_atomic_inc(&alock->waiting);
-		env_atomic_set(&req->lock_remaining, req->core_line_count);
+		env_atomic_set(&req->lock_remaining, to_lock);
 		env_atomic_inc(&req->lock_remaining);
 
 		status = alock->cbs->lock_entries_slow(alock, req, OCF_READ, cmpl);
@@ -734,6 +737,7 @@ int ocf_alock_lock_wr(struct ocf_alock *alock,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl)
 {
 	int lock, status;
+	uint32_t to_lock;
 
 	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
 	req->alock_rw = OCF_WRITE;
@@ -745,8 +749,10 @@ int ocf_alock_lock_wr(struct ocf_alock *alock,
 		ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
 		ENV_BUG_ON(!cmpl);
 
+		to_lock = alock->cbs->get_entries_count(alock, req);
+
 		env_atomic_inc(&alock->waiting);
-		env_atomic_set(&req->lock_remaining, req->core_line_count);
+		env_atomic_set(&req->lock_remaining, to_lock);
 		env_atomic_inc(&req->lock_remaining);
 
 		status = alock->cbs->lock_entries_slow(alock, req, OCF_WRITE, cmpl);

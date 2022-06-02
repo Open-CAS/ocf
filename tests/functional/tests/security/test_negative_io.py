@@ -132,8 +132,7 @@ def test_neg_offset_unaligned(pyocf_ctx, c_int_randomize):
     data = Data(int(Size.from_KiB(1)))
     if c_int_randomize % 512 != 0:
         with pytest.raises(Exception):
-            vol.new_io(queue, c_int_randomize, data.size,
-                        IoDir.WRITE, 0, 0)
+            vol.new_io(queue, c_int_randomize, data.size, IoDir.WRITE, 0, 0)
 
 
 @pytest.mark.security
@@ -147,8 +146,7 @@ def test_neg_size_unaligned(pyocf_ctx, c_uint16_randomize):
     data = Data(int(Size.from_B(c_uint16_randomize)))
     if c_uint16_randomize % 512 != 0:
         with pytest.raises(Exception):
-            vol.new_io(queue, 0, data.size,
-                        IoDir.WRITE, 0, 0)
+            vol.new_io(queue, 0, data.size, IoDir.WRITE, 0, 0)
 
 
 @pytest.mark.security
@@ -200,12 +198,7 @@ def prepare_cache_and_core(core_size: Size, cache_size: Size = Size.from_MiB(50)
 
 
 def io_operation(
-    vol: Volume,
-    queue: Queue,
-    data: Data,
-    io_direction: int,
-    offset: int = 0,
-    io_class: int = 0,
+    vol: Volume, queue: Queue, data: Data, io_direction: int, offset: int = 0, io_class: int = 0,
 ):
     io = vol.new_io(queue, offset, data.size, io_direction, io_class, 0)
     io.set_data(data)

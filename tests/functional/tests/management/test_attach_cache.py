@@ -37,9 +37,7 @@ logger = logging.getLogger(__name__)
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", [CacheMode.WB, CacheMode.WT, CacheMode.WO])
 @pytest.mark.parametrize("new_cache_size", [80, 120])
-def test_attach_different_size(
-    pyocf_ctx, new_cache_size, mode: CacheMode, cls: CacheLineSize
-):
+def test_attach_different_size(pyocf_ctx, new_cache_size, mode: CacheMode, cls: CacheLineSize):
     """Start cache and add partition with limited occupancy. Fill partition with data,
     attach cache with different size and trigger IO. Verify if occupancy thresold is
     respected with both original and new cache device.
@@ -53,9 +51,7 @@ def test_attach_different_size(
     vol = CoreVolume(core, open=True)
     queue = cache.get_default_queue()
 
-    cache.configure_partition(
-        part_id=1, name="test_part", max_size=50, priority=1
-    )
+    cache.configure_partition(part_id=1, name="test_part", max_size=50, priority=1)
 
     cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)
 
@@ -67,9 +63,7 @@ def test_attach_different_size(
     for i in range(cache_size.blocks_4k):
         io_to_exp_obj(vol, queue, block_size * i, block_size, data, 0, IoDir.WRITE, 1, 0)
 
-    part_current_size = CacheLines(
-        cache.get_partition_info(part_id=1)["_curr_size"], cls
-    )
+    part_current_size = CacheLines(cache.get_partition_info(part_id=1)["_curr_size"], cls)
 
     assert part_current_size.blocks_4k == cache_size.blocks_4k * 0.5
 
@@ -82,9 +76,7 @@ def test_attach_different_size(
     for i in range(cache_size.blocks_4k):
         io_to_exp_obj(vol, queue, block_size * i, block_size, data, 0, IoDir.WRITE, 1, 0)
 
-    part_current_size = CacheLines(
-        cache.get_partition_info(part_id=1)["_curr_size"], cls
-    )
+    part_current_size = CacheLines(cache.get_partition_info(part_id=1)["_curr_size"], cls)
 
     assert part_current_size.blocks_4k == cache_size.blocks_4k * 0.5
 

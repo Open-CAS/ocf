@@ -47,7 +47,8 @@ def test_simple_wt_write(pyocf_ctx):
 
 
 def test_start_corrupted_metadata_lba(pyocf_ctx):
-    cache_device = ErrorDevice(S.from_MiB(50), error_sectors=set([0]))
+    ramdisk = RamVolume(S.from_MiB(50))
+    cache_device = ErrorDevice(ramdisk, error_sectors=set([0]))
 
     with pytest.raises(OcfError, match="OCF_ERR_WRITE_CACHE"):
         cache = Cache.start_on_device(cache_device)
@@ -93,8 +94,9 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     vol = CoreVolume(core, open=True)
 
     write_data = Data.from_string("This is test data")
-    io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B,
-                     write_data.size, IoDir.WRITE, 0, 0)
+    io = vol.new_io(
+        cache.get_default_queue(), S.from_sector(3).B, write_data.size, IoDir.WRITE, 0, 0
+    )
     io.set_data(write_data)
 
     cmpl = OcfCompletion([("err", c_int)])
@@ -113,8 +115,7 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     vol = CoreVolume(core, open=True)
 
     read_data = Data(write_data.size)
-    io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B,
-                     read_data.size, IoDir.READ, 0, 0)
+    io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B, read_data.size, IoDir.READ, 0, 0)
     io.set_data(read_data)
 
     cmpl = OcfCompletion([("err", c_int)])
