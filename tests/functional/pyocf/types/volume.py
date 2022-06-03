@@ -89,7 +89,7 @@ VOLUME_POISON = 0x13
 
 
 class Volume:
-    _instances_ = weakref.WeakValueDictionary()
+    _instances_ = {}
     _uuid_ = weakref.WeakValueDictionary()
     _ops_ = {}
     _props_ = {}
@@ -183,8 +183,8 @@ class Volume:
         if volume.opened:
             return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
 
-        Volume._instances_[ref] = volume
         volume.handle = ref
+        Volume._instances_[ref] = volume
 
         ret = volume.do_open()
         if ret == 0:
@@ -228,11 +228,11 @@ class Volume:
 
     @classmethod
     def get_instance(cls, ref):
-        instance = cls._instances_[ref]
-        if instance is None:
+        if ref not in cls._instances_:
             print("tried to access {} but it's gone".format(ref))
+            return None
 
-        return instance
+        return cls._instances_[ref]
 
     @classmethod
     def get_by_uuid(cls, uuid):
@@ -273,7 +273,7 @@ class Volume:
         return 0
 
     def do_close(self):
-        pass
+        del Volume._instances_[self.handle]
 
     def get_length(self):
         raise NotImplementedError
