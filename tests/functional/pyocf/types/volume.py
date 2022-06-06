@@ -187,7 +187,11 @@ class Volume:
         Volume._instances_[ref] = volume
         volume.handle = ref
 
-        return volume.do_open()
+        ret = volume.do_open()
+        if ret == 0:
+            volume.opened = True
+
+        return ret
 
     @classmethod
     def get_io_ops(cls):
@@ -255,7 +259,6 @@ class Volume:
         self.opened = False
 
     def do_open(self):
-        self.opened = True
         return 0
 
     def close(self):
