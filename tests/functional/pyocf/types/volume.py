@@ -152,8 +152,7 @@ class Volume:
         @VolumeOps.CLOSE
         def _close(ref):
             volume = Volume.get_instance(ref)
-            volume.close()
-            volume.opened = False
+            Volume.s_close(volume)
 
         @VolumeOps.GET_MAX_IO_SIZE
         def _get_max_io_size(ref):
@@ -192,6 +191,17 @@ class Volume:
             volume.opened = True
 
         return ret
+
+    @staticmethod
+    def s_close(volume):
+        if not volume.opened:
+            return
+
+        volume.do_close()
+        volume.opened = False
+
+        del Volume._instances_[volume.handle]
+        volume.handle = None
 
     @classmethod
     def get_io_ops(cls):
@@ -261,8 +271,8 @@ class Volume:
     def do_open(self):
         return 0
 
-    def close(self):
-        self.opened = False
+    def do_close(self):
+        pass
 
     def get_length(self):
         raise NotImplementedError
