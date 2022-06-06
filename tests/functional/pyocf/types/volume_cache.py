@@ -20,8 +20,8 @@ class CacheVolume(ExpObjVolume):
         if open:
             self.open()
 
-    def open(self):
-        return Volume.open(self.lib.ocf_cache_get_front_volume(self.cache.cache_handle), self)
+    def get_c_handle(self):
+        return self.cache.get_c_front_volume()
 
     def md5(self):
         out = self.cache.get_conf()

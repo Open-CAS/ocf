@@ -113,6 +113,10 @@ class ExpObjVolume(Volume):
 
         return read_buffer_all.md5()
 
+    def open(self):
+        handle = self.get_c_handle()
+        return Volume.s_open(handle, self)
+
 
 lib = OcfLib.getInstance()
 lib.ocf_volume_get_max_io_size.argtypes = [c_void_p]
