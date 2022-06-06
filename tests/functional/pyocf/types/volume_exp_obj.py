@@ -117,6 +117,9 @@ class ExpObjVolume(Volume):
         handle = self.get_c_handle()
         return Volume.s_open(handle, self)
 
+    def close(self):
+        return Volume.s_close(self)
+
 
 lib = OcfLib.getInstance()
 lib.ocf_volume_get_max_io_size.argtypes = [c_void_p]
