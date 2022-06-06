@@ -147,7 +147,7 @@ class Volume:
                 print("{}".format(Volume._uuid_))
                 return -1
 
-            return Volume.open(ref, volume)
+            return Volume.s_open(ref, volume)
 
         @VolumeOps.CLOSE
         def _close(ref):
@@ -180,7 +180,7 @@ class Volume:
         return Volume._ops_[cls]
 
     @staticmethod
-    def open(ref, volume):
+    def s_open(ref, volume):
         if volume.opened:
             return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
 
