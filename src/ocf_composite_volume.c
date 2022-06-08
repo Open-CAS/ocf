@@ -282,7 +282,7 @@ static void *ocf_composite_io_allocator_new(ocf_io_allocator_t allocator,
 		member_addr = cur_addr - (i > 0 ? composite->end_addr[i-1] : 0);
 		member_bytes =
 			OCF_MIN(cur_addr + cur_bytes, composite->end_addr[i])
-			- member_addr;
+			- cur_addr;
 
 		cio->member_io[i] = ocf_io_new(&composite->member[i].volume, queue,
 				member_addr, member_bytes, dir, 0, 0);
