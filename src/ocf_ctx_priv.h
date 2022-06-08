@@ -8,6 +8,7 @@
 
 #include "ocf_env.h"
 #include "ocf/ocf_ctx.h"
+#include "ocf/ocf_composite_volume.h"
 #include "ocf_logger_priv.h"
 #include "ocf_volume_priv.h"
 
@@ -19,7 +20,11 @@
 
 #define OCF_VOLUME_TYPE_CORE (OCF_VOLUME_TYPE_MAX_USER + 0)
 #define OCF_VOLUME_TYPE_CACHE (OCF_VOLUME_TYPE_MAX_USER + 1)
-#define OCF_VOLUME_TYPE_COMPOSITE (OCF_VOLUME_TYPE_MAX_USER + 2)
+#define OCF_VOLUME_TYPE_COMPOSITE_PLACEHOLDER (OCF_VOLUME_TYPE_MAX_USER + 2)
+
+#if OCF_VOLUME_TYPE_COMPOSITE_PLACEHOLDER != OCF_VOLUME_TYPE_COMPOSITE
+#error "composite volume id mismatch"
+#endif
 
 /**
  * @brief OCF main control structure
