@@ -267,6 +267,7 @@ class Volume:
         self.reset_stats()
         self.is_online = True
         self.opened = False
+        self.handle = None
 
     def do_open(self):
         return 0

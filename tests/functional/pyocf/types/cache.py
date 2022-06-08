@@ -502,20 +502,24 @@ class Cache:
             raise OcfError("Error adding partition to cache", status)
 
     def alloc_device_config(self, device, perform_test=True):
-        uuid = Uuid(
-            _data=cast(create_string_buffer(device.uuid.encode("ascii")), c_char_p),
-            _size=len(device.uuid) + 1,
-        )
-        volume = c_void_p()
+        if not device.handle:
+            uuid = Uuid(
+                _data=cast(create_string_buffer(device.uuid.encode("ascii")), c_char_p),
+                _size=len(device.uuid) + 1,
+            )
+            volume = c_void_p()
 
-        lib = OcfLib.getInstance()
-        result = lib.ocf_volume_create(
-            byref(volume),
-            self.owner.ocf_volume_type[type(device)],
-            byref(uuid)
-        )
-        if result != 0:
-            raise OcfError("Cache volume initialization failed", result)
+            lib = OcfLib.getInstance()
+            result = lib.ocf_volume_create(
+                byref(volume),
+                self.owner.ocf_volume_type[type(device)],
+                byref(uuid)
+            )
+
+            if result != 0:
+                raise OcfError("Cache volume initialization failed", result)
+        else:
+            volume = device.handle
 
         device_config = CacheDeviceConfig(
             _volume=volume,
