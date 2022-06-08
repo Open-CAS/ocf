@@ -16,6 +16,8 @@
 #include "ocf_err.h"
 #include "ocf_volume.h"
 
+#define OCF_VOLUME_TYPE_COMPOSITE 10
+
 /**
  * @brief handle to object designating composite volume
  */
