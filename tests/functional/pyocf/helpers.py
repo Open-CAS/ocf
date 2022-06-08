@@ -34,3 +34,8 @@ def get_metadata_segment_elem_size(cache, segment):
 def get_metadata_segment_is_flapped(cache, segment):
     lib = OcfLib.getInstance()
     return bool(lib.ocf_get_metadata_segment_is_flapped(cache, segment))
+
+
+def get_composite_volume_type_id():
+    lib = OcfLib.getInstance()
+    return int(lib.ocf_get_composite_volume_type_id_helper())
