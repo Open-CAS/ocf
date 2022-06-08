@@ -327,8 +327,10 @@ int ocf_volume_open(ocf_volume_t volume, void *volume_params)
 {
 	int ret;
 
+	if (volume->opened)
+		return -OCF_ERR_NOT_OPEN_EXC;
+
 	ENV_BUG_ON(!volume->type->properties->ops.open);
-	ENV_BUG_ON(volume->opened);
 
 	ret = volume->type->properties->ops.open(volume, volume_params);
 	if (ret)
@@ -352,7 +354,9 @@ void ocf_volume_close(ocf_volume_t volume)
 	env_completion cmpl;
 
 	ENV_BUG_ON(!volume->type->properties->ops.close);
-	ENV_BUG_ON(!volume->opened);
+
+	if (!volume->opened)
+		return;
 
 	env_completion_init(&cmpl);
 	ocf_refcnt_freeze(&volume->refcnt);
