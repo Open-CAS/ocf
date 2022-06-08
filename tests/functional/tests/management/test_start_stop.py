@@ -4,7 +4,15 @@
 #
 
 import logging
-from ctypes import c_int, c_void_p, byref, c_uint32
+from ctypes import (
+    c_int,
+    c_void_p,
+    byref,
+    c_uint32,
+    cast,
+    create_string_buffer,
+    c_char_p,
+)
 from random import randrange
 from itertools import count
 
@@ -19,13 +27,22 @@ from pyocf.types.cache import (
     CacheConfig,
     PromotionPolicy,
     Backfill,
+    CacheDeviceConfig,
+    CacheAttachConfig,
 )
 from pyocf.types.core import Core
 from pyocf.types.ctx import OcfCtx
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.types.queue import Queue
-from pyocf.types.shared import OcfError, OcfCompletion, CacheLineSize, SeqCutOffPolicy
+from pyocf.types.shared import (
+    Uuid,
+    OcfError,
+    OcfErrorCode,
+    OcfCompletion,
+    CacheLineSize,
+    SeqCutOffPolicy,
+)
 from pyocf.types.volume import Volume, RamVolume
 from pyocf.types.volume_core import CoreVolume
 from pyocf.utils import Size
@@ -234,7 +251,7 @@ def test_start_stop_multiple(pyocf_ctx):
         cache_line_size = CacheLineSize(size)
 
         cache = Cache.start_on_device(
-            cache_device, name=cache_name, cache_mode=cache_mode, cache_line_size=cache_line_size
+            cache_device, name=cache_name, cache_mode=cache_mode, cache_line_size=cache_line_size,
         )
         caches.append(cache)
         stats = cache.get_stats()
@@ -264,7 +281,7 @@ def test_100_start_stop(pyocf_ctx):
         cache_line_size = CacheLineSize(size)
 
         cache = Cache.start_on_device(
-            cache_device, name=cache_name, cache_mode=cache_mode, cache_line_size=cache_line_size
+            cache_device, name=cache_name, cache_mode=cache_mode, cache_line_size=cache_line_size,
         )
         stats = cache.get_stats()
         assert stats["conf"]["cache_mode"] == cache_mode, "Cache mode"
@@ -378,18 +395,72 @@ def test_start_cache_huge_device(pyocf_ctx_log_buffer, cls):
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_start_cache_same_device(pyocf_ctx, mode, cls):
     """Adding two caches using the same cache device
-    Check that OCF does not allow for 2 caches using the same cache device to be started
+    Check that OCF does not allow for 2 caches using the same cache device to be started.
+    Low level OCF API is used for attach instead of Cache::attach_device as the latter operates
+    on pyocf Volume objects and this test requires explicit construction of two volumes with
+    identical UUID. Pyocf does not allow for two Volume objects with the same UUID, as these
+    represent a resource that should be uniquely identified by UUID. So we need to create
+    two distinct OCF volumes with identical UUID and pass them to OCF cache attach method.
     """
+    _uuid = "cache_dev"
 
-    cache_device = RamVolume(Size.from_MiB(50))
-    cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls, name="cache1")
-    cache.get_stats()
+    cache_device = RamVolume(Size.from_MiB(50), uuid=_uuid)
 
-    with pytest.raises(OcfError, match="OCF_ERR_NOT_OPEN_EXC"):
-        cache = Cache.start_on_device(
-            cache_device, cache_mode=mode, cache_line_size=cls, name="cache2"
-        )
-    cache.get_stats()
+    uuid = Uuid(
+        _data=cast(create_string_buffer(_uuid.encode("ascii")), c_char_p), _size=len(_uuid) + 1,
+    )
+
+    lib = OcfLib.getInstance()
+
+    vol1 = c_void_p()
+    vol2 = c_void_p()
+
+    result = lib.ocf_volume_create(byref(vol1), pyocf_ctx.ocf_volume_type[RamVolume], byref(uuid))
+    assert result == 0
+    result = lib.ocf_volume_create(byref(vol2), pyocf_ctx.ocf_volume_type[RamVolume], byref(uuid))
+    assert result == 0
+
+    dev_cfg = CacheDeviceConfig(_volume=vol1, _perform_test=False, _volume_params=None)
+
+    attach_cfg = CacheAttachConfig(
+        _device=dev_cfg,
+        _cache_line_size=cls,
+        _open_cores=True,
+        _force=False,
+        _discard_on_start=False,
+    )
+
+    # start first cache instance
+    cache1 = Cache(pyocf_ctx, cache_mode=mode, cache_line_size=cls, name="cache1")
+    cache1.start_cache()
+    cache1.write_lock()
+    c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
+    lib.ocf_mngt_cache_attach(cache1.cache_handle, byref(attach_cfg), c, None)
+    c.wait()
+    cache1.write_unlock()
+    assert not c.results["error"]
+
+    # attempt to start second cache instance on a volume with the same UUID
+    attach_cfg._device._volume = vol2
+    cache2 = Cache(pyocf_ctx, cache_mode=mode, cache_line_size=cls, name="cache2")
+    cache2.start_cache()
+    cache2.write_lock()
+    c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
+    lib.ocf_mngt_cache_attach(cache2.cache_handle, byref(attach_cfg), c, None)
+    c.wait()
+    cache2.write_unlock()
+
+    assert c.results["error"]
+    error_code = OcfErrorCode(abs(c.results["error"]))
+    assert error_code == OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
+
+    cache1.stop()
+    cache2.stop()
+
+    lib = OcfLib.getInstance().ocf_volume_destroy(vol1)
+    lib = OcfLib.getInstance().ocf_volume_destroy(vol2)
+
+    del cache_device
 
 
 @pytest.mark.parametrize("mode", CacheMode)
