@@ -759,10 +759,16 @@ class Cache:
         self.cores.remove(core)
 
     def get_front_volume(self):
-        return Volume.get_instance(lib.ocf_cache_get_front_volume(self.cache_handle))
+        return Volume.get_instance(self.get_c_front_volume())
+
+    def get_c_front_volume(self):
+        return lib.ocf_cache_get_front_volume(self.cache_handle)
 
     def get_volume(self):
-        return Volume.get_instance(lib.ocf_cache_get_volume(self.cache_handle))
+        return Volume.get_instance(self.get_c_volume())
+
+    def get_c_volume(self):
+        return lib.ocf_cache_get_volume(self.cache_handle)
 
     def get_conf(self):
         cache_info = CacheInfo()
