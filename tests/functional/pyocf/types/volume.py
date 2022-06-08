@@ -337,7 +337,13 @@ class Volume:
     ):
         lib = OcfLib.getInstance()
         io = lib.ocf_volume_new_io(
-            self.handle, queue.handle, addr, length, direction, io_class, flags
+            self.handle,
+            queue.handle if queue else c_void_p(),
+            addr,
+            length,
+            direction,
+            io_class,
+            flags,
         )
         return Io.from_pointer(io)
 
