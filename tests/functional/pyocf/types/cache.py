@@ -299,7 +299,7 @@ class Cache:
             raise OcfError("Failed to detach failover cache device", c.results["error"])
 
     def standby_activate(self, device, open_cores=True):
-        device_cfg = self.generate_device_config(device)
+        device_cfg = self.alloc_device_config(device)
 
         activate_cfg = CacheStandbyActivateConfig(_device=device_cfg, _open_cores=open_cores,)
 
@@ -310,6 +310,8 @@ class Cache:
         )
         c.wait()
         self.write_unlock()
+
+        self.free_device_config(device_cfg)
 
         if c.results["error"]:
             raise OcfError("Failed to activate standby cache", c.results["error"])
@@ -499,7 +501,7 @@ class Cache:
         if status:
             raise OcfError("Error adding partition to cache", status)
 
-    def generate_device_config(self, device, perform_test=True):
+    def alloc_device_config(self, device, perform_test=True):
         uuid = Uuid(
             _data=cast(create_string_buffer(device.uuid.encode("ascii")), c_char_p),
             _size=len(device.uuid) + 1,
@@ -523,13 +525,16 @@ class Cache:
 
         return device_config
 
+    def free_device_config(self, cfg):
+        lib = OcfLib.getInstance().ocf_volume_destroy(cfg._volume)
+
     def attach_device(
         self, device, force=False, perform_test=False, cache_line_size=None, open_cores=False,
     ):
         self.device = device
         self.device_name = device.uuid
 
-        device_config = self.generate_device_config(device, perform_test=perform_test)
+        device_config = self.alloc_device_config(device, perform_test=perform_test)
 
         attach_cfg = CacheAttachConfig(
             _device=device_config,
@@ -548,6 +553,8 @@ class Cache:
 
         self.write_unlock()
 
+        self.free_device_config(device_config)
+
         if c.results["error"]:
             raise OcfError(
                 f"Attaching cache device failed", c.results["error"],
@@ -557,7 +564,7 @@ class Cache:
         self.device = device
         self.device_name = device.uuid
 
-        device_config = self.generate_device_config(device, perform_test=False)
+        device_config = self.alloc_device_config(device, perform_test=False)
 
         attach_cfg = CacheAttachConfig(
             _device=device_config,
@@ -576,6 +583,8 @@ class Cache:
 
         self.write_unlock()
 
+        self.free_device_config(device_config)
+
         if c.results["error"]:
             raise OcfError(
                 f"Attaching to standby cache failed", c.results["error"],
@@ -585,7 +594,7 @@ class Cache:
         self.device = device
         self.device_name = device.uuid
 
-        device_config = self.generate_device_config(device, perform_test=perform_test)
+        device_config = self.alloc_device_config(device, perform_test=perform_test)
 
         attach_cfg = CacheAttachConfig(
             _device=device_config,
@@ -600,6 +609,8 @@ class Cache:
         self.owner.lib.ocf_mngt_cache_standby_load(self.cache_handle, byref(attach_cfg), c, None)
         c.wait()
         self.write_unlock()
+
+        self.free_device_config(device_config)
 
         if c.results["error"]:
             raise OcfError("Loading standby cache device failed", c.results["error"])
@@ -622,7 +633,7 @@ class Cache:
         self.device = device
         self.device_name = device.uuid
 
-        device_config = self.generate_device_config(device)
+        device_config = self.alloc_device_config(device)
 
         attach_cfg = CacheAttachConfig(
             _device=device_config,
@@ -637,6 +648,8 @@ class Cache:
         self.owner.lib.ocf_mngt_cache_load(self.cache_handle, byref(attach_cfg), c, None)
         c.wait()
         self.write_unlock()
+
+        self.free_device_config(device_config)
 
         if c.results["error"]:
             raise OcfError("Loading cache device failed", c.results["error"])
@@ -977,3 +990,4 @@ lib.ocf_mngt_cache_io_classes_configure.restype = c_int
 lib.ocf_mngt_cache_io_classes_configure.argtypes = [c_void_p, c_void_p]
 lib.ocf_volume_create.restype = c_int
 lib.ocf_volume_create.argtypes = [c_void_p, c_void_p, c_void_p]
+lib.ocf_volume_destroy.argtypes = [c_void_p]
