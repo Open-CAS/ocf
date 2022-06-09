@@ -34,10 +34,11 @@ def test_test_standby_io(pyocf_ctx, cacheline_size):
         cache.add_io_queue(f"io-queue-{i}")
 
     cache.standby_attach(cache_vol)
+    cache_vol = CacheVolume(cache, open=True)
 
     r = (
         Rio()
-        .target(cache)
+        .target(cache_vol)
         .njobs(num_jobs)
         .readwrite(ReadWrite.RANDWRITE)
         .size(vol_size)
