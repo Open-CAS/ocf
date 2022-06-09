@@ -66,7 +66,18 @@ class OcfCtx:
 
         return cls.default()
 
+    def register_internal_volume_type_id(self, volume_type, volume_type_id):
+        if volume_type_id in self.volume_types:
+            raise RuntimeError(f"volume type id {volume_type_id} already used")
+        self.volume_types[volume_type_id] = volume_type
+        volume_type.internal = True
+
     def register_volume_type(self, volume_type):
+        if self.volume_types_count in self.volume_types:
+            raise RuntimeError(
+                f"volume type id slot already used by internal volume "
+                f"{self.volume_types[self.volume_types_count]}"
+            )
         self.volume_types[self.volume_types_count] = volume_type
         volume_type.type_id = self.volume_types_count
 
@@ -79,9 +90,10 @@ class OcfCtx:
             raise OcfError("Volume type registration failed", result)
 
         self.ocf_volume_type[volume_type] = self.lib.ocf_ctx_get_volume_type(
-            self.ctx_handle,
-            volume_type.type_id
+            self.ctx_handle, volume_type.type_id
         )
+
+        volume_type.internal = False
 
         self.volume_types_count += 1
 
@@ -96,7 +108,7 @@ class OcfCtx:
 
     def cleanup_volume_types(self):
         for k, vol_type in list(self.volume_types.items()):
-            if vol_type:
+            if vol_type and not vol_type.internal:
                 self.unregister_volume_type(vol_type)
 
     def stop_caches(self):
