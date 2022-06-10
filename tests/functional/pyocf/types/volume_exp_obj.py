@@ -14,7 +14,7 @@ from pyocf.types.io import IoDir, Io
 from pyocf.types.shared import OcfCompletion
 
 
-class ExpObjVolume(Volume):
+class OcfInternalVolume(Volume):
     def __init__(self, parent, uuid=None):
         super().__init__(uuid)
         self.parent = parent

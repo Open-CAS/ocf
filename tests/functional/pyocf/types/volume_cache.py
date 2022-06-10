@@ -8,11 +8,11 @@ from ctypes import cast, POINTER
 from .cache import Cache
 from .io import Io
 from .io import IoDir
-from .volume_exp_obj import ExpObjVolume
+from .volume_exp_obj import OcfInternalVolume
 from .volume import Volume
 
 
-class CacheVolume(ExpObjVolume):
+class CacheVolume(OcfInternalVolume):
     def __init__(self, cache, open=False, uuid=None):
         super().__init__(cache, uuid)
         self.cache = cache
