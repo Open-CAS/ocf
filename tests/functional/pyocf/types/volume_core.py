@@ -4,12 +4,12 @@
 #
 
 from .core import Core
-from .volume_exp_obj import ExpObjVolume
+from .volume_exp_obj import OcfInternalVolume
 from .io import IoDir
 from .volume import Volume
 
 
-class CoreVolume(ExpObjVolume):
+class CoreVolume(OcfInternalVolume):
     def __init__(self, core, open=False, uuid=None):
         super().__init__(core, uuid)
         self.core = core
