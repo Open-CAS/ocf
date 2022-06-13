@@ -1118,7 +1118,6 @@ out:
 
 struct ocf_pipeline_arg ocf_metadata_load_all_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_core_runtime),
-	OCF_PL_ARG_INT(metadata_segment_cleaning),
 	OCF_PL_ARG_INT(metadata_segment_lru),
 	OCF_PL_ARG_INT(metadata_segment_collision),
 	OCF_PL_ARG_INT(metadata_segment_list_info),
@@ -1126,14 +1125,26 @@ struct ocf_pipeline_arg ocf_metadata_load_all_args[] = {
 	OCF_PL_ARG_TERMINATOR(),
 };
 
+static bool ocf_metadata_check_disabled_segment(ocf_pipeline_t pipeline,
+		ocf_pipeline_arg_t arg)
+{
+	....
+}
+
 struct ocf_pipeline_properties ocf_metadata_load_all_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_context),
 	.finish = ocf_metadata_load_all_finish,
 	.steps = {
+		OCF_PL_STEP_CONDITIONAL(ocf_metadata_load_segment,
+				metadata_segment_cleaning,
+				ocf_metadata_check_disabled_segment),
 		OCF_PL_STEP_FOREACH(ocf_metadata_load_segment,
-				ocf_metadata_load_all_args),
+				ocf_metadata_load_all_args,
+
+		// conditional sfor cleaning
 		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc,
-				ocf_metadata_load_all_args),
+				ocf_metadata_load_all_args,
+				checker),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
