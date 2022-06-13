@@ -185,6 +185,7 @@ class Volume:
 
         volume.handle = ref
         Volume._instances_[ref] = volume
+        volume.opened = True
 
         ret = volume.do_open()
         if ret == 0:
@@ -273,7 +274,10 @@ class Volume:
         return 0
 
     def do_close(self):
-        del Volume._instances_[self.handle]
+        try:
+            del Volume._instances_[self.handle]
+        except AttributeError:
+            pass
 
     def get_length(self):
         raise NotImplementedError

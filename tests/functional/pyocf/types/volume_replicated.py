@@ -29,7 +29,7 @@ class ReplicatedVolume(Volume):
             self.primary.close()
         return ret
 
-    def close(self):
+    def do_close(self):
         self.primary.close()
         self.secondary.close()
 

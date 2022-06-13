@@ -17,6 +17,8 @@ from pyocf.types.volume_replicated import ReplicatedVolume
 from pyocf.types.cvolume import CVolume
 from pyocf.types.ctx import OcfCtx
 from pyocf.helpers import get_composite_volume_type_id
+from pyocf.types.volume import Volume
+import warnings
 
 default_registered_volumes = [RamVolume, ErrorDevice, CacheVolume, CoreVolume, ReplicatedVolume]
 
@@ -34,6 +36,8 @@ def pyocf_ctx():
     yield c
     c.exit()
     gc.collect()
+    if len(Volume._instances_) > 0:
+        warnings.warn("Not all Volumes have been closed!!!")
 
 
 @pytest.fixture()
@@ -46,6 +50,8 @@ def pyocf_ctx_log_buffer():
     yield logger
     c.exit()
     gc.collect()
+    if len(Volume._instances_) > 0:
+        warnings.warn("Not all Volumes have been closed!!!")
 
 
 @pytest.fixture()
@@ -61,6 +67,8 @@ def pyocf_2_ctx():
     c1.exit()
     c2.exit()
     gc.collect()
+    if len(Volume._instances_) > 0:
+        warnings.warn("Not all Volumes have been closed!!!")
 
 
 @pytest.fixture()
@@ -76,3 +84,5 @@ def pyocf_2_ctx_log_buffer():
     c1.exit()
     c2.exit()
     gc.collect()
+    if len(Volume._instances_) > 0:
+        warnings.warn("Not all Volumes have been closed!!!")
