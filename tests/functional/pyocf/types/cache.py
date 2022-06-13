@@ -577,7 +577,6 @@ class Cache:
         disable_cleaner=False,
     ):
         self.device = device
-        self.device_name = device.uuid
 
         device_config = self.alloc_device_config(device, perform_test=perform_test)
 
@@ -609,7 +608,6 @@ class Cache:
 
     def standby_attach(self, device, force=False, disable_cleaner=False):
         self.device = device
-        self.device_name = device.uuid
 
         device_config = self.alloc_device_config(device, perform_test=False)
 
@@ -641,7 +639,6 @@ class Cache:
 
     def standby_load(self, device, perform_test=True, disable_cleaner=False):
         self.device = device
-        self.device_name = device.uuid
 
         device_config = self.alloc_device_config(device, perform_test=perform_test)
 
@@ -682,7 +679,6 @@ class Cache:
 
     def load_cache(self, device, open_cores=True, disable_cleaner=False):
         self.device = device
-        self.device_name = device.uuid
 
         device_config = self.alloc_device_config(device)
 
