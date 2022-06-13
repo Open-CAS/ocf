@@ -18,8 +18,9 @@ from ctypes import (
     cast,
     create_string_buffer,
 )
-from enum import IntEnum
+from enum import IntEnum, auto
 from datetime import timedelta
+import re
 
 from ..ocf import OcfLib
 from .shared import (
@@ -44,6 +45,48 @@ from .volume import RamVolume, Volume
 
 class Backfill(Structure):
     _fields_ = [("_max_queue_size", c_uint32), ("_queue_unblock_size", c_uint32)]
+
+
+class CacheMetadataSegment(IntEnum):
+    _ignore_ = "name_mapping"
+    SB_CONFIG = 0
+    SB_RUNTIME = auto()
+    RESERVED = auto()
+    PART_CONFIG = auto()
+    PART_RUNTIME = auto()
+    CORE_CONFIG = auto()
+    CORE_RUNTIME = auto()
+    CORE_UUID = auto()
+    CLEANING = auto()
+    LRU = auto()
+    COLLISION = auto()
+    LIST_INFO = auto()
+    HASH = auto()
+
+    @classmethod
+    def segment_in_text(cls, log):
+        name_mapping = {
+            "Super block config": cls.SB_CONFIG,
+            "Super block runtime": cls.SB_RUNTIME,
+            "Reserved": cls.RESERVED,
+            "Part config": cls.PART_CONFIG,
+            "Part runtime": cls.PART_RUNTIME,
+            "Core config": cls.CORE_CONFIG,
+            "Core runtime": cls.CORE_RUNTIME,
+            "Core UUID": cls.CORE_UUID,
+            "Cleaning": cls.CLEANING,
+            "LRU": cls.LRU,
+            "Collision": cls.COLLISION,
+            "List info": cls.LIST_INFO,
+            "Hash": cls.HASH,
+        }
+
+        for name, segment in name_mapping.items():
+            match = re.search(name, log)
+            if match:
+                return segment
+
+        return None
 
 
 class CacheConfig(Structure):
