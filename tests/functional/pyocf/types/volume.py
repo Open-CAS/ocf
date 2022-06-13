@@ -479,13 +479,13 @@ class ErrorDevice(Volume):
             self.complete_with_error(io)
 
     def do_submit_flush(self, flush):
-        if self.data_only and self.should_forward_io(flush):
+        if self.data_only or self.should_forward_io(flush):
             self.vol.do_submit_flush(flush)
         else:
             self.complete_with_error(flush)
 
     def do_submit_discard(self, discard):
-        if self.data_only and self.should_forward_io(discard):
+        if self.data_only or self.should_forward_io(discard):
             self.vol.do_submit_discard(discard)
         else:
             self.complete_with_error(discard)
