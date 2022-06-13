@@ -123,6 +123,111 @@ def test_metadata_corruption(
 @pytest.mark.parametrize(
     "recovery,target_segment,expectation",
     [
+        (True, CacheMetadataSegment.SB_CONFIG, pytest.raises(OcfError)),
+        (True, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
+        (True, CacheMetadataSegment.RESERVED, does_not_raise()),
+        (True, CacheMetadataSegment.PART_CONFIG, pytest.raises(OcfError)),
+        (True, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
+        (True, CacheMetadataSegment.CORE_CONFIG, pytest.raises(OcfError)),
+        (True, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
+        (True, CacheMetadataSegment.CORE_UUID, pytest.raises(OcfError)),
+        (True, CacheMetadataSegment.CLEANING, does_not_raise()),
+        (True, CacheMetadataSegment.LRU, does_not_raise()),
+        (True, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
+        (True, CacheMetadataSegment.LIST_INFO, does_not_raise()),
+        (True, CacheMetadataSegment.HASH, does_not_raise()),
+        (False, CacheMetadataSegment.SB_CONFIG, pytest.raises(OcfError)),
+        (False, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
+        (False, CacheMetadataSegment.RESERVED, does_not_raise()),
+        (False, CacheMetadataSegment.PART_CONFIG, pytest.raises(OcfError)),
+        (False, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
+        (False, CacheMetadataSegment.CORE_CONFIG, pytest.raises(OcfError)),
+        (False, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
+        (False, CacheMetadataSegment.CORE_UUID, pytest.raises(OcfError)),
+        (False, CacheMetadataSegment.CLEANING, does_not_raise()),
+        (False, CacheMetadataSegment.LRU, does_not_raise()),
+        (False, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
+        (False, CacheMetadataSegment.LIST_INFO, does_not_raise()),
+        (False, CacheMetadataSegment.HASH, does_not_raise()),
+    ],
+)
+def test_metadata_corruption_standby_activate(
+    pyocf_2_ctx, cache_line_size, cache_mode, recovery, target_segment, expectation
+):
+    primary_ctx, secondary_ctx = pyocf_2_ctx
+
+    primary_cache_volume = RamVolume(Size.from_MiB(60))
+    secondary_cache_volume = RamVolume(Size.from_MiB(60))
+
+    core_volume = RamVolume(Size.from_MiB(1))
+
+    secondary_cache = Cache(
+        owner=secondary_ctx,
+        cache_mode=cache_mode,
+        cache_line_size=cache_line_size,
+    )
+    secondary_cache.start_cache()
+    secondary_cache.standby_attach(secondary_cache_volume)
+
+    corrupted_bytes = get_random_target_in_segment(secondary_cache, target_segment)
+
+    secondary_cache_exp_obj = CacheVolume(secondary_cache)
+    primary_cache_replicated_volume = ReplicatedVolume(
+        primary_cache_volume, secondary_cache_exp_obj
+    )
+
+    primary_cache = Cache.start_on_device(
+        primary_cache_replicated_volume,
+        owner=primary_ctx,
+        cache_mode=cache_mode,
+        cache_line_size=cache_line_size,
+    )
+    core = Core(core_volume)
+    primary_cache.add_core(core)
+
+    core_exp_volume = CoreVolume(core)
+    queue = primary_cache.get_default_queue()
+
+    r = (
+        Rio()
+        .target(core_exp_volume)
+        .njobs(1)
+        .readwrite(ReadWrite.WRITE)
+        .size(Size.from_MiB(1))
+        .qd(1)
+        .run([queue])
+    )
+
+    if recovery:
+        primary_cache.save()
+        primary_cache.device.offline()
+
+    exc = False
+    try:
+        primary_cache.stop()
+    except OcfError:
+        exc = True
+
+    primary_cache_replicated_volume.online()
+
+    secondary_cache.standby_detach()
+
+    if recovery:
+        assert exc, "Stopping with device offlined should raise an exception"
+
+    for byte in corrupted_bytes:
+        corrupt_byte(secondary_cache_volume.data, byte)
+
+    with expectation:
+        secondary_cache.standby_activate(secondary_cache_volume, open_cores=False)
+
+
+@pytest.mark.security
+@pytest.mark.parametrize("cache_line_size", CacheLineSize)
+@pytest.mark.parametrize("cache_mode", CacheMode)
+@pytest.mark.parametrize(
+    "recovery,target_segment,expectation",
+    [
         (False, CacheMetadataSegment.SB_CONFIG, pytest.raises(OcfError)),
         (False, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
         (False, CacheMetadataSegment.RESERVED, does_not_raise()),
