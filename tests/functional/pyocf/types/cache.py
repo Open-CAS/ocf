@@ -304,6 +304,7 @@ class Cache:
             raise OcfError("Failed to detach failover cache device", c.results["error"])
 
     def standby_activate(self, device, open_cores=True):
+        self.device = device
         device_cfg = self.alloc_device_config(device)
 
         activate_cfg = CacheStandbyActivateConfig(
@@ -322,6 +323,7 @@ class Cache:
         self.free_device_config(device_cfg)
 
         if c.results["error"]:
+            self.device = None
             raise OcfError("Failed to activate standby cache", c.results["error"])
 
     def change_cache_mode(self, cache_mode: CacheMode):
@@ -661,6 +663,7 @@ class Cache:
         self.free_device_config(device_config)
 
         if c.results["error"]:
+            self.device = None
             raise OcfError("Loading standby cache device failed", c.results["error"])
 
     def detach_device(self):
@@ -701,6 +704,7 @@ class Cache:
         self.free_device_config(device_config)
 
         if c.results["error"]:
+            self.device = None
             raise OcfError("Loading cache device failed", c.results["error"])
 
     @classmethod
