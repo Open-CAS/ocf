@@ -97,10 +97,16 @@ class Core:
         return self.handle
 
     def get_front_volume(self):
-        return Volume.get_instance(lib.ocf_core_get_front_volume(self.handle))
+        return Volume.get_instance(self.get_c_front_volume())
+
+    def get_c_front_volume(self):
+        return lib.ocf_core_get_front_volume(self.handle)
 
     def get_volume(self):
-        return Volume.get_instance(lib.ocf_core_get_volume(self.handle))
+        return Volume.get_instance(self.get_c_volume())
+
+    def get_c_volume(self):
+        return lib.ocf_core_get_volume(self.handle)
 
     def get_default_queue(self):
         return self.cache.get_default_queue()

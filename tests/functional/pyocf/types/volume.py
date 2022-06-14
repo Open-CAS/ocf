@@ -147,13 +147,12 @@ class Volume:
                 print("{}".format(Volume._uuid_))
                 return -1
 
-            return Volume.open(ref, volume)
+            return Volume.s_open(ref, volume)
 
         @VolumeOps.CLOSE
         def _close(ref):
             volume = Volume.get_instance(ref)
-            volume.close()
-            volume.opened = False
+            Volume.s_close(volume)
 
         @VolumeOps.GET_MAX_IO_SIZE
         def _get_max_io_size(ref):
@@ -180,14 +179,29 @@ class Volume:
         return Volume._ops_[cls]
 
     @staticmethod
-    def open(ref, volume):
+    def s_open(ref, volume):
         if volume.opened:
             return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
 
         Volume._instances_[ref] = volume
         volume.handle = ref
 
-        return volume.do_open()
+        ret = volume.do_open()
+        if ret == 0:
+            volume.opened = True
+
+        return ret
+
+    @staticmethod
+    def s_close(volume):
+        if not volume.opened:
+            return
+
+        volume.do_close()
+        volume.opened = False
+
+        del Volume._instances_[volume.handle]
+        volume.handle = None
 
     @classmethod
     def get_io_ops(cls):
@@ -253,13 +267,13 @@ class Volume:
         self.reset_stats()
         self.is_online = True
         self.opened = False
+        self.handle = None
 
     def do_open(self):
-        self.opened = True
         return 0
 
-    def close(self):
-        self.opened = False
+    def do_close(self):
+        pass
 
     def get_length(self):
         raise NotImplementedError
@@ -324,7 +338,13 @@ class Volume:
     ):
         lib = OcfLib.getInstance()
         io = lib.ocf_volume_new_io(
-            self.handle, queue.handle, addr, length, direction, io_class, flags
+            self.handle,
+            queue.handle if queue else c_void_p(),
+            addr,
+            length,
+            direction,
+            io_class,
+            flags,
         )
         return Io.from_pointer(io)
 
@@ -518,14 +538,17 @@ class TraceDevice(Volume):
         if submit:
             self.vol.do_submit_flush(io)
 
+    def do_submit_discard(self, io):
+        submit = self._trace(io, TraceDevice.IoType.Discard)
+
+        if submit:
+            self.vol.do_submit_discard(io)
+
     def get_length(self):
         return self.vol.get_length()
 
     def get_max_io_size(self):
         return self.vol.get_max_io_size()
-
-    def do_submit_discard(self, discard):
-        return self.vol.do_submit_discard(discard)
 
     def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
         return self.vol.dump(offset, size, ignore=ignore, **kwargs)

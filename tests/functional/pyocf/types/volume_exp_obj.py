@@ -14,7 +14,7 @@ from pyocf.types.io import IoDir, Io
 from pyocf.types.shared import OcfCompletion
 
 
-class ExpObjVolume(Volume):
+class OcfInternalVolume(Volume):
     def __init__(self, parent, uuid=None):
         super().__init__(uuid)
         self.parent = parent
@@ -112,6 +112,13 @@ class ExpObjVolume(Volume):
             position += read_size
 
         return read_buffer_all.md5()
+
+    def open(self):
+        handle = self.get_c_handle()
+        return Volume.s_open(handle, self)
+
+    def close(self):
+        return Volume.s_close(self)
 
 
 lib = OcfLib.getInstance()

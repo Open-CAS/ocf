@@ -152,6 +152,11 @@ static void ocf_composite_volume_on_deinit(ocf_volume_t cvolume)
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
 	int i;
 
+	/* priv can be NULL if this volume had been moved from. In this case
+	 * it's the owner responsibility to deinit member volumes. */
+	if (!composite)
+		return;
+
 	for (i = 0; i < composite->members_cnt; i++)
 		ocf_volume_deinit(&composite->member[i].volume);
 }
@@ -282,7 +287,7 @@ static void *ocf_composite_io_allocator_new(ocf_io_allocator_t allocator,
 		member_addr = cur_addr - (i > 0 ? composite->end_addr[i-1] : 0);
 		member_bytes =
 			OCF_MIN(cur_addr + cur_bytes, composite->end_addr[i])
-			- member_addr;
+			- cur_addr;
 
 		cio->member_io[i] = ocf_io_new(&composite->member[i].volume, queue,
 				member_addr, member_bytes, dir, 0, 0);
