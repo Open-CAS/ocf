@@ -976,7 +976,6 @@ struct ocf_pipeline_arg ocf_metadata_flush_all_args[] = {
 	OCF_PL_ARG_INT(metadata_segment_sb_runtime),
 	OCF_PL_ARG_INT(metadata_segment_part_runtime),
 	OCF_PL_ARG_INT(metadata_segment_core_runtime),
-	OCF_PL_ARG_INT(metadata_segment_cleaning),
 	OCF_PL_ARG_INT(metadata_segment_lru),
 	OCF_PL_ARG_INT(metadata_segment_collision),
 	OCF_PL_ARG_INT(metadata_segment_list_info),
@@ -984,12 +983,31 @@ struct ocf_pipeline_arg ocf_metadata_flush_all_args[] = {
 	OCF_PL_ARG_TERMINATOR(),
 };
 
+/*
+ * Predicate function checking whether disable cleaner option is set
+ */
+static bool ocf_check_if_cleaner_enabled(ocf_pipeline_t pipeline,
+		void* priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_metadata_context *context = priv;
+	
+	return !context->cache->conf_meta->cleaner_disabled;
+}
+
 struct ocf_pipeline_properties ocf_metadata_flush_all_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_context),
 	.finish = ocf_metadata_flush_all_finish,
 	.steps = {
+		
+		OCF_PL_STEP_COND_ARG_INT(ocf_check_if_cleaner_enabled,
+				ocf_metadata_flush_segment,
+				metadata_segment_cleaning),
 		OCF_PL_STEP_FOREACH(ocf_metadata_flush_segment,
 				ocf_metadata_flush_all_args),
+
+		OCF_PL_STEP_COND_ARG_INT(ocf_check_if_cleaner_enabled,
+				ocf_metadata_calculate_crc,
+				metadata_segment_cleaning),
 		OCF_PL_STEP_FOREACH(ocf_metadata_calculate_crc,
 				ocf_metadata_flush_all_args),
 		OCF_PL_STEP_ARG_INT(ocf_metadata_flush_all_set_status,
@@ -1125,26 +1143,21 @@ struct ocf_pipeline_arg ocf_metadata_load_all_args[] = {
 	OCF_PL_ARG_TERMINATOR(),
 };
 
-static bool ocf_metadata_check_disabled_segment(ocf_pipeline_t pipeline,
-		ocf_pipeline_arg_t arg)
-{
-	....
-}
-
 struct ocf_pipeline_properties ocf_metadata_load_all_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_context),
 	.finish = ocf_metadata_load_all_finish,
 	.steps = {
-		OCF_PL_STEP_CONDITIONAL(ocf_metadata_load_segment,
-				metadata_segment_cleaning,
-				ocf_metadata_check_disabled_segment),
+		OCF_PL_STEP_COND_ARG_INT(ocf_check_if_cleaner_enabled,
+				ocf_metadata_load_segment,
+				metadata_segment_cleaning),
 		OCF_PL_STEP_FOREACH(ocf_metadata_load_segment,
-				ocf_metadata_load_all_args,
-
-		// conditional sfor cleaning
+				ocf_metadata_load_all_args),
+	
+		OCF_PL_STEP_COND_ARG_INT(ocf_check_if_cleaner_enabled,
+				ocf_metadata_check_crc,
+				metadata_segment_cleaning),
 		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc,
-				ocf_metadata_load_all_args,
-				checker),
+				ocf_metadata_load_all_args),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
