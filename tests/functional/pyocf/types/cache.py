@@ -248,7 +248,10 @@ class Cache:
         self.cores = []
 
     def start_cache(
-        self, init_mngmt_queue=True, init_default_io_queue=True, locked: bool = False,
+        self,
+        init_mngmt_queue=True,
+        init_default_io_queue=True,
+        locked: bool = False,
     ):
         cfg = CacheConfig(
             _name=self.name.encode("ascii"),
@@ -257,7 +260,8 @@ class Cache:
             _cache_line_size=self.cache_line_size,
             _metadata_volatile=self.metadata_volatile,
             _backfill=Backfill(
-                _max_queue_size=self.max_queue_size, _queue_unblock_size=self.queue_unblock_size,
+                _max_queue_size=self.max_queue_size,
+                _queue_unblock_size=self.queue_unblock_size,
             ),
             _locked=locked,
             _pt_unaligned_io=self.pt_unaligned_io,
@@ -301,7 +305,10 @@ class Cache:
     def standby_activate(self, device, open_cores=True):
         device_cfg = self.alloc_device_config(device)
 
-        activate_cfg = CacheStandbyActivateConfig(_device=device_cfg, _open_cores=open_cores,)
+        activate_cfg = CacheStandbyActivateConfig(
+            _device=device_cfg,
+            _open_cores=open_cores,
+        )
 
         self.write_lock()
         c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
@@ -446,7 +453,13 @@ class Cache:
         }
 
     def add_partition(
-        self, part_id: int, name: str, min_size: int, max_size: int, priority: int, valid: bool,
+        self,
+        part_id: int,
+        name: str,
+        min_size: int,
+        max_size: int,
+        priority: int,
+        valid: bool,
     ):
         self.write_lock()
 
@@ -462,7 +475,12 @@ class Cache:
             raise OcfError("Error adding partition to cache", status)
 
     def configure_partition(
-        self, part_id: int, name: str, max_size: int, priority: int, cache_mode=CACHE_MODE_NONE,
+        self,
+        part_id: int,
+        name: str,
+        max_size: int,
+        priority: int,
+        cache_mode=CACHE_MODE_NONE,
     ):
         ioclasses_info = IoClassesInfo()
 
@@ -511,9 +529,7 @@ class Cache:
 
             lib = OcfLib.getInstance()
             result = lib.ocf_volume_create(
-                byref(volume),
-                self.owner.ocf_volume_type[type(device)],
-                byref(uuid)
+                byref(volume), self.owner.ocf_volume_type[type(device)], byref(uuid)
             )
 
             if result != 0:
@@ -533,7 +549,13 @@ class Cache:
         lib = OcfLib.getInstance().ocf_volume_destroy(cfg._volume)
 
     def attach_device(
-        self, device, force=False, perform_test=False, cache_line_size=None, open_cores=False,
+        self,
+        device,
+        force=False,
+        perform_test=False,
+        cache_line_size=None,
+        open_cores=False,
+        disable_cleaner=False,
     ):
         self.device = device
         self.device_name = device.uuid
@@ -546,6 +568,7 @@ class Cache:
             _open_cores=open_cores,
             _force=force,
             _discard_on_start=False,
+            _disable_cleaner=disable_cleaner,
         )
 
         self.write_lock()
@@ -561,10 +584,11 @@ class Cache:
 
         if c.results["error"]:
             raise OcfError(
-                f"Attaching cache device failed", c.results["error"],
+                f"Attaching cache device failed",
+                c.results["error"],
             )
 
-    def standby_attach(self, device, force=False):
+    def standby_attach(self, device, force=False, disable_cleaner=False):
         self.device = device
         self.device_name = device.uuid
 
@@ -576,6 +600,7 @@ class Cache:
             _open_cores=False,
             _force=force,
             _discard_on_start=False,
+            _disable_cleaner=disable_cleaner,
         )
 
         self.write_lock()
@@ -591,10 +616,11 @@ class Cache:
 
         if c.results["error"]:
             raise OcfError(
-                f"Attaching to standby cache failed", c.results["error"],
+                f"Attaching to standby cache failed",
+                c.results["error"],
             )
 
-    def standby_load(self, device, perform_test=True):
+    def standby_load(self, device, perform_test=True, disable_cleaner=False):
         self.device = device
         self.device_name = device.uuid
 
@@ -606,6 +632,7 @@ class Cache:
             _open_cores=False,
             _force=False,
             _discard_on_start=False,
+            _disable_cleaner=disable_cleaner,
         )
 
         self.write_lock()
@@ -633,7 +660,7 @@ class Cache:
         if c.results["error"]:
             raise OcfError("Attaching cache device failed", c.results["error"])
 
-    def load_cache(self, device, open_cores=True):
+    def load_cache(self, device, open_cores=True, disable_cleaner=False):
         self.device = device
         self.device_name = device.uuid
 
@@ -645,6 +672,7 @@ class Cache:
             _open_cores=open_cores,
             _force=False,
             _discard_on_start=False,
+            _disable_cleaner=disable_cleaner,
         )
 
         self.write_lock()
@@ -659,7 +687,9 @@ class Cache:
             raise OcfError("Loading cache device failed", c.results["error"])
 
     @classmethod
-    def load_from_device(cls, device, owner=None, name="cache", open_cores=True):
+    def load_from_device(
+        cls, device, owner=None, name="cache", open_cores=True, disable_cleaner=False
+    ):
         if owner is None:
             owner = OcfCtx.get_default()
 
@@ -667,7 +697,7 @@ class Cache:
 
         c.start_cache()
         try:
-            c.load_cache(device, open_cores=open_cores)
+            c.load_cache(device, open_cores=open_cores, disable_cleaner=disable_cleaner)
         except:  # noqa E722
             c.stop()
             raise
@@ -675,7 +705,7 @@ class Cache:
         return c
 
     @classmethod
-    def start_on_device(cls, device, owner=None, **kwargs):
+    def start_on_device(cls, device, owner=None, disable_cleaner=False, **kwargs):
         if owner is None:
             owner = OcfCtx.get_default()
 
@@ -683,7 +713,7 @@ class Cache:
 
         c.start_cache()
         try:
-            c.attach_device(device, force=True)
+            c.attach_device(device, force=True, disable_cleaner=disable_cleaner)
         except:  # noqa E722
             c.stop()
             raise
@@ -722,7 +752,10 @@ class Cache:
         core_handle = c_void_p()
 
         result = self.owner.lib.ocf_core_get_by_name(
-            self.cache_handle, name.encode("ascii"), len(name), byref(core_handle),
+            self.cache_handle,
+            name.encode("ascii"),
+            len(name),
+            byref(core_handle),
         )
         if result != 0:
             raise OcfError("Failed getting core by name", result)
@@ -744,7 +777,12 @@ class Cache:
         self.write_lock()
 
         c = OcfCompletion(
-            [("cache", c_void_p), ("core", c_void_p), ("priv", c_void_p), ("error", c_int),]
+            [
+                ("cache", c_void_p),
+                ("core", c_void_p),
+                ("priv", c_void_p),
+                ("error", c_int),
+            ]
         )
 
         self.owner.lib.ocf_mngt_cache_add_core(self.cache_handle, byref(cfg), c, None)
@@ -938,6 +976,7 @@ class Cache:
     # settle all queues accociated with this cache (mngt and I/O)
     def settle(self):
         Queue.settle_many(self.io_queues + [self.mngt_queue])
+
 
 
 lib = OcfLib.getInstance()
