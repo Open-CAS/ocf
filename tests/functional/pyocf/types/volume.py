@@ -431,12 +431,19 @@ class RamVolume(Volume):
 
 class ErrorDevice(Volume):
     def __init__(
-        self, vol, error_sectors: set = None, error_seq_no: dict = None, armed=True, uuid=None,
+        self,
+        vol,
+        error_sectors: set = None,
+        error_seq_no: dict = None,
+        data_only=False,
+        armed=True,
+        uuid=None,
     ):
         self.vol = vol
         super().__init__(uuid)
-        self.error_sectors = error_sectors
-        self.error_seq_no = error_seq_no
+        self.error_sectors = error_sectors or set()
+        self.error_seq_no = error_seq_no or {IoDir.WRITE: -1, IoDir.READ: -1}
+        self.data_only = data_only
         self.armed = armed
         self.io_seq_no = {IoDir.WRITE: 0, IoDir.READ: 0}
         self.error = False
@@ -444,32 +451,44 @@ class ErrorDevice(Volume):
     def set_mapping(self, error_sectors: set):
         self.error_sectors = error_sectors
 
-    def do_submit_io(self, io):
+    def should_forward_io(self, io):
         if not self.armed:
-            self.vol.do_submit_io(io)
-            return
+            return True
 
         direction = IoDir(io.contents._dir)
         seq_no_match = (
-            self.error_seq_no is not None
-            and direction in self.error_seq_no
+            self.error_seq_no[direction] >= 0
             and self.error_seq_no[direction] <= self.io_seq_no[direction]
         )
-        sector_match = self.error_sectors is not None and io.contents._addr in self.error_sectors
+        sector_match = io.contents._addr in self.error_sectors
 
         self.io_seq_no[direction] += 1
 
-        error = True
-        if self.error_seq_no is not None and not seq_no_match:
-            error = False
-        if self.error_sectors is not None and not sector_match:
-            error = False
-        if error:
-            self.error = True
-            io.contents._end(io, -OcfErrorCode.OCF_ERR_IO)
-            self.stats["errors"][direction] += 1
-        else:
+        return not seq_no_match and not sector_match
+
+    def complete_with_error(self, io):
+        self.error = True
+        direction = IoDir(io.contents._dir)
+        self.stats["errors"][direction] += 1
+        io.contents._end(io, -OcfErrorCode.OCF_ERR_IO)
+
+    def do_submit_io(self, io):
+        if self.should_forward_io(io):
             self.vol.do_submit_io(io)
+        else:
+            self.complete_with_error(io)
+
+    def do_submit_flush(self, flush):
+        if self.data_only and self.should_forward_io(flush):
+            self.vol.do_submit_flush(flush)
+        else:
+            self.complete_with_error(flush)
+
+    def do_submit_discard(self, discard):
+        if self.data_only and self.should_forward_io(discard):
+            self.vol.do_submit_discard(discard)
+        else:
+            self.complete_with_error(discard)
 
     def arm(self):
         self.armed = True
@@ -490,12 +509,6 @@ class ErrorDevice(Volume):
 
     def get_max_io_size(self):
         return self.vol.get_max_io_size()
-
-    def do_submit_flush(self, flush):
-        return self.vol.do_submit_flush(flush)
-
-    def do_submit_discard(self, discard):
-        return self.vol.do_submit_discard(discard)
 
     def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
         return self.vol.dump(offset, size, ignore=ignore, **kwargs)
