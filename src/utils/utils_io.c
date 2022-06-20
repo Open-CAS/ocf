@@ -30,8 +30,10 @@ void ocf_submit_volume_flush(ocf_volume_t volume,
 		ocf_submit_end_t cmpl, void *priv)
 {
 	struct ocf_io *io;
+	uint64_t length;
 
-	io = ocf_volume_new_io(volume, NULL, 0, 0, OCF_WRITE, 0, 0);
+	length = ocf_volume_get_length(volume);
+	io = ocf_volume_new_io(volume, NULL, 0, length, OCF_WRITE, 0, 0);
 	if (!io)
 		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
