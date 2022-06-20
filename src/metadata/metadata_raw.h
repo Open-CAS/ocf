@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -62,6 +62,8 @@ struct ocf_metadata_raw {
 	 */
 	enum ocf_metadata_segment_id metadata_segment; /*!< Metadata segment */
 	enum ocf_metadata_raw_type raw_type; /*!< RAW implementation type */
+
+	bool disabled; /*!< True if this raw container is disabled */
 
 	/**
 	 * @name Metdata elements description
