@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2019-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -11,6 +11,7 @@
 enum ocf_pipeline_step_type {
 	ocf_pipeline_step_single,
 	ocf_pipeline_step_foreach,
+	ocf_pipeline_step_conditional,
 	ocf_pipeline_step_terminator,
 };
 
@@ -65,9 +66,13 @@ typedef void (*ocf_pipeline_step_hndl_t)(ocf_pipeline_t pipeline,
 typedef void (*ocf_pipeline_finish_t)(ocf_pipeline_t pipeline,
 		void *priv, int error);
 
+typedef bool (*ocf_pipeline_cond_step_predicate_t)(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg);
+
 struct ocf_pipeline_step {
 	enum ocf_pipeline_step_type type;
 	ocf_pipeline_step_hndl_t hndl;
+	ocf_pipeline_cond_step_predicate_t pred;
 	union {
 		struct ocf_pipeline_arg arg;
 		struct ocf_pipeline_arg *args;
@@ -110,6 +115,35 @@ struct ocf_pipeline_step {
 #define OCF_PL_STEP_TERMINATOR() \
 	{ \
 		.type = ocf_pipeline_step_terminator, \
+	}
+
+#define OCF_PL_STEP_COND(_pred, _hndl) \
+	{ \
+		.pred = _pred, \
+		.type = ocf_pipeline_step_conditional, \
+		.hndl = _hndl, \
+	}	
+
+#define OCF_PL_STEP_COND_ARG_INT(_pred, _hndl, _int) \
+	{ \
+		.pred = _pred, \
+		.type = ocf_pipeline_step_conditional, \
+		.hndl = _hndl, \
+		.arg = { \
+			.type = ocf_pipeline_arg_int, \
+			.val.i = _int, \
+		} \
+	}
+
+#define OCF_PL_STEP_COND_ARG_PTR(_pred, _hndl, _ptr) \
+	{ \
+		.pred = _pred, \
+		.type = ocf_pipeline_step_conditional, \
+		.hndl = _hndl, \
+		.arg = { \
+			.type = ocf_pipeline_arg_ptr, \
+			.val.p = _ptr, \
+		} \
 	}
 
 struct ocf_pipeline_properties {

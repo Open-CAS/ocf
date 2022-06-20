@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2019-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -39,6 +39,13 @@ static int _ocf_pipeline_run_step(struct ocf_request *req)
 			pipeline->next_step++;
 			step->hndl(pipeline, pipeline->priv, &step->arg);
 			return 0;
+		case ocf_pipeline_step_conditional:
+			pipeline->next_step++;
+			if (step->pred(pipeline, pipeline->priv, &step->arg)) {
+				step->hndl(pipeline, pipeline->priv, &step->arg);
+				return 0;
+			}	
+			continue;
 		case ocf_pipeline_step_foreach:
 			arg = &step->args[pipeline->next_arg++];
 			if (arg->type == ocf_pipeline_arg_terminator) {
