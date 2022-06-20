@@ -265,7 +265,7 @@ def test_start_stop_multiple(pyocf_ctx):
         stats = cache.get_stats()
         cache_name = stats["conf"]["cache_name"]
         cache.stop()
-        assert get_cache_by_name(pyocf_ctx, cache_name) != 0, "Try getting cache after stopping it"
+        assert Cache.get_by_name(cache_name, pyocf_ctx) != 0, "Try getting cache after stopping it"
 
 
 def test_100_start_stop(pyocf_ctx):
@@ -288,7 +288,7 @@ def test_100_start_stop(pyocf_ctx):
         assert stats["conf"]["cache_line_size"] == cache_line_size, "Cache line size"
         assert stats["conf"]["cache_name"] == cache_name, "Cache name"
         cache.stop()
-        assert get_cache_by_name(pyocf_ctx, "cache1") != 0, "Try getting cache after stopping it"
+        assert Cache.get_by_name("cache1", pyocf_ctx) != 0, "Try getting cache after stopping it"
 
 
 def test_start_stop_incrementally(pyocf_ctx):
@@ -337,7 +337,7 @@ def test_start_stop_incrementally(pyocf_ctx):
                 cache_name = stats["conf"]["cache_name"]
                 cache.stop()
                 assert (
-                    get_cache_by_name(pyocf_ctx, cache_name) != 0
+                    Cache.get_by_name(cache_name, pyocf_ctx) != 0
                 ), "Try getting cache after stopping it"
         add = not add
 
@@ -648,9 +648,3 @@ def check_md5_sums(core: Core, mode: CacheMode):
             core.device.md5() == core.get_front_volume().md5()
         ), "MD5 check: core device vs exported object"
 
-
-def get_cache_by_name(ctx, cache_name):
-    cache_pointer = c_void_p()
-    return OcfLib.getInstance().ocf_mngt_cache_get_by_name(
-        ctx.ctx_handle, cache_name, byref(cache_pointer)
-    )

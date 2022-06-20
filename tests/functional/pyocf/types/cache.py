@@ -977,6 +977,16 @@ class Cache:
     def settle(self):
         Queue.settle_many(self.io_queues + [self.mngt_queue])
 
+    @staticmethod
+    def get_by_name(cache_name, owner=None):
+        if owner is None:
+            owner = OcfCtx.get_default()
+        cache_pointer = c_void_p()
+        return OcfLib.getInstance().ocf_mngt_cache_get_by_name(
+            owner.ctx_handle, cache_name, byref(cache_pointer)
+        )
+
+
 
 
 lib = OcfLib.getInstance()
