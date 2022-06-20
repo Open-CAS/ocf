@@ -169,7 +169,7 @@ err_cache:
 err_priv:
 	free(cache_priv);
 err_vol:
-	ocf_volume_destroy(&volume);
+	ocf_volume_destroy(volume);
 err_sem:
 	sem_destroy(&context.sem);
 	return ret;
