@@ -92,7 +92,7 @@ def test_metadata_volatile_io(pyocf_ctx):
     cache.change_cache_mode(CacheMode.WB)
     core = Core.using_device(core_device, name="test_core")
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
 
     r = (
         Rio()

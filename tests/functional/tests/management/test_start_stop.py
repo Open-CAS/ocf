@@ -153,7 +153,7 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
     io_from_exported_object(front_vol, queue, test_data.size, Size.from_sector(1).B)
     check_stats_read_after_write(core, mode, cls)
 
-    check_md5_sums(vol, mode)
+    check_md5_sums(front_vol, mode)
 
 
 @pytest.mark.parametrize("cls", CacheLineSize)
@@ -213,7 +213,7 @@ def test_stop(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, with_flush: bool):
 
     cls_no = 10
 
-    run_io_and_cache_data_if_possible(core, mode, cls, cls_no)
+    run_io_and_cache_data_if_possible(front_vol, mode, cls, cls_no)
 
     stats = cache.get_stats()
     assert int(stats["conf"]["dirty"]) == (
@@ -495,23 +495,21 @@ def test_start_stop_noqueue(pyocf_ctx):
     assert not c.results["error"], "Failed to stop cache: {}".format(c.results["error"])
 
 
-def run_io_and_cache_data_if_possible(core, mode, cls, cls_no):
-    front_vol = core.get_front_volume()
-    bottom_vol = core.get_volume()
-    queue = core.cache.get_default_queue()
+def run_io_and_cache_data_if_possible(vol, mode, cls, cls_no):
+    queue = vol.parent.get_default_queue()
 
     test_data = Data(cls_no * cls)
 
     if mode in {CacheMode.WI, CacheMode.WA}:
         logger.info("[STAGE] Write to core device")
-        io_to_core(bottom_vol, queue, test_data, 0)
+        io_to_core(vol.parent.device, queue, test_data, 0)
         logger.info("[STAGE] Read from exported object")
-        io_from_exported_object(front_vol, queue, test_data.size, 0)
+        io_from_exported_object(vol, queue, test_data.size, 0)
     else:
         logger.info("[STAGE] Write to exported object")
-        io_to_core(front_vol, queue, test_data, 0)
+        io_to_core(vol, queue, test_data, 0)
 
-    stats = core.cache.get_stats()
+    stats = vol.parent.cache.get_stats()
     assert stats["usage"]["occupancy"]["value"] == (
         (cls_no * cls / CacheLineSize.LINE_4KiB) if mode != CacheMode.PT else 0
     ), "Occupancy"
@@ -643,7 +641,7 @@ def check_md5_sums(vol: CoreVolume, mode: CacheMode):
         assert (
             vol.parent.device.md5() != vol.md5()
         ), "MD5 check: core device vs exported object without flush"
-        core.cache.flush()
+        vol.parent.cache.flush()
         assert (
             vol.parent.device.md5() == vol.md5()
         ), "MD5 check: core device vs exported object after flush"
