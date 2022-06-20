@@ -300,6 +300,8 @@ class Cache:
         c.wait()
         self.write_unlock()
 
+        self.device = None
+
         if c.results["error"]:
             raise OcfError("Failed to detach failover cache device", c.results["error"])
 
