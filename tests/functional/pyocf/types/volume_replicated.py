@@ -14,22 +14,23 @@ class ReplicatedVolume(Volume):
         super().__init__(uuid)
         self.primary = primary
         self.secondary = secondary
+        ret = self.primary.open()
+        if ret:
+            raise Exception(f"Couldn't open primary volume. ({ret})")
+        ret = self.secondary.open()
+        if ret:
+            raise Exception(f"Couldn't open secondary volume. ({ret})")
 
         if secondary.get_max_io_size() < primary.get_max_io_size():
             raise Exception("secondary volume max io size too small")
         if secondary.get_length() < primary.get_length():
             raise Exception("secondary volume size too small")
 
-    def do_open(self):
-        ret = self.primary.do_open()
-        if ret:
-            return ret
-        ret = self.secondary.do_open()
-        if ret:
-            self.primary.close()
-        return ret
+    def open(self):
+        return super().open()
 
-    def do_close(self):
+    def close(self):
+        super().close()
         self.primary.close()
         self.secondary.close()
 

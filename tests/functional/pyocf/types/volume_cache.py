@@ -13,12 +13,10 @@ from .volume import Volume
 
 
 class CacheVolume(OcfInternalVolume):
-    def __init__(self, cache, open=False, uuid=None):
+    def __init__(self, cache, uuid=None):
         super().__init__(cache, uuid)
         self.cache = cache
         self.lib = cache.owner.lib
-        if open:
-            self.open()
 
     def get_c_handle(self):
         return self.cache.get_c_front_volume()

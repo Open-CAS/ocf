@@ -39,6 +39,7 @@ mngmt_op_surprise_shutdown_test_io_offset = S.from_MiB(4).B
 
 
 def ocf_write(vol, queue, val, offset):
+    vol.open()
     data = Data.from_bytes(bytes([val] * 512))
     comp = OcfCompletion([("error", c_int)])
     io = vol.new_io(queue, offset, 512, IoDir.WRITE, 0, 0)
@@ -46,9 +47,11 @@ def ocf_write(vol, queue, val, offset):
     io.callback = comp.callback
     io.submit()
     comp.wait()
+    vol.close()
 
 
 def ocf_read(vol, queue, offset):
+    vol.open()
     data = Data(byte_count=512)
     comp = OcfCompletion([("error", c_int)])
     io = vol.new_io(queue, offset, 512, IoDir.READ, 0, 0)
@@ -56,6 +59,7 @@ def ocf_read(vol, queue, offset):
     io.callback = comp.callback
     io.submit()
     comp.wait()
+    vol.close()
     return data.get_bytes()[0]
 
 
@@ -66,7 +70,7 @@ def prepare_failover(pyocf_2_ctx, cache_backend_vol, error_io_seq_no):
     cache2 = Cache(owner=ctx2)
     cache2.start_cache()
     cache2.standby_attach(cache_backend_vol)
-    cache2_exp_obj_vol = CacheVolume(cache2, open=True)
+    cache2_exp_obj_vol = CacheVolume(cache2)
 
     error_io = {IoDir.WRITE: error_io_seq_no}
 
@@ -206,7 +210,7 @@ def test_surprise_shutdown_remove_core_with_data(pyocf_2_ctx, failover):
 
     def prepare_func(cache):
         cache.add_core(core)
-        vol = CoreVolume(core, open=True)
+        vol = CoreVolume(core)
         ocf_write(vol, cache.get_default_queue(), 0xAA, io_offset)
 
     def tested_func(cache):
@@ -219,7 +223,7 @@ def test_surprise_shutdown_remove_core_with_data(pyocf_2_ctx, failover):
             assert core_device.get_bytes()[io_offset] == 0xAA
         else:
             core = cache.get_core_by_name("core1")
-            vol = CoreVolume(core, open=True)
+            vol = CoreVolume(core)
             assert ocf_read(vol, cache.get_default_queue(), io_offset) == 0xAA
 
     mngmt_op_surprise_shutdown_test(pyocf_2_ctx, failover, tested_func, prepare_func, check_func)
@@ -273,7 +277,7 @@ def test_surprise_shutdown_swap_core_with_data(pyocf_2_ctx, failover):
 
     def prepare(cache):
         cache.add_core(core1)
-        vol = CoreVolume(core1, open=True)
+        vol = CoreVolume(core1)
         cache.save()
         ocf_write(
             vol, cache.get_default_queue(), 0xAA, mngmt_op_surprise_shutdown_test_io_offset,
@@ -299,7 +303,7 @@ def test_surprise_shutdown_swap_core_with_data(pyocf_2_ctx, failover):
             core2 = cache.get_core_by_name("core2")
 
         if core2 is not None:
-            vol2 = CoreVolume(core2, open=True)
+            vol2 = CoreVolume(core2)
             assert core2.device.uuid == "dev2"
             assert (
                 ocf_read(
@@ -332,10 +336,9 @@ def test_surprise_shutdown_start_cache(pyocf_2_ctx, failover):
             cache2 = Cache(owner=ctx2)
             cache2.start_cache()
             cache2.standby_attach(ramdisk)
-            cache2_exp_obj_vol = CacheVolume(cache2, open=True)
-            err_device = ErrorDevice(
-                cache2_exp_obj_vol, error_seq_no=error_io, data_only=True, armed=True
-            )
+
+            cache2_exp_obj_vol = CacheVolume(cache2)
+            err_device = ErrorDevice(cache2_exp_obj_vol, error_seq_no=error_io, armed=True)
         else:
             err_device = ErrorDevice(ramdisk, error_seq_no=error_io, data_only=True, armed=True)
 
@@ -404,7 +407,7 @@ def test_surprise_shutdown_stop_cache(pyocf_2_ctx, failover):
 
         core = Core(device=core_device)
         cache.add_core(core)
-        vol = CoreVolume(core, open=True)
+        vol = CoreVolume(core)
         ocf_write(vol, cache.get_default_queue(), 0xAA, io_offset)
 
         # start error injection
@@ -444,7 +447,7 @@ def test_surprise_shutdown_stop_cache(pyocf_2_ctx, failover):
             assert stats["usage"]["occupancy"]["value"] == 1
             core = Core(device=core_device)
             cache.add_core(core, try_add=True)
-            vol = CoreVolume(core, open=True)
+            vol = CoreVolume(core)
             assert ocf_read(vol, cache.get_default_queue(), io_offset) == 0xAA
 
         cache.stop()
@@ -473,7 +476,7 @@ def test_surprise_shutdown_cache_reinit(pyocf_2_ctx, failover):
 
         core = Core(device=core_device)
         cache.add_core(core)
-        vol = CoreVolume(core, open=True)
+        vol = CoreVolume(core)
         queue = cache.get_default_queue()
 
         # insert dirty cacheline
@@ -531,7 +534,7 @@ def test_surprise_shutdown_cache_reinit(pyocf_2_ctx, failover):
             if stats["conf"]["core_count"] == 0:
                 assert stats["usage"]["occupancy"]["value"] == 0
                 cache.add_core(core)
-                vol = CoreVolume(core, open=True)
+                vol = CoreVolume(core)
                 assert ocf_read(vol, cache.get_default_queue(), io_offset) == VOLUME_POISON
 
             cache.stop()
@@ -822,7 +825,7 @@ def test_surprise_shutdown_standby_activate(pyocf_ctx):
         cache = Cache.start_on_device(device, cache_mode=CacheMode.WB)
         core = Core(device=core_device)
         cache.add_core(core)
-        vol = CoreVolume(core, open=True)
+        vol = CoreVolume(core)
         ocf_write(vol, cache.get_default_queue(), 0xAA, io_offset)
         original_dirty_blocks = cache.get_stats()["usage"]["dirty"]
         cache.stop()
@@ -867,7 +870,7 @@ def test_surprise_shutdown_standby_activate(pyocf_ctx):
 
         core = Core(device=core_device)
         cache.add_core(core, try_add=True)
-        vol = CoreVolume(core, open=True)
+        vol = CoreVolume(core)
         assert ocf_read(vol, cache.get_default_queue(), io_offset) == 0xAA
 
         cache.stop()
@@ -953,7 +956,7 @@ def test_surprise_shutdown_standby_init_force_1(pyocf_ctx):
         cache = Cache.start_on_device(device, cache_mode=CacheMode.WB)
         core = Core(device=core_device)
         cache.add_core(core)
-        vol = CoreVolume(core, open=True)
+        vol = CoreVolume(core)
         ocf_write(vol, cache.get_default_queue(), 0xAA, io_offset)
         original_dirty_blocks = cache.get_stats()["usage"]["dirty"]
         cache.stop()
@@ -1002,14 +1005,14 @@ def test_surprise_shutdown_standby_init_force_1(pyocf_ctx):
                 assert original_dirty_blocks == stats["usage"]["dirty"]
                 core = Core(device=core_device)
                 cache.add_core(core, try_add=True)
-                vol = CoreVolume(core, open=True)
+                vol = CoreVolume(core)
                 assert ocf_read(vol, cache.get_default_queue(), io_offset) == 0xAA
             else:
                 assert stats["usage"]["occupancy"]["value"] == 0
                 assert stats["usage"]["dirty"]["value"] == 0
                 core = Core(device=core_device)
                 cache.add_core(core)
-                vol = CoreVolume(core, open=True)
+                vol = CoreVolume(core)
                 assert ocf_read(vol, cache.get_default_queue(), io_offset) == VOLUME_POISON
 
         cache.stop()
@@ -1043,7 +1046,7 @@ def test_surprise_shutdown_standby_init_force_2(pyocf_ctx):
         cache = Cache.start_on_device(device, cache_mode=CacheMode.WB)
         core = Core(device=core_device)
         cache.add_core(core)
-        vol = CoreVolume(core, open=True)
+        vol = CoreVolume(core)
         ocf_write(vol, cache.get_default_queue(), 0xAA, io_offset)
         original_dirty_blocks = cache.get_stats()["usage"]["dirty"]
         cache.stop()
@@ -1087,14 +1090,14 @@ def test_surprise_shutdown_standby_init_force_2(pyocf_ctx):
                 assert original_dirty_blocks == stats["usage"]["dirty"]
                 core = Core(device=core_device)
                 cache.add_core(core, try_add=True)
-                vol = CoreVolume(core, open=True)
+                vol = CoreVolume(core)
                 assert ocf_read(vol, cache.get_default_queue(), io_offset) == 0xAA
             else:
                 assert stats["usage"]["occupancy"]["value"] == 0
                 assert stats["usage"]["dirty"]["value"] == 0
                 core = Core(device=core_device)
                 cache.add_core(core)
-                vol = CoreVolume(core, open=True)
+                vol = CoreVolume(core)
                 assert ocf_read(vol, cache.get_default_queue(), io_offset) == VOLUME_POISON
 
         if cache:

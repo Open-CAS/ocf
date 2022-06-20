@@ -243,7 +243,7 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
     core = Core.using_device(core_device)
     cache.add_core(core)
     queue = cache.get_default_queue()
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
 
     insert_order = list(range(CACHELINE_COUNT))
 
@@ -278,6 +278,8 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
     # add randomly generated sector statuses
     for _ in range(ITRATION_COUNT - len(region_statuses)):
         region_statuses.append([random.choice(list(SectorStatus)) for _ in range(num_regions)])
+
+    vol.open()
 
     # iterate over generated status combinations and perform the test
     for region_state in region_statuses:
@@ -383,3 +385,4 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
                 ), "unexpected write to core device, region_state={}, start={}, end={}, insert_order = {}\n".format(
                     region_state, start, end, insert_order
                 )
+    vol.close()

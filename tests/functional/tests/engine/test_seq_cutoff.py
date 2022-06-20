@@ -95,13 +95,14 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     core = Core.using_device(RamVolume(core_size), seq_cutoff_promotion_count=1)
 
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue = cache.get_default_queue()
 
     cache.set_seq_cut_off_policy(SeqCutOffPolicy.ALWAYS)
     cache.set_seq_cut_off_threshold(threshold)
 
     # STEP 1
+    vol.open()
     shuffle(streams)
     io_size = threshold - Size.from_sector(1)
     io_to_streams(vol, queue, streams, io_size)
@@ -139,7 +140,9 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     # STEP 4
     io_to_streams(vol, queue, [lru_stream], Size.from_sector(1))
 
+    vol.close()
     stats = cache.get_stats()
+
     assert (
         stats["req"]["serviced"]["value"] == old_serviced + 2
     ), "This request should be serviced by cache - lru_stream should be no longer tracked"

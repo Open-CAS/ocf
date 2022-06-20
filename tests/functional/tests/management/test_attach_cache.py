@@ -48,7 +48,7 @@ def test_attach_different_size(pyocf_ctx, new_cache_size, mode: CacheMode, cls: 
     core = Core.using_device(core_device)
     cache.add_core(core)
 
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue = cache.get_default_queue()
 
     cache.configure_partition(part_id=1, name="test_part", max_size=50, priority=1)
@@ -82,6 +82,7 @@ def test_attach_different_size(pyocf_ctx, new_cache_size, mode: CacheMode, cls: 
 
 
 def io_to_exp_obj(vol, queue, address, size, data, offset, direction, target_ioclass, flags):
+    vol.open()
     io = vol.new_io(queue, address, size, direction, target_ioclass, flags)
     if direction == IoDir.READ:
         _data = Data.from_bytes(bytes(size))
@@ -90,6 +91,7 @@ def io_to_exp_obj(vol, queue, address, size, data, offset, direction, target_ioc
     ret = __io(io, queue, address, size, _data, direction)
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
+    vol.close()
     return ret
 
 

@@ -30,6 +30,7 @@ def __io(io, queue, address, size, data, direction):
 
 
 def io_to_exp_obj(vol, queue, address, size, data, offset, direction, flags):
+    vol.open()
     io = vol.new_io(queue, address, size, direction, 0, flags)
     if direction == IoDir.READ:
         _data = Data.from_bytes(bytes(size))
@@ -38,6 +39,7 @@ def io_to_exp_obj(vol, queue, address, size, data, offset, direction, flags):
     ret = __io(io, queue, address, size, _data, direction)
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
+    vol.close()
     return ret
 
 
@@ -77,7 +79,7 @@ def test_flush_after_mngmt(pyocf_ctx):
     cache.add_core(core)
     assert cache_device.flush_last
 
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue = cache.get_default_queue()
 
     # WT I/O to write data to core and cache VC

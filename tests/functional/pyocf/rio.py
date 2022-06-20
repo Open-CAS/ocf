@@ -251,6 +251,8 @@ class Rio:
             self.errors.update({thread.name: thread.errors})
             self.error_count += len(thread.errors)
 
+        self.global_jobspec.target.close()
+
         return self
 
     def __del__(self):
@@ -274,6 +276,8 @@ class Rio:
             jobs = [self.global_jobspec for _ in range(self.global_jobspec.njobs)]
 
         queues = cycle(queues)
+
+        self.global_jobspec.target.open()
 
         for job in jobs:
             spec = job.merge(self.global_jobspec)

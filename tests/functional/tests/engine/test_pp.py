@@ -63,7 +63,7 @@ def test_change_to_nhit_and_back_io_in_flight(pyocf_ctx):
     core = Core.using_device(core_device)
 
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue = cache.get_default_queue()
 
     # Step 2
@@ -111,7 +111,7 @@ def fill_cache(cache, fill_ratio):
     bytes_to_fill = Size(round(cache_lines.bytes * fill_ratio))
 
     core = cache.cores[0]
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue = cache.get_default_queue()
 
     r = (
@@ -147,7 +147,7 @@ def test_promoted_after_hits_various_thresholds(pyocf_ctx, insertion_threshold, 
     cache = Cache.start_on_device(cache_device, promotion_policy=PromotionPolicy.NHIT)
     core = Core.using_device(core_device)
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue = cache.get_default_queue()
 
     # Step 2
@@ -218,7 +218,7 @@ def test_partial_hit_promotion(pyocf_ctx):
     cache = Cache.start_on_device(cache_device)
     core = Core.using_device(core_device)
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue = cache.get_default_queue()
 
     # Step 2

@@ -444,6 +444,7 @@ class ErrorDevice(Volume):
         uuid=None,
     ):
         self.vol = vol
+        self.vol.open()
         super().__init__(uuid)
         self.error_sectors = error_sectors or set()
         self.error_seq_no = error_seq_no or {IoDir.WRITE: -1, IoDir.READ: -1}
@@ -522,6 +523,10 @@ class ErrorDevice(Volume):
 
     def get_copy(self):
         return self.vol.get_copy()
+
+    def close(self):
+        super().close()
+        self.vol.close()
 
 
 class TraceDevice(Volume):

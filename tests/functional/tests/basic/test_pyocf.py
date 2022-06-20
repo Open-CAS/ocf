@@ -30,7 +30,7 @@ def test_simple_wt_write(pyocf_ctx):
     queue = cache.get_default_queue()
 
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
 
     cache_device.reset_stats()
     core_device.reset_stats()
@@ -91,9 +91,10 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     core = Core.using_device(core_device, name="test_core")
 
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
 
     write_data = Data.from_string("This is test data")
+    vol.open()
     io = vol.new_io(
         cache.get_default_queue(), S.from_sector(3).B, write_data.size, IoDir.WRITE, 0, 0
     )
@@ -103,6 +104,7 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     io.callback = cmpl.callback
     io.submit()
     cmpl.wait()
+    vol.close()
 
     cache.stop()
 
@@ -112,9 +114,10 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     else:
         core = cache.get_core_by_name("test_core")
 
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
 
     read_data = Data(write_data.size)
+    vol.open()
     io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B, read_data.size, IoDir.READ, 0, 0)
     io.set_data(read_data)
 
@@ -122,6 +125,7 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     io.callback = cmpl.callback
     io.submit()
     cmpl.wait()
+    vol.close()
 
     assert read_data.md5() == write_data.md5()
     assert vol.md5() == core_device.md5()

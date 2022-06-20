@@ -11,7 +11,7 @@ from .volume import Volume, VOLUME_POISON
 from pyocf.utils import Size
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir, Io
-from pyocf.types.shared import OcfCompletion
+from pyocf.types.shared import OcfCompletion, OcfError
 
 
 class OcfInternalVolume(Volume):
@@ -20,9 +20,8 @@ class OcfInternalVolume(Volume):
         self.parent = parent
 
     def __alloc_io(self, addr, _bytes, _dir, _class, _flags):
-        vol = self.parent.get_front_volume()
         queue = self.parent.get_default_queue()  # TODO multiple queues?
-        return vol.new_io(queue, addr, _bytes, _dir, _class, _flags)
+        return self.new_io(queue, addr, _bytes, _dir, _class, _flags)
 
     def _alloc_io(self, io):
         exp_obj_io = self.__alloc_io(
@@ -33,7 +32,6 @@ class OcfInternalVolume(Volume):
             io.contents._flags,
         )
 
-        lib = OcfLib.getInstance()
         cdata = OcfLib.getInstance().ocf_io_get_data(io)
         OcfLib.getInstance().ocf_io_set_data(byref(exp_obj_io), cdata, 0)
 
@@ -87,6 +85,7 @@ class OcfInternalVolume(Volume):
         raise NotImplementedError
 
     def _exp_obj_md5(self, read_size):
+        self.open()
         logging.getLogger("pyocf").warning(
             "Reading whole exported object! This disturbs statistics values"
         )
@@ -111,14 +110,23 @@ class OcfInternalVolume(Volume):
             read_buffer_all.copy(read_buffer, position, 0, read_size)
             position += read_size
 
+        self.close()
         return read_buffer_all.md5()
 
     def open(self):
+        ret = super().open()
+        if ret:
+            return ret
+
         handle = self.get_c_handle()
-        return Volume.s_open(handle, self)
+        self.handle = handle
+
+        return ret
 
     def close(self):
-        return Volume.s_close(self)
+        super().close()
+        self.handle = None
+
 
 
 lib = OcfLib.getInstance()
