@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -59,6 +59,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_STANDBY_ATTACHED = auto()
     OCF_ERR_CORE_NOT_REMOVED = auto()
     OCF_ERR_CACHE_NOT_STANDBY = auto()
+    OCF_ERR_CLEANER_DISABLED = auto()
 
 
 class OcfCompletion:
