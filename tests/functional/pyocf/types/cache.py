@@ -17,6 +17,7 @@ from ctypes import (
     byref,
     cast,
     create_string_buffer,
+    POINTER,
 )
 from enum import IntEnum, auto
 from datetime import timedelta
@@ -345,6 +346,22 @@ class Cache:
 
         if c.results["error"]:
             raise OcfError("Error changing cleaning policy", c.results["error"])
+
+    def get_cleaning_policy(self):
+        cleaning_policy = c_int()
+
+        self.read_lock()
+
+        status = self.owner.lib.ocf_mngt_cache_cleaning_get_policy(
+            self.cache_handle, byref(cleaning_policy)
+        )
+
+        self.read_unlock()
+
+        if status != OcfErrorCode.OCF_OK:
+            raise OcfError("Failed to get cleaning policy", ret)
+
+        return CleaningPolicy(cleaning_policy.value)
 
     def set_cleaning_policy_param(self, cleaning_policy: CleaningPolicy, param_id, param_value):
         self.write_lock()
@@ -998,6 +1015,8 @@ lib.ocf_cache_get_front_volume.argtypes = [c_void_p]
 lib.ocf_cache_get_front_volume.restype = c_void_p
 lib.ocf_cache_get_volume.argtypes = [c_void_p]
 lib.ocf_cache_get_volume.restype = c_void_p
+lib.ocf_mngt_cache_cleaning_get_policy.argypes = [c_void_p, POINTER(c_int)]
+lib.ocf_mngt_cache_cleaning_get_policy.restype = OcfErrorCode
 lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [
     c_void_p,
     c_uint32,
