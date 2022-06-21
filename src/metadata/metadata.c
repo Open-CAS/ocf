@@ -274,6 +274,9 @@ static int ocf_metadata_calculate_metadata_size(
 				i < metadata_segment_max; i++) {
 			struct ocf_metadata_raw *raw = &ctrl->raw_desc[i];
 
+			if (raw->disabled)
+				continue;
+
 			/* Setup number of entries */
 			raw->entries
 				= ocf_metadata_get_entries(i, cache_lines);
@@ -690,8 +693,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		}
 
 		if (i == metadata_segment_cleaning && cleaner_disabled) {
-			raw->entry_size = 0;
-			raw->entries_in_page = 1;
+			raw->disabled = true;
 			continue;
 		}
 
@@ -722,7 +724,9 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	 */
 	for (i = metadata_segment_variable_size_start;
 			i < metadata_segment_max; i++) {
-		if (i == metadata_segment_cleaning && cleaner_disabled)
+		struct ocf_metadata_raw *raw = &ctrl->raw_desc[i];
+
+		if (raw->disabled)
 			continue;
 
 		if (i == metadata_segment_collision) {
@@ -737,7 +741,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		result |= ocf_metadata_segment_init(
 				&ctrl->segment[i],
 				cache,
-				&ctrl->raw_desc[i],
+				raw,
 				lock_page, unlock_page,
 				superblock);
 
