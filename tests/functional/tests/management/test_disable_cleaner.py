@@ -5,7 +5,7 @@
 
 import pytest
 from pyocf.types.volume import RamVolume
-from pyocf.types.cache import Cache, CacheMetadataSegment
+from pyocf.types.cache import Cache, CacheMetadataSegment, CleaningPolicy
 from pyocf.types.core import Core
 from pyocf.types.shared import OcfError, OcfCompletion
 from pyocf.utils import Size as S
@@ -103,7 +103,6 @@ def test_load_cleaner_disabled(pyocf_ctx):
 
 
 
-@pytest.mark.skip(reason="not implemented")
 def test_cleaner_disabled_nop(pyocf_ctx):
     """
     title: NOP enfocement in cleaner_disabled mode..
@@ -126,7 +125,29 @@ def test_cleaner_disabled_nop(pyocf_ctx):
       - disable_cleaner::starting_with_nop_policy
       - disable_cleaner::nop_enforcement
     """
-    pass
+    cache_device = RamVolume(S.from_MiB(50))
+
+    cache = Cache.start_on_device(cache_device, disable_cleaner=True)
+
+    assert cache.get_cleaning_policy() == CleaningPolicy.NOP, (
+        "Cleaning policy should be NOP after starting cache with disabled cleaner"
+    )
+
+    with pytest.raises(OcfError):
+        cache.set_cleaning_policy(CleaningPolicy.ALRU)
+
+    assert cache.get_cleaning_policy() == CleaningPolicy.NOP, (
+        "It shouldn't be possible to switch cleaning policy to ALRU when cleaner is disabled"
+    )
+
+    with pytest.raises(OcfError):
+        cache.set_cleaning_policy(CleaningPolicy.ACP)
+
+    assert cache.get_cleaning_policy() == CleaningPolicy.NOP, (
+        "It shouldn't be possible to switch cleaning policy to ACP when cleaner is disabled"
+    )
+
+    cache.set_cleaning_policy(CleaningPolicy.NOP)
 
 
 @pytest.mark.skip(reason="not implemented")
