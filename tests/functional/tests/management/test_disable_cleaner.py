@@ -150,7 +150,6 @@ def test_cleaner_disabled_nop(pyocf_ctx):
     cache.set_cleaning_policy(CleaningPolicy.NOP)
 
 
-@pytest.mark.skip(reason="not implemented")
 def test_attach_cleaner_disabled_non_default(pyocf_ctx):
     """
     title: Attach cache with default config does not set clener_disabled.
@@ -169,4 +168,11 @@ def test_attach_cleaner_disabled_non_default(pyocf_ctx):
     requirements:
       - disable_cleaner::default_setting
     """
-    pass
+    cache_device = RamVolume(S.from_MiB(50))
+
+    cache = Cache.start_on_device(cache_device)
+
+    cleaning_size = get_metadata_segment_size(cache, CacheMetadataSegment.CLEANING)
+    assert (
+        cleaning_size > 0
+    ), f'Metadata cleaning segment size expected: "> 0", got: "{cleaning_size}"'
