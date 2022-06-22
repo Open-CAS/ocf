@@ -100,7 +100,12 @@ def test_add_max_subvolumes(pyocf_ctx):
 
 def _cvol_io(cvol, addr, size, func, flags=0):
     io = cvol.new_io(
-        queue=None, addr=addr, length=size, direction=IoDir.WRITE, io_class=0, flags=flags,
+        queue=None,
+        addr=addr,
+        length=size,
+        direction=IoDir.WRITE,
+        io_class=0,
+        flags=flags,
     )
     completion = OcfCompletion([("err", c_int)])
     io.callback = completion.callback
