@@ -4,9 +4,14 @@
 #
 
 import pytest
+from pyocf.types.volume import RamVolume
+from pyocf.types.cache import Cache, CacheMetadataSegment
+from pyocf.types.core import Core
+from pyocf.types.shared import OcfError, OcfCompletion
+from pyocf.utils import Size as S
+from pyocf.helpers import get_metadata_segment_size
+from ctypes import c_int
 
-
-@pytest.mark.skip(reason="not implemented")
 def test_attach_cleaner_disabled(pyocf_ctx):
     """
     title: Attach cache with cleaner_disabled option set.
@@ -29,10 +34,24 @@ def test_attach_cleaner_disabled(pyocf_ctx):
       - disable_cleaner::set_cleaner_disabled
       - disable_cleaner::cleaning_section_alocation
     """
-    pass
+    cache_device = RamVolume(S.from_MiB(50))
+    core_device = RamVolume(S.from_MiB(10))
+
+    cache = Cache.start_on_device(cache_device, disable_cleaner=True)
+    core = Core.using_device(core_device)
+
+    stats = cache.get_stats()
+    assert stats["conf"]["attached"] is True, "checking whether cache is attached properly"
+
+    cleaning_size = get_metadata_segment_size(cache, CacheMetadataSegment.CLEANING)
+    assert (
+        cleaning_size == 0
+    ), f'Metadata cleaning segment size expected: "0", got: "{cleaning_size}"'
+
+    cache.stop()
+    assert Cache.get_by_name("cache1", pyocf_ctx) != 0, "Try getting cache after stopping it"
 
 
-@pytest.mark.skip(reason="not implemented")
 def test_load_cleaner_disabled(pyocf_ctx):
     """
     title: Load cache in cleaner_disabled mode.
@@ -57,7 +76,31 @@ def test_load_cleaner_disabled(pyocf_ctx):
       - disable_cleaner::load_cleaner_disabled
       - disable_cleaner::cleaning_section_alocation
     """
-    pass
+    cache_device = RamVolume(S.from_MiB(50))
+    core_device = RamVolume(S.from_MiB(10))
+
+    cache = Cache.start_on_device(cache_device, disable_cleaner=True)
+    core = Core.using_device(core_device)
+
+    cache.add_core(core)
+
+    cache.stop()
+
+    cache = Cache.load_from_device(cache_device, open_cores=False, disable_cleaner=True)
+
+    cache.add_core(core, try_add=True)
+
+    stats = cache.get_stats()
+    assert stats["conf"]["attached"] is True, "checking whether cache is attached properly"
+
+    cleaning_size = get_metadata_segment_size(cache, CacheMetadataSegment.CLEANING)
+    assert (
+        cleaning_size == 0
+    ), f'Metadata cleaning segment size expected: "0", got: "{cleaning_size}"'
+
+    cache.stop()
+    assert Cache.get_by_name("cache1", pyocf_ctx) != 0, "Try getting cache after stopping it"
+
 
 
 @pytest.mark.skip(reason="not implemented")
