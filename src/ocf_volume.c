@@ -161,6 +161,7 @@ void ocf_volume_deinit(ocf_volume_t volume)
 
 	env_free(volume->priv);
 	volume->priv = NULL;
+	volume->type = NULL;
 
 	if (volume->uuid_copy && volume->uuid.data) {
 		env_vfree(volume->uuid.data);
@@ -191,6 +192,7 @@ void ocf_volume_move(ocf_volume_t volume, ocf_volume_t from)
 	from->opened = false;
 	from->priv = NULL;
 	from->uuid.data = NULL;
+	from->type = NULL;
 }
 
 int ocf_volume_create(ocf_volume_t *volume, ocf_volume_type_t type,
