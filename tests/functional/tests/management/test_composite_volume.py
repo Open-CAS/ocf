@@ -11,6 +11,7 @@ from pyocf.types.cvolume import CVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.types.shared import OcfError, OcfCompletion
+from pyocf.types.cache import Cache
 from pyocf.utils import Size as S
 
 
@@ -100,7 +101,12 @@ def test_add_max_subvolumes(pyocf_ctx):
 
 def _cvol_io(cvol, addr, size, func, flags=0):
     io = cvol.new_io(
-        queue=None, addr=addr, length=size, direction=IoDir.WRITE, io_class=0, flags=flags,
+        queue=None,
+        addr=addr,
+        length=size,
+        direction=IoDir.WRITE,
+        io_class=0,
+        flags=flags,
     )
     completion = OcfCompletion([("err", c_int)])
     io.callback = completion.callback
@@ -318,7 +324,6 @@ def test_io_completion(pyocf_ctx):
     pass
 
 
-@pytest.mark.skip(reason="not implemented")
 def test_attach(pyocf_ctx):
     """
     title: Attach composite volume.
@@ -338,10 +343,22 @@ def test_attach(pyocf_ctx):
     requirements:
       - composite_volume::cache_attach_load
     """
-    pass
+
+    vols = [RamVolume(S.from_MiB(3)) for _ in range(16)]
+    cvol = CVolume(pyocf_ctx)
+    for vol in vols:
+        cvol.add(vol)
+
+    cache = Cache.start_on_device(cvol, name="cache1")
+
+    stats = cache.get_stats()
+    assert stats["conf"]["attached"] is True, "checking whether cache is attached properly"
+    assert stats["conf"]["volume_type"] == CVolume
+
+    cache.stop()
+    assert Cache.get_by_name("cache1", pyocf_ctx) != 0, "Try getting cache after stopping it"
 
 
-@pytest.mark.skip(reason="not implemented")
 def test_load(pyocf_ctx):
     """
     title: Load composite volume.
@@ -363,4 +380,25 @@ def test_load(pyocf_ctx):
     requirements:
       - composite_volume::cache_attach_load
     """
-    pass
+    vols = [RamVolume(S.from_MiB(3)) for _ in range(16)]
+
+    cvol = CVolume(pyocf_ctx)
+    for vol in vols:
+        cvol.add(vol)
+
+    cache = Cache.start_on_device(cvol, name="cache1")
+
+    cache.stop()
+
+    cvol = CVolume(pyocf_ctx)
+    for v in vols:
+        cvol.add(v)
+
+    cache = Cache.load_from_device(cvol, name="cache1", open_cores=False)
+
+    stats = cache.get_stats()
+    assert stats["conf"]["attached"] is True, "checking whether cache is attached properly"
+    assert stats["conf"]["volume_type"] == CVolume
+
+    cache.stop()
+    assert Cache.get_by_name("cache1", pyocf_ctx) != 0, "Try getting cache after stopping it"
