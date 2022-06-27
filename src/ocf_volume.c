@@ -93,6 +93,9 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 	if (!volume || !type)
 		return -OCF_ERR_INVAL;
 
+	if (uuid && uuid->size > OCF_VOLUME_UUID_MAX_SIZE)
+		return -OCF_ERR_INVAL;
+
 	priv_size = type->properties->volume_priv_size;
 	volume->priv = env_zalloc(priv_size, ENV_MEM_NORMAL);
 	if (!volume->priv)
