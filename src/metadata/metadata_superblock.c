@@ -440,23 +440,6 @@ void ocf_metadata_load_superblock_recovery(ocf_cache_t cache,
 	ocf_pipeline_next(pipeline);
 }
 
-static void ocf_metadata_flush_superblock_prepare(ocf_pipeline_t pipeline,
-		void *priv, ocf_pipeline_arg_t arg)
-{
-	struct ocf_metadata_context *context = priv;
-	ocf_cache_t cache = context->cache;
-	ocf_core_t core;
-	ocf_core_id_t core_id;
-
-	/* Synchronize core objects types */
-	for_each_core_metadata(cache, core, core_id) {
-		core->conf_meta->type = ocf_ctx_get_volume_type_id(
-				cache->owner, core->volume.type);
-	}
-
-	ocf_pipeline_next(pipeline);
-}
-
 static void ocf_metadata_flush_superblock_flap(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -544,7 +527,6 @@ struct ocf_pipeline_properties ocf_metadata_flush_sb_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_context),
 	.finish = ocf_metadata_flush_superblock_finish,
 	.steps = {
-		OCF_PL_STEP(ocf_metadata_flush_superblock_prepare),
 		OCF_PL_STEP_FOREACH(ocf_metadata_calculate_crc,
 				ocf_metadata_flush_sb_args),
 		OCF_PL_STEP_FOREACH(ocf_metadata_flush_segment,
