@@ -152,11 +152,6 @@ static void ocf_composite_volume_on_deinit(ocf_volume_t cvolume)
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
 	int i;
 
-	/* priv can be NULL if this volume had been moved from. In this case
-	 * it's the owner responsibility to deinit member volumes. */
-	if (!composite)
-		return;
-
 	for (i = 0; i < composite->members_cnt; i++)
 		ocf_volume_deinit(&composite->member[i].volume);
 }

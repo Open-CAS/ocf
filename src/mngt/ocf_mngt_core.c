@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -426,6 +426,7 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	}
 
 	core->conf_meta->length = length;
+	core->conf_meta->type = cfg->volume_type;
 
 	if (ocf_cache_is_device_attached(cache)) {
 		result = ocf_cleaning_add_core(cache, core_id);

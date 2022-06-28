@@ -93,6 +93,9 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 	if (!volume || !type)
 		return -OCF_ERR_INVAL;
 
+	if (uuid && uuid->size > OCF_VOLUME_UUID_MAX_SIZE)
+		return -OCF_ERR_INVAL;
+
 	priv_size = type->properties->volume_priv_size;
 	volume->priv = env_zalloc(priv_size, ENV_MEM_NORMAL);
 	if (!volume->priv)
@@ -161,6 +164,7 @@ void ocf_volume_deinit(ocf_volume_t volume)
 
 	env_free(volume->priv);
 	volume->priv = NULL;
+	volume->type = NULL;
 
 	if (volume->uuid_copy && volume->uuid.data) {
 		env_vfree(volume->uuid.data);
@@ -191,6 +195,7 @@ void ocf_volume_move(ocf_volume_t volume, ocf_volume_t from)
 	from->opened = false;
 	from->priv = NULL;
 	from->uuid.data = NULL;
+	from->type = NULL;
 }
 
 int ocf_volume_create(ocf_volume_t *volume, ocf_volume_type_t type,
