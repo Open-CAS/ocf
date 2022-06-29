@@ -70,7 +70,10 @@ def prepare_failover(pyocf_2_ctx, cache_backend_vol, error_io_seq_no):
 
     error_io = {IoDir.WRITE: error_io_seq_no}
 
-    err_vol = ErrorDevice(cache2_exp_obj_vol, error_seq_no=error_io, armed=False)
+    # TODO: Adjust tests to work with error injection for flushes and discards (data_only=False
+    # below). Currently the test fails with data_only=False as it assumes metadata is not updated
+    # if error had been injected, which is not true in case of error in flush.
+    err_vol = ErrorDevice(cache2_exp_obj_vol, error_seq_no=error_io, data_only=True, armed=False)
     cache = Cache.start_on_device(err_vol, cache_mode=CacheMode.WB, owner=ctx1)
 
     return cache, cache2, err_vol
@@ -81,7 +84,7 @@ def prepare_normal(pyocf_2_ctx, cache_backend_vol, error_io_seq_no):
 
     error_io = {IoDir.WRITE: error_io_seq_no}
 
-    err_vol = ErrorDevice(cache_backend_vol, error_seq_no=error_io, armed=False)
+    err_vol = ErrorDevice(cache_backend_vol, error_seq_no=error_io, data_only=True, armed=False)
     cache = Cache.start_on_device(err_vol, cache_mode=CacheMode.WB, owner=ctx1)
 
     return cache, err_vol
@@ -330,9 +333,11 @@ def test_surprise_shutdown_start_cache(pyocf_2_ctx, failover):
             cache2.start_cache()
             cache2.standby_attach(ramdisk)
             cache2_exp_obj_vol = CacheVolume(cache2, open=True)
-            err_device = ErrorDevice(cache2_exp_obj_vol, error_seq_no=error_io, armed=True)
+            err_device = ErrorDevice(
+                cache2_exp_obj_vol, error_seq_no=error_io, data_only=True, armed=True
+            )
         else:
-            err_device = ErrorDevice(ramdisk, error_seq_no=error_io, armed=True)
+            err_device = ErrorDevice(ramdisk, error_seq_no=error_io, data_only=True, armed=True)
 
         # call tested management function
         try:
@@ -808,7 +813,7 @@ def test_surprise_shutdown_standby_activate(pyocf_ctx):
         # Start cache device without error injection
         error_io = {IoDir.WRITE: error_io_seq_no}
         ramdisk = RamVolume(mngmt_op_surprise_shutdown_test_cache_size)
-        device = ErrorDevice(ramdisk, error_seq_no=error_io, armed=False)
+        device = ErrorDevice(ramdisk, error_seq_no=error_io, data_only=True, rmed=False)
         core_device = RamVolume(S.from_MiB(10))
 
         device.disarm()
@@ -882,7 +887,7 @@ def test_surprise_shutdown_standby_init_clean(pyocf_ctx):
         # Start cache device without error injection
         error_io = {IoDir.WRITE: error_io_seq_no}
         ramdisk = RamVolume(mngmt_op_surprise_shutdown_test_cache_size)
-        device = ErrorDevice(ramdisk, error_seq_no=error_io, armed=True)
+        device = ErrorDevice(ramdisk, error_seq_no=error_io, data_only=True, armed=True)
 
         cache = Cache(owner=OcfCtx.get_default())
         cache.start_cache()
@@ -942,7 +947,7 @@ def test_surprise_shutdown_standby_init_force_1(pyocf_ctx):
         # Start cache device without error injection
         error_io = {IoDir.WRITE: error_io_seq_no}
         ramdisk = RamVolume(mngmt_op_surprise_shutdown_test_cache_size)
-        device = ErrorDevice(ramdisk, error_seq_no=error_io, armed=False)
+        device = ErrorDevice(ramdisk, error_seq_no=error_io, data_only=True, armed=False)
 
         # start and stop cache with cacheline inserted
         cache = Cache.start_on_device(device, cache_mode=CacheMode.WB)
@@ -1032,7 +1037,7 @@ def test_surprise_shutdown_standby_init_force_2(pyocf_ctx):
         # Start cache device without error injection
         error_io = {IoDir.WRITE: error_io_seq_no}
         ramdisk = RamVolume(mngmt_op_surprise_shutdown_test_cache_size)
-        device = ErrorDevice(ramdisk, error_seq_no=error_io, armed=False)
+        device = ErrorDevice(ramdisk, error_seq_no=error_io, data_only=True, armed=False)
 
         # start and stop cache with cacheline inserted
         cache = Cache.start_on_device(device, cache_mode=CacheMode.WB)

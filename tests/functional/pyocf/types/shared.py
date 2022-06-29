@@ -103,8 +103,11 @@ class OcfCompletion:
 
         return complete
 
-    def wait(self):
-        self.e.wait()
+    def wait(self, timeout=None):
+        return self.e.wait(timeout=timeout)
+
+    def completed(self):
+        return self.e.is_set()
 
 
 class OcfError(BaseException):
