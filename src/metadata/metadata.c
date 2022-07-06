@@ -800,8 +800,8 @@ finalize:
 	ocf_cache_log(cache, log_info, "Cache line size: %llu kiB\n",
 			line_size / KiB);
 
-	ocf_cache_log(cache, log_info, "Metadata capacity: %llu MiB\n",
-			(uint64_t)ocf_metadata_size_of(cache) / MiB);
+	ocf_cache_log(cache, log_info, "Metadata size on device: %llu kiB\n",
+			cache->device->metadata_offset / KiB);
 
 	result = ocf_metadata_concurrency_attached_init(&cache->metadata.lock,
 			cache, ctrl->raw_desc[metadata_segment_hash].entries,
