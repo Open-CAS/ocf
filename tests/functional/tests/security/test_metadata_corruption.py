@@ -7,7 +7,8 @@ import pytest
 from datetime import timedelta
 import logging
 from random import randrange
-from contextlib import nullcontext as does_not_raise, suppress as may_raise
+from contextlib import nullcontext, suppress
+from enum import Enum
 
 from pyocf.types.volume import RamVolume
 from pyocf.types.volume_replicated import ReplicatedVolume
@@ -31,42 +32,68 @@ from pyocf.helpers import (
 logger = logging.getLogger(__name__)
 
 
+def raises(exception):
+    context = pytest.raises(exception)
+    context.__name__ = f"Raises({exception.__name__})"
+
+    return context
+
+
+def does_not_raise():
+    context = nullcontext()
+    context.__name__ = "DoesNotRaise"
+
+    return context
+
+
+def may_raise(exception):
+    context = suppress(exception)
+    context.__name__ = f"MayRaise({exception.__name__})"
+
+    return context
+
+
+class Shutdown(Enum):
+    DIRTY = True
+    CLEAN = False
+
+
 @pytest.mark.security
-@pytest.mark.parametrize("cache_line_size", CacheLineSize)
-@pytest.mark.parametrize("cache_mode", CacheMode)
 @pytest.mark.parametrize(
-    "recovery,target_segment,expectation",
+    "shutdown_type,target_segment,expectation",
     [
-        (True, CacheMetadataSegment.SB_CONFIG, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
-        (True, CacheMetadataSegment.RESERVED, does_not_raise()),
-        (True, CacheMetadataSegment.PART_CONFIG, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
-        (True, CacheMetadataSegment.CORE_CONFIG, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
-        (True, CacheMetadataSegment.CORE_UUID, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.CLEANING, does_not_raise()),
-        (True, CacheMetadataSegment.LRU, does_not_raise()),
-        (True, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
-        (True, CacheMetadataSegment.LIST_INFO, does_not_raise()),
-        (True, CacheMetadataSegment.HASH, does_not_raise()),
-        (False, CacheMetadataSegment.SB_CONFIG, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.SB_RUNTIME, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.RESERVED, does_not_raise()),
-        (False, CacheMetadataSegment.PART_CONFIG, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.PART_RUNTIME, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.CORE_CONFIG, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.CORE_RUNTIME, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.CORE_UUID, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.CLEANING, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.LRU, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.COLLISION, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.LIST_INFO, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.HASH, pytest.raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.SB_CONFIG, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.RESERVED, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.PART_CONFIG, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.CORE_CONFIG, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.CORE_UUID, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.CLEANING, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.LRU, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.LIST_INFO, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.HASH, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.SB_CONFIG, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.SB_RUNTIME, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.RESERVED, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.PART_CONFIG, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.PART_RUNTIME, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.CORE_CONFIG, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.CORE_RUNTIME, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.CORE_UUID, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.CLEANING, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.LRU, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.COLLISION, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.LIST_INFO, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.HASH, raises(OcfError)),
     ],
 )
+@pytest.mark.parametrize("cache_line_size", CacheLineSize)
+@pytest.mark.parametrize("cache_mode", CacheMode)
 def test_metadata_corruption(
-    pyocf_ctx, cache_line_size, cache_mode, recovery, target_segment, expectation
+    pyocf_ctx, cache_line_size, cache_mode, shutdown_type, target_segment, expectation
 ):
     cache_volume = RamVolume(Size.from_MiB(60))
 
@@ -96,7 +123,7 @@ def test_metadata_corruption(
         .run([queue])
     )
 
-    if recovery:
+    if shutdown_type == Shutdown.DIRTY:
         cache.save()
         cache.device.offline()
 
@@ -108,7 +135,8 @@ def test_metadata_corruption(
 
     cache_volume.online()
 
-    assert recovery == exc, "Stopping with device offlined should raise an exception"
+    if shutdown_type == Shutdown.DIRTY:
+        assert exc, "Stopping with device offlined should raise an exception"
 
     for byte in corrupted_bytes:
         corrupt_byte(cache_volume.data, byte)
@@ -118,41 +146,41 @@ def test_metadata_corruption(
 
 
 @pytest.mark.security
-@pytest.mark.parametrize("cache_line_size", CacheLineSize)
-@pytest.mark.parametrize("cache_mode", CacheMode)
 @pytest.mark.parametrize(
-    "recovery,target_segment,expectation",
+    "shutdown_type,target_segment,expectation",
     [
-        (True, CacheMetadataSegment.SB_CONFIG, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
-        (True, CacheMetadataSegment.RESERVED, does_not_raise()),
-        (True, CacheMetadataSegment.PART_CONFIG, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
-        (True, CacheMetadataSegment.CORE_CONFIG, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
-        (True, CacheMetadataSegment.CORE_UUID, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.CLEANING, does_not_raise()),
-        (True, CacheMetadataSegment.LRU, does_not_raise()),
-        (True, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
-        (True, CacheMetadataSegment.LIST_INFO, does_not_raise()),
-        (True, CacheMetadataSegment.HASH, does_not_raise()),
-        (False, CacheMetadataSegment.SB_CONFIG, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
-        (False, CacheMetadataSegment.RESERVED, does_not_raise()),
-        (False, CacheMetadataSegment.PART_CONFIG, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
-        (False, CacheMetadataSegment.CORE_CONFIG, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
-        (False, CacheMetadataSegment.CORE_UUID, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.CLEANING, does_not_raise()),
-        (False, CacheMetadataSegment.LRU, does_not_raise()),
-        (False, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
-        (False, CacheMetadataSegment.LIST_INFO, does_not_raise()),
-        (False, CacheMetadataSegment.HASH, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.SB_CONFIG, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.RESERVED, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.PART_CONFIG, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.CORE_CONFIG, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.CORE_UUID, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.CLEANING, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.LRU, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.LIST_INFO, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.HASH, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.SB_CONFIG, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.RESERVED, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.PART_CONFIG, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.CORE_CONFIG, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.CORE_UUID, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.CLEANING, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.LRU, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.LIST_INFO, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.HASH, does_not_raise()),
     ],
 )
+@pytest.mark.parametrize("cache_line_size", CacheLineSize)
+@pytest.mark.parametrize("cache_mode", CacheMode)
 def test_metadata_corruption_standby_activate(
-    pyocf_2_ctx, cache_line_size, cache_mode, recovery, target_segment, expectation
+    pyocf_2_ctx, cache_line_size, cache_mode, shutdown_type, target_segment, expectation
 ):
     primary_ctx, secondary_ctx = pyocf_2_ctx
 
@@ -198,7 +226,7 @@ def test_metadata_corruption_standby_activate(
         .run([queue])
     )
 
-    if recovery:
+    if shutdown_type == Shutdown.DIRTY:
         primary_cache.save()
         primary_cache.device.offline()
 
@@ -212,7 +240,7 @@ def test_metadata_corruption_standby_activate(
 
     secondary_cache.standby_detach()
 
-    if recovery:
+    if shutdown_type == Shutdown.DIRTY:
         assert exc, "Stopping with device offlined should raise an exception"
 
     for byte in corrupted_bytes:
@@ -223,41 +251,41 @@ def test_metadata_corruption_standby_activate(
 
 
 @pytest.mark.security
-@pytest.mark.parametrize("cache_line_size", CacheLineSize)
-@pytest.mark.parametrize("cache_mode", CacheMode)
 @pytest.mark.parametrize(
-    "recovery,target_segment,expectation",
+    "shutdown_type,target_segment,expectation",
     [
-        (False, CacheMetadataSegment.SB_CONFIG, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
-        (False, CacheMetadataSegment.RESERVED, does_not_raise()),
-        (False, CacheMetadataSegment.PART_CONFIG, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
-        (False, CacheMetadataSegment.CORE_CONFIG, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
-        (False, CacheMetadataSegment.CORE_UUID, pytest.raises(OcfError)),
-        (False, CacheMetadataSegment.CLEANING, does_not_raise()),
-        (False, CacheMetadataSegment.LRU, does_not_raise()),
-        (True, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
-        (False, CacheMetadataSegment.LIST_INFO, does_not_raise()),
-        (False, CacheMetadataSegment.HASH, does_not_raise()),
-        (True, CacheMetadataSegment.SB_CONFIG, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
-        (True, CacheMetadataSegment.RESERVED, does_not_raise()),
-        (True, CacheMetadataSegment.PART_CONFIG, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
-        (True, CacheMetadataSegment.CORE_CONFIG, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
-        (True, CacheMetadataSegment.CORE_UUID, pytest.raises(OcfError)),
-        (True, CacheMetadataSegment.CLEANING, does_not_raise()),
-        (True, CacheMetadataSegment.LRU, does_not_raise()),
-        (True, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
-        (True, CacheMetadataSegment.LIST_INFO, does_not_raise()),
-        (True, CacheMetadataSegment.HASH, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.SB_CONFIG, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.RESERVED, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.PART_CONFIG, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.CORE_CONFIG, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.CORE_UUID, raises(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.CLEANING, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.LRU, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
+        (Shutdown.DIRTY, CacheMetadataSegment.LIST_INFO, does_not_raise()),
+        (Shutdown.DIRTY, CacheMetadataSegment.HASH, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.SB_CONFIG, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.SB_RUNTIME, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.RESERVED, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.PART_CONFIG, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.PART_RUNTIME, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.CORE_CONFIG, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.CORE_RUNTIME, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.CORE_UUID, raises(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.CLEANING, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.LRU, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.COLLISION, may_raise(OcfError)),
+        (Shutdown.CLEAN, CacheMetadataSegment.LIST_INFO, does_not_raise()),
+        (Shutdown.CLEAN, CacheMetadataSegment.HASH, does_not_raise()),
     ],
 )
+@pytest.mark.parametrize("cache_line_size", CacheLineSize)
+@pytest.mark.parametrize("cache_mode", CacheMode)
 def test_metadata_corruption_standby_load(
-    pyocf_2_ctx, cache_line_size, cache_mode, recovery, target_segment, expectation
+    pyocf_2_ctx, cache_line_size, cache_mode, shutdown_type, target_segment, expectation
 ):
     primary_ctx, secondary_ctx = pyocf_2_ctx
 
@@ -303,7 +331,7 @@ def test_metadata_corruption_standby_load(
         .run([queue])
     )
 
-    if recovery:
+    if shutdown_type == Shutdown.DIRTY:
         primary_cache.save()
         primary_cache.device.offline()
 
@@ -317,7 +345,8 @@ def test_metadata_corruption_standby_load(
 
     secondary_cache.stop()
 
-    assert recovery == exc, "Stopping with device offlined should raise an exception"
+    if shutdown_type == Shutdown.DIRTY:
+        assert exc, "Stopping with device offlined should raise an exception"
 
     for byte in corrupted_bytes:
         corrupt_byte(secondary_cache_volume.data, corrupted_bytes)
