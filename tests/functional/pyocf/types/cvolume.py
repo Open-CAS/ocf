@@ -58,13 +58,20 @@ class CVolume(OcfInternalVolume):
     def get_c_handle(self):
         return self.cvol.value
 
-    def do_open(self):
-        ret = self.lib.ocf_volume_open(self.cvol, c_void_p())
-        if ret != 0:
-            raise OcfError("openning composite volume failed", ret)
+    def open(self):
+        ret = super().open()
+        if ret == 0:
+            ret = self.lib.ocf_volume_open(self.handle, c_void_p())
 
-    def do_close(self):
-        self.lib.ocf_volume_close(self.cvol)
+        if ret:
+            raise OcfError("opening composite volume failed", ret)
+
+        return ret
+
+    def close(self):
+        self.lib.ocf_volume_close(self.handle)
+        super().close()
+
 
 
 lib = OcfLib.getInstance()

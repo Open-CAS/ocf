@@ -300,10 +300,13 @@ class Cache:
         c.wait()
         self.write_unlock()
 
+        self.device = None
+
         if c.results["error"]:
             raise OcfError("Failed to detach failover cache device", c.results["error"])
 
     def standby_activate(self, device, open_cores=True):
+        self.device = device
         device_cfg = self.alloc_device_config(device)
 
         activate_cfg = CacheStandbyActivateConfig(
@@ -322,6 +325,7 @@ class Cache:
         self.free_device_config(device_cfg)
 
         if c.results["error"]:
+            self.device = None
             raise OcfError("Failed to activate standby cache", c.results["error"])
 
     def change_cache_mode(self, cache_mode: CacheMode):
@@ -575,7 +579,6 @@ class Cache:
         disable_cleaner=False,
     ):
         self.device = device
-        self.device_name = device.uuid
 
         device_config = self.alloc_device_config(device, perform_test=perform_test)
 
@@ -607,7 +610,6 @@ class Cache:
 
     def standby_attach(self, device, force=False, disable_cleaner=False):
         self.device = device
-        self.device_name = device.uuid
 
         device_config = self.alloc_device_config(device, perform_test=False)
 
@@ -639,7 +641,6 @@ class Cache:
 
     def standby_load(self, device, perform_test=True, disable_cleaner=False):
         self.device = device
-        self.device_name = device.uuid
 
         device_config = self.alloc_device_config(device, perform_test=perform_test)
 
@@ -661,6 +662,7 @@ class Cache:
         self.free_device_config(device_config)
 
         if c.results["error"]:
+            self.device = None
             raise OcfError("Loading standby cache device failed", c.results["error"])
 
     def detach_device(self):
@@ -679,7 +681,6 @@ class Cache:
 
     def load_cache(self, device, open_cores=True, disable_cleaner=False):
         self.device = device
-        self.device_name = device.uuid
 
         device_config = self.alloc_device_config(device)
 
@@ -701,7 +702,24 @@ class Cache:
         self.free_device_config(device_config)
 
         if c.results["error"]:
+            self.device = None
             raise OcfError("Loading cache device failed", c.results["error"])
+
+    @classmethod
+    def load_standby_from_device(cls, device, owner=None, name="cache", cache_line_size=None):
+        if owner is None:
+            owner = OcfCtx.get_default()
+
+        c = cls(name=name, owner=owner, cache_line_size=cache_line_size)
+
+        c.start_cache()
+        try:
+            c.standby_load(device)
+        except:  # noqa E722
+            c.stop()
+            raise
+
+        return c
 
     @classmethod
     def load_from_device(

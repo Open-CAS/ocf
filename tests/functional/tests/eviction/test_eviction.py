@@ -35,14 +35,14 @@ def test_eviction_two_cores(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
     core1 = Core.using_device(core_device1, name="core1")
     core2 = Core.using_device(core_device2, name="core2")
     cache.add_core(core1)
-    vol1 = CoreVolume(core1, open=True)
+    vol1 = CoreVolume(core1)
     cache.add_core(core2)
-    vol2 = CoreVolume(core2, open=True)
+    vol2 = CoreVolume(core2)
 
     valid_io_size = Size.from_B(cache_size.B)
     test_data = Data(valid_io_size)
-    send_io(core1, test_data)
-    send_io(core2, test_data)
+    send_io(vol1, test_data)
+    send_io(vol2, test_data)
 
     stats1 = core1.get_stats()
     stats2 = core2.get_stats()
@@ -62,12 +62,12 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
     cache_size = cache.get_stats()["conf"]["size"]
     core = Core.using_device(core_device)
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)
 
     valid_io_size = Size.from_B(cache_size.B // 2)
     test_data = Data(valid_io_size)
-    send_io(core, test_data)
+    send_io(vol, test_data)
 
     stats = core.cache.get_stats()
     first_block_sts = stats["block"]
@@ -84,7 +84,7 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
     io_size_bigger_than_cache = Size.from_MiB(100)
     io_offset = valid_io_size
     test_data = Data(io_size_bigger_than_cache)
-    send_io(core, test_data, io_offset)
+    send_io(vol, test_data, io_offset)
 
     if mode is not CacheMode.WT:
         # Flush first write
@@ -115,7 +115,7 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     cache = Cache.start_on_device(cache_device, cache_mode=CacheMode.WT, cache_line_size=cls)
     core = Core.using_device(core_device)
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
 
     test_ioclass_id = 1
     pinned_ioclass_id = 2
@@ -139,7 +139,7 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
 
     # Populate cache with data
     for i in range(cache_size.blocks_4k):
-        send_io(core, data, i * 4096, test_ioclass_id)
+        send_io(vol, data, i * 4096, test_ioclass_id)
 
     part_current_size = CacheLines(
         cache.get_partition_info(part_id=test_ioclass_id)["_curr_size"], cls
@@ -151,7 +151,7 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     # Repart - force overflow of second partition occupancy limit
     pinned_double_size = ceil((cache_size.blocks_4k * pinned_ioclass_max_occupancy * 2) / 100)
     for i in range(pinned_double_size):
-        send_io(core, data, i * 4096, pinned_ioclass_id)
+        send_io(vol, data, i * 4096, pinned_ioclass_id)
 
     part_current_size = CacheLines(
         cache.get_partition_info(part_id=pinned_ioclass_id)["_curr_size"], cls
@@ -162,7 +162,7 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
 
     # Trigger IO to the default ioclass - force eviction from overlown ioclass
     for i in range(cache_size.blocks_4k):
-        send_io(core, data, (cache_size.blocks_4k + i) * 4096, test_ioclass_id)
+        send_io(vol, data, (cache_size.blocks_4k + i) * 4096, test_ioclass_id)
 
     part_current_size = CacheLines(
         cache.get_partition_info(part_id=pinned_ioclass_id)["_curr_size"], cls
@@ -172,10 +172,10 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     ), "Overflown part has not been evicted"
 
 
-def send_io(core: Core, data: Data, addr: int = 0, target_ioclass: int = 0):
-    vol = core.get_front_volume()
+def send_io(vol: CoreVolume, data: Data, addr: int = 0, target_ioclass: int = 0):
+    vol.open()
     io = vol.new_io(
-        core.cache.get_default_queue(), addr, data.size, IoDir.WRITE, target_ioclass, 0,
+        vol.parent.get_default_queue(), addr, data.size, IoDir.WRITE, target_ioclass, 0,
     )
 
     io.set_data(data)
@@ -184,5 +184,6 @@ def send_io(core: Core, data: Data, addr: int = 0, target_ioclass: int = 0):
     io.callback = completion.callback
     io.submit()
     completion.wait()
+    vol.close()
 
     assert completion.results["err"] == 0, "IO to exported object completion"

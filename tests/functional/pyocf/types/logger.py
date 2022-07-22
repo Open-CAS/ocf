@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2022 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -160,13 +160,19 @@ class FileLogger(Logger):
         logger.handlers = []
 
 
-class BufferLogger(Logger):
-    def __init__(self, level: LogLevel):
-        super().__init__()
-        self.level = level
+class BufferLogger(DefaultLogger):
+    def __init__(
+        self,
+        console_level: LogLevel = LogLevel.WARN,
+        buffer_level: LogLevel = LogLevel.DEBUG,
+        name: str = ""
+    ):
+        super().__init__(console_level, name)
+        self.level = buffer_level
         self.buffer = StringIO()
 
     def log(self, lvl, msg):
+        super().log(lvl, msg)
         if lvl < self.level:
             self.buffer.write(msg + "\n")
 

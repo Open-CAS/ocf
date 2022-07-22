@@ -24,7 +24,8 @@ def test_large_flush(pyocf_ctx):
     cache.add_core(core)
 
     queue = cache.get_default_queue()
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
+    vol.open()
 
     io = vol.new_io(queue, 0, core_device.size.bytes, IoDir.WRITE, 0, IoFlags.FLUSH)
     completion = OcfCompletion([("err", c_int)])
@@ -33,6 +34,7 @@ def test_large_flush(pyocf_ctx):
     io.set_data(data, 0)
     io.submit_flush()
     completion.wait()
+    vol.close()
 
     assert int(completion.results["err"]) == 0
 
@@ -48,7 +50,8 @@ def test_large_discard(pyocf_ctx):
     cache.add_core(core)
 
     queue = cache.get_default_queue()
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
+    vol.open()
 
     io = vol.new_io(queue, 0, core_device.size.bytes, IoDir.WRITE, 0, 0)
     completion = OcfCompletion([("err", c_int)])
@@ -57,6 +60,7 @@ def test_large_discard(pyocf_ctx):
     io.set_data(data, 0)
     io.submit_discard()
     completion.wait()
+    vol.close()
 
     assert int(completion.results["err"]) == 0
 
@@ -72,7 +76,8 @@ def test_large_io(pyocf_ctx):
     cache.add_core(core)
 
     queue = cache.get_default_queue()
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
+    vol.open()
 
     io = vol.new_io(queue, 0, core_device.size.bytes, IoDir.WRITE, 0, 0)
     completion = OcfCompletion([("err", c_int)])
@@ -81,6 +86,8 @@ def test_large_io(pyocf_ctx):
     io.set_data(data)
     io.submit()
     completion.wait()
+
+    vol.close()
 
     assert int(completion.results["err"]) == 0
 

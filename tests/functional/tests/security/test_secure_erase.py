@@ -82,10 +82,11 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
     core_device = RamVolume(S.from_MiB(50))
     core = Core.using_device(core_device)
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue = cache.get_default_queue()
 
     write_data = DataCopyTracer(S.from_sector(1))
+    vol.open()
     io = vol.new_io(queue, S.from_sector(1).B, write_data.size, IoDir.WRITE, 0, 0,)
     io.set_data(write_data)
 
@@ -117,6 +118,7 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
     io.submit()
     cmpl.wait()
 
+    vol.close()
     stats = cache.get_stats()
 
     ctx.exit()
@@ -156,10 +158,12 @@ def test_secure_erase_simple_io_cleaning():
     core_device = RamVolume(S.from_MiB(100))
     core = Core.using_device(core_device)
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue = cache.get_default_queue()
 
     read_data = Data(S.from_sector(1).B)
+
+    vol.open()
     io = vol.new_io(queue, S.from_sector(1).B, read_data.size, IoDir.WRITE, 0, 0)
     io.set_data(read_data)
 
@@ -177,6 +181,7 @@ def test_secure_erase_simple_io_cleaning():
     io.submit()
     cmpl.wait()
 
+    vol.close()
     stats = cache.get_stats()
 
     ctx.exit()

@@ -75,7 +75,7 @@ def test_remove_dirty_no_flush(pyocf_ctx, cache_mode, cls):
     core = Core.using_device(core_device)
     cache.add_core(core)
 
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue = core.cache.get_default_queue()
 
     # Prepare data
@@ -121,10 +121,11 @@ def test_10add_remove_with_io(pyocf_ctx):
     # Add and remove core 10 times in a loop with io in between
     for i in range(0, 10):
         cache.add_core(core)
-        vol = CoreVolume(core, open=True)
+        vol = CoreVolume(core)
         stats = cache.get_stats()
         assert stats["conf"]["core_count"] == 1
 
+        vol.open()
         write_data = Data.from_string("Test data")
         io = vol.new_io(
             cache.get_default_queue(), S.from_sector(1).B, write_data.size, IoDir.WRITE, 0, 0
@@ -135,6 +136,7 @@ def test_10add_remove_with_io(pyocf_ctx):
         io.callback = cmpl.callback
         io.submit()
         cmpl.wait()
+        vol.close()
 
         cache.remove_core(core)
         stats = cache.get_stats()
@@ -299,6 +301,7 @@ def test_add_remove_incrementally(pyocf_ctx, cache_mode, cls):
 
 
 def _io_to_core(vol: Volume, queue: Queue, data: Data):
+    vol.open()
     io = vol.new_io(queue, 0, data.size, IoDir.WRITE, 0, 0)
     io.set_data(data)
 
@@ -307,6 +310,7 @@ def _io_to_core(vol: Volume, queue: Queue, data: Data):
     io.submit()
     completion.wait()
 
+    vol.close()
     assert completion.results["err"] == 0, "IO to exported object completion"
 
 

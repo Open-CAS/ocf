@@ -191,7 +191,7 @@ def prepare_cache_and_core(core_size: Size, cache_size: Size = Size.from_MiB(50)
     core = Core.using_device(core_device)
 
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue = cache.get_default_queue()
 
     return vol, queue
@@ -200,6 +200,7 @@ def prepare_cache_and_core(core_size: Size, cache_size: Size = Size.from_MiB(50)
 def io_operation(
     vol: Volume, queue: Queue, data: Data, io_direction: int, offset: int = 0, io_class: int = 0,
 ):
+    vol.open()
     io = vol.new_io(queue, offset, data.size, io_direction, io_class, 0)
     io.set_data(data)
 
@@ -207,4 +208,5 @@ def io_operation(
     io.callback = completion.callback
     io.submit()
     completion.wait()
+    vol.close()
     return completion

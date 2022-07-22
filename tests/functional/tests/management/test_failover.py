@@ -283,7 +283,7 @@ def test_standby_activate_core_size_mismatch(pyocf_2_ctx):
     cache = Cache(owner=ctx, cache_mode=mode, cache_line_size=cls)
     cache.start_cache()
     cache.standby_attach(vol2)
-    cache_vol = CacheVolume(cache, open=True)
+    cache_vol = CacheVolume(cache)
 
     write_vol(cache_vol, cache.get_default_queue(), data)
 
@@ -327,14 +327,14 @@ def test_failover_passive_first(pyocf_2_ctx):
     cache2.standby_attach(sec_cache_backend_vol)
 
     # volume replicating cache1 ramdisk writes to cache2 cache exported object
-    cache2_exp_obj_vol = CacheVolume(cache2, open=True)
+    cache2_exp_obj_vol = CacheVolume(cache2)
     cache1_cache_vol = ReplicatedVolume(prim_cache_backend_vol, cache2_exp_obj_vol)
 
     # active cache
     cache1 = Cache.start_on_device(cache1_cache_vol, ctx1, cache_mode=mode, cache_line_size=cls)
     core = Core(core_backend_vol)
     cache1.add_core(core)
-    core_vol = CoreVolume(core, open=True)
+    core_vol = CoreVolume(core)
     queue = cache1.get_default_queue()
 
     # some I/O
@@ -365,7 +365,7 @@ def test_failover_passive_first(pyocf_2_ctx):
     # add core explicitly with "try_add" to workaround pyocf limitations
     core = Core(core_backend_vol)
     cache2.add_core(core, try_add=True)
-    core_vol = CoreVolume(core, open=True)
+    core_vol = CoreVolume(core)
 
     assert md5 == core_vol.md5()
 
@@ -373,6 +373,7 @@ def test_failover_passive_first(pyocf_2_ctx):
 def write_vol(vol, queue, data):
     data_size = len(data)
     subdata_size_max = int(Size.from_MiB(32))
+    vol.open()
     for offset in range(0, data_size, subdata_size_max):
         subdata_size = min(data_size - offset, subdata_size_max)
         subdata = Data.from_bytes(data, offset, subdata_size)
@@ -382,6 +383,7 @@ def write_vol(vol, queue, data):
         io.callback = comp.callback
         io.submit()
         comp.wait()
+    vol.close()
 
 
 def test_failover_active_first(pyocf_2_ctx):
@@ -399,7 +401,7 @@ def test_failover_active_first(pyocf_2_ctx):
     )
     core = Core(core_backend_vol)
     cache1.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
     queue1 = cache1.get_default_queue()
 
     # some I/O
@@ -431,11 +433,11 @@ def test_failover_active_first(pyocf_2_ctx):
     cache2 = Cache(owner=ctx2, cache_mode=mode, cache_line_size=cls)
     cache2.start_cache()
     cache2.standby_attach(sec_cache_backend_vol)
-    vol2 = CacheVolume(cache2, open=True)
+    vol2 = CacheVolume(cache2)
     queue = cache2.get_default_queue()
 
     # standby cache exported object volume
-    cache2_exp_obj_vol = CacheVolume(cache2, open=True)
+    cache2_exp_obj_vol = CacheVolume(cache2)
 
     # just to be sure
     assert sec_cache_backend_vol.get_bytes() != prim_cache_backend_vol.get_bytes()
@@ -453,7 +455,7 @@ def test_failover_active_first(pyocf_2_ctx):
     cache2.standby_activate(sec_cache_backend_vol, open_cores=False)
     core = Core(core_backend_vol)
     cache2.add_core(core, try_add=True)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
 
     # check data consistency
     assert data_md5 == vol.md5()
@@ -498,7 +500,7 @@ def test_failover_line_size_mismatch(pyocf_2_ctx):
     cache = Cache(owner=ctx, cache_mode=mode, cache_line_size=cls2)
     cache.start_cache()
     cache.standby_attach(vol2)
-    cache_vol = CacheVolume(cache, open=True)
+    cache_vol = CacheVolume(cache)
 
     write_vol(cache_vol, cache.get_default_queue(), data)
 
@@ -544,14 +546,14 @@ def test_failover_passive_first(pyocf_2_ctx):
     cache2.standby_attach(sec_cache_backend_vol)
 
     # volume replicating cache1 ramdisk writes to cache2 cache exported object
-    cache2_exp_obj_vol = CacheVolume(cache2, open=True)
+    cache2_exp_obj_vol = CacheVolume(cache2)
     cache1_cache_vol = ReplicatedVolume(prim_cache_backend_vol, cache2_exp_obj_vol)
 
     # active cache
     cache1 = Cache.start_on_device(cache1_cache_vol, ctx1, cache_mode=mode, cache_line_size=cls)
     core = Core(core_backend_vol)
     cache1.add_core(core)
-    core_vol = CoreVolume(core, open=True)
+    core_vol = CoreVolume(core)
     queue = cache1.get_default_queue()
 
     # some I/O
@@ -582,6 +584,6 @@ def test_failover_passive_first(pyocf_2_ctx):
     # add core explicitly with "try_add" to workaround pyocf limitations
     core = Core(core_backend_vol)
     cache2.add_core(core, try_add=True)
-    core_vol = CoreVolume(core, open=True)
+    core_vol = CoreVolume(core)
 
     assert md5 == core_vol.md5()

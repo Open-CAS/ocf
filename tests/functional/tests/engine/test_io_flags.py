@@ -29,9 +29,9 @@ def __io(io, queue, address, size, data, direction):
     return int(completion.results["err"])
 
 
-def io_to_exp_obj(core, address, size, data, offset, direction, flags):
-    vol = core.get_front_volume()
-    queue = core.cache.get_default_queue()
+def io_to_exp_obj(vol, address, size, data, offset, direction, flags):
+    queue = vol.parent.get_default_queue()
+    vol.open()
     io = vol.new_io(queue, address, size, direction, 0, flags)
     if direction == IoDir.READ:
         _data = Data.from_bytes(bytes(size))
@@ -40,6 +40,7 @@ def io_to_exp_obj(core, address, size, data, offset, direction, flags):
     ret = __io(io, queue, address, size, _data, direction)
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
+    vol.close()
     return ret
 
 
@@ -83,37 +84,37 @@ def test_io_flags(pyocf_ctx, cache_mode):
     core = Core.using_device(core_device)
 
     cache.add_core(core)
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
 
     cache_device.set_check(True)
     core_device.set_check(True)
 
     # write miss
-    io_to_exp_obj(core, block_size * 0, block_size, data, 0, IoDir.WRITE, flags)
+    io_to_exp_obj(vol, block_size * 0, block_size, data, 0, IoDir.WRITE, flags)
     assert not cache_device.fail
     assert not core_device.fail
 
     # read miss
-    io_to_exp_obj(core, block_size * 1, block_size, data, 0, IoDir.READ, flags)
+    io_to_exp_obj(vol, block_size * 1, block_size, data, 0, IoDir.READ, flags)
     assert not cache_device.fail
     assert not core_device.fail
 
     # "dirty" read hit
-    io_to_exp_obj(core, block_size * 0, block_size, data, 0, IoDir.READ, flags)
+    io_to_exp_obj(vol, block_size * 0, block_size, data, 0, IoDir.READ, flags)
     assert not cache_device.fail
     assert not core_device.fail
 
     # "clean" read hit
-    io_to_exp_obj(core, block_size * 1, block_size, data, 0, IoDir.READ, flags)
+    io_to_exp_obj(vol, block_size * 1, block_size, data, 0, IoDir.READ, flags)
     assert not cache_device.fail
     assert not core_device.fail
 
     # "dirty" write hit
-    io_to_exp_obj(core, block_size * 0, block_size, data, 0, IoDir.WRITE, flags)
+    io_to_exp_obj(vol, block_size * 0, block_size, data, 0, IoDir.WRITE, flags)
     assert not cache_device.fail
     assert not core_device.fail
 
     # "clean" write hit
-    io_to_exp_obj(core, block_size * 1, block_size, data, 0, IoDir.WRITE, flags)
+    io_to_exp_obj(vol, block_size * 1, block_size, data, 0, IoDir.WRITE, flags)
     assert not cache_device.fail
     assert not core_device.fail

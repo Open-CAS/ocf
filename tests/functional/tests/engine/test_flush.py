@@ -40,10 +40,11 @@ def test_flush_propagation(pyocf_ctx):
     cache.add_core(core)
 
     queue = cache.get_default_queue()
-    vol = CoreVolume(core, open=True)
+    vol = CoreVolume(core)
 
     flushes = {}
 
+    vol.open()
     io = vol.new_io(queue, addr, size, IoDir.WRITE, 0, IoFlags.FLUSH)
     completion = OcfCompletion([("err", c_int)])
     io.callback = completion.callback
@@ -52,6 +53,7 @@ def test_flush_propagation(pyocf_ctx):
 
     io.submit_flush()
     completion.wait()
+    vol.close()
 
     assert int(completion.results["err"]) == 0
 

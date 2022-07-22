@@ -34,7 +34,7 @@ def test_test_standby_io(pyocf_ctx, cacheline_size):
         cache.add_io_queue(f"io-queue-{i}")
 
     cache.standby_attach(cache_vol)
-    cache_vol = CacheVolume(cache, open=True)
+    cache_vol = CacheVolume(cache)
 
     r = (
         Rio()
@@ -74,7 +74,7 @@ def test_test_standby_io_metadata(pyocf_ctx, cacheline_size):
     io_offset = Size.from_page(start)
     io_size = Size.from_page(count)
 
-    cache_vol = CacheVolume(cache, open=True)
+    cache_vol = CacheVolume(cache)
 
     r = (
         Rio()

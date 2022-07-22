@@ -5,6 +5,7 @@
 
 from threading import Lock
 from .volume import Volume, VOLUME_POISON
+from .shared import OcfErrorCode
 from .io import Io, IoDir
 from ctypes import cast, c_void_p, CFUNCTYPE, c_int, POINTER, memmove, sizeof, pointer
 
@@ -15,21 +16,27 @@ class ReplicatedVolume(Volume):
         self.primary = primary
         self.secondary = secondary
 
-        if secondary.get_max_io_size() < primary.get_max_io_size():
-            raise Exception("secondary volume max io size too small")
-        if secondary.get_length() < primary.get_length():
-            raise Exception("secondary volume size too small")
-
-    def do_open(self):
-        ret = self.primary.do_open()
+    def open(self):
+        ret = self.primary.open()
         if ret:
+            raise Exception(f"Couldn't open primary volume. ({ret})")
             return ret
-        ret = self.secondary.do_open()
+        ret = self.secondary.open()
         if ret:
-            self.primary.close()
-        return ret
+            raise Exception(f"Couldn't open secondary volume. ({ret})")
+            return ret
+
+        if self.secondary.get_max_io_size() < self.primary.get_max_io_size():
+            raise Exception("secondary volume max io size too small")
+            return -OcfErrorCode.OCF_ERR_INVAL
+        if self.secondary.get_length() < self.primary.get_length():
+            raise Exception("secondary volume size too small")
+            return -OcfErrorCode.OCF_ERR_INVAL
+
+        return super().open()
 
     def close(self):
+        super().close()
         self.primary.close()
         self.secondary.close()
 

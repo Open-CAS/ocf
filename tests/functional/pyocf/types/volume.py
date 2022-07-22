@@ -23,6 +23,7 @@ from ctypes import (
 from hashlib import md5
 import weakref
 from enum import IntEnum
+import warnings
 
 from .io import Io, IoOps, IoDir
 from .queue import Queue
@@ -89,7 +90,7 @@ VOLUME_POISON = 0x13
 
 
 class Volume:
-    _instances_ = weakref.WeakValueDictionary()
+    _instances_ = {}
     _uuid_ = weakref.WeakValueDictionary()
     _ops_ = {}
     _props_ = {}
@@ -143,16 +144,25 @@ class Volume:
             try:
                 volume = Volume.get_by_uuid(uuid)
             except:  # noqa E722 TODO:Investigate whether this really should be so broad
-                print("Tried to access unallocated volume {}".format(uuid))
-                print("{}".format(Volume._uuid_))
+                warnings.warn("Tried to access unallocated volume {}".format(uuid))
                 return -1
 
-            return Volume.s_open(ref, volume)
+            ret = volume.open()
+            if not ret:
+                Volume._instances_[ref] = volume
+                volume.handle = ref
+
+            return ret
+
 
         @VolumeOps.CLOSE
         def _close(ref):
             volume = Volume.get_instance(ref)
-            Volume.s_close(volume)
+
+            del Volume._instances_[volume.handle]
+            volume.handle = None
+
+            volume.close()
 
         @VolumeOps.GET_MAX_IO_SIZE
         def _get_max_io_size(ref):
@@ -178,30 +188,19 @@ class Volume:
 
         return Volume._ops_[cls]
 
-    @staticmethod
-    def s_open(ref, volume):
-        if volume.opened:
+    def open(self):
+        if self.opened:
             return -OcfErrorCode.OCF_ERR_NOT_OPEN_EXC
 
-        Volume._instances_[ref] = volume
-        volume.handle = ref
+        self.opened = True
 
-        ret = volume.do_open()
-        if ret == 0:
-            volume.opened = True
+        return 0
 
-        return ret
-
-    @staticmethod
-    def s_close(volume):
-        if not volume.opened:
+    def close(self):
+        if not self.opened:
             return
 
-        volume.do_close()
-        volume.opened = False
-
-        del Volume._instances_[volume.handle]
-        volume.handle = None
+        self.opened = False
 
     @classmethod
     def get_io_ops(cls):
@@ -228,11 +227,11 @@ class Volume:
 
     @classmethod
     def get_instance(cls, ref):
-        instance = cls._instances_[ref]
-        if instance is None:
-            print("tried to access {} but it's gone".format(ref))
+        if ref not in cls._instances_:
+            warnings.warn(f"tried to access volume ref {ref} but it's gone")
+            return None
 
-        return instance
+        return cls._instances_[ref]
 
     @classmethod
     def get_by_uuid(cls, uuid):
@@ -268,12 +267,6 @@ class Volume:
         self.is_online = True
         self.opened = False
         self.handle = None
-
-    def do_open(self):
-        return 0
-
-    def do_close(self):
-        pass
 
     def get_length(self):
         raise NotImplementedError
@@ -451,6 +444,16 @@ class ErrorDevice(Volume):
     def set_mapping(self, error_sectors: set):
         self.error_sectors = error_sectors
 
+    def open(self):
+        ret = self.vol.open()
+        if ret:
+            return ret
+        return super().open()
+
+    def close(self):
+        super().close()
+        self.vol.close()
+
     def should_forward_io(self, io):
         if not self.armed:
             return True
@@ -519,6 +522,10 @@ class ErrorDevice(Volume):
     def get_copy(self):
         return self.vol.get_copy()
 
+    def close(self):
+        super().close()
+        self.vol.close()
+
 
 class TraceDevice(Volume):
     class IoType(IntEnum):
@@ -530,6 +537,16 @@ class TraceDevice(Volume):
         self.vol = vol
         super().__init__(uuid)
         self.trace_fcn = trace_fcn
+
+    def open(self):
+        ret = self.vol.open()
+        if ret:
+            return ret
+        return super().open()
+
+    def close(self):
+        super().close()
+        self.vol.close()
 
     def _trace(self, io, io_type):
         submit = True
