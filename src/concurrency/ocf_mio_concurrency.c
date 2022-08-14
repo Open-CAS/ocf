@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2021-2022 Intel Corporation
+ * Copyright(c) 2022-2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -92,7 +93,7 @@ static int ocf_mio_lock_slow(struct ocf_alock *alock,
 err:
 	for (; i >= 0; i--) {
 		entry = ocf_mio_lock_get_entry(alock, req, i);
-		ocf_alock_waitlist_remove_entry(alock, req, i, entry, OCF_WRITE);
+		ocf_alock_waitlist_remove_entry(alock, req, entry, i, OCF_WRITE);
 	}
 
 	return ret;
