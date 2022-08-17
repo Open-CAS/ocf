@@ -1,10 +1,11 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
 #include "ocf_priv.h"
+#include "ocf_env.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
 #include "utils/utils_user_part.h"
@@ -321,19 +322,25 @@ int ocf_stats_collect_core(ocf_core_t core,
 {
 	ocf_cache_t cache;
 	uint64_t cache_occupancy, cache_size, cache_line_size;
-	struct ocf_stats_core s;
+	struct ocf_stats_core *s;
 	int result;
 
 	OCF_CHECK_NULL(core);
 
+	s = env_vmalloc(sizeof(*s));
+	if (!s)
+		return -OCF_ERR_NO_MEM;
+
 	cache = ocf_core_get_cache(core);
 
-	if (ocf_cache_is_standby(cache))
-		return -OCF_ERR_CACHE_STANDBY;
+	if (ocf_cache_is_standby(cache)) {
+		result = -OCF_ERR_CACHE_STANDBY;
+		goto mem_free;
+	}
 
-	result = ocf_core_get_stats(core, &s);
+	result = ocf_core_get_stats(core, s);
 	if (result)
-		return result;
+		goto mem_free;
 
 	cache_line_size = ocf_cache_get_line_size(cache);
 	cache_size = cache->conf_meta->cachelines;
@@ -346,7 +353,7 @@ int ocf_stats_collect_core(ocf_core_t core,
 
 	if (usage) {
 		_set(&usage->occupancy,
-			_lines4k(s.cache_occupancy, cache_line_size),
+			_lines4k(s->cache_occupancy, cache_line_size),
 			_lines4k(cache_size, cache_line_size));
 
 		_set(&usage->free,
@@ -354,24 +361,26 @@ int ocf_stats_collect_core(ocf_core_t core,
 			_lines4k(cache_size, cache_line_size));
 
 		_set(&usage->clean,
-			_lines4k(s.cache_occupancy - s.dirty, cache_line_size),
-			_lines4k(s.cache_occupancy, cache_line_size));
+			_lines4k(s->cache_occupancy - s->dirty, cache_line_size),
+			_lines4k(s->cache_occupancy, cache_line_size));
 
 		_set(&usage->dirty,
-			_lines4k(s.dirty, cache_line_size),
-			_lines4k(s.cache_occupancy, cache_line_size));
+			_lines4k(s->dirty, cache_line_size),
+			_lines4k(s->cache_occupancy, cache_line_size));
 	}
 
 	if (req)
-		_fill_req(req, &s);
+		_fill_req(req, s);
 
 	if (blocks)
-		_fill_blocks(blocks, &s);
+		_fill_blocks(blocks, s);
 
 	if (errors)
-		_fill_errors(errors, &s);
+		_fill_errors(errors, s);
 
-	return 0;
+mem_free:
+	env_vfree(s);
+	return result;
 }
 
 static int _accumulate_stats(ocf_core_t core, void *cntx)
@@ -404,17 +413,23 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
 {
 	uint64_t cache_line_size;
 	struct ocf_cache_info info;
-	struct ocf_stats_core s = { 0 };
+	struct ocf_stats_core *s;
 	int result;
 
 	OCF_CHECK_NULL(cache);
 
-	if (ocf_cache_is_standby(cache))
-		return -OCF_ERR_CACHE_STANDBY;
+	s = env_vzalloc(sizeof(*s));
+	if (!s)
+		return -OCF_ERR_NO_MEM;
+
+	if (ocf_cache_is_standby(cache)) {
+		result = -OCF_ERR_CACHE_STANDBY;
+		goto mem_free;
+	}
 
 	result = ocf_cache_get_info(cache, &info);
 	if (result)
-		return result;
+		goto mem_free;
 
 	cache_line_size = ocf_cache_get_line_size(cache);
 
@@ -423,9 +438,9 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
 	_ocf_stats_zero(blocks);
 	_ocf_stats_zero(errors);
 
-	result = ocf_core_visit(cache, _accumulate_stats, &s, true);
+	result = ocf_core_visit(cache, _accumulate_stats, s, true);
 	if (result)
-		return result;
+		goto mem_free;
 
 	if (usage) {
 		_set(&usage->occupancy,
@@ -446,13 +461,15 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
 	}
 
 	if (req)
-		_fill_req(req, &s);
+		_fill_req(req, s);
 
 	if (blocks)
-		_fill_blocks(blocks, &s);
+		_fill_blocks(blocks, s);
 
 	if (errors)
-		_fill_errors(errors, &s);
+		_fill_errors(errors, s);
 
-	return 0;
+mem_free:
+	env_vfree(s);
+	return result;
 }
