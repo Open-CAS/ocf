@@ -59,8 +59,13 @@ static inline size_t ocf_req_sizeof_alock_status(uint32_t lines)
 
 int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
 {
-	ocf_ctx->resources.req = env_mpool_create(sizeof(struct ocf_request),
-		sizeof(struct ocf_map_info) + sizeof(uint8_t), ENV_MEM_NORMAL, ocf_req_size_128,
+	enum ocf_req_size max_req_size = ocf_req_size_128;
+	size_t alock_status_size = ocf_req_sizeof_alock_status(
+			(1U << (unsigned)max_req_size));
+	size_t header_size = sizeof(struct ocf_request) + alock_status_size;
+
+	ocf_ctx->resources.req = env_mpool_create(header_size,
+		sizeof(struct ocf_map_info), ENV_MEM_NORMAL, max_req_size,
 		false, NULL, "ocf_req", true);
 
 	if (ocf_ctx->resources.req == NULL)
