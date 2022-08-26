@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -43,13 +43,18 @@ static inline size_t ocf_req_sizeof_map(struct ocf_request *req)
 	return size;
 }
 
-static inline size_t ocf_req_sizeof_alock_status(struct ocf_request *req)
+static inline size_t ocf_req_sizeof_alock_status(uint32_t lines)
 {
-	uint32_t lines = req->core_line_count;
-	size_t size = (lines * sizeof(uint8_t));
+	uint32_t size;
 
 	ENV_BUG_ON(lines == 0);
-	return size;
+
+	/* 1 bit per cacheline */
+	size = OCF_DIV_ROUND_UP(lines, 8);
+
+	/* round up to 8B to avoid out of boundary access in bit operations
+	 * on alock status */
+	return OCF_DIV_ROUND_UP(size, sizeof(long)) * sizeof(long);
 }
 
 int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx)
@@ -142,7 +147,8 @@ int ocf_req_alloc_map(struct ocf_request *req)
 		return 0;
 
 	req->map = env_zalloc(ocf_req_sizeof_map(req) +
-			ocf_req_sizeof_alock_status(req), ENV_MEM_NOIO);
+			ocf_req_sizeof_alock_status(req->core_line_count),
+			ENV_MEM_NOIO);
 	if (!req->map) {
 		req->error = -OCF_ERR_NO_MEM;
 		return -OCF_ERR_NO_MEM;
