@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -69,5 +70,27 @@ typedef int (*ocf_composite_volume_member_visitor_t)(ocf_volume_t subvolume,
  */
 int ocf_composite_volume_member_visit(ocf_composite_volume_t cvolume,
 		ocf_composite_volume_member_visitor_t visitor, void *priv);
+
+/**
+ * @brief Get subvolume by index in composite volume
+ *
+ * @param[in] cvolume composite volume handle
+ * @param[in] index subvolume index
+ *
+ * @return subvolume in composite volume
+ */
+ocf_volume_t ocf_composite_volume_get_subvolume_by_index(
+		ocf_composite_volume_t cvolume, int index);
+
+/**
+ * @brief Set composite volume UUID
+ *
+ * @param[in] cvolume Volume
+ * @param[in] uuid UUID
+ *
+ * @return 0 in case of success, error code otherwise
+ */
+int ocf_composite_volume_set_uuid(ocf_composite_volume_t cvolume,
+		struct ocf_volume_uuid *uuid);
 
 #endif /* __OCF_COMPOSITE_VOLUME_H__ */

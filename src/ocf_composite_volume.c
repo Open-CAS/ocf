@@ -426,3 +426,20 @@ int ocf_composite_volume_member_visit(ocf_composite_volume_t cvolume,
 
 	return 0;
 }
+
+ocf_volume_t ocf_composite_volume_get_subvolume_by_index(
+		ocf_composite_volume_t cvolume, int index)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+
+	if (index >= 0 && index < composite->members_cnt)
+		return &composite->member[index].volume;
+	else
+		return NULL;
+}
+
+int ocf_composite_volume_set_uuid(ocf_composite_volume_t cvolume,
+		struct ocf_volume_uuid *uuid)
+{
+	return ocf_volume_set_uuid(cvolume, uuid, true);
+}
