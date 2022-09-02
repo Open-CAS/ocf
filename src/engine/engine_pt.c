@@ -1,10 +1,11 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
 #include "../ocf_cache_priv.h"
 #include "engine_pt.h"
+#include "engine_rd.h"
 #include "engine_common.h"
 #include "cache_engine.h"
 #include "../ocf_request.h"
@@ -94,11 +95,6 @@ int ocf_read_pt_do(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_pt_resume = {
-	.read = ocf_read_pt_do,
-	.write = ocf_read_pt_do,
-};
-
 int ocf_read_pt(struct ocf_request *req)
 {
 	bool use_cache = false;
@@ -111,8 +107,8 @@ int ocf_read_pt(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	/* Set resume io_if */
-	req->io_if = &_io_if_pt_resume;
+	/* Set resume handler */
+	req->engine_handler = ocf_read_pt_do;
 
 	ocf_req_hash(req);
 	ocf_hb_req_prot_lock_rd(req);
@@ -146,7 +142,7 @@ int ocf_read_pt(struct ocf_request *req)
 		 * because of this force read data from cache
 		 */
 		ocf_req_clear(req);
-		ocf_get_io_if(ocf_cache_mode_wt)->read(req);
+		ocf_read_generic(req);
 	} else {
 		if (lock >= 0) {
 			if (lock == OCF_LOCK_ACQUIRED) {
@@ -171,6 +167,6 @@ int ocf_read_pt(struct ocf_request *req)
 
 void ocf_engine_push_req_front_pt(struct ocf_request *req)
 {
-	ocf_engine_push_req_front_if(req, &_io_if_pt_resume, true);
+	ocf_engine_push_req_front_cb(req, ocf_read_pt_do, true);
 }
 

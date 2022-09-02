@@ -150,11 +150,6 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_wo_cache_read = {
-	.read = ocf_read_wo_cache_do,
-	.write = ocf_read_wo_cache_do,
-};
-
 static void _ocf_read_wo_core_complete(struct ocf_request *req, int error)
 {
 	if (error) {
@@ -173,7 +168,7 @@ static void _ocf_read_wo_core_complete(struct ocf_request *req, int error)
 		return;
 	}
 
-	req->io_if = &_io_if_wo_cache_read;
+	req->engine_handler = ocf_read_wo_cache_do;
 	ocf_engine_push_req_front(req, true);
 }
 
@@ -206,11 +201,6 @@ int ocf_read_wo_do(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_wo_resume = {
-	.read = ocf_read_wo_do,
-	.write = ocf_read_wo_do,
-};
-
 int ocf_read_wo(struct ocf_request *req)
 {
 	int lock = OCF_LOCK_ACQUIRED;
@@ -223,7 +213,7 @@ int ocf_read_wo(struct ocf_request *req)
 	ocf_req_get(req);
 
 	/* Set resume call backs */
-	req->io_if = &_io_if_wo_resume;
+	req->engine_handler = ocf_read_wo_do;
 
 	ocf_req_hash(req);
 	ocf_hb_req_prot_lock_rd(req); /*- Metadata RD access -----------------------*/

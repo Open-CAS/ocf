@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -17,31 +17,6 @@
 
 #define OCF_ENGINE_DEBUG_IO_NAME "discard"
 #include "engine_debug.h"
-
-static int _ocf_discard_step_do(struct ocf_request *req);
-static int _ocf_discard_step(struct ocf_request *req);
-static int _ocf_discard_flush_cache(struct ocf_request *req);
-static int _ocf_discard_core(struct ocf_request *req);
-
-static const struct ocf_io_if _io_if_discard_step = {
-	.read = _ocf_discard_step,
-	.write = _ocf_discard_step,
-};
-
-static const struct ocf_io_if _io_if_discard_step_resume = {
-	.read = _ocf_discard_step_do,
-	.write = _ocf_discard_step_do,
-};
-
-static const struct ocf_io_if _io_if_discard_flush_cache = {
-	.read = _ocf_discard_flush_cache,
-	.write = _ocf_discard_flush_cache,
-};
-
-static const struct ocf_io_if _io_if_discard_core = {
-	.read = _ocf_discard_core,
-	.write = _ocf_discard_core,
-};
 
 static void _ocf_discard_complete_req(struct ocf_request *req, int error)
 {
@@ -97,7 +72,7 @@ static void _ocf_discard_cache_flush_complete(struct ocf_io *io, int error)
 		return;
 	}
 
-	req->io_if = &_io_if_discard_core;
+	req->engine_handler = _ocf_discard_core;
 	ocf_engine_push_req_front(req, true);
 
 	ocf_io_put(io);
@@ -122,16 +97,18 @@ static int _ocf_discard_flush_cache(struct ocf_request *req)
 	return 0;
 }
 
+static int _ocf_discard_step(struct ocf_request *req);
+
 static void _ocf_discard_finish_step(struct ocf_request *req)
 {
 	req->discard.handled += BYTES_TO_SECTORS(req->byte_length);
 
 	if (req->discard.handled < req->discard.nr_sects)
-		req->io_if = &_io_if_discard_step;
+		req->engine_handler = _ocf_discard_step;
 	else if (!req->cache->metadata.is_volatile)
-		req->io_if = &_io_if_discard_flush_cache;
+		req->engine_handler = _ocf_discard_flush_cache;
 	else
-		req->io_if = &_io_if_discard_core;
+		req->engine_handler = _ocf_discard_core;
 
 	ocf_engine_push_req_front(req, true);
 }
@@ -222,7 +199,7 @@ static int _ocf_discard_step(struct ocf_request *req)
 	req->core_line_last =
 		ocf_bytes_2_lines(cache, req->byte_position + req->byte_length - 1);
 	req->core_line_count = req->core_line_last - req->core_line_first + 1;
-	req->io_if = &_io_if_discard_step_resume;
+	req->engine_handler = _ocf_discard_step_do;
 
 	ENV_BUG_ON(env_memset(req->map, sizeof(*req->map) * req->core_line_count,
 			0));

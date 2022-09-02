@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -99,11 +99,6 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_read_fast_resume = {
-	.read = _ocf_read_fast_do,
-	.write = _ocf_read_fast_do,
-};
-
 int ocf_read_fast(struct ocf_request *req)
 {
 	bool hit;
@@ -113,8 +108,8 @@ int ocf_read_fast(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	/* Set resume io_if */
-	req->io_if = &_io_if_read_fast_resume;
+	/* Set resume handler */
+	req->engine_handler = _ocf_read_fast_do;
 
 	/*- Metadata RD access -----------------------------------------------*/
 
@@ -171,11 +166,6 @@ int ocf_read_fast(struct ocf_request *req)
  *      \/  \/ |_|  |_|\__\___| |_|  \__,_|___/\__| |_|   \__,_|\__|_| |_|
  */
 
-static const struct ocf_io_if _io_if_write_fast_resume = {
-	.read = ocf_write_wb_do,
-	.write = ocf_write_wb_do,
-};
-
 int ocf_write_fast(struct ocf_request *req)
 {
 	bool mapped;
@@ -185,8 +175,8 @@ int ocf_write_fast(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	/* Set resume io_if */
-	req->io_if = &_io_if_write_fast_resume;
+	/* Set resume handler */
+	req->engine_handler = ocf_write_wb_do;
 
 	/*- Metadata RD access -----------------------------------------------*/
 

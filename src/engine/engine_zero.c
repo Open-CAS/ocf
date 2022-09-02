@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -40,11 +40,6 @@ static int ocf_zero_purge(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_zero_purge = {
-	.read = ocf_zero_purge,
-	.write = ocf_zero_purge,
-};
-
 static void _ocf_zero_io_flush_metadata(struct ocf_request *req, int error)
 {
 	if (error) {
@@ -55,7 +50,7 @@ static void _ocf_zero_io_flush_metadata(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	ocf_engine_push_req_front_if(req, &_io_if_zero_purge, true);
+	ocf_engine_push_req_front_cb(req, ocf_zero_purge, true);
 }
 
 static inline void ocf_zero_map_info(struct ocf_request *req)
@@ -124,11 +119,6 @@ static int _ocf_zero_do(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_ocf_zero_do = {
-	.read = _ocf_zero_do,
-	.write = _ocf_zero_do,
-};
-
 /**
  * @note
  *	- Caller has to have metadata write lock
@@ -149,7 +139,7 @@ void ocf_engine_zero_line(struct ocf_request *req)
 
 	ENV_BUG_ON(!ocf_engine_is_mapped(req));
 
-	req->io_if = &_io_if_ocf_zero_do;
+	req->engine_handler = _ocf_zero_do;
 
 	/* Some cache line are mapped, lock request for WRITE access */
 	lock = ocf_req_async_lock_wr(
@@ -158,7 +148,7 @@ void ocf_engine_zero_line(struct ocf_request *req)
 
 	if (lock >= 0) {
 		ENV_BUG_ON(lock != OCF_LOCK_ACQUIRED);
-		ocf_engine_push_req_front_if(req, &_io_if_ocf_zero_do, true);
+		ocf_engine_push_req_front_cb(req, _ocf_zero_do, true);
 	} else {
 		OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);
 		req->complete(req, lock);

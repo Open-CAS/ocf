@@ -293,11 +293,6 @@ static int _ocf_cleaner_fire_flush_cache(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_flush_cache = {
-	.read = _ocf_cleaner_fire_flush_cache,
-	.write = _ocf_cleaner_fire_flush_cache,
-};
-
 static void _ocf_cleaner_metadata_io_end(struct ocf_request *req, int error)
 {
 	if (error) {
@@ -309,7 +304,7 @@ static void _ocf_cleaner_metadata_io_end(struct ocf_request *req, int error)
 
 	OCF_DEBUG_MSG(req->cache, "Metadata flush finished");
 
-	req->io_if = &_io_if_flush_cache;
+	req->engine_handler = _ocf_cleaner_fire_flush_cache;
 	ocf_engine_push_req_front(req, true);
 }
 
@@ -361,11 +356,6 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_update_metadata = {
-		.read = _ocf_cleaner_update_metadata,
-		.write = _ocf_cleaner_update_metadata,
-};
-
 static void _ocf_cleaner_flush_cores_io_end(struct ocf_map_info *map,
 		struct ocf_request *req, int error)
 {
@@ -393,7 +383,7 @@ static void _ocf_cleaner_flush_cores_io_end(struct ocf_map_info *map,
 	/*
 	 * All core writes done, switch to post cleaning activities
 	 */
-	req->io_if = &_io_if_update_metadata;
+	req->engine_handler = _ocf_cleaner_update_metadata;
 	ocf_engine_push_req_front(req, true);
 }
 
@@ -454,11 +444,6 @@ static int _ocf_cleaner_fire_flush_cores(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_flush_cores = {
-	.read = _ocf_cleaner_fire_flush_cores,
-	.write = _ocf_cleaner_fire_flush_cores,
-};
-
 static void _ocf_cleaner_core_io_end(struct ocf_request *req)
 {
 	if (env_atomic_dec_return(&req->req_remaining))
@@ -470,7 +455,7 @@ static void _ocf_cleaner_core_io_end(struct ocf_request *req)
 	 * All cache read requests done, now we can submit writes to cores,
 	 * Move processing to thread, where IO will be (and can be) submitted
 	 */
-	req->io_if = &_io_if_flush_cores;
+	req->engine_handler = _ocf_cleaner_fire_flush_cores;
 	ocf_engine_push_req_front(req, true);
 }
 
@@ -619,11 +604,6 @@ static int _ocf_cleaner_fire_core(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_fire_core = {
-		.read = _ocf_cleaner_fire_core,
-		.write = _ocf_cleaner_fire_core,
-};
-
 static void _ocf_cleaner_cache_io_end(struct ocf_request *req)
 {
 	if (env_atomic_dec_return(&req->req_remaining))
@@ -633,7 +613,7 @@ static void _ocf_cleaner_cache_io_end(struct ocf_request *req)
 	 * All cache read requests done, now we can submit writes to cores,
 	 * Move processing to thread, where IO will be (and can be) submitted
 	 */
-	req->io_if = &_io_if_fire_core;
+	req->engine_handler = _ocf_cleaner_fire_core;
 	ocf_engine_push_req_front(req, true);
 
 	OCF_DEBUG_MSG(req->cache, "Cache reads finished");
@@ -723,16 +703,11 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_fire_cache = {
-	.read = _ocf_cleaner_fire_cache,
-	.write = _ocf_cleaner_fire_cache,
-};
-
 static int _ocf_cleaner_fire(struct ocf_request *req)
 {
 	int result;
 
-	req->io_if = &_io_if_fire_cache;
+	req->engine_handler = _ocf_cleaner_fire_cache;
 
 	/* Handle cache lines locks */
 	result = _ocf_cleaner_cache_line_lock(req);

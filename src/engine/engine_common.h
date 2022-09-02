@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -304,12 +304,12 @@ void ocf_engine_push_req_front(struct ocf_request *req,
  * @brief Set interface and push from request to the OCF thread worker queue
  *
  * @param req OCF request
- * @param io_if IO interface
+ * @param engine_cb IO engine handler callback
  * @param allow_sync caller allows for request from queue to be ran immediately
 		from push function in caller context
  */
-void ocf_engine_push_req_front_if(struct ocf_request *req,
-		const struct ocf_io_if *io_if,
+void ocf_engine_push_req_front_cb(struct ocf_request *req,
+		ocf_engine_cb engine_cb,
 		bool allow_sync);
 
 void inc_fallback_pt_error_counter(ocf_cache_t cache);

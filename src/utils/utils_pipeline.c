@@ -67,11 +67,6 @@ static int _ocf_pipeline_run_step(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_pipeline = {
-	.read = _ocf_pipeline_run_step,
-	.write = _ocf_pipeline_run_step,
-};
-
 int ocf_pipeline_create(ocf_pipeline_t *pipeline, ocf_cache_t cache,
 		struct ocf_pipeline_properties *properties)
 {
@@ -101,7 +96,7 @@ int ocf_pipeline_create(ocf_pipeline_t *pipeline, ocf_cache_t cache,
 	tmp_pipeline->error = 0;
 
 	req->info.internal = true;
-	req->io_if = &_io_if_pipeline;
+	req->engine_handler = _ocf_pipeline_run_step;
 	req->priv = tmp_pipeline;
 
 	*pipeline = tmp_pipeline;

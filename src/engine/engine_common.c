@@ -644,12 +644,12 @@ void ocf_engine_push_req_front(struct ocf_request *req, bool allow_sync)
 	ocf_queue_kick(q, allow_sync);
 }
 
-void ocf_engine_push_req_front_if(struct ocf_request *req,
-		const struct ocf_io_if *io_if,
+void ocf_engine_push_req_front_cb(struct ocf_request *req,
+		ocf_engine_cb engine_cb,
 		bool allow_sync)
 {
 	req->error = 0; /* Please explain why!!! */
-	req->io_if = io_if;
+	req->engine_handler = engine_cb;
 	ocf_engine_push_req_front(req, allow_sync);
 }
 
@@ -681,16 +681,10 @@ static int _ocf_engine_refresh(struct ocf_request *req)
 	if (result == 0) {
 
 		/* Refresh successful, can process with original IO interface */
-		req->io_if = req->priv;
-
+		req->engine_handler = req->priv;
 		req->priv = NULL;
 
-		if (req->rw == OCF_READ)
-			req->io_if->read(req);
-		else if (req->rw == OCF_WRITE)
-			req->io_if->write(req);
-		else
-			ENV_BUG();
+		req->engine_handler(req);
 	} else {
 		ENV_WARN(true, "Inconsistent request");
 		req->error = -OCF_ERR_INVAL;
@@ -708,20 +702,15 @@ static int _ocf_engine_refresh(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_refresh = {
-	.read = _ocf_engine_refresh,
-	.write = _ocf_engine_refresh,
-};
-
 void ocf_engine_on_resume(struct ocf_request *req)
 {
 	ENV_BUG_ON(req->priv);
-	OCF_CHECK_NULL(req->io_if);
+	OCF_CHECK_NULL(req->engine_handler);
 
-	/* Exchange IO interface */
-	req->priv = (void *)req->io_if;
+	/* Exchange engine handler */
+	req->priv = (void *)req->engine_handler;
 
 	OCF_DEBUG_RQ(req, "On resume");
 
-	ocf_engine_push_req_front_if(req, &_io_if_refresh, false);
+	ocf_engine_push_req_front_cb(req, _ocf_engine_refresh, false);
 }

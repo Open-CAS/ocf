@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -128,8 +128,8 @@ struct ocf_request {
 	ocf_core_t core;
 	/*!< Handle to core instance */
 
-	const struct ocf_io_if *io_if;
-	/*!< IO interface */
+	ocf_engine_cb engine_handler;
+	/*!< IO engine handler */
 
 	void *priv;
 	/*!< Filed for private data, context */

@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -85,10 +85,7 @@ void ocf_io_handle(struct ocf_io *io, void *opaque)
 
 	OCF_CHECK_NULL(req);
 
-	if (req->rw == OCF_WRITE)
-		req->io_if->write(req);
-	else
-		req->io_if->read(req);
+	req->engine_handler(req);
 }
 
 void ocf_queue_run_single(ocf_queue_t q)
