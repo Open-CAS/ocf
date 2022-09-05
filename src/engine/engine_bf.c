@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -41,8 +41,10 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 {
 	struct ocf_cache *cache = req->cache;
 
-	if (error)
+	if (error) {
 		req->error = error;
+		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
+	}
 
 	if (req->error)
 		inc_fallback_pt_error_counter(req->cache);
@@ -63,7 +65,6 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 	req->data = NULL;
 
 	if (req->error) {
-		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
 		ocf_engine_invalidate(req);
 	} else {
 		ocf_req_unlock(ocf_cache_line_concurrency(cache), req);
