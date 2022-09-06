@@ -161,6 +161,8 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	if (ret)
 		goto err_cache;
 
+	ocf_volume_destroy(volume);
+
 	return 0;
 
 err_cache:

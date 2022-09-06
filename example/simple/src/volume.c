@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2019-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -21,6 +21,10 @@ static int volume_open(ocf_volume_t volume, void *volume_params)
 
 	myvolume->name = ocf_uuid_to_str(uuid);
 	myvolume->mem = malloc(VOL_SIZE);
+	if (!myvolume->mem)
+		return -ENOMEM;
+
+	memset(myvolume->mem, 0, VOL_SIZE);
 
 	printf("VOL OPEN: (name: %s)\n", myvolume->name);
 
