@@ -1650,6 +1650,9 @@ static void ocf_metadata_load_properties_cmpl(
 	ocf_ctx_t ctx = context->ctx;
 	int result;
 
+	if (context->error)
+		OCF_CMPL_RET(priv, context->error, NULL);
+
 	result = ocf_metadata_validate_superblock(ctx, superblock);
 	if (result)
 		OCF_CMPL_RET(priv, result, NULL);
@@ -1693,6 +1696,9 @@ static void ocf_metadata_probe_cmpl(struct ocf_metadata_read_sb_ctx *context)
 	struct ocf_superblock_config *superblock = &context->superblock;
 	ocf_metadata_probe_end_t cmpl = context->priv1;
 	void *priv = context->priv2;
+
+	if (context->error)
+		OCF_CMPL_RET(priv, context->error, NULL);
 
 	if (superblock->magic_number != CACHE_MAGIC_NUMBER)
 		OCF_CMPL_RET(priv, -OCF_ERR_NO_METADATA, NULL);
