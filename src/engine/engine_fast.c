@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -30,8 +30,10 @@
 
 static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 {
-	if (error)
+	if (error) {
 		req->error |= error;
+		ocf_core_stats_cache_error_update(req->core, OCF_READ);
+	}
 
 	if (env_atomic_dec_return(&req->req_remaining)) {
 		/* Not all requests finished */
@@ -43,7 +45,6 @@ static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 	if (req->error) {
 		OCF_DEBUG_RQ(req, "ERROR");
 
-		ocf_core_stats_cache_error_update(req->core, OCF_READ);
 		ocf_engine_push_req_front_pt(req);
 	} else {
 		ocf_req_unlock(ocf_cache_line_concurrency(req->cache), req);

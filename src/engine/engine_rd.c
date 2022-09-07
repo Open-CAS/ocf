@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -27,11 +27,11 @@ static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 	struct ocf_alock *c = ocf_cache_line_concurrency(
 			req->cache);
 
-	if (error)
+	if (error) {
 		req->error |= error;
-
-	if (req->error)
+		ocf_core_stats_cache_error_update(req->core, OCF_READ);
 		inc_fallback_pt_error_counter(req->cache);
+	}
 
 	/* Handle callback-caller race to let only one of the two complete the
 	 * request. Also, complete original request only if this is the last
@@ -41,7 +41,6 @@ static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 		OCF_DEBUG_RQ(req, "HIT completion");
 
 		if (req->error) {
-			ocf_core_stats_cache_error_update(req->core, OCF_READ);
 			ocf_engine_push_req_front_pt(req);
 		} else {
 			ocf_req_unlock(c, req);
