@@ -2335,6 +2335,9 @@ static void _ocf_mngt_activate_compare_superblock_end(
 	ocf_cache_t cache = context->cache;
 	int result, diff;
 
+	if (sb_ctx->error)
+		OCF_PL_FINISH_RET(context->pipeline, sb_ctx->error);
+
 	result = env_memcmp(cache->conf_meta, sizeof(*cache->conf_meta),
 			superblock, sizeof(*superblock), &diff);
 	if (result)
