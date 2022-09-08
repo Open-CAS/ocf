@@ -1,10 +1,12 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
 #include "../ocf_cache_priv.h"
 #include "engine_wa.h"
+#include "engine_wt.h"
+#include "engine_wi.h"
 #include "engine_common.h"
 #include "cache_engine.h"
 #include "../ocf_request.h"
@@ -34,13 +36,13 @@ int ocf_write_wa(struct ocf_request *req)
 		ocf_req_clear(req);
 
 		/* There is HIT, do WT */
-		ocf_get_io_if(ocf_cache_mode_wt)->write(req);
+		ocf_write_wt(req);
 
 	} else {
 		ocf_req_clear(req);
 
 		/* MISS, do WI */
-		ocf_get_io_if(ocf_cache_mode_wi)->write(req);
+		ocf_write_wi(req);
 	}
 
 	/* Put OCF request - decrease reference counter */

@@ -1,11 +1,12 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
 #include "../ocf_cache_priv.h"
 #include "engine_wt.h"
+#include "engine_wi.h"
 #include "engine_inv.h"
 #include "engine_common.h"
 #include "../ocf_request.h"
@@ -91,11 +92,6 @@ static int ocf_write_wt_do_flush_metadata(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_wt_flush_metadata = {
-	.read = ocf_write_wt_do_flush_metadata,
-	.write = ocf_write_wt_do_flush_metadata,
-};
-
 static void _ocf_write_wt_req_complete(struct ocf_request *req)
 {
 	if (env_atomic_dec_return(&req->req_remaining))
@@ -116,7 +112,8 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 
 	if (req->info.dirty_any) {
 		/* Some of the request's cachelines changed its state to clean */
-		ocf_engine_push_req_front_if(req, &_io_if_wt_flush_metadata, true);
+		ocf_engine_push_req_front_cb(req,
+				ocf_write_wt_do_flush_metadata, true);
 	} else {
 		ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
@@ -195,11 +192,6 @@ static int _ocf_write_wt_do(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_wt_resume = {
-	.read = _ocf_write_wt_do,
-	.write = _ocf_write_wt_do,
-};
-
 static const struct ocf_engine_callbacks _wt_engine_callbacks =
 {
 	.resume = ocf_engine_on_resume,
@@ -214,8 +206,8 @@ int ocf_write_wt(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	/* Set resume io_if */
-	req->io_if = &_io_if_wt_resume;
+	/* Set resume handler */
+	req->engine_handler = _ocf_write_wt_do;
 	req->engine_cbs = &_wt_engine_callbacks;
 
 	lock = ocf_engine_prepare_clines(req);
@@ -235,7 +227,7 @@ int ocf_write_wt(struct ocf_request *req)
 		}
 	} else {
 		ocf_req_clear(req);
-		ocf_get_io_if(ocf_cache_mode_pt)->write(req);
+		ocf_write_wi(req);
 	}
 
 	/* Put OCF request - decrease reference counter */

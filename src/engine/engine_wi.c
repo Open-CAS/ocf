@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -15,13 +15,6 @@
 
 #define OCF_ENGINE_DEBUG_IO_NAME "wi"
 #include "engine_debug.h"
-
-static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *req);
-
-static const struct ocf_io_if _io_if_wi_update_metadata = {
-		.read = ocf_write_wi_update_and_flush_metadata,
-		.write = ocf_write_wi_update_and_flush_metadata,
-};
 
 int _ocf_write_wi_next_pass(struct ocf_request *req)
 {
@@ -50,11 +43,6 @@ int _ocf_write_wi_next_pass(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_wi_next_pass = {
-		.read = _ocf_write_wi_next_pass,
-		.write = _ocf_write_wi_next_pass,
-};
-
 static void _ocf_write_wi_io_flush_metadata(struct ocf_request *req, int error)
 {
 	if (error) {
@@ -67,7 +55,7 @@ static void _ocf_write_wi_io_flush_metadata(struct ocf_request *req, int error)
 
 	if (!req->error && !req->wi_second_pass && ocf_engine_is_miss(req)) {
 		/* need another pass */
-		ocf_engine_push_req_front_if(req, &_io_if_wi_next_pass,
+		ocf_engine_push_req_front_cb(req, _ocf_write_wi_next_pass,
 				true);
 		return;
 	}
@@ -134,8 +122,8 @@ static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 
 		ocf_req_put(req);
 	} else {
-		ocf_engine_push_req_front_if(req, &_io_if_wi_update_metadata,
-				true);
+		ocf_engine_push_req_front_cb(req,
+				ocf_write_wi_update_and_flush_metadata, true);
 	}
 }
 
@@ -169,11 +157,6 @@ static void _ocf_write_wi_on_resume(struct ocf_request *req)
 	ocf_engine_push_req_front(req, true);
 }
 
-static const struct ocf_io_if _io_if_wi_core_write = {
-	.read = _ocf_write_wi_core_write,
-	.write = _ocf_write_wi_core_write,
-};
-
 int ocf_write_wi(struct ocf_request *req)
 {
 	int lock = OCF_LOCK_NOT_ACQUIRED;
@@ -185,10 +168,10 @@ int ocf_write_wi(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	/* Set resume io_if */
-	req->io_if = req->wi_second_pass ?
-			&_io_if_wi_update_metadata :
-			&_io_if_wi_core_write;
+	/* Set resume handler */
+	req->engine_handler = req->wi_second_pass ?
+			ocf_write_wi_update_and_flush_metadata :
+			_ocf_write_wi_core_write;
 
 	ocf_req_hash(req);
 	ocf_hb_req_prot_lock_rd(req); /*- Metadata READ access, No eviction --------*/
@@ -209,7 +192,7 @@ int ocf_write_wi(struct ocf_request *req)
 
 	if (lock >= 0) {
 		if (lock == OCF_LOCK_ACQUIRED) {
-			req->io_if->write(req);
+			req->engine_handler(req);
 		} else {
 			/* WR lock was not acquired, need to wait for resume */
 			OCF_DEBUG_RQ(req, "NO LOCK");

@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -45,11 +45,6 @@ static int _ocf_parallelize_hndl(struct ocf_request *req)
 
 	return 0;
 }
-
-static const struct ocf_io_if _io_if_parallelize = {
-	.read = _ocf_parallelize_hndl,
-	.write = _ocf_parallelize_hndl,
-};
 
 int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 		ocf_cache_t cache, unsigned shards_cnt, uint32_t priv_size,
@@ -97,7 +92,8 @@ int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 				goto err_reqs;
 			}
 			tmp_parallelize->reqs[i]->info.internal = true;
-			tmp_parallelize->reqs[i]->io_if = &_io_if_parallelize;
+			tmp_parallelize->reqs[i]->engine_handler =
+					_ocf_parallelize_hndl;
 			tmp_parallelize->reqs[i]->byte_position = i;
 			tmp_parallelize->reqs[i]->priv = tmp_parallelize;
 			i++;

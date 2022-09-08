@@ -137,11 +137,6 @@ int metadata_io_read_i_atomic_step(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_metadata_io_read_i_atomic_step = {
-	.read = metadata_io_read_i_atomic_step,
-	.write = metadata_io_read_i_atomic_step,
-};
-
 /*
  * Iterative read request
  */
@@ -166,7 +161,7 @@ int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue, void *priv,
 	}
 
 	context->req->info.internal = true;
-	context->req->io_if = &_io_if_metadata_io_read_i_atomic_step;
+	context->req->engine_handler = metadata_io_read_i_atomic_step;
 	context->req->priv = context;
 
 	/* Allocate one 4k page for metadata*/
@@ -262,11 +257,6 @@ static int metadata_io_do(struct ocf_request *req)
 	return 0;
 }
 
-static struct ocf_io_if metadata_io_do_if = {
-	.read = metadata_io_do,
-	.write = metadata_io_do,
-};
-
 void metadata_io_req_finalize(struct metadata_io_request *m_req)
 {
 	struct metadata_io_request_asynch *a_req = m_req->asynch;
@@ -287,7 +277,7 @@ static int metadata_io_restart_req(struct ocf_request *req)
 	struct metadata_io_request_asynch *a_req = m_req->asynch;
 	int lock;
 
-	m_req->req.io_if = &metadata_io_do_if;
+	m_req->req.engine_handler = metadata_io_do;
 
 	if (!a_req->mio_conc) {
 		metadata_io_do(&m_req->req);
@@ -308,11 +298,6 @@ static int metadata_io_restart_req(struct ocf_request *req)
 
 	return 0;
 }
-
-static struct ocf_io_if metadata_io_restart_if = {
-	.read = metadata_io_restart_req,
-	.write = metadata_io_restart_req,
-};
 
 static void  metadata_io_req_advance(struct metadata_io_request *m_req);
 
@@ -414,7 +399,7 @@ void metadata_io_req_complete(struct metadata_io_request *m_req)
 		return;
 	}
 
-	m_req->req.io_if = &metadata_io_restart_if;
+	m_req->req.engine_handler = metadata_io_restart_req;
 	ocf_engine_push_req_front(&m_req->req, true);
 }
 
@@ -463,7 +448,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 		m_req->asynch = a_req;
 		m_req->cache = cache;
 		m_req->context = context;
-		m_req->req.io_if = &metadata_io_restart_if;
+		m_req->req.engine_handler = metadata_io_restart_req;
 		m_req->req.io_queue = queue;
 		m_req->req.cache = cache;
 		m_req->req.priv = m_req;

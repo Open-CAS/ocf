@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -417,11 +417,6 @@ static int _ofc_flush_container_step(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_flush_portion = {
-	.read = _ofc_flush_container_step,
-	.write = _ofc_flush_container_step,
-};
-
 static void _ocf_mngt_flush_container(
 		struct ocf_mngt_cache_flush_context *context,
 		struct flush_container *fc, ocf_flush_containter_coplete_t end)
@@ -443,7 +438,7 @@ static void _ocf_mngt_flush_container(
 	}
 
 	req->info.internal = true;
-	req->io_if = &_io_if_flush_portion;
+	req->engine_handler = _ofc_flush_container_step;
 	req->priv = fc;
 
 	fc->req = req;

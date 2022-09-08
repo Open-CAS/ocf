@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -376,11 +376,6 @@ static void raw_dynamic_load_all_complete(
 
 static int raw_dynamic_load_all_update(struct ocf_request *req);
 
-static const struct ocf_io_if _io_if_raw_dynamic_load_all_update = {
-	.read = raw_dynamic_load_all_update,
-	.write = raw_dynamic_load_all_update,
-};
-
 static void raw_dynamic_load_all_read_end(struct ocf_io *io, int error)
 {
 	struct raw_dynamic_load_all_context *context = io->priv1;
@@ -392,7 +387,7 @@ static void raw_dynamic_load_all_read_end(struct ocf_io *io, int error)
 		return;
 	}
 
-	context->req->io_if = &_io_if_raw_dynamic_load_all_update;
+	context->req->engine_handler = raw_dynamic_load_all_update;
 	ocf_engine_push_req_front(context->req, true);
 }
 
@@ -436,11 +431,6 @@ static int raw_dynamic_load_all_read(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_raw_dynamic_load_all_read = {
-	.read = raw_dynamic_load_all_read,
-	.write = raw_dynamic_load_all_read,
-};
-
 static int raw_dynamic_load_all_update(struct ocf_request *req)
 {
 	struct raw_dynamic_load_all_context *context = req->priv;
@@ -463,7 +453,7 @@ static int raw_dynamic_load_all_update(struct ocf_request *req)
 		return 0;
 	}
 
-	context->req->io_if = &_io_if_raw_dynamic_load_all_read;
+	context->req->engine_handler = raw_dynamic_load_all_read;
 	ocf_engine_push_req_front(context->req, true);
 
 	return 0;
@@ -508,7 +498,7 @@ void raw_dynamic_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 
 	context->req->info.internal = true;
 	context->req->priv = context;
-	context->req->io_if = &_io_if_raw_dynamic_load_all_read;
+	context->req->engine_handler = raw_dynamic_load_all_read;
 
 	ocf_engine_push_req_front(context->req, true);
 	return;

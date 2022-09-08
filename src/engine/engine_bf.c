@@ -91,13 +91,8 @@ static int _ocf_backfill_do(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_backfill = {
-	.read = _ocf_backfill_do,
-	.write = _ocf_backfill_do,
-};
-
 void ocf_engine_backfill(struct ocf_request *req)
 {
 	backfill_queue_inc_block(req->cache);
-	ocf_engine_push_req_front_if(req, &_io_if_backfill, true);
+	ocf_engine_push_req_front_cb(req, _ocf_backfill_do, true);
 }

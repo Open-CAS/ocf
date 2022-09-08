@@ -204,11 +204,6 @@ static int _ocf_read_generic_do(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_read_generic_resume = {
-	.read = _ocf_read_generic_do,
-	.write = _ocf_read_generic_do,
-};
-
 static const struct ocf_engine_callbacks _rd_engine_callbacks =
 {
 	.resume = ocf_engine_on_resume,
@@ -224,7 +219,7 @@ int ocf_read_generic(struct ocf_request *req)
 	if (env_atomic_read(&cache->pending_read_misses_list_blocked)) {
 		/* There are conditions to bypass IO */
 		req->force_pt = true;
-		ocf_get_io_if(ocf_cache_mode_pt)->read(req);
+		ocf_read_pt(req);
 		return 0;
 	}
 
@@ -232,7 +227,7 @@ int ocf_read_generic(struct ocf_request *req)
 	ocf_req_get(req);
 
 	/* Set resume call backs */
-	req->io_if = &_io_if_read_generic_resume;
+	req->engine_handler = _ocf_read_generic_do;
 	req->engine_cbs = &_rd_engine_callbacks;
 
 	lock = ocf_engine_prepare_clines(req);
@@ -254,7 +249,7 @@ int ocf_read_generic(struct ocf_request *req)
 	} else {
 		ocf_req_clear(req);
 		req->force_pt = true;
-		ocf_get_io_if(ocf_cache_mode_pt)->read(req);
+		ocf_read_pt(req);
 	}
 
 

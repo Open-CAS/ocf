@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -60,12 +60,7 @@ static int _ocf_invalidate_do(struct ocf_request *req)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_invalidate = {
-	.read = _ocf_invalidate_do,
-	.write = _ocf_invalidate_do,
-};
-
 void ocf_engine_invalidate(struct ocf_request *req)
 {
-	ocf_engine_push_req_front_if(req, &_io_if_invalidate, true);
+	ocf_engine_push_req_front_cb(req, _ocf_invalidate_do, true);
 }

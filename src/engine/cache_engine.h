@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -32,10 +32,10 @@ typedef enum {
 	ocf_req_cache_mode_max,
 } ocf_req_cache_mode_t;
 
-struct ocf_io_if {
-	int (*read)(struct ocf_request *req);
+typedef int (*ocf_engine_cb)(struct ocf_request *req);
 
-	int (*write)(struct ocf_request *req);
+struct ocf_io_if {
+	ocf_engine_cb cbs[2]; /* READ and WRITE */
 
 	const char *name;
 };
@@ -43,14 +43,7 @@ struct ocf_io_if {
 void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		ocf_core_t core, struct ocf_request *req);
 
-const struct ocf_io_if *ocf_get_io_if(ocf_req_cache_mode_t cache_mode);
-
-static inline const char *ocf_get_io_iface_name(ocf_cache_mode_t cache_mode)
-{
-	const struct ocf_io_if *iface = ocf_get_io_if(cache_mode);
-
-	return iface ? iface->name : "Unknown";
-}
+const char *ocf_get_io_iface_name(ocf_req_cache_mode_t cache_mode);
 
 bool ocf_req_cache_mode_has_lazy_write(ocf_req_cache_mode_t mode);
 
