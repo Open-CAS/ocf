@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2025 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -11,9 +12,8 @@ INCDIR=$(ADAPTERDIR)/ocf/include
 WRAPDIR=$(ADAPTERDIR)/c/wrappers
 HELPDIR=$(ADAPTERDIR)/c/helpers
 
-CC=gcc
-CFLAGS=-g -Wall -I$(INCDIR) -I$(SRCDIR)/ocf/env
-LDFLAGS=-pthread -lz
+CFLAGS=-g -Wall -I$(INCDIR) -I$(SRCDIR)/ocf/env $(OPT_CFLAGS)
+LDFLAGS=-pthread #-lz
 
 SRC=$(shell find $(SRCDIR) $(WRAPDIR) $(HELPDIR) -name \*.c)
 OBJS=$(patsubst %.c, %.o, $(SRC))
@@ -48,6 +48,7 @@ distclean: clean
 	@rm -rf $(OCFLIB) $(OBJS)
 	@rm -rf $(SRCDIR)/ocf
 	@rm -rf $(INCDIR)/ocf
+	@find . -name *.gc* -delete
 	@echo "  DISTCLEAN "
 
 .PHONY: all clean sync config_random distclean
