@@ -445,9 +445,9 @@ struct ocf_mngt_cache_attach_config {
 };
 
 /**
- * @brief Initialize core config to default values
+ * @brief Initialize attach config to default values
  *
- * @note This function doesn't initiialize uuid and volume_type fields
+ * @note This function doesn't initialize uuid and volume_type fields
  *       which have no default values and are required to be set by user.
  *
  * @param[in] cfg Cache device config stucture
