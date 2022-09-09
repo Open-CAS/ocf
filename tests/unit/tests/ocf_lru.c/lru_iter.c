@@ -1,4 +1,9 @@
 /*
+ * Copyright(c) 2021-2022 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * <tested_file_path>src/ocf_lru.c</tested_file_path>
  * <tested_function>lru_iter_next</tested_function>
  * <functions_to_leave>

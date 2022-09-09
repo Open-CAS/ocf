@@ -1,4 +1,9 @@
 /*
+ * Copyright(c) 2019-2022 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  *<tested_file_path>src/mngt/ocf_mngt_cache.c</tested_file_path>
  *	<tested_function>ocf_mngt_cache_set_fallback_pt_error_threshold</tested_function>
  *	<functions_to_leave>

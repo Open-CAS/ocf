@@ -1,4 +1,9 @@
 /*
+ * Copyright(c) 2021-2022 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * <tested_file_path>src/ocf_space.c</tested_file_path>
  * <tested_function>ocf_remap_do</tested_function>
  * <functions_to_leave>

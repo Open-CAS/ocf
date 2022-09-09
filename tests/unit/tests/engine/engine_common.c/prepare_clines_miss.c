@@ -1,4 +1,9 @@
 /*
+ * Copyright(c) 2020-2022 Intel Corporation
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * <tested_file_path>src/engine/engine_common.c</tested_file_path>
  * <tested_function>ocf_prepare_clines_miss</tested_function>
  * <functions_to_leave>
