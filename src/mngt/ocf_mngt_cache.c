@@ -1220,6 +1220,8 @@ static void _ocf_mngt_attach_init_services(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 	ocf_error_t result;
 
+	__setup_promotion_policy(cache);
+
 	if (context->metadata.cleaner_disabled)
 		__set_cleaning_policy(cache, ocf_cleaning_nop);
 
@@ -1229,8 +1231,6 @@ static void _ocf_mngt_attach_init_services(ocf_pipeline_t pipeline,
 				"Cannot initialize cleaning policy\n");
 		OCF_PL_FINISH_RET(pipeline, result);
 	}
-
-	__setup_promotion_policy(cache);
 
 	/* In initial cache state there is no dirty data, so all dirty data is
 	   considered to be flushed
