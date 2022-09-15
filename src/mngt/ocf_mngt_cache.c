@@ -130,6 +130,9 @@ struct ocf_cache_attach_context {
 		bool promotion_initialized : 1;
 			/*!< Promotion policy has been started */
 
+		bool cleaning_initialized : 1;
+			/*!< Cleaning policy has been initialized */
+
 		bool cores_opened : 1;
 			/*!< underlying cores are opened (happens only during
 			 * load or recovery
@@ -1233,6 +1236,7 @@ static void _ocf_mngt_attach_init_services(ocf_pipeline_t pipeline,
 	   considered to be flushed
 	 */
 	cache->conf_meta->dirty_flushed = true;
+	context->flags.cleaning_initialized = true;
 
 	ocf_pipeline_next(pipeline);
 }
@@ -1727,6 +1731,9 @@ static void _ocf_mngt_attach_handle_error(
 
 	if (context->flags.promotion_initialized)
 		__deinit_promotion_policy(cache);
+
+	if (context->flags.cleaning_initialized)
+		__deinit_cleaning_policy(cache);
 
 	if (context->flags.cores_opened)
 		_ocf_mngt_deinit_added_cores(context);
