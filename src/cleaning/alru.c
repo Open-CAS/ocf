@@ -349,42 +349,6 @@ void cleaning_policy_alru_set_hot_cache_line(struct ocf_cache *cache,
 	env_spinlock_unlock(&ctx->list_lock[part_id]);
 }
 
-static void _alru_rebuild(struct ocf_cache *cache)
-{
-	struct ocf_user_part *user_part;
-	struct alru_cleaning_policy *part_alru;
-	ocf_part_id_t part_id;
-	ocf_core_id_t core_id;
-	ocf_cache_line_t cline;
-	uint32_t step = 0;
-
-	for_each_user_part(cache, user_part, part_id) {
-		/* ALRU initialization */
-		part_alru = &user_part->clean_pol->policy.alru;
-		env_atomic_set(&part_alru->size, 0);
-		part_alru->lru_head = cache->device->collision_table_entries;
-		part_alru->lru_tail = cache->device->collision_table_entries;
-		cache->device->runtime_meta->cleaning_thread_access = 0;
-	}
-
-	for (cline = 0; cline < cache->device->collision_table_entries; cline++) {
-		ocf_metadata_get_core_and_part_id(cache, cline, &core_id,
-				NULL);
-
-		OCF_COND_RESCHED_DEFAULT(step);
-
-		if (core_id == OCF_CORE_MAX)
-			continue;
-
-		cleaning_policy_alru_init_cache_block(cache, cline);
-
-		if (!metadata_test_dirty(cache, cline))
-			continue;
-
-		cleaning_policy_alru_set_hot_cache_line(cache, cline);
-	}
-}
-
 void cleaning_policy_alru_setup(struct ocf_cache *cache)
 {
 	struct alru_cleaning_policy_config *config;
@@ -397,7 +361,7 @@ void cleaning_policy_alru_setup(struct ocf_cache *cache)
 	config->activity_threshold = OCF_ALRU_DEFAULT_ACTIVITY_THRESHOLD;
 }
 
-int cleaning_policy_alru_init_common(ocf_cache_t cache)
+int cleaning_policy_alru_initialize(ocf_cache_t cache, int kick_cleaner)
 {
 	struct alru_context *ctx;
 	int error = 0;
@@ -426,21 +390,8 @@ int cleaning_policy_alru_init_common(ocf_cache_t cache)
 
 	cache->cleaner.cleaning_policy_context = ctx;
 
-	return 0;
-}
-
-int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata)
-{
-	int result;
-
-	result = cleaning_policy_alru_init_common(cache);
-	if (result)
-		return result;
-
-	if (init_metadata)
-		_alru_rebuild(cache);
-
-	ocf_kick_cleaner(cache);
+	if (kick_cleaner)
+		ocf_kick_cleaner(cache);
 
 	return 0;
 }
@@ -594,14 +545,6 @@ void cleaning_policy_alru_populate(ocf_cache_t cache,
 			OCF_ALRU_POPULATE_SHARDS_CNT, sizeof(*context),
 			ocf_alru_populate_handle, ocf_alru_populate_finish);
 	if (result) {
-		cmpl(priv, result);
-		return;
-	}
-
-
-	result = cleaning_policy_alru_init_common(cache);
-	if (result) {
-		ocf_parallelize_destroy(parallelize);
 		cmpl(priv, result);
 		return;
 	}

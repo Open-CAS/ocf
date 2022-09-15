@@ -235,32 +235,6 @@ void cleaning_policy_acp_deinitialize(struct ocf_cache *cache)
 	cache->cleaner.cleaning_policy_context = NULL;
 }
 
-static void _acp_rebuild(struct ocf_cache *cache)
-{
-	ocf_cache_line_t cline;
-	ocf_core_id_t cline_core_id;
-	uint32_t step = 0;
-
-	for (cline = 0; cline < cache->device->collision_table_entries; cline++) {
-		ocf_metadata_get_core_and_part_id(cache, cline, &cline_core_id,
-				NULL);
-
-		OCF_COND_RESCHED_DEFAULT(step);
-
-		if (cline_core_id == OCF_CORE_MAX)
-			continue;
-
-		cleaning_policy_acp_init_cache_block(cache, cline);
-
-		if (!metadata_test_dirty(cache, cline))
-			continue;
-
-		cleaning_policy_acp_set_hot_cache_line(cache, cline);
-	}
-
-	ocf_cache_log(cache, log_info, "Finished rebuilding ACP metadata\n");
-}
-
 void cleaning_policy_acp_setup(struct ocf_cache *cache)
 {
 	struct acp_cleaning_policy_config *config;
@@ -271,7 +245,7 @@ void cleaning_policy_acp_setup(struct ocf_cache *cache)
 	config->flush_max_buffers = OCF_ACP_DEFAULT_FLUSH_MAX_BUFFERS;
 }
 
-int cleaning_policy_acp_init_common(ocf_cache_t cache)
+int cleaning_policy_acp_initialize(ocf_cache_t cache, int kick_cleaner)
 {
 	struct acp_context *acp;
 	int err, i;
@@ -317,19 +291,8 @@ int cleaning_policy_acp_init_common(ocf_cache_t cache)
 		}
 	}
 
-	return 0;
-}
-
-int cleaning_policy_acp_initialize(ocf_cache_t cache, int init_metadata)
-{
-	int result;
-
-	result = cleaning_policy_acp_init_common(cache);
-	if (result)
-		return result;
-
-	_acp_rebuild(cache);
-	ocf_kick_cleaner(cache);
+	if (kick_cleaner)
+		ocf_kick_cleaner(cache);
 
 	return 0;
 }
@@ -497,10 +460,6 @@ void cleaning_policy_acp_populate(ocf_cache_t cache,
 					&chunks[num_chunks * shard_id];
 		}
 	}
-
-	result = cleaning_policy_acp_init_common(cache);
-	if (result)
-		goto err;
 
 	ocf_parallelize_run(parallelize);
 

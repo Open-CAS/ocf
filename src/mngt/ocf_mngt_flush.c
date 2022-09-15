@@ -961,18 +961,16 @@ static void _ocf_mngt_deinit_clean_policy(ocf_pipeline_t pipeline, void *priv,
 			_ocf_mngt_cleaning_deinit_complete, context);
 }
 
-static void _ocf_mngt_init_clean_policy(ocf_pipeline_t pipeline, void *priv,
-		ocf_pipeline_arg_t arg)
+static void _ocf_mngt_cleaning_init_complete(void *priv, int error)
 {
-	int result;
 	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+	ocf_pipeline_t pipeline = context->pipeline;
 	ocf_cache_t cache = context->cache;
 	ocf_cleaning_t old_policy = context->old_policy;
 	ocf_cleaning_t new_policy = context->new_policy;
 	ocf_cleaning_t emergency_policy = ocf_cleaning_nop;
 
-	result = ocf_cleaning_initialize(cache, new_policy, 1);
-	if (result) {
+	if (error) {
 		ocf_cache_log(cache, log_info, "Failed to initialize %s cleaning "
 				"policy. Setting %s instead\n",
 				ocf_cleaning_get_name(new_policy),
@@ -986,16 +984,35 @@ static void _ocf_mngt_init_clean_policy(ocf_pipeline_t pipeline, void *priv,
 
 	__set_cleaning_policy(cache, new_policy);
 
-	ocf_refcnt_unfreeze(&cache->cleaner.refcnt);
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, error);
 
-	OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, result);
+}
+
+static void _ocf_mngt_init_clean_policy(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
+{
+	int result;
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_cleaning_t new_policy = context->new_policy;
+
+	result = ocf_cleaning_initialize(cache, new_policy, false);
+	if (result) {
+		_ocf_mngt_cleaning_init_complete(context, result);
+	} else {
+		ocf_cleaning_populate(cache, new_policy,
+				_ocf_mngt_cleaning_init_complete, context);
+	}
 }
 
 static void _ocf_mngt_set_cleaning_finish(ocf_pipeline_t pipeline, void *priv,
 		int error)
 {
 	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_refcnt_unfreeze(&cache->cleaner.refcnt);
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	context->cmpl(context->priv, error);
 

@@ -229,7 +229,7 @@ static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
 	for (i = 0; i < ocf_cleaning_max; i++)
 		ocf_cleaning_setup(cache, i);
 
-	return ocf_cleaning_initialize(cache, cache->cleaner.policy, 1);
+	return ocf_cleaning_initialize(cache, cache->cleaner.policy, false);
 }
 
 static void __deinit_cleaning_policy(ocf_cache_t cache)
@@ -724,13 +724,19 @@ static void _ocf_mngt_load_init_cleaning(ocf_pipeline_t pipeline,
 	ocf_error_t result;
 
 	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown) {
-		result = ocf_cleaning_initialize(cache,
-				cache->cleaner.policy, 0);
+		/* Cleaning policy structures have been loaded so no need to populate
+		   them for the second time */
+		result = ocf_cleaning_initialize(cache, cache->cleaner.policy, true);
 		OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, result);
-	}
 
-	ocf_cleaning_populate(cache, cache->cleaner.policy,
-			_ocf_mngt_cleaning_populate_complete, context);
+	} else {
+		result = ocf_cleaning_initialize(cache, cache->cleaner.policy, false);
+		if (result)
+			OCF_PL_FINISH_RET(pipeline, result);
+
+		ocf_cleaning_populate(cache, cache->cleaner.policy,
+				_ocf_mngt_cleaning_populate_complete, context);
+	}
 }
 
 static void _ocf_mngt_init_metadata_complete(void *priv, int error)
@@ -1324,6 +1330,24 @@ static void _ocf_mngt_attach_populate_free(ocf_pipeline_t pipeline,
 			context);
 }
 
+static void _ocf_mngt_cleaning_populate_init_complete(void *priv, int error)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (error)
+		OCF_PL_FINISH_RET(context->pipeline, error);
+
+	/* In initial cache state there is no dirty data, so all dirty data is
+	   considered to be flushed
+	 */
+	cache->conf_meta->dirty_flushed = true;
+
+	context->flags.cleaning_initialized = true;
+
+	OCF_PL_NEXT_RET(context->pipeline);
+}
+
 static void _ocf_mngt_attach_init_services(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -1343,13 +1367,8 @@ static void _ocf_mngt_attach_init_services(ocf_pipeline_t pipeline,
 		OCF_PL_FINISH_RET(pipeline, result);
 	}
 
-	/* In initial cache state there is no dirty data, so all dirty data is
-	   considered to be flushed
-	 */
-	cache->conf_meta->dirty_flushed = true;
-	context->flags.cleaning_initialized = true;
-
-	ocf_pipeline_next(pipeline);
+	ocf_cleaning_populate(cache, cache->cleaner.policy,
+			_ocf_mngt_cleaning_populate_init_complete, context);
 }
 
 uint64_t _ocf_mngt_calculate_ram_needed(ocf_cache_line_size_t line_size,

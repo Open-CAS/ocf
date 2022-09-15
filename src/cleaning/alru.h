@@ -10,7 +10,7 @@
 #include "alru_structs.h"
 
 void cleaning_policy_alru_setup(ocf_cache_t cache);
-int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata);
+int cleaning_policy_alru_initialize(ocf_cache_t cache, int kick_cleaner);
 void cleaning_policy_alru_populate(ocf_cache_t cache,
                 ocf_cleaning_populate_end_t cmpl, void *priv);
 void cleaning_policy_alru_deinitialize(ocf_cache_t cache);

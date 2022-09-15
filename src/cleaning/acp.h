@@ -10,7 +10,7 @@
 
 void cleaning_policy_acp_setup(ocf_cache_t cache);
 
-int cleaning_policy_acp_initialize(ocf_cache_t cache, int init_metadata);
+int cleaning_policy_acp_initialize(ocf_cache_t cache, int kick_cleaner);
 
 void cleaning_policy_acp_populate(ocf_cache_t cache,
                 ocf_cleaning_populate_end_t cmpl, void *priv);

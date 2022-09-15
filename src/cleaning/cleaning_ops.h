@@ -81,14 +81,14 @@ static inline void ocf_cleaning_setup(ocf_cache_t cache, ocf_cleaning_t policy)
 }
 
 static inline int ocf_cleaning_initialize(ocf_cache_t cache,
-		ocf_cleaning_t policy, int init_metadata)
+		ocf_cleaning_t policy, int kick_cleaner)
 {
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
 	if (unlikely(!cleaning_policy_ops[policy].initialize))
 		return 0;
 
-	return cleaning_policy_ops[policy].initialize(cache, init_metadata);
+	return cleaning_policy_ops[policy].initialize(cache, kick_cleaner);
 }
 
 static inline void ocf_cleaning_populate(ocf_cache_t cache,
