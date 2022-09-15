@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef __LAYER_CLEANING_POLICY_ALRU_H__
@@ -11,8 +11,8 @@
 
 void cleaning_policy_alru_setup(ocf_cache_t cache);
 int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata);
-void cleaning_policy_alru_recovery(ocf_cache_t cache,
-                ocf_cleaning_recovery_end_t cmpl, void *priv);
+void cleaning_policy_alru_populate(ocf_cache_t cache,
+                ocf_cleaning_populate_end_t cmpl, void *priv);
 void cleaning_policy_alru_deinitialize(ocf_cache_t cache);
 void cleaning_policy_alru_init_cache_block(ocf_cache_t cache,
 		uint32_t cache_line);

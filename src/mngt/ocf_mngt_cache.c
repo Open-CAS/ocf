@@ -709,7 +709,7 @@ static void _ocf_mngt_load_rebuild_metadata(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_cleaning_recovery_complete(void *priv, int error)
+static void _ocf_mngt_cleaning_populate_complete(void *priv, int error)
 {
 	struct ocf_cache_attach_context *context = priv;
 
@@ -729,8 +729,8 @@ static void _ocf_mngt_load_init_cleaning(ocf_pipeline_t pipeline,
 		OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, result);
 	}
 
-	ocf_cleaning_recovery(cache, cache->cleaner.policy,
-			_ocf_mngt_cleaning_recovery_complete, context);
+	ocf_cleaning_populate(cache, cache->cleaner.policy,
+			_ocf_mngt_cleaning_populate_complete, context);
 }
 
 static void _ocf_mngt_init_metadata_complete(void *priv, int error)

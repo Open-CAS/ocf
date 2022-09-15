@@ -445,22 +445,22 @@ int cleaning_policy_alru_initialize(ocf_cache_t cache, int init_metadata)
 	return 0;
 }
 
-#define OCF_ALRU_RECOVERY_SHARDS_CNT 32
+#define OCF_ALRU_POPULATE_SHARDS_CNT 32
 
-struct ocf_alru_recovery_context {
+struct ocf_alru_populate_context {
 	ocf_cache_t cache;
 	struct {
 		struct {
 			ocf_cache_line_t head;
 			ocf_cache_line_t tail;
 		} part[OCF_USER_IO_CLASS_MAX];
-	} shard[OCF_ALRU_RECOVERY_SHARDS_CNT] __attribute__((aligned(64)));
+	} shard[OCF_ALRU_POPULATE_SHARDS_CNT] __attribute__((aligned(64)));
 
-	ocf_cleaning_recovery_end_t cmpl;
+	ocf_cleaning_populate_end_t cmpl;
 	void *priv;
 };
 
-static void add_alru_head_recovery(struct ocf_alru_recovery_context *context,
+static void add_alru_head_populate(struct ocf_alru_populate_context *context,
 		unsigned shard_id, ocf_core_id_t part_id,
 		ocf_cache_line_t cline)
 {
@@ -499,10 +499,10 @@ static void add_alru_head_recovery(struct ocf_alru_recovery_context *context,
 	}
 }
 
-static int ocf_alru_recovery_handle(ocf_parallelize_t parallelize,
+static int ocf_alru_populate_handle(ocf_parallelize_t parallelize,
 		void *priv, unsigned shard_id, unsigned shards_cnt)
 {
-	struct ocf_alru_recovery_context *context = priv;
+	struct ocf_alru_populate_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_cache_line_t entries = cache->device->collision_table_entries;
 	ocf_cache_line_t terminator = entries;
@@ -537,7 +537,7 @@ static int ocf_alru_recovery_handle(ocf_parallelize_t parallelize,
 		if (!metadata_test_dirty(cache, cline)) {
 			cleaning_policy_alru_init_cache_block(cache, cline);
 		} else {
-			add_alru_head_recovery(context, shard_id,
+			add_alru_head_populate(context, shard_id,
 					part_id, cline);
 			++part_size[part_id];
 		}
@@ -551,10 +551,10 @@ static int ocf_alru_recovery_handle(ocf_parallelize_t parallelize,
 	return 0;
 }
 
-static void ocf_alru_recovery_finish(ocf_parallelize_t parallelize,
+static void ocf_alru_populate_finish(ocf_parallelize_t parallelize,
 		void *priv, int error)
 {
-	struct ocf_alru_recovery_context *context = priv;
+	struct ocf_alru_populate_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_part_id_t part_id;
 	ocf_cache_line_t head, tail;
@@ -564,7 +564,7 @@ static void ocf_alru_recovery_finish(ocf_parallelize_t parallelize,
 		goto end;
 
 	for (part_id = 0; part_id < OCF_USER_IO_CLASS_MAX; part_id++) {
-		for (shard = 0; shard < OCF_ALRU_RECOVERY_SHARDS_CNT; shard++) {
+		for (shard = 0; shard < OCF_ALRU_POPULATE_SHARDS_CNT; shard++) {
 			head = context->shard[shard].part[part_id].head;
 			tail = context->shard[shard].part[part_id].tail;
 
@@ -580,10 +580,10 @@ end:
 	ocf_parallelize_destroy(parallelize);
 }
 
-void cleaning_policy_alru_recovery(ocf_cache_t cache,
-		ocf_cleaning_recovery_end_t cmpl, void *priv)
+void cleaning_policy_alru_populate(ocf_cache_t cache,
+		ocf_cleaning_populate_end_t cmpl, void *priv)
 {
-	struct ocf_alru_recovery_context *context;
+	struct ocf_alru_populate_context *context;
 	ocf_parallelize_t parallelize;
 	struct alru_cleaning_policy *part_alru;
 	struct ocf_user_part *user_part;
@@ -591,8 +591,8 @@ void cleaning_policy_alru_recovery(ocf_cache_t cache,
 	int result;
 
 	result = ocf_parallelize_create(&parallelize, cache,
-			OCF_ALRU_RECOVERY_SHARDS_CNT, sizeof(*context),
-			ocf_alru_recovery_handle, ocf_alru_recovery_finish);
+			OCF_ALRU_POPULATE_SHARDS_CNT, sizeof(*context),
+			ocf_alru_populate_handle, ocf_alru_populate_finish);
 	if (result) {
 		cmpl(priv, result);
 		return;
