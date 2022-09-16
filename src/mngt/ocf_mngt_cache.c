@@ -203,14 +203,19 @@ static void __init_partitions(ocf_cache_t cache)
 	}
 }
 
-static void __init_parts_attached(ocf_cache_t cache)
+static void _init_parts_attached(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
 {
+	struct ocf_init_metadata_context *context = priv;
+	ocf_cache_t cache = context->cache;
 	ocf_part_id_t part_id;
 
 	for (part_id = 0; part_id < OCF_USER_IO_CLASS_MAX; part_id++)
 		ocf_lru_init(cache, &cache->user_parts[part_id].part);
 
 	ocf_lru_init(cache, &cache->free);
+
+	ocf_pipeline_next(pipeline);
 }
 
 static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
@@ -270,8 +275,11 @@ static void __init_metadata_version(ocf_cache_t cache)
 	cache->conf_meta->metadata_version = METADATA_VERSION();
 }
 
-static void __reset_stats(ocf_cache_t cache)
+static void _reset_stats(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
 {
+	struct ocf_init_metadata_context *context = priv;
+	ocf_cache_t cache = context->cache;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
 	ocf_part_id_t i;
@@ -288,17 +296,65 @@ static void __reset_stats(ocf_cache_t cache)
 					part_counters[i].dirty_clines, 0);
 		}
 	}
+
+	ocf_pipeline_next(pipeline);
 }
 
-static void init_attached_data_structures_recovery(ocf_cache_t cache,
-		bool init_collision)
+static void _init_metadata_version(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
 {
-	ocf_metadata_init_hash_table(cache);
-	if (init_collision)
-		ocf_metadata_init_collision(cache);
-	__init_parts_attached(cache);
-	__reset_stats(cache);
+	struct ocf_init_metadata_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
 	__init_metadata_version(cache);
+
+	ocf_pipeline_next(pipeline);
+}
+
+static void _ocf_mngt_init_metadata_finish(ocf_pipeline_t pipeline,
+			void *priv, int error)
+{
+	struct ocf_init_metadata_context *context = priv;
+
+	context->cmpl(context->priv, error);
+
+	ocf_pipeline_destroy(pipeline);
+}
+
+struct ocf_pipeline_properties ocf_init_attached_recovery_props = {
+	.priv_size = sizeof(struct ocf_init_metadata_context),
+	.finish = _ocf_mngt_init_metadata_finish,
+	.steps = {
+		OCF_PL_STEP(ocf_metadata_init_hash_table),
+		OCF_PL_STEP(ocf_metadata_init_collision),
+		OCF_PL_STEP(_init_parts_attached),
+		OCF_PL_STEP(_reset_stats),
+		OCF_PL_STEP(_init_metadata_version),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+static void init_attached_data_structures_recovery(ocf_cache_t cache,
+		ocf_mngt_init_metadata_end_t cmpl, void *priv, bool skip_collision)
+{
+	struct ocf_init_metadata_context *context;
+	ocf_pipeline_t pipeline;
+	int result;
+
+	result = ocf_pipeline_create(&pipeline, cache,
+			&ocf_init_attached_recovery_props);
+	if (result)
+		OCF_CMPL_RET(priv, result);
+
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->cmpl = cmpl;
+	context->priv = priv;
+	context->pipeline = pipeline;
+	context->cache = cache;
+	context->skip_collision = skip_collision;
+
+	OCF_PL_NEXT_RET(pipeline);
 }
 
 /****************************************************************
@@ -677,6 +733,20 @@ static void _ocf_mngt_load_init_cleaning(ocf_pipeline_t pipeline,
 			_ocf_mngt_cleaning_recovery_complete, context);
 }
 
+static void _ocf_mngt_init_metadata_complete(void *priv, int error)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (error) {
+		ocf_cache_log(cache, log_err,
+				"ERROR: Cannot initialize cache metadata\n");
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_NO_MEM);
+	}
+
+	ocf_pipeline_next(context->pipeline);
+}
+
 static void _ocf_mngt_load_init_structures(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -686,9 +756,8 @@ static void _ocf_mngt_load_init_structures(ocf_pipeline_t pipeline,
 	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown)
 		OCF_PL_NEXT_RET(pipeline);
 
-	init_attached_data_structures_recovery(cache, true);
-
-	ocf_pipeline_next(context->pipeline);
+	init_attached_data_structures_recovery(cache,
+			_ocf_mngt_init_metadata_complete, context, false);
 }
 
 void _ocf_mngt_load_metadata_complete(void *priv, int error)
@@ -1192,6 +1261,39 @@ static void _ocf_mngt_attach_prepare_metadata(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+struct ocf_pipeline_properties ocf_init_metadata_pipeline_props = {
+	.priv_size = sizeof(struct ocf_init_metadata_context),
+	.finish = _ocf_mngt_init_metadata_finish,
+	.steps = {
+		OCF_PL_STEP(ocf_metadata_init_hash_table),
+		OCF_PL_STEP(ocf_metadata_init_collision),
+		OCF_PL_STEP(_init_parts_attached),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+static void _ocf_mngt_init_metadata(ocf_cache_t cache,
+		ocf_mngt_init_metadata_end_t cmpl, void *priv)
+{
+	struct ocf_init_metadata_context *context;
+	ocf_pipeline_t pipeline;
+	int result;
+
+	result = ocf_pipeline_create(&pipeline, cache,
+			&ocf_init_metadata_pipeline_props);
+	if (result)
+		OCF_CMPL_RET(priv, result);
+
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->cmpl = cmpl;
+	context->priv = priv;
+	context->pipeline = pipeline;
+	context->cache = cache;
+
+	OCF_PL_NEXT_RET(pipeline);
+}
+
 /**
  * @brief initializing cache anew (not loading or recovering)
  */
@@ -1201,11 +1303,8 @@ static void _ocf_mngt_attach_init_metadata(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_metadata_init_hash_table(cache);
-	ocf_metadata_init_collision(cache);
-	__init_parts_attached(cache);
-
-	ocf_pipeline_next(pipeline);
+	_ocf_mngt_init_metadata(cache, _ocf_mngt_init_metadata_complete,
+			context);
 }
 
 static void _ocf_mngt_attach_populate_free_complete(void *priv, int error)
@@ -2179,9 +2278,8 @@ static void _ocf_mngt_standby_init_structures_attach(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	init_attached_data_structures_recovery(cache, true);
-
-	ocf_pipeline_next(pipeline);
+	init_attached_data_structures_recovery(cache,
+			_ocf_mngt_init_metadata_complete, context, false);
 }
 
 static void _ocf_mngt_standby_init_structures_load(ocf_pipeline_t pipeline,
@@ -2190,9 +2288,8 @@ static void _ocf_mngt_standby_init_structures_load(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	init_attached_data_structures_recovery(cache, false);
-
-	ocf_pipeline_next(pipeline);
+	init_attached_data_structures_recovery(cache,
+			_ocf_mngt_init_metadata_complete, context, true);
 }
 
 static void _ocf_mngt_standby_init_pio_concurrency(ocf_pipeline_t pipeline,

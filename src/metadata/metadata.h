@@ -25,6 +25,16 @@
 #define CLEAN 2
 #define DIRTY 3
 
+typedef void (*ocf_mngt_init_metadata_end_t)(void *priv, int error);
+
+struct ocf_init_metadata_context {
+	ocf_mngt_init_metadata_end_t cmpl;
+	ocf_pipeline_t pipeline;
+	ocf_cache_t cache;
+	uint8_t skip_collision;
+	void *priv;
+};
+
 /**
  * @brief Initialize metadata
  *
@@ -60,14 +70,16 @@ void ocf_metadata_init_freelist_partition(struct ocf_cache *cache);
  *
  * @param cache - Cache instance
  */
-void ocf_metadata_init_hash_table(struct ocf_cache *cache);
+void ocf_metadata_init_hash_table(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg);
 
 /**
  * @brief Initialize collision table
  *
  * @param cache - Cache instance
  */
-void ocf_metadata_init_collision(struct ocf_cache *cache);
+void ocf_metadata_init_collision(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg);
 
 /**
  * @brief De-Initialize metadata

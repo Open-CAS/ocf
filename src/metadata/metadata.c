@@ -831,22 +831,33 @@ static inline void _ocf_init_collision_entry(struct ocf_cache *cache,
 /*
  * Initialize collision table
  */
-void ocf_metadata_init_collision(struct ocf_cache *cache)
+void ocf_metadata_init_collision(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
 {
+	struct ocf_init_metadata_context *context = priv;
+	ocf_cache_t cache = context->cache;
 	unsigned int i;
 	unsigned int step = 0;
+
+	if (context->skip_collision)
+		OCF_PL_NEXT_RET(pipeline);
 
 	for (i = 0; i < cache->device->collision_table_entries; i++) {
 		_ocf_init_collision_entry(cache, i);
 		OCF_COND_RESCHED_DEFAULT(step);
 	}
+
+	ocf_pipeline_next(context->pipeline);
 }
 
 /*
  * Initialize hash table
  */
-void ocf_metadata_init_hash_table(struct ocf_cache *cache)
+void ocf_metadata_init_hash_table(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
 {
+	struct ocf_init_metadata_context *context = priv;
+	ocf_cache_t cache = context->cache;
 	unsigned int i;
 	unsigned int hash_table_entries = cache->device->hash_table_entries;
 	ocf_cache_line_t invalid_idx = cache->device->collision_table_entries;
@@ -860,6 +871,7 @@ void ocf_metadata_init_hash_table(struct ocf_cache *cache)
 		ocf_metadata_set_hash(cache, i, invalid_idx);
 	}
 
+	ocf_pipeline_next(context->pipeline);
 }
 
 /*
