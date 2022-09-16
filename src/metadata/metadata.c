@@ -18,6 +18,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_pipeline.h"
+#include "../utils/utils_parallelize.h"
 
 
 #define OCF_METADATA_DEBUG 0
@@ -831,23 +832,66 @@ static inline void _ocf_init_collision_entry(struct ocf_cache *cache,
 /*
  * Initialize collision table
  */
+
+static int ocf_metadata_init_collision_handle(ocf_parallelize_t parallelize,
+		void *priv, unsigned shard_id, unsigned shards_cnt)
+{
+	struct ocf_init_metadata_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_cache_line_t collision_table_entries = cache->device->collision_table_entries;
+	uint32_t entry, portion, begin, end, step=0;
+
+	portion = OCF_DIV_ROUND_UP((uint64_t)collision_table_entries, shards_cnt);
+	begin = portion*shard_id;
+	end = OCF_MIN(portion*(shard_id + 1), collision_table_entries);
+
+	for (entry = begin; entry < end; entry++) {
+		OCF_COND_RESCHED_DEFAULT(step);
+
+		if (entry >= collision_table_entries)
+			break;
+
+		_ocf_init_collision_entry(cache, entry);
+	}
+
+	return 0;
+}
+
+static void ocf_metadata_init_finish(ocf_parallelize_t parallelize,
+		void *priv, int error)
+{
+	struct ocf_init_metadata_context *context = priv;
+
+	ocf_pipeline_next(context->pipeline);
+
+	ocf_parallelize_destroy(parallelize);
+}
+
 void ocf_metadata_init_collision(ocf_pipeline_t pipeline, void *priv,
 		ocf_pipeline_arg_t arg)
 {
 	struct ocf_init_metadata_context *context = priv;
+	struct ocf_init_metadata_context *parallel_context;
 	ocf_cache_t cache = context->cache;
-	unsigned int i;
-	unsigned int step = 0;
+	ocf_parallelize_t parallelize;
+	int result;
 
 	if (context->skip_collision)
 		OCF_PL_NEXT_RET(pipeline);
 
-	for (i = 0; i < cache->device->collision_table_entries; i++) {
-		_ocf_init_collision_entry(cache, i);
-		OCF_COND_RESCHED_DEFAULT(step);
-	}
+	result = ocf_parallelize_create(&parallelize, cache,
+			ocf_cache_get_queue_count(cache), sizeof(*context),
+			ocf_metadata_init_collision_handle,
+			ocf_metadata_init_finish);
+	if (result)
+		OCF_PL_FINISH_RET(pipeline, result);
 
-	ocf_pipeline_next(context->pipeline);
+	parallel_context = ocf_parallelize_get_priv(parallelize);
+
+	parallel_context->pipeline = pipeline;
+	parallel_context->cache = cache;
+
+	ocf_parallelize_run(parallelize);
 }
 
 /*
