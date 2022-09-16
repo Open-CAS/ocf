@@ -994,7 +994,7 @@ static bool ocf_check_if_cleaner_enabled(ocf_pipeline_t pipeline,
 		void* priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_metadata_context *context = priv;
-	
+
 	return !context->cache->conf_meta->cleaner_disabled;
 }
 
@@ -1002,7 +1002,7 @@ struct ocf_pipeline_properties ocf_metadata_flush_all_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_context),
 	.finish = ocf_metadata_flush_all_finish,
 	.steps = {
-		
+
 		OCF_PL_STEP_COND_ARG_INT(ocf_check_if_cleaner_enabled,
 				ocf_metadata_flush_segment,
 				metadata_segment_cleaning),
@@ -1156,7 +1156,7 @@ struct ocf_pipeline_properties ocf_metadata_load_all_pipeline_props = {
 				metadata_segment_cleaning),
 		OCF_PL_STEP_FOREACH(ocf_metadata_load_segment,
 				ocf_metadata_load_all_args),
-	
+
 		OCF_PL_STEP_COND_ARG_INT(ocf_check_if_cleaner_enabled,
 				ocf_metadata_check_crc,
 				metadata_segment_cleaning),
