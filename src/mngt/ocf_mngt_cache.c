@@ -677,6 +677,20 @@ static void _ocf_mngt_load_init_cleaning(ocf_pipeline_t pipeline,
 			_ocf_mngt_cleaning_recovery_complete, context);
 }
 
+static void _ocf_mngt_load_init_structures(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown)
+		OCF_PL_NEXT_RET(pipeline);
+
+	init_attached_data_structures_recovery(cache, true);
+
+	ocf_pipeline_next(context->pipeline);
+}
+
 void _ocf_mngt_load_metadata_complete(void *priv, int error)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -728,8 +742,6 @@ static void _ocf_mngt_load_metadata(ocf_pipeline_t pipeline,
 	} else {
 		ocf_cache_log(cache, log_warn,
 			"ERROR: Cache device did not shut down properly!\n");
-		init_attached_data_structures_recovery(cache, true);
-
 		ocf_cache_log(cache, log_info, "Initiating recovery sequence...\n");
 		_ocf_mngt_load_metadata_recovery(pipeline, priv, arg);
 	}
@@ -1826,6 +1838,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
 		OCF_PL_STEP(_ocf_mngt_init_promotion),
 		OCF_PL_STEP(_ocf_mngt_load_add_cores),
+		OCF_PL_STEP(_ocf_mngt_load_init_structures),
 		OCF_PL_STEP(_ocf_mngt_load_metadata),
 		OCF_PL_STEP(_ocf_mngt_load_rebuild_metadata),
 		OCF_PL_STEP(_ocf_mngt_load_init_cleaning),
