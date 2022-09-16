@@ -897,25 +897,53 @@ void ocf_metadata_init_collision(ocf_pipeline_t pipeline, void *priv,
 /*
  * Initialize hash table
  */
+static int ocf_metadata_init_hash_table_handle(ocf_parallelize_t parallelize,
+		void *priv, unsigned shard_id, unsigned shards_cnt)
+{
+	struct ocf_init_metadata_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	uint32_t hash_table_entries = cache->device->hash_table_entries;
+	ocf_cache_line_t invalid_idx = cache->device->collision_table_entries;
+	uint32_t entry, portion, begin, end, step=0;
+
+	portion = OCF_DIV_ROUND_UP((uint64_t)hash_table_entries, shards_cnt);
+	begin = portion*shard_id;
+	end = OCF_MIN(portion*(shard_id + 1), hash_table_entries);
+
+	for (entry = begin; entry < end; entry++) {
+		OCF_COND_RESCHED_DEFAULT(step);
+
+		if (entry >= hash_table_entries)
+			break;
+
+		ocf_metadata_set_hash(cache, entry, invalid_idx);
+	}
+
+	return 0;
+}
+
 void ocf_metadata_init_hash_table(ocf_pipeline_t pipeline, void *priv,
 		ocf_pipeline_arg_t arg)
 {
 	struct ocf_init_metadata_context *context = priv;
+	struct ocf_init_metadata_context *parallel_context;
 	ocf_cache_t cache = context->cache;
-	unsigned int i;
-	unsigned int hash_table_entries = cache->device->hash_table_entries;
-	ocf_cache_line_t invalid_idx = cache->device->collision_table_entries;
+	ocf_parallelize_t parallelize;
+	int result;
 
-	/* Init hash table */
-	for (i = 0; i < hash_table_entries; i++) {
-		/* hash_table contains indexes from collision_table
-		 * thus it shall be initialized in improper values
-		 * from collision_table
-		 **/
-		ocf_metadata_set_hash(cache, i, invalid_idx);
-	}
+	result = ocf_parallelize_create(&parallelize, cache,
+			ocf_cache_get_queue_count(cache), sizeof(*context),
+			ocf_metadata_init_hash_table_handle,
+			ocf_metadata_init_finish);
+	if (result)
+		OCF_PL_FINISH_RET(pipeline, result);
 
-	ocf_pipeline_next(context->pipeline);
+	parallel_context = ocf_parallelize_get_priv(parallelize);
+
+	parallel_context->pipeline = pipeline;
+	parallel_context->cache = cache;
+
+	ocf_parallelize_run(parallelize);
 }
 
 /*
