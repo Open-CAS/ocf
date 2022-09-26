@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -23,6 +23,17 @@ ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache)
 ocf_volume_t ocf_cache_get_front_volume(ocf_cache_t cache)
 {
 	return cache->device ? &cache->device->front_volume : NULL;
+}
+
+uint32_t ocf_cache_get_queue_count(ocf_cache_t cache)
+{
+	ocf_queue_t queue = NULL;
+	uint32_t cnt = 0;
+
+	list_for_each_entry(queue, &cache->io_queues, list)
+		cnt++;
+
+	return cnt;
 }
 
 int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size)
