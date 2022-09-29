@@ -306,7 +306,7 @@ static inline int env_rwsem_init(env_rwsem *s)
 
 static inline void env_rwsem_up_read(env_rwsem *s)
 {
-	pthread_rwlock_unlock(&s->lock);
+	ENV_BUG_ON(pthread_rwlock_unlock(&s->lock));
 }
 
 static inline void env_rwsem_down_read(env_rwsem *s)

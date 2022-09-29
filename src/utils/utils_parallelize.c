@@ -57,8 +57,7 @@ int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 	unsigned queue_count = 0;
 	int result, i;
 
-	list_for_each_entry(queue, &cache->io_queues, list)
-		queue_count++;
+	queue_count = ocf_cache_get_queue_count(cache);
 
 	if (shards_cnt == 0)
 		shards_cnt = queue_count;

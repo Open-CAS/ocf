@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -54,6 +54,6 @@ void ocf_kick_cleaner(ocf_cache_t cache);
 
 void ocf_stop_cleaner(ocf_cache_t cache);
 
-typedef void (*ocf_cleaning_recovery_end_t)(void *priv, int error);
+typedef void (*ocf_cleaning_populate_end_t)(void *priv, int error);
 
 #endif

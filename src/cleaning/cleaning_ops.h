@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -14,8 +14,8 @@
 struct cleaning_policy_ops {
 	void (*setup)(ocf_cache_t cache);
 	int (*initialize)(ocf_cache_t cache, int init_metadata);
-	void (*recovery)(ocf_cache_t cache,
-			ocf_cleaning_recovery_end_t cmpl, void *priv);
+	void (*populate)(ocf_cache_t cache,
+			ocf_cleaning_populate_end_t cmpl, void *priv);
 	void (*deinitialize)(ocf_cache_t cache);
 	int (*add_core)(ocf_cache_t cache, ocf_core_id_t core_id);
 	void (*remove_core)(ocf_cache_t cache, ocf_core_id_t core_id);
@@ -45,7 +45,7 @@ static struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max] = {
 		.purge_range = cleaning_policy_alru_purge_range,
 		.set_hot_cache_line = cleaning_policy_alru_set_hot_cache_line,
 		.initialize = cleaning_policy_alru_initialize,
-		.recovery = cleaning_policy_alru_recovery,
+		.populate = cleaning_policy_alru_populate,
 		.deinitialize = cleaning_policy_alru_deinitialize,
 		.set_cleaning_param = cleaning_policy_alru_set_cleaning_param,
 		.get_cleaning_param = cleaning_policy_alru_get_cleaning_param,
@@ -59,7 +59,7 @@ static struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max] = {
 		.purge_range = cleaning_policy_acp_purge_range,
 		.set_hot_cache_line = cleaning_policy_acp_set_hot_cache_line,
 		.initialize = cleaning_policy_acp_initialize,
-		.recovery = cleaning_policy_acp_recovery,
+		.populate = cleaning_policy_acp_populate,
 		.deinitialize = cleaning_policy_acp_deinitialize,
 		.set_cleaning_param = cleaning_policy_acp_set_cleaning_param,
 		.get_cleaning_param = cleaning_policy_acp_get_cleaning_param,
@@ -81,28 +81,28 @@ static inline void ocf_cleaning_setup(ocf_cache_t cache, ocf_cleaning_t policy)
 }
 
 static inline int ocf_cleaning_initialize(ocf_cache_t cache,
-		ocf_cleaning_t policy, int init_metadata)
+		ocf_cleaning_t policy, int kick_cleaner)
 {
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
 	if (unlikely(!cleaning_policy_ops[policy].initialize))
 		return 0;
 
-	return cleaning_policy_ops[policy].initialize(cache, init_metadata);
+	return cleaning_policy_ops[policy].initialize(cache, kick_cleaner);
 }
 
-static inline void ocf_cleaning_recovery(ocf_cache_t cache,
+static inline void ocf_cleaning_populate(ocf_cache_t cache,
 		ocf_cleaning_t policy,
-		ocf_cleaning_recovery_end_t cmpl, void *priv)
+		ocf_cleaning_populate_end_t cmpl, void *priv)
 {
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
-	if (unlikely(!cleaning_policy_ops[policy].recovery)) {
+	if (unlikely(!cleaning_policy_ops[policy].populate)) {
 		cmpl(priv, 0);
 		return;
 	}
 
-	cleaning_policy_ops[policy].recovery(cache, cmpl, priv);
+	cleaning_policy_ops[policy].populate(cache, cmpl, priv);
 }
 
 static inline void ocf_cleaning_deinitialize(ocf_cache_t cache)

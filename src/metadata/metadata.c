@@ -18,6 +18,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_io.h"
 #include "../utils/utils_pipeline.h"
+#include "../utils/utils_parallelize.h"
 
 
 #define OCF_METADATA_DEBUG 0
@@ -831,35 +832,118 @@ static inline void _ocf_init_collision_entry(struct ocf_cache *cache,
 /*
  * Initialize collision table
  */
-void ocf_metadata_init_collision(struct ocf_cache *cache)
-{
-	unsigned int i;
-	unsigned int step = 0;
 
-	for (i = 0; i < cache->device->collision_table_entries; i++) {
-		_ocf_init_collision_entry(cache, i);
+static int ocf_metadata_init_collision_handle(ocf_parallelize_t parallelize,
+		void *priv, unsigned shard_id, unsigned shards_cnt)
+{
+	struct ocf_init_metadata_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_cache_line_t collision_table_entries = cache->device->collision_table_entries;
+	uint32_t entry, portion, begin, end, step=0;
+
+	portion = OCF_DIV_ROUND_UP((uint64_t)collision_table_entries, shards_cnt);
+	begin = portion*shard_id;
+	end = OCF_MIN(portion*(shard_id + 1), collision_table_entries);
+
+	for (entry = begin; entry < end; entry++) {
 		OCF_COND_RESCHED_DEFAULT(step);
+
+		if (entry >= collision_table_entries)
+			break;
+
+		_ocf_init_collision_entry(cache, entry);
 	}
+
+	return 0;
+}
+
+static void ocf_metadata_init_finish(ocf_parallelize_t parallelize,
+		void *priv, int error)
+{
+	struct ocf_init_metadata_context *context = priv;
+
+	ocf_pipeline_next(context->pipeline);
+
+	ocf_parallelize_destroy(parallelize);
+}
+
+void ocf_metadata_init_collision(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
+{
+	struct ocf_init_metadata_context *context = priv;
+	struct ocf_init_metadata_context *parallel_context;
+	ocf_cache_t cache = context->cache;
+	ocf_parallelize_t parallelize;
+	int result;
+
+	if (context->skip_collision)
+		OCF_PL_NEXT_RET(pipeline);
+
+	result = ocf_parallelize_create(&parallelize, cache,
+			ocf_cache_get_queue_count(cache), sizeof(*context),
+			ocf_metadata_init_collision_handle,
+			ocf_metadata_init_finish);
+	if (result)
+		OCF_PL_FINISH_RET(pipeline, result);
+
+	parallel_context = ocf_parallelize_get_priv(parallelize);
+
+	parallel_context->pipeline = pipeline;
+	parallel_context->cache = cache;
+
+	ocf_parallelize_run(parallelize);
 }
 
 /*
  * Initialize hash table
  */
-void ocf_metadata_init_hash_table(struct ocf_cache *cache)
+static int ocf_metadata_init_hash_table_handle(ocf_parallelize_t parallelize,
+		void *priv, unsigned shard_id, unsigned shards_cnt)
 {
-	unsigned int i;
-	unsigned int hash_table_entries = cache->device->hash_table_entries;
+	struct ocf_init_metadata_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	uint32_t hash_table_entries = cache->device->hash_table_entries;
 	ocf_cache_line_t invalid_idx = cache->device->collision_table_entries;
+	uint32_t entry, portion, begin, end, step=0;
 
-	/* Init hash table */
-	for (i = 0; i < hash_table_entries; i++) {
-		/* hash_table contains indexes from collision_table
-		 * thus it shall be initialized in improper values
-		 * from collision_table
-		 **/
-		ocf_metadata_set_hash(cache, i, invalid_idx);
+	portion = OCF_DIV_ROUND_UP((uint64_t)hash_table_entries, shards_cnt);
+	begin = portion*shard_id;
+	end = OCF_MIN(portion*(shard_id + 1), hash_table_entries);
+
+	for (entry = begin; entry < end; entry++) {
+		OCF_COND_RESCHED_DEFAULT(step);
+
+		if (entry >= hash_table_entries)
+			break;
+
+		ocf_metadata_set_hash(cache, entry, invalid_idx);
 	}
 
+	return 0;
+}
+
+void ocf_metadata_init_hash_table(ocf_pipeline_t pipeline, void *priv,
+		ocf_pipeline_arg_t arg)
+{
+	struct ocf_init_metadata_context *context = priv;
+	struct ocf_init_metadata_context *parallel_context;
+	ocf_cache_t cache = context->cache;
+	ocf_parallelize_t parallelize;
+	int result;
+
+	result = ocf_parallelize_create(&parallelize, cache,
+			ocf_cache_get_queue_count(cache), sizeof(*context),
+			ocf_metadata_init_hash_table_handle,
+			ocf_metadata_init_finish);
+	if (result)
+		OCF_PL_FINISH_RET(pipeline, result);
+
+	parallel_context = ocf_parallelize_get_priv(parallelize);
+
+	parallel_context->pipeline = pipeline;
+	parallel_context->cache = cache;
+
+	ocf_parallelize_run(parallelize);
 }
 
 /*
@@ -994,7 +1078,7 @@ static bool ocf_check_if_cleaner_enabled(ocf_pipeline_t pipeline,
 		void* priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_metadata_context *context = priv;
-	
+
 	return !context->cache->conf_meta->cleaner_disabled;
 }
 
@@ -1002,7 +1086,7 @@ struct ocf_pipeline_properties ocf_metadata_flush_all_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_context),
 	.finish = ocf_metadata_flush_all_finish,
 	.steps = {
-		
+
 		OCF_PL_STEP_COND_ARG_INT(ocf_check_if_cleaner_enabled,
 				ocf_metadata_flush_segment,
 				metadata_segment_cleaning),
@@ -1156,7 +1240,7 @@ struct ocf_pipeline_properties ocf_metadata_load_all_pipeline_props = {
 				metadata_segment_cleaning),
 		OCF_PL_STEP_FOREACH(ocf_metadata_load_segment,
 				ocf_metadata_load_all_args),
-	
+
 		OCF_PL_STEP_COND_ARG_INT(ocf_check_if_cleaner_enabled,
 				ocf_metadata_check_crc,
 				metadata_segment_cleaning),

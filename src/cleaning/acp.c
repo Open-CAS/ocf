@@ -235,32 +235,6 @@ void cleaning_policy_acp_deinitialize(struct ocf_cache *cache)
 	cache->cleaner.cleaning_policy_context = NULL;
 }
 
-static void _acp_rebuild(struct ocf_cache *cache)
-{
-	ocf_cache_line_t cline;
-	ocf_core_id_t cline_core_id;
-	uint32_t step = 0;
-
-	for (cline = 0; cline < cache->device->collision_table_entries; cline++) {
-		ocf_metadata_get_core_and_part_id(cache, cline, &cline_core_id,
-				NULL);
-
-		OCF_COND_RESCHED_DEFAULT(step);
-
-		if (cline_core_id == OCF_CORE_MAX)
-			continue;
-
-		cleaning_policy_acp_init_cache_block(cache, cline);
-
-		if (!metadata_test_dirty(cache, cline))
-			continue;
-
-		cleaning_policy_acp_set_hot_cache_line(cache, cline);
-	}
-
-	ocf_cache_log(cache, log_info, "Finished rebuilding ACP metadata\n");
-}
-
 void cleaning_policy_acp_setup(struct ocf_cache *cache)
 {
 	struct acp_cleaning_policy_config *config;
@@ -271,7 +245,7 @@ void cleaning_policy_acp_setup(struct ocf_cache *cache)
 	config->flush_max_buffers = OCF_ACP_DEFAULT_FLUSH_MAX_BUFFERS;
 }
 
-int cleaning_policy_acp_init_common(ocf_cache_t cache)
+int cleaning_policy_acp_initialize(ocf_cache_t cache, int kick_cleaner)
 {
 	struct acp_context *acp;
 	int err, i;
@@ -317,26 +291,15 @@ int cleaning_policy_acp_init_common(ocf_cache_t cache)
 		}
 	}
 
-	return 0;
-}
-
-int cleaning_policy_acp_initialize(ocf_cache_t cache, int init_metadata)
-{
-	int result;
-
-	result = cleaning_policy_acp_init_common(cache);
-	if (result)
-		return result;
-
-	_acp_rebuild(cache);
-	ocf_kick_cleaner(cache);
+	if (kick_cleaner)
+		ocf_kick_cleaner(cache);
 
 	return 0;
 }
 
-#define OCF_ACP_RECOVERY_SHARDS_CNT 32
+#define OCF_ACP_POPULATE_SHARDS_CNT 32
 
-struct ocf_acp_recovery_context {
+struct ocf_acp_populate_context {
 	ocf_cache_t cache;
 
 	struct {
@@ -344,16 +307,16 @@ struct ocf_acp_recovery_context {
 		struct {
 			struct list_head chunk_list;
 		} bucket[ACP_MAX_BUCKETS];
-	} shard[OCF_ACP_RECOVERY_SHARDS_CNT];
+	} shard[OCF_ACP_POPULATE_SHARDS_CNT];
 
-	ocf_cleaning_recovery_end_t cmpl;
+	ocf_cleaning_populate_end_t cmpl;
 	void *priv;
 };
 
-static int ocf_acp_recovery_handle(ocf_parallelize_t parallelize,
+static int ocf_acp_populate_handle(ocf_parallelize_t parallelize,
 		void *priv, unsigned shard_id, unsigned shards_cnt)
 {
-	struct ocf_acp_recovery_context *context = priv;
+	struct ocf_acp_populate_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_cache_line_t entries = cache->device->collision_table_entries;
 	ocf_cache_line_t cline, portion;
@@ -390,7 +353,7 @@ static int ocf_acp_recovery_handle(ocf_parallelize_t parallelize,
 	return 0;
 }
 
-static void ocf_acp_recovery_chunk(struct ocf_acp_recovery_context *context,
+static void ocf_acp_populate_chunk(struct ocf_acp_populate_context *context,
 		struct acp_chunk_info *chunk)
 {
 	ocf_cache_t cache = context->cache;
@@ -400,7 +363,7 @@ static void ocf_acp_recovery_chunk(struct ocf_acp_recovery_context *context,
 	uint8_t bucket_id;
 
 	chunk->num_dirty = 0;
-	for (shard_id = 0; shard_id < OCF_ACP_RECOVERY_SHARDS_CNT; shard_id++) {
+	for (shard_id = 0; shard_id < OCF_ACP_POPULATE_SHARDS_CNT; shard_id++) {
 		chunk->num_dirty += context->shard[shard_id]
 				.chunk[chunk->core_id][chunk->chunk_id];
 	}
@@ -417,10 +380,10 @@ static void ocf_acp_recovery_chunk(struct ocf_acp_recovery_context *context,
 	list_move_tail(&chunk->list, &bucket->chunk_list);
 }
 
-static void ocf_acp_recovery_finish(ocf_parallelize_t parallelize,
+static void ocf_acp_populate_finish(ocf_parallelize_t parallelize,
 		void *priv, int error)
 {
-	struct ocf_acp_recovery_context *context = priv;
+	struct ocf_acp_populate_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	struct acp_context *acp = _acp_get_ctx_from_cache(cache);
 	ocf_core_id_t core_id;
@@ -435,7 +398,7 @@ static void ocf_acp_recovery_finish(ocf_parallelize_t parallelize,
 		num_chunks = OCF_DIV_ROUND_UP(core_size, ACP_CHUNK_SIZE);
 
 		for (chunk_id = 0; chunk_id < num_chunks; chunk_id++) {
-			ocf_acp_recovery_chunk(context,
+			ocf_acp_populate_chunk(context,
 					&acp->chunk_info[core_id][chunk_id]);
 			OCF_COND_RESCHED_DEFAULT(step);
 		}
@@ -455,14 +418,14 @@ static void ocf_acp_recovery_finish(ocf_parallelize_t parallelize,
 	ocf_parallelize_destroy(parallelize);
 }
 
-void cleaning_policy_acp_recovery(ocf_cache_t cache,
-                ocf_cleaning_recovery_end_t cmpl, void *priv)
+void cleaning_policy_acp_populate(ocf_cache_t cache,
+                ocf_cleaning_populate_end_t cmpl, void *priv)
 {
-	struct ocf_acp_recovery_context *context;
+	struct ocf_acp_populate_context *context;
 	ocf_parallelize_t parallelize;
 	ocf_core_id_t core_id;
 	ocf_core_t core;
-	unsigned shards_cnt = OCF_ACP_RECOVERY_SHARDS_CNT;
+	unsigned shards_cnt = OCF_ACP_POPULATE_SHARDS_CNT;
 	unsigned shard_id;
 	uint64_t core_size;
 	uint64_t num_chunks;
@@ -470,8 +433,8 @@ void cleaning_policy_acp_recovery(ocf_cache_t cache,
 	int result;
 
 	result = ocf_parallelize_create(&parallelize, cache,
-			OCF_ACP_RECOVERY_SHARDS_CNT, sizeof(*context),
-			ocf_acp_recovery_handle, ocf_acp_recovery_finish);
+			OCF_ACP_POPULATE_SHARDS_CNT, sizeof(*context),
+			ocf_acp_populate_handle, ocf_acp_populate_finish);
 	if (result) {
 		cmpl(priv, result);
 		return;
@@ -497,10 +460,6 @@ void cleaning_policy_acp_recovery(ocf_cache_t cache,
 					&chunks[num_chunks * shard_id];
 		}
 	}
-
-	result = cleaning_policy_acp_init_common(cache);
-	if (result)
-		goto err;
 
 	ocf_parallelize_run(parallelize);
 

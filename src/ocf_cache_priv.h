@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2012-2022 Intel Corporation
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -19,6 +19,7 @@
 #include "ocf_stats_priv.h"
 #include "cleaning/cleaning.h"
 #include "ocf_logger_priv.h"
+#include "ocf_queue_priv.h"
 #include "promotion/promotion.h"
 
 #define DIRTY_FLUSHED 1
@@ -174,6 +175,8 @@ static inline uint64_t ocf_get_cache_occupancy(ocf_cache_t cache)
 
 	return result;
 }
+
+uint32_t ocf_cache_get_queue_count(ocf_cache_t cache);
 
 int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size);
 
