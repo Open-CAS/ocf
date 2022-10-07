@@ -15,6 +15,7 @@ enum ocf_cleaning_alru_parameters {
 	ocf_alru_stale_buffer_time,
 	ocf_alru_flush_max_buffers,
 	ocf_alru_activity_threshold,
+	ocf_alru_max_dirty_ratio,
 };
 
 /**
@@ -66,6 +67,16 @@ enum ocf_cleaning_alru_parameters {
 /** Idle time before flushing thread can start default value */
 #define OCF_ALRU_DEFAULT_ACTIVITY_THRESHOLD	10000
 
+/**
+ * ALRU max dirty ratio for a cache device
+ */
+
+/** Minimum dirty ratio value */
+#define OCF_ALRU_MIN_MAX_DIRTY_RATIO		0
+/** Maximum dirty ratio value */
+#define OCF_ALRU_MAX_MAX_DIRTY_RATIO		100
+/** Default dirty ratio value */
+#define OCF_ALRU_DEFAULT_MAX_DIRTY_RATIO	OCF_ALRU_MAX_MAX_DIRTY_RATIO
 /**
  * @}
  */
