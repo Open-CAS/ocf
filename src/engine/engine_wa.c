@@ -18,7 +18,6 @@
 
 int ocf_write_wa(struct ocf_request *req)
 {
-	ocf_io_start(&req->ioi.io);
 
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);

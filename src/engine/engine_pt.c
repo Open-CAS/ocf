@@ -102,7 +102,6 @@ int ocf_read_pt(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	ocf_io_start(&req->ioi.io);
 
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);

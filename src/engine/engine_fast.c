@@ -125,7 +125,6 @@ int ocf_read_fast(struct ocf_request *req)
 	part_has_space = ocf_user_part_has_space(req);
 
 	if (hit && part_has_space) {
-		ocf_io_start(&req->ioi.io);
 		lock = ocf_req_async_lock_rd(
 				ocf_cache_line_concurrency(req->cache),
 				req, ocf_engine_on_resume);
@@ -192,7 +191,6 @@ int ocf_write_fast(struct ocf_request *req)
 	part_has_space = ocf_user_part_has_space(req);
 
 	if (mapped && part_has_space) {
-		ocf_io_start(&req->ioi.io);
 		lock = ocf_req_async_lock_wr(
 				ocf_cache_line_concurrency(req->cache),
 				req, ocf_engine_on_resume);
