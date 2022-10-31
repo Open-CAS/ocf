@@ -167,7 +167,6 @@ int ocf_write_wb(struct ocf_request *req)
 {
 	int lock = OCF_LOCK_NOT_ACQUIRED;
 
-	ocf_io_start(&req->ioi.io);
 
 	/* Not sure if we need this. */
 	ocf_req_get(req);

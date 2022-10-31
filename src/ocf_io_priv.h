@@ -46,17 +46,6 @@ struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir,
 		uint32_t io_class, uint64_t flags);
 
-static inline void ocf_io_start(struct ocf_io *io)
-{
-	/*
-	 * We want to call start() callback only once, so after calling
-	 * we set it to NULL to prevent multiple calls.
-	 */
-	if (io->start) {
-		io->start(io);
-		io->start = NULL;
-	}
-}
 
 static inline void ocf_io_end(struct ocf_io *io, int error)
 {
