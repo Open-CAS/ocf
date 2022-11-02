@@ -57,17 +57,17 @@ static void _ocf_write_wt_do_flush_metadata_compl(struct ocf_request *req,
 		int error)
 {
 	if (error)
-		req->error = error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	if (req->error)
+	if (env_atomic_read(&req->error))
 		ocf_engine_error(req, true, "Failed to write data to cache");
 
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
-	req->complete(req, req->info.core_error ? req->error : 0);
+	req->complete(req, req->info.core_error ? env_atomic_read(&req->error) : 0);
 
 	ocf_req_put(req);
 }
@@ -99,11 +99,11 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error) {
+	if (env_atomic_read(&req->error)) {
 		/* An error occured */
 
 		/* Complete request */
-		req->complete(req, req->info.core_error ? req->error : 0);
+		req->complete(req, req->info.core_error ? env_atomic_read(&req->error) : 0);
 
 		ocf_engine_invalidate(req);
 
@@ -117,7 +117,7 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 	} else {
 		ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
-		req->complete(req, req->info.core_error ? req->error : 0);
+		req->complete(req, req->info.core_error ? env_atomic_read(&req->error) : 0);
 
 		ocf_req_put(req);
 	}
@@ -126,10 +126,10 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 static void _ocf_write_wt_cache_complete(struct ocf_request *req, int error)
 {
 	if (error) {
-		req->error = req->error ?: error;
+		env_atomic_cmpxchg(&req->error, 0, env_atomic_read(&req->error) ?: error);
 		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
 
-		if (req->error)
+		if (env_atomic_read(&req->error))
 			inc_fallback_pt_error_counter(req->cache);
 	}
 
@@ -139,7 +139,7 @@ static void _ocf_write_wt_cache_complete(struct ocf_request *req, int error)
 static void _ocf_write_wt_core_complete(struct ocf_request *req, int error)
 {
 	if (error) {
-		req->error = error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 		req->info.core_error = 1;
 		ocf_core_stats_core_error_update(req->core, OCF_WRITE);
 	}

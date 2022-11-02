@@ -31,7 +31,7 @@
 static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 {
 	if (error) {
-		req->error |= error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 		ocf_core_stats_cache_error_update(req->core, OCF_READ);
 	}
 
@@ -42,7 +42,7 @@ static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 
 	OCF_DEBUG_RQ(req, "HIT completion");
 
-	if (req->error) {
+	if (env_atomic_read(&req->error)) {
 		OCF_DEBUG_RQ(req, "ERROR");
 
 		ocf_engine_push_req_front_pt(req);
@@ -50,7 +50,7 @@ static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 		ocf_req_unlock(ocf_cache_line_concurrency(req->cache), req);
 
 		/* Complete request */
-		req->complete(req, req->error);
+		req->complete(req, env_atomic_read(&req->error));
 
 		/* Free the request at the last point of the completion path */
 		ocf_req_put(req);

@@ -155,7 +155,7 @@ int ocf_req_alloc_map(struct ocf_request *req)
 			ocf_req_sizeof_alock_status(req->core_line_count),
 			ENV_MEM_NOIO);
 	if (!req->map) {
-		req->error = -OCF_ERR_NO_MEM;
+		env_atomic_cmpxchg(&req->error, 0, -OCF_ERR_NO_MEM);
 		return -OCF_ERR_NO_MEM;
 	}
 

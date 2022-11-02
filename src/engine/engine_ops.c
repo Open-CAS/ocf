@@ -16,20 +16,20 @@
 static void _ocf_engine_ops_complete(struct ocf_request *req, int error)
 {
 	if (error)
-		req->error |= error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error) {
+	if (env_atomic_read(&req->error)) {
 		/* An error occured */
 		ocf_engine_error(req, false, "Core operation failure");
 	}
 
 	/* Complete requests - both to cache and to core*/
-	req->complete(req, req->error);
+	req->complete(req, env_atomic_read(&req->error));
 
 	/* Release OCF request */
 	ocf_req_put(req);

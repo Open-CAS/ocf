@@ -28,7 +28,7 @@ static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 			req->cache);
 
 	if (error) {
-		req->error |= error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 		ocf_core_stats_cache_error_update(req->core, OCF_READ);
 		inc_fallback_pt_error_counter(req->cache);
 	}
@@ -40,13 +40,13 @@ static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining) == 0) {
 		OCF_DEBUG_RQ(req, "HIT completion");
 
-		if (req->error) {
+		if (env_atomic_read(&req->error)) {
 			ocf_engine_push_req_front_pt(req);
 		} else {
 			ocf_req_unlock(c, req);
 
 			/* Complete request */
-			req->complete(req, req->error);
+			req->complete(req, env_atomic_read(&req->error));
 
 			/* Free the request at the last point
 			 * of the completion path
@@ -61,7 +61,7 @@ static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 	struct ocf_cache *cache = req->cache;
 
 	if (error)
-		req->error = error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 
 	/* Handle callback-caller race to let only one of the two complete the
 	 * request. Also, complete original request only if this is the last
@@ -70,12 +70,12 @@ static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining) == 0) {
 		OCF_DEBUG_RQ(req, "MISS completion");
 
-		if (req->error) {
+		if (env_atomic_read(&req->error)) {
 			/*
 			 * --- Do not submit this request to write-back-thread.
 			 * Stop it here ---
 			 */
-			req->complete(req, req->error);
+			req->complete(req, env_atomic_read(&req->error));
 
 			req->info.core_error = 1;
 			ocf_core_stats_core_error_update(req->core, OCF_READ);
@@ -96,7 +96,7 @@ static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 				req->byte_length);
 
 		/* Complete request */
-		req->complete(req, req->error);
+		req->complete(req, env_atomic_read(&req->error));
 
 		ocf_engine_backfill(req);
 	}

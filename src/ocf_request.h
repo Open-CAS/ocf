@@ -161,7 +161,7 @@ struct ocf_request {
 	uint32_t alloc_core_line_count;
 	/*! Number of core lines at time of request allocation */
 
-	int error;
+	env_atomic error;
 	/*!< This filed indicates an error for OCF request */
 
 	ocf_part_id_t part_id;

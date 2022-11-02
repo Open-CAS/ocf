@@ -116,7 +116,7 @@ static void _ocf_discard_finish_step(struct ocf_request *req)
 static void _ocf_discard_step_complete(struct ocf_request *req, int error)
 {
 	if (error)
-		req->error |= error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
@@ -126,9 +126,9 @@ static void _ocf_discard_step_complete(struct ocf_request *req, int error)
 	/* Release WRITE lock of request */
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
-	if (req->error) {
+	if (env_atomic_read(&req->error)) {
 		ocf_metadata_error(req->cache);
-		_ocf_discard_complete_req(req, req->error);
+		_ocf_discard_complete_req(req, env_atomic_read(&req->error));
 		return;
 	}
 
@@ -230,7 +230,7 @@ static int _ocf_discard_step(struct ocf_request *req)
 		}
 	} else {
 		OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);
-		req->error |= lock;
+		env_atomic_cmpxchg(&req->error, 0, lock);
 		_ocf_discard_finish_step(req);
 	}
 

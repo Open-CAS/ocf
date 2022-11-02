@@ -164,7 +164,7 @@ static void _ocf_cleaner_set_error(struct ocf_request *req)
 		return;
 	}
 
-	master->error = -OCF_ERR_IO;
+	env_atomic_cmpxchg(&master->error, 0, -OCF_ERR_IO);
 }
 
 static void _ocf_cleaner_complete_req(struct ocf_request *req)
@@ -195,7 +195,7 @@ static void _ocf_cleaner_complete_req(struct ocf_request *req)
 
 	/* Only master contains completion function and completion context */
 	cmpl = master->master_io_req;
-	cmpl(master->priv, master->error);
+	cmpl(master->priv, master->error.counter);
 }
 
 static void _ocf_cleaner_on_resume(struct ocf_request *req)
@@ -263,7 +263,7 @@ static void _ocf_cleaner_flush_cache_io_end(struct ocf_io *io, int error)
 
 	if (error) {
 		ocf_metadata_error(req->cache);
-		req->error = error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 	}
 
 	OCF_DEBUG_MSG(req->cache, "Cache flush finished");
@@ -282,7 +282,7 @@ static int _ocf_cleaner_fire_flush_cache(struct ocf_request *req)
 	io = ocf_new_cache_io(req->cache, req->io_queue, 0, 0, OCF_WRITE, 0, 0);
 	if (!io) {
 		ocf_metadata_error(req->cache);
-		req->error = -OCF_ERR_NO_MEM;
+		env_atomic_cmpxchg(&req->error, 0, -OCF_ERR_NO_MEM);
 		return -OCF_ERR_NO_MEM;
 	}
 
@@ -297,7 +297,7 @@ static void _ocf_cleaner_metadata_io_end(struct ocf_request *req, int error)
 {
 	if (error) {
 		ocf_metadata_error(req->cache);
-		req->error = error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 		_ocf_cleaner_finish_req(req);
 		return;
 	}
@@ -791,7 +791,7 @@ static inline uint32_t _ocf_cleaner_get_req_max_count(uint32_t count,
 static void _ocf_cleaner_fire_error(struct ocf_request *master,
 		struct ocf_request *req, int err)
 {
-	master->error = err;
+	env_atomic_cmpxchg(&master->error, 0, err);
 	_ocf_cleaner_complete_req(req);
 	_ocf_cleaner_dealloc_req(req);
 }
@@ -865,7 +865,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 
 		/* when request allocation failed stop processing */
 		if (!req) {
-			master->error = -OCF_ERR_NO_MEM;
+			env_atomic_cmpxchg(&master->error, 0, -OCF_ERR_NO_MEM);
 			break;
 		}
 
