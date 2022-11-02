@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
  * Copyright(c) 2023-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -597,31 +598,37 @@ static inline int env_in_interrupt(void)
 	return 0;
 }
 
+/* TIME */
+#define ENV_SEC_TO_NSEC(_sec)	((_sec) * 1000000000)
+#define ENV_NSEC_TO_SEC(_sec)	((_sec) / 1000000000)
+#define ENV_NSEC_TO_MSEC(_sec)	((_sec) / 1000000)
+
 static inline uint64_t env_get_tick_count(void)
 {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return tv.tv_sec * 1000000 + tv.tv_usec;
+	struct timespec tv;
+
+	return clock_gettime(CLOCK_REALTIME, &tv) ?
+			0 : ENV_SEC_TO_NSEC(tv.tv_sec) + tv.tv_nsec;
 }
 
 static inline uint64_t env_ticks_to_nsecs(uint64_t j)
 {
-	return j * 1000;
+	return j;
 }
 
 static inline uint64_t env_ticks_to_msecs(uint64_t j)
 {
-	return j / 1000;
+	return ENV_NSEC_TO_MSEC(j);
 }
 
 static inline uint64_t env_ticks_to_secs(uint64_t j)
 {
-	return j / 1000000;
+	return ENV_NSEC_TO_SEC(j);
 }
 
 static inline uint64_t env_secs_to_ticks(uint64_t j)
 {
-	return j * 1000000;
+	return ENV_SEC_TO_NSEC(j);
 }
 
 /* SORTING */
