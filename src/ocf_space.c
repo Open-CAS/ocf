@@ -59,6 +59,9 @@ static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
 		/*
 		 * Check stop and continue conditions
 		 */
+		if (req->part_id == part_id)
+            continue;
+
 		if (max_priority > user_part->config->priority) {
 			/*
 			 * iterate partition have higher priority,
