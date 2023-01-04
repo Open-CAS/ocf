@@ -87,7 +87,7 @@ static void ocf_refcnt_register_zero_cb_test02(void **state)
 	expect_function_calls(zero_cb, 1);
 	expect_value(zero_cb, ctx, ptr);
 
-	/* regiser callback */
+	/* register callback */
 	ocf_refcnt_register_zero_cb(&rc, zero_cb, ptr);
 
 	val = env_atomic_read(&rc.callback);
