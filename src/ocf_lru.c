@@ -936,6 +936,7 @@ void ocf_lru_init(ocf_cache_t cache, struct ocf_part *part)
 	}
 
 	env_atomic_set(&part->runtime->curr_size, 0);
+	env_atomic_set(&part->runtime->evict_counter, 0);
 }
 
 void ocf_lru_clean_cline(ocf_cache_t cache, struct ocf_part *part,

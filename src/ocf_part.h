@@ -34,6 +34,7 @@ struct ocf_user_part_config {
 
 struct ocf_part_runtime {
 	env_atomic curr_size;
+	env_atomic evict_counter;
 	struct ocf_lru_part_meta lru[OCF_NUM_LRU_LISTS];
 };
 
