@@ -85,7 +85,7 @@ void env_stack_trace(void);
 	const typeof(((type *)0)->member)*__mptr = (ptr);    \
 	(type *)((char *)__mptr - offsetof(type, member)); })
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
+#define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
 /* STRING OPERATIONS */
 #define env_memcpy(dest, dmax, src, slen) ({ \
