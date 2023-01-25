@@ -446,6 +446,15 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_CORE_NOT_AVAIL);
 	}
 
+	if (length > OCF_CORE_LINE_MAX * ocf_line_size(cache)) {
+		ocf_cache_log(cache, log_err,
+				"Core %s is too large: length is %" ENV_PRIu64
+				", max supported is %" ENV_PRIu64 "\n",
+				cfg->name, length,
+				OCF_CORE_LINE_MAX * ocf_line_size(cache));
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_CORE_NOT_AVAIL);
+	}
+
 	core->conf_meta->length = length;
 	core->conf_meta->type = cfg->volume_type;
 

@@ -26,17 +26,17 @@ struct ocf_metadata_list_info {
  */
 
 struct ocf_metadata_map {
-	uint64_t core_line;
+	uint64_t core_line : OCF_CORE_LINE_BITS;
 		/*!<  Core line addres on cache mapped by this strcture */
 
-	uint16_t core_id : OCF_CORE_ID_BITS;
+	uint64_t core_id : OCF_CORE_ID_BITS;
 		/*!<  ID of core where is assigned this cache line*/
 
 #ifdef OCF_BLOCK_SIZE_4K
-	uint16_t _valid : 1;
+	uint64_t _valid : 1;
 		/*!<  valid bit for 4K cache line */
 
-	uint16_t _dirty : 1;
+	uint64_t _dirty : 1;
 		/*!<  dirty bit for 4K cache line */
 #endif
 
