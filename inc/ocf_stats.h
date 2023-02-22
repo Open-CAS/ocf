@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -118,6 +119,9 @@ struct ocf_stats_blocks {
 	struct ocf_stat volume_rd;
 	struct ocf_stat volume_wr;
 	struct ocf_stat volume_total;
+	struct ocf_stat pass_through_rd;
+	struct ocf_stat pass_through_wr;
+	struct ocf_stat pass_through_total;
 };
 
 /**
