@@ -255,11 +255,18 @@ static inline struct ocf_lru_list *lru_get_cline_list(ocf_cache_t cache,
 			!metadata_test_dirty(cache, cline));
 }
 
-void ocf_lru_add(ocf_cache_t cache, ocf_cache_line_t cline)
+static void ocf_lru_add_locked(ocf_cache_t cache, ocf_cache_line_t cline)
 {
 	struct ocf_lru_list *list = lru_get_cline_list(cache, cline);
 
 	add_lru_head(cache, list, cline);
+}
+
+void ocf_lru_add(ocf_cache_t cache, ocf_cache_line_t cline)
+{
+	OCF_METADATA_LRU_WR_LOCK(cline);
+	ocf_lru_add_locked(cache, cline);
+	OCF_METADATA_LRU_WR_UNLOCK(cline);
 }
 
 static inline void ocf_lru_move(ocf_cache_t cache, ocf_cache_line_t cline,
