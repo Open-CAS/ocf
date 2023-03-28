@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -2632,7 +2633,7 @@ static void _ocf_mngt_cache_attach(ocf_cache_t cache,
 	context->pipeline = pipeline;
 
 	context->cache = cache;
-	context->cfg = *cfg;
+	memcpy(&context->cfg, cfg, sizeof(context->cfg));
 
 	OCF_PL_NEXT_RET(pipeline);
 }
@@ -2665,7 +2666,7 @@ static void _ocf_mngt_cache_load(ocf_cache_t cache,
 	context->pipeline = pipeline;
 
 	context->cache = cache;
-	context->cfg = *cfg;
+	memcpy(&context->cfg, cfg, sizeof(context->cfg));
 
 	OCF_PL_NEXT_RET(pipeline);
 }
@@ -2777,7 +2778,7 @@ static void _ocf_mngt_cache_standby_attach(ocf_cache_t cache,
 	context->pipeline = pipeline;
 
 	context->cache = cache;
-	context->cfg = *cfg;
+	memcpy(&context->cfg, cfg, sizeof(context->cfg));
 
 	OCF_PL_NEXT_RET(pipeline);
 }
@@ -2810,7 +2811,7 @@ static void _ocf_mngt_cache_standby_load(ocf_cache_t cache,
 	context->pipeline = pipeline;
 
 	context->cache = cache;
-	context->cfg = *cfg;
+	memcpy(&context->cfg, cfg, sizeof(context->cfg));
 
 	OCF_PL_NEXT_RET(pipeline);
 }
