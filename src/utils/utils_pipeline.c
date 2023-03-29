@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -8,6 +9,8 @@
 #include "../engine/engine_common.h"
 #include "../ocf_request.h"
 #include "utils_pipeline.h"
+
+#define OCF_PIPELINE_ALIGNMENT 64
 
 struct ocf_pipeline {
 	struct ocf_pipeline_properties *properties;
@@ -74,13 +77,14 @@ int ocf_pipeline_create(ocf_pipeline_t *pipeline, ocf_cache_t cache,
 	struct ocf_request *req;
 
 	tmp_pipeline = env_vzalloc(sizeof(*tmp_pipeline) +
-			properties->priv_size);
+			properties->priv_size + OCF_PIPELINE_ALIGNMENT);
 	if (!tmp_pipeline)
 		return -OCF_ERR_NO_MEM;
 
 	if (properties->priv_size > 0) {
-		tmp_pipeline->priv = (void *)tmp_pipeline +
-				sizeof(*tmp_pipeline);
+		uintptr_t priv = (uintptr_t)tmp_pipeline + sizeof(*tmp_pipeline);
+		priv = OCF_DIV_ROUND_UP(priv, OCF_PIPELINE_ALIGNMENT) * OCF_PIPELINE_ALIGNMENT;
+		tmp_pipeline->priv = (void *)priv;
 	}
 
 	req = ocf_req_new(cache->mngt_queue, NULL, 0, 0, 0);
