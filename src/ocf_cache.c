@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -60,6 +61,12 @@ bool ocf_cache_is_running(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
 	return env_bit_test(ocf_cache_state_running, &cache->cache_state);
+}
+
+bool ocf_cache_is_initializing(ocf_cache_t cache)
+{
+	OCF_CHECK_NULL(cache);
+	return env_bit_test(ocf_cache_state_initializing, &cache->cache_state);
 }
 
 bool ocf_cache_is_standby(ocf_cache_t cache)
