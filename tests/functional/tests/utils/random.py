@@ -1,5 +1,5 @@
 #
-# Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2019-2023 Intel Corporation
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -79,7 +79,7 @@ class RandomStringGenerator:
                 *extra_chars,
             ]:
                 yield "".join(
-                    random.choice(t)
+                    self.random.choice(t)
                     for _ in range(self.random.randint(len_range.min, len_range.max))
                 )
 
