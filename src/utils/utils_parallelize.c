@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -8,6 +9,8 @@
 #include "../engine/engine_common.h"
 #include "../ocf_request.h"
 #include "utils_parallelize.h"
+
+#define OCF_PARALLELIZE_ALIGNMENT 64
 
 struct ocf_parallelize {
 	ocf_cache_t cache;
@@ -65,12 +68,15 @@ int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 	prl_size = sizeof(*tmp_parallelize) +
 			shards_cnt * sizeof(*tmp_parallelize->reqs);
 
-	tmp_parallelize = env_vzalloc(prl_size + priv_size);
+	tmp_parallelize = env_vzalloc(prl_size + priv_size + OCF_PARALLELIZE_ALIGNMENT);
 	if (!tmp_parallelize)
 		return -OCF_ERR_NO_MEM;
 
-	if (priv_size > 0)
-		tmp_parallelize->priv = (void *)tmp_parallelize + prl_size;
+	if (priv_size > 0) {
+		uintptr_t priv = (uintptr_t)tmp_parallelize + prl_size;
+		priv = OCF_DIV_ROUND_UP(priv, OCF_PARALLELIZE_ALIGNMENT) * OCF_PARALLELIZE_ALIGNMENT;
+		tmp_parallelize->priv = (void*)priv;
+	}
 
 	tmp_parallelize->cache = cache;
 	tmp_parallelize->handle = handle;
