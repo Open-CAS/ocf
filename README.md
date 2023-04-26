@@ -113,9 +113,4 @@ pytest
 Feel like making OCF better? Don't hesitate to submit a pull request!  
 You can find more information about our contribution process
 [here](https://open-cas.github.io/contributing.html).  
-In case of any questions feel free to contact [maintainer](mailto:robert.baldyga@intel.com).
-
-## Security
-
-To report a potential security vulnerability please follow the instructions
-[here](https://open-cas.github.io/contributing.html#reporting-a-potential-security-vulnerability)
+In case of any questions feel free to contact [maintainer](mailto:baldyga.r@gmail.com).
