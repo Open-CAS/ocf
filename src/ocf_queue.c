@@ -14,6 +14,35 @@
 #include "engine/cache_engine.h"
 #include "ocf_def_priv.h"
 
+int _ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
+		const struct ocf_queue_ops *ops)
+{
+	ocf_queue_t tmp_queue;
+	int result;
+
+	tmp_queue = env_zalloc(sizeof(*tmp_queue), ENV_MEM_NORMAL);
+	if (!tmp_queue) {
+		return -OCF_ERR_NO_MEM;
+	}
+
+	env_atomic_set(&tmp_queue->io_no, 0);
+	result = env_spinlock_init(&tmp_queue->io_list_lock);
+	if (result) {
+		env_free(tmp_queue);
+		return result;
+	}
+
+	INIT_LIST_HEAD(&tmp_queue->io_list_high);
+	INIT_LIST_HEAD(&tmp_queue->io_list_low);
+	env_atomic_set(&tmp_queue->ref_count, 1);
+	tmp_queue->cache = cache;
+	tmp_queue->ops = ops;
+
+	*queue = tmp_queue;
+
+	return 0;
+}
+
 int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 		const struct ocf_queue_ops *ops)
 {
@@ -26,25 +55,11 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 	if (result)
 		return result;
 
-	tmp_queue = env_zalloc(sizeof(*tmp_queue), ENV_MEM_NORMAL);
-	if (!tmp_queue) {
-		ocf_mngt_cache_put(cache);
-		return -OCF_ERR_NO_MEM;
-	}
-
-	env_atomic_set(&tmp_queue->io_no, 0);
-	result = env_spinlock_init(&tmp_queue->io_list_lock);
+	result = _ocf_queue_create(cache, &tmp_queue, ops);
 	if (result) {
 		ocf_mngt_cache_put(cache);
-		env_free(tmp_queue);
 		return result;
 	}
-
-	INIT_LIST_HEAD(&tmp_queue->io_list_high);
-	INIT_LIST_HEAD(&tmp_queue->io_list_low);
-	env_atomic_set(&tmp_queue->ref_count, 1);
-	tmp_queue->cache = cache;
-	tmp_queue->ops = ops;
 
 	result = ocf_queue_seq_cutoff_init(tmp_queue);
 	if (result) {
@@ -54,6 +69,34 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 	}
 
 	list_add(&tmp_queue->list, &cache->io_queues);
+
+	*queue = tmp_queue;
+
+	return 0;
+}
+
+int ocf_queue_create_mngt(ocf_cache_t cache, ocf_queue_t *queue,
+		const struct ocf_queue_ops *ops)
+{
+	ocf_queue_t tmp_queue;
+	int result;
+
+	OCF_CHECK_NULL(cache);
+
+	if (cache->mngt_queue)
+		return -OCF_ERR_INVAL;
+
+	result = ocf_mngt_cache_get(cache);
+	if (result)
+		return result;
+
+	result = _ocf_queue_create(cache, &tmp_queue, ops);
+	if (result) {
+		ocf_mngt_cache_put(cache);
+		return result;
+	}
+
+	cache->mngt_queue = tmp_queue;
 
 	*queue = tmp_queue;
 
@@ -72,9 +115,11 @@ void ocf_queue_put(ocf_queue_t queue)
 	OCF_CHECK_NULL(queue);
 
 	if (env_atomic_dec_return(&queue->ref_count) == 0) {
-		list_del(&queue->list);
 		queue->ops->stop(queue);
-		ocf_queue_seq_cutoff_deinit(queue);
+		if (queue != queue->cache->mngt_queue) {
+			list_del(&queue->list);
+			ocf_queue_seq_cutoff_deinit(queue);
+		}
 		ocf_mngt_cache_put(queue->cache);
 		env_spinlock_destroy(&queue->io_list_lock);
 		env_free(queue);

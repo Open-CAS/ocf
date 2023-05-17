@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -57,6 +58,18 @@ struct ocf_queue_ops {
  * @return Zero on success, otherwise error code
  */
 int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
+		const struct ocf_queue_ops *ops);
+
+/**
+ * @brief Allocate mngt queue and assign it to cache
+ *
+ * @param[in] cache Handle to cache instance
+ * @param[out] queue Handle to created queue
+ * @param[in] ops Queue operations
+ *
+ * @return Zero on success, otherwise error code
+ */
+int ocf_queue_create_mngt(ocf_cache_t cache, ocf_queue_t *queue,
 		const struct ocf_queue_ops *ops);
 
 /**

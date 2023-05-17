@@ -3039,20 +3039,6 @@ int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	return result;
 }
 
-int ocf_mngt_cache_set_mngt_queue(ocf_cache_t cache, ocf_queue_t queue)
-{
-	OCF_CHECK_NULL(cache);
-	OCF_CHECK_NULL(queue);
-
-	if (cache->mngt_queue)
-		return -OCF_ERR_INVAL;
-
-	ocf_queue_get(queue);
-	cache->mngt_queue = queue;
-
-	return 0;
-}
-
 static void _ocf_mngt_cache_attach_complete(ocf_cache_t cache, void *priv1,
 		void *priv2, int error)
 {

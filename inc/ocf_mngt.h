@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -324,17 +325,6 @@ static inline void ocf_mngt_cache_config_set_default(
  */
 int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		struct ocf_mngt_cache_config *cfg, void *priv);
-
-/**
- * @brief Set queue to be used during management operations
- *
- * @param[in] cache Cache object
- * @param[in] queue Queue object
- *
- * @retval 0 Success
- * @retval Non-zero Error occurred
- */
-int ocf_mngt_cache_set_mngt_queue(ocf_cache_t cache, ocf_queue_t queue);
 
 /**
  * @brief Completion callback of cache stop operation

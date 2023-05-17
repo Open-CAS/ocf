@@ -277,10 +277,9 @@ class Cache:
             raise OcfError("Creating cache instance failed", status)
 
         if init_mngmt_queue:
-            self.mngt_queue = Queue(self, "mgmt-{}".format(self.get_name()))
-            status = self.owner.lib.ocf_mngt_cache_set_mngt_queue(self, self.mngt_queue)
-            if status:
-                raise OcfError("Error setting management queue", status)
+            self.mngt_queue = Queue(
+                self, "mgmt-{}".format(self.get_name()), mngt=True
+            )
 
         if init_default_io_queue:
             self.io_queues = [Queue(self, "default-io-{}".format(self.get_name()))]

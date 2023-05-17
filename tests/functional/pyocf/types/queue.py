@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -42,15 +43,20 @@ def io_queue_run(*, queue: Queue, kick: Condition, stop: Event, sem: Semaphore):
 class Queue:
     _instances_ = weakref.WeakValueDictionary()
 
-    def __init__(self, cache, name):
+    def __init__(self, cache, name, mngt=False):
 
         self.ops = QueueOps(kick=type(self)._kick, stop=type(self)._stop)
         self.name = name
 
         self.handle = c_void_p()
-        status = OcfLib.getInstance().ocf_queue_create(
-            cache.cache_handle, byref(self.handle), byref(self.ops)
-        )
+        if mngt:
+            status = OcfLib.getInstance().ocf_queue_create_mngt(
+                cache.cache_handle, byref(self.handle), byref(self.ops)
+            )
+        else:
+            status = OcfLib.getInstance().ocf_queue_create(
+                cache.cache_handle, byref(self.handle), byref(self.ops)
+            )
         if status:
             raise OcfError("Couldn't create queue object", status)
 
