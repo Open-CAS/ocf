@@ -42,17 +42,6 @@ static inline void ocf_metadata_lru_wr_unlock(
 	env_rwlock_write_unlock(&metadata_lock->lru[ev_list]);
 }
 
-static inline void ocf_metadata_lru_rd_lock(
-		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
-{
-	env_rwlock_read_lock(&metadata_lock->lru[ev_list]);
-}
-
-static inline void ocf_metadata_lru_rd_unlock(
-		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
-{
-	env_rwlock_read_unlock(&metadata_lock->lru[ev_list]);
-}
 static inline void ocf_metadata_lru_wr_lock_all(
 		struct ocf_metadata_lock *metadata_lock)
 {
@@ -78,15 +67,6 @@ static inline void ocf_metadata_lru_wr_unlock_all(
 #define OCF_METADATA_LRU_WR_UNLOCK(cline) \
 		ocf_metadata_lru_wr_unlock(&cache->metadata.lock, \
 				OCF_LRU_GET_LIST_INDEX(cline))
-
-#define OCF_METADATA_LRU_RD_LOCK(cline) \
-		ocf_metadata_lru_rd_lock(&cache->metadata.lock, \
-				OCF_LRU_GET_LIST_INDEX(cline))
-
-#define OCF_METADATA_LRU_RD_UNLOCK(cline) \
-		ocf_metadata_lru_rd_unlock(&cache->metadata.lock, \
-				OCF_LRU_GET_LIST_INDEX(cline))
-
 
 #define OCF_METADATA_LRU_WR_LOCK_ALL() \
 	ocf_metadata_lru_wr_lock_all(&cache->metadata.lock)

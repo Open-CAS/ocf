@@ -879,16 +879,18 @@ void ocf_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	struct ocf_lru_list *list;
 	ocf_part_id_t part_id;
 	struct ocf_part *part;
-	bool hot;
 	bool clean;
 
 	node = ocf_metadata_get_lru(cache, cline);
 
-	OCF_METADATA_LRU_RD_LOCK(cline);
-	hot = node->hot;
-	OCF_METADATA_LRU_RD_UNLOCK(cline);
-
-	if (hot)
+	/*
+	 * We skip read lock here, as there is no real negative
+	 * consequence of occasionally skipping ocf_lru_set_hot()
+	 * for a line that just became cold, or calling it for a
+	 * line that just turned hot. In return we avoid expensive
+	 * locking on a very common code path.
+	 */
+	if (node->hot)
 		return;
 
 	part_id = ocf_metadata_get_partition_id(cache, cline);
