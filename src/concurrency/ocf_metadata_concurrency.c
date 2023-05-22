@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
  * Copyright(c) 2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -15,8 +16,11 @@ int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 	unsigned part_iter;
 	unsigned global_iter;
 
-	for (lru_iter = 0; lru_iter < OCF_NUM_LRU_LISTS; lru_iter++)
-		env_rwlock_init(&metadata_lock->lru[lru_iter]);
+	for (lru_iter = 0; lru_iter < OCF_NUM_LRU_LISTS; lru_iter++) {
+		err = env_spinlock_init(&metadata_lock->lru[lru_iter]);
+		if (err)
+			goto lru_err;
+	}
 
 	for (global_iter = 0; global_iter < OCF_NUM_GLOBAL_META_LOCKS;
 			global_iter++) {
@@ -41,8 +45,9 @@ global_err:
 	while (global_iter--)
 		env_rwsem_destroy(&metadata_lock->global[global_iter].sem);
 
+lru_err:
 	while (lru_iter--)
-		env_rwlock_destroy(&metadata_lock->lru[lru_iter]);
+		env_spinlock_destroy(&metadata_lock->lru[lru_iter]);
 
 	return err;
 }
@@ -55,7 +60,7 @@ void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock)
 		env_spinlock_destroy(&metadata_lock->partition[i]);
 
 	for (i = 0; i < OCF_NUM_LRU_LISTS; i++)
-		env_rwlock_destroy(&metadata_lock->lru[i]);
+		env_spinlock_destroy(&metadata_lock->lru[i]);
 
 	for (i = 0; i < OCF_NUM_GLOBAL_META_LOCKS; i++)
 		env_rwsem_destroy(&metadata_lock->global[i].sem);

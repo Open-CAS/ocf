@@ -30,49 +30,49 @@ int ocf_metadata_concurrency_attached_init(
 void ocf_metadata_concurrency_attached_deinit(
 		struct ocf_metadata_lock *metadata_lock);
 
-static inline void ocf_metadata_lru_wr_lock(
+static inline void ocf_metadata_lru_lock(
 		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
 {
-	env_rwlock_write_lock(&metadata_lock->lru[ev_list]);
+	env_spinlock_lock(&metadata_lock->lru[ev_list]);
 }
 
-static inline void ocf_metadata_lru_wr_unlock(
+static inline void ocf_metadata_lru_unlock(
 		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
 {
-	env_rwlock_write_unlock(&metadata_lock->lru[ev_list]);
+	env_spinlock_unlock(&metadata_lock->lru[ev_list]);
 }
 
-static inline void ocf_metadata_lru_wr_lock_all(
+static inline void ocf_metadata_lru_lock_all(
 		struct ocf_metadata_lock *metadata_lock)
 {
 	uint32_t i;
 
 	for (i = 0; i < OCF_NUM_LRU_LISTS; i++)
-		ocf_metadata_lru_wr_lock(metadata_lock, i);
+		ocf_metadata_lru_lock(metadata_lock, i);
 }
 
-static inline void ocf_metadata_lru_wr_unlock_all(
+static inline void ocf_metadata_lru_unlock_all(
 		struct ocf_metadata_lock *metadata_lock)
 {
 	uint32_t i;
 
 	for (i = 0; i < OCF_NUM_LRU_LISTS; i++)
-		ocf_metadata_lru_wr_unlock(metadata_lock, i);
+		ocf_metadata_lru_unlock(metadata_lock, i);
 }
 
-#define OCF_METADATA_LRU_WR_LOCK(cline) \
-		ocf_metadata_lru_wr_lock(&cache->metadata.lock, \
+#define OCF_METADATA_LRU_LOCK(cline) \
+		ocf_metadata_lru_lock(&cache->metadata.lock, \
 				OCF_LRU_GET_LIST_INDEX(cline))
 
-#define OCF_METADATA_LRU_WR_UNLOCK(cline) \
-		ocf_metadata_lru_wr_unlock(&cache->metadata.lock, \
+#define OCF_METADATA_LRU_UNLOCK(cline) \
+		ocf_metadata_lru_unlock(&cache->metadata.lock, \
 				OCF_LRU_GET_LIST_INDEX(cline))
 
-#define OCF_METADATA_LRU_WR_LOCK_ALL() \
-	ocf_metadata_lru_wr_lock_all(&cache->metadata.lock)
+#define OCF_METADATA_LRU_LOCK_ALL() \
+	ocf_metadata_lru_lock_all(&cache->metadata.lock)
 
-#define OCF_METADATA_LRU_WR_UNLOCK_ALL() \
-	ocf_metadata_lru_wr_unlock_all(&cache->metadata.lock)
+#define OCF_METADATA_LRU_UNLOCK_ALL() \
+	ocf_metadata_lru_unlock_all(&cache->metadata.lock)
 
 static inline void ocf_metadata_partition_lock(
 		struct ocf_metadata_lock *metadata_lock,

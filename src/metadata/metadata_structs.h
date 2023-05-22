@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -47,7 +48,7 @@ struct ocf_metadata_lock
 {
 	struct ocf_metadata_global_lock global[OCF_NUM_GLOBAL_META_LOCKS];
 			/*!< global metadata lock (GML) */
-	env_rwlock lru[OCF_NUM_LRU_LISTS]; /*!< Fast locks for lru list */
+	env_spinlock lru[OCF_NUM_LRU_LISTS]; /*!< Fast locks for lru list */
 	env_spinlock partition[OCF_USER_IO_CLASS_MAX]; /* partition lock */
 	env_rwsem *hash; /*!< Hash bucket locks */
 	env_rwsem *collision_pages; /*!< Collision table page locks */
