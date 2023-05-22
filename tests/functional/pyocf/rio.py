@@ -1,12 +1,13 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 from ctypes import c_int, c_void_p, CFUNCTYPE
 from enum import Enum, auto
 from random import Random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta, datetime
 from itertools import cycle
 from threading import Thread, Condition, Event
@@ -61,12 +62,12 @@ class JobSpec:
     randseed: int = 1
     rwmixwrite: int = 50
     randommap: bool = True
-    bs: Size = Size.from_B(512)
-    offset: Size = Size(0)
+    bs: Size = field(default_factory=lambda: Size.from_B(512))
+    offset: Size = field(default_factory=lambda: Size(0))
     njobs: int = 1
     qd: int = 1
-    size: Size = Size(0)
-    io_size: Size = Size(0)
+    size: Size = field(default_factory=lambda: Size(0))
+    io_size: Size = field(default_factory=lambda: Size(0))
     target: Volume = None
     time_based: bool = False
     time: timedelta = None
