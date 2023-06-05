@@ -264,9 +264,11 @@ static void ocf_lru_add_locked(ocf_cache_t cache, ocf_cache_line_t cline)
 
 void ocf_lru_add(ocf_cache_t cache, ocf_cache_line_t cline)
 {
-	OCF_METADATA_LRU_LOCK(cline);
+	uint32_t lru_list = OCF_LRU_GET_LIST_INDEX(cline);
+
+	OCF_METADATA_LRU_LOCK(lru_list);
 	ocf_lru_add_locked(cache, cline);
-	OCF_METADATA_LRU_UNLOCK(cline);
+	OCF_METADATA_LRU_UNLOCK(lru_list);
 }
 
 static inline void ocf_lru_move(ocf_cache_t cache, ocf_cache_line_t cline,
@@ -296,9 +298,11 @@ static void ocf_lru_repart_locked(ocf_cache_t cache, ocf_cache_line_t cline,
 void ocf_lru_repart(ocf_cache_t cache, ocf_cache_line_t cline,
 		struct ocf_part *src_part, struct ocf_part *dst_part)
 {
-	OCF_METADATA_LRU_LOCK(cline);
+	uint32_t lru_list = OCF_LRU_GET_LIST_INDEX(cline);
+
+	OCF_METADATA_LRU_LOCK(lru_list);
 	ocf_lru_repart_locked(cache, cline, src_part, dst_part);
-	OCF_METADATA_LRU_UNLOCK(cline);
+	OCF_METADATA_LRU_UNLOCK(lru_list);
 }
 
 /* the caller must hold the metadata lock */
@@ -905,7 +909,7 @@ void ocf_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	clean = !metadata_test_dirty(cache, cline);
 	list = ocf_lru_get_list(part, lru_list, clean);
 
-	OCF_METADATA_LRU_LOCK(cline);
+	OCF_METADATA_LRU_LOCK(lru_list);
 
 	/* cacheline must be on the list when set_hot gets called */
 	ENV_BUG_ON(node->next == end_marker && list->tail != cline);
@@ -913,7 +917,7 @@ void ocf_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 
 	ocf_lru_set_hot(cache, list, cline);
 
-	OCF_METADATA_LRU_UNLOCK(cline);
+	OCF_METADATA_LRU_UNLOCK(lru_list);
 }
 
 static inline void _lru_init(struct ocf_lru_list *list, bool track_hot)
@@ -958,10 +962,12 @@ void ocf_lru_clean_cline(ocf_cache_t cache, struct ocf_part *part,
 	clean_list = ocf_lru_get_list(part, lru_list, true);
 	dirty_list = ocf_lru_get_list(part, lru_list, false);
 
-	OCF_METADATA_LRU_LOCK(cline);
+	OCF_METADATA_LRU_LOCK(lru_list);
+
 	ocf_lru_remove_locked(cache, dirty_list, cline);
 	add_lru_head(cache, clean_list, cline);
-	OCF_METADATA_LRU_UNLOCK(cline);
+
+	OCF_METADATA_LRU_UNLOCK(lru_list);
 }
 
 void ocf_lru_dirty_cline(ocf_cache_t cache, struct ocf_part *part,
@@ -974,10 +980,12 @@ void ocf_lru_dirty_cline(ocf_cache_t cache, struct ocf_part *part,
 	clean_list = ocf_lru_get_list(part, lru_list, true);
 	dirty_list = ocf_lru_get_list(part, lru_list, false);
 
-	OCF_METADATA_LRU_LOCK(cline);
+	OCF_METADATA_LRU_LOCK(lru_list);
+
 	ocf_lru_remove_locked(cache, clean_list, cline);
 	add_lru_head(cache, dirty_list, cline);
-	OCF_METADATA_LRU_UNLOCK(cline);
+
+	OCF_METADATA_LRU_UNLOCK(lru_list);
 }
 
 struct ocf_lru_populate_context {

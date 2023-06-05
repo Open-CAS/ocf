@@ -60,13 +60,13 @@ static inline void ocf_metadata_lru_unlock_all(
 		ocf_metadata_lru_unlock(metadata_lock, i);
 }
 
-#define OCF_METADATA_LRU_LOCK(cline) \
+#define OCF_METADATA_LRU_LOCK(ev_list) \
 		ocf_metadata_lru_lock(&cache->metadata.lock, \
-				OCF_LRU_GET_LIST_INDEX(cline))
+				ev_list)
 
-#define OCF_METADATA_LRU_UNLOCK(cline) \
+#define OCF_METADATA_LRU_UNLOCK(ev_list) \
 		ocf_metadata_lru_unlock(&cache->metadata.lock, \
-				OCF_LRU_GET_LIST_INDEX(cline))
+				ev_list)
 
 #define OCF_METADATA_LRU_LOCK_ALL() \
 	ocf_metadata_lru_lock_all(&cache->metadata.lock)
