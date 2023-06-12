@@ -888,7 +888,6 @@ void ocf_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	const uint32_t lru_list = OCF_LRU_GET_LIST_INDEX(cline);
 	struct ocf_lru_meta *node;
 	struct ocf_lru_list *list;
-	ocf_part_id_t part_id;
 	struct ocf_part *part;
 	bool clean;
 
@@ -904,8 +903,7 @@ void ocf_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	if (node->hot)
 		return;
 
-	part_id = ocf_metadata_get_partition_id(cache, cline);
-	part = &cache->user_parts[part_id].part;
+	part = &cache->user_parts[node->partition_id].part;
 	clean = !metadata_test_dirty(cache, cline);
 	list = ocf_lru_get_list(part, lru_list, clean);
 
