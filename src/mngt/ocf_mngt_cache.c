@@ -1405,28 +1405,16 @@ static uint64_t _ocf_mngt_calculate_ram_needed(ocf_cache_line_size_t line_size,
 	return min_free_ram;
 }
 
-int ocf_mngt_get_ram_needed(ocf_cache_t cache,
-		struct ocf_mngt_cache_device_config *cfg, uint64_t *ram_needed)
+uint64_t ocf_mngt_get_ram_needed(ocf_cache_t cache,
+		uint64_t volume_size)
 {
 	ocf_cache_line_size_t line_size;
-	uint64_t volume_size;
-	int result;
 
 	OCF_CHECK_NULL(cache);
-	OCF_CHECK_NULL(cfg);
-	OCF_CHECK_NULL(ram_needed);
-
-	result = ocf_volume_open(cfg->volume, cfg->volume_params);
-	if (result)
-		return result;
 
 	line_size = ocf_line_size(cache);
-	volume_size = ocf_volume_get_length(cfg->volume);
-	*ram_needed = _ocf_mngt_calculate_ram_needed(line_size, volume_size);
 
-	ocf_volume_close(cfg->volume);
-
-	return 0;
+	return _ocf_mngt_calculate_ram_needed(line_size, volume_size);
 }
 
 /**
