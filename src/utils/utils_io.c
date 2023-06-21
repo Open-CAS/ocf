@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -273,7 +274,7 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 
 		ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
 
-		err = ocf_io_set_data(io, req->data, offset);
+		err = ocf_io_set_data(io, req->data, req->offset + offset);
 		if (err) {
 			ocf_io_put(io);
 			callback(req, err);
@@ -322,7 +323,8 @@ void ocf_submit_cache_reqs(struct ocf_cache *cache,
 
 		ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
 
-		err = ocf_io_set_data(io, req->data, offset + total_bytes);
+		err = ocf_io_set_data(io, req->data,
+				req->offset + offset + total_bytes);
 		if (err) {
 			ocf_io_put(io);
 			/* Finish all IOs which left with ERROR */
@@ -359,7 +361,7 @@ void ocf_submit_volume_req(ocf_volume_t volume, struct ocf_request *req,
 	}
 
 	ocf_io_set_cmpl(io, req, callback, ocf_submit_volume_req_cmpl);
-	err = ocf_io_set_data(io, req->data, 0);
+	err = ocf_io_set_data(io, req->data, req->offset);
 	if (err) {
 		ocf_io_put(io);
 		callback(req, err);
