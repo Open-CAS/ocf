@@ -1,21 +1,18 @@
 #
 # Copyright(c) 2022-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 import pytest
-import copy
-from ctypes import c_int
 
 from pyocf.types.cache import (
     Cache,
     CacheMode,
-    MetadataLayout,
-    CleaningPolicy,
 )
 from pyocf.types.core import Core
 from pyocf.types.data import Data
-from pyocf.types.io import Io, IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.types.volume import RamVolume, Volume
 from pyocf.types.volume_cache import CacheVolume
 from pyocf.types.volume_core import CoreVolume
@@ -23,10 +20,7 @@ from pyocf.types.volume_replicated import ReplicatedVolume
 from pyocf.types.shared import (
     OcfError,
     OcfErrorCode,
-    OcfCompletion,
-    CacheLines,
     CacheLineSize,
-    SeqCutOffPolicy,
 )
 from pyocf.utils import Size
 from pyocf.rio import Rio, ReadWrite
@@ -377,12 +371,9 @@ def write_vol(vol, queue, data):
     for offset in range(0, data_size, subdata_size_max):
         subdata_size = min(data_size - offset, subdata_size_max)
         subdata = Data.from_bytes(data, offset, subdata_size)
-        comp = OcfCompletion([("error", c_int)])
         io = vol.new_io(queue, offset, subdata_size, IoDir.WRITE, 0, 0,)
         io.set_data(subdata)
-        io.callback = comp.callback
-        io.submit()
-        comp.wait()
+        Sync(io).submit()
     vol.close()
 
 

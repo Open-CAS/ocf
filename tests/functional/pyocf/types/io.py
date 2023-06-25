@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -18,6 +19,7 @@ from enum import IntEnum
 
 from ..ocf import OcfLib
 from .data import Data
+from .shared import OcfCompletion
 
 
 class IoDir(IntEnum):
@@ -111,6 +113,29 @@ class Io(Structure):
     def set_data(self, data: Data, offset: int = 0):
         self.data = data
         OcfLib.getInstance().ocf_io_set_data(byref(self), data, offset)
+
+
+class Sync:
+    def __init__(self, io: Io) -> None:
+        self.io = io
+
+    def sync_submit(self, submit_method):
+        if getattr(self.io, 'callback', None):
+            raise Exception("completion callback is already set")
+        cmpl = OcfCompletion([("err", c_int)])
+        self.io.callback = cmpl.callback
+        submit_method()
+        cmpl.wait()
+        return cmpl
+
+    def submit(self):
+        return self.sync_submit(self.io.submit)
+
+    def submit_flush(self):
+        return self.sync_submit(self.io.submit_flush)
+
+    def submit_discard(self):
+        return self.sync_submit(self.io.submit_discard)
 
 
 IoOps.SET_DATA = CFUNCTYPE(c_int, POINTER(Io), c_void_p, c_uint32)

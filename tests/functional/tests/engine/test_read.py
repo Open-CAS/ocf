@@ -18,9 +18,9 @@ from pyocf.types.core import Core
 from pyocf.types.volume import RamVolume
 from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.utils import Size
-from pyocf.types.shared import OcfCompletion, CacheLineSize
+from pyocf.types.shared import CacheLineSize
 
 
 def get_byte(number, byte):
@@ -31,12 +31,9 @@ def bytes_to_uint32(byte0, byte1, byte2, byte3):
     return (int(byte3) << 24) + (int(byte2) << 16) + (int(byte1) << 8) + int(byte0)
 
 
-def __io(io, queue, address, size, data, direction):
+def __io(io, data):
     io.set_data(data, 0)
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
     return int(completion.results["err"])
 
 
@@ -46,7 +43,7 @@ def io_to_exp_obj(vol, queue, address, size, data, offset, direction):
         _data = Data.from_bytes(bytes(size))
     else:
         _data = Data.from_bytes(data, offset, size)
-    ret = __io(io, queue, address, size, _data, direction)
+    ret = __io(io, _data)
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
     return ret

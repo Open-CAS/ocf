@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -12,7 +13,7 @@ from pyocf.types.core import Core
 from pyocf.types.volume import RamVolume, Volume
 from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.types.queue import Queue
 from pyocf.utils import Size as S
 from pyocf.types.shared import OcfError, OcfCompletion, CacheLineSize
@@ -132,10 +133,7 @@ def test_10add_remove_with_io(pyocf_ctx):
         )
         io.set_data(write_data)
 
-        cmpl = OcfCompletion([("err", c_int)])
-        io.callback = cmpl.callback
-        io.submit()
-        cmpl.wait()
+        Sync(io).submit()
         vol.close()
 
         cache.remove_core(core)
@@ -305,10 +303,7 @@ def _io_to_core(vol: Volume, queue: Queue, data: Data):
     io = vol.new_io(queue, 0, data.size, IoDir.WRITE, 0, 0)
     io.set_data(data)
 
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
 
     vol.close()
     assert completion.results["err"] == 0, "IO to exported object completion"

@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -25,15 +26,13 @@ from pyocf.types.cache import (
     MetadataLayout,
     CleaningPolicy,
     CacheConfig,
-    PromotionPolicy,
-    Backfill,
     CacheDeviceConfig,
     CacheAttachConfig,
 )
 from pyocf.types.core import Core
 from pyocf.types.ctx import OcfCtx
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.types.queue import Queue
 from pyocf.types.shared import (
     Uuid,
@@ -520,10 +519,7 @@ def io_to_core(vol: Volume, queue: Queue, data: Data, offset: int):
     io = vol.new_io(queue, offset, data.size, IoDir.WRITE, 0, 0)
     io.set_data(data)
 
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
 
     vol.close()
     assert completion.results["err"] == 0, "IO to exported object completion"
@@ -535,10 +531,7 @@ def io_from_exported_object(vol: Volume, queue: Queue, buffer_size: int, offset:
     io = vol.new_io(queue, offset, read_buffer.size, IoDir.READ, 0, 0)
     io.set_data(read_buffer)
 
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
     vol.close()
 
     assert completion.results["err"] == 0, "IO from exported object completion"
