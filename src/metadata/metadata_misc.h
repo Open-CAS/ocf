@@ -1,5 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -19,6 +21,14 @@ static inline ocf_cache_line_t ocf_metadata_hash_func(ocf_cache_t cache,
 
 	return (ocf_cache_line_t) ((core_line_num  + (core_id * (entries / 32)))
 			% entries);
+}
+
+/* Return the hash based on the hash of the prev core line */
+static inline ocf_cache_line_t ocf_metadata_hash_next(ocf_cache_t cache,
+		ocf_cache_line_t hash)
+{
+	hash++;
+	return likely(hash < cache->device->hash_table_entries) ? hash : 0;
 }
 
 void ocf_metadata_remove_cache_line(struct ocf_cache *cache,

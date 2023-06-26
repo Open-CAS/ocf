@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2023-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -427,12 +428,21 @@ void ocf_req_clear_map(struct ocf_request *req)
 
 void ocf_req_hash(struct ocf_request *req)
 {
-	int i;
+	ocf_cache_t cache = req->cache;
+	uint32_t core_line_count = req->core_line_count;
+	struct ocf_map_info *map_info = req->map;
+	ocf_cache_line_t hash;
 
-	for (i = 0; i < req->core_line_count; i++) {
-		req->map[i].hash = ocf_metadata_hash_func(req->cache,
-				req->core_line_first + i,
-				ocf_core_get_id(req->core));
+	if (core_line_count == 0)
+		return;
+
+	hash = ocf_metadata_hash_func(cache, req->core_line_first,
+			ocf_core_get_id(req->core));
+
+	map_info->hash = hash;
+	while (--core_line_count) {
+		map_info++;
+		map_info->hash = hash = ocf_metadata_hash_next(cache, hash);
 	}
 }
 
