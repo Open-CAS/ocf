@@ -55,6 +55,7 @@ int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 		ocf_parallelize_finish_t finish)
 {
 	ocf_parallelize_t tmp_parallelize;
+	struct list_head *iter;
 	ocf_queue_t queue;
 	size_t prl_size;
 	unsigned queue_count = 0;
@@ -64,6 +65,9 @@ int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 
 	if (shards_cnt == 0)
 		shards_cnt = queue_count;
+
+	if (queue_count == 0)
+		shards_cnt = 1;
 
 	prl_size = sizeof(*tmp_parallelize) +
 			shards_cnt * sizeof(*tmp_parallelize->reqs);
@@ -86,23 +90,28 @@ int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 	env_atomic_set(&tmp_parallelize->remaining, shards_cnt);
 	env_atomic_set(&tmp_parallelize->error, 0);
 
-	for (i = 0; i < shards_cnt;) {
-		list_for_each_entry(queue, &cache->io_queues, list) {
-			if (i == shards_cnt)
-				break;
-			tmp_parallelize->reqs[i] = ocf_req_new(queue,
-					NULL, 0, 0, 0);
-			if (!tmp_parallelize->reqs[i]) {
-				result = -OCF_ERR_NO_MEM;
-				goto err_reqs;
-			}
-			tmp_parallelize->reqs[i]->info.internal = true;
-			tmp_parallelize->reqs[i]->engine_handler =
-					_ocf_parallelize_hndl;
-			tmp_parallelize->reqs[i]->byte_position = i;
-			tmp_parallelize->reqs[i]->priv = tmp_parallelize;
-			i++;
+
+	iter = cache->io_queues.next;
+	for (i = 0; i < shards_cnt; i++) {
+		if (queue_count > 0) {
+			queue = list_entry(iter, struct ocf_queue, list);
+			iter = iter->next;
+			if (iter == &cache->io_queues)
+				iter = iter->next;
+		} else {
+			queue = cache->mngt_queue;
 		}
+		tmp_parallelize->reqs[i] = ocf_req_new(queue,
+				NULL, 0, 0, 0);
+		if (!tmp_parallelize->reqs[i]) {
+			result = -OCF_ERR_NO_MEM;
+			goto err_reqs;
+		}
+		tmp_parallelize->reqs[i]->info.internal = true;
+		tmp_parallelize->reqs[i]->engine_handler =
+			_ocf_parallelize_hndl;
+		tmp_parallelize->reqs[i]->byte_position = i;
+		tmp_parallelize->reqs[i]->priv = tmp_parallelize;
 	}
 
 	*parallelize = tmp_parallelize;
