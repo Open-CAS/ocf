@@ -64,10 +64,7 @@ int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 	queue_count = ocf_cache_get_queue_count(cache);
 
 	if (shards_cnt == 0)
-		shards_cnt = queue_count;
-
-	if (queue_count == 0)
-		shards_cnt = 1;
+		shards_cnt = queue_count ?: 1;
 
 	prl_size = sizeof(*tmp_parallelize) +
 			shards_cnt * sizeof(*tmp_parallelize->reqs);
