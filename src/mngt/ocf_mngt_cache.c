@@ -3754,12 +3754,13 @@ static void ocf_mngt_cache_detach_finish(ocf_pipeline_t pipeline,
 				"Detaching device failed\n");
 	}
 
+	ocf_pipeline_destroy(cache->stop_pipeline);
+	cache->stop_pipeline = NULL;
+
 	context->cmpl(cache, context->priv,
 			error ?: context->cache_write_error);
 
 	ocf_pipeline_destroy(context->pipeline);
-	ocf_pipeline_destroy(cache->stop_pipeline);
-	cache->stop_pipeline = NULL;
 }
 
 struct ocf_pipeline_properties ocf_mngt_cache_detach_pipeline_properties = {
