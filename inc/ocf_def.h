@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -125,7 +126,7 @@ typedef enum {
 		/*!< OCF cache has at least one inactive core */
 
 	ocf_cache_state_standby = 4,     //!< ocf_cache_state_standby
-		/*!< OCF is currently in standby mode */
+		/*!< OCF cache is currently in standby mode */
 
 	ocf_cache_state_max              //!< ocf_cache_state_max
 		/*!< Stopper of cache state enumerator */
