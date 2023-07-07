@@ -858,7 +858,7 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 	env_atomic_set(&(cache->last_access_ms),
 			env_ticks_to_msecs(env_get_tick_count()));
 
-	env_bit_set(ocf_cache_state_detached, &cache->cache_state);
+	_ocf_mngt_cache_set_detached(cache);
 
 	params->cache = cache;
 	params->flags.cache_alloc = true;
