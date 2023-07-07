@@ -3788,6 +3788,8 @@ static void ocf_mngt_cache_detach_finish(ocf_pipeline_t pipeline,
 			ocf_cache_log(cache, log_warn,
 				"Device detached with errors\n");
 		}
+
+		_ocf_mngt_cache_set_detached(cache);
 	} else {
 		ocf_cache_log(cache, log_err,
 				"Detaching device failed\n");
