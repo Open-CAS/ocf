@@ -181,6 +181,8 @@ struct ocf_cache_attach_context {
 	ocf_pipeline_t pipeline;
 };
 
+static void _ocf_mngt_cache_set_detached(ocf_cache_t cache);
+
 static void __init_partitions(ocf_cache_t cache)
 {
 	ocf_part_id_t i_part;
@@ -1572,6 +1574,12 @@ static void _ocf_mngt_cache_set_active(ocf_cache_t cache)
 	 */
 	env_bit_clear(ocf_cache_state_standby, &cache->cache_state);
 	env_bit_set(ocf_cache_state_running, &cache->cache_state);
+}
+
+static void _ocf_mngt_cache_set_detached(ocf_cache_t cache)
+{
+	env_bit_clear(ocf_cache_state_running, &cache->cache_state);
+	env_bit_set(ocf_cache_state_detached, &cache->cache_state);
 }
 
 static void _ocf_mngt_init_attached_nonpersistent(ocf_pipeline_t pipeline,
