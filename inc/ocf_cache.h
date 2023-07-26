@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
- * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2023-2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -156,14 +156,14 @@ bool ocf_cache_is_device_attached(ocf_cache_t cache);
 bool ocf_cache_is_running(ocf_cache_t cache);
 
 /**
- * @brief Check if cache object is initializing
+ * @brief Check if cache is detached
  *
- * @param[in] cache Cache object
+ * @param[in] cache Cache
  *
- * @retval 1 Caching device is initializing
- * @retval 0 Caching device is not initializing
+ * @retval 1 Caching device is detached
+ * @retval 0 Caching device is not detached
  */
-bool ocf_cache_is_initializing(ocf_cache_t cache);
+bool ocf_cache_is_detached(ocf_cache_t cache);
 
 /**
  * @brief Check if cache object is standby

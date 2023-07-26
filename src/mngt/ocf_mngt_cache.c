@@ -856,7 +856,7 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 	env_atomic_set(&(cache->last_access_ms),
 			env_ticks_to_msecs(env_get_tick_count()));
 
-	env_bit_set(ocf_cache_state_initializing, &cache->cache_state);
+	env_bit_set(ocf_cache_state_detached, &cache->cache_state);
 
 	params->cache = cache;
 	params->flags.cache_alloc = true;
@@ -1552,7 +1552,7 @@ static void _ocf_mngt_cache_set_valid(ocf_cache_t cache)
 	 * Clear initialization state and set the valid bit so we know
 	 * its in use.
 	 */
-	env_bit_clear(ocf_cache_state_initializing, &cache->cache_state);
+	env_bit_clear(ocf_cache_state_detached, &cache->cache_state);
 	env_bit_set(ocf_cache_state_running, &cache->cache_state);
 }
 
@@ -1561,7 +1561,7 @@ static void _ocf_mngt_cache_set_standby(ocf_cache_t cache)
 	/*
 	 * Clear initialization state and set the standby bit.
 	 */
-	env_bit_clear(ocf_cache_state_initializing, &cache->cache_state);
+	env_bit_clear(ocf_cache_state_detached, &cache->cache_state);
 	env_bit_set(ocf_cache_state_standby, &cache->cache_state);
 }
 
@@ -3352,7 +3352,7 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 
 	if (!ocf_cache_is_device_attached(cache)) {
 		env_bit_set(ocf_cache_state_stopping, &cache->cache_state);
-		env_bit_clear(ocf_cache_state_initializing, &cache->cache_state);
+		env_bit_clear(ocf_cache_state_detached, &cache->cache_state);
 		ocf_mngt_cache_stop_detached(cache, cmpl, priv);
 		return;
 	}

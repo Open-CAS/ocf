@@ -119,8 +119,8 @@ typedef enum {
 	ocf_cache_state_stopping = 1,    //!< ocf_cache_state_stopping
 		/*!< OCF cache instance is stopping */
 
-	ocf_cache_state_initializing = 2, //!< ocf_cache_state_initializing
-		/*!< OCF cache instance during initialization */
+	ocf_cache_state_detached = 2, //!< ocf_cache_state_detached
+		/*!< OCF cache instance without caching device attached */
 
 	ocf_cache_state_incomplete = 3, //!< ocf_cache_state_incomplete
 		/*!< OCF cache has at least one inactive core */
