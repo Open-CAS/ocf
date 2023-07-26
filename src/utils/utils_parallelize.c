@@ -25,11 +25,25 @@ struct ocf_parallelize {
 	struct ocf_request *reqs[];
 };
 
+static void _ocf_parallelize_finish(ocf_parallelize_t parallelize)
+{
+	ocf_parallelize_finish_t finish;
+	void *priv;
+	int error;
+
+	if (env_atomic_dec_return(&parallelize->remaining))
+		return;
+
+	finish = parallelize->finish;
+	priv = parallelize->priv;
+	error = env_atomic_read(&parallelize->error);
+
+	finish(parallelize, priv, error);
+}
+
 static int _ocf_parallelize_hndl(struct ocf_request *req)
 {
 	ocf_parallelize_t parallelize = req->priv;
-	ocf_parallelize_finish_t finish;
-	void *priv;
 	int error;
 
 	error = parallelize->handle(parallelize, parallelize->priv,
@@ -37,14 +51,7 @@ static int _ocf_parallelize_hndl(struct ocf_request *req)
 
 	env_atomic_cmpxchg(&parallelize->error, 0, error);
 
-	if (env_atomic_dec_return(&parallelize->remaining))
-		return 0;
-
-	finish = parallelize->finish;
-	priv = parallelize->priv;
-	error = env_atomic_read(&parallelize->error);
-
-	finish(parallelize, priv, error);
+	_ocf_parallelize_finish(parallelize);
 
 	return 0;
 }
@@ -84,7 +91,7 @@ int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 	tmp_parallelize->finish = finish;
 
 	tmp_parallelize->shards_cnt = shards_cnt;
-	env_atomic_set(&tmp_parallelize->remaining, shards_cnt);
+	env_atomic_set(&tmp_parallelize->remaining, shards_cnt + 1);
 	env_atomic_set(&tmp_parallelize->error, 0);
 
 
@@ -149,4 +156,6 @@ void ocf_parallelize_run(ocf_parallelize_t parallelize)
 
 	for (i = 0; i < parallelize->shards_cnt; i++)
 		ocf_queue_push_req(parallelize->reqs[i], OCF_QUEUE_PRIO_HIGH);
+
+	_ocf_parallelize_finish(parallelize);
 }
