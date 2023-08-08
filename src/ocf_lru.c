@@ -202,16 +202,21 @@ static void remove_lru_list_nobalance(ocf_cache_t cache,
 	node->hot = false;
 }
 
-void ocf_lru_remove_locked(ocf_cache_t cache, struct ocf_lru_list *list,
+static void ocf_lru_remove_locked(ocf_cache_t cache, struct ocf_lru_list *list,
 		ocf_cache_line_t cline)
 {
 	remove_lru_list_nobalance(cache, list, cline);
 	balance_lru_list(cache, list);
 }
 
+void ocf_lru_detach(ocf_cache_t cache, struct ocf_part *part,
+		ocf_cache_line_t cline)
+{
+	ocf_lru_repart(cache, cline, part, &cache->free_detached);
+}
+
 static void ocf_lru_set_hot(ocf_cache_t cache, struct ocf_lru_list *list,
 		ocf_cache_line_t cline)
-
 {
 	remove_lru_list_nobalance(cache, list, cline);
 	add_lru_head_nobalance(cache, list, cline);

@@ -40,4 +40,7 @@ void ocf_metadata_sparse_cache_line(struct ocf_cache *cache,
 int ocf_metadata_sparse_range(struct ocf_cache *cache, int core_id,
 			uint64_t start_byte, uint64_t end_byte);
 
+int ocf_metadata_detach_cline_range(ocf_cache_t cache, ocf_cache_line_t begin,
+		ocf_cache_line_t end);
+
 #endif /* __METADATA_MISC_H__ */

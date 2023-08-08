@@ -1,5 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -43,4 +45,38 @@ int ocf_metadata_sparse_range(struct ocf_cache *cache, int core_id,
 {
 	return ocf_metadata_actor(cache, PARTITION_UNSPECIFIED, core_id,
 		start_byte, end_byte, ocf_metadata_sparse_cache_line);
+}
+
+int ocf_metadata_detach_cline_range(ocf_cache_t cache, ocf_cache_line_t begin,
+		ocf_cache_line_t end)
+{
+	uint32_t step = 0;
+	struct ocf_alock *c = ocf_cache_line_concurrency(cache);
+	ocf_cache_line_t cline;
+
+	if (begin > end)
+		return -OCF_ERR_INVAL;
+
+	if (end > cache->device->collision_table_entries)
+		return -OCF_ERR_INVAL;
+
+	for (cline = begin; cline < end; ++cline) {
+		ENV_BUG_ON(ocf_cache_line_is_used(c, cline));
+
+		ocf_metadata_start_collision_shared_access(cache, cline);
+
+		set_cache_line_unavailable(cache, 0, ocf_line_end_sector(cache),
+				cline);
+
+		/*
+		 * This is especially for removing inactive core
+		 */
+		metadata_clear_dirty(cache, cline);
+
+		ocf_metadata_end_collision_shared_access(cache, cline);
+
+		OCF_COND_RESCHED_DEFAULT(step);
+	}
+
+	return 0;
 }
