@@ -14,7 +14,7 @@
 #include "ocf_space.h"
 #include "ocf_env_refcnt.h"
 
-#define OCF_NUM_PARTITIONS OCF_USER_IO_CLASS_MAX + 2
+#define OCF_NUM_PARTITIONS (OCF_USER_IO_CLASS_MAX + 3)
 
 struct ocf_user_part_config {
 	char name[OCF_IO_CLASS_NAME_MAX];
