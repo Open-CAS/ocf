@@ -214,6 +214,7 @@ static void _init_parts_attached(ocf_pipeline_t pipeline, void *priv,
 		ocf_lru_init(cache, &cache->user_parts[part_id].part);
 
 	ocf_lru_init(cache, &cache->free);
+	ocf_lru_init(cache, &cache->free_detached);
 
 	ocf_pipeline_next(pipeline);
 }
@@ -269,6 +270,7 @@ static void __deinit_promotion_policy(ocf_cache_t cache)
 static void __init_free(ocf_cache_t cache)
 {
 	cache->free.id = PARTITION_FREELIST;
+	cache->free_detached.id = PARTITION_FREELIST;
 }
 
 static void __init_cores(ocf_cache_t cache)

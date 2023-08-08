@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -70,6 +71,7 @@ struct ocf_cache {
 	struct ocf_user_part user_parts[OCF_USER_IO_CLASS_MAX + 1];
 
 	struct ocf_part free;
+	struct ocf_part free_detached;
 
 	uint32_t fallback_pt_error_threshold;
 	ocf_queue_t mngt_queue;
