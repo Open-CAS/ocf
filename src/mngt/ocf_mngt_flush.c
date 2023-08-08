@@ -7,6 +7,7 @@
 
 #include "ocf/ocf.h"
 #include "ocf_env_refcnt.h"
+#include "ocf_mngt_flush_priv.h"
 #include "ocf_mngt_common.h"
 #include "../ocf_priv.h"
 #include "../metadata/metadata.h"
@@ -55,7 +56,8 @@ struct ocf_mngt_cache_flush_context
 
 	struct {
 		bool lock : 1;
-		bool freeze : 1;
+		bool dirty_freeze : 1;
+		bool metadata_freeze : 1;
 	} flags;
 
 	/* management operation identifier */
@@ -102,10 +104,21 @@ static void _ocf_mngt_begin_flush(ocf_pipeline_t pipeline, void *priv,
 	context->flags.lock = true;
 
 	env_refcnt_freeze(&cache->refcnt.dirty);
-	context->flags.freeze = true;
+	context->flags.dirty_freeze = true;
 
 	ocf_mngt_continue_pipeline_on_zero_refcnt(&cache->refcnt.dirty,
 			context->pipeline);
+}
+
+static void _ocf_mngt_begin_cache_lines_invalidate(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_flush_context *context = priv;
+	struct env_refcnt *refcnt = &context->cache->refcnt.metadata;
+
+	env_refcnt_freeze(refcnt);
+	context->flags.metadata_freeze = true;
+	ocf_mngt_continue_pipeline_on_zero_refcnt(refcnt, context->pipeline);
 }
 
 bool ocf_mngt_core_is_dirty(ocf_core_t core)
@@ -657,7 +670,10 @@ static void _ocf_mngt_flush_finish(ocf_pipeline_t pipeline, void *priv,
 	ocf_cache_t cache = context->cache;
 	ocf_core_t core = context->core;
 
-	if (context->flags.freeze)
+	if (context->flags.metadata_freeze)
+		env_refcnt_unfreeze(&cache->refcnt.metadata);
+
+	if (context->flags.dirty_freeze)
 		env_refcnt_unfreeze(&cache->refcnt.dirty);
 
 	if (context->flags.lock)
@@ -851,6 +867,35 @@ static void _ocf_mngt_cache_invalidate(ocf_pipeline_t pipeline, void *priv,
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
 
+static void _ocf_mngt_cache_detach_cline_range(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_flush_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	int result;
+	ocf_cache_line_t free_detached_before, free_detached_after;
+
+	free_detached_before =
+		env_atomic_read(&cache->free_detached.runtime->curr_size);
+
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	result = ocf_metadata_detach_cline_range(cache, context->begin,
+			context->end);
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+
+	free_detached_after =
+		env_atomic_read(&cache->free_detached.runtime->curr_size);
+
+	if (unlikely(result && free_detached_before != free_detached_after)) {
+		ocf_cache_log(cache, log_err, "Error %d during detaching cache"
+				" lines %u - %u\n", result, context->begin,
+				context->end);
+		ENV_BUG();
+	}
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
+}
+
 static
 struct ocf_pipeline_properties _ocf_mngt_cache_purge_pipeline_properties = {
 	.priv_size = sizeof(struct ocf_mngt_cache_flush_context),
@@ -898,6 +943,53 @@ void ocf_mngt_cache_purge(ocf_cache_t cache,
 	context->op = purge_cache;
 	context->purge.core_id = OCF_CORE_ID_INVALID;
 	context->purge.end_byte = ~0ULL;
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+static struct ocf_pipeline_properties
+_ocf_mngt_cache_detach_cline_range_pipeline_props = {
+	.priv_size = sizeof(struct ocf_mngt_cache_flush_context),
+	.finish = _ocf_mngt_flush_finish,
+	.steps = {
+		OCF_PL_STEP(_ocf_mngt_begin_flush),
+		OCF_PL_STEP(_ocf_mngt_cache_flush),
+		OCF_PL_STEP(_ocf_mngt_begin_cache_lines_invalidate),
+		OCF_PL_STEP(_ocf_mngt_cache_detach_cline_range),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+void ocf_mngt_cache_detach_cline_range(ocf_cache_t cache,
+		ocf_cache_line_t begin, ocf_cache_line_t end,
+		ocf_mngt_cache_purge_end_t cmpl, void *priv)
+{
+	ocf_pipeline_t pipeline;
+	int result = 0;
+	struct ocf_mngt_cache_flush_context *context;
+
+	OCF_CHECK_NULL(cache);
+
+	if (begin > end)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
+	if (end > ocf_metadata_collision_table_entries(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
+	result = ocf_pipeline_create(&pipeline, cache,
+			&_ocf_mngt_cache_detach_cline_range_pipeline_props);
+	if (result)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
+
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->begin = begin;
+	context->end = end;
+	context->pipeline = pipeline;
+	context->cmpl.purge_cache = cmpl;
+	context->priv = priv;
+	context->cache = cache;
+	context->op = purge_cache;
 
 	ocf_pipeline_next(context->pipeline);
 }
