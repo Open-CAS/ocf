@@ -73,6 +73,9 @@ typedef enum {
 	/** Core ID/name does not exist */
 	OCF_ERR_CORE_NOT_EXIST,
 
+	/** Composite volume member ID does not exist */
+	OCF_ERR_COMPOSITE_VOLUME_MEMBER_NOT_EXIST,
+
 	/** The volume is not a composite */
 	OCF_ERR_NOT_COMPOSITE_VOLUME,
 
