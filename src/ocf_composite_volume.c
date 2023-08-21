@@ -492,3 +492,21 @@ int ocf_composite_volume_set_uuid(ocf_composite_volume_t cvolume,
 {
 	return ocf_volume_set_uuid(cvolume, uuid, true);
 }
+
+int ocf_composite_volume_get_id_from_uuid(ocf_composite_volume_t cvolume,
+		ocf_uuid_t target_uuid)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	const struct ocf_volume_uuid *subvol_uuid;
+	int i;
+
+	for_each_composite_member_attached(composite, i) {
+		subvol_uuid = ocf_volume_get_uuid(&composite->member[i].volume);
+		if (env_strncmp(subvol_uuid->data, subvol_uuid->size,
+				target_uuid->data, target_uuid->size) == 0) {
+			return i;
+		}
+	}
+
+	return -OCF_ERR_COMPOSITE_VOLUME_MEMBER_NOT_EXIST;
+}

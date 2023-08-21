@@ -33,6 +33,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_START_CACHE_FAIL = auto()
     OCF_ERR_CACHE_NOT_EXIST = auto()
     OCF_ERR_CORE_NOT_EXIST = auto()
+    OCF_ERR_COMPOSITE_VOLUME_MEMBER_NOT_EXIST = auto()
     OCF_ERR_NOT_COMPOSITE_VOLUME = auto()
     OCF_ERR_CACHE_EXIST = auto()
     OCF_ERR_CORE_EXIST = auto()

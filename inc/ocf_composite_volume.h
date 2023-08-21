@@ -97,4 +97,15 @@ ocf_volume_t ocf_composite_volume_get_subvolume_by_index(
 int ocf_composite_volume_set_uuid(ocf_composite_volume_t cvolume,
 		struct ocf_volume_uuid *uuid);
 
+/**
+ * @brief Get volume's id by UUID
+ *
+ * @param[in] volume Volume
+ * @param[in] uuid UUID
+ *
+ * @return id of the matching subvolume or error if the volume wasn't found
+ */
+int ocf_composite_volume_get_id_from_uuid(ocf_composite_volume_t cvolume,
+		ocf_uuid_t target_uuid);
+
 #endif /* __OCF_COMPOSITE_VOLUME_H__ */
