@@ -16,8 +16,17 @@
 #include "ocf_composite_volume_priv.h"
 
 struct ocf_composite_volume {
+	/* 'members_cnt' describes how many members were added at the
+	 * composite initialization. Even if a member is detached,
+	 * 'member_cnt' shall not be decremented.
+	 */
 	uint8_t members_cnt;
 	struct {
+		/* A member is 'detached' only if it was once added but has
+		 * been detached. For members that were never added, this
+		 * flag is irrelevant
+		 */
+		bool detached;
 		struct ocf_volume volume;
 		void *volume_params;
 	} member[OCF_COMPOSITE_VOLUME_MEMBERS_MAX];
@@ -406,6 +415,7 @@ int ocf_composite_volume_add(ocf_composite_volume_t cvolume,
 	ocf_volume_close(volume);
 
 	composite->member[composite->members_cnt].volume_params = volume_params;
+	composite->member[composite->members_cnt].detached = false;
 	composite->members_cnt++;
 
 	return 0;
