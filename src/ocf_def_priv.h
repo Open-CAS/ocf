@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -55,5 +56,9 @@ ocf_rotate_right(unsigned long long bits, unsigned shift, unsigned width)
 	return ((bits >> shift) | (bits << (width - shift))) &
 		((1ULL << width) - 1);
 }
+
+struct ocf_request;
+
+typedef void (*ocf_req_end_t)(struct ocf_request *req, int error);
 
 #endif

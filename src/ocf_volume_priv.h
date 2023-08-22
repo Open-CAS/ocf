@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -45,6 +46,14 @@ void ocf_volume_move(ocf_volume_t volume, ocf_volume_t from);
 
 void ocf_volume_set_uuid(ocf_volume_t volume,
 		const struct ocf_volume_uuid *uuid);
+
+void ocf_volume_forward_io(ocf_volume_t volume, ocf_forward_token_t token,
+		int dir, uint64_t addr, uint64_t bytes, uint64_t offset);
+
+void ocf_volume_forward_flush(ocf_volume_t volume, ocf_forward_token_t token);
+
+void ocf_volume_forward_discard(ocf_volume_t volume, ocf_forward_token_t token,
+		uint64_t addr, uint64_t bytes);
 
 static inline void ocf_volume_submit_metadata(struct ocf_io *io)
 {
