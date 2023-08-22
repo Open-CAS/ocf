@@ -443,6 +443,7 @@ const struct ocf_volume_properties ocf_cache_volume_properties = {
 	.volume_priv_size = sizeof(struct ocf_cache_volume),
 	.caps = {
 		.atomic_writes = 0,
+		.composite_volume = 0,
 	},
 	.ops = {
 		.submit_io = ocf_cache_volume_submit_io,
