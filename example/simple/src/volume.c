@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -103,6 +104,7 @@ const struct ocf_volume_properties volume_properties = {
 	.volume_priv_size = sizeof(struct myvolume),
 	.caps = {
 		.atomic_writes = 0,
+		.composite_volume = 0,
 	},
 	.ops = {
 		.open = volume_open,

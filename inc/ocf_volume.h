@@ -40,6 +40,9 @@ struct ocf_volume_uuid {
 struct ocf_volume_caps {
 	uint32_t atomic_writes : 1;
 		/*!< Volume supports atomic writes */
+
+	uint32_t composite_volume : 1;
+		/*!< Volume may be composed of multiple sub-volumes */
 };
 
 /**
@@ -336,6 +339,15 @@ ocf_cache_t ocf_volume_get_cache(ocf_volume_t volume);
  * @return Non-zero value if volume is atomic, otherwise zero
  */
 int ocf_volume_is_atomic(ocf_volume_t volume);
+
+/**
+ * @brief Check if volume is composited of multiple sub-volumes
+ *
+ * @param[in] volume Volume
+ *
+ * @return True if volume is composite, otherwise false
+ */
+bool ocf_volume_is_composite(ocf_volume_t volume);
 
 /**
  * @brief Allocate new io

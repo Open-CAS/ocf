@@ -289,6 +289,11 @@ int ocf_volume_is_atomic(ocf_volume_t volume)
 	return volume->type->properties->caps.atomic_writes;
 }
 
+bool ocf_volume_is_composite(ocf_volume_t volume)
+{
+	return volume->type->properties->caps.composite_volume;
+}
+
 ocf_io_t ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir,
 		uint32_t io_class, uint64_t flags)
