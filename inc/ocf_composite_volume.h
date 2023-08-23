@@ -87,6 +87,20 @@ ocf_volume_t ocf_composite_volume_get_subvolume_by_index(
 		ocf_composite_volume_t cvolume, int index);
 
 /**
+ * @brief Get range of addresses from a subvolume
+ *
+ * @param[in] cvolume composite volume handle
+ * @param[in] subvolume_id subvolume index
+ * @param[out] begin_addr beginning of the address range
+ * @param[out] end_addr end of the address range
+ *
+ * @return 0 in case of success, error code otherwise
+ */
+int ocf_composite_volume_get_subvolume_addr_range(
+		ocf_composite_volume_t cvolume, uint8_t subvolume_id,
+		uint64_t *begin_addr, uint64_t *end_addr);
+
+/**
  * @brief Set composite volume UUID
  *
  * @param[in] cvolume Volume
