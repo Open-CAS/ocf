@@ -487,6 +487,22 @@ ocf_volume_t ocf_composite_volume_get_subvolume_by_index(
 		return NULL;
 }
 
+int ocf_composite_volume_get_subvolume_addr_range(
+		ocf_composite_volume_t cvolume, uint8_t subvolume_id,
+		uint64_t *begin_addr, uint64_t *end_addr)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+
+	if (subvolume_id >= composite->members_cnt)
+		return -OCF_ERR_INVAL;
+
+	*begin_addr = subvolume_id > 0 ?
+			composite->end_addr[subvolume_id - 1] : 0;
+	*end_addr = composite->end_addr[subvolume_id];
+
+	return 0;
+}
+
 int ocf_composite_volume_set_uuid(ocf_composite_volume_t cvolume,
 		struct ocf_volume_uuid *uuid)
 {
