@@ -531,6 +531,18 @@ void ocf_mngt_cache_attach_composite(ocf_cache_t cache, ocf_uuid_t vol_uuid,
 		ocf_mngt_cache_detach_end_t cmpl, void *priv);
 
 /**
+ * @brief Detach a member of composite cache
+ *
+ * @param[in] cache Cache handle
+ * @param[in] cmpl Completion callback
+ * @param[in] target_uuid uuid of the target subvolume
+ * @param[in] priv Completion callback context
+ */
+void ocf_mngt_cache_detach_composite(ocf_cache_t cache,
+		ocf_mngt_cache_detach_end_t cmpl, ocf_uuid_t target_uuid,
+		void *priv);
+
+/**
  * @brief Completion callback of cache load operation
  *
  * @param[in] cache Cache handle
