@@ -566,6 +566,19 @@ int ocf_composite_volume_attach_member(ocf_volume_t volume, ocf_uuid_t uuid,
 			volume, uuid, tgt_id, vol_type, vol_params);
 }
 
+int ocf_composite_volume_detach_member(ocf_volume_t volume,
+		uint8_t subvolume_id)
+{
+	if (!ocf_volume_is_composite(volume))
+		return -OCF_ERR_NOT_COMPOSITE_VOLUME;
+
+	ENV_BUG_ON(!volume->type->properties->ops.
+			composite_volume_detach_member);
+
+	return volume->type->properties->ops.composite_volume_detach_member(
+			volume, subvolume_id);
+}
+
 uint64_t ocf_volume_get_length(ocf_volume_t volume)
 {
 	ENV_BUG_ON(!volume->type->properties->ops.get_length);

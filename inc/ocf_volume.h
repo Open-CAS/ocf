@@ -243,6 +243,17 @@ struct ocf_volume_ops {
 	int (*composite_volume_attach_member)(ocf_volume_t volume,
 			struct ocf_volume_uuid *uuid, uint8_t tgt_id,
 			ocf_volume_type_t type, void *volume_params);
+
+	/**
+	 * @brief Detach composite member volume
+	 *
+	 * @param[in] volume composite volume handle
+	 * @param[in] subvolume_id volume to be detached
+	 *
+	 * @return Zero on success, otherwise error code
+	 */
+	int (*composite_volume_detach_member)(ocf_volume_t volume,
+			uint8_t subvolume_id);
 };
 
 /**
@@ -428,7 +439,7 @@ void ocf_volume_submit_discard(ocf_io_t io);
 int ocf_volume_open(ocf_volume_t volume, void *volume_params);
 
 /**
- * @brief Get volume max io size
+ * @brief Close volume
  *
  * @param[in] volume Volume
  */
@@ -447,6 +458,17 @@ void ocf_volume_close(ocf_volume_t volume);
  */
 int ocf_composite_volume_attach_member(ocf_volume_t volume, ocf_uuid_t uuid,
 		uint8_t tgt_id, ocf_volume_type_t vol_type, void *vol_params);
+
+/**
+ * @brief Detach composite member volume
+ *
+ * @param[in] volume composite volume handle
+ * @param[in] subvolume_id volume to be detached
+ *
+ * @return Zero when success, otherwise an error
+ */
+int ocf_composite_volume_detach_member(ocf_volume_t volume,
+		uint8_t subvolume_id);
 
 /**
  * @brief Get volume max io size
