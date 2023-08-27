@@ -393,3 +393,19 @@ int ocf_composite_volume_add(ocf_composite_volume_t cvolume,
 
 	return 0;
 }
+
+int ocf_composite_volume_member_visit(ocf_composite_volume_t cvolume,
+		ocf_composite_volume_member_visitor_t visitor, void *priv)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	int i;
+	int res;
+
+	for (i = 0 ; i < composite->members_cnt; i++) {
+		res = visitor(&composite->member[i].volume, priv);
+		if (res != 0)
+			return res;
+	}
+
+	return 0;
+}
