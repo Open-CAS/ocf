@@ -10,8 +10,8 @@
 #include "engine_wi.h"
 #include "engine_inv.h"
 #include "engine_common.h"
+#include "engine_io.h"
 #include "../ocf_request.h"
-#include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_user_part.h"
 #include "../metadata/metadata.h"
@@ -58,12 +58,6 @@ static void _ocf_write_wt_do_flush_metadata_compl(struct ocf_request *req,
 		int error)
 {
 	if (error)
-		req->error = error;
-
-	if (env_atomic_dec_return(&req->req_remaining))
-		return;
-
-	if (req->error)
 		ocf_engine_error(req, true, "Failed to write data to cache");
 
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
@@ -77,8 +71,6 @@ static int ocf_write_wt_do_flush_metadata(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
 
-	env_atomic_set(&req->req_remaining, 1);
-
 	_ocf_write_wt_update_bits(req);
 
 	if (req->info.flush_metadata) {
@@ -86,9 +78,9 @@ static int ocf_write_wt_do_flush_metadata(struct ocf_request *req)
 
 		ocf_metadata_flush_do_asynch(cache, req,
 				_ocf_write_wt_do_flush_metadata_compl);
+	} else {
+		_ocf_write_wt_do_flush_metadata_compl(req, 0);
 	}
-
-	_ocf_write_wt_do_flush_metadata_compl(req, 0);
 
 	return 0;
 }
@@ -136,8 +128,8 @@ static void _ocf_write_wt_cache_complete(struct ocf_request *req, int error)
 static void _ocf_write_wt_core_complete(struct ocf_request *req, int error)
 {
 	if (error) {
-		req->error = error;
 		req->info.core_error = 1;
+		req->error = error;
 		ocf_core_stats_core_error_update(req->core, OCF_WRITE);
 	}
 
@@ -146,22 +138,17 @@ static void _ocf_write_wt_core_complete(struct ocf_request *req, int error)
 
 static inline void _ocf_write_wt_submit(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-
 	/* Submit IOs */
 	OCF_DEBUG_RQ(req, "Submit");
 
-	/* Calculate how many IOs need to be submited */
-	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req)); /* Cache IO */
-	env_atomic_inc(&req->req_remaining); /* Core device IO */
+	env_atomic_set(&req->req_remaining, 2); /* cache IO + core IO */
 
 	/* To cache */
-	ocf_submit_cache_reqs(cache, req, OCF_WRITE, 0, req->byte_length,
-			ocf_engine_io_count(req), _ocf_write_wt_cache_complete);
+	ocf_engine_forward_cache_io_req(req, OCF_WRITE,
+			_ocf_write_wt_cache_complete);
 
 	/* To core */
-	ocf_submit_volume_req(&req->core->volume, req,
-			_ocf_write_wt_core_complete);
+	ocf_engine_forward_core_io_req(req, _ocf_write_wt_core_complete);
 }
 
 static int _ocf_write_wt_do(struct ocf_request *req)

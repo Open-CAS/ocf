@@ -320,8 +320,12 @@ static void ocf_cache_io_complete(struct ocf_io *io, int error)
 {
 	struct ocf_cache_volume_io_priv *priv;
 	ocf_cache_t cache;
+	struct ocf_request *req = ocf_io_to_req(io);
 
 	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
+
+	if (error)
+		req->error = req->error ?: error;
 
 	priv = ocf_io_get_priv(io);
 

@@ -8,11 +8,11 @@
 #include "../ocf_cache_priv.h"
 #include "engine_fast.h"
 #include "engine_common.h"
+#include "engine_io.h"
 #include "engine_pt.h"
 #include "engine_wb.h"
 #include "../ocf_request.h"
 #include "../utils/utils_user_part.h"
-#include "../utils/utils_io.h"
 #include "../concurrency/ocf_concurrency.h"
 #include "../metadata/metadata.h"
 
@@ -31,19 +31,11 @@
 
 static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 {
-	if (error) {
-		req->error |= error;
-		ocf_core_stats_cache_error_update(req->core, OCF_READ);
-	}
-
-	if (env_atomic_dec_return(&req->req_remaining)) {
-		/* Not all requests finished */
-		return;
-	}
-
 	OCF_DEBUG_RQ(req, "HIT completion");
 
-	if (req->error) {
+	if (error) {
+		ocf_core_stats_cache_error_update(req->core, OCF_READ);
+
 		OCF_DEBUG_RQ(req, "ERROR");
 
 		ocf_queue_push_req_pt(req);
@@ -51,7 +43,7 @@ static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 		ocf_req_unlock(ocf_cache_line_concurrency(req->cache), req);
 
 		/* Complete request */
-		req->complete(req, req->error);
+		req->complete(req, error);
 
 		/* Free the request at the last point of the completion path */
 		ocf_req_put(req);
@@ -86,10 +78,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 
 	/* Submit IO */
 	OCF_DEBUG_RQ(req, "Submit");
-	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req));
-	ocf_submit_cache_reqs(req->cache, req, OCF_READ, 0, req->byte_length,
-		ocf_engine_io_count(req), _ocf_read_fast_complete);
-
+	ocf_engine_forward_cache_io_req(req, OCF_READ, _ocf_read_fast_complete);
 
 	/* Update statistics */
 	ocf_engine_update_request_stats(req);

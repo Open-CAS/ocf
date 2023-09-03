@@ -6,10 +6,10 @@
 #include "ocf/ocf.h"
 #include "../ocf_cache_priv.h"
 #include "engine_common.h"
+#include "engine_io.h"
 #include "cache_engine.h"
 #include "engine_flush.h"
 #include "../ocf_request.h"
-#include "../utils/utils_io.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "flush"
 #include "engine_debug.h"
@@ -17,7 +17,7 @@
 static void _ocf_engine_flush_complete(struct ocf_request *req, int error)
 {
 	if (error)
-		req->error |= error;
+		req->error = req->error ?: error;
 
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
@@ -45,17 +45,13 @@ int ocf_engine_flush(struct ocf_request *req)
 	env_atomic_set(&req->req_remaining, 2);
 
 	/* Submit operation into core device */
-	ocf_submit_volume_req(&req->core->volume, req,
-			_ocf_engine_flush_complete);
-
+	ocf_engine_forward_core_flush_req(req, _ocf_engine_flush_complete);
 
 	/* submit flush to cache device */
-	ocf_submit_cache_flush(req,  _ocf_engine_flush_complete);
+	ocf_engine_forward_cache_flush_req(req, _ocf_engine_flush_complete);
 
 	/* Put OCF request - decrease reference counter */
 	ocf_req_put(req);
 
 	return 0;
 }
-
-

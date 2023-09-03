@@ -11,9 +11,9 @@
 #include "engine_inv.h"
 #include "engine_bf.h"
 #include "engine_common.h"
+#include "engine_io.h"
 #include "cache_engine.h"
 #include "../concurrency/ocf_concurrency.h"
-#include "../utils/utils_io.h"
 #include "../ocf_request.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_user_part.h"
@@ -31,19 +31,12 @@ static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 	OCF_DEBUG_RQ(req, "HIT completion");
 
 	if (error) {
-		req->error |= error;
 		ocf_core_stats_cache_error_update(req->core, OCF_READ);
 		inc_fallback_pt_error_counter(req->cache);
-	}
-
-	if (env_atomic_dec_return(&req->req_remaining) > 0)
-		return;
-
-	if (req->error) {
 		ocf_queue_push_req_pt(req);
 	} else {
 		ocf_req_unlock(c, req);
-		req->complete(req, req->error);
+		req->complete(req, error);
 		ocf_req_put(req);
 	}
 }
@@ -54,14 +47,9 @@ static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 
 	OCF_DEBUG_RQ(req, "MISS completion");
 
-	if (error)
-		req->error = error;
-
-	if (env_atomic_dec_return(&req->req_remaining) > 0)
-		return;
-
-	if (req->error) {
-		req->complete(req, req->error);
+	if (error) {
+		/* --- Do not backfill --- */
+		req->complete(req, error);
 
 		ocf_core_stats_core_error_update(req->core, OCF_READ);
 
@@ -80,26 +68,21 @@ static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 				req->byte_length);
 	}
 
-	/* Complete request */
-	req->complete(req, req->error);
+	req->complete(req, error);
 
 	ocf_engine_backfill(req);
 }
 
 void ocf_read_generic_submit_hit(struct ocf_request *req)
 {
-	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req));
-
-	ocf_submit_cache_reqs(req->cache, req, OCF_READ, 0, req->byte_length,
-		ocf_engine_io_count(req), _ocf_read_generic_hit_complete);
+	ocf_engine_forward_cache_io_req(req, OCF_READ,
+			_ocf_read_generic_hit_complete);
 }
 
 static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
 	int ret;
-
-	env_atomic_set(&req->req_remaining, 1);
 
 	req->cp_data = ctx_data_alloc(cache->owner,
 			BYTES_TO_PAGES(req->byte_length));
@@ -119,9 +102,7 @@ static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
 	}
 
 err_alloc:
-	/* Submit read request to core device. */
-	ocf_submit_volume_req(&req->core->volume, req,
-			_ocf_read_generic_miss_complete);
+	ocf_engine_forward_core_io_req(req, _ocf_read_generic_miss_complete);
 }
 
 static int _ocf_read_generic_do(struct ocf_request *req)
