@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -91,6 +92,111 @@ static void ocf_composite_volume_submit_flush(struct ocf_io *master_io)
 static void ocf_composite_volume_submit_discard(struct ocf_io *master_io)
 {
 	ocf_composite_volume_handle_io(master_io, ocf_volume_submit_discard);
+}
+
+void ocf_composite_forward_io(ocf_volume_t cvolume,
+		ocf_forward_token_t token, int dir, uint64_t addr,
+		uint64_t bytes, uint64_t offset)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	uint64_t member_bytes, caddr;
+	int i;
+
+	ENV_BUG_ON(addr >= composite->length);
+	ENV_BUG_ON(addr + bytes > composite->length);
+
+	caddr = addr;
+
+	for (i = 0; i < composite->members_cnt; i++) {
+		if (addr >= composite->end_addr[i])
+			continue;
+
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_forward_end(token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		addr = addr - (i > 0 ? composite->end_addr[i-1] : 0);
+		break;
+	}
+
+	for (; i < composite->members_cnt && bytes; i++) {
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_forward_end(token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		member_bytes = OCF_MIN(bytes, composite->end_addr[i] - caddr);
+
+		ocf_forward_io(&composite->member[i].volume, token, dir, addr,
+				member_bytes, offset);
+
+		addr = 0;
+		caddr = composite->end_addr[i];
+		bytes -= member_bytes;
+		offset += member_bytes;
+	}
+
+	/* Put io forward counter to account for the original forward */
+	ocf_forward_end(token, 0);
+}
+
+void ocf_composite_forward_flush(ocf_volume_t cvolume,
+		ocf_forward_token_t token)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	int i;
+
+	for (i = 0; i < composite->members_cnt; i++)
+		ocf_forward_flush(&composite->member[i].volume, token);
+
+	/* Put io forward counter to account for the original forward */
+	ocf_forward_end(token, 0);
+}
+
+void ocf_composite_forward_discard(ocf_volume_t cvolume,
+		ocf_forward_token_t token, uint64_t addr, uint64_t bytes)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	uint64_t member_bytes, caddr;
+	int i;
+
+	caddr = addr;
+
+	ENV_BUG_ON(addr >= composite->length);
+	ENV_BUG_ON(addr + bytes > composite->length);
+
+	for (i = 0; i < composite->members_cnt; i++) {
+		if (addr >= composite->end_addr[i])
+			continue;
+
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_forward_end(token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		addr = addr - (i > 0 ? composite->end_addr[i-1] : 0);
+		break;
+	}
+
+	for (; i < composite->members_cnt && bytes; i++) {
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_forward_end(token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		member_bytes = OCF_MIN(bytes, composite->end_addr[i] - caddr);
+
+		ocf_forward_discard(&composite->member[i].volume, token, addr,
+				member_bytes);
+
+		addr = 0;
+		caddr = composite->end_addr[i];
+		bytes -= member_bytes;
+	}
+
+	/* Put io forward counter to account for the original forward */
+	ocf_forward_end(token, 0);
 }
 
 /* *** VOLUME OPS *** */
@@ -211,6 +317,9 @@ const struct ocf_volume_properties ocf_composite_volume_properties = {
 		.submit_flush = ocf_composite_volume_submit_flush,
 		.submit_discard = ocf_composite_volume_submit_discard,
 		.submit_metadata = NULL,
+		.forward_io = ocf_composite_forward_io,
+		.forward_flush = ocf_composite_forward_flush,
+		.forward_discard = ocf_composite_forward_discard,
 
 		.open = ocf_composite_volume_open,
 		.close = ocf_composite_volume_close,
