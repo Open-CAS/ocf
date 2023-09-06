@@ -66,6 +66,7 @@ class VolumeOps(Structure):
     GET_MAX_IO_SIZE = CFUNCTYPE(c_uint, c_void_p)
     GET_LENGTH = CFUNCTYPE(c_uint64, c_void_p)
     COMPOSITE_VOLUME_ADD = CFUNCTYPE(c_int, c_void_p, c_uint8, c_void_p, c_void_p)
+    COMPOSITE_VOLUME_ATTACH_MEMBER = CFUNCTYPE(c_int, c_void_p, c_void_p, c_uint8, c_void_p)
 
     _fields_ = [
         ("_submit_io", SUBMIT_IO),
@@ -86,6 +87,7 @@ class VolumeOps(Structure):
         ("_get_length", GET_LENGTH),
         ("_get_max_io_size", GET_MAX_IO_SIZE),
         ("_composite_volume_add", COMPOSITE_VOLUME_ADD),
+        ("_composite_volume_attach_member", COMPOSITE_VOLUME_ATTACH_MEMBER),
     ]
 
 
@@ -172,6 +174,10 @@ class Volume:
         def _composite_volume_add(ref):
             raise NotImplementedError
 
+        @VolumeOps.COMPOSITE_VOLUME_ATTACH_MEMBER
+        def _composite_volume_attach_member(ref):
+            raise NotImplementedError
+
         Volume._ops_[cls] = VolumeOps(
             _forward_io=_forward_io,
             _forward_flush=_forward_flush,
@@ -183,6 +189,7 @@ class Volume:
             _on_init=_on_init,
             _on_deinit=_on_deinit,
             _composite_volume_add=_composite_volume_add,
+            _composite_volume_attach_member=_composite_volume_attach_member,
         )
 
         return Volume._ops_[cls]

@@ -228,6 +228,21 @@ struct ocf_volume_ops {
 	int (*composite_volume_add)(ocf_volume_t cvolume,
 			ocf_volume_type_t type, struct ocf_volume_uuid *uuid,
 			void *volume_params);
+
+	/**
+	 * @brief Attach subvolume to composite volume
+	 *
+	 * @param[in] volume composite volume handle
+	 * @param[in] uuid UUID of added subvolume
+	 * @param[in] tgt_id Target subvolume id
+	 * @param[in] type type of added subvolume
+	 * @param[in] volume_params params to be passed to subvolume open
+	 *
+	 * @return Zero when success, otherwise an error
+	 */
+	int (*composite_volume_attach_member)(ocf_volume_t volume,
+			struct ocf_volume_uuid *uuid, uint8_t tgt_id,
+			ocf_volume_type_t type, void *volume_params);
 };
 
 /**
@@ -418,6 +433,20 @@ int ocf_volume_open(ocf_volume_t volume, void *volume_params);
  * @param[in] volume Volume
  */
 void ocf_volume_close(ocf_volume_t volume);
+
+/**
+ * @brief Attach subvolume to composite volume
+ *
+ * @param[in] volume composite volume handle
+ * @param[in] tgt_id Target subvolume id
+ * @param[in] uuid UUID of added subvolume
+ * @param[in] type type of added subvolume
+ * @param[in] volume_params params to be passed to subvolume open
+ *
+ * @return Zero when success, otherwise an error
+ */
+int ocf_composite_volume_attach_member(ocf_volume_t volume, ocf_uuid_t uuid,
+		uint8_t tgt_id, ocf_volume_type_t vol_type, void *vol_params);
 
 /**
  * @brief Get volume max io size

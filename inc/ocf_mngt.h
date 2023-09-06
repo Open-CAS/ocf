@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -511,6 +512,22 @@ typedef void (*ocf_mngt_cache_detach_end_t)(ocf_cache_t cache,
  * @param[in] priv Completion callback context
  */
 void ocf_mngt_cache_detach(ocf_cache_t cache,
+		ocf_mngt_cache_detach_end_t cmpl, void *priv);
+
+/**
+ * @brief Add a new member to composite cache
+ *
+ * @param[in] cache Cache handle
+ * @param[in] vol_uuid UUID of the new volume to be added as a member
+ *				of composite
+ * @param[in] tgt_id Target subvolume id
+ * @param[in] vol_type Type of the new volume
+ * @param[in] vol_params Params of the new volume
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
+ */
+void ocf_mngt_cache_attach_composite(ocf_cache_t cache, ocf_uuid_t vol_uuid,
+		uint8_t tgt_id, ocf_volume_type_t vol_type, void *vol_params,
 		ocf_mngt_cache_detach_end_t cmpl, void *priv);
 
 /**
