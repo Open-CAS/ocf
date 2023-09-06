@@ -38,6 +38,7 @@ struct ocf_lru_list *ocf_lru_get_list(struct ocf_part *part,
 		uint32_t lru_idx, bool clean);
 void ocf_lru_detach(ocf_cache_t cache, struct ocf_part *part,
 		ocf_cache_line_t cline);
+void ocf_lru_restore(ocf_cache_t cache, ocf_cache_line_t cline);
 
 typedef void (*ocf_lru_populate_end_t)(void *priv, int error);
 

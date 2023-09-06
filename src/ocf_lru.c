@@ -215,6 +215,11 @@ void ocf_lru_detach(ocf_cache_t cache, struct ocf_part *part,
 	ocf_lru_repart(cache, cline, part, &cache->free_detached);
 }
 
+void ocf_lru_restore(ocf_cache_t cache, ocf_cache_line_t cline)
+{
+	ocf_lru_repart(cache, cline, &cache->free_detached, &cache->free);
+}
+
 static void ocf_lru_set_hot(ocf_cache_t cache, struct ocf_lru_list *list,
 		ocf_cache_line_t cline)
 {

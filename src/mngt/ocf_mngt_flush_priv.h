@@ -22,4 +22,14 @@ void ocf_mngt_cache_detach_cline_range(ocf_cache_t cache,
 		ocf_cache_line_t begin, ocf_cache_line_t end,
 		ocf_mngt_cache_purge_end_t cmpl, void *priv);
 
+/**
+ * @brief Attach range of cache lines from free_detached
+ *
+ * @param[in] cache Cache handle
+ * @param[in] first_cline Begin of the range
+ * @param[in] last_cline End of the range
+ */
+int ocf_mngt_cache_attach_cline_range(ocf_cache_t cache,
+		ocf_cache_line_t first_cline, ocf_cache_line_t last_cline);
+
 #endif /* __OCF_MNGT_FLUSH_PRIV_H__ */
