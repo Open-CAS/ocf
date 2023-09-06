@@ -29,7 +29,10 @@ struct ocf_volume {
 			/* true if reading discarded pages returns 0 */
 	} features;
 	bool opened;
+
 	bool uuid_copy;
+	/* @brief True if OCF shall free UUID on volume deinit */
+
 	void *priv;
 	ocf_cache_t cache;
 	struct list_head core_pool_item;
