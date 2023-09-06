@@ -43,4 +43,7 @@ int ocf_metadata_sparse_range(struct ocf_cache *cache, int core_id,
 int ocf_metadata_detach_cline_range(ocf_cache_t cache, ocf_cache_line_t begin,
 		ocf_cache_line_t end);
 
+int ocf_metadata_restore_cline_range(ocf_cache_t cache, ocf_cache_line_t begin,
+		ocf_cache_line_t end);
+
 #endif /* __METADATA_MISC_H__ */

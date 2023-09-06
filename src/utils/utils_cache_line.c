@@ -105,6 +105,11 @@ void set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 			end_bit);
 }
 
+void set_cache_line_available(struct ocf_cache *cache, ocf_cache_line_t line)
+{
+	ocf_lru_restore(cache, line);
+}
+
 void set_cache_line_unavailable(struct ocf_cache *cache, uint8_t start_bit,
 		uint8_t end_bit, ocf_cache_line_t line)
 {

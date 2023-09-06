@@ -76,6 +76,19 @@ void set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 void set_cache_line_unavailable(struct ocf_cache *cache, uint8_t start_bit,
 		uint8_t end_bit, ocf_cache_line_t line);
 
+
+/**
+ * @brief Set cache line available and move it to the freelist
+ *
+ * @note Collision page must be locked by the caller (either exclusive access
+ * to collision table page OR write lock on metadata hash bucket combined with
+ * shared access to the collision page)
+ *
+ * @param cache Cache instance
+ * @param line Cache line to be set as available
+ */
+void set_cache_line_available(struct ocf_cache *cache, ocf_cache_line_t line);
+
 /**
  * @brief Set cache line invalid without flush
  *

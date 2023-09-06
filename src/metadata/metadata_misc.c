@@ -80,3 +80,28 @@ int ocf_metadata_detach_cline_range(ocf_cache_t cache, ocf_cache_line_t begin,
 
 	return 0;
 }
+
+int ocf_metadata_restore_cline_range(ocf_cache_t cache, ocf_cache_line_t begin,
+		ocf_cache_line_t end)
+{
+	uint32_t step = 0;
+	ocf_cache_line_t cline;
+
+	if (begin > end)
+		return -OCF_ERR_INVAL;
+
+	if (end > cache->device->collision_table_entries)
+		return -OCF_ERR_INVAL;
+
+	for (cline = begin; cline < end; ++cline) {
+		ocf_metadata_start_collision_shared_access(cache, cline);
+
+		set_cache_line_available(cache, cline);
+
+		ocf_metadata_end_collision_shared_access(cache, cline);
+
+		OCF_COND_RESCHED_DEFAULT(step);
+	}
+
+	return 0;
+}

@@ -896,6 +896,31 @@ static void _ocf_mngt_cache_detach_cline_range(ocf_pipeline_t pipeline,
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
 
+int ocf_mngt_cache_attach_cline_range(ocf_cache_t cache,
+		ocf_cache_line_t begin, ocf_cache_line_t end)
+{
+	int result;
+	ocf_cache_line_t free_detached_before, free_detached_after;
+
+	free_detached_before =
+		env_atomic_read(&cache->free_detached.runtime->curr_size);
+
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	result = ocf_metadata_restore_cline_range(cache, begin, end);
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+
+	free_detached_after =
+		env_atomic_read(&cache->free_detached.runtime->curr_size);
+
+	if (unlikely(result && free_detached_before != free_detached_after)) {
+		ocf_cache_log(cache, log_err, "Error %d during restoring cache"
+				" lines %u - %u\n", result, begin, end);
+		ENV_BUG();
+	}
+
+	return result;
+}
+
 static
 struct ocf_pipeline_properties _ocf_mngt_cache_purge_pipeline_properties = {
 	.priv_size = sizeof(struct ocf_mngt_cache_flush_context),
