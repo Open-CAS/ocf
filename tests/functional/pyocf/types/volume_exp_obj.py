@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -23,17 +24,17 @@ class OcfInternalVolume(Volume):
         queue = self.parent.get_default_queue()  # TODO multiple queues?
         return self.new_io(queue, addr, _bytes, _dir, _class, _flags)
 
-    def _alloc_io(self, io):
+    def _alloc_io(self, io, rw=None, addr=None, nbytes=None, offset=0):
         exp_obj_io = self.__alloc_io(
-            io.contents._addr,
-            io.contents._bytes,
-            io.contents._dir,
+            addr or io.contents._addr,
+            nbytes or io.contents._bytes,
+            rw or io.contents._dir,
             io.contents._class,
             io.contents._flags,
         )
 
         cdata = OcfLib.getInstance().ocf_io_get_data(io)
-        OcfLib.getInstance().ocf_io_set_data(byref(exp_obj_io), cdata, 0)
+        OcfLib.getInstance().ocf_io_set_data(byref(exp_obj_io), cdata, offset)
 
         def cb(error):
             nonlocal io
@@ -60,6 +61,29 @@ class OcfInternalVolume(Volume):
 
     def do_submit_discard(self, discard):
         io = self._alloc_io(discard)
+        io.submit_discard()
+
+    def do_forward_io(self, token, rw, addr, nbytes, offset):
+        orig_io = Io.get_by_forward_token(token)
+        io = self._alloc_io(orig_io, rw, addr, nbytes, offset)
+
+        def cb(error):
+            nonlocal io
+            Io.forward_end(io.token, error)
+
+        io.token = token
+        io.callback = cb
+
+        io.submit()
+
+    def do_forward_flush(self, token):
+        orig_io = Io.get_by_forward_token(token)
+        io = self._alloc_io(orig_io)
+        io.submit_flush()
+
+    def do_forward_discard(self, token, addr, nbytes):
+        orig_io = Io.get_by_forward_token(token)
+        io = self._alloc_io(orig_io, addr=addr, nbytes=nbytes)
         io.submit_discard()
 
     def _read(self, offset=0, size=0):

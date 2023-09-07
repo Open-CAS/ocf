@@ -166,12 +166,9 @@ def setup_tracing(backends):
             TraceDevice.IoType.Data: [],
         }
 
-    def trace(vol, io, io_type):
-        if int(io.contents._flags) & IoFlags.FLUSH:
-            io_type = TraceDevice.IoType.Flush
-
+    def trace(vol, io_type, rw, addr, nbytes, flags):
         io_trace[vol][io_type].append(
-            IoEvent(io.contents._dir, io.contents._addr, io.contents._bytes)
+            IoEvent(rw, addr, nbytes)
         )
 
         return True

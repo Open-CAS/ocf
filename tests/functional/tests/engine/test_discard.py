@@ -20,13 +20,13 @@ def test_discard_propagation(pyocf_ctx):
 
     pyocf_ctx.register_volume_type(TraceDevice)
 
-    def trace_discard(vol, io, io_type):
+    def trace_discard(vol, io_type, rw, addr, nbytes, flags):
         nonlocal discards
 
         if io_type == TraceDevice.IoType.Discard:
             if vol.uuid not in discards:
                 discards[vol.uuid] = []
-            discards[vol.uuid].append((io.contents._addr, io.contents._bytes))
+            discards[vol.uuid].append((addr, nbytes))
 
         return True
 
