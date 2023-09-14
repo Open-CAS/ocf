@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -35,7 +36,7 @@ static void _ocf_read_pt_complete(struct ocf_request *req, int error)
 	/* Complete request */
 	req->complete(req, req->error);
 
-	ocf_req_unlock_rd(ocf_cache_line_concurrency(req->cache), req);
+	ocf_req_unlock(ocf_cache_line_concurrency(req->cache), req);
 
 	/* Release OCF request */
 	ocf_req_put(req);
