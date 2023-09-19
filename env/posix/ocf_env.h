@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -586,6 +587,7 @@ static inline bool env_bit_test(int nr, const volatile unsigned long *addr)
 	const char *byte = (char *)addr + (nr >> 3);
 	char mask = 1 << (nr & 7);
 
+	__sync_synchronize();
 	return !!(*byte & mask);
 }
 
