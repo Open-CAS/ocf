@@ -3351,6 +3351,8 @@ void ocf_mngt_cache_stop(ocf_cache_t cache,
 	OCF_CHECK_NULL(cache);
 
 	if (!ocf_cache_is_device_attached(cache)) {
+		env_bit_set(ocf_cache_state_stopping, &cache->cache_state);
+		env_bit_clear(ocf_cache_state_initializing, &cache->cache_state);
 		ocf_mngt_cache_stop_detached(cache, cmpl, priv);
 		return;
 	}
