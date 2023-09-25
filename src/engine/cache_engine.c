@@ -21,7 +21,6 @@
 #include "engine_fast.h"
 #include "engine_flush.h"
 #include "engine_discard.h"
-#include "engine_d2c.h"
 #include "../utils/utils_user_part.h"
 #include "../utils/utils_refcnt.h"
 #include "../ocf_request.h"
@@ -42,9 +41,6 @@ enum ocf_io_if_type {
 	OCF_IO_FAST_IF,
 	OCF_IO_FLUSH_IF,
 	OCF_IO_DISCARD_IF,
-	OCF_IO_D2C_IF,
-	OCF_IO_D2C_FLUSH_IF,
-	OCF_IO_D2C_DISCARD_IF,
 	OCF_IO_PRIV_MAX_IF,
 };
 
@@ -112,27 +108,6 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 		},
 		.name = "Discard",
 	},
-	[OCF_IO_D2C_IF] = {
-		.cbs = {
-			[OCF_READ] = ocf_d2c_io,
-			[OCF_WRITE] = ocf_d2c_io,
-		},
-		.name = "Direct to core io",
-	},
-	[OCF_IO_D2C_FLUSH_IF] = {
-		.cbs = {
-			[OCF_READ] = ocf_d2c_flush,
-			[OCF_WRITE] = ocf_d2c_flush,
-		},
-		.name = "Direct to core flush",
-	},
-	[OCF_IO_D2C_DISCARD_IF] = {
-		.cbs = {
-			[OCF_READ] = ocf_d2c_discard,
-			[OCF_WRITE] = ocf_d2c_discard,
-		},
-		.name = "Direct to core discard",
-	},
 };
 
 static const struct ocf_io_if *cache_mode_io_if_map[ocf_req_cache_mode_max] = {
@@ -143,7 +118,6 @@ static const struct ocf_io_if *cache_mode_io_if_map[ocf_req_cache_mode_max] = {
 	[ocf_req_cache_mode_wo] = &IO_IFS[OCF_IO_WO_IF],
 	[ocf_req_cache_mode_pt] = &IO_IFS[OCF_IO_PT_IF],
 	[ocf_req_cache_mode_fast] = &IO_IFS[OCF_IO_FAST_IF],
-	[ocf_req_cache_mode_d2c] = &IO_IFS[OCF_IO_D2C_IF],
 };
 
 const char *ocf_get_io_iface_name(ocf_req_cache_mode_t cache_mode)
@@ -177,11 +151,6 @@ void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		ocf_core_t core, struct ocf_request *req)
 {
 	ocf_cache_mode_t cache_mode;
-
-	if (req->d2c) {
-		req->cache_mode = ocf_req_cache_mode_d2c;
-		return;
-	}
 
 	if (ocf_fallback_pt_is_on(cache)){
 		req->cache_mode = ocf_req_cache_mode_pt;
@@ -266,11 +235,6 @@ void ocf_engine_hndl_discard_req(struct ocf_request *req)
 {
 	ocf_req_get(req);
 
-	if (req->d2c) {
-		IO_IFS[OCF_IO_D2C_DISCARD_IF].cbs[req->rw](req);
-		return;
-	}
-
 	IO_IFS[OCF_IO_DISCARD_IF].cbs[req->rw](req);
 }
 
@@ -278,9 +242,7 @@ void ocf_engine_hndl_flush_req(struct ocf_request *req)
 {
 	ocf_req_get(req);
 
-	req->engine_handler = (req->d2c) ?
-			IO_IFS[OCF_IO_D2C_FLUSH_IF].cbs[req->rw] :
-			IO_IFS[OCF_IO_FLUSH_IF].cbs[req->rw];
+	req->engine_handler = IO_IFS[OCF_IO_FLUSH_IF].cbs[req->rw];
 
 	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC);
 }
