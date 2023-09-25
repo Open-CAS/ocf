@@ -164,6 +164,22 @@ struct ocf_request *ocf_req_new_cleaner(ocf_cache_t cache, ocf_queue_t queue,
 	return req;
 }
 
+static inline struct ocf_request *ocf_req_new_d2c(ocf_queue_t queue,
+		ocf_core_t core, uint64_t addr, uint32_t bytes, int rw)
+{
+	ocf_cache_t cache = ocf_core_get_cache(core);
+	struct ocf_request *req;
+
+	req = env_mpool_new(cache->owner->resources.req, 1);
+	if (unlikely(!req))
+		        return NULL;
+
+	ocf_req_init(req, cache, queue, core, addr, bytes, rw);
+
+	req->d2c = true;
+	return req;
+}
+
 struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 		uint64_t addr, uint32_t bytes, int rw)
 {
@@ -173,6 +189,19 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	bool map_allocated = true;
 
 	ENV_BUG_ON(ocf_queue_is_mngt(queue));
+
+	ocf_queue_get(queue);
+
+	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
+		if (!ocf_refcnt_inc(&cache->refcnt.d2c))
+			ENV_BUG();
+		req = ocf_req_new_d2c(queue, core, addr, bytes, rw);
+		if (unlikely(!req)) {
+			ocf_queue_put(queue);
+			return NULL;
+		}
+		return req;
+	}
 
 	if (likely(bytes)) {
 		core_line_first = ocf_bytes_2_lines(cache, addr);
@@ -190,8 +219,11 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 		req = env_mpool_new(cache->owner->resources.req, 1);
 	}
 
-	if (unlikely(!req))
+	if (unlikely(!req)) {
+		ocf_refcnt_dec(&cache->refcnt.metadata);
+		ocf_queue_put(queue);
 		return NULL;
+	}
 
 	if (map_allocated) {
 		req->map = req->__map;
@@ -203,11 +235,7 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 
 	OCF_DEBUG_TRACE(cache);
 
-	ocf_queue_get(queue);
-
-	ocf_req_init(req, cache, queue, core, addr, bytes, rw);
-
-	req->d2c = !ocf_refcnt_inc(&cache->refcnt.metadata);
+	ocf_req_init(req, cache, queue, NULL, addr, bytes, rw);
 
 	req->core_line_first = core_line_first;
 	req->core_line_last = core_line_last;
@@ -358,7 +386,9 @@ void ocf_req_put(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	if ((!req->d2c && !req->is_mngt) || req->cleaner)
+	if (req->d2c)
+		ocf_refcnt_dec(&req->cache->refcnt.d2c);
+	else if (!req->is_mngt || req->cleaner)
 		ocf_refcnt_dec(&req->cache->refcnt.metadata);
 
 	if (unlikely(req->is_mngt)) {

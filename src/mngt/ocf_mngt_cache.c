@@ -857,6 +857,8 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 	/* start with freezed metadata ref counter to indicate detached device*/
 	ocf_refcnt_freeze(&cache->refcnt.metadata);
 
+	ocf_refcnt_init(&cache->refcnt.d2c);
+
 	env_atomic_set(&(cache->last_access_ms),
 			env_ticks_to_msecs(env_get_tick_count()));
 
