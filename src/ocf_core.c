@@ -154,7 +154,7 @@ static uint64_t _calc_dirty_for(uint64_t dirty_since)
 	return dirty_since ? (current_time - dirty_since) : 0;
 }
 
-static inline struct ocf_request *ocf_io_to_req(struct ocf_io *io)
+struct ocf_request *ocf_io_to_req(struct ocf_io *io)
 {
 	struct ocf_io_internal *ioi;
 

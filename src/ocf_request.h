@@ -198,6 +198,9 @@ struct ocf_request {
 	uint8_t d2c : 1;
 	/**!< request affects metadata cachelines (is not direct-to-core) */
 
+	uint8_t cleaner : 1;
+	/**!< request allocated by cleaner */
+
 	uint8_t dirty : 1;
 	/**!< indicates that request produces dirty data */
 
@@ -227,6 +230,9 @@ struct ocf_request {
 
 	uint8_t is_deferred : 1;
 	/* !< request handling was deferred and eventually resumed */
+
+	uint8_t is_mngt : 1;
+	/* !< It's a management path request */
 
 	ocf_req_cache_mode_t cache_mode;
 
@@ -274,6 +280,25 @@ int ocf_req_allocator_init(struct ocf_ctx *ocf_ctx);
  * @param cache - OCF cache instance
  */
 void ocf_req_allocator_deinit(struct ocf_ctx *ocf_ctx);
+
+/**
+ * @brief Allocate new OCF request for the management path
+ *
+ * @param queue - I/O queue handle
+ *
+ * @return new OCF request
+ */
+struct ocf_request *ocf_req_new_mngt(ocf_queue_t queue);
+
+/**
+ * @brief Allocate new OCF request for cleaner
+ *
+ * @param queue - I/O queue handle
+ * @param count - Number of map entries
+ *
+ * @return new OCF request
+ */
+struct ocf_request *ocf_req_new_cleaner(ocf_queue_t queue, uint32_t count);
 
 /**
  * @brief Allocate new OCF request

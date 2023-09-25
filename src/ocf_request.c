@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -7,6 +8,7 @@
 #include "ocf_request.h"
 #include "ocf_cache_priv.h"
 #include "concurrency/ocf_metadata_concurrency.h"
+#include "engine/engine_common.h"
 #include "utils/utils_cache_line.h"
 
 #define OCF_UTILS_RQ_DEBUG 0
@@ -34,9 +36,8 @@ enum ocf_req_size {
 	ocf_req_size_128,
 };
 
-static inline size_t ocf_req_sizeof_map(struct ocf_request *req)
+static inline size_t ocf_req_sizeof_map(uint32_t lines)
 {
-	uint32_t lines = req->core_line_count;
 	size_t size = (lines * sizeof(struct ocf_map_info));
 
 	ENV_BUG_ON(lines == 0);
@@ -80,6 +81,88 @@ void ocf_req_allocator_deinit(struct ocf_ctx *ocf_ctx)
 	ocf_ctx->resources.req = NULL;
 }
 
+static inline void ocf_req_init(struct ocf_request *req, ocf_queue_t queue,
+		ocf_core_t core, uint64_t addr, uint32_t bytes, int rw)
+{
+	req->io_queue = queue;
+
+	req->core = core;
+	req->cache = queue->cache;
+
+	env_atomic_set(&req->ref_count, 1);
+
+	req->byte_position = addr;
+	req->byte_length = bytes;
+	req->rw = rw;
+}
+
+struct ocf_request *ocf_req_new_mngt(ocf_queue_t queue)
+{
+	struct ocf_request *req;
+
+	req = env_zalloc(sizeof(*req), ENV_MEM_NORMAL);
+	if (unlikely(!req))
+		return NULL;
+
+	ocf_queue_get(queue);
+
+	ocf_req_init(req, queue, NULL, 0, 0, 0);
+
+	req->is_mngt = true;
+
+	return req;
+}
+
+struct ocf_request *ocf_req_new_cleaner(ocf_queue_t queue, uint32_t count)
+{
+	ocf_cache_t cache = queue->cache;
+	struct ocf_request *req;
+	bool map_allocated = true, is_mngt = false;
+
+	if (!ocf_refcnt_inc(&cache->refcnt.metadata))
+		return NULL;
+
+	if (unlikely(queue == cache->mngt_queue)) {
+		req = env_zalloc(sizeof(*req) + ocf_req_sizeof_map(count) +
+				ocf_req_sizeof_alock_status(count),
+				ENV_MEM_NORMAL);
+		is_mngt = true;
+	} else {
+		req = env_mpool_new(cache->owner->resources.req, count);
+		if (!req) {
+			map_allocated = false;
+			req = env_mpool_new(cache->owner->resources.req, 1);
+		}
+	}
+
+	if (!req) {
+		ocf_refcnt_dec(&cache->refcnt.metadata);
+		return NULL;
+	}
+	req->is_mngt = is_mngt;
+
+	ocf_queue_get(queue);
+
+	ocf_req_init(req, queue, NULL, 0, 0, OCF_READ);
+
+	if (map_allocated) {
+		req->map = req->__map;
+		req->alock_status = (uint8_t*)&req->__map[count];
+		req->alloc_core_line_count = count;
+	} else {
+		req->alloc_core_line_count = 1;
+	}
+	req->core_line_count = count;
+	req->lock_idx = ocf_metadata_concurrency_next_idx(queue);
+	req->cleaner = true;
+
+	if (ocf_req_alloc_map(req)) {
+		ocf_req_put(req);
+		req = NULL;
+	}
+	return req;
+}
+
 struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 		uint64_t addr, uint32_t bytes, int rw)
 {
@@ -87,6 +170,8 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	ocf_cache_t cache = queue->cache;
 	struct ocf_request *req;
 	bool map_allocated = true;
+
+	ENV_BUG_ON(queue == cache->mngt_queue);
 
 	if (likely(bytes)) {
 		core_line_first = ocf_bytes_2_lines(cache, addr);
@@ -115,31 +200,23 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 		req->alloc_core_line_count = 1;
 	}
 
-
 	OCF_DEBUG_TRACE(cache);
 
 	ocf_queue_get(queue);
-	req->io_queue = queue;
 
-	req->core = core;
-	req->cache = cache;
+	ocf_req_init(req, queue, core, addr, bytes, rw);
 
-	req->d2c = (queue != cache->mngt_queue) && !ocf_refcnt_inc(
-			&cache->refcnt.metadata);
+	req->d2c = !ocf_refcnt_inc(&cache->refcnt.metadata);
 
-	env_atomic_set(&req->ref_count, 1);
-
-	req->byte_position = addr;
-	req->byte_length = bytes;
 	req->core_line_first = core_line_first;
 	req->core_line_last = core_line_last;
 	req->core_line_count = core_line_count;
-	req->rw = rw;
-	req->part_id = PARTITION_DEFAULT;
 
 	req->discard.sector = BYTES_TO_SECTORS(addr);
 	req->discard.nr_sects = BYTES_TO_SECTORS(bytes);
 	req->discard.handled = 0;
+
+	req->part_id = PARTITION_DEFAULT;
 
 	req->lock_idx = ocf_metadata_concurrency_next_idx(queue);
 
@@ -148,10 +225,12 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 
 int ocf_req_alloc_map(struct ocf_request *req)
 {
+	uint32_t lines = req->core_line_count;
+
 	if (req->map)
 		return 0;
 
-	req->map = env_zalloc(ocf_req_sizeof_map(req) +
+	req->map = env_zalloc(ocf_req_sizeof_map(lines) +
 			ocf_req_sizeof_alock_status(req->core_line_count),
 			ENV_MEM_NOIO);
 	if (!req->map) {
@@ -159,7 +238,7 @@ int ocf_req_alloc_map(struct ocf_request *req)
 		return -OCF_ERR_NO_MEM;
 	}
 
-	req->alock_status = &((uint8_t*)req->map)[ocf_req_sizeof_map(req)];
+	req->alock_status = &((uint8_t*)req->map)[ocf_req_sizeof_map(lines)];
 
 	return 0;
 }
@@ -229,14 +308,17 @@ void ocf_req_put(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	if (!req->d2c && req->io_queue != req->cache->mngt_queue)
+	if ((!req->d2c && !req->is_mngt) || req->cleaner)
 		ocf_refcnt_dec(&req->cache->refcnt.metadata);
 
-	if (req->map != req->__map)
-		env_free(req->map);
-
-	env_mpool_del(req->cache->owner->resources.req, req,
-			req->alloc_core_line_count);
+	if (unlikely(req->is_mngt)) {
+		env_free(req);
+	} else {
+		if (req->map != req->__map)
+			env_free(req->map);
+		env_mpool_del(req->cache->owner->resources.req, req,
+				req->alloc_core_line_count);
+	}
 
 	ocf_queue_put(queue);
 }

@@ -105,8 +105,7 @@ int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 		} else {
 			queue = cache->mngt_queue;
 		}
-		tmp_parallelize->reqs[i] = ocf_req_new(queue,
-				NULL, 0, 0, 0);
+		tmp_parallelize->reqs[i] = ocf_req_new_mngt(queue);
 		if (!tmp_parallelize->reqs[i]) {
 			result = -OCF_ERR_NO_MEM;
 			goto err_reqs;

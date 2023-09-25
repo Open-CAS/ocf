@@ -87,7 +87,7 @@ int ocf_pipeline_create(ocf_pipeline_t *pipeline, ocf_cache_t cache,
 		tmp_pipeline->priv = (void *)priv;
 	}
 
-	req = ocf_req_new(cache->mngt_queue, NULL, 0, 0, 0);
+	req = ocf_req_new_mngt(cache->mngt_queue);
 	if (!req) {
 		env_vfree(tmp_pipeline);
 		return -OCF_ERR_NO_MEM;
