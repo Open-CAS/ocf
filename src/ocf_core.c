@@ -344,7 +344,7 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 
 	ocf_io_get(io);
 
-	ocf_engine_hndl_ops_req(req);
+	ocf_engine_hndl_flush_req(req);
 }
 
 static void ocf_core_volume_submit_discard(struct ocf_io *io)

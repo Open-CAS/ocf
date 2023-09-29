@@ -19,9 +19,9 @@
 #include "engine_wb.h"
 #include "engine_wo.h"
 #include "engine_fast.h"
+#include "engine_flush.h"
 #include "engine_discard.h"
 #include "engine_d2c.h"
-#include "engine_ops.h"
 #include "../utils/utils_user_part.h"
 #include "../utils/utils_refcnt.h"
 #include "../ocf_request.h"
@@ -40,9 +40,9 @@ enum ocf_io_if_type {
 
 	/* Private OCF interfaces */
 	OCF_IO_FAST_IF,
+	OCF_IO_FLUSH_IF,
 	OCF_IO_DISCARD_IF,
 	OCF_IO_D2C_IF,
-	OCF_IO_OPS_IF,
 	OCF_IO_PRIV_MAX_IF,
 };
 
@@ -110,10 +110,10 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 		},
 		.name = "Direct to core",
 	},
-	[OCF_IO_OPS_IF] = {
+	[OCF_IO_FLUSH_IF] = {
 		.cbs = {
-			[OCF_READ] = ocf_engine_ops,
-			[OCF_WRITE] = ocf_engine_ops,
+			[OCF_READ] = ocf_engine_flush,
+			[OCF_WRITE] = ocf_engine_flush,
 		},
 		.name = "Ops engine",
 	},
@@ -274,13 +274,13 @@ void ocf_engine_hndl_discard_req(struct ocf_request *req)
 	IO_IFS[OCF_IO_DISCARD_IF].cbs[req->rw](req);
 }
 
-void ocf_engine_hndl_ops_req(struct ocf_request *req)
+void ocf_engine_hndl_flush_req(struct ocf_request *req)
 {
 	ocf_req_get(req);
 
 	req->engine_handler = (req->d2c) ?
 			ocf_io_if_type_to_engine_cb(OCF_IO_D2C_IF, req->rw) :
-			ocf_io_if_type_to_engine_cb(OCF_IO_OPS_IF, req->rw);
+			ocf_io_if_type_to_engine_cb(OCF_IO_FLUSH_IF, req->rw);
 
 	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC);
 }

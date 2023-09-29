@@ -43,8 +43,8 @@ int ocf_engine_hndl_req(struct ocf_request *req);
 
 int ocf_engine_hndl_fast_req(struct ocf_request *req);
 
-void ocf_engine_hndl_discard_req(struct ocf_request *req);
+void ocf_engine_hndl_flush_req(struct ocf_request *req);
 
-void ocf_engine_hndl_ops_req(struct ocf_request *req);
+void ocf_engine_hndl_discard_req(struct ocf_request *req);
 
 #endif
