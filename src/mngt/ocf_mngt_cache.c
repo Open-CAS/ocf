@@ -2309,13 +2309,13 @@ static void _ocf_mngt_cache_dealloc(void *priv)
 
 static void ocf_mngt_cache_remove(ocf_ctx_t ctx, ocf_cache_t cache)
 {
+	/* Deinitialize cache lock */
+	ocf_mngt_cache_lock_deinit(cache);
+
 	/* Mark device uninitialized */
 	env_refcnt_freeze(&cache->refcnt.cache);
 	env_refcnt_register_zero_cb(&cache->refcnt.cache,
 			     _ocf_mngt_cache_dealloc, cache);
-
-	/* Deinitialize locks */
-	ocf_mngt_cache_lock_deinit(cache);
 
 	env_spinlock_destroy(&cache->io_queues_lock);
 
