@@ -107,9 +107,6 @@ struct ocf_cache_attach_context {
 		bool device_alloc : 1;
 			/*!< data structure allocated */
 
-		bool volume_stored : 1;
-			/*!< underlying device volume is stored in contex */
-
 		bool volume_inited : 1;
 			/*!< underlying device volume is initialized */
 
@@ -2596,9 +2593,6 @@ static void _ocf_mngt_activate_handle_error(
 	else
 		ocf_volume_deinit(context->cfg.device.volume);
 
-	if (context->flags.volume_stored)
-		ocf_volume_move(&cache->device->volume, &context->cache_volume);
-
 	if (context->flags.metadata_frozen)
 		ocf_refcnt_unfreeze(&cache->refcnt.metadata);
 }
@@ -2624,12 +2618,6 @@ static void _ocf_mngt_cache_activate_finish(ocf_pipeline_t pipeline,
 
 	ocf_pipeline_destroy(cache->stop_pipeline);
 	cache->stop_pipeline = stop_pipeline;
-
-	if (context->flags.volume_stored) {
-		if (context->cache_volume.opened)
-			ocf_volume_close(&context->cache_volume);
-		ocf_volume_deinit(&context->cache_volume);
-	}
 
 out:
 	context->cmpl(context->cache, context->priv1, context->priv2, error);
