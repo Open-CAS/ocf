@@ -238,9 +238,15 @@ static void _ocf_mngt_cache_lock(ocf_cache_t cache,
 	if (ocf_mngt_cache_get(cache))
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_NOT_EXIST);
 
+	if (!env_refcnt_inc(&cache->refcnt.lock)) {
+		ocf_mngt_cache_put(cache);
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_NOT_EXIST);
+	}
+
 	waiter = ocf_async_lock_new_waiter(&cache->lock,
 			_ocf_mngt_cache_lock_complete);
 	if (!waiter) {
+		env_refcnt_dec(&cache->refcnt.lock);
 		ocf_mngt_cache_put(cache);
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
 	}
@@ -252,20 +258,26 @@ static void _ocf_mngt_cache_lock(ocf_cache_t cache,
 	context->priv = priv;
 
 	lock_fn(waiter);
+	env_refcnt_dec(&cache->refcnt.lock);
 }
 
 static int _ocf_mngt_cache_trylock(ocf_cache_t cache,
 		ocf_trylock_fn_t trylock_fn, ocf_unlock_fn_t unlock_fn)
 {
-	int result;
+	int result = 0;
 
 	if (ocf_mngt_cache_get(cache))
 		return -OCF_ERR_CACHE_NOT_EXIST;
 
+	if (!env_refcnt_inc(&cache->refcnt.lock)) {
+		ocf_mngt_cache_put(cache);
+		return -OCF_ERR_CACHE_NOT_EXIST;
+	}
+
 	result = trylock_fn(&cache->lock);
 	if (result) {
 		ocf_mngt_cache_put(cache);
-		return result;
+		goto out;
 	}
 
 	if (env_bit_test(ocf_cache_state_stopping, &cache->cache_state)) {
@@ -274,6 +286,8 @@ static int _ocf_mngt_cache_trylock(ocf_cache_t cache,
 		result = -OCF_ERR_CACHE_NOT_EXIST;
 	}
 
+out:
+	env_refcnt_dec(&cache->refcnt.lock);
 	return result;
 }
 
@@ -286,13 +300,38 @@ static void _ocf_mngt_cache_unlock(ocf_cache_t cache,
 
 int ocf_mngt_cache_lock_init(ocf_cache_t cache)
 {
-	return ocf_async_lock_init(&cache->lock,
+	int result;
+
+	result = env_refcnt_init(&cache->refcnt.lock, "lock", sizeof("lock"));
+	if (result)
+		return result;
+
+	result = ocf_async_lock_init(&cache->lock,
 			sizeof(struct ocf_mngt_cache_lock_context));
+	if (result)
+		env_refcnt_deinit(&cache->refcnt.lock);
+
+	return result;
+}
+
+static void _ocf_mngt_cache_lock_deinit(void *priv)
+{
+	ocf_cache_t cache = priv;
+
+	ocf_async_lock_deinit(&cache->lock);
+	env_refcnt_dec(&cache->refcnt.cache);
+	env_refcnt_deinit(&cache->refcnt.lock);
 }
 
 void ocf_mngt_cache_lock_deinit(ocf_cache_t cache)
 {
-	ocf_async_lock_deinit(&cache->lock);
+	bool cache_get;
+
+	cache_get = env_refcnt_inc(&cache->refcnt.cache);
+	ENV_BUG_ON(!cache_get);
+	env_refcnt_freeze(&cache->refcnt.lock);
+	env_refcnt_register_zero_cb(&cache->refcnt.lock,
+			     _ocf_mngt_cache_lock_deinit, cache);
 }
 
 void ocf_mngt_cache_lock(ocf_cache_t cache,

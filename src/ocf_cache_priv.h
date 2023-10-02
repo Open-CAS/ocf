@@ -86,6 +86,9 @@ struct ocf_cache {
 		struct env_refcnt metadata;
 		/* # of requests in d2c mode */
 		struct env_refcnt d2c;
+		/* # of unsettled cache lock operations (lock not acquired,
+		 * waiter not added yet) */
+		struct env_refcnt lock;
 	} refcnt;
 
 	struct {
