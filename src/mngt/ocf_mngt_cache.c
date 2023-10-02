@@ -892,8 +892,14 @@ static void _ocf_mngt_attach_cache_device(ocf_pipeline_t pipeline,
 
 	context->flags.device_alloc = true;
 
-	ocf_volume_move(&cache->device->volume, device_cfg->volume);
+	ret = ocf_volume_init(&cache->device->volume, device_cfg->volume->type,
+			NULL, false);
+	if (ret)
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_NO_MEM);
+
 	context->flags.volume_inited = true;
+
+	ocf_volume_move(&cache->device->volume, device_cfg->volume);
 	cache->device->volume.cache = cache;
 
 	/*
@@ -2469,9 +2475,15 @@ static void _ocf_mngt_activate_set_cache_device(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 	int ret;
 
+	ret = ocf_volume_init(&cache->device->volume, device_cfg->volume->type,
+			NULL, false);
+	if (ret)
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_NO_MEM);
+
+	context->flags.volume_inited = true;
+
 	ocf_volume_move(&cache->device->volume, device_cfg->volume);
 	cache->device->volume.cache = cache;
-	context->flags.volume_inited = true;
 
 	ret = ocf_volume_open(&cache->device->volume,
 			device_cfg->volume_params);
