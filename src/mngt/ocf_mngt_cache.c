@@ -1926,8 +1926,6 @@ static void _ocf_mngt_attach_handle_error(
 
 	if (context->flags.volume_inited)
 		ocf_volume_deinit(&cache->device->volume);
-	else
-		ocf_volume_deinit(context->cfg.device.volume);
 
 	if (context->flags.front_volume_opened)
 		ocf_volume_close(&cache->device->front_volume);
@@ -2602,8 +2600,6 @@ static void _ocf_mngt_activate_handle_error(
 
 	if (context->flags.volume_inited)
 		ocf_volume_deinit(&cache->device->volume);
-	else
-		ocf_volume_deinit(context->cfg.device.volume);
 
 	if (context->flags.metadata_frozen)
 		ocf_refcnt_unfreeze(&cache->refcnt.metadata);
