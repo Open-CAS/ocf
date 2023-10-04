@@ -27,6 +27,7 @@ from pyocf.types.shared import (
     CacheLines,
     CacheLineSize,
     SeqCutOffPolicy,
+    OcfError,
 )
 from pyocf.types.volume import RamVolume
 from pyocf.types.volume_core import CoreVolume
@@ -44,6 +45,21 @@ def test_add_remove_core_detached_cache(pyocf_ctx):
     core = Core.using_device(core_device)
     cache.add_core(core)
     cache.remove_core(core)
+    cache.stop()
+
+
+def test_attach_cache_twice(pyocf_ctx):
+    cache_device_1 = RamVolume(Size.from_MiB(50))
+    cache_device_2 = RamVolume(Size.from_MiB(50))
+
+    cache = Cache(owner=pyocf_ctx)
+    cache.start_cache()
+
+    cache.attach_device(cache_device_1)
+
+    with pytest.raises(OcfError, match="Attaching cache device failed"):
+        cache.attach_device(cache_device_2)
+
     cache.stop()
 
 
