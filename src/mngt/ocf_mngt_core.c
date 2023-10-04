@@ -482,7 +482,8 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 			cfg->seq_cutoff_promote_on_threshold);
 
 	/* Add core sequence number for atomic metadata matching */
-	if (ocf_volume_is_atomic(&cache->device->volume)) {
+	if (ocf_cache_is_device_attached(cache) &&
+			ocf_volume_is_atomic(&cache->device->volume)) {
 		core_sequence_no = ocf_mngt_get_core_seq_no(cache);
 		if (core_sequence_no == OCF_SEQ_NO_INVALID)
 			OCF_PL_FINISH_RET(pipeline, -OCF_ERR_TOO_MANY_CORES);

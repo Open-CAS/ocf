@@ -3064,6 +3064,11 @@ void ocf_mngt_cache_attach(ocf_cache_t cache,
 	if (!cache->mngt_queue)
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
+	if (ocf_cache_is_device_attached(cache)) {
+		ocf_cache_log(cache, log_err, "Cache is already attached!\n");
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+	}
+
 	result = _ocf_mngt_cache_validate_attach_cfg(cfg);
 	if (result)
 		OCF_CMPL_RET(cache, priv, result);
