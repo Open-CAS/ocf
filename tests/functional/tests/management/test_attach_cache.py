@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -32,6 +33,18 @@ from pyocf.types.volume_core import CoreVolume
 from pyocf.utils import Size
 
 logger = logging.getLogger(__name__)
+
+
+def test_add_remove_core_detached_cache(pyocf_ctx):
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(50))
+
+    cache = Cache(owner=pyocf_ctx)
+    cache.start_cache()
+    core = Core.using_device(core_device)
+    cache.add_core(core)
+    cache.remove_core(core)
+    cache.stop()
 
 
 @pytest.mark.parametrize("cls", CacheLineSize)
