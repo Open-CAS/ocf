@@ -154,17 +154,6 @@ const char *ocf_get_io_iface_name(ocf_req_cache_mode_t cache_mode)
 	return cache_mode_io_if_map[cache_mode]->name;
 }
 
-static ocf_req_cb ocf_io_if_type_to_engine_cb(
-		enum ocf_io_if_type io_if_type, int rw)
-{
-	if (unlikely(io_if_type == OCF_IO_MAX_IF ||
-			io_if_type == OCF_IO_PRIV_MAX_IF)) {
-		return NULL;
-	}
-
-	return IO_IFS[io_if_type].cbs[rw];
-}
-
 static ocf_req_cb ocf_cache_mode_to_engine_cb(
 		ocf_req_cache_mode_t req_cache_mode, int rw)
 {
