@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -677,7 +678,7 @@ class Cache:
         self.device = None
 
         if c.results["error"]:
-            raise OcfError("Attaching cache device failed", c.results["error"])
+            raise OcfError("Detaching cache device failed", c.results["error"])
 
     def load_cache(self, device, open_cores=True, disable_cleaner=False):
         self.device = device

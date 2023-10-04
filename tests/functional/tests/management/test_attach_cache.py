@@ -63,6 +63,18 @@ def test_attach_cache_twice(pyocf_ctx):
     cache.stop()
 
 
+def test_detach_cache_twice(pyocf_ctx):
+    cache_device = RamVolume(Size.from_MiB(50))
+    cache = Cache.start_on_device(cache_device)
+
+    cache.detach_device()
+
+    with pytest.raises(OcfError, match="Detaching cache device failed"):
+        cache.detach_device()
+
+    cache.stop()
+
+
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", [CacheMode.WB, CacheMode.WT, CacheMode.WO])
 @pytest.mark.parametrize("new_cache_size", [80, 120])
