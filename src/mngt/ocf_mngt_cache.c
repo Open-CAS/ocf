@@ -3443,6 +3443,13 @@ void ocf_mngt_cache_save(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 
+	if (!ocf_cache_is_device_attached(cache)) {
+		ocf_cache_log(cache, log_info, "Cache is in detached state. Any changes"
+				" made to the cache configuration won't persist through cache "
+				"stop unless a caching volume is attached\n");
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_DETACHED);
+	}
+
 	if (ocf_cache_is_standby(cache))
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
 
@@ -3519,6 +3526,9 @@ int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
 
+	if (!ocf_cache_is_device_attached(cache))
+		result = -OCF_ERR_CACHE_DETACHED;
+
 	if (!ocf_cache_mode_is_valid(mode)) {
 		ocf_cache_log(cache, log_err, "Cache mode %u is invalid\n",
 				mode);
@@ -3543,6 +3553,9 @@ int ocf_mngt_cache_promotion_set_policy(ocf_cache_t cache, ocf_promotion_t type)
 
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
+
+	if (!ocf_cache_is_device_attached(cache))
+		result = -OCF_ERR_CACHE_DETACHED;
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 

@@ -547,6 +547,8 @@ void ocf_metadata_flush_superblock(ocf_cache_t cache,
 
 	OCF_DEBUG_TRACE(cache);
 
+	ENV_BUG_ON(!ocf_cache_is_device_attached(cache));
+
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_flush_sb_pipeline_props);
 	if (result)

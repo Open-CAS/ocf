@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -55,6 +56,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_CORE_UUID_EXISTS = auto()
     OCF_ERR_CACHE_LINE_SIZE_MISMATCH = auto()
     OCF_ERR_CACHE_STANDBY = auto()
+    OCF_ERR_CACHE_DETACHED = auto()
     OCF_ERR_CORE_SIZE_MISMATCH = auto()
     OCF_ERR_STANDBY_ATTACHED = auto()
     OCF_ERR_CORE_NOT_REMOVED = auto()

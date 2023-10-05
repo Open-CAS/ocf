@@ -1102,6 +1102,9 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
 
+	if (!ocf_cache_is_device_attached(cache))
+		return -OCF_ERR_CACHE_DETACHED;
+
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	ret = ocf_cleaning_set_param(cache, type, param_id, param_value);
