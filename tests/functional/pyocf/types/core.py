@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -44,6 +45,7 @@ class CoreConfig(Structure):
         ("_name", c_char * MAX_CORE_NAME_SIZE),
         ("_uuid", Uuid),
         ("_volume_type", c_uint8),
+        ("_volume_params", c_void_p),
         ("_try_add", c_bool),
         ("_seq_cutoff_threshold", c_uint32),
         ("_seq_cutoff_promotion_count", c_uint32),

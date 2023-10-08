@@ -34,6 +34,12 @@ struct ocf_mngt_core_config {
 	 */
 	uint8_t volume_type;
 
+        /**
+         * @brief Optional opaque volume parameters, passed down to core volume
+         * open callback
+         */
+        void *volume_params;
+
 	/**
 	 * @brief Add core to pool if cache isn't present or add core to
 	 *	earlier loaded cache
