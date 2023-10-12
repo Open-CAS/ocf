@@ -244,6 +244,13 @@ ocf_volume_t ocf_io_get_volume(struct ocf_io *io);
 struct ocf_io *ocf_forward_get_io(ocf_forward_token_t token);
 
 /**
+ * @brief Get the data to be submitted
+ *
+ * @param[in] token Forward token
+ */
+ctx_data_t *ocf_forward_get_data(ocf_forward_token_t token);
+
+/**
  * @brief Forward io to another subvolume
  *
  * Forwarding automatically increases forwarded io refcount, so at some

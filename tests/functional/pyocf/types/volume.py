@@ -519,14 +519,12 @@ class RamVolume(Volume):
 
     def do_forward_io(self, token, rw, addr, nbytes, offset):
         try:
-            io = Io.get_by_forward_token(token)
-
             if rw == IoDir.WRITE:
-                src_ptr = cast(OcfLib.getInstance().ocf_io_get_data(io), c_void_p)
+                src_ptr = cast(OcfLib.getInstance().ocf_forward_get_data(token), c_void_p)
                 src = Data.get_instance(src_ptr.value).handle.value + offset
                 dst = self.data_ptr + addr
             elif rw == IoDir.READ:
-                dst_ptr = cast(OcfLib.getInstance().ocf_io_get_data(io), c_void_p)
+                dst_ptr = cast(OcfLib.getInstance().ocf_forward_get_data(token), c_void_p)
                 dst = Data.get_instance(dst_ptr.value).handle.value + offset
                 src = self.data_ptr + addr
 
@@ -818,6 +816,8 @@ lib.ocf_io_get_volume.argtypes = [c_void_p]
 lib.ocf_io_get_volume.restype = c_void_p
 lib.ocf_io_get_data.argtypes = [c_void_p]
 lib.ocf_io_get_data.restype = c_void_p
+lib.ocf_forward_get_data.argtypes = [c_uint64]
+lib.ocf_forward_get_data.restype = c_void_p
 lib.ocf_volume_new_io.argtypes = [
     c_void_p,
     c_void_p,

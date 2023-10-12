@@ -24,7 +24,7 @@ class OcfInternalVolume(Volume):
         queue = self.parent.get_default_queue()  # TODO multiple queues?
         return self.new_io(queue, addr, _bytes, _dir, _class, _flags)
 
-    def _alloc_io(self, io, rw=None, addr=None, nbytes=None, offset=0):
+    def _alloc_io(self, io, cdata=None, rw=None, addr=None, nbytes=None, offset=0):
         exp_obj_io = self.__alloc_io(
             addr or io.contents._addr,
             nbytes or io.contents._bytes,
@@ -33,7 +33,8 @@ class OcfInternalVolume(Volume):
             io.contents._flags,
         )
 
-        cdata = OcfLib.getInstance().ocf_io_get_data(io)
+        if not cdata:
+            cdata = OcfLib.getInstance().ocf_io_get_data(io)
         OcfLib.getInstance().ocf_io_set_data(byref(exp_obj_io), cdata, offset)
 
         def cb(error):
@@ -65,7 +66,8 @@ class OcfInternalVolume(Volume):
 
     def do_forward_io(self, token, rw, addr, nbytes, offset):
         orig_io = Io.get_by_forward_token(token)
-        io = self._alloc_io(orig_io, rw, addr, nbytes, offset)
+        cdata = OcfLib.getInstance().ocf_forward_get_data(token)
+        io = self._alloc_io(orig_io, cdata, rw, addr, nbytes, offset)
 
         def cb(error):
             nonlocal io
@@ -78,12 +80,14 @@ class OcfInternalVolume(Volume):
 
     def do_forward_flush(self, token):
         orig_io = Io.get_by_forward_token(token)
-        io = self._alloc_io(orig_io)
+        cdata = OcfLib.getInstance().ocf_forward_get_data(token)
+        io = self._alloc_io(orig_io, cdata)
         io.submit_flush()
 
     def do_forward_discard(self, token, addr, nbytes):
         orig_io = Io.get_by_forward_token(token)
-        io = self._alloc_io(orig_io, addr=addr, nbytes=nbytes)
+        cdata = OcfLib.getInstance().ocf_forward_get_data(token)
+        io = self._alloc_io(orig_io, cdata, addr=addr, nbytes=nbytes)
         io.submit_discard()
 
     def _read(self, offset=0, size=0):
@@ -160,3 +164,5 @@ lib.ocf_volume_get_length.argtypes = [c_void_p]
 lib.ocf_volume_get_length.restype = c_uint64
 lib.ocf_io_get_data.argtypes = [POINTER(Io)]
 lib.ocf_io_get_data.restype = c_void_p
+lib.ocf_forward_get_data.argtypes = [c_uint64]
+lib.ocf_forward_get_data.restype = c_void_p

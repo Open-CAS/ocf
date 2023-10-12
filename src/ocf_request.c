@@ -559,6 +559,13 @@ struct ocf_io *ocf_forward_get_io(ocf_forward_token_t token)
 	return &req->ioi.io;
 }
 
+ctx_data_t *ocf_forward_get_data(ocf_forward_token_t token)
+{
+	struct ocf_request *req = (struct ocf_request *)(token & ~1);
+
+	return req->data;
+}
+
 static inline void _ocf_forward_get(ocf_forward_token_t token)
 {
 	struct ocf_request *req = (struct ocf_request *)(token & ~1);

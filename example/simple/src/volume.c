@@ -91,9 +91,8 @@ static void volume_submit_discard(struct ocf_io *io)
 void volume_forward_io(ocf_volume_t volume, ocf_forward_token_t token,
 		int dir, uint64_t addr, uint64_t bytes, uint64_t offset)
 {
-	struct ocf_io *io = ocf_forward_get_io(token);
 	struct myvolume *myvolume = ocf_volume_get_priv(volume);
-	struct volume_data *data = ocf_io_get_data(io);
+	struct volume_data *data = ocf_forward_get_data(token);
 
 	if (dir == OCF_WRITE) {
 		memcpy(myvolume->mem + addr,
