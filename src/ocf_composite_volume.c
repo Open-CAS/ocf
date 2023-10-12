@@ -35,6 +35,21 @@ struct ocf_composite_volume {
 	unsigned max_io_size;
 };
 
+#define for_each_composite_member(_composite, _id) \
+	for ((_id) = 0; (_id) < (_composite)->members_cnt; (_id)++)
+
+#define for_each_composite_member_attached(_composite, _id) \
+	for_each_composite_member((_composite), (_id)) \
+		if ((_composite)->member[(_id)].detached == false)
+
+#define for_each_composite_member_detached(_composite, _id) \
+	for_each_composite_member((_composite), (_id)) \
+		if ((_composite)->member[(_id)].detached == true)
+
+#define for_each_composite_member_opened(_composite, _id) \
+	for_each_composite_member_attached((_composite), (_id)) \
+		if ((_composite)->member[(_id)].volume.opened == true)
+
 static void ocf_composite_forward_io(ocf_volume_t cvolume,
 		ocf_forward_token_t token, int dir, uint64_t addr,
 		uint64_t bytes, uint64_t offset)
@@ -88,8 +103,9 @@ static void ocf_composite_forward_flush(ocf_volume_t cvolume,
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
 	int i;
 
-	for (i = 0; i < composite->members_cnt; i++)
+	for_each_composite_member_opened(composite, i) {
 		ocf_forward_flush(&composite->member[i].volume, token);
+	}
 
 	/* Put io forward counter to account for the original forward */
 	ocf_forward_end(token, 0);
@@ -275,9 +291,9 @@ static void ocf_composite_forward_io_simple(ocf_volume_t cvolume,
 static int ocf_composite_volume_open(ocf_volume_t cvolume, void *volume_params)
 {
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
-	int result, i;
+	int result, i, j;
 
-	for (i = 0; i < composite->members_cnt; i++) {
+	for_each_composite_member_attached(composite, i) {
 		ocf_volume_t volume = &composite->member[i].volume;
 		result = ocf_volume_open(volume,
 				composite->member[i].volume_params);
@@ -288,8 +304,11 @@ static int ocf_composite_volume_open(ocf_volume_t cvolume, void *volume_params)
 	return 0;
 
 err:
-	while (i--)
-		ocf_volume_close(&composite->member[i].volume);
+	for_each_composite_member_attached(composite, j) {
+		if (j >= i)
+			break;
+		ocf_volume_close(&composite->member[j].volume);
+	}
 
 	return result;
 }
@@ -299,7 +318,7 @@ static void ocf_composite_volume_close(ocf_volume_t cvolume)
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
 	int i;
 
-	for (i = 0; i < composite->members_cnt; i++)
+	for_each_composite_member_opened(composite, i)
 		ocf_volume_close(&composite->member[i].volume);
 }
 
@@ -429,7 +448,7 @@ int ocf_composite_volume_member_visit(ocf_composite_volume_t cvolume,
 	int i;
 	int res;
 
-	for (i = 0 ; i < composite->members_cnt; i++) {
+	for_each_composite_member_attached(composite, i) {
 		res = visitor(&composite->member[i].volume, priv);
 		if (res != 0)
 			return res;
