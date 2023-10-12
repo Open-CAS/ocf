@@ -93,7 +93,8 @@ static void metadata_io_read_i_atomic_step_end(struct ocf_io *io, int error)
 	context->curr_offset += context->curr_count;
 
 	if (context->count > 0)
-		ocf_queue_push_req_front(context->req, true);
+		ocf_queue_push_req(context->req,
+				OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 	else
 		metadata_io_read_i_atomic_complete(context, 0);
 }
@@ -181,7 +182,8 @@ int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue, void *priv,
 	context->compl_hndl = compl_hndl;
 	context->priv = priv;
 
-	ocf_queue_push_req_front(context->req, true);
+	ocf_queue_push_req(context->req,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 
 	return 0;
 }
@@ -269,7 +271,7 @@ static void metadata_io_req_finalize(struct metadata_io_request *m_req)
 
 static void metadata_io_page_lock_acquired(struct ocf_request *req)
 {
-	ocf_queue_push_req_front(req, true);
+	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
 
 static int metadata_io_restart_req(struct ocf_request *req)
@@ -401,7 +403,8 @@ void metadata_io_req_complete(struct metadata_io_request *m_req)
 	}
 
 	m_req->req.engine_handler = metadata_io_restart_req;
-	ocf_queue_push_req_front(&m_req->req, true);
+	ocf_queue_push_req(&m_req->req,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
 
 /*

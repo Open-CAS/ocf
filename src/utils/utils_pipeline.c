@@ -126,12 +126,12 @@ void *ocf_pipeline_get_priv(ocf_pipeline_t pipeline)
 
 void ocf_pipeline_next(ocf_pipeline_t pipeline)
 {
-	ocf_queue_push_req_front(pipeline->req, false);
+	ocf_queue_push_req(pipeline->req, OCF_QUEUE_PRIO_HIGH);
 }
 
 void ocf_pipeline_finish(ocf_pipeline_t pipeline, int error)
 {
 	pipeline->finish = true;
 	pipeline->error = error;
-	ocf_queue_push_req_front(pipeline->req, false);
+	ocf_queue_push_req(pipeline->req, OCF_QUEUE_PRIO_HIGH);
 }

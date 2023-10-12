@@ -113,8 +113,8 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 
 	if (req->info.dirty_any) {
 		/* Some of the request's cachelines changed its state to clean */
-		ocf_queue_push_req_front_cb(req,
-				ocf_write_wt_do_flush_metadata, true);
+		ocf_queue_push_req_cb(req, ocf_write_wt_do_flush_metadata,
+				OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 	} else {
 		ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 

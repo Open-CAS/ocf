@@ -233,7 +233,7 @@ int ocf_engine_hndl_req(struct ocf_request *req)
 	 * to into OCF workers
 	 */
 
-	ocf_queue_push_req_back(req, true);
+	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC);
 
 	return 0;
 }
@@ -282,7 +282,7 @@ void ocf_engine_hndl_ops_req(struct ocf_request *req)
 			ocf_io_if_type_to_engine_cb(OCF_IO_D2C_IF, req->rw) :
 			ocf_io_if_type_to_engine_cb(OCF_IO_OPS_IF, req->rw);
 
-	ocf_queue_push_req_back(req, true);
+	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC);
 }
 
 bool ocf_req_cache_mode_has_lazy_write(ocf_req_cache_mode_t mode)

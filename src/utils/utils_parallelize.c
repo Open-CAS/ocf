@@ -142,5 +142,5 @@ void ocf_parallelize_run(ocf_parallelize_t parallelize)
 	int i;
 
 	for (i = 0; i < parallelize->shards_cnt; i++)
-		ocf_queue_push_req_front(parallelize->reqs[i], false);
+		ocf_queue_push_req(parallelize->reqs[i], OCF_QUEUE_PRIO_HIGH);
 }

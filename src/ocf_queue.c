@@ -40,7 +40,8 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 		return result;
 	}
 
-	INIT_LIST_HEAD(&tmp_queue->io_list);
+	INIT_LIST_HEAD(&tmp_queue->io_list_high);
+	INIT_LIST_HEAD(&tmp_queue->io_list_low);
 	env_atomic_set(&tmp_queue->ref_count, 1);
 	tmp_queue->cache = cache;
 	tmp_queue->ops = ops;
@@ -93,21 +94,25 @@ static struct ocf_request *ocf_queue_pop_req(ocf_queue_t q)
 {
 	unsigned long lock_flags = 0;
 	struct ocf_request *req;
+	struct list_head *io_list;
 
 	OCF_CHECK_NULL(q);
 
 	/* LOCK */
 	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
 
-	if (list_empty(&q->io_list)) {
-		/* No items on the list */
+	if (!list_empty(&q->io_list_high)) {
+		io_list = &q->io_list_high;
+	} else if (!list_empty(&q->io_list_low)) {
+		io_list = &q->io_list_low;
+	} else {	/* No items on the list */
 		env_spinlock_unlock_irqrestore(&q->io_list_lock,
 				lock_flags);
 		return NULL;
 	}
 
 	/* Get the first request and remove it from the list */
-	req = list_first_entry(&q->io_list, struct ocf_request, list);
+	req = list_first_entry(io_list, struct ocf_request, list);
 
 	env_atomic_dec(&q->io_no);
 	list_del(&req->list);
@@ -174,11 +179,12 @@ ocf_cache_t ocf_queue_get_cache(ocf_queue_t q)
 	return q->cache;
 }
 
-void ocf_queue_push_req_back(struct ocf_request *req, bool allow_sync)
+void ocf_queue_push_req(struct ocf_request *req, uint flags)
 {
 	ocf_cache_t cache = req->cache;
 	ocf_queue_t q = NULL;
 	unsigned long lock_flags = 0;
+	struct list_head *io_list;
 
 	INIT_LIST_HEAD(&req->list);
 
@@ -192,7 +198,8 @@ void ocf_queue_push_req_back(struct ocf_request *req, bool allow_sync)
 
 	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
 
-	list_add_tail(&req->list, &q->io_list);
+	io_list = (flags & OCF_QUEUE_PRIO_HIGH) ? &q->io_list_high : &q->io_list_low;
+	list_add_tail(&req->list, io_list);
 	env_atomic_inc(&q->io_no);
 
 	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
@@ -201,53 +208,13 @@ void ocf_queue_push_req_back(struct ocf_request *req, bool allow_sync)
 	 * be picked up by concurrent io thread and deallocated
 	 * at this point */
 
-	ocf_queue_kick(q, allow_sync);
+	ocf_queue_kick(q, (bool)(flags & OCF_QUEUE_ALLOW_SYNC));
 }
 
-void ocf_queue_push_req_front(struct ocf_request *req, bool allow_sync)
-{
-	ocf_cache_t cache = req->cache;
-	ocf_queue_t q = NULL;
-	unsigned long lock_flags = 0;
-
-	ENV_BUG_ON(!req->io_queue);
-	INIT_LIST_HEAD(&req->list);
-
-	q = req->io_queue;
-
-	if (!req->info.internal) {
-		env_atomic_set(&cache->last_access_ms,
-				env_ticks_to_msecs(env_get_tick_count()));
-	}
-
-	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
-
-	list_add(&req->list, &q->io_list);
-	env_atomic_inc(&q->io_no);
-
-	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
-
-	/* NOTE: do not dereference @req past this line, it might
-	 * be picked up by concurrent io thread and deallocated
-	 * at this point */
-
-	ocf_queue_kick(q, allow_sync);
-}
-
-void ocf_queue_push_req_front_cb(struct ocf_request *req,
-		ocf_req_cb req_cb,
-		bool allow_sync)
+void ocf_queue_push_req_cb(struct ocf_request *req,
+		ocf_req_cb req_cb, uint flags)
 {
 	req->error = 0; /* Please explain why!!! */
 	req->engine_handler = req_cb;
-	ocf_queue_push_req_front(req, allow_sync);
-}
-
-void ocf_queue_push_req_back_cb(struct ocf_request *req,
-		ocf_req_cb req_cb,
-		bool allow_sync)
-{
-	req->error = 0; /* Please explain why!!! */
-	req->engine_handler = req_cb;
-	ocf_queue_push_req_back(req, allow_sync);
+	ocf_queue_push_req(req, flags);
 }

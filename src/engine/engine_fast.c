@@ -46,7 +46,7 @@ static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 	if (req->error) {
 		OCF_DEBUG_RQ(req, "ERROR");
 
-		ocf_queue_push_req_front_pt(req);
+		ocf_queue_push_req_pt(req);
 	} else {
 		ocf_req_unlock(ocf_cache_line_concurrency(req->cache), req);
 

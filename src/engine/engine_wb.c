@@ -103,8 +103,8 @@ static void _ocf_write_wb_complete(struct ocf_request *req, int error)
 
 		ocf_engine_invalidate(req);
 	} else {
-		ocf_queue_push_req_front_cb(req,
-				ocf_write_wb_do_flush_metadata, true);
+		ocf_queue_push_req_cb(req, ocf_write_wb_do_flush_metadata,
+				OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 	}
 }
 

@@ -171,7 +171,7 @@ static void _ocf_read_wo_core_complete(struct ocf_request *req, int error)
 	}
 
 	req->engine_handler = ocf_read_wo_cache_do;
-	ocf_queue_push_req_front(req, true);
+	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
 
 static int ocf_read_wo_do(struct ocf_request *req)

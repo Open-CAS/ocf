@@ -165,8 +165,9 @@ int ocf_read_pt(struct ocf_request *req)
 	return 0;
 }
 
-void ocf_queue_push_req_front_pt(struct ocf_request *req)
+void ocf_queue_push_req_pt(struct ocf_request *req)
 {
-	ocf_queue_push_req_front_cb(req, ocf_read_pt_do, true);
+	ocf_queue_push_req_cb(req, ocf_read_pt_do,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
 

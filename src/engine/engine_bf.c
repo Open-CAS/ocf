@@ -95,5 +95,6 @@ static int _ocf_backfill_do(struct ocf_request *req)
 void ocf_engine_backfill(struct ocf_request *req)
 {
 	backfill_queue_inc_block(req->cache);
-	ocf_queue_push_req_front_cb(req, _ocf_backfill_do, true);
+	ocf_queue_push_req_cb(req, _ocf_backfill_do,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }

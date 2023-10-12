@@ -402,7 +402,7 @@ static void _ocf_mngt_flush_portion_end(void *private_data, int error)
 		return;
 	}
 
-	ocf_queue_push_req_back(fc->req, false);
+	ocf_queue_push_req(fc->req, 0);
 }
 
 
@@ -452,7 +452,7 @@ static void _ocf_mngt_flush_container(
 	fc->ticks1 = 0;
 	fc->ticks2 = UINT_MAX;
 
-	ocf_queue_push_req_back(fc->req, true);
+	ocf_queue_push_req(fc->req, OCF_QUEUE_ALLOW_SYNC);
 	return;
 
 finish:

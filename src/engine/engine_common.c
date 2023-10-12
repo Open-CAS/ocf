@@ -381,7 +381,8 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	} else {
 		req->info.dirty_any = 0;
 		req->info.dirty_all = 0;
-		ocf_queue_push_req_front(req, true);
+		ocf_queue_push_req(req,
+				OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 	}
 }
 
@@ -643,5 +644,5 @@ void ocf_engine_on_resume(struct ocf_request *req)
 
 	OCF_DEBUG_RQ(req, "On resume");
 
-	ocf_queue_push_req_front_cb(req, _ocf_engine_refresh, false);
+	ocf_queue_push_req_cb(req, _ocf_engine_refresh, OCF_QUEUE_PRIO_HIGH);
 }

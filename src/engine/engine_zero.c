@@ -51,7 +51,8 @@ static void _ocf_zero_io_flush_metadata(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	ocf_queue_push_req_front_cb(req, ocf_zero_purge, true);
+	ocf_queue_push_req_cb(req, ocf_zero_purge,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
 
 static inline void ocf_zero_map_info(struct ocf_request *req)
@@ -149,7 +150,8 @@ void ocf_engine_zero_line(struct ocf_request *req)
 
 	if (lock >= 0) {
 		ENV_BUG_ON(lock != OCF_LOCK_ACQUIRED);
-		ocf_queue_push_req_front_cb(req, _ocf_zero_do, true);
+		ocf_queue_push_req_cb(req, _ocf_zero_do,
+				OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 	} else {
 		OCF_DEBUG_RQ(req, "LOCK ERROR %d", lock);
 		req->complete(req, lock);
