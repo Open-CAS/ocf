@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies Co., Ltd.
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -645,11 +645,11 @@ void ocf_engine_push_req_front(struct ocf_request *req, bool allow_sync)
 }
 
 void ocf_engine_push_req_front_cb(struct ocf_request *req,
-		ocf_engine_cb engine_cb,
+		ocf_req_cb req_cb,
 		bool allow_sync)
 {
 	req->error = 0; /* Please explain why!!! */
-	req->engine_handler = engine_cb;
+	req->engine_handler = req_cb;
 	ocf_engine_push_req_front(req, allow_sync);
 }
 

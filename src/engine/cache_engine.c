@@ -138,7 +138,7 @@ const char *ocf_get_io_iface_name(ocf_req_cache_mode_t cache_mode)
 	return cache_mode_io_if_map[cache_mode]->name;
 }
 
-static ocf_engine_cb ocf_io_if_type_to_engine_cb(
+static ocf_req_cb ocf_io_if_type_to_engine_cb(
 		enum ocf_io_if_type io_if_type, int rw)
 {
 	if (unlikely(io_if_type == OCF_IO_MAX_IF ||
@@ -149,7 +149,7 @@ static ocf_engine_cb ocf_io_if_type_to_engine_cb(
 	return IO_IFS[io_if_type].cbs[rw];
 }
 
-static ocf_engine_cb ocf_cache_mode_to_engine_cb(
+static ocf_req_cb ocf_cache_mode_to_engine_cb(
 		ocf_req_cache_mode_t req_cache_mode, int rw)
 {
 	if (req_cache_mode == ocf_req_cache_mode_max)
@@ -271,7 +271,7 @@ int ocf_engine_hndl_req(struct ocf_request *req)
 
 int ocf_engine_hndl_fast_req(struct ocf_request *req)
 {
-	ocf_engine_cb engine_cb;
+	ocf_req_cb engine_cb;
 	int ret;
 
 	engine_cb = ocf_cache_mode_to_engine_cb(req->cache_mode, req->rw);

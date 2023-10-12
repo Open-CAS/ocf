@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -309,7 +310,7 @@ void ocf_engine_push_req_front(struct ocf_request *req,
 		from push function in caller context
  */
 void ocf_engine_push_req_front_cb(struct ocf_request *req,
-		ocf_engine_cb engine_cb,
+		ocf_req_cb req_cb,
 		bool allow_sync);
 
 void inc_fallback_pt_error_counter(ocf_cache_t cache);
