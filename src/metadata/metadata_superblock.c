@@ -506,8 +506,7 @@ static void ocf_metadata_flush_disk(ocf_pipeline_t pipeline,
 	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_submit_volume_flush(ocf_cache_get_volume(cache),
-		ocf_metadata_flush_disk_end, context);
+	ocf_submit_cache_flush(cache, ocf_metadata_flush_disk_end, context);
 }
 
 struct ocf_pipeline_arg ocf_metadata_flush_sb_args[] = {
