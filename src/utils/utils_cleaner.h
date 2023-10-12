@@ -41,10 +41,6 @@ struct ocf_cleaner_attribs {
 		/*!< Getter for collecting cache lines which will be cleaned */
 	void *getter_context;
 		/*!< Context for getting cache lines */
-	uint32_t getter_item;
-		/*!< Additional variable that can be used by cleaner call
-		 * to iterate over items
-		 */
 
 	ocf_queue_t io_queue;
 };
