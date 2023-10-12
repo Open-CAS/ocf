@@ -74,7 +74,7 @@ static void _ocf_discard_cache_flush_complete(struct ocf_io *io, int error)
 	}
 
 	req->engine_handler = _ocf_discard_core;
-	ocf_engine_push_req_front(req, true);
+	ocf_queue_push_req_front(req, true);
 
 	ocf_io_put(io);
 }
@@ -111,7 +111,7 @@ static void _ocf_discard_finish_step(struct ocf_request *req)
 	else
 		req->engine_handler = _ocf_discard_core;
 
-	ocf_engine_push_req_front(req, true);
+	ocf_queue_push_req_front(req, true);
 }
 
 static void _ocf_discard_step_complete(struct ocf_request *req, int error)
@@ -182,7 +182,7 @@ static int _ocf_discard_step_do(struct ocf_request *req)
 static void _ocf_discard_on_resume(struct ocf_request *req)
 {
 	OCF_DEBUG_RQ(req, "On resume");
-	ocf_engine_push_req_front(req, true);
+	ocf_queue_push_req_front(req, true);
 }
 
 static int _ocf_discard_step(struct ocf_request *req)

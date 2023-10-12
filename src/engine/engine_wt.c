@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -112,7 +113,7 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 
 	if (req->info.dirty_any) {
 		/* Some of the request's cachelines changed its state to clean */
-		ocf_engine_push_req_front_cb(req,
+		ocf_queue_push_req_front_cb(req,
 				ocf_write_wt_do_flush_metadata, true);
 	} else {
 		ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);

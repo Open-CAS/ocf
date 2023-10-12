@@ -389,7 +389,7 @@ static void raw_dynamic_load_all_read_end(struct ocf_io *io, int error)
 	}
 
 	context->req->engine_handler = raw_dynamic_load_all_update;
-	ocf_engine_push_req_front(context->req, true);
+	ocf_queue_push_req_front(context->req, true);
 }
 
 static int raw_dynamic_load_all_read(struct ocf_request *req)
@@ -455,7 +455,7 @@ static int raw_dynamic_load_all_update(struct ocf_request *req)
 	}
 
 	context->req->engine_handler = raw_dynamic_load_all_read;
-	ocf_engine_push_req_front(context->req, true);
+	ocf_queue_push_req_front(context->req, true);
 
 	return 0;
 }
@@ -501,7 +501,7 @@ void raw_dynamic_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	context->req->priv = context;
 	context->req->engine_handler = raw_dynamic_load_all_read;
 
-	ocf_engine_push_req_front(context->req, true);
+	ocf_queue_push_req_front(context->req, true);
 	return;
 
 err_req:

@@ -56,7 +56,7 @@ static void _ocf_write_wi_io_flush_metadata(struct ocf_request *req, int error)
 
 	if (!req->error && !req->wi_second_pass && ocf_engine_is_miss(req)) {
 		/* need another pass */
-		ocf_engine_push_req_front_cb(req, _ocf_write_wi_next_pass,
+		ocf_queue_push_req_front_cb(req, _ocf_write_wi_next_pass,
 				true);
 		return;
 	}
@@ -123,7 +123,7 @@ static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 
 		ocf_req_put(req);
 	} else {
-		ocf_engine_push_req_front_cb(req,
+		ocf_queue_push_req_front_cb(req,
 				ocf_write_wi_update_and_flush_metadata, true);
 	}
 }
@@ -155,7 +155,7 @@ static int _ocf_write_wi_core_write(struct ocf_request *req)
 static void _ocf_write_wi_on_resume(struct ocf_request *req)
 {
 	OCF_DEBUG_RQ(req, "On resume");
-	ocf_engine_push_req_front(req, true);
+	ocf_queue_push_req_front(req, true);
 }
 
 int ocf_write_wi(struct ocf_request *req)

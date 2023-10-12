@@ -217,7 +217,7 @@ static void _ocf_cleaner_complete_req(struct ocf_request *req)
 
 	if (master->complete_queue) {
 		ocf_req_get(master);
-		ocf_engine_push_req_front_cb(master,
+		ocf_queue_push_req_front_cb(master,
 				_ocf_cleaner_complete, true);
 	} else {
 		/* Only master contains completion function and priv */
@@ -232,7 +232,7 @@ static void _ocf_cleaner_complete_req(struct ocf_request *req)
 static void _ocf_cleaner_on_resume(struct ocf_request *req)
 {
 	OCF_DEBUG_TRACE(req->cache);
-	ocf_engine_push_req_front(req, true);
+	ocf_queue_push_req_front(req, true);
 }
 
 /*
@@ -336,7 +336,7 @@ static void _ocf_cleaner_metadata_io_end(struct ocf_request *req, int error)
 	OCF_DEBUG_MSG(req->cache, "Metadata flush finished");
 
 	req->engine_handler = _ocf_cleaner_fire_flush_cache;
-	ocf_engine_push_req_front(req, true);
+	ocf_queue_push_req_front(req, true);
 }
 
 static int _ocf_cleaner_update_metadata(struct ocf_request *req)
@@ -415,7 +415,7 @@ static void _ocf_cleaner_flush_cores_io_end(struct ocf_map_info *map,
 	 * All core writes done, switch to post cleaning activities
 	 */
 	req->engine_handler = _ocf_cleaner_update_metadata;
-	ocf_engine_push_req_front(req, true);
+	ocf_queue_push_req_front(req, true);
 }
 
 static void _ocf_cleaner_flush_cores_io_cmpl(struct ocf_io *io, int error)
@@ -487,7 +487,7 @@ static void _ocf_cleaner_core_io_end(struct ocf_request *req)
 	 * Move processing to thread, where IO will be (and can be) submitted
 	 */
 	req->engine_handler = _ocf_cleaner_fire_flush_cores;
-	ocf_engine_push_req_front(req, true);
+	ocf_queue_push_req_front(req, true);
 }
 
 static void _ocf_cleaner_core_io_cmpl(struct ocf_io *io, int error)
@@ -645,7 +645,7 @@ static void _ocf_cleaner_cache_io_end(struct ocf_request *req)
 	 * Move processing to thread, where IO will be (and can be) submitted
 	 */
 	req->engine_handler = _ocf_cleaner_fire_core;
-	ocf_engine_push_req_front(req, true);
+	ocf_queue_push_req_front(req, true);
 
 	OCF_DEBUG_MSG(req->cache, "Cache reads finished");
 }

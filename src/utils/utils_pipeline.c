@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
- * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2023-2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -47,7 +47,7 @@ static int _ocf_pipeline_run_step(struct ocf_request *req)
 			if (step->pred(pipeline, pipeline->priv, &step->arg)) {
 				step->hndl(pipeline, pipeline->priv, &step->arg);
 				return 0;
-			}	
+			}
 			continue;
 		case ocf_pipeline_step_foreach:
 			arg = &step->args[pipeline->next_arg++];
@@ -126,12 +126,12 @@ void *ocf_pipeline_get_priv(ocf_pipeline_t pipeline)
 
 void ocf_pipeline_next(ocf_pipeline_t pipeline)
 {
-	ocf_engine_push_req_front(pipeline->req, false);
+	ocf_queue_push_req_front(pipeline->req, false);
 }
 
 void ocf_pipeline_finish(ocf_pipeline_t pipeline, int error)
 {
 	pipeline->finish = true;
 	pipeline->error = error;
-	ocf_engine_push_req_front(pipeline->req, false);
+	ocf_queue_push_req_front(pipeline->req, false);
 }

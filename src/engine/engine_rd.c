@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -41,7 +42,7 @@ static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 		OCF_DEBUG_RQ(req, "HIT completion");
 
 		if (req->error) {
-			ocf_engine_push_req_front_pt(req);
+			ocf_queue_push_req_front_pt(req);
 		} else {
 			ocf_req_unlock(c, req);
 

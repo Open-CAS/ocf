@@ -381,7 +381,7 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 	} else {
 		req->info.dirty_any = 0;
 		req->info.dirty_all = 0;
-		ocf_engine_push_req_front(req, true);
+		ocf_queue_push_req_front(req, true);
 	}
 }
 
@@ -584,75 +584,6 @@ void ocf_engine_update_request_stats(struct ocf_request *req)
 			req->info.hit_no, req->core_line_count);
 }
 
-void ocf_engine_push_req_back(struct ocf_request *req, bool allow_sync)
-{
-	ocf_cache_t cache = req->cache;
-	ocf_queue_t q = NULL;
-	unsigned long lock_flags = 0;
-
-	INIT_LIST_HEAD(&req->list);
-
-	ENV_BUG_ON(!req->io_queue);
-	q = req->io_queue;
-
-	if (!req->info.internal) {
-		env_atomic_set(&cache->last_access_ms,
-				env_ticks_to_msecs(env_get_tick_count()));
-	}
-
-	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
-
-	list_add_tail(&req->list, &q->io_list);
-	env_atomic_inc(&q->io_no);
-
-	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
-
-	/* NOTE: do not dereference @req past this line, it might
-	 * be picked up by concurrent io thread and deallocated
-	 * at this point */
-
-	ocf_queue_kick(q, allow_sync);
-}
-
-void ocf_engine_push_req_front(struct ocf_request *req, bool allow_sync)
-{
-	ocf_cache_t cache = req->cache;
-	ocf_queue_t q = NULL;
-	unsigned long lock_flags = 0;
-
-	ENV_BUG_ON(!req->io_queue);
-	INIT_LIST_HEAD(&req->list);
-
-	q = req->io_queue;
-
-	if (!req->info.internal) {
-		env_atomic_set(&cache->last_access_ms,
-				env_ticks_to_msecs(env_get_tick_count()));
-	}
-
-	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
-
-	list_add(&req->list, &q->io_list);
-	env_atomic_inc(&q->io_no);
-
-	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
-
-	/* NOTE: do not dereference @req past this line, it might
-	 * be picked up by concurrent io thread and deallocated
-	 * at this point */
-
-	ocf_queue_kick(q, allow_sync);
-}
-
-void ocf_engine_push_req_front_cb(struct ocf_request *req,
-		ocf_req_cb req_cb,
-		bool allow_sync)
-{
-	req->error = 0; /* Please explain why!!! */
-	req->engine_handler = req_cb;
-	ocf_engine_push_req_front(req, allow_sync);
-}
-
 void inc_fallback_pt_error_counter(ocf_cache_t cache)
 {
 	ENV_BUG_ON(env_atomic_read(&cache->fallback_pt_error_counter) < 0);
@@ -712,5 +643,5 @@ void ocf_engine_on_resume(struct ocf_request *req)
 
 	OCF_DEBUG_RQ(req, "On resume");
 
-	ocf_engine_push_req_front_cb(req, _ocf_engine_refresh, false);
+	ocf_queue_push_req_front_cb(req, _ocf_engine_refresh, false);
 }

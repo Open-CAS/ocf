@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -140,4 +141,82 @@ ocf_cache_t ocf_queue_get_cache(ocf_queue_t q)
 {
 	OCF_CHECK_NULL(q);
 	return q->cache;
+}
+
+void ocf_queue_push_req_back(struct ocf_request *req, bool allow_sync)
+{
+	ocf_cache_t cache = req->cache;
+	ocf_queue_t q = NULL;
+	unsigned long lock_flags = 0;
+
+	INIT_LIST_HEAD(&req->list);
+
+	ENV_BUG_ON(!req->io_queue);
+	q = req->io_queue;
+
+	if (!req->info.internal) {
+		env_atomic_set(&cache->last_access_ms,
+				env_ticks_to_msecs(env_get_tick_count()));
+	}
+
+	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
+
+	list_add_tail(&req->list, &q->io_list);
+	env_atomic_inc(&q->io_no);
+
+	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
+
+	/* NOTE: do not dereference @req past this line, it might
+	 * be picked up by concurrent io thread and deallocated
+	 * at this point */
+
+	ocf_queue_kick(q, allow_sync);
+}
+
+void ocf_queue_push_req_front(struct ocf_request *req, bool allow_sync)
+{
+	ocf_cache_t cache = req->cache;
+	ocf_queue_t q = NULL;
+	unsigned long lock_flags = 0;
+
+	ENV_BUG_ON(!req->io_queue);
+	INIT_LIST_HEAD(&req->list);
+
+	q = req->io_queue;
+
+	if (!req->info.internal) {
+		env_atomic_set(&cache->last_access_ms,
+				env_ticks_to_msecs(env_get_tick_count()));
+	}
+
+	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
+
+	list_add(&req->list, &q->io_list);
+	env_atomic_inc(&q->io_no);
+
+	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
+
+	/* NOTE: do not dereference @req past this line, it might
+	 * be picked up by concurrent io thread and deallocated
+	 * at this point */
+
+	ocf_queue_kick(q, allow_sync);
+}
+
+void ocf_queue_push_req_front_cb(struct ocf_request *req,
+		ocf_req_cb req_cb,
+		bool allow_sync)
+{
+	req->error = 0; /* Please explain why!!! */
+	req->engine_handler = req_cb;
+	ocf_queue_push_req_front(req, allow_sync);
+}
+
+void ocf_queue_push_req_back_cb(struct ocf_request *req,
+		ocf_req_cb req_cb,
+		bool allow_sync)
+{
+	req->error = 0; /* Please explain why!!! */
+	req->engine_handler = req_cb;
+	ocf_queue_push_req_back(req, allow_sync);
 }

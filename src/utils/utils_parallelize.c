@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2023-2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -142,5 +142,5 @@ void ocf_parallelize_run(ocf_parallelize_t parallelize)
 	int i;
 
 	for (i = 0; i < parallelize->shards_cnt; i++)
-		ocf_engine_push_req_front(parallelize->reqs[i], false);
+		ocf_queue_push_req_front(parallelize->reqs[i], false);
 }

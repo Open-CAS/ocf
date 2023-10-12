@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -45,7 +46,7 @@ static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 	if (req->error) {
 		OCF_DEBUG_RQ(req, "ERROR");
 
-		ocf_engine_push_req_front_pt(req);
+		ocf_queue_push_req_front_pt(req);
 	} else {
 		ocf_req_unlock(ocf_cache_line_concurrency(req->cache), req);
 

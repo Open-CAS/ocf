@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -7,6 +8,7 @@
 #define OCF_QUEUE_PRIV_H_
 
 #include "ocf_env.h"
+#include "ocf_request.h"
 
 struct ocf_queue {
 	ocf_cache_t cache;
@@ -45,5 +47,49 @@ static inline void ocf_queue_kick(ocf_queue_t queue, bool allow_sync)
 	else
 		queue->ops->kick(queue);
 }
+
+/**
+ * @brief Push front OCF request to the OCF thread worker queue
+ *
+ * @param req OCF request
+ * @param allow_sync caller allows for request from queue to be ran immediately
+		from push function in caller context
+ */
+void ocf_queue_push_req_back(struct ocf_request *req,
+		bool allow_sync);
+
+/**
+ * @brief Push back OCF request to the OCF thread worker queue
+ *
+ * @param req OCF request
+ * @param allow_sync caller allows for request from queue to be ran immediately
+		from push function in caller context
+ */
+void ocf_queue_push_req_front(struct ocf_request *req,
+		bool allow_sync);
+
+/**
+ * @brief Set interface and push from request to the OCF thread worker queue front
+ *
+ * @param req OCF request
+ * @param engine_cb IO engine handler callback
+ * @param allow_sync caller allows for request from queue to be ran immediately
+		from push function in caller context
+ */
+void ocf_queue_push_req_front_cb(struct ocf_request *req,
+		ocf_req_cb req_cb,
+		bool allow_sync);
+
+/**
+ * @brief Set interface and push from request to the OCF thread worker queue back
+ *
+ * @param req OCF request
+ * @param engine_cb IO engine handler callback
+ * @param allow_sync caller allows for request from queue to be ran immediately
+		from push function in caller context
+ */
+void ocf_queue_push_req_back_cb(struct ocf_request *req,
+		ocf_req_cb req_cb,
+		bool allow_sync);
 
 #endif

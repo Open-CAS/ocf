@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -94,5 +95,5 @@ static int _ocf_backfill_do(struct ocf_request *req)
 void ocf_engine_backfill(struct ocf_request *req)
 {
 	backfill_queue_inc_block(req->cache);
-	ocf_engine_push_req_front_cb(req, _ocf_backfill_do, true);
+	ocf_queue_push_req_front_cb(req, _ocf_backfill_do, true);
 }
