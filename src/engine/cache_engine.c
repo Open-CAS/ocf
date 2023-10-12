@@ -158,37 +158,6 @@ static ocf_req_cb ocf_cache_mode_to_engine_cb(
 	return cache_mode_io_if_map[req_cache_mode]->cbs[rw];
 }
 
-struct ocf_request *ocf_engine_pop_req(ocf_queue_t q)
-{
-	unsigned long lock_flags = 0;
-	struct ocf_request *req;
-
-	OCF_CHECK_NULL(q);
-
-	/* LOCK */
-	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
-
-	if (list_empty(&q->io_list)) {
-		/* No items on the list */
-		env_spinlock_unlock_irqrestore(&q->io_list_lock,
-				lock_flags);
-		return NULL;
-	}
-
-	/* Get the first request and remove it from the list */
-	req = list_first_entry(&q->io_list, struct ocf_request, list);
-
-	env_atomic_dec(&q->io_no);
-	list_del(&req->list);
-
-	/* UNLOCK */
-	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
-
-	OCF_CHECK_NULL(req);
-
-	return req;
-}
-
 bool ocf_fallback_pt_is_on(ocf_cache_t cache)
 {
 	ENV_BUG_ON(env_atomic_read(&cache->fallback_pt_error_counter) < 0);

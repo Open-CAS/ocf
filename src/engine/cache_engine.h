@@ -36,8 +36,6 @@ bool ocf_req_cache_mode_has_lazy_write(ocf_req_cache_mode_t mode);
 
 bool ocf_fallback_pt_is_on(ocf_cache_t cache);
 
-struct ocf_request *ocf_engine_pop_req(struct ocf_queue *q);
-
 int ocf_engine_hndl_req(struct ocf_request *req);
 
 #define OCF_FAST_PATH_YES	7
