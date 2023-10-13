@@ -552,18 +552,32 @@ void ocf_req_forward_core_discard(struct ocf_request *req, uint64_t addr,
 	ocf_volume_forward_discard(volume, token, addr, bytes);
 }
 
-struct ocf_io *ocf_forward_get_io(ocf_forward_token_t token)
-{
-	struct ocf_request *req = (struct ocf_request *)(token & ~1);
-
-	return &req->ioi.io;
-}
-
 ctx_data_t *ocf_forward_get_data(ocf_forward_token_t token)
 {
 	struct ocf_request *req = (struct ocf_request *)(token & ~1);
 
 	return req->data;
+}
+
+ocf_queue_t ocf_forward_get_io_queue(ocf_forward_token_t token)
+{
+	struct ocf_request *req = (struct ocf_request *)(token & ~1);
+
+	return req->io_queue;
+}
+
+uint8_t ocf_forward_get_io_class(ocf_forward_token_t token)
+{
+	struct ocf_request *req = (struct ocf_request *)(token & ~1);
+
+	return req->ioi.io.io_class;
+}
+
+uint64_t ocf_forward_get_flags(ocf_forward_token_t token)
+{
+	struct ocf_request *req = (struct ocf_request *)(token & ~1);
+
+	return (token & 1) ? 0 : req->ioi.io.flags;
 }
 
 static inline void _ocf_forward_get(ocf_forward_token_t token)

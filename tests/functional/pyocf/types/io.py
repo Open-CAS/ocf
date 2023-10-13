@@ -68,10 +68,6 @@ class Io(Structure):
         return cls._instances_[cast(ref, c_void_p).value]
 
     @staticmethod
-    def get_by_forward_token(token):
-        return OcfLib.getInstance().ocf_forward_get_io(token)
-
-    @staticmethod
     def forward_get(token):
         OcfLib.getInstance().ocf_forward_get(token)
 
@@ -163,9 +159,6 @@ IoOps._fields_ = [("_set_data", IoOps.SET_DATA), ("_get_data", IoOps.GET_DATA)]
 lib = OcfLib.getInstance()
 
 lib.ocf_forward_get.argtypes = [c_uint64]
-
-lib.ocf_forward_get_io.argtypes = [c_uint64]
-lib.ocf_forward_get_io.restype = POINTER(Io)
 
 lib.ocf_forward_end.argtypes = [c_uint64, c_int]
 

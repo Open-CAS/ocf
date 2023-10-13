@@ -164,7 +164,7 @@ class Volume:
 
         @VolumeOps.OPEN
         def _open(ref, params):
-            uuid_ptr = cast(OcfLib.getInstance().ocf_volume_get_uuid(ref), POINTER(Uuid))
+            uuid_ptr = cast(lib.ocf_volume_get_uuid(ref), POINTER(Uuid))
             uuid = str(uuid_ptr.contents._data, encoding="ascii")
             try:
                 volume = Volume.get_by_uuid(uuid)
@@ -379,7 +379,6 @@ class Volume:
     def new_io(
         self, queue: Queue, addr: int, length: int, direction: IoDir, io_class: int, flags: int,
     ):
-        lib = OcfLib.getInstance()
         io = lib.ocf_volume_new_io(
             self.handle,
             queue.handle if queue else c_void_p(),
@@ -520,11 +519,11 @@ class RamVolume(Volume):
     def do_forward_io(self, token, rw, addr, nbytes, offset):
         try:
             if rw == IoDir.WRITE:
-                src_ptr = cast(OcfLib.getInstance().ocf_forward_get_data(token), c_void_p)
+                src_ptr = cast(lib.ocf_forward_get_data(token), c_void_p)
                 src = Data.get_instance(src_ptr.value).handle.value + offset
                 dst = self.data_ptr + addr
             elif rw == IoDir.READ:
-                dst_ptr = cast(OcfLib.getInstance().ocf_forward_get_data(token), c_void_p)
+                dst_ptr = cast(lib.ocf_forward_get_data(token), c_void_p)
                 dst = Data.get_instance(dst_ptr.value).handle.value + offset
                 src = self.data_ptr + addr
 
@@ -756,39 +755,39 @@ class TraceDevice(Volume):
             self.vol.do_submit_discard(io)
 
     def do_forward_io(self, token, rw, addr, nbytes, offset):
-        io = Io.get_by_forward_token(token)
+        flags = lib.ocf_forward_get_flags(token)
         submit = self._trace(
             TraceDevice.IoType.Data,
             rw,
             addr,
             nbytes,
-            io.contents._flags
+            flags
         )
 
         if submit:
             self.vol.do_forward_io(token, rw, addr, nbytes, offset)
 
     def do_forward_flush(self, token):
-        io = Io.get_by_forward_token(token)
+        flags = lib.ocf_forward_get_flags(token)
         submit = self._trace(
             TraceDevice.IoType.Flush,
             IoDir.WRITE,
             0,
             0,
-            io.contents._flags
+            flags
         )
 
         if submit:
             self.vol.do_forward_flush(token)
 
     def do_forward_discard(self, token, addr, nbytes):
-        io = Io.get_by_forward_token(token)
+        flags = lib.ocf_forward_get_flags(token)
         submit = self._trace(
             TraceDevice.IoType.Discard,
             IoDir.WRITE,
             addr,
             nbytes,
-            io.contents._flags
+            flags
         )
 
         if submit:
@@ -818,6 +817,8 @@ lib.ocf_io_get_data.argtypes = [c_void_p]
 lib.ocf_io_get_data.restype = c_void_p
 lib.ocf_forward_get_data.argtypes = [c_uint64]
 lib.ocf_forward_get_data.restype = c_void_p
+lib.ocf_forward_get_flags.argtypes = [c_uint64]
+lib.ocf_forward_get_flags.restype = c_uint64
 lib.ocf_volume_new_io.argtypes = [
     c_void_p,
     c_void_p,

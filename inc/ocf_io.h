@@ -237,18 +237,32 @@ void ocf_io_handle(struct ocf_io *io, void *opaque);
 ocf_volume_t ocf_io_get_volume(struct ocf_io *io);
 
 /**
- * @brief Get the original OCF IO associated with forward token
- *
- * @param[in] token Forward token
- */
-struct ocf_io *ocf_forward_get_io(ocf_forward_token_t token);
-
-/**
  * @brief Get the data to be submitted
  *
  * @param[in] token Forward token
  */
 ctx_data_t *ocf_forward_get_data(ocf_forward_token_t token);
+
+/**
+ * @brief Get io queue of forwarded io
+ *
+ * @param[in] token Forward token
+ */
+ocf_queue_t ocf_forward_get_io_queue(ocf_forward_token_t token);
+
+/**
+ * @brief Get io class of forwarded io
+ *
+ * @param[in] token Forward token
+ */
+uint8_t ocf_forward_get_io_class(ocf_forward_token_t token);
+
+/**
+ * @brief Get flags of forwarded io
+ *
+ * @param[in] token Forward token
+ */
+uint64_t ocf_forward_get_flags(ocf_forward_token_t token);
 
 /**
  * @brief Forward io to another subvolume
