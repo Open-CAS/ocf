@@ -12,7 +12,7 @@ from threading import Event
 from collections import namedtuple
 
 from pyocf.ocf import OcfLib
-from pyocf.types.volume import RamVolume, ErrorDevice, TraceDevice, IoFlags, VolumeIoPriv
+from pyocf.types.volume import RamVolume, ErrorDevice, TraceDevice, IoFlags
 from pyocf.types.cvolume import CVolume
 from pyocf.types.data import Data
 from pyocf.types.io import IoDir
@@ -287,19 +287,25 @@ def test_io_propagation_basic(pyocf_ctx):
         ret = cvol_submit_data_io(cvol, addr, io_size)
         assert ret == 0
 
-        ret = cvol_submit_flush_io(cvol, addr, io_size, IoFlags.FLUSH)
+        ret = cvol_submit_flush_io(cvol, addr, io_size)
         assert ret == 0
 
         ret = cvol_submit_discard_io(cvol, addr, io_size)
         assert ret == 0
 
-        for io_type in TraceDevice.IoType:
-            ios = io_trace[vol][io_type]
-            assert len(ios) == 1
-            io = ios[0]
-            assert io.dir == IoDir.WRITE
-            assert io.addr == addr.B - int(vol_begin[i])
-            assert io.bytes == io_size.B
+        ios = io_trace[vol][TraceDevice.IoType.Data]
+        assert len(ios) == 1
+        assert ios[0].dir == IoDir.WRITE
+        assert ios[0].addr == addr.B - int(vol_begin[i])
+        assert ios[0].bytes == io_size.B
+
+        ios = io_trace[vol][TraceDevice.IoType.Flush]
+        assert len(ios) == i + 1
+
+        ios = io_trace[vol][TraceDevice.IoType.Discard]
+        assert len(ios) == 1
+        assert ios[0].addr == addr.B - int(vol_begin[i])
+        assert ios[0].bytes == io_size.B
 
     cvol.close()
     cvol.destroy()
@@ -355,27 +361,36 @@ def test_io_propagation_cross_boundary(pyocf_ctx):
         ret = cvol_submit_data_io(cvol, addr, io_size)
         assert ret == 0
 
-        ret = cvol_submit_flush_io(cvol, addr, io_size, IoFlags.FLUSH)
+        ret = cvol_submit_flush_io(cvol, addr, io_size)
         assert ret == 0
 
         ret = cvol_submit_discard_io(cvol, addr, io_size)
         assert ret == 0
 
-        for io_type in TraceDevice.IoType:
-            ios1 = io_trace[vols[i]][io_type]
-            ios2 = io_trace[vols[i + 1]][io_type]
+        ios1 = io_trace[vols[i]][TraceDevice.IoType.Data]
+        ios2 = io_trace[vols[i + 1]][TraceDevice.IoType.Data]
+        assert len(ios1) == 1
+        assert ios1[0].dir == IoDir.WRITE
+        assert ios1[0].addr == int(vols[i].vol.size - (io_size / 2))
+        assert ios1[0].bytes == io_size.B / 2
+        assert len(ios2) == 1
+        assert ios2[0].dir == IoDir.WRITE
+        assert ios2[0].addr == 0
+        assert ios2[0].bytes == io_size.B / 2
 
-            assert len(ios1) == 1
-            io = ios1[0]
-            assert io.dir == IoDir.WRITE
-            assert io.addr == int(vols[i].vol.size - (io_size / 2))
-            assert io.bytes == io_size.B / 2
+        ios1 = io_trace[vols[i]][TraceDevice.IoType.Flush]
+        ios2 = io_trace[vols[i + 1]][TraceDevice.IoType.Flush]
+        assert len(ios1) == 1
+        assert len(ios2) == 1
 
-            assert len(ios2) == 1
-            io = ios2[0]
-            assert io.dir == IoDir.WRITE
-            assert io.addr == 0
-            assert io.bytes == io_size.B / 2
+        ios1 = io_trace[vols[i]][TraceDevice.IoType.Discard]
+        ios2 = io_trace[vols[i + 1]][TraceDevice.IoType.Discard]
+        assert len(ios1) == 1
+        assert ios1[0].addr == int(vols[i].vol.size - (io_size / 2))
+        assert ios1[0].bytes == io_size.B / 2
+        assert len(ios2) == 1
+        assert ios2[0].addr == 0
+        assert ios2[0].bytes == io_size.B / 2
 
     cvol.close()
     cvol.destroy()
@@ -483,25 +498,51 @@ def test_io_propagation_multiple_subvolumes(pyocf_ctx, rand_seed):
         ret = cvol_submit_data_io(cvol, addr, size)
         assert ret == 0
 
-        ret = cvol_submit_flush_io(cvol, addr, size, IoFlags.FLUSH)
+        ret = cvol_submit_flush_io(cvol, addr, size)
         assert ret == 0
 
         ret = cvol_submit_discard_io(cvol, addr, size)
         assert ret == 0
 
         for vol in middle:
-            for io in io_trace[vol].values():
-                assert len(io) == 1
-                assert io[0].addr == 0
-                assert io[0].bytes == int(vol.vol.size)
+            ios = io_trace[vol][TraceDevice.IoType.Data]
+            assert len(ios) == 1
+            assert ios[0].addr == 0
+            assert ios[0].bytes == int(vol.vol.size)
 
-        for io in io_trace[first].values():
-            assert io[0].addr == int(start_offset)
-            assert io[0].bytes == int(vol_size - start_offset)
+            ios = io_trace[first][TraceDevice.IoType.Data]
+            assert len(ios) == 1
+            assert ios[0].addr == int(start_offset)
+            assert ios[0].bytes == int(vol_size - start_offset)
 
-        for io in io_trace[last].values():
-            assert io[0].addr == 0
-            assert io[0].bytes == int(end_offset)
+            ios = io_trace[last][TraceDevice.IoType.Data]
+            assert len(ios) == 1
+            assert ios[0].addr == 0
+            assert ios[0].bytes == int(end_offset)
+
+            ios = io_trace[vol][TraceDevice.IoType.Flush]
+            assert len(ios) == 1
+
+            ios = io_trace[first][TraceDevice.IoType.Flush]
+            assert len(ios) == 1
+
+            ios = io_trace[last][TraceDevice.IoType.Flush]
+            assert len(ios) == 1
+
+            ios = io_trace[vol][TraceDevice.IoType.Discard]
+            assert len(ios) == 1
+            assert ios[0].addr == 0
+            assert ios[0].bytes == int(vol.vol.size)
+
+            ios = io_trace[first][TraceDevice.IoType.Discard]
+            assert len(ios) == 1
+            assert ios[0].addr == int(start_offset)
+            assert ios[0].bytes == int(vol_size - start_offset)
+
+            ios = io_trace[last][TraceDevice.IoType.Discard]
+            assert len(ios) == 1
+            assert ios[0].addr == 0
+            assert ios[0].bytes == int(end_offset)
 
     cvol.close()
     cvol.destroy()
@@ -538,16 +579,16 @@ def test_io_completion(pyocf_ctx, rand_seed):
             self.pending_ios = []
             self.io_submitted = Event()
 
-        def do_submit_io(self, io):
-            self.pending_ios.append(("io", io))
+        def do_forward_io(self, token, rw, addr, nbytes, offset):
+            self.pending_ios.append(("io", token, rw, addr, nbytes, offset))
             self.io_submitted.set()
 
-        def do_submit_flush(self, flush):
-            self.pending_ios.append(("flush", flush))
+        def do_forward_flush(self, token):
+            self.pending_ios.append(("flush", token))
             self.io_submitted.set()
 
-        def do_submit_discard(self, discard):
-            self.pending_ios.append(("discard", discard))
+        def do_forward_discard(self, token, addr, nbytes):
+            self.pending_ios.append(("discard", token, addr, nbytes))
             self.io_submitted.set()
 
         def wait_submitted(self):
@@ -558,13 +599,13 @@ def test_io_completion(pyocf_ctx, rand_seed):
             if not self.pending_ios:
                 return False
 
-            io_type, io = self.pending_ios.pop()
+            io_type, token, *params = self.pending_ios.pop()
             if io_type == "io":
-                super().do_submit_io(io)
+                super().do_forward_io(token, *params)
             elif io_type == "flush":
-                super().do_submit_flush(io)
+                super().do_forward_flush(token)
             elif io_type == "discard":
-                super().do_submit_discard(io)
+                super().do_forward_discard(token, *params)
             else:
                 assert False
 
@@ -586,14 +627,18 @@ def test_io_completion(pyocf_ctx, rand_seed):
         addr = vol_size / 2
         size = (subvol_count - 1) * vol_size
 
-        for op, flags in [("submit", 0), ("submit_flush", IoFlags.FLUSH), ("submit_discard", 0)]:
+        for op, cnt in [
+            ("submit", subvol_count),
+            ("submit_flush", len(vols)),
+            ("submit_discard", subvol_count)
+        ]:
             io = cvol.new_io(
                 queue=None,
                 addr=addr,
                 length=size,
                 direction=IoDir.WRITE,
                 io_class=0,
-                flags=flags,
+                flags=0,
             )
             completion = OcfCompletion([("err", c_int)])
             io.callback = completion.callback
@@ -604,7 +649,7 @@ def test_io_completion(pyocf_ctx, rand_seed):
             submit_fn = getattr(io, op)
             submit_fn()
 
-            pending_vols = vols[:subvol_count]
+            pending_vols = vols[:cnt]
             for v in pending_vols:
                 v.wait_submitted()
 
@@ -674,7 +719,7 @@ def test_io_error(pyocf_ctx, rand_seed):
         assert ret == -OcfErrorCode.OCF_ERR_IO
 
         # verify flush properly propagated
-        ret = cvol_submit_flush_io(cvol, addr, size, IoFlags.FLUSH)
+        ret = cvol_submit_flush_io(cvol, addr, size)
         assert ret == -OcfErrorCode.OCF_ERR_IO
 
         # verdiscard discard properly propagated
