@@ -286,6 +286,20 @@ void ocf_forward_discard(ocf_volume_t volume, ocf_forward_token_t token,
 		uint64_t addr, uint64_t bytes);
 
 /**
+ * @brief Forward write_zeros to another subvolume
+ *
+ * Forwarding automatically increases forwarded io refcount, so at some
+ * point additional ocf_forward_end() needs to be called to balance it.
+ *
+ * @param[in] volume Volume to which IO is being submitted
+ * @param[in] token Token representing IO to be forwarded
+ * @param[in] addr Address to which IO is being submitted
+ * @param[in] bytes Length of the IO
+ */
+void ocf_forward_write_zeros(ocf_volume_t volume, ocf_forward_token_t token,
+		uint64_t addr, uint64_t bytes);
+
+/**
  * @brief Increment forwarded io refcount
  *
  * @param[in] token Forward token

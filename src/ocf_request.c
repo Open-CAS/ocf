@@ -467,6 +467,18 @@ void ocf_req_forward_cache_discard(struct ocf_request *req, uint64_t addr,
 	ocf_volume_forward_discard(volume, token, addr, bytes);
 }
 
+void ocf_req_forward_cache_write_zeros(struct ocf_request *req, uint64_t addr,
+		uint64_t bytes)
+{
+	ocf_volume_t volume = ocf_cache_get_volume(req->cache);
+	ocf_forward_token_t token = ocf_req_to_cache_forward_token(req);
+
+	req->cache_error = 0;
+
+	ocf_req_forward_cache_get(req);
+	ocf_volume_forward_write_zeros(volume, token, addr, bytes);
+}
+
 void ocf_req_forward_core_io(struct ocf_request *req, int dir, uint64_t addr,
 		uint64_t bytes, uint64_t offset)
 {
@@ -542,6 +554,13 @@ void ocf_forward_discard(ocf_volume_t volume, ocf_forward_token_t token,
 {
 	_ocf_forward_get(token);
 	ocf_volume_forward_discard(volume, token, addr, bytes);
+}
+
+void ocf_forward_write_zeros(ocf_volume_t volume, ocf_forward_token_t token,
+		uint64_t addr, uint64_t bytes)
+{
+	_ocf_forward_get(token);
+	ocf_volume_forward_write_zeros(volume, token, addr, bytes);
 }
 
 void ocf_forward_end(ocf_forward_token_t token, int error)

@@ -370,6 +370,20 @@ void ocf_volume_forward_discard(ocf_volume_t volume, ocf_forward_token_t token,
 			addr, bytes);
 }
 
+void ocf_volume_forward_write_zeros(ocf_volume_t volume,
+		ocf_forward_token_t token, uint64_t addr, uint64_t bytes)
+{
+	ENV_BUG_ON(!volume->type->properties->ops.forward_write_zeros);
+
+	if (!volume->opened) {
+		ocf_forward_end(token, -OCF_ERR_IO);
+		return;
+	}
+
+	volume->type->properties->ops.forward_write_zeros(volume, token,
+			addr, bytes);
+}
+
 int ocf_volume_open(ocf_volume_t volume, void *volume_params)
 {
 	int ret;

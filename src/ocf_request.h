@@ -561,6 +561,9 @@ void ocf_req_forward_cache_flush(struct ocf_request *req);
 void ocf_req_forward_cache_discard(struct ocf_request *req, uint64_t addr,
 		uint64_t bytes);
 
+void ocf_req_forward_cache_write_zeros(struct ocf_request *req, uint64_t addr,
+		uint64_t bytes);
+
 void ocf_req_forward_core_io(struct ocf_request *req, int dir, uint64_t addr,
 		uint64_t bytes, uint64_t offset);
 
