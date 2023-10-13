@@ -39,8 +39,8 @@ int ocf_volume_type_init(struct ocf_volume_type **type,
 	struct ocf_volume_type *new_type;
 	int ret;
 
-	if (!ops->submit_io || !ops->open || !ops->close ||
-			!ops->get_max_io_size || !ops->get_length) {
+	if (!ops->open || !ops->close || !ops->get_max_io_size ||
+			!ops->get_length) {
 		return -OCF_ERR_INVAL;
 	}
 

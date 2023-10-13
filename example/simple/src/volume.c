@@ -43,51 +43,6 @@ static void volume_close(ocf_volume_t volume)
 	free(myvolume->mem);
 }
 
-/*
- * In submit_io() function we simulate read or write to backend storage device
- * by doing memcpy() to or from previously allocated memory buffer.
- */
-static void volume_submit_io(struct ocf_io *io)
-{
-	struct myvolume_io *myvolume_io = ocf_io_get_priv(io);
-	struct volume_data *data;
-	struct myvolume *myvolume;
-	uint32_t offset = myvolume_io->offset;
-
-	data = ocf_io_get_data(io);
-	myvolume = ocf_volume_get_priv(ocf_io_get_volume(io));
-
-	if (io->dir == OCF_WRITE) {
-		memcpy(myvolume->mem + io->addr,
-				data->ptr + offset, io->bytes);
-	} else {
-		memcpy(data->ptr + offset,
-				myvolume->mem + io->addr, io->bytes);
-	}
-
-	printf("VOL: (name: %s), IO: (dir: %s, addr: %ld, bytes: %d)\n",
-			myvolume->name, io->dir == OCF_READ ? "read" : "write",
-			io->addr, io->bytes);
-
-	io->end(io, 0);
-}
-
-/*
- * We don't need to implement submit_flush(). Just complete io with success.
- */
-static void volume_submit_flush(struct ocf_io *io)
-{
-	io->end(io, 0);
-}
-
-/*
- * We don't need to implement submit_discard(). Just complete io with success.
- */
-static void volume_submit_discard(struct ocf_io *io)
-{
-	io->end(io, 0);
-}
-
 void volume_forward_io(ocf_volume_t volume, ocf_forward_token_t token,
 		int dir, uint64_t addr, uint64_t bytes, uint64_t offset)
 {
@@ -139,37 +94,12 @@ static uint64_t volume_get_length(ocf_volume_t volume)
 }
 
 /*
- * In set_data() we just assing data and offset to io.
- */
-static int myvolume_io_set_data(struct ocf_io *io, ctx_data_t *data,
-		uint32_t offset)
-{
-	struct myvolume_io *myvolume_io = ocf_io_get_priv(io);
-
-	myvolume_io->data = data;
-	myvolume_io->offset = offset;
-
-	return 0;
-}
-
-/*
- * In get_data() return data stored in io.
- */
-static ctx_data_t *myvolume_io_get_data(struct ocf_io *io)
-{
-	struct myvolume_io *myvolume_io = ocf_io_get_priv(io);
-
-	return myvolume_io->data;
-}
-
-/*
  * This structure contains volume properties. It describes volume
  * type, which can be later instantiated as backend storage for cache
  * or core.
  */
 const struct ocf_volume_properties volume_properties = {
 	.name = "Example volume",
-	.io_priv_size = sizeof(struct myvolume_io),
 	.volume_priv_size = sizeof(struct myvolume),
 	.caps = {
 		.atomic_writes = 0,
@@ -177,18 +107,11 @@ const struct ocf_volume_properties volume_properties = {
 	.ops = {
 		.open = volume_open,
 		.close = volume_close,
-		.submit_io = volume_submit_io,
-		.submit_flush = volume_submit_flush,
-		.submit_discard = volume_submit_discard,
 		.forward_io = volume_forward_io,
 		.forward_flush = volume_forward_flush,
 		.forward_discard = volume_forward_discard,
 		.get_max_io_size = volume_get_max_io_size,
 		.get_length = volume_get_length,
-	},
-	.io_ops = {
-		.set_data = myvolume_io_set_data,
-		.get_data = myvolume_io_get_data,
 	},
 };
 
