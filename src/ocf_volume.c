@@ -7,6 +7,7 @@
 #include "ocf/ocf.h"
 #include "ocf_priv.h"
 #include "ocf_volume_priv.h"
+#include "ocf_core_priv.h"
 #include "ocf_request.h"
 #include "ocf_io_priv.h"
 #include "ocf_env.h"
@@ -280,41 +281,51 @@ struct ocf_io *ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
 	return ocf_io_new(volume, queue, addr, bytes, dir, io_class, flags);
 }
 
+static void ocf_volume_req_forward_complete(struct ocf_request *req, int error)
+{
+	ocf_io_end(&req->ioi.io, error);
+}
+
 void ocf_volume_submit_io(struct ocf_io *io)
 {
+	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_volume_t volume = ocf_io_get_volume(io);
-
-	ENV_BUG_ON(!volume->type->properties->ops.submit_io);
 
 	if (!volume->opened) {
 		io->end(io, -OCF_ERR_IO);
 		return;
 	}
 
-	volume->type->properties->ops.submit_io(io);
+	if (likely(volume->type->properties->ops.submit_io)) {
+		volume->type->properties->ops.submit_io(io);
+	} else {
+		req->volume_forward_end = ocf_volume_req_forward_complete;
+		ocf_req_forward_volume_io(req, volume, io->dir, io->addr,
+				io->bytes, req->offset);
+	}
 }
 
 void ocf_volume_submit_flush(struct ocf_io *io)
 {
+	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_volume_t volume = ocf_io_get_volume(io);
-
-	ENV_BUG_ON(!volume->type->properties->ops.submit_flush);
 
 	if (!volume->opened) {
 		io->end(io, -OCF_ERR_IO);
 		return;
 	}
 
-	if (!volume->type->properties->ops.submit_flush) {
-		ocf_io_end(io, 0);
-		return;
+	if (likely(volume->type->properties->ops.submit_flush)) {
+		volume->type->properties->ops.submit_flush(io);
+	} else {
+		req->volume_forward_end = ocf_volume_req_forward_complete;
+		ocf_req_forward_volume_flush(req, volume);
 	}
-
-	volume->type->properties->ops.submit_flush(io);
 }
 
 void ocf_volume_submit_discard(struct ocf_io *io)
 {
+	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_volume_t volume = ocf_io_get_volume(io);
 
 	if (!volume->opened) {
@@ -322,12 +333,13 @@ void ocf_volume_submit_discard(struct ocf_io *io)
 		return;
 	}
 
-	if (!volume->type->properties->ops.submit_discard) {
-		ocf_io_end(io, 0);
-		return;
+	if (likely(volume->type->properties->ops.submit_discard)) {
+		volume->type->properties->ops.submit_discard(io);
+	} else {
+		req->volume_forward_end = ocf_volume_req_forward_complete;
+		ocf_req_forward_volume_discard(req, volume,
+				io->addr, io->bytes);
 	}
-
-	volume->type->properties->ops.submit_discard(io);
 }
 
 void ocf_volume_forward_io(ocf_volume_t volume, ocf_forward_token_t token,
