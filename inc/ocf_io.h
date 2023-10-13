@@ -106,42 +106,6 @@ struct ocf_io {
 };
 
 /**
- * @brief OCF IO operations set structure
- */
-struct ocf_io_ops {
-	/**
-	 * @brief Set up data vector in OCF IO
-	 *
-	 * @param[in] io OCF IO to set up
-	 * @param[in] data Source context data
-	 * @param[in] offset Data offset in source context data
-	 *
-	 * @retval 0 Data set up successfully
-	 * @retval Non-zero Data set up failure
-	 */
-	int (*set_data)(struct ocf_io *io, ctx_data_t *data,
-			uint32_t offset);
-
-	/**
-	 * @brief Get context data from OCF IO
-	 *
-	 * @param[in] io OCF IO to get data
-	 *
-	 * @return Data vector from IO
-	 */
-	ctx_data_t *(*get_data)(struct ocf_io *io);
-};
-
-/**
- * @brief Get IO private context structure
- *
- * @param[in] io OCF IO
- *
- * @return IO private context structure
- */
-void *ocf_io_get_priv(struct ocf_io *io);
-
-/**
  * @brief Increase reference counter in OCF IO
  *
  * @note Wrapper for get IO operation
@@ -199,8 +163,6 @@ static inline void ocf_io_set_handle(struct ocf_io *io, ocf_handle_io_t fn)
 /**
  * @brief Set up data vector in OCF IO
  *
- * @note Wrapper for set up data vector function
- *
  * @param[in] io OCF IO to set up
  * @param[in] data Source data vector
  * @param[in] offset Data offset in source data vector
@@ -213,13 +175,20 @@ int ocf_io_set_data(struct ocf_io *io, ctx_data_t *data, uint32_t offset);
 /**
  * @brief Get data vector from OCF IO
  *
- * @note Wrapper for get data vector function
- *
  * @param[in] io OCF IO to get data
  *
  * @return Data vector from IO
  */
 ctx_data_t *ocf_io_get_data(struct ocf_io *io);
+
+/**
+ * @brief Get offset within the data from OCF IO
+ *
+ * @param[in] io OCF IO to get data
+ *
+ * @return Offset within data
+ */
+uint32_t ocf_io_get_offset(struct ocf_io *io);
 
 /**
  * @brief Handle IO in cache engine

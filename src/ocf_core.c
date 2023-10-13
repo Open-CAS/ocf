@@ -447,39 +447,8 @@ static uint64_t ocf_core_volume_get_byte_length(ocf_volume_t volume)
 	return ocf_volume_get_length(&core->volume);
 }
 
-
-/* *** IO OPS *** */
-
-static int ocf_core_io_set_data(struct ocf_io *io,
-		ctx_data_t *data, uint32_t offset)
-{
-	struct ocf_request *req;
-
-	OCF_CHECK_NULL(io);
-
-	if (!data)
-		return -OCF_ERR_INVAL;
-
-	req = ocf_io_to_req(io);
-	req->data = data;
-	req->offset = offset;
-
-	return 0;
-}
-
-static ctx_data_t *ocf_core_io_get_data(struct ocf_io *io)
-{
-	struct ocf_request *req;
-
-	OCF_CHECK_NULL(io);
-
-	req = ocf_io_to_req(io);
-	return req->data;
-}
-
 const struct ocf_volume_properties ocf_core_volume_properties = {
 	.name = "OCF_Core",
-	.io_priv_size = 0, /* Not used - custom allocator */
 	.volume_priv_size = sizeof(struct ocf_core_volume),
 	.caps = {
 		.atomic_writes = 0,
@@ -495,15 +464,11 @@ const struct ocf_volume_properties ocf_core_volume_properties = {
 		.get_max_io_size = ocf_core_volume_get_max_io_size,
 		.get_length = ocf_core_volume_get_byte_length,
 	},
-	.io_ops = {
-		.set_data = ocf_core_io_set_data,
-		.get_data = ocf_core_io_get_data,
-	},
 	.deinit = NULL,
 };
 
 static int ocf_core_io_allocator_init(ocf_io_allocator_t allocator,
-		uint32_t priv_size, const char *name)
+		const char *name)
 {
 	return 0;
 }

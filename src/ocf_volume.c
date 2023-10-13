@@ -57,7 +57,7 @@ int ocf_volume_type_init(struct ocf_volume_type **type,
 		allocator_type = ocf_io_allocator_get_type_default();
 
 	ret = ocf_io_allocator_init(&new_type->allocator, allocator_type,
-			properties->io_priv_size, properties->name);
+			properties->name);
 	if (ret)
 		goto err;
 

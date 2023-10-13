@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -11,8 +12,7 @@
 typedef struct ocf_io_allocator *ocf_io_allocator_t;
 
 struct ocf_io_allocator_ops {
-	int (*allocator_init)(ocf_io_allocator_t allocator,
-			uint32_t priv_size, const char *name);
+	int (*allocator_init)(ocf_io_allocator_t allocator, const char *name);
 	void (*allocator_deinit)(ocf_io_allocator_t allocator);
 	void *(*allocator_new)(ocf_io_allocator_t allocator,
 			ocf_volume_t volume, ocf_queue_t queue,
@@ -45,11 +45,10 @@ static inline void ocf_io_allocator_del(ocf_io_allocator_t allocator, void *obj)
 }
 
 static inline int ocf_io_allocator_init(ocf_io_allocator_t allocator,
-		ocf_io_allocator_type_t type, uint32_t size, const char *name)
-
+		ocf_io_allocator_type_t type, const char *name)
 {
 	allocator->type = type;
-	return allocator->type->ops.allocator_init(allocator, size, name);
+	return allocator->type->ops.allocator_init(allocator, name);
 }
 
 static inline void ocf_io_allocator_deinit(ocf_io_allocator_t allocator)

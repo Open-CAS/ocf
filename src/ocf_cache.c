@@ -419,35 +419,8 @@ static uint64_t ocf_cache_volume_get_byte_length(ocf_volume_t volume)
 	return ocf_volume_get_length(ocf_cache_get_volume(cache));
 }
 
-/* *** IO OPS *** */
-
-static int ocf_cache_io_set_data(struct ocf_io *io,
-		ctx_data_t *data, uint32_t offset)
-{
-	struct ocf_request *req;
-
-	OCF_CHECK_NULL(io);
-
-	req = ocf_io_to_req(io);
-	req->data = data;
-	req->offset = offset;
-
-	return 0;
-}
-
-static ctx_data_t *ocf_cache_io_get_data(struct ocf_io *io)
-{
-	struct ocf_request *req;
-
-	OCF_CHECK_NULL(io);
-
-	req = ocf_io_to_req(io);
-	return req->data;
-}
-
 const struct ocf_volume_properties ocf_cache_volume_properties = {
 	.name = "OCF_Cache",
-	.io_priv_size = 0,
 	.volume_priv_size = sizeof(struct ocf_cache_volume),
 	.caps = {
 		.atomic_writes = 0,
@@ -463,15 +436,11 @@ const struct ocf_volume_properties ocf_cache_volume_properties = {
 		.get_max_io_size = ocf_cache_volume_get_max_io_size,
 		.get_length = ocf_cache_volume_get_byte_length,
 	},
-	.io_ops = {
-		.set_data = ocf_cache_io_set_data,
-		.get_data = ocf_cache_io_get_data,
-	},
 	.deinit = NULL,
 };
 
 static int ocf_cache_io_allocator_init(ocf_io_allocator_t allocator,
-		uint32_t priv_size, const char *name)
+		const char *name)
 {
 	return 0;
 }

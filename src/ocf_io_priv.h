@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -11,24 +12,17 @@
 
 struct ocf_io_meta {
 	ocf_volume_t volume;
-	const struct ocf_io_ops *ops;
 	env_atomic ref_count;
 	struct ocf_request *req;
 };
-
 
 struct ocf_io_internal {
 	struct ocf_io_meta meta;
 	struct ocf_io io;
 };
 
-static inline struct ocf_io_internal *ocf_io_get_internal(struct ocf_io* io)
-{
-	return container_of(io, struct ocf_io_internal, io);
-}
-
 int ocf_io_allocator_default_init(ocf_io_allocator_t allocator,
-		uint32_t priv_size, const char *name);
+		const char *name);
 
 void ocf_io_allocator_default_deinit(ocf_io_allocator_t allocator);
 
@@ -37,10 +31,6 @@ void *ocf_io_allocator_default_new(ocf_io_allocator_t allocator,
 		uint64_t addr, uint32_t bytes, uint32_t dir);
 
 void ocf_io_allocator_default_del(ocf_io_allocator_t allocator, void *obj);
-
-int ocf_io_allocator_init(ocf_io_allocator_t allocator, ocf_io_allocator_type_t type,
-		uint32_t priv_size, const char *name);
-
 
 struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir,

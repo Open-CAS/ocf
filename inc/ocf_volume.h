@@ -221,17 +221,11 @@ struct ocf_volume_properties {
 	const char *name;
 		/*!< The name of volume operations */
 
-	uint32_t io_priv_size;
-		/*!< Size of io private context structure */
-
 	uint32_t volume_priv_size;
 		/*!< Size of volume private context structure */
 
 	struct ocf_volume_caps caps;
 		/*!< Volume capabilities */
-
-	struct ocf_io_ops io_ops;
-		/*!< IO operations */
 
 	void (*deinit)(void);
 		/*!< Deinitialize volume type */
