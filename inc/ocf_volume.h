@@ -130,6 +130,20 @@ struct ocf_volume_ops {
 			uint64_t bytes);
 
 	/**
+	 * @brief Forward the metadata io directly to the volume
+	 *
+	 * @param[in] volume Volume to which IO is being submitted
+	 * @param[in] token Token representing IO to be forwarded
+	 * @param[in] dir Direction OCF_READ/OCF_WRITE
+	 * @param[in] addr Address to which IO is being submitted
+	 * @param[in] bytes Length of the IO
+	 * @param[in] offset Offset within the IO data
+	 */
+	void (*forward_metadata)(ocf_volume_t volume, ocf_forward_token_t token,
+			int dir, uint64_t addr, uint64_t bytes,
+			uint64_t offset);
+
+	/**
 	 * @brief Volume initialization callback, called when volume object
 	 *        is being initialized
 	 *

@@ -384,6 +384,20 @@ void ocf_volume_forward_write_zeros(ocf_volume_t volume,
 			addr, bytes);
 }
 
+void ocf_volume_forward_metadata(ocf_volume_t volume, ocf_forward_token_t token,
+		int dir, uint64_t addr, uint64_t bytes, uint64_t offset)
+{
+	ENV_BUG_ON(!volume->type->properties->ops.forward_metadata);
+
+	if (!volume->opened) {
+		ocf_forward_end(token, -OCF_ERR_IO);
+		return;
+	}
+
+	volume->type->properties->ops.forward_metadata(volume, token,
+			dir, addr, bytes, offset);
+}
+
 int ocf_volume_open(ocf_volume_t volume, void *volume_params)
 {
 	int ret;

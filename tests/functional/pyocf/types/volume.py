@@ -55,6 +55,7 @@ class VolumeOps(Structure):
     FORWARD_FLUSH = CFUNCTYPE(None, c_void_p, c_uint64)
     FORWARD_DISCARD = CFUNCTYPE(None, c_void_p, c_uint64, c_uint64, c_uint64)
     FORWARD_WRITE_ZEROS = CFUNCTYPE(None, c_void_p, c_uint64, c_uint64, c_uint64)
+    FORWARD_METADATA = CFUNCTYPE(None, c_void_p, c_uint64, c_int, c_uint64, c_uint64, c_uint64)
     ON_INIT = CFUNCTYPE(c_int, c_void_p)
     ON_DEINIT = CFUNCTYPE(None, c_void_p)
     OPEN = CFUNCTYPE(c_int, c_void_p, c_void_p)
@@ -72,6 +73,7 @@ class VolumeOps(Structure):
         ("_forward_flush", FORWARD_FLUSH),
         ("_forward_discard", FORWARD_DISCARD),
         ("_forward_write_zeros", FORWARD_WRITE_ZEROS),
+        ("_forward_metadata", FORWARD_METADATA),
         ("_on_init", ON_INIT),
         ("_on_deinit", ON_DEINIT),
         ("_open", OPEN),

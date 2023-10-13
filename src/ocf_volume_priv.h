@@ -58,6 +58,9 @@ void ocf_volume_forward_discard(ocf_volume_t volume, ocf_forward_token_t token,
 void ocf_volume_forward_write_zeros(ocf_volume_t volume,
 		ocf_forward_token_t token, uint64_t addr, uint64_t bytes);
 
+void ocf_volume_forward_metadata(ocf_volume_t volume, ocf_forward_token_t token,
+		int dir, uint64_t addr, uint64_t bytes, uint64_t offset);
+
 static inline void ocf_volume_submit_metadata(struct ocf_io *io)
 {
 	ocf_volume_t volume = ocf_io_get_volume(io);
