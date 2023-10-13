@@ -32,66 +32,31 @@
 #define OCF_DEBUG_PARAM(cache, format, ...)
 #endif
 
-struct _raw_atomic_flush_ctx {
-	struct ocf_request *req;
-	ocf_req_end_t complete;
-	env_atomic flush_req_cnt;
-};
-
-static void _raw_atomic_io_discard_cmpl(struct _raw_atomic_flush_ctx *ctx,
-		int error)
+static void _raw_atomic_io_discard_cmpl(struct ocf_request *req, int error)
 {
+	ocf_req_end_t complete = req->priv;
+
 	if (error)
-		ctx->req->error = error;
-
-	if (env_atomic_dec_return(&ctx->flush_req_cnt))
-		return;
-
-	if (ctx->req->error)
-		ocf_metadata_error(ctx->req->cache);
+		ocf_metadata_error(req->cache);
 
 	/* Call metadata flush completed call back */
 	OCF_DEBUG_MSG(ctx->req->cache, "Asynchronous flushing complete");
 
-	ctx->complete(ctx->req, ctx->req->error);
-
-	env_free(ctx);
+	complete(req, error);
 }
 
-static void _raw_atomic_io_discard_end(struct ocf_io *io, int error)
+static void _raw_atomic_io_discard_do(struct ocf_request *req,
+		uint64_t start_addr, uint32_t len)
 {
-	struct _raw_atomic_flush_ctx *ctx = io->priv1;
-
-	ocf_io_put(io); /* Release IO */
-
-	_raw_atomic_io_discard_cmpl(ctx, error);
-}
-
-static int _raw_atomic_io_discard_do(struct ocf_cache *cache, void *context,
-		uint64_t start_addr, uint32_t len, struct _raw_atomic_flush_ctx *ctx)
-{
-	struct ocf_request *req = context;
-	struct ocf_io *io;
-
-	io = ocf_new_cache_io(cache, NULL, start_addr, len, OCF_WRITE, 0, 0);
-	if (!io) {
-		req->error = -OCF_ERR_NO_MEM;
-		return req->error;
-	}
+	ocf_cache_t cache = req->cache;
 
 	OCF_DEBUG_PARAM(cache, "Page to flushing = %" ENV_PRIu64 ", count of pages = %u",
 			start_addr, len);
 
-	env_atomic_inc(&ctx->flush_req_cnt);
-
-	ocf_io_set_cmpl(io, ctx, NULL, _raw_atomic_io_discard_end);
-
 	if (cache->device->volume.features.discard_zeroes)
-		ocf_volume_submit_discard(io);
+		ocf_req_forward_cache_discard(req, start_addr, len);
 	else
-		ocf_volume_submit_write_zeroes(io);
-
-	return req->error;
+		ocf_req_forward_cache_write_zeros(req, start_addr, len);
 }
 
 void raw_atomic_flush_mark(struct ocf_cache *cache, struct ocf_request *req,
@@ -114,14 +79,12 @@ static inline void _raw_atomic_add_page(struct ocf_cache *cache,
 	(*idx)++;
 }
 
-static int _raw_atomic_flush_do_asynch_sec(struct ocf_cache *cache,
-		struct ocf_request *req, int map_idx,
-		struct _raw_atomic_flush_ctx *ctx)
+static void _raw_atomic_flush_do_asynch_sec(struct ocf_cache *cache,
+		struct ocf_request *req, int map_idx)
 {
 	struct ocf_map_info *map = &req->map[map_idx];
 	uint32_t len = 0;
 	uint64_t start_addr;
-	int result = 0;
 
 	start_addr = map->coll_idx;
 	start_addr *= ocf_line_size(cache);
@@ -131,9 +94,7 @@ static int _raw_atomic_flush_do_asynch_sec(struct ocf_cache *cache,
 	len = SECTORS_TO_BYTES(map->stop_flush - map->start_flush);
 	len += SECTORS_TO_BYTES(1);
 
-	result = _raw_atomic_io_discard_do(cache, req, start_addr, len, ctx);
-
-	return result;
+	_raw_atomic_io_discard_do(req, start_addr, len);
 }
 
 int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
@@ -147,7 +108,6 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 	int line_no = req->core_line_count;
 	struct ocf_map_info *map;
 	uint64_t start_addr;
-	struct _raw_atomic_flush_ctx *ctx;
 
 	ENV_BUG_ON(!complete);
 
@@ -157,24 +117,16 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 		return 0;
 	}
 
-	ctx = env_zalloc(sizeof(*ctx), ENV_MEM_NOIO);
-	if (!ctx) {
-		complete(req, -OCF_ERR_NO_MEM);
-		return -OCF_ERR_NO_MEM;
-	}
-
-	ctx->req = req;
-	ctx->complete = complete;
-	env_atomic_set(&ctx->flush_req_cnt, 1);
+	req->priv = complete;
+	req->cache_forward_end = _raw_atomic_io_discard_cmpl;
 
 	if (line_no == 1) {
 		map = &req->map[0];
-		if (map->flush && map->status != LOOKUP_MISS) {
-			result = _raw_atomic_flush_do_asynch_sec(cache, req,
-					0, ctx);
-		}
-		_raw_atomic_io_discard_cmpl(ctx, result);
-		return result;
+		if (map->flush && map->status != LOOKUP_MISS)
+			_raw_atomic_flush_do_asynch_sec(cache, req, 0);
+		else
+			_raw_atomic_io_discard_cmpl(req, 0);
+		return 0;
 	}
 
 	if (line_no <= MAX_STACK_TAB_SIZE) {
@@ -184,11 +136,11 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 				ENV_MEM_NOIO);
 		if (!clines_tab) {
 			complete(req, -OCF_ERR_NO_MEM);
-			env_free(ctx);
 			return -OCF_ERR_NO_MEM;
 		}
 	}
 
+	ocf_req_forward_cache_get(req);
 	for (i = 0; i < line_no; i++) {
 		map = &req->map[i];
 
@@ -198,8 +150,7 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 		if (i == 0) {
 			/* First */
 			if (map->start_flush) {
-				_raw_atomic_flush_do_asynch_sec(cache, req, i,
-						ctx);
+				_raw_atomic_flush_do_asynch_sec(cache, req, i);
 			} else {
 				_raw_atomic_add_page(cache, clines_tab,
 					map->coll_idx, &clines_to_flush);
@@ -207,8 +158,7 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 		} else if (i == (line_no - 1)) {
 			/* Last */
 			if (map->stop_flush != ocf_line_end_sector(cache)) {
-				_raw_atomic_flush_do_asynch_sec(cache, req,
-						i, ctx);
+				_raw_atomic_flush_do_asynch_sec(cache, req, i);
 			} else {
 				_raw_atomic_add_page(cache, clines_tab,
 					map->coll_idx, &clines_to_flush);
@@ -242,16 +192,11 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 			len += ocf_line_size(cache);
 		}
 
-		result  |= _raw_atomic_io_discard_do(cache, req, start_addr,
-				len, ctx);
-
-		if (result)
-			break;
+		_raw_atomic_io_discard_do(req, start_addr, len);
 
 		i++;
 	}
-
-	_raw_atomic_io_discard_cmpl(ctx, result);
+	ocf_req_forward_cache_put(req);
 
 	if (line_no > MAX_STACK_TAB_SIZE)
 		env_free(clines_tab);
