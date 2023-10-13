@@ -129,7 +129,10 @@ struct ocf_request {
 	struct ocf_io_internal ioi;
 	/*!< OCF IO associated with request */
 
-	ocf_req_end_t cache_forward_end;
+	union {
+		ocf_req_end_t cache_forward_end;
+		ocf_req_end_t volume_forward_end;
+	};
 	ocf_req_end_t core_forward_end;
 	env_atomic cache_remaining;
 	env_atomic core_remaining;
@@ -552,6 +555,14 @@ static inline struct ocf_request *ocf_req_forward_token_to_req(ocf_forward_token
 {
 	return (struct ocf_request *)(token & ~1);
 }
+
+void ocf_req_forward_volume_io(struct ocf_request *req, ocf_volume_t volume,
+		int dir, uint64_t addr, uint64_t bytes, uint64_t offset);
+
+void ocf_req_forward_volume_flush(struct ocf_request *req, ocf_volume_t volume);
+
+void ocf_req_forward_volume_discard(struct ocf_request *req,
+		ocf_volume_t volume, uint64_t addr, uint64_t bytes);
 
 void ocf_req_forward_cache_io(struct ocf_request *req, int dir, uint64_t addr,
 		uint64_t bytes, uint64_t offset);
