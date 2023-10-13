@@ -27,14 +27,13 @@
 
 static int passive_io_resume(struct ocf_request *req)
 {
+	struct ocf_request *master = req->master_io_req;
+	struct ocf_io *io = &master->ioi.io;
 	ocf_cache_t cache = req->cache;
 	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
-	struct ocf_io *io = (struct ocf_io*) req->data;
-	ctx_data_t *data = ocf_io_get_data(io);
 	uint64_t io_start_page = BYTES_TO_PAGES(io->addr);
 	uint64_t io_pages_count = BYTES_TO_PAGES(io->bytes);
 	uint64_t io_end_page = io_start_page + io_pages_count - 1;
-	ocf_end_io_t io_cmpl = req->master_io_req;
 	enum ocf_metadata_segment_id update_segments[] = {
 		metadata_segment_sb_config,
 		metadata_segment_collision,
@@ -58,13 +57,14 @@ static int passive_io_resume(struct ocf_request *req)
 		overlap_page = overlap_start - raw_start_page;
 		overlap_count = overlap_end - overlap_start + 1;
 
-		ctx_data_seek(cache->owner, data, ctx_data_seek_begin,
+		ctx_data_seek(cache->owner, req->data, ctx_data_seek_begin,
 				PAGES_TO_BYTES(overlap_start_data));
-		ocf_metadata_raw_update(cache, raw, data, overlap_page, overlap_count);
+		ocf_metadata_raw_update(cache, raw, req->data, overlap_page,
+				overlap_count);
 	}
 
 	ocf_pio_async_unlock(req->cache->standby.concurrency, req);
-	io_cmpl(io, 0);
+	master->complete(master, 0);
 	env_allocator_del(cache->standby.allocator, req);
 	return 0;
 }
@@ -74,29 +74,30 @@ static void passive_io_page_lock_acquired(struct ocf_request *req)
 	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
 
-int ocf_metadata_passive_update(ocf_cache_t cache, struct ocf_io *io,
-		ocf_end_io_t io_cmpl)
+int ocf_metadata_passive_update(struct ocf_request *master)
 {
+	ocf_cache_t cache = master->cache;
 	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
-	struct ocf_request *req;
+	struct ocf_io *io = &master->ioi.io;
 	uint64_t io_start_page = BYTES_TO_PAGES(io->addr);
 	uint64_t io_end_page = io_start_page + BYTES_TO_PAGES(io->bytes);
+	struct ocf_request *req;
 	int lock = 0;
 
 	if (io->dir == OCF_READ) {
-		io_cmpl(io, 0);
+		master->complete(master, 0);
 		return 0;
 	}
 
 	if (io_start_page >= ctrl->count_pages) {
-		io_cmpl(io, 0);
+		master->complete(master, 0);
 		return 0;
 	}
 
 	if (io->addr % PAGE_SIZE || io->bytes % PAGE_SIZE) {
 		ocf_cache_log(cache, log_warn,
 				"Metadata update not aligned to page size!\n");
-		io_cmpl(io, -OCF_ERR_INVAL);
+		master->complete(master, -OCF_ERR_INVAL);
 		return -OCF_ERR_INVAL;
 	}
 
@@ -104,13 +105,13 @@ int ocf_metadata_passive_update(ocf_cache_t cache, struct ocf_io *io,
 		//FIXME handle greater IOs
 		ocf_cache_log(cache, log_warn,
 				"IO size exceedes max supported size!\n");
-		io_cmpl(io, -OCF_ERR_INVAL);
+		master->complete(master, -OCF_ERR_INVAL);
 		return -OCF_ERR_INVAL;
 	}
 
 	req = (struct ocf_request*)env_allocator_new(cache->standby.allocator);
 	if (!req) {
-		io_cmpl(io, -OCF_ERR_NO_MEM);
+		master->complete(master, -OCF_ERR_NO_MEM);
 		return -OCF_ERR_NO_MEM;
 	}
 
@@ -118,8 +119,8 @@ int ocf_metadata_passive_update(ocf_cache_t cache, struct ocf_io *io,
 	req->info.internal = true;
 	req->engine_handler = passive_io_resume;
 	req->rw = OCF_WRITE;
-	req->data = io;
-	req->master_io_req = io_cmpl;
+	req->master_io_req = master;
+	req->data = master->data;
 	req->cache = cache;
 	env_atomic_set(&req->lock_remaining, 0);
 
@@ -131,7 +132,7 @@ int ocf_metadata_passive_update(ocf_cache_t cache, struct ocf_io *io,
 			req, passive_io_page_lock_acquired);
 	if (lock < 0) {
 		env_allocator_del(cache->standby.allocator, req);
-		io_cmpl(io, lock);
+		master->complete(master, lock);
 		return lock;
 	}
 
