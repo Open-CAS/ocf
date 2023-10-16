@@ -291,6 +291,44 @@ void ocf_composite_forward_metadata(ocf_volume_t cvolume,
 	ocf_forward_end(token, 0);
 }
 
+void ocf_composite_forward_io_simple(ocf_volume_t cvolume,
+		ocf_forward_token_t token, int dir,
+		uint64_t addr, uint64_t bytes)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	uint64_t caddr;
+	int i;
+
+	ENV_BUG_ON(addr >= composite->length);
+	ENV_BUG_ON(addr + bytes > composite->length);
+
+	caddr = addr;
+
+	for (i = 0; i < composite->members_cnt; i++) {
+		if (addr >= composite->end_addr[i])
+			continue;
+
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_forward_end(token, -OCF_ERR_IO);
+			return;
+		}
+
+		addr = addr - (i > 0 ? composite->end_addr[i-1] : 0);
+		break;
+	}
+
+	if (caddr + bytes > composite->end_addr[i]) {
+		ocf_forward_end(token, -OCF_ERR_IO);
+		return;
+	}
+
+	ocf_forward_io_simple(&composite->member[i].volume, token,
+			dir, addr, bytes);
+
+	/* Put io forward counter to account for the original forward */
+	ocf_forward_end(token, 0);
+}
+
 /* *** VOLUME OPS *** */
 
 static int ocf_composite_volume_open(ocf_volume_t cvolume, void *volume_params)
@@ -414,6 +452,7 @@ const struct ocf_volume_properties ocf_composite_volume_properties = {
 		.forward_discard = ocf_composite_forward_discard,
 		.forward_write_zeros = ocf_composite_forward_write_zeros,
 		.forward_metadata = ocf_composite_forward_metadata,
+		.forward_io_simple = ocf_composite_forward_io_simple,
 
 		.open = ocf_composite_volume_open,
 		.close = ocf_composite_volume_close,
