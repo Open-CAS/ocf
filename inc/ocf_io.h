@@ -338,6 +338,22 @@ void ocf_forward_metadata(ocf_volume_t volume, ocf_forward_token_t token,
 		int dir, uint64_t addr, uint64_t bytes, uint64_t offset);
 
 /**
+ * @brief Forward io simple to another subvolume
+ *
+ * Forwarding automatically increases forwarded io refcount, so at some
+ * point additional ocf_forward_end() needs to be called to balance it.
+ *
+ * @param[in] token Forward token
+ * @param[in] volume Volume to which IO is being submitted
+ * @param[in] token Token representing IO to be forwarded
+ * @param[in] dir Direction OCF_READ/OCF_WRITE
+ * @param[in] addr Address to which IO is being submitted
+ * @param[in] bytes Length of the IO
+ */
+void ocf_forward_io_simple(ocf_volume_t volume, ocf_forward_token_t token,
+		int dir, uint64_t addr, uint64_t bytes);
+
+/**
  * @brief Increment forwarded io refcount
  *
  * @param[in] token Forward token
