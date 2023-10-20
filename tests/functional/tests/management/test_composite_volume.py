@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -43,6 +44,184 @@ def test_create_composite_volume(pyocf_ctx):
     cvol = CVolume(pyocf_ctx)
     vol = RamVolume(S.from_MiB(1))
     cvol.add(vol)
+    cvol.destroy()
+
+
+def test_composite_reattach_twice_neg(pyocf_ctx):
+    """
+    title: Try to attach attached mebmer
+    description: |
+      Check that it is not possible to attach volume to attached member
+    """
+    cvol = CVolume(pyocf_ctx)
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+    cvol.add(vols[2])
+
+    cvol.open()
+
+    new_vol = RamVolume(S.from_MiB(2))
+
+    with pytest.raises(
+            OcfError,
+            match="Attaching member to composite failed. Member already attached",
+            ):
+        cvol.attach_member(new_vol, 1)
+
+    cvol.close()
+
+    cvol.destroy()
+
+
+def test_composite_attach_uninitialized_neg(pyocf_ctx):
+    """
+    title: Try to attach uninitialized subvolume
+    description: |
+      Check that it is not possible to attach uninitalized composite member
+    """
+    cvol = CVolume(pyocf_ctx)
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+    cvol.add(vols[2])
+
+    cvol.open()
+
+    cvol.detach_member(1)
+
+    new_vol = RamVolume(S.from_MiB(2))
+
+    for subvol_id in range(3, 16):
+        with pytest.raises(
+                OcfError,
+                match="Attaching member to composite failed. Uninitialised member.",
+                ):
+            cvol.attach_member(new_vol, subvol_id)
+
+    cvol.close()
+
+    cvol.destroy()
+
+
+@pytest.mark.parametrize("member_id", [0, 1, 2])
+def test_composite_dettach_member_twice_neg(pyocf_ctx, member_id):
+    """
+    title: Try to reattach subvolume to complete composite volume
+    description: |
+      Check that it is not possible to attach member to composite volume without detaching
+      any member first
+    """
+    cvol = CVolume(pyocf_ctx)
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+    cvol.add(vols[2])
+
+    cvol.open()
+
+    cvol.detach_member(member_id)
+
+    with pytest.raises(
+            OcfError,
+            match="Detaching member from composite failed. Member already detached",
+            ):
+        cvol.detach_member(member_id)
+
+    cvol.close()
+
+    cvol.destroy()
+
+def test_composite_reattach_different_size_neg(pyocf_ctx):
+    """
+    title: Try to reattach subvolumes of size different than original
+    description: |
+      Check that it is not possible to attach volume of different size than the originally
+      detach size
+    """
+    cvol = CVolume(pyocf_ctx)
+    original_size = S.from_MiB(5)
+    vols = [RamVolume(original_size), RamVolume(S.from_MiB(2))]
+    invalid_vols = [
+            RamVolume(S.from_MiB(1)),
+            RamVolume(original_size + S.from_B(1)),
+            RamVolume(original_size - S.from_B(1)),
+            RamVolume(original_size + S.from_B(512)),
+            RamVolume(original_size - S.from_B(512)),
+            RamVolume(original_size + S.from_B(4096)),
+            RamVolume(original_size - S.from_B(4096)),
+    ]
+
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+
+    cvol.open()
+
+    member_id = 0
+    cvol.detach_member(member_id)
+
+    for invalid_vol in invalid_vols:
+        with pytest.raises(OcfError,
+                match="Attaching member to composite failed. Invalid size.",
+                ):
+            cvol.attach_member(invalid_vol, member_id)
+
+    cvol.close()
+
+    cvol.destroy()
+
+
+@pytest.mark.parametrize("member_id", [0, 1, 2])
+def test_composite_reattach_member(pyocf_ctx, member_id):
+    """
+    title: Detach member from composite volume
+    description: |
+      Check that it is possible to detach member for composite volume
+    """
+    cvol = CVolume(pyocf_ctx)
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+    cvol.add(vols[2])
+
+    cvol.open()
+
+    new_vol = RamVolume(S.from_MiB(2))
+
+    cvol.detach_member(member_id)
+    cvol.attach_member(new_vol, member_id)
+
+    cvol.close()
+
+    cvol.destroy()
+
+
+def test_composite_reattach_members(pyocf_ctx):
+    """
+    title: Detach multiple subvolumes from composite
+    description: |
+      Check that it is possible to reattach multiple members to composite volume
+    """
+    cvol = CVolume(pyocf_ctx)
+
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+    cvol.add(vols[2])
+
+    cvol.open()
+
+    cvol.detach_member(0)
+    cvol.detach_member(1)
+    cvol.detach_member(2)
+
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.attach_member(vols[0], 0)
+    cvol.attach_member(vols[1], 1)
+    cvol.attach_member(vols[2], 2)
+
+    cvol.close()
+
     cvol.destroy()
 
 
