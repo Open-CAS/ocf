@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -471,7 +472,7 @@ def test_io_propagation_multiple_subvolumes(pyocf_ctx, rand_seed):
 
         # I/O addres range start/end offsets within a subvolume
         start_offset = S.from_B(random.randint(0, vol_size.B // 512 - 1) * 512)
-        end_offset = S.from_B(random.randint(0, vol_size.B // 512 - 1) * 512)
+        end_offset = S.from_B(random.randint(1, vol_size.B // 512 - 1) * 512)
 
         size = (vol_size - start_offset) + (subvol_count - 2) * vol_size + end_offset
         addr = first_idx * vol_size + start_offset
