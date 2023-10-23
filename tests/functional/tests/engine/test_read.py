@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -187,7 +188,7 @@ def print_test_case(
 
 @pytest.mark.parametrize("cacheline_size", CacheLineSize)
 @pytest.mark.parametrize("cache_mode", CacheMode)
-@pytest.mark.parametrize("rand_seed", [datetime.now()])
+@pytest.mark.parametrize("rand_seed", [datetime.now().timestamp()])
 def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed):
     CACHELINE_COUNT = 9
     SECTOR_SIZE = Size.from_sector(1).B
