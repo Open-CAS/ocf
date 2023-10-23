@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -14,7 +15,7 @@
 #include "../ocf_def_priv.h"
 #include "../cleaning/cleaning_ops.h"
 
-static ocf_seq_no_t _ocf_mngt_get_core_seq_no(ocf_cache_t cache)
+ocf_seq_no_t ocf_mngt_get_core_seq_no(ocf_cache_t cache)
 {
 	if (cache->conf_meta->curr_core_seq_no == OCF_SEQ_NO_MAX)
 		return OCF_SEQ_NO_INVALID;
@@ -482,7 +483,7 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 
 	/* Add core sequence number for atomic metadata matching */
 	if (ocf_volume_is_atomic(&cache->device->volume)) {
-		core_sequence_no = _ocf_mngt_get_core_seq_no(cache);
+		core_sequence_no = ocf_mngt_get_core_seq_no(cache);
 		if (core_sequence_no == OCF_SEQ_NO_INVALID)
 			OCF_PL_FINISH_RET(pipeline, -OCF_ERR_TOO_MANY_CORES);
 	}

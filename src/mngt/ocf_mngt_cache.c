@@ -1661,6 +1661,29 @@ static void _ocf_mngt_load_superblock(ocf_pipeline_t pipeline,
 	}
 }
 
+static void _ocf_mngt_attach_update_cores_atomic(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	ocf_seq_no_t core_sequence_no = 0;
+
+	cache->conf_meta->curr_core_seq_no = 0;
+
+	if (!ocf_volume_is_atomic(ocf_cache_get_volume(cache)))
+			OCF_PL_NEXT_RET(pipeline);
+
+	for_each_core_metadata(cache, core, core_id) {
+		core_sequence_no = ocf_mngt_get_core_seq_no(cache);
+		if (core_sequence_no == OCF_SEQ_NO_INVALID)
+			OCF_PL_FINISH_RET(pipeline, -OCF_ERR_TOO_MANY_CORES);
+
+		core->conf_meta->seq_no = core_sequence_no;
+	}
+}
+
 static void _ocf_mngt_init_cleaner(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -1927,6 +1950,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_attach_check_ram),
 		OCF_PL_STEP(_ocf_mngt_attach_prepare_metadata),
 		OCF_PL_STEP(_ocf_mngt_test_volume),
+		OCF_PL_STEP(_ocf_mngt_attach_update_cores_atomic),
 		OCF_PL_STEP(_ocf_mngt_init_cleaner),
 		OCF_PL_STEP(_ocf_mngt_init_promotion),
 		OCF_PL_STEP(_ocf_mngt_attach_init_metadata),
