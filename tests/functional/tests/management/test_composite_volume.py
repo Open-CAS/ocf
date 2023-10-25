@@ -7,19 +7,23 @@
 
 import pytest
 import random
+import time
 from ctypes import POINTER, c_int, cast, c_void_p
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import Event
 from collections import namedtuple
 
 from pyocf.ocf import OcfLib
 from pyocf.types.volume import RamVolume, ErrorDevice, TraceDevice, IoFlags
 from pyocf.types.cvolume import CVolume
+from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
-from pyocf.types.cache import Cache
+from pyocf.types.io import IoDir, Sync
+from pyocf.types.cache import Cache, CacheMode
+from pyocf.types.core import Core
 from pyocf.types.shared import OcfError, OcfErrorCode, OcfCompletion
 from pyocf.utils import Size as S
+from pyocf.rio import Rio, ReadWrite
 
 
 def test_create_composite_volume(pyocf_ctx):
@@ -989,3 +993,235 @@ def test_load(pyocf_ctx):
 
     cache.stop()
     assert Cache.get_by_name("cache1", pyocf_ctx) != 0, "Try getting cache after stopping it"
+
+
+@pytest.mark.parametrize("member_id", [0, 1, 2])
+def test_composite_detach_attach_cache_member(pyocf_ctx, member_id):
+    """
+    title: Detach and attach composite cache member
+    description: |
+      Check that it is possible to detach subvolumes from running composite
+        cache instance
+    pass_criteria:
+      - Composite volume is created w/o an error
+      - Composite subvolume is detached w/o error
+      - Composite subvolume is attached w/o error
+    steps:
+      - Create composite volume
+      - Add 3 RamVolume instances as subvolumes.
+      - Start cache and attach it using composite volume instance.
+      - Detach one subvolume from the composite cache
+      - Attach the missing subvolume to the composite cache
+    """
+
+    cvol = CVolume(pyocf_ctx)
+
+    composite_subvols = [
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40))
+            ]
+    for subvol in composite_subvols:
+        cvol.add(subvol)
+
+    cache = Cache(owner=pyocf_ctx).start_on_device(cvol, metadata_volatile=True)
+
+    cache.detach_composite_member(composite_subvols[member_id])
+    cache.attach_composite_member(composite_subvols[member_id], member_id)
+
+
+def test_composite_ops_nonvolatile_metadata_neg(pyocf_ctx):
+    """
+    title: Block composite attach and detach in non-volatile MD mode
+    description: |
+      Check if is blocked to attach and detach composite members in
+        non-volatile metadata mode
+    pass_criteria:
+      - Composite cache is created w/o an error
+      - Detaching composite volume fails
+      - Attaching composite volume fails
+      - OCF doesn't crash
+    """
+
+    cvol = CVolume(pyocf_ctx)
+
+    composite_subvols = [
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40))
+            ]
+    for subvol in composite_subvols:
+        cvol.add(subvol)
+
+    cache = Cache(owner=pyocf_ctx).start_on_device(cvol, metadata_volatile=False)
+
+    attached_vol = RamVolume(S.from_MiB(40))
+
+    with pytest.raises(OcfError, match="Detaching composite cache member failed"):
+        cache.detach_composite_member(composite_subvols[0])
+
+    with pytest.raises(OcfError, match="Attaching composite cache member failed"):
+        cache.attach_composite_member(attached_vol, 0)
+
+
+@pytest.mark.parametrize("member_id", [0, 1, 2])
+def test_composite_stop_detached(pyocf_ctx, member_id):
+    """
+    title: Detach and attach composite cache member
+    description: |
+      Check that it is possible to detach subvolumes from running composite
+        cache instance
+    pass_criteria:
+      - Composite volume is created w/o an error
+      - Composite subvolume is detached w/o error
+      - Cache is stopped w/o error
+    steps:
+      - Create composite volume
+      - Add 3 RamVolume instances as subvolumes.
+      - Start cache and attach it using composite volume instance.
+      - Detach one subvolume from the composite cache
+      - Attach the missing subvolume to the composite cache
+    """
+
+    cvol = CVolume(pyocf_ctx)
+
+    composite_subvols = [
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40))
+            ]
+    for subvol in composite_subvols:
+        cvol.add(subvol)
+
+    cache = Cache(owner=pyocf_ctx).start_on_device(cvol, metadata_volatile=True)
+
+    cache.detach_composite_member(composite_subvols[member_id])
+
+    cache.stop()
+
+
+def test_composite_detach_dirty(pyocf_ctx):
+    """
+    title: Detach and attach composite cache member
+    description: |
+      Check that it is possible to detach subvolumes from running composite
+        cache instance
+    pass_criteria:
+      - Composite volume is created w/o an error
+      - Composite subvolume is detached w/o error
+      - Cache is stopped w/o error
+    steps:
+      - Create composite volume
+      - Add 3 RamVolume instances as subvolumes.
+      - Start cache and attach it using composite volume instance.
+      - Detach one subvolume from the composite cache
+      - Attach the missing subvolume to the composite cache
+    """
+    core_size = S.from_MiB(60)
+    core_dev = RamVolume(core_size)
+    cvol = CVolume(pyocf_ctx)
+
+    core = Core.using_device(core_dev)
+
+    composite_subvols = [
+            RamVolume(S.from_MiB(20)),
+            RamVolume(S.from_MiB(20)),
+            ]
+    for subvol in composite_subvols:
+        cvol.add(subvol)
+
+    cache = Cache(owner=pyocf_ctx).start_on_device(
+            cvol,
+            metadata_volatile=True,
+            cache_mode=CacheMode.WB
+            )
+
+    cache.add_core(core)
+    core_vol = CoreVolume(core)
+    core_vol.open()
+    queue = cache.get_default_queue()
+
+    r = (
+            Rio()
+            .target(core_vol)
+            .njobs(10)
+            .bs(S.from_KiB(4))
+            .readwrite(ReadWrite.RANDWRITE)
+            .size(core_dev.size)
+            .time_based()
+            .time(timedelta(seconds=10))
+            .qd(10)
+            .run_async([queue])
+        )
+
+    time.sleep(3)
+
+    cache.detach_composite_member(composite_subvols[0])
+
+    r.abort()
+
+    cache.stop()
+
+@pytest.mark.parametrize("member_id", [0, 1, 2])
+def test_composite_detach_attach_read(pyocf_ctx, member_id):
+    """
+    title: Detach and attach composite cache member
+    description: |
+      Check that it is possible to detach subvolumes from running composite
+        cache instance
+    pass_criteria:
+      - Composite volume is created w/o an errors
+      - Composite subvolume is detached w/o errors
+      - Composite subvolume is attached w/o errors
+    steps:
+      - Create composite volume
+      - Add 3 RamVolume instances as subvolumes.
+      - Start cache and attach it using composite volume instance.
+      - Add core bigger than cache
+      - Fill cache with data
+      - Get md5 of core backend volume
+      - Detach one subvolume from the composite cache
+      - Check if core's md5 matches the device's md5
+      - Attach the missing subvolume to the composite cache
+      - Check if core's md5 matches the device's md5
+    """
+    core_size = S.from_MiB(105)
+    cvol = CVolume(pyocf_ctx)
+    core_dev = RamVolume(core_size)
+
+    composite_subvols = [
+            RamVolume(S.from_MiB(70)),
+            RamVolume(S.from_MiB(15)),
+            RamVolume(S.from_MiB(15))
+            ]
+    for subvol in composite_subvols:
+        cvol.add(subvol)
+
+    # TODO make the test work with non volatile metadata
+    cache = Cache(owner=pyocf_ctx).start_on_device(cvol, metadata_volatile=True)
+    core = Core.using_device(core_dev)
+    cache.add_core(core)
+
+    cache_size_4k = cache.get_stats()['conf']['size'].blocks_4k
+
+    queue = cache.get_default_queue()
+    core_vol = CoreVolume(core)
+    core_vol.open()
+
+    io_size = S.from_KiB(4)
+    pattern = b'0123456789abcdef'
+    data_str = pattern * (io_size.B // len(pattern))
+    for i in range(core_size//io_size):
+        write_io = core_vol.new_io(queue, i * io_size, io_size, IoDir.WRITE, 0, 0)
+        write_data = Data(io_size)
+        write_data.write(data_str, io_size)
+        write_io.set_data(write_data)
+        write_cmpl = Sync(write_io).submit()
+        assert int(write_cmpl.results["err"]) == 0
+
+    original_md5 = core_vol.md5()
+    cache.detach_composite_member(composite_subvols[member_id])
+    assert core_vol.md5() == original_md5
+
+    cache.attach_composite_member(composite_subvols[member_id], member_id)
+    assert core_vol.md5() == original_md5
