@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -19,6 +20,7 @@ struct ocf_volume_extended {
 struct ocf_volume_type {
 	const struct ocf_volume_properties *properties;
 	struct ocf_io_allocator allocator;
+	ocf_ctx_t owner;
 };
 
 struct ocf_volume {
@@ -39,7 +41,7 @@ struct ocf_volume {
 	struct env_refcnt refcnt;
 } __attribute__((aligned(64)));
 
-int ocf_volume_type_init(struct ocf_volume_type **type,
+int ocf_volume_type_init(struct ocf_volume_type **type, ocf_ctx_t ctx,
 		const struct ocf_volume_properties *properties,
 		const struct ocf_volume_extended *extended);
 

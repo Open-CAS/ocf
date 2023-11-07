@@ -33,7 +33,7 @@ int ocf_uuid_set_str(ocf_uuid_t uuid, char *str)
  * Volume type
  */
 
-int ocf_volume_type_init(struct ocf_volume_type **type,
+int ocf_volume_type_init(struct ocf_volume_type **type, ocf_ctx_t ctx,
 		const struct ocf_volume_properties *properties,
 		const struct ocf_volume_extended *extended)
 {
@@ -65,6 +65,7 @@ int ocf_volume_type_init(struct ocf_volume_type **type,
 		goto err;
 
 	new_type->properties = properties;
+	new_type->owner = ctx;
 
 	*type = new_type;
 
