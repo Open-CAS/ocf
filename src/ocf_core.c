@@ -57,9 +57,6 @@ int ocf_core_get_by_name(ocf_cache_t cache, const char *name, size_t name_len,
 	ocf_core_t i_core;
 	ocf_core_id_t i_core_id;
 
-	if (ocf_cache_is_standby(cache))
-		return -OCF_ERR_CACHE_STANDBY;
-
 	for_each_core(cache, i_core, i_core_id) {
 		if (!env_strncmp(ocf_core_get_name(i_core), OCF_CORE_NAME_SIZE,
 				name, name_len)) {
@@ -409,10 +406,29 @@ static void ocf_core_volume_submit_discard(ocf_io_t io)
 static int ocf_core_volume_open(ocf_volume_t volume, void *volume_params)
 {
 	struct ocf_core_volume *core_volume = ocf_volume_get_priv(volume);
+	ocf_ctx_t ctx = ocf_volume_get_type(volume)->owner;
 	const struct ocf_volume_uuid *uuid = ocf_volume_get_uuid(volume);
-	ocf_core_t core = (ocf_core_t)uuid->data;
+	const struct ocf_core_volume_uuid *core_uuid =
+			(struct ocf_core_volume_uuid *)uuid->data;
+	ocf_cache_t cache;
+	ocf_core_t core;
+	int result;
+
+	result = ocf_mngt_cache_get_by_name(ctx, core_uuid->cache_name,
+			OCF_CACHE_NAME_SIZE, &cache);
+	if (result)
+		return result;
+
+	result = ocf_core_get_by_name(cache, core_uuid->core_name,
+			OCF_CORE_NAME_SIZE, &core);
+	if (result) {
+		ocf_mngt_cache_put(cache);
+		return result;
+	}
 
 	core_volume->core = core;
+
+	ocf_mngt_cache_put(cache);
 
 	return 0;
 }

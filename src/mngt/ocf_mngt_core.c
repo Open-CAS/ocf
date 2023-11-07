@@ -225,18 +225,29 @@ int ocf_mngt_core_init_front_volume(ocf_core_t core)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	ocf_volume_type_t type;
+	struct ocf_core_volume_uuid core_uuid = {0};
 	struct ocf_volume_uuid uuid = {
-		.data = core,
-		.size = sizeof(core),
+		.data = &core_uuid,
+		.size = sizeof(core_uuid),
 	};
 	int ret;
+
+	ret = env_memcpy(&core_uuid.cache_name, OCF_CACHE_NAME_SIZE,
+			ocf_cache_get_name(cache), OCF_CACHE_NAME_SIZE);
+	if (ret)
+		return -OCF_ERR_INVAL;
+
+	ret = env_memcpy(&core_uuid.core_name, OCF_CORE_NAME_SIZE,
+			ocf_core_get_name(core), OCF_CORE_NAME_SIZE);
+	if (ret)
+		return -OCF_ERR_INVAL;
 
 	type = ocf_ctx_get_volume_type_internal(cache->owner,
 			OCF_VOLUME_TYPE_CORE);
 	if (!type)
 		return -OCF_ERR_INVAL;
 
-	ret = ocf_volume_init(&core->front_volume, type, &uuid, false);
+	ret = ocf_volume_init(&core->front_volume, type, &uuid, true);
 	if (ret)
 		return ret;
 
