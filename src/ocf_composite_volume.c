@@ -336,58 +336,8 @@ static void ocf_composite_volume_on_deinit(ocf_volume_t cvolume)
 		ocf_volume_deinit(&composite->member[i].volume);
 }
 
-const struct ocf_volume_properties ocf_composite_volume_properties = {
-	.name = "OCF Composite",
-	.volume_priv_size = sizeof(struct ocf_composite_volume),
-	.caps = {
-		.atomic_writes = 0,
-		.composite_volume = 1,
-	},
-	.ops = {
-		.forward_io = ocf_composite_forward_io,
-		.forward_flush = ocf_composite_forward_flush,
-		.forward_discard = ocf_composite_forward_discard,
-		.forward_write_zeros = ocf_composite_forward_write_zeros,
-		.forward_metadata = ocf_composite_forward_metadata,
-		.forward_io_simple = ocf_composite_forward_io_simple,
-
-		.open = ocf_composite_volume_open,
-		.close = ocf_composite_volume_close,
-		.get_max_io_size = ocf_composite_volume_get_max_io_size,
-		.get_length = ocf_composite_volume_get_byte_length,
-
-		.on_init = ocf_composite_volume_on_init,
-		.on_deinit = ocf_composite_volume_on_deinit,
-	},
-	.deinit = NULL,
-};
-
-int ocf_composite_volume_type_init(ocf_ctx_t ctx)
-{
-	return ocf_ctx_register_volume_type_internal(ctx,
-			OCF_VOLUME_TYPE_COMPOSITE,
-			&ocf_composite_volume_properties, NULL);
-}
-
-int ocf_composite_volume_create(ocf_composite_volume_t *volume, ocf_ctx_t ctx)
-{
-	ocf_volume_type_t type;
-
-	type = ocf_ctx_get_volume_type_internal(ctx, OCF_VOLUME_TYPE_COMPOSITE);
-	if (!type)
-		return -OCF_ERR_INVAL;
-
-	return ocf_volume_create(volume, type, NULL);
-}
-
-void ocf_composite_volume_destroy(ocf_composite_volume_t cvolume)
-{
-	ocf_volume_destroy(cvolume);
-}
-
-int ocf_composite_volume_add(ocf_composite_volume_t cvolume,
-		ocf_volume_type_t type, struct ocf_volume_uuid *uuid,
-		void *volume_params)
+static int composite_volume_add(ocf_volume_t cvolume, ocf_volume_type_t type,
+		struct ocf_volume_uuid *uuid, void *volume_params)
 {
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
 	ocf_volume_t volume;
@@ -419,6 +369,57 @@ int ocf_composite_volume_add(ocf_composite_volume_t cvolume,
 	composite->members_cnt++;
 
 	return 0;
+}
+
+const struct ocf_volume_properties ocf_composite_volume_properties = {
+	.name = "OCF Composite",
+	.volume_priv_size = sizeof(struct ocf_composite_volume),
+	.caps = {
+		.atomic_writes = 0,
+		.composite_volume = 1,
+	},
+	.ops = {
+		.forward_io = ocf_composite_forward_io,
+		.forward_flush = ocf_composite_forward_flush,
+		.forward_discard = ocf_composite_forward_discard,
+		.forward_write_zeros = ocf_composite_forward_write_zeros,
+		.forward_metadata = ocf_composite_forward_metadata,
+		.forward_io_simple = ocf_composite_forward_io_simple,
+
+		.open = ocf_composite_volume_open,
+		.close = ocf_composite_volume_close,
+		.get_max_io_size = ocf_composite_volume_get_max_io_size,
+		.get_length = ocf_composite_volume_get_byte_length,
+
+		.on_init = ocf_composite_volume_on_init,
+		.on_deinit = ocf_composite_volume_on_deinit,
+
+		.composite_volume_add = composite_volume_add,
+	},
+	.deinit = NULL,
+};
+
+int ocf_composite_volume_type_init(ocf_ctx_t ctx)
+{
+	return ocf_ctx_register_volume_type_internal(ctx,
+			OCF_VOLUME_TYPE_COMPOSITE,
+			&ocf_composite_volume_properties, NULL);
+}
+
+int ocf_composite_volume_create(ocf_composite_volume_t *volume, ocf_ctx_t ctx)
+{
+	ocf_volume_type_t type;
+
+	type = ocf_ctx_get_volume_type_internal(ctx, OCF_VOLUME_TYPE_COMPOSITE);
+	if (!type)
+		return -OCF_ERR_INVAL;
+
+	return ocf_volume_create(volume, type, NULL);
+}
+
+void ocf_composite_volume_destroy(ocf_composite_volume_t cvolume)
+{
+	ocf_volume_destroy(cvolume);
 }
 
 int ocf_composite_volume_member_visit(ocf_composite_volume_t cvolume,
