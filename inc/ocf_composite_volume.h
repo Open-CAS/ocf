@@ -42,20 +42,6 @@ int ocf_composite_volume_create(ocf_composite_volume_t *cvolume, ocf_ctx_t ctx);
  */
 void ocf_composite_volume_destroy(ocf_composite_volume_t cvolume);
 
-/**
- * @brief Add subvolume to composite volume
- *
- * @param[in] cvolume composite volume handle
- * @param[in] type type of added subvolume
- * @param[in] uuid UUID of added subvolume
- * @param[in] volume_params params to be passed to subvolume open
- *
- * @return Zero when success, othewise an error
- */
-int ocf_composite_volume_add(ocf_composite_volume_t cvolume,
-		ocf_volume_type_t type, struct ocf_volume_uuid *uuid,
-		void *volume_params);
-
 typedef int (*ocf_composite_volume_member_visitor_t)(ocf_volume_t subvolume,
 		void *priv);
 

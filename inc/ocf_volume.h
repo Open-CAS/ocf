@@ -214,6 +214,20 @@ struct ocf_volume_ops {
 	 * @return Maximum io size in bytes
 	 */
 	unsigned int (*get_max_io_size)(ocf_volume_t volume);
+
+	/**
+	 * @brief Add subvolume to composite volume
+	 *
+	 * @param[in] volume composite volume handle
+	 * @param[in] type type of added subvolume
+	 * @param[in] uuid UUID of added subvolume
+	 * @param[in] volume_params params to be passed to subvolume open
+	 *
+	 * @return Zero when success, otherwise an error
+	 */
+	int (*composite_volume_add)(ocf_volume_t cvolume,
+			ocf_volume_type_t type, struct ocf_volume_uuid *uuid,
+			void *volume_params);
 };
 
 /**
@@ -413,6 +427,19 @@ void ocf_volume_close(ocf_volume_t volume);
  * @return Volume max io size in bytes
  */
 unsigned int ocf_volume_get_max_io_size(ocf_volume_t volume);
+
+/**
+ * @brief Add subvolume to composite volume
+ *
+ * @param[in] volume composite volume handle
+ * @param[in] type type of added subvolume
+ * @param[in] uuid UUID of added subvolume
+ * @param[in] volume_params params to be passed to subvolume open
+ *
+ * @return Zero when success, otherwise an error
+ */
+int ocf_composite_volume_add(ocf_volume_t volume, ocf_volume_type_t type,
+		struct ocf_volume_uuid *uuid, void *volume_params);
 
 /**
  * @brief Get volume length

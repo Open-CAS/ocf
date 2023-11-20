@@ -538,6 +538,21 @@ unsigned int ocf_volume_get_max_io_size(ocf_volume_t volume)
 	return volume->type->properties->ops.get_max_io_size(volume);
 }
 
+int ocf_composite_volume_add(ocf_volume_t volume, ocf_volume_type_t type,
+		struct ocf_volume_uuid *uuid, void *volume_params)
+{
+	if (!ocf_volume_is_composite(volume))
+		return -OCF_ERR_NOT_COMPOSITE_VOLUME;
+
+	ENV_BUG_ON(!volume->type->properties->ops.composite_volume_add);
+
+	if (volume->opened)
+		return -OCF_ERR_NOT_OPEN_EXC;
+
+	return volume->type->properties->ops.composite_volume_add(volume, type,
+			uuid, volume_params);
+}
+
 uint64_t ocf_volume_get_length(ocf_volume_t volume)
 {
 	ENV_BUG_ON(!volume->type->properties->ops.get_length);
