@@ -442,14 +442,33 @@ void ocf_composite_volume_destroy(ocf_composite_volume_t cvolume)
 }
 
 int ocf_composite_volume_member_visit(ocf_composite_volume_t cvolume,
-		ocf_composite_volume_member_visitor_t visitor, void *priv)
+		ocf_composite_volume_member_visitor_t visitor, void *priv,
+		ocf_composite_member_state_t svol_status)
 {
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
 	int i;
 	int res;
+	ocf_composite_member_state_t s;
 
-	for_each_composite_member_attached(composite, i) {
-		res = visitor(&composite->member[i].volume, priv);
+	if (svol_status != ocf_composite_member_state_attached &&
+			svol_status != ocf_composite_member_state_opened &&
+			svol_status != ocf_composite_member_state_detached &&
+			svol_status != ocf_composite_member_state_any) {
+		return -OCF_ERR_INVAL;
+	}
+
+	for_each_composite_member(composite, i) {
+		if (composite->member[i].detached)
+			s = ocf_composite_member_state_detached;
+		else if (composite->member[i].volume.opened)
+			s = ocf_composite_member_state_opened;
+		else
+			s = ocf_composite_member_state_attached;
+
+		if (!(s & svol_status))
+			continue;
+
+		res = visitor(&composite->member[i].volume, priv, s);
 		if (res != 0)
 			return res;
 	}
