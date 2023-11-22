@@ -601,6 +601,33 @@ class Cache:
                 c.results["error"],
             )
 
+    def detach_composite_member(self, volume):
+        uuid = Uuid(
+            _data=cast(create_string_buffer(volume.uuid.encode("ascii")), c_char_p),
+            _size=len(volume.uuid) + 1,
+        )
+
+        self.write_lock()
+
+        c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
+
+        lib.ocf_mngt_cache_detach_composite(
+            self.cache_handle,
+            c,
+            byref(uuid),
+            None,
+        )
+
+        c.wait()
+
+        self.write_unlock()
+
+        if c.results["error"]:
+            raise OcfError(
+                "Detaching composite cache member failed",
+                c.results["error"],
+            )
+
     def attach_device_async(
         self,
         device,
@@ -1171,3 +1198,5 @@ lib.ocf_volume_create.argtypes = [c_void_p, c_void_p, c_void_p]
 lib.ocf_volume_destroy.argtypes = [c_void_p]
 lib.ocf_mngt_cache_attach_composite.argtypes = [c_void_p, c_void_p, c_uint8, c_void_p, c_void_p, c_void_p, c_void_p]
 lib.ocf_mngt_cache_attach_composite.restype = None
+lib.ocf_mngt_cache_detach_composite.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p]
+lib.ocf_mngt_cache_detach_composite.restype = None
