@@ -88,6 +88,9 @@ typedef enum {
 	/** The target subvolume is already attached */
 	OCF_ERR_COMPOSITE_ATTACHED,
 
+	/** The target subvolume is already detached */
+	OCF_ERR_COMPOSITE_DETACHED,
+
 	/** The target subvolume has invalid size */
 	OCF_ERR_COMPOSITE_INVALID_SIZE,
 

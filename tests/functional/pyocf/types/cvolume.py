@@ -58,6 +58,32 @@ class CVolume(OcfInternalVolume):
         if ret != 0:
             raise OcfError("Failed to add volume to a composite volume", ret)
 
+    def detach_member(self, member_id):
+        ret = lib.ocf_composite_volume_detach_member(self.cvol, member_id)
+
+        if ret == 0:
+            return
+        elif ret == -OcfErrorCode.OCF_ERR_COMPOSITE_INVALID_ID:
+            raise OcfError(
+                    "Detaching member from composite failed. Invalid ID.",
+                    ret,
+                    )
+        elif ret == -OcfErrorCode.OCF_ERR_COMPOSITE_UNINITIALISED_VOLUME:
+            raise OcfError(
+                    "Detaching member from composite failed. Uninitialised member.",
+                    ret,
+                    )
+        elif ret == -OcfErrorCode.OCF_ERR_COMPOSITE_DETACHED:
+            raise OcfError(
+                    "Detaching member from composite failed. Member already detached",
+                    ret,
+                    )
+        else:
+            raise OcfError(
+                    "Detaching member from composite failed",
+                    ret,
+                    )
+
     def attach_member(self, vol, target_id):
         uuid = Uuid(
             _data=cast(create_string_buffer(vol.uuid.encode("ascii")), c_char_p),
@@ -126,6 +152,8 @@ lib.ocf_composite_volume_create.argtypes = [c_void_p, c_void_p]
 lib.ocf_composite_volume_destroy.argtypes = [c_void_p]
 lib.ocf_composite_volume_add.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p]
 lib.ocf_composite_volume_add.restype = c_int
+lib.ocf_composite_volume_detach_member.argtypes = [c_void_p, c_int]
+lib.ocf_composite_volume_detach_member.restype = c_int
 lib.ocf_composite_volume_attach_member.argtypes = [c_void_p, c_void_p, c_uint8, c_void_p, c_void_p]
 lib.ocf_composite_volume_attach_member.restype = c_int
 lib.ocf_volume_open.restype = c_int

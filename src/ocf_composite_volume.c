@@ -412,6 +412,41 @@ static int composite_volume_attach_member(ocf_volume_t cvolume,
 	return 0;
 }
 
+static int composite_volume_detach_member(ocf_volume_t cvolume,
+		uint8_t subvolume_id)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	ocf_ctx_t ctx = cvolume->type->owner;
+
+	if (subvolume_id >= OCF_COMPOSITE_VOLUME_MEMBERS_MAX) {
+		ocf_log(ctx, log_err, "Failed to detach subvolume from "
+				"the composite volume. Invalid subvolume "
+				"target id\n");
+		return -OCF_ERR_COMPOSITE_INVALID_ID;
+	}
+
+	if (subvolume_id >= composite->members_cnt) {
+		ocf_log(ctx, log_err, "Failed to detach subvolume from "
+				"the composite volume. Can't detach "
+				"uninitialized member\n");
+		return -OCF_ERR_COMPOSITE_UNINITIALISED_VOLUME;
+	}
+
+	if (composite->member[subvolume_id].detached) {
+		ocf_log(ctx, log_err, "Failed to detach subvolume from "
+				"the composite volume. The target member is "
+				"already detached\n");
+		return -OCF_ERR_COMPOSITE_DETACHED;
+	}
+
+	ocf_volume_close(&composite->member[subvolume_id].volume);
+
+	composite->member[subvolume_id].detached = true;
+	composite->member[subvolume_id].volume_params = NULL;
+
+	return 0;
+}
+
 static unsigned int ocf_composite_volume_get_max_io_size(ocf_volume_t cvolume)
 {
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
@@ -503,6 +538,8 @@ const struct ocf_volume_properties ocf_composite_volume_properties = {
 		.on_init = ocf_composite_volume_on_init,
 		.composite_volume_attach_member =
 			composite_volume_attach_member,
+		.composite_volume_detach_member =
+			composite_volume_detach_member,
 		.on_deinit = ocf_composite_volume_on_deinit,
 
 		.composite_volume_add = composite_volume_add,
