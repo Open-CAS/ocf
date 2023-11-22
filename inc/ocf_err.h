@@ -79,6 +79,18 @@ typedef enum {
 	/** The volume is not a composite */
 	OCF_ERR_NOT_COMPOSITE_VOLUME,
 
+	/** Invalid subvolume ID */
+	OCF_ERR_COMPOSITE_INVALID_ID,
+
+	/** The target subvolume isn't initialised */
+	OCF_ERR_COMPOSITE_UNINITIALISED_VOLUME,
+
+	/** The target subvolume is already attached */
+	OCF_ERR_COMPOSITE_ATTACHED,
+
+	/** The target subvolume has invalid size */
+	OCF_ERR_COMPOSITE_INVALID_SIZE,
+
 	/** Cache ID/name already exists */
 	OCF_ERR_CACHE_EXIST,
 

@@ -322,6 +322,96 @@ static void ocf_composite_volume_close(ocf_volume_t cvolume)
 		ocf_volume_close(&composite->member[i].volume);
 }
 
+#define get_subvolume_length(_composite, _id) \
+	(_id == 0 ? _composite->end_addr[_id] : \
+	_composite->end_addr[_id] - _composite->end_addr[_id - 1])
+
+static int composite_volume_attach_member(ocf_volume_t cvolume,
+		ocf_uuid_t uuid, uint8_t tgt_id, ocf_volume_type_t vol_type,
+		void *vol_params)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	ocf_ctx_t ctx = cvolume->type->owner;
+	struct ocf_volume new_vol = {};
+	uint64_t new_vol_size, tgt_vol_size;
+	unsigned new_vol_max_io_size;
+	int ret;
+
+	if (tgt_id >= OCF_COMPOSITE_VOLUME_MEMBERS_MAX) {
+		ocf_log(ctx, log_err, "Failed to attach subvolume to "
+				"the composite volume. Invalid subvolume "
+				"target id\n");
+		return -OCF_ERR_COMPOSITE_INVALID_ID;
+	}
+
+	if (tgt_id >= composite->members_cnt) {
+		ocf_log(ctx, log_err, "Failed to attach subvolume to "
+				"the composite volume. Can't attach to "
+				"uninitialized member\n");
+		return -OCF_ERR_COMPOSITE_UNINITIALISED_VOLUME;
+	}
+
+	if (!composite->member[tgt_id].detached) {
+		ocf_log(ctx, log_err, "Failed to attach subvolume to "
+				"the composite volume. The target member is "
+				"already attached\n");
+		return -OCF_ERR_COMPOSITE_ATTACHED;
+	}
+
+	ret = ocf_volume_init(&new_vol, vol_type, uuid, true);
+	if (ret)
+		return ret;
+
+	ret = ocf_volume_open(&new_vol, vol_params);
+	if (ret) {
+		ocf_volume_deinit(&new_vol);
+		return ret;
+	}
+
+	new_vol_size = ocf_volume_get_length(&new_vol);
+
+	new_vol_max_io_size = ocf_volume_get_max_io_size(&new_vol);
+
+	ocf_volume_close(&new_vol);
+
+	tgt_vol_size = get_subvolume_length(composite, tgt_id);
+
+	if (new_vol_size != tgt_vol_size) {
+		ocf_log(ctx, log_err, "Failed to attach subvolume to "
+				"the composite volume. The new subvolume must "
+				"be of size %"ENV_PRIu64" but "
+				"is %"ENV_PRIu64"\n", tgt_vol_size,
+				new_vol_size);
+		ocf_volume_deinit(&new_vol);
+		return -OCF_ERR_COMPOSITE_INVALID_SIZE;
+	}
+
+	if (composite->max_io_size > new_vol_max_io_size) {
+		ocf_log(ctx, log_err, "Failed to attach subvolume to the "
+				"composite volume. The max io size can't be "
+				"smaller than composite's max io size\n");
+		ocf_volume_deinit(&new_vol);
+		return -OCF_ERR_INVAL;
+	}
+
+	ocf_volume_move(&composite->member[tgt_id].volume, &new_vol);
+	ocf_volume_deinit(&new_vol);
+
+	if (cvolume->opened) {
+		ret = ocf_volume_open(&composite->member[tgt_id].volume,
+				vol_params);
+		if (ret) {
+			ocf_volume_deinit(&composite->member[tgt_id].volume);
+			return ret;
+		}
+	}
+
+	composite->member[tgt_id].detached = false;
+	composite->member[tgt_id].volume_params = vol_params;
+
+	return 0;
+}
+
 static unsigned int ocf_composite_volume_get_max_io_size(ocf_volume_t cvolume)
 {
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
@@ -411,6 +501,8 @@ const struct ocf_volume_properties ocf_composite_volume_properties = {
 		.get_length = ocf_composite_volume_get_byte_length,
 
 		.on_init = ocf_composite_volume_on_init,
+		.composite_volume_attach_member =
+			composite_volume_attach_member,
 		.on_deinit = ocf_composite_volume_on_deinit,
 
 		.composite_volume_add = composite_volume_add,
