@@ -42,8 +42,22 @@ int ocf_composite_volume_create(ocf_composite_volume_t *cvolume, ocf_ctx_t ctx);
  */
 void ocf_composite_volume_destroy(ocf_composite_volume_t cvolume);
 
+typedef enum {
+	ocf_composite_member_state_attached = 1,
+	/* If subvolume is opened it must be attached as well */
+	ocf_composite_member_state_opened = 3,
+	ocf_composite_member_state_detached = 4,
+	ocf_composite_member_state_any = 7,
+} ocf_composite_member_state_t;
+
+/**
+ * @param[in] subvolume Pointer to a subvolume
+ * @param[in] priv Priv
+ * @param[in] subvol_status flag with the info if current subvolume is opened,
+ *		attached or detached
+ */
 typedef int (*ocf_composite_volume_member_visitor_t)(ocf_volume_t subvolume,
-		void *priv);
+		void *priv, ocf_composite_member_state_t subvol_status);
 
 /**
  * @brief Call @visitor on every valid member of composite volume
@@ -51,11 +65,15 @@ typedef int (*ocf_composite_volume_member_visitor_t)(ocf_volume_t subvolume,
  * @param[in] cvolume composite volume handle
  * @param[in] visitor function callback
  * @param[in] priv pointer to be passed to the callback
+ * @param[in] subvol_status info whether iterate over
+ *		opened/attached/detached/all volumes
  *
- * @return subvolume in composite volume
+ * @return 0 if the visitor function was called for all subvolumes, error code
+ *		otherwise
  */
 int ocf_composite_volume_member_visit(ocf_composite_volume_t cvolume,
-		ocf_composite_volume_member_visitor_t visitor, void *priv);
+		ocf_composite_volume_member_visitor_t visitor, void *priv,
+		ocf_composite_member_state_t subvolume_status);
 
 /**
  * @brief Get subvolume by index in composite volume
