@@ -39,7 +39,7 @@ class IoOps(Structure):
 class Io(Structure):
     START = CFUNCTYPE(None, c_void_p)
     HANDLE = CFUNCTYPE(None, c_void_p, c_void_p)
-    END = CFUNCTYPE(None, c_void_p, c_int)
+    END = CFUNCTYPE(None, c_void_p, c_void_p, c_void_p, c_int)
 
     _instances_ = {}
     _fields_ = [
@@ -86,8 +86,8 @@ class Io(Structure):
 
     @staticmethod
     @END
-    def c_end(io, err):
-        Io.get_instance(io).end(err)
+    def c_end(io, priv1, priv2, err):
+        Io.get_instance(io).end(priv1, priv2, err)
 
     @staticmethod
     @START
@@ -99,7 +99,7 @@ class Io(Structure):
     def c_handle(io, opaque):
         Io.get_instance(io).handle(opaque)
 
-    def end(self, err):
+    def end(self, priv1, priv2, err):
         try:
             self.callback(err)
         except:  # noqa E722
