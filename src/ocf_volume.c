@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -507,4 +508,27 @@ uint64_t ocf_volume_get_length(ocf_volume_t volume)
 		return 0;
 
 	return volume->type->properties->ops.get_length(volume);
+}
+
+int ocf_uuid_compare(const struct ocf_volume_uuid * const a,
+		const struct ocf_volume_uuid * const b, int *diff)
+{
+	int ret, tmp_diff;
+
+	ret = env_memcmp(a->data, a->size, b->data, b->size, &tmp_diff);
+	if (ret)
+		return ret;
+
+	/*
+	 * env_memcmp() compares only min(slen1, slen2) bytes. If the sizes
+	 * differ, we continue comparison, assuming that any value is greater
+	 * than no value, i.e. if the first uuid is shorter, the diff is -1,
+	 * otherwise the diff is 1.
+	 */
+	if (tmp_diff || a->size == b->size)
+		*diff = tmp_diff;
+	else
+		*diff = (a->size < b->size) ? -1 : 1;
+
+	return 0;
 }
