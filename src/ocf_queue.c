@@ -48,6 +48,7 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 {
 	ocf_queue_t tmp_queue;
 	int result;
+	unsigned long flags = 0;
 
 	OCF_CHECK_NULL(cache);
 
@@ -68,7 +69,9 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 		return result;
 	}
 
+	env_spinlock_lock_irqsave(&cache->io_queues_lock, flags);
 	list_add(&tmp_queue->list, &cache->io_queues);
+	env_spinlock_unlock_irqrestore(&cache->io_queues_lock, flags);
 
 	*queue = tmp_queue;
 
@@ -112,18 +115,24 @@ void ocf_queue_get(ocf_queue_t queue)
 
 void ocf_queue_put(ocf_queue_t queue)
 {
+	ocf_cache_t cache = queue->cache;
+	unsigned long flags = 0;
+
 	OCF_CHECK_NULL(queue);
 
-	if (env_atomic_dec_return(&queue->ref_count) == 0) {
-		queue->ops->stop(queue);
-		if (queue != queue->cache->mngt_queue) {
-			list_del(&queue->list);
-			ocf_queue_seq_cutoff_deinit(queue);
-		}
-		ocf_mngt_cache_put(queue->cache);
-		env_spinlock_destroy(&queue->io_list_lock);
-		env_free(queue);
+	if (env_atomic_dec_return(&queue->ref_count))
+		return;
+
+	queue->ops->stop(queue);
+	if (queue != queue->cache->mngt_queue) {
+		env_spinlock_lock_irqsave(&cache->io_queues_lock, flags);
+		list_del(&queue->list);
+		env_spinlock_unlock_irqrestore(&cache->io_queues_lock, flags);
+		ocf_queue_seq_cutoff_deinit(queue);
 	}
+	ocf_mngt_cache_put(queue->cache);
+	env_spinlock_destroy(&queue->io_list_lock);
+	env_free(queue);
 }
 
 void ocf_io_handle(struct ocf_io *io, void *opaque)
