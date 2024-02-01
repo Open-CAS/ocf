@@ -192,6 +192,12 @@ struct ocf_request {
 	int error;
 	/*!< This filed indicates an error for OCF request */
 
+	int cache_error;
+	/*!< Indicator of forward IO cache device error */
+
+	int core_error;
+	/*!< Indicator of forward IO core device error */
+
 	ocf_part_id_t part_id;
 	/*!< Targeted partition of requests */
 
