@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta, datetime
 from itertools import cycle
 from threading import Thread, Condition, Event
-from copy import deepcopy
+import copy
 
 from pyocf.utils import Size
 from pyocf.types.volume import Volume
@@ -173,6 +173,11 @@ class Rio:
         self.errors = {}
         self.error_count = 0
 
+    def copy(self):
+        r = copy.copy(self)
+        r.global_jobspec = copy.copy(self.global_jobspec)
+        return r
+
     def readwrite(self, rw: ReadWrite):
         self.global_jobspec.readwrite = rw
         return self
@@ -269,7 +274,7 @@ class Rio:
     def run_async(self, queues):
         self.clear()
 
-        jobs = deepcopy(self.jobs)
+        jobs = copy.deepcopy(self.jobs)
 
         if not jobs:
             jobs = [self.global_jobspec for _ in range(self.global_jobspec.njobs)]
