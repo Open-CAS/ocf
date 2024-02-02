@@ -125,7 +125,7 @@ class Rio:
 
         def run(self):
             iogen = IoGen(
-                (self.jobspec.offset, self.jobspec.size - self.jobspec.offset),
+                (self.jobspec.offset, self.jobspec.size),
                 self.jobspec.bs,
                 self.jobspec.randseed + hash(self.name),
                 self.jobspec.readwrite.is_random(),
@@ -136,11 +136,9 @@ class Rio:
                 self.finish_time = datetime.now() + self.jobspec.time
             else:
                 if int(self.jobspec.io_size) != 0:
-                    self.io_target = min(
-                        self.jobspec.io_size, self.jobspec.size - self.jobspec.offset
-                    )
+                    self.io_target = min(self.jobspec.io_size, self.jobspec.size)
                 else:
-                    self.io_target = self.jobspec.size - self.jobspec.offset
+                    self.io_target = self.jobspec.size
 
             # TODO randrw
             iodir = (

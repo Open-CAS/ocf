@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -174,7 +175,7 @@ def test_promoted_after_hits_various_thresholds(pyocf_ctx, insertion_threshold, 
         .bs(Size(4096))
         .offset(last_core_line)
         .target(vol)
-        .size(Size(4096) + last_core_line)
+        .size(Size(4096))
     )
 
     for i in range(insertion_threshold - 1):
