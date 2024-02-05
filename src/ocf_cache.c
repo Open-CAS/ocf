@@ -15,6 +15,7 @@
 #include "ocf_cache_priv.h"
 #include "ocf_queue_priv.h"
 #include "utils/utils_stats.h"
+#include "ocf/ocf_debug.h"
 
 ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache)
 {
@@ -558,4 +559,10 @@ int ocf_cache_volume_type_init(ocf_ctx_t ctx)
 {
 	return ocf_ctx_register_volume_type_internal(ctx, OCF_VOLUME_TYPE_CACHE,
 			&ocf_cache_volume_properties, NULL);
+}
+
+bool ocf_dbg_cache_is_settled(ocf_cache_t cache)
+{
+	return ocf_refcnt_zeroed(&cache->refcnt.metadata) &&
+			ocf_refcnt_zeroed(&cache->refcnt.d2c);
 }
