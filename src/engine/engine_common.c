@@ -465,10 +465,12 @@ static inline void ocf_prepare_clines_miss(struct ocf_request *req)
 
 int ocf_engine_prepare_clines(struct ocf_request *req)
 {
-	struct ocf_user_part *user_part = &req->cache->user_parts[req->part_id];
+	struct ocf_cache *cache = req->cache;
+	struct ocf_user_part *user_part = &cache->user_parts[req->part_id];
 	bool mapped;
 	bool promote = true;
 	int lock = -OCF_ERR_NO_LOCK;
+	ocf_part_id_t part_id;
 
 	/* requests to disabled partitions go in pass-through */
 	if (!ocf_user_part_is_enabled(user_part)) {
@@ -500,7 +502,7 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 
 	/* check if request should promote cachelines */
 	promote = ocf_promotion_req_should_promote(
-			req->cache->promotion_policy, req);
+			cache->promotion_policy, req);
 	if (!promote) {
 		ocf_req_set_mapping_error(req);
 		ocf_hb_req_prot_unlock_rd(req);
@@ -536,8 +538,11 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 	ocf_hb_req_prot_unlock_wr(req);
 
 	if (ocf_req_is_cleaning_required(req)) {
-		ocf_lru_clean(req->cache, user_part, req->io_queue,
-				128);
+		for_each_user_part(cache, user_part, part_id) {
+			if (!ocf_user_part_is_valid(user_part))
+				continue;
+			ocf_lru_clean(cache, user_part, req->io_queue, 128);
+		}
 	}
 
 	return lock;
