@@ -81,13 +81,14 @@ void ocf_req_allocator_deinit(struct ocf_ctx *ocf_ctx)
 	ocf_ctx->resources.req = NULL;
 }
 
-static inline void ocf_req_init(struct ocf_request *req, ocf_queue_t queue,
-		ocf_core_t core, uint64_t addr, uint32_t bytes, int rw)
+static inline void ocf_req_init(struct ocf_request *req, ocf_cache_t cache,
+		ocf_queue_t queue, ocf_core_t core,
+		uint64_t addr, uint32_t bytes, int rw)
 {
 	req->io_queue = queue;
 
 	req->core = core;
-	req->cache = queue->cache;
+	req->cache = cache;
 
 	env_atomic_set(&req->ref_count, 1);
 
@@ -96,7 +97,7 @@ static inline void ocf_req_init(struct ocf_request *req, ocf_queue_t queue,
 	req->rw = rw;
 }
 
-struct ocf_request *ocf_req_new_mngt(ocf_queue_t queue)
+struct ocf_request *ocf_req_new_mngt(ocf_cache_t cache, ocf_queue_t queue)
 {
 	struct ocf_request *req;
 
@@ -106,23 +107,23 @@ struct ocf_request *ocf_req_new_mngt(ocf_queue_t queue)
 
 	ocf_queue_get(queue);
 
-	ocf_req_init(req, queue, NULL, 0, 0, 0);
+	ocf_req_init(req, cache, queue, NULL, 0, 0, 0);
 
 	req->is_mngt = true;
 
 	return req;
 }
 
-struct ocf_request *ocf_req_new_cleaner(ocf_queue_t queue, uint32_t count)
+struct ocf_request *ocf_req_new_cleaner(ocf_cache_t cache, ocf_queue_t queue,
+		uint32_t count)
 {
-	ocf_cache_t cache = queue->cache;
 	struct ocf_request *req;
 	bool map_allocated = true, is_mngt = false;
 
 	if (!ocf_refcnt_inc(&cache->refcnt.metadata))
 		return NULL;
 
-	if (unlikely(queue == cache->mngt_queue)) {
+	if (unlikely(ocf_queue_is_mngt(queue))) {
 		req = env_zalloc(sizeof(*req) + ocf_req_sizeof_map(count) +
 				ocf_req_sizeof_alock_status(count),
 				ENV_MEM_NORMAL);
@@ -143,7 +144,7 @@ struct ocf_request *ocf_req_new_cleaner(ocf_queue_t queue, uint32_t count)
 
 	ocf_queue_get(queue);
 
-	ocf_req_init(req, queue, NULL, 0, 0, OCF_READ);
+	ocf_req_init(req, cache, queue, NULL, 0, 0, OCF_READ);
 
 	if (map_allocated) {
 		req->map = req->__map;
@@ -167,11 +168,11 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 		uint64_t addr, uint32_t bytes, int rw)
 {
 	uint64_t core_line_first, core_line_last, core_line_count;
-	ocf_cache_t cache = queue->cache;
+	ocf_cache_t cache = ocf_core_get_cache(core);
 	struct ocf_request *req;
 	bool map_allocated = true;
 
-	ENV_BUG_ON(queue == cache->mngt_queue);
+	ENV_BUG_ON(ocf_queue_is_mngt(queue));
 
 	if (likely(bytes)) {
 		core_line_first = ocf_bytes_2_lines(cache, addr);
@@ -204,7 +205,7 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 
 	ocf_queue_get(queue);
 
-	ocf_req_init(req, queue, core, addr, bytes, rw);
+	ocf_req_init(req, cache, queue, core, addr, bytes, rw);
 
 	req->d2c = !ocf_refcnt_inc(&cache->refcnt.metadata);
 
@@ -217,6 +218,55 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	req->discard.handled = 0;
 
 	req->part_id = PARTITION_DEFAULT;
+
+	req->lock_idx = ocf_metadata_concurrency_next_idx(queue);
+
+	return req;
+}
+
+struct ocf_request *ocf_req_new_cache(ocf_cache_t cache, ocf_queue_t queue,
+		uint64_t addr, uint32_t bytes, int rw)
+{
+	uint64_t core_line_first, core_line_last, core_line_count;
+	struct ocf_request *req;
+	bool map_allocated = true;
+
+	ENV_BUG_ON(ocf_queue_is_mngt(queue));
+
+	if (!ocf_refcnt_inc(&cache->refcnt.metadata))
+		return NULL;
+
+	ocf_queue_get(queue);
+
+	if (likely(bytes)) {
+		core_line_first = ocf_bytes_2_lines(cache, addr);
+		core_line_last = ocf_bytes_2_lines(cache, addr + bytes - 1);
+		core_line_count = core_line_last - core_line_first + 1;
+	} else {
+		core_line_count = 1;
+	}
+
+	req = env_mpool_new(cache->owner->resources.req, core_line_count);
+	if (!req) {
+		map_allocated = false;
+		req = env_mpool_new(cache->owner->resources.req, 1);
+	}
+
+	if (unlikely(!req)) {
+		ocf_refcnt_dec(&cache->refcnt.metadata);
+		ocf_queue_put(queue);
+		return NULL;
+	}
+
+	if (map_allocated) {
+		req->map = req->__map;
+		req->alock_status = (uint8_t *)&req->__map[core_line_count];
+		req->alloc_core_line_count = core_line_count;
+	} else {
+		req->alloc_core_line_count = 1;
+	}
+
+	ocf_req_init(req, cache, queue, NULL, addr, bytes, rw);
 
 	req->lock_idx = ocf_metadata_concurrency_next_idx(queue);
 

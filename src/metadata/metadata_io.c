@@ -156,7 +156,7 @@ int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue, void *priv,
 	if (!context)
 		return -OCF_ERR_NO_MEM;
 
-	context->req = ocf_req_new(queue, NULL, 0, 0, 0);
+	context->req = ocf_req_new_mngt(cache, queue);
 	if (!context->req) {
 		env_vfree(context);
 		return -OCF_ERR_NO_MEM;

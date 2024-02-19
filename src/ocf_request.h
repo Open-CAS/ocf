@@ -288,7 +288,7 @@ void ocf_req_allocator_deinit(struct ocf_ctx *ocf_ctx);
  *
  * @return new OCF request
  */
-struct ocf_request *ocf_req_new_mngt(ocf_queue_t queue);
+struct ocf_request *ocf_req_new_mngt(ocf_cache_t cache, ocf_queue_t queue);
 
 /**
  * @brief Allocate new OCF request for cleaner
@@ -298,7 +298,8 @@ struct ocf_request *ocf_req_new_mngt(ocf_queue_t queue);
  *
  * @return new OCF request
  */
-struct ocf_request *ocf_req_new_cleaner(ocf_queue_t queue, uint32_t count);
+struct ocf_request *ocf_req_new_cleaner(ocf_cache_t cache, ocf_queue_t queue,
+		uint32_t count);
 
 /**
  * @brief Allocate new OCF request
@@ -312,6 +313,20 @@ struct ocf_request *ocf_req_new_cleaner(ocf_queue_t queue, uint32_t count);
  * @return new OCF request
  */
 struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
+		uint64_t addr, uint32_t bytes, int rw);
+
+/**
+ * @brief Allocate new OCF request for cache IO
+ *
+ * @param cache - OCF cache instance
+ * @param queue - I/O queue handle
+ * @param addr - LBA of request
+ * @param bytes - number of bytes of request
+ * @param rw - Read or Write
+ *
+ * @return new OCF request
+ */
+struct ocf_request *ocf_req_new_cache(ocf_cache_t cache, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, int rw);
 
 /**
