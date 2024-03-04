@@ -188,7 +188,14 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	struct ocf_request *req;
 	bool map_allocated = true;
 
-	ENV_BUG_ON(ocf_queue_is_mngt(queue));
+	/* FIXME: We curently allow allocation of the requests on the
+	 * management queue to be able to handle cache/core flush in
+	 * multi-level stack, as the cleaner request can enter the lower
+	 * level cache and the queue is upper cache mngt_queue.
+	 * We need to handle this situation as a special case in the
+	 * multi-level forward path and then uncomment the line below.
+	 */
+	/* ENV_BUG_ON(ocf_queue_is_mngt(queue)); */
 
 	ocf_queue_get(queue);
 
