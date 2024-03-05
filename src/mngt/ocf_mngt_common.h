@@ -1,11 +1,15 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 
 #ifndef __OCF_MNGT_COMMON_H__
 #define __OCF_MNGT_COMMON_H__
+
+#include "ocf_env_refcnt.h"
+#include "../utils/utils_pipeline.h"
 
 void cache_mngt_core_deinit(ocf_core_t core);
 
@@ -32,5 +36,8 @@ bool ocf_mngt_cache_is_locked(ocf_cache_t cache);
 
 void __set_cleaning_policy(ocf_cache_t cache,
 		ocf_cleaning_t new_cleaning_policy);
+
+void ocf_mngt_continue_pipeline_on_zero_refcnt(struct env_refcnt *refcnt,
+		ocf_pipeline_t pipeline);
 
 #endif /* __OCF_MNGT_COMMON_H__ */
