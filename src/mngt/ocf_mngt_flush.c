@@ -82,12 +82,6 @@ struct ocf_mngt_cache_flush_context
 	struct flush_containers_context fcs;
 };
 
-static void _ocf_mngt_begin_flush_complete(void *priv)
-{
-	struct ocf_mngt_cache_flush_context *context = priv;
-	ocf_pipeline_next(context->pipeline);
-}
-
 static void _ocf_mngt_begin_flush(ocf_pipeline_t pipeline, void *priv,
 		ocf_pipeline_arg_t arg)
 {
@@ -105,8 +99,8 @@ static void _ocf_mngt_begin_flush(ocf_pipeline_t pipeline, void *priv,
 	env_refcnt_freeze(&cache->refcnt.dirty);
 	context->flags.freeze = true;
 
-	env_refcnt_register_zero_cb(&cache->refcnt.dirty,
-			_ocf_mngt_begin_flush_complete, context);
+	ocf_mngt_continue_pipeline_on_zero_refcnt(&cache->refcnt.dirty,
+			context->pipeline);
 }
 
 bool ocf_mngt_core_is_dirty(ocf_core_t core)
