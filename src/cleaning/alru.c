@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2022      David Lee <live4thee@gmail.com>
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -941,6 +942,7 @@ void cleaning_alru_perform_cleaning(ocf_cache_t cache, ocf_cleaner_end_t cmpl)
 	fctx->attribs.lock_metadata = false;
 	fctx->attribs.do_sort = true;
 	fctx->attribs.io_queue = cache->cleaner.io_queue;
+	fctx->attribs.cmpl_queue = true;
 
 	fctx->clines_no = config->flush_max_buffers;
 	fctx->cache = cache;

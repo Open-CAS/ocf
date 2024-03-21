@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -30,6 +31,8 @@ struct ocf_cleaner_attribs {
 	uint8_t  lock_metadata : 1;	/*!< Cleaner to lock metadata on its own */
 
 	uint8_t  do_sort : 1;	/*!< Sort cache lines which will be cleaned */
+	uint8_t  cmpl_queue : 1;
+		/*!< Completion needs to be called from the queue context */
 
 	uint32_t count; /*!< max number of cache lines to be cleaned */
 

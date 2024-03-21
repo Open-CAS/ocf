@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -652,6 +653,7 @@ static void _acp_flush(struct acp_context *acp)
 		.lock_cacheline = false,
 		.lock_metadata = true,
 		.do_sort = false,
+		.cmpl_queue = true,
 		.io_queue = cache->cleaner.io_queue,
 	};
 
