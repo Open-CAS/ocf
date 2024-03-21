@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -152,13 +153,13 @@ int _ocf_discard_step_do(struct ocf_request *req)
 		/* Remove mapped cache lines from metadata */
 		ocf_purge_map_info(req);
 
+		ocf_hb_req_prot_unlock_wr(req);
+
 		if (req->info.flush_metadata) {
 			/* Request was dirty and need to flush metadata */
 			ocf_metadata_flush_do_asynch(cache, req,
 					_ocf_discard_step_complete);
 		}
-
-		ocf_hb_req_prot_unlock_wr(req);
 	}
 
 	ocf_hb_req_prot_lock_rd(req);
