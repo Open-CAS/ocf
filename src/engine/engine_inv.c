@@ -19,7 +19,7 @@
 static void _ocf_invalidate_req(struct ocf_request *req, int error)
 {
 	if (error) {
-		req->error = error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
 	}
 
@@ -28,7 +28,7 @@ static void _ocf_invalidate_req(struct ocf_request *req, int error)
 
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error)
+	if (env_atomic_read(&req->error))
 		ocf_engine_error(req, true, "Failed to flush metadata to cache");
 
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);

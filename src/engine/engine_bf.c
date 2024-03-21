@@ -42,11 +42,11 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 	struct ocf_cache *cache = req->cache;
 
 	if (error) {
-		req->error = error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
 	}
 
-	if (req->error)
+	if (env_atomic_read(&req->error))
 		inc_fallback_pt_error_counter(req->cache);
 
 	/* Handle callback-caller race to let only one of the two complete the
@@ -64,7 +64,7 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 	ctx_data_free(cache->owner, req->data);
 	req->data = NULL;
 
-	if (req->error) {
+	if (env_atomic_read(&req->error)) {
 		ocf_engine_invalidate(req);
 	} else {
 		ocf_req_unlock(ocf_cache_line_concurrency(cache), req);

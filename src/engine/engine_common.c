@@ -366,7 +366,8 @@ static void _ocf_engine_clean_end(void *private_data, int error)
 
 	if (error) {
 		OCF_DEBUG_RQ(req, "Cleaning ERROR");
-		req->error |= error;
+		env_atomic_cmpxchg(&req->error, 0, error);
+
 
 		/* End request and do not processing */
 		ocf_req_unlock(ocf_cache_line_concurrency(req->cache),
@@ -648,7 +649,7 @@ void ocf_engine_push_req_front_cb(struct ocf_request *req,
 		ocf_engine_cb engine_cb,
 		bool allow_sync)
 {
-	req->error = 0; /* Please explain why!!! */
+	env_atomic_cmpxchg(&req->error, 0, 0);/* Please explain why!!! */
 	req->engine_handler = engine_cb;
 	ocf_engine_push_req_front(req, allow_sync);
 }
@@ -687,10 +688,10 @@ static int _ocf_engine_refresh(struct ocf_request *req)
 		req->engine_handler(req);
 	} else {
 		ENV_WARN(true, "Inconsistent request");
-		req->error = -OCF_ERR_INVAL;
+		env_atomic_cmpxchg(&req->error, 0, -OCF_ERR_INVAL);
 
 		/* Complete request */
-		req->complete(req, req->error);
+		req->complete(req, env_atomic_read(&req->error));
 
 		/* Release WRITE lock of request */
 		ocf_req_unlock(ocf_cache_line_concurrency(req->cache), req);

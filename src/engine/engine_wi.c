@@ -21,7 +21,7 @@ int _ocf_write_wi_next_pass(struct ocf_request *req)
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
 	if (req->wi_second_pass) {
-		req->complete(req, req->error);
+		req->complete(req, env_atomic_read(&req->error));
 		ocf_req_put(req);
 
 		return 0;
@@ -47,25 +47,25 @@ static void _ocf_write_wi_io_flush_metadata(struct ocf_request *req, int error)
 {
 	if (error) {
 		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
-		req->error |= error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 	}
 
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	if (!req->error && !req->wi_second_pass && ocf_engine_is_miss(req)) {
+	if (!env_atomic_read(&req->error) && !req->wi_second_pass && ocf_engine_is_miss(req)) {
 		/* need another pass */
 		ocf_engine_push_req_front_cb(req, _ocf_write_wi_next_pass,
 				true);
 		return;
 	}
 
-	if (req->error)
+	if (env_atomic_read(&req->error))
 		ocf_engine_error(req, true, "Failed to write data to cache");
 
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
-	req->complete(req, req->error);
+	req->complete(req, env_atomic_read(&req->error));
 
 	ocf_req_put(req);
 }
@@ -105,7 +105,7 @@ static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *req)
 static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 {
 	if (error) {
-		req->error = error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 		req->info.core_error = 1;
 		ocf_core_stats_core_error_update(req->core, OCF_WRITE);
 	}
@@ -115,10 +115,10 @@ static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error) {
+	if (env_atomic_read(&req->error)) {
 		ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
-		req->complete(req, req->error);
+		req->complete(req, env_atomic_read(&req->error));
 
 		ocf_req_put(req);
 	} else {

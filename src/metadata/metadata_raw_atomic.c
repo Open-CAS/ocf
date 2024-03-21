@@ -41,18 +41,18 @@ static void _raw_atomic_io_discard_cmpl(struct _raw_atomic_flush_ctx *ctx,
 		int error)
 {
 	if (error)
-		ctx->req->error = error;
+		env_atomic_cmpxchg(&ctx->req->error, 0, error);
 
 	if (env_atomic_dec_return(&ctx->flush_req_cnt))
 		return;
 
-	if (ctx->req->error)
+	if (env_atomic_read(&ctx->req->error))
 		ocf_metadata_error(ctx->req->cache);
 
 	/* Call metadata flush completed call back */
 	OCF_DEBUG_MSG(cache, "Asynchronous flushing complete");
 
-	ctx->complete(ctx->req, ctx->req->error);
+	ctx->complete(ctx->req, env_atomic_read(&ctx->req->error));
 
 	env_free(ctx);
 }
@@ -74,8 +74,8 @@ static int _raw_atomic_io_discard_do(struct ocf_cache *cache, void *context,
 
 	io = ocf_new_cache_io(cache, NULL, start_addr, len, OCF_WRITE, 0, 0);
 	if (!io) {
-		req->error = -OCF_ERR_NO_MEM;
-		return req->error;
+		env_atomic_cmpxchg(&req->error, 0, -OCF_ERR_NO_MEM);
+		return env_atomic_read(&ctx->req->error);
 	}
 
 	OCF_DEBUG_PARAM(cache, "Page to flushing = %u, count of pages = %u",
@@ -90,7 +90,7 @@ static int _raw_atomic_io_discard_do(struct ocf_cache *cache, void *context,
 	else
 		ocf_volume_submit_write_zeroes(io);
 
-	return req->error;
+	return env_atomic_read(&req->error);
 }
 
 void raw_atomic_flush_mark(struct ocf_cache *cache, struct ocf_request *req,

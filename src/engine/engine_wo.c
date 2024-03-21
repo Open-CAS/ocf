@@ -22,7 +22,7 @@ static void ocf_read_wo_cache_complete(struct ocf_request *req, int error)
 {
 	if (error) {
 		ocf_core_stats_cache_error_update(req->core, OCF_READ);
-		req->error |= error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 	}
 
 	if (env_atomic_dec_return(&req->req_remaining))
@@ -30,13 +30,13 @@ static void ocf_read_wo_cache_complete(struct ocf_request *req, int error)
 
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error)
+	if (env_atomic_read(&req->error))
 		ocf_engine_error(req, true, "Failed to read data from cache");
 
 	ocf_req_unlock_rd(ocf_cache_line_concurrency(req->cache), req);
 
 	/* Complete request */
-	req->complete(req, req->error);
+	req->complete(req, env_atomic_read(&req->error));
 
 	/* Release OCF request */
 	ocf_req_put(req);
@@ -153,16 +153,16 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 static void _ocf_read_wo_core_complete(struct ocf_request *req, int error)
 {
 	if (error) {
-		req->error |= error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 		req->info.core_error = 1;
 		ocf_core_stats_core_error_update(req->core, OCF_READ);
 	}
 
 	/* if all mapped cachelines are clean, the data we've read from core
 	 * is valid and we can complete the request */
-	if (!req->info.dirty_any || req->error) {
+	if (!req->info.dirty_any || env_atomic_read(&req->error)) {
 		OCF_DEBUG_RQ(req, "Completion");
-		req->complete(req, req->error);
+		req->complete(req, env_atomic_read(&req->error));
 		ocf_req_unlock_rd(ocf_cache_line_concurrency(req->cache), req);
 		ocf_req_put(req);
 		return;

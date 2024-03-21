@@ -21,20 +21,20 @@
 static void _ocf_read_pt_complete(struct ocf_request *req, int error)
 {
 	if (error)
-		req->error |= error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error) {
+	if (env_atomic_read(&req->error)) {
 		req->info.core_error = 1;
 		ocf_core_stats_core_error_update(req->core, OCF_READ);
 	}
 
 	/* Complete request */
-	req->complete(req, req->error);
+	req->complete(req, env_atomic_read(&req->error));
 
 	ocf_req_unlock(ocf_cache_line_concurrency(req->cache), req);
 

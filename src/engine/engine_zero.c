@@ -18,7 +18,7 @@
 
 static int ocf_zero_purge(struct ocf_request *req)
 {
-	if (req->error) {
+	if (env_atomic_read(&req->error)) {
 		ocf_engine_error(req, true, "Failed to discard data on cache");
 	} else {
 		/* There are mapped cache line, need to remove them */
@@ -33,7 +33,7 @@ static int ocf_zero_purge(struct ocf_request *req)
 
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
-	req->complete(req, req->error);
+	req->complete(req, env_atomic_read(&req->error));
 
 	ocf_req_put(req);
 
@@ -44,7 +44,7 @@ static void _ocf_zero_io_flush_metadata(struct ocf_request *req, int error)
 {
 	if (error) {
 		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
-		req->error = error;
+		env_atomic_cmpxchg(&req->error, 0, error);
 	}
 
 	if (env_atomic_dec_return(&req->req_remaining))
