@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2021-2022 Intel Corporation
+ * Copyright(c) 2022-2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -130,7 +131,7 @@ err:
 		if (unlikely(entry == OUT_OF_RANGE))
 			continue;
 
-		ocf_alock_waitlist_remove_entry(alock, req, i, entry, OCF_WRITE);
+		ocf_alock_waitlist_remove_entry(alock, req, entry, i, OCF_WRITE);
 	}
 
 	return ret;
