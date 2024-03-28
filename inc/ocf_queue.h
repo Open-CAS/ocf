@@ -73,6 +73,28 @@ int ocf_queue_create_mngt(ocf_cache_t cache, ocf_queue_t *queue,
 		const struct ocf_queue_ops *ops);
 
 /**
+ * @brief Queue visitor function
+ * @param[in] queue Queue handle
+ * @param[in] ctx Visitor function context
+ *
+ * @return Zero on success, otherwise error code
+ */
+typedef int (*ocf_cache_queue_visitor_t)(ocf_queue_t queue, void *ctx);
+
+/**
+ * @brief Call @visitor for every IO queue
+ *
+ * @param[in] cache Cache instance
+ * @param[in] visitor Function to be called on every queue.
+ *		The visitor function is called in atomic context
+ * @param[in] ctx Context to be passes to @visitor
+ *
+ * @return Zero on success, otherwise error code
+ */
+int ocf_queue_visit(ocf_cache_t cache, ocf_cache_queue_visitor_t visitor,
+		void *ctx);
+
+/**
  * @brief Increase reference counter in queue
  *
  * @param[in] queue Queue

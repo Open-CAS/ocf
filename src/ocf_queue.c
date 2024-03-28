@@ -78,6 +78,26 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 	return 0;
 }
 
+int ocf_queue_visit(ocf_cache_t cache, ocf_cache_queue_visitor_t visitor,
+		void *ctx)
+{
+	ocf_queue_t queue;
+	int result = 0;
+	unsigned long flags = 0;
+
+	env_spinlock_lock_irqsave(&cache->io_queues_lock, flags);
+
+	list_for_each_entry(queue, &cache->io_queues, list) {
+		result = visitor(queue, ctx);
+		if (result)
+			break;
+	}
+
+	env_spinlock_unlock_irqrestore(&cache->io_queues_lock, flags);
+
+	return result;
+}
+
 int ocf_queue_create_mngt(ocf_cache_t cache, ocf_queue_t *queue,
 		const struct ocf_queue_ops *ops)
 {
