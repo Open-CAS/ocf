@@ -180,11 +180,6 @@ static int _ocf_cleaner_complete(struct ocf_request *master)
 	return 0;
 }
 
-static const struct ocf_io_if _io_if_cleaner_complete = {
-        .read = _ocf_cleaner_complete,
-        .write = _ocf_cleaner_complete,
-};
-
 static void _ocf_cleaner_complete_req(struct ocf_request *req)
 {
 	struct ocf_request *master = NULL;
@@ -213,8 +208,8 @@ static void _ocf_cleaner_complete_req(struct ocf_request *req)
 
 	if (master->complete_queue) {
 		ocf_req_get(master);
-		ocf_engine_push_req_front_if(master,
-				&_io_if_cleaner_complete, true);
+		ocf_engine_push_req_front_cb(master,
+				_ocf_cleaner_complete, true);
 	} else {
 		/* Only master contains completion function and priv */
 		cmpl = master->master_io_req;
