@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -15,6 +16,9 @@
 
 #define BYTES_TO_PAGES(x)	((((uint64_t)x) + (PAGE_SIZE - 1)) / PAGE_SIZE)
 #define PAGES_TO_BYTES(x)	(((uint64_t)x) * PAGE_SIZE)
+
+#define OCF_DIV_ROUND_UP_STATIC(n, d) \
+	(((n) + (d) - 1) / (d))
 
 #define OCF_DIV_ROUND_UP(x, y)			\
 	({					\
