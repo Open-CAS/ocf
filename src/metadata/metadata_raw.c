@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -189,7 +190,7 @@ static uint32_t _raw_ram_checksum(ocf_cache_t cache,
 /*
  * RAM Implementation - Entry page number
  */
-uint32_t _raw_ram_page(struct ocf_metadata_raw *raw, uint32_t entry)
+static uint32_t _raw_ram_page(struct ocf_metadata_raw *raw, uint32_t entry)
 {
 	ENV_BUG_ON(entry >= raw->entries);
 

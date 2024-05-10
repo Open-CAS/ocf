@@ -174,7 +174,7 @@ static void _ocf_read_wo_core_complete(struct ocf_request *req, int error)
 	ocf_engine_push_req_front(req, true);
 }
 
-int ocf_read_wo_do(struct ocf_request *req)
+static int ocf_read_wo_do(struct ocf_request *req)
 {
 	ocf_req_get(req);
 

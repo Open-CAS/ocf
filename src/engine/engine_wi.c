@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -16,7 +17,7 @@
 #define OCF_ENGINE_DEBUG_IO_NAME "wi"
 #include "engine_debug.h"
 
-int _ocf_write_wi_next_pass(struct ocf_request *req)
+static int _ocf_write_wi_next_pass(struct ocf_request *req)
 {
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 

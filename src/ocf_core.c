@@ -255,7 +255,7 @@ static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
 	return -OCF_ERR_IO;
 }
 
-void ocf_core_volume_submit_io(struct ocf_io *io)
+static void ocf_core_volume_submit_io(struct ocf_io *io)
 {
 	struct ocf_request *req;
 	ocf_core_t core;

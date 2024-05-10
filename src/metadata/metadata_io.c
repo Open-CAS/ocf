@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "metadata.h"
@@ -97,7 +98,7 @@ static void metadata_io_read_i_atomic_step_end(struct ocf_io *io, int error)
 		metadata_io_read_i_atomic_complete(context, 0);
 }
 
-int metadata_io_read_i_atomic_step(struct ocf_request *req)
+static int metadata_io_read_i_atomic_step(struct ocf_request *req)
 {
 	struct metadata_io_read_i_atomic_context *context = req->priv;
 	ocf_cache_t cache = context->cache;
@@ -257,7 +258,7 @@ static int metadata_io_do(struct ocf_request *req)
 	return 0;
 }
 
-void metadata_io_req_finalize(struct metadata_io_request *m_req)
+static void metadata_io_req_finalize(struct metadata_io_request *m_req)
 {
 	struct metadata_io_request_asynch *a_req = m_req->asynch;
 
@@ -328,7 +329,7 @@ static void metadata_io_io_end(struct metadata_io_request *m_req, int error)
 	metadata_io_req_complete(m_req);
 }
 
-void metadata_io_req_end(struct metadata_io_request *m_req)
+static void metadata_io_req_end(struct metadata_io_request *m_req)
 {
 	struct metadata_io_request_asynch *a_req = m_req->asynch;
 	ocf_cache_t cache = m_req->cache;
