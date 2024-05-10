@@ -1,9 +1,11 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
+#include "engine_wo.h"
 #include "../ocf_cache_priv.h"
 #include "cache_engine.h"
 #include "engine_common.h"
