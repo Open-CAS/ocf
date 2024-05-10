@@ -1,11 +1,13 @@
 /*
  * Copyright(c) 2020-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "metadata.h"
 #include "metadata_core.h"
 #include "metadata_internal.h"
+#include "metadata_segment.h"
 #include "metadata_segment_id.h"
 #include "metadata_superblock.h"
 #include "../ocf_priv.h"
@@ -25,14 +27,6 @@
 #define OCF_DEBUG_TRACE(cache)
 #define OCF_DEBUG_PARAM(cache, format, ...)
 #endif
-
-int ocf_metadata_segment_init_in_place(
-		struct ocf_metadata_segment *segment,
-		struct ocf_cache *cache,
-		struct ocf_metadata_raw *raw,
-		ocf_flush_page_synch_t lock_page_pfn,
-		ocf_flush_page_synch_t unlock_page_pfn,
-		struct ocf_metadata_segment *superblock);
 
 /**
  * @brief Super Block - Set Shutdown Status
