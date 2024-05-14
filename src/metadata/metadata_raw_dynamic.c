@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -37,7 +38,7 @@
  * Check if page is valid for specified RAW descriptor
  */
 
-uint32_t raw_dynamic_segment_size_on_ssd(struct ocf_metadata_raw *raw)
+static uint32_t raw_dynamic_segment_size_on_ssd(struct ocf_metadata_raw *raw)
 {
 	const size_t alignment = 128 * KiB / PAGE_SIZE;
 

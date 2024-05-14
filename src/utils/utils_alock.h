@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef OCF_UTILS_ALOCK_H_
@@ -53,6 +54,23 @@ int ocf_alock_lock_rd(struct ocf_alock *alock,
 
 int ocf_alock_lock_wr(struct ocf_alock *alock,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl);
+
+/**
+ * @Check if cache line is used.
+ *
+ * Cache line is used when:
+ * 1. It is locked for write or read access
+ * or
+ * 2. There is set locked bit in metadata
+ *
+ * @param cache - OCF cache instance
+ * @param line - Cache line to be unlocked
+ *
+ * @retval true - cache line is used
+ * @retval false - cache line is not used
+ */
+bool ocf_cache_line_is_used(struct ocf_alock *c,
+		ocf_cache_line_t line);
 
 bool ocf_alock_waitlist_is_empty(struct ocf_alock *alock,
 		ocf_cache_line_t entry);

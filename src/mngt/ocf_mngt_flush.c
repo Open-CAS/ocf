@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -460,7 +461,7 @@ finish:
 	end(context);
 }
 
-void _ocf_flush_container_complete(void *ctx)
+static void _ocf_flush_container_complete(void *ctx)
 {
 	struct ocf_mngt_cache_flush_context *context = ctx;
 

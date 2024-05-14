@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2020-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -92,7 +93,7 @@ static void ocf_seq_cutoff_base_init(struct ocf_seq_cutoff *base, int nstreams)
 	}
 }
 
-void ocf_seq_cutoff_base_deinit(struct ocf_seq_cutoff *base)
+static void ocf_seq_cutoff_base_deinit(struct ocf_seq_cutoff *base)
 {
 	env_rwlock_destroy(&base->lock);
 }

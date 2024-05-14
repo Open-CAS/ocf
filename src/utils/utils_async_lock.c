@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -12,7 +13,7 @@ struct ocf_async_lock_waiter {
 	ocf_async_lock_end_t cmpl;
 };
 
-void _ocf_async_lock_collect_waiters(ocf_async_lock_t lock,
+static void _ocf_async_lock_collect_waiters(ocf_async_lock_t lock,
 		struct list_head *waiters)
 {
 	ocf_async_lock_waiter_t iter, temp;
@@ -31,7 +32,7 @@ void _ocf_async_lock_collect_waiters(ocf_async_lock_t lock,
 	}
 }
 
-void _ocf_async_lock_run_waiters(struct ocf_async_lock *lock,
+static void _ocf_async_lock_run_waiters(struct ocf_async_lock *lock,
 		struct list_head *waiters, int status)
 {
 	ocf_async_lock_waiter_t iter, temp;

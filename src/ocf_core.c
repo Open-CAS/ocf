@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -93,17 +94,6 @@ bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id)
 		return false;
 
 	return true;
-}
-
-int ocf_core_get(ocf_cache_t cache, ocf_core_id_t id, ocf_core_t *core)
-{
-	OCF_CHECK_NULL(cache);
-
-	if (!ocf_core_is_valid(cache, id))
-		return -OCF_ERR_CORE_NOT_AVAIL;
-
-	*core = &cache->core[id];
-	return 0;
 }
 
 uint32_t ocf_core_get_seq_cutoff_threshold(ocf_core_t core)
@@ -265,7 +255,7 @@ static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
 	return -OCF_ERR_IO;
 }
 
-void ocf_core_volume_submit_io(struct ocf_io *io)
+static void ocf_core_volume_submit_io(struct ocf_io *io)
 {
 	struct ocf_request *req;
 	ocf_core_t core;

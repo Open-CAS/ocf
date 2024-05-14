@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2023-2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -767,7 +767,7 @@ static void _ocf_mngt_load_init_structures(ocf_pipeline_t pipeline,
 			_ocf_mngt_init_metadata_complete, context, false);
 }
 
-void _ocf_mngt_load_metadata_complete(void *priv, int error)
+static void _ocf_mngt_load_metadata_complete(void *priv, int error)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
@@ -1372,7 +1372,7 @@ static void _ocf_mngt_attach_init_services(ocf_pipeline_t pipeline,
 			_ocf_mngt_cleaning_populate_init_complete, context);
 }
 
-uint64_t _ocf_mngt_calculate_ram_needed(ocf_cache_line_size_t line_size,
+static uint64_t _ocf_mngt_calculate_ram_needed(ocf_cache_line_size_t line_size,
 		uint64_t volume_size)
 {
 	uint64_t const_data_size;
@@ -2849,7 +2849,7 @@ _ocf_mngt_cache_standby_detach_pipeline_properties = {
 	},
 };
 
-void _ocf_mngt_cache_standby_detach(ocf_cache_t cache,
+static void _ocf_mngt_cache_standby_detach(ocf_cache_t cache,
 		ocf_mngt_cache_standby_detach_end_t cmpl, void *priv)
 {
 	struct ocf_cache_standby_detach_context *context;

@@ -1,9 +1,11 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
+#include "engine_wo.h"
 #include "../ocf_cache_priv.h"
 #include "cache_engine.h"
 #include "engine_common.h"
@@ -172,7 +174,7 @@ static void _ocf_read_wo_core_complete(struct ocf_request *req, int error)
 	ocf_engine_push_req_front(req, true);
 }
 
-int ocf_read_wo_do(struct ocf_request *req)
+static int ocf_read_wo_do(struct ocf_request *req)
 {
 	ocf_req_get(req);
 

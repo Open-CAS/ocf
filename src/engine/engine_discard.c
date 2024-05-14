@@ -136,7 +136,7 @@ static void _ocf_discard_step_complete(struct ocf_request *req, int error)
 	_ocf_discard_finish_step(req);
 }
 
-int _ocf_discard_step_do(struct ocf_request *req)
+static int _ocf_discard_step_do(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
 
