@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
- * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2023-2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -187,7 +187,7 @@ static inline void env_secure_free(const void *ptr, size_t size)
 {
 	if (ptr) {
 #if SECURE_MEMORY_HANDLING
-		memset(ptr, size, 0);
+		memset(ptr, 0, size);
 		/* TODO: flush CPU caches ? */
 		ENV_BUG_ON(munlock(ptr));
 #endif
