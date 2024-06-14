@@ -911,8 +911,9 @@ static void alru_clean(struct alru_context *ctx)
 	to_clean = get_data_to_flush(ctx);
 	if (to_clean > 0) {
 		fctx->flush_perfomed = true;
-		ocf_cleaner_do_flush_data_async(cache, fctx->flush_data, to_clean,
-				&fctx->attribs);
+		ocf_cleaner_sort_flush_data(fctx->flush_data, to_clean);
+		ocf_cleaner_do_flush_data_async(cache, fctx->flush_data,
+				to_clean, &fctx->attribs);
 		ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 		return;
 	}
@@ -940,7 +941,6 @@ void cleaning_alru_perform_cleaning(ocf_cache_t cache, ocf_cleaner_end_t cmpl)
 	fctx->attribs.cmpl_fn = alru_clean_complete;
 	fctx->attribs.lock_cacheline = true;
 	fctx->attribs.lock_metadata = false;
-	fctx->attribs.do_sort = true;
 	fctx->attribs.io_queue = cache->cleaner.io_queue;
 	fctx->attribs.cmpl_queue = true;
 

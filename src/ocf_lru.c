@@ -592,7 +592,6 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 	struct ocf_cleaner_attribs attribs = {
 		.lock_cacheline = false,
 		.lock_metadata = true,
-		.do_sort = true,
 
 		.cmpl_context = ctx,
 		.cmpl_fn = ocf_lru_clean_end,
@@ -647,6 +646,7 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 		return;
 	}
 
+	ocf_cleaner_sort_flush_data(entries, i);
 	ocf_cleaner_do_flush_data_async(cache, entries, i, &attribs);
 }
 
