@@ -28,7 +28,6 @@ typedef int (*ocf_cleaner_get_item)(struct ocf_cache *cache,
  */
 struct ocf_cleaner_attribs {
 	uint8_t  lock_cacheline : 1;	/*!< Cleaner to lock cachelines on its own */
-	uint8_t  lock_metadata : 1;	/*!< Cleaner to lock metadata on its own */
 
 	uint8_t  cmpl_queue : 1;
 		/*!< Completion needs to be called from the queue context */
