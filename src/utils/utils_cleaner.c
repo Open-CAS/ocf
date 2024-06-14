@@ -901,7 +901,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 
 	}
 
-	if (req) {
+	if (req && i_out) {
 		err = _ocf_cleaner_do_fire(req, i_out);
 		if (err)
 			_ocf_cleaner_fire_error(master, req, err);
@@ -911,6 +911,9 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	/* prevent cleaning completion race */
 	_ocf_cleaner_complete_req(master);
 	ocf_req_put(master);
+
+	if (req && !i_out)
+		_ocf_cleaner_dealloc_req(req);
 }
 
 static int _ocf_cleaner_do_flush_data_getter(struct ocf_cache *cache,
