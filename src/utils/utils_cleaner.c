@@ -722,6 +722,37 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	return 0;
 }
 
+static int _ocf_cleaner_check_map(struct ocf_request *req)
+{
+	ocf_core_id_t core_id;
+	uint64_t core_line;
+	int i;
+
+	for (i = 0; i < req->core_line_count; ++i) {
+		ocf_metadata_get_core_info(req->cache, req->map[i].coll_idx,
+				&core_id, &core_line);
+
+		if (core_id != req->map[i].core_id) {
+			req->map[i].status = LOOKUP_MISS;
+			continue;
+		}
+
+		if (core_line != req->map[i].core_line) {
+			req->map[i].status = LOOKUP_MISS;
+			continue;
+		}
+
+		if (!metadata_test_dirty(req->cache, req->map[i].coll_idx)) {
+			req->map[i].status = LOOKUP_MISS;
+			continue;
+		}
+	}
+
+	_ocf_cleaner_fire_cache(req);
+
+	return 0;
+}
+
 static int _ocf_cleaner_do_fire(struct ocf_request *req, uint32_t count)
 {
 	int result;
@@ -729,7 +760,7 @@ static int _ocf_cleaner_do_fire(struct ocf_request *req, uint32_t count)
 	/* Set counts of cache IOs */
 	env_atomic_set(&req->req_remaining, count);
 
-	req->engine_handler = _ocf_cleaner_fire_cache;
+	req->engine_handler = _ocf_cleaner_check_map;
 	req->core_line_count = count;
 
 	/* Handle cache lines locks */
@@ -738,7 +769,7 @@ static int _ocf_cleaner_do_fire(struct ocf_request *req, uint32_t count)
 	if (result >= 0) {
 		if (result == OCF_LOCK_ACQUIRED) {
 			OCF_DEBUG_MSG(req->cache, "Lock acquired");
-			_ocf_cleaner_fire_cache(req);
+			_ocf_cleaner_check_map(req);
 		} else {
 			OCF_DEBUG_MSG(req->cache, "NO Lock");
 		}
@@ -793,7 +824,6 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	int err;
 	ocf_core_id_t core_id;
 	uint64_t core_sector;
-	bool skip;
 
 	/* Allocate master request */
 	master = _ocf_cleaner_alloc_master_req(cache, max, attribs);
@@ -849,40 +879,6 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 		/* Get mapping info */
 		ocf_metadata_get_core_info(cache, cache_line, &core_id,
 				&core_sector);
-
-		if (attribs->lock_metadata) {
-			ocf_hb_cline_prot_lock_rd(&cache->metadata.lock,
-					req->lock_idx, core_id, core_sector);
-		}
-
-		skip = false;
-
-		/* when line already cleaned - rare condition under heavy
-		 * I/O workload.
-		 */
-		if (!metadata_test_dirty(cache, cache_line)) {
-			OCF_DEBUG_MSG(cache, "Not dirty");
-			skip = true;
-		}
-
-		if (!skip && !metadata_test_valid_any(cache, cache_line)) {
-			OCF_DEBUG_MSG(cache, "No any valid");
-
-			/*
-			 * Extremely disturbing cache line state
-			 * Cache line (sector) cannot be dirty and not valid
-			 */
-			ENV_BUG();
-			skip = true;
-		}
-
-		if (attribs->lock_metadata) {
-			ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock,
-					req->lock_idx, core_id, core_sector);
-		}
-
-		if (skip)
-			continue;
 
 		if (unlikely(!cache->core[core_id].opened)) {
 			OCF_DEBUG_MSG(cache, "Core object inactive");
