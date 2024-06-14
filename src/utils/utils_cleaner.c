@@ -722,11 +722,15 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	return 0;
 }
 
-static int _ocf_cleaner_fire(struct ocf_request *req)
+static int _ocf_cleaner_do_fire(struct ocf_request *req, uint32_t count)
 {
 	int result;
 
+	/* Set counts of cache IOs */
+	env_atomic_set(&req->req_remaining, count);
+
 	req->engine_handler = _ocf_cleaner_fire_cache;
+	req->core_line_count = count;
 
 	/* Handle cache lines locks */
 	result = _ocf_cleaner_cache_line_lock(req);
@@ -744,32 +748,6 @@ static int _ocf_cleaner_fire(struct ocf_request *req)
 	}
 
 	return result;
-}
-
-/**
- * Prepare cleaning request to be fired
- *
- * @param req cleaning request
- * @param i_out number of already filled map requests (remaining to be filled
- *    with missed
- */
-static int _ocf_cleaner_do_fire(struct ocf_request *req,  uint32_t i_out)
-{
-	/* Set counts of cache IOs */
-	env_atomic_set(&req->req_remaining, i_out);
-
-	/* fill tail of a request with fake MISSes so that it won't
-	 *  be cleaned
-	 */
-	for (; i_out < req->core_line_count; ++i_out) {
-		req->map[i_out].core_id = OCF_CORE_MAX;
-		req->map[i_out].core_line = ULLONG_MAX;
-		req->map[i_out].status = LOOKUP_MISS;
-		req->map[i_out].hash = i_out;
-	}
-
-	/* issue actual request */
-	return _ocf_cleaner_fire(req);
 }
 
 static inline uint32_t _ocf_cleaner_get_req_max_count(uint32_t count,
