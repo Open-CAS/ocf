@@ -590,7 +590,6 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 	struct ocf_cleaner_attribs attribs = {
 		.lock_cacheline = false,
 		.lock_metadata = true,
-		.do_sort = true,
 
 		.cmpl_context = ctx,
 		.cmpl_fn = ocf_lru_clean_end,
@@ -646,6 +645,8 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 	}
 
 	OCF_METADATA_LRU_WR_UNLOCK_ALL();
+
+	ocf_cleaner_sort_flush_data(entries, count);
 
 	ocf_metadata_end_shared_access(&cache->metadata.lock, lock_idx);
 

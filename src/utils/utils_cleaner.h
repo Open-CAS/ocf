@@ -30,7 +30,6 @@ struct ocf_cleaner_attribs {
 	uint8_t  lock_cacheline : 1;	/*!< Cleaner to lock cachelines on its own */
 	uint8_t  lock_metadata : 1;	/*!< Cleaner to lock metadata on its own */
 
-	uint8_t  do_sort : 1;	/*!< Sort cache lines which will be cleaned */
 	uint8_t  cmpl_queue : 1;
 		/*!< Completion needs to be called from the queue context */
 
@@ -122,15 +121,15 @@ int ocf_cleaner_do_flush_data_async(struct ocf_cache *cache,
 /**
  * @brief Sort flush data by core sector
  *
- * @param tbl Flush data to sort
- * @param num Number of entries in tbl
+ * @param flush_data Flush data to sort
+ * @param count Number of entries in flush_data
  */
-void ocf_cleaner_sort_sectors(struct flush_data *tbl, uint32_t num);
+void ocf_cleaner_sort_flush_data(struct flush_data *flush_data, uint32_t count);
 
 /**
  * @brief Sort flush data in all flush containters
  *
- * @param tbl Flush containers to sort
+ * @param fctbl Flush containers to sort
  * @param num Number of entries in fctbl
  */
 void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,

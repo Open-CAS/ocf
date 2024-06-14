@@ -746,22 +746,6 @@ static int _ocf_cleaner_fire(struct ocf_request *req)
 	return result;
 }
 
-/* Helper function for 'sort' */
-static int _ocf_cleaner_cmp_private(const void *a, const void *b)
-{
-	struct ocf_map_info *_a = (struct ocf_map_info *)a;
-	struct ocf_map_info *_b = (struct ocf_map_info *)b;
-
-	static uint32_t step = 0;
-
-	OCF_COND_RESCHED_DEFAULT(step);
-
-	if (_a->core_id == _b->core_id)
-		return (_a->core_line > _b->core_line) ? 1 : -1;
-
-	return (_a->core_id > _b->core_id) ? 1 : -1;
-}
-
 /**
  * Prepare cleaning request to be fired
  *
@@ -769,10 +753,8 @@ static int _ocf_cleaner_cmp_private(const void *a, const void *b)
  * @param i_out number of already filled map requests (remaining to be filled
  *    with missed
  */
-static int _ocf_cleaner_do_fire(struct ocf_request *req,  uint32_t i_out,
-		bool do_sort)
+static int _ocf_cleaner_do_fire(struct ocf_request *req,  uint32_t i_out)
 {
-	uint32_t i;
 	/* Set counts of cache IOs */
 	env_atomic_set(&req->req_remaining, i_out);
 
@@ -784,14 +766,6 @@ static int _ocf_cleaner_do_fire(struct ocf_request *req,  uint32_t i_out,
 		req->map[i_out].core_line = ULLONG_MAX;
 		req->map[i_out].status = LOOKUP_MISS;
 		req->map[i_out].hash = i_out;
-	}
-
-	if (do_sort) {
-		/* Sort by core id and core line */
-		env_sort(req->map, req->core_line_count, sizeof(req->map[0]),
-			_ocf_cleaner_cmp_private, NULL);
-		for (i = 0; i < req->core_line_count; i++)
-			req->map[i].hash = i;
 	}
 
 	/* issue actual request */
@@ -945,7 +919,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 		i_out++;
 
 		if (max == i_out) {
-			err = _ocf_cleaner_do_fire(req, i_out, attribs->do_sort);
+			err = _ocf_cleaner_do_fire(req, i_out);
 			if (err) {
 				_ocf_cleaner_fire_error(master, req, err);
 				req  = NULL;
@@ -958,7 +932,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	}
 
 	if (req) {
-		err = _ocf_cleaner_do_fire(req, i_out, attribs->do_sort);
+		err = _ocf_cleaner_do_fire(req, i_out);
 		if (err)
 			_ocf_cleaner_fire_error(master, req, err);
 		req = NULL;
@@ -1023,9 +997,10 @@ static void _ocf_cleaner_swap(void *a, void *b, int size)
 	*_b = t;
 }
 
-void ocf_cleaner_sort_sectors(struct flush_data *tbl, uint32_t num)
+void ocf_cleaner_sort_flush_data(struct flush_data *flush_data, uint32_t count)
 {
-	env_sort(tbl, num, sizeof(*tbl), _ocf_cleaner_cmp, _ocf_cleaner_swap);
+	env_sort(flush_data, count, sizeof(*flush_data),
+			_ocf_cleaner_cmp, _ocf_cleaner_swap);
 }
 
 void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,
@@ -1034,9 +1009,8 @@ void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,
 	int i;
 
 	for (i = 0; i < num; i++) {
-		env_sort(fctbl[i].flush_data, fctbl[i].count,
-				sizeof(*fctbl[i].flush_data), _ocf_cleaner_cmp,
-				_ocf_cleaner_swap);
+		ocf_cleaner_sort_flush_data(fctbl[i].flush_data,
+				fctbl[i].count);
 	}
 }
 

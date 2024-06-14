@@ -652,7 +652,6 @@ static void _acp_flush(struct acp_context *acp)
 		.cmpl_fn = _acp_flush_end,
 		.lock_cacheline = false,
 		.lock_metadata = true,
-		.do_sort = false,
 		.cmpl_queue = true,
 		.io_queue = cache->cleaner.io_queue,
 	};
