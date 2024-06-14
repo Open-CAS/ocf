@@ -8,6 +8,7 @@
 #define __METADATA_PARTITION_STRUCTS_H__
 
 #include "utils/utils_list.h"
+#include "utils/utils_cleaner.h"
 #include "cleaning/cleaning.h"
 #include "ocf_space.h"
 
@@ -70,7 +71,7 @@ struct ocf_lru_iter
 struct ocf_part_cleaning_ctx {
 	ocf_cache_t cache;
 	struct ocf_refcnt counter;
-	ocf_cache_line_t cline[OCF_EVICTION_CLEAN_SIZE];
+	struct flush_data entries[OCF_EVICTION_CLEAN_SIZE];
 };
 
 /* common partition data for both user-deined partitions as
