@@ -722,11 +722,46 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	return 0;
 }
 
-static int _ocf_cleaner_fire(struct ocf_request *req)
+static int _ocf_cleaner_check_map(struct ocf_request *req)
+{
+	ocf_core_id_t core_id;
+	uint64_t core_line;
+	int i;
+
+	for (i = 0; i < req->core_line_count; ++i) {
+		ocf_metadata_get_core_info(req->cache, req->map[i].coll_idx,
+				&core_id, &core_line);
+
+		if (core_id != req->map[i].core_id) {
+			req->map[i].status = LOOKUP_MISS;
+			continue;
+		}
+
+		if (core_line != req->map[i].core_line) {
+			req->map[i].status = LOOKUP_MISS;
+			continue;
+		}
+
+		if (!metadata_test_dirty(req->cache, req->map[i].coll_idx)) {
+			req->map[i].status = LOOKUP_MISS;
+			continue;
+		}
+	}
+
+	_ocf_cleaner_fire_cache(req);
+
+	return 0;
+}
+
+static int _ocf_cleaner_do_fire(struct ocf_request *req, uint32_t count)
 {
 	int result;
 
-	req->engine_handler = _ocf_cleaner_fire_cache;
+	/* Set counts of cache IOs */
+	env_atomic_set(&req->req_remaining, count);
+
+	req->engine_handler = _ocf_cleaner_check_map;
+	req->core_line_count = count;
 
 	/* Handle cache lines locks */
 	result = _ocf_cleaner_cache_line_lock(req);
@@ -734,7 +769,7 @@ static int _ocf_cleaner_fire(struct ocf_request *req)
 	if (result >= 0) {
 		if (result == OCF_LOCK_ACQUIRED) {
 			OCF_DEBUG_MSG(req->cache, "Lock acquired");
-			_ocf_cleaner_fire_cache(req);
+			_ocf_cleaner_check_map(req);
 		} else {
 			OCF_DEBUG_MSG(req->cache, "NO Lock");
 		}
@@ -744,58 +779,6 @@ static int _ocf_cleaner_fire(struct ocf_request *req)
 	}
 
 	return result;
-}
-
-/* Helper function for 'sort' */
-static int _ocf_cleaner_cmp_private(const void *a, const void *b)
-{
-	struct ocf_map_info *_a = (struct ocf_map_info *)a;
-	struct ocf_map_info *_b = (struct ocf_map_info *)b;
-
-	static uint32_t step = 0;
-
-	OCF_COND_RESCHED_DEFAULT(step);
-
-	if (_a->core_id == _b->core_id)
-		return (_a->core_line > _b->core_line) ? 1 : -1;
-
-	return (_a->core_id > _b->core_id) ? 1 : -1;
-}
-
-/**
- * Prepare cleaning request to be fired
- *
- * @param req cleaning request
- * @param i_out number of already filled map requests (remaining to be filled
- *    with missed
- */
-static int _ocf_cleaner_do_fire(struct ocf_request *req,  uint32_t i_out,
-		bool do_sort)
-{
-	uint32_t i;
-	/* Set counts of cache IOs */
-	env_atomic_set(&req->req_remaining, i_out);
-
-	/* fill tail of a request with fake MISSes so that it won't
-	 *  be cleaned
-	 */
-	for (; i_out < req->core_line_count; ++i_out) {
-		req->map[i_out].core_id = OCF_CORE_MAX;
-		req->map[i_out].core_line = ULLONG_MAX;
-		req->map[i_out].status = LOOKUP_MISS;
-		req->map[i_out].hash = i_out;
-	}
-
-	if (do_sort) {
-		/* Sort by core id and core line */
-		env_sort(req->map, req->core_line_count, sizeof(req->map[0]),
-			_ocf_cleaner_cmp_private, NULL);
-		for (i = 0; i < req->core_line_count; i++)
-			req->map[i].hash = i;
-	}
-
-	/* issue actual request */
-	return _ocf_cleaner_fire(req);
 }
 
 static inline uint32_t _ocf_cleaner_get_req_max_count(uint32_t count,
@@ -841,7 +824,6 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	int err;
 	ocf_core_id_t core_id;
 	uint64_t core_sector;
-	bool skip;
 
 	/* Allocate master request */
 	master = _ocf_cleaner_alloc_master_req(cache, max, attribs);
@@ -898,40 +880,6 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 		ocf_metadata_get_core_info(cache, cache_line, &core_id,
 				&core_sector);
 
-		if (attribs->lock_metadata) {
-			ocf_hb_cline_prot_lock_rd(&cache->metadata.lock,
-					req->lock_idx, core_id, core_sector);
-		}
-
-		skip = false;
-
-		/* when line already cleaned - rare condition under heavy
-		 * I/O workload.
-		 */
-		if (!metadata_test_dirty(cache, cache_line)) {
-			OCF_DEBUG_MSG(cache, "Not dirty");
-			skip = true;
-		}
-
-		if (!skip && !metadata_test_valid_any(cache, cache_line)) {
-			OCF_DEBUG_MSG(cache, "No any valid");
-
-			/*
-			 * Extremely disturbing cache line state
-			 * Cache line (sector) cannot be dirty and not valid
-			 */
-			ENV_BUG();
-			skip = true;
-		}
-
-		if (attribs->lock_metadata) {
-			ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock,
-					req->lock_idx, core_id, core_sector);
-		}
-
-		if (skip)
-			continue;
-
 		if (unlikely(!cache->core[core_id].opened)) {
 			OCF_DEBUG_MSG(cache, "Core object inactive");
 			continue;
@@ -945,7 +893,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 		i_out++;
 
 		if (max == i_out) {
-			err = _ocf_cleaner_do_fire(req, i_out, attribs->do_sort);
+			err = _ocf_cleaner_do_fire(req, i_out);
 			if (err) {
 				_ocf_cleaner_fire_error(master, req, err);
 				req  = NULL;
@@ -957,8 +905,8 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 
 	}
 
-	if (req) {
-		err = _ocf_cleaner_do_fire(req, i_out, attribs->do_sort);
+	if (req && i_out) {
+		err = _ocf_cleaner_do_fire(req, i_out);
 		if (err)
 			_ocf_cleaner_fire_error(master, req, err);
 		req = NULL;
@@ -967,6 +915,9 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	/* prevent cleaning completion race */
 	_ocf_cleaner_complete_req(master);
 	ocf_req_put(master);
+
+	if (req && !i_out)
+		_ocf_cleaner_dealloc_req(req);
 }
 
 static int _ocf_cleaner_do_flush_data_getter(struct ocf_cache *cache,
@@ -1023,9 +974,10 @@ static void _ocf_cleaner_swap(void *a, void *b, int size)
 	*_b = t;
 }
 
-void ocf_cleaner_sort_sectors(struct flush_data *tbl, uint32_t num)
+void ocf_cleaner_sort_flush_data(struct flush_data *flush_data, uint32_t count)
 {
-	env_sort(tbl, num, sizeof(*tbl), _ocf_cleaner_cmp, _ocf_cleaner_swap);
+	env_sort(flush_data, count, sizeof(*flush_data),
+			_ocf_cleaner_cmp, _ocf_cleaner_swap);
 }
 
 void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,
@@ -1034,9 +986,8 @@ void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,
 	int i;
 
 	for (i = 0; i < num; i++) {
-		env_sort(fctbl[i].flush_data, fctbl[i].count,
-				sizeof(*fctbl[i].flush_data), _ocf_cleaner_cmp,
-				_ocf_cleaner_swap);
+		ocf_cleaner_sort_flush_data(fctbl[i].flush_data,
+				fctbl[i].count);
 	}
 }
 
