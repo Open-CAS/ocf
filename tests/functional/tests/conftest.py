@@ -54,6 +54,15 @@ def pyocf_ctx_log_buffer():
         warnings.warn("Not all Volumes have been closed!!!")
 
 
+def pytest_addoption(parser):
+    parser.addoption("--debug-log", action="store_true", help="enable debug logs")
+
+
+@pytest.fixture
+def debug_log(request):
+    return request.config.getoption("--debug-log")
+
+  
 @pytest.fixture()
 def pyocf_2_ctx():
     c1 = OcfCtx.with_defaults(DefaultLogger(LogLevel.WARN, "Ctx1"))

@@ -188,7 +188,7 @@ def print_test_case(
 @pytest.mark.parametrize("cacheline_size", CacheLineSize)
 @pytest.mark.parametrize("cache_mode", CacheMode)
 @pytest.mark.parametrize("rand_seed", [datetime.now()])
-def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed):
+def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed, debug_log):
     CACHELINE_COUNT = 9
     SECTOR_SIZE = Size.from_sector(1).B
     CLS = cacheline_size // SECTOR_SIZE
@@ -342,7 +342,8 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
 
         # run the test for each selected IO range for currently set up region status
         for start, end in io_ranges:
-            print_test_case(region_start, region_state, start, end, SECTOR_COUNT, CLS)
+            if debug_log:
+                print_test_case(region_start, region_state, start, end, SECTOR_COUNT, CLS)
 
             # issue read
             START = start * SECTOR_SIZE
