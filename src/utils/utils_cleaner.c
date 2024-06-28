@@ -109,6 +109,9 @@ static struct ocf_request *_ocf_cleaner_alloc_master_req(
 	/* The count of all requests */
 	env_atomic_set(&req->master_remaining, 1);
 
+	/* Keep master alive till all sub-requests complete */
+	ocf_req_get(req);
+
 	OCF_DEBUG_PARAM(cache, "New master request, count = %u", count);
 
 	return req;
@@ -133,9 +136,6 @@ static struct ocf_request *_ocf_cleaner_alloc_slave_req(
 	/* Set type of cleaning request */
 	req->master_io_req_type = ocf_cleaner_req_type_slave;
 
-	/* Slave refers to master request, get its reference counter */
-	ocf_req_get(master);
-
 	/* Slave request contains reference to master */
 	req->master_io_req = master;
 
@@ -153,22 +153,6 @@ static struct ocf_request *_ocf_cleaner_alloc_slave_req(
 
 static void _ocf_cleaner_dealloc_req(struct ocf_request *req)
 {
-	if (ocf_cleaner_req_type_slave == req->master_io_req_type) {
-		/* Slave contains reference to the master request,
-		 * release reference counter
-		 */
-		struct ocf_request *master = req->master_io_req;
-
-		OCF_DEBUG_MSG(req->cache, "Put master request by slave");
-		ocf_req_put(master);
-
-		OCF_DEBUG_MSG(req->cache, "Free slave request");
-	} else if (ocf_cleaner_req_type_master == req->master_io_req_type) {
-		OCF_DEBUG_MSG(req->cache, "Free master request");
-	} else {
-		ENV_BUG();
-	}
-
 	ctx_data_secure_erase(req->cache->owner, req->data);
 	ctx_data_munlock(req->cache->owner, req->data);
 	ctx_data_free(req->cache->owner, req->data);
@@ -239,6 +223,9 @@ static void _ocf_cleaner_complete_req(struct ocf_request *req)
 		/* Only master contains completion function and priv */
 		cmpl = master->master_io_req;
 		cmpl(master->priv, master->error);
+
+	/* For additional get on master allocation */
+	ocf_req_put(master);
 	}
 }
 
@@ -846,10 +833,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 
 	req = master;
 
-	/* prevent cleaning completion race */
-	ocf_req_get(master);
 	env_atomic_inc(&master->master_remaining);
-
 	for (i = 0; i < count; i++) {
 		/* when request hasn't yet been allocated or is just issued */
 		if (unlikely(!req)) {
@@ -907,9 +891,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 		req = NULL;
 	}
 
-	/* prevent cleaning completion race */
 	_ocf_cleaner_complete_req(master);
-	ocf_req_put(master);
 
 	if (req && !i_out)
 		_ocf_cleaner_dealloc_req(req);
