@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -31,6 +32,12 @@ typedef enum {
 
 	ocf_req_cache_mode_max,
 } ocf_req_cache_mode_t;
+
+static inline ocf_req_cache_mode_t ocf_cache_mode_to_req_cache_mode(
+		ocf_cache_mode_t mode)
+{
+	return (ocf_req_cache_mode_t)mode;
+}
 
 typedef int (*ocf_engine_cb)(struct ocf_request *req);
 
