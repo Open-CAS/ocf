@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -201,6 +202,8 @@ bool ocf_fallback_pt_is_on(ocf_cache_t cache)
 void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		ocf_core_t core, struct ocf_request *req)
 {
+	ocf_cache_mode_t cache_mode;
+
 	if (req->d2c) {
 		req->cache_mode = ocf_req_cache_mode_d2c;
 		return;
@@ -228,10 +231,13 @@ void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		return;
 	}
 
-	req->cache_mode = ocf_user_part_get_cache_mode(cache,
-				ocf_user_part_class2id(cache, req->part_id));
-	if (!ocf_cache_mode_is_valid(req->cache_mode))
-		req->cache_mode = cache->conf_meta->cache_mode;
+	cache_mode = ocf_user_part_get_cache_mode(cache,
+			ocf_user_part_class2id(cache, req->part_id));
+
+	if (!ocf_cache_mode_is_valid(cache_mode))
+		cache_mode = cache->conf_meta->cache_mode;
+
+	req->cache_mode = ocf_cache_mode_to_req_cache_mode(cache_mode);
 
 	if (req->rw == OCF_WRITE &&
 	    ocf_req_cache_mode_has_lazy_write(req->cache_mode) &&

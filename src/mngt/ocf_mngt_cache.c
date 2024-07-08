@@ -3435,6 +3435,9 @@ static void _cache_mngt_update_initial_dirty_clines(ocf_cache_t cache)
 static int _cache_mngt_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 {
 	ocf_cache_mode_t mode_old = cache->conf_meta->cache_mode;
+	ocf_req_cache_mode_t req_mode = ocf_cache_mode_to_req_cache_mode(mode);
+	ocf_req_cache_mode_t req_mode_old =
+			ocf_cache_mode_to_req_cache_mode(mode_old);
 
 	/* Check if IO interface type is valid */
 	if (!ocf_cache_mode_is_valid(mode))
@@ -3442,7 +3445,7 @@ static int _cache_mngt_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 
 	if (mode == mode_old) {
 		ocf_cache_log(cache, log_info, "Cache mode '%s' is already set\n",
-				ocf_get_io_iface_name(mode));
+				ocf_get_io_iface_name(req_mode));
 		return 0;
 	}
 
@@ -3454,14 +3457,15 @@ static int _cache_mngt_set_cache_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 	}
 
 	ocf_cache_log(cache, log_info, "Changing cache mode from '%s' to '%s' "
-			"successful\n", ocf_get_io_iface_name(mode_old),
-			ocf_get_io_iface_name(mode));
+			"successful\n", ocf_get_io_iface_name(req_mode_old),
+			ocf_get_io_iface_name(req_mode));
 
 	return 0;
 }
 
 int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 {
+	ocf_req_cache_mode_t req_mode = ocf_cache_mode_to_req_cache_mode(mode);
 	int result;
 
 	OCF_CHECK_NULL(cache);
@@ -3478,7 +3482,7 @@ int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 	result = _cache_mngt_set_cache_mode(cache, mode);
 
 	if (result) {
-		const char *name = ocf_get_io_iface_name(mode);
+		const char *name = ocf_get_io_iface_name(req_mode);
 
 		ocf_cache_log(cache, log_err, "Setting cache mode '%s' "
 				"failed\n", name);
