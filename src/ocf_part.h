@@ -1,14 +1,16 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __METADATA_PARTITION_STRUCTS_H__
 #define __METADATA_PARTITION_STRUCTS_H__
 
-#include "../utils/utils_list.h"
-#include "../cleaning/cleaning.h"
-#include "../ocf_space.h"
+#include "utils/utils_list.h"
+#include "utils/utils_cleaner.h"
+#include "cleaning/cleaning.h"
+#include "ocf_space.h"
 
 #define OCF_NUM_PARTITIONS OCF_USER_IO_CLASS_MAX + 2
 
@@ -69,7 +71,7 @@ struct ocf_lru_iter
 struct ocf_part_cleaning_ctx {
 	ocf_cache_t cache;
 	struct ocf_refcnt counter;
-	ocf_cache_line_t cline[OCF_EVICTION_CLEAN_SIZE];
+	struct flush_data entries[OCF_EVICTION_CLEAN_SIZE];
 };
 
 /* common partition data for both user-deined partitions as

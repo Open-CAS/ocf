@@ -444,7 +444,6 @@ static void _ocf_mngt_flush_container(
 
 	fc->req = req;
 	fc->attribs.lock_cacheline = true;
-	fc->attribs.lock_metadata = false;
 	fc->attribs.cmpl_context = fc;
 	fc->attribs.cmpl_fn = _ocf_mngt_flush_portion_end;
 	fc->attribs.io_queue = cache->mngt_queue;

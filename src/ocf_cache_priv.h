@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -10,8 +11,8 @@
 #include "ocf_env.h"
 #include "ocf_volume_priv.h"
 #include "ocf_core_priv.h"
+#include "ocf_part.h"
 #include "metadata/metadata_structs.h"
-#include "metadata/metadata_partition_structs.h"
 #include "utils/utils_list.h"
 #include "utils/utils_pipeline.h"
 #include "utils/utils_refcnt.h"

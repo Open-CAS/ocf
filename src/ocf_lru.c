@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -570,28 +571,18 @@ static inline ocf_cache_line_t lru_iter_cleaning_next(struct ocf_lru_iter *iter)
 static void ocf_lru_clean_end(void *private_data, int error)
 {
 	struct ocf_part_cleaning_ctx *ctx = private_data;
+	struct flush_data *entries = ctx->entries;
 	unsigned i;
 
 	for (i = 0; i < OCF_EVICTION_CLEAN_SIZE; i++) {
-		if (ctx->cline[i] != end_marker)
-			ocf_cache_line_unlock_rd(ctx->cache->device->concurrency
-					.cache_line, ctx->cline[i]);
+		if (entries[i].cache_line == end_marker)
+			break;
+		ocf_cache_line_unlock_rd(
+				ctx->cache->device->concurrency.cache_line,
+				entries[i].cache_line);
 	}
 
 	ocf_refcnt_dec(&ctx->counter);
-}
-
-static int ocf_lru_clean_get(ocf_cache_t cache, void *getter_context,
-		uint32_t idx, ocf_cache_line_t *line)
-{
-	struct ocf_part_cleaning_ctx *ctx = getter_context;
-
-	if (ctx->cline[idx] == end_marker)
-		return -1;
-
-	*line = ctx->cline[idx];
-
-	return 0;
 }
 
 void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
@@ -600,20 +591,13 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 	struct ocf_part_cleaning_ctx *ctx = &user_part->cleaning;
 	struct ocf_cleaner_attribs attribs = {
 		.lock_cacheline = false,
-		.lock_metadata = true,
-		.do_sort = true,
 
 		.cmpl_context = ctx,
 		.cmpl_fn = ocf_lru_clean_end,
 
-		.getter = ocf_lru_clean_get,
-		.getter_context = ctx,
-
-		.count = min(count, OCF_EVICTION_CLEAN_SIZE),
-
 		.io_queue = io_queue
 	};
-	ocf_cache_line_t *cline = ctx->cline;
+	struct flush_data *entries = ctx->entries;
 	struct ocf_lru_iter iter;
 	unsigned lru_idx;
 	int cnt;
@@ -643,21 +627,26 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 	OCF_METADATA_LRU_WR_LOCK_ALL();
 
 	lru_iter_cleaning_init(&iter, cache, &user_part->part, lru_idx);
-	i = 0;
-	while (i < OCF_EVICTION_CLEAN_SIZE) {
-		cline[i] = lru_iter_cleaning_next(&iter);
-		if (cline[i] == end_marker)
+	count = min(count, OCF_EVICTION_CLEAN_SIZE);
+	for (i = 0; i < count; i++) {
+		entries[i].cache_line = lru_iter_cleaning_next(&iter);
+		if (entries[i].cache_line == end_marker)
 			break;
-		i++;
+		ocf_metadata_get_core_info(cache, entries[i].cache_line,
+				&entries[i].core_id, &entries[i].core_line);
 	}
-	while (i < OCF_EVICTION_CLEAN_SIZE)
-		cline[i++] = end_marker;
 
 	OCF_METADATA_LRU_WR_UNLOCK_ALL();
 
 	ocf_metadata_end_shared_access(&cache->metadata.lock, lock_idx);
 
-	ocf_cleaner_fire(cache, &attribs);
+	if (i == 0) {
+		ocf_refcnt_dec(&ctx->counter);
+		return;
+	}
+
+	ocf_cleaner_sort_flush_data(entries, i);
+	ocf_cleaner_do_flush_data_async(cache, entries, i, &attribs);
 }
 
 static void ocf_lru_invalidate(ocf_cache_t cache, ocf_cache_line_t cline,
