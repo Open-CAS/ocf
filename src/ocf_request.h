@@ -195,6 +195,9 @@ struct ocf_request {
 	uint8_t part_evict : 1;
 	/* !< Some cachelines from request's partition must be evicted */
 
+	uint8_t complete_queue : 1;
+	/* !< Request needs to be completed from the queue context */
+
 	uint8_t lock_idx : OCF_METADATA_GLOBAL_LOCK_IDX_BITS;
 	/* !< Selected global metadata read lock */
 
