@@ -23,7 +23,7 @@ void ocf_submit_cache_write_zeros(ocf_cache_t cache, uint64_t addr,
 void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
 		void *buffer, ocf_submit_end_t cmpl, void *priv);
 
-static inline struct ocf_io *ocf_new_cache_io(ocf_cache_t cache,
+static inline ocf_io_t ocf_new_cache_io(ocf_cache_t cache,
 		ocf_queue_t queue, uint64_t addr, uint32_t bytes,
 		uint32_t dir, uint32_t io_class, uint64_t flags)
 
@@ -32,7 +32,7 @@ static inline struct ocf_io *ocf_new_cache_io(ocf_cache_t cache,
 			addr, bytes, dir, io_class, flags);
 }
 
-static inline struct ocf_io *ocf_new_core_io(ocf_core_t core,
+static inline ocf_io_t ocf_new_core_io(ocf_core_t core,
 		ocf_queue_t queue, uint64_t addr, uint32_t bytes,
 		uint32_t dir, uint32_t io_class, uint64_t flags)
 {

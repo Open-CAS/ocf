@@ -28,11 +28,10 @@
 static int passive_io_resume(struct ocf_request *req)
 {
 	struct ocf_request *master = req->master_io_req;
-	struct ocf_io *io = &master->ioi.io;
 	ocf_cache_t cache = req->cache;
 	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
-	uint64_t io_start_page = BYTES_TO_PAGES(io->addr);
-	uint64_t io_pages_count = BYTES_TO_PAGES(io->bytes);
+	uint64_t io_start_page = BYTES_TO_PAGES(master->io.addr);
+	uint64_t io_pages_count = BYTES_TO_PAGES(master->io.bytes);
 	uint64_t io_end_page = io_start_page + io_pages_count - 1;
 	enum ocf_metadata_segment_id update_segments[] = {
 		metadata_segment_sb_config,
@@ -78,13 +77,12 @@ int ocf_metadata_passive_update(struct ocf_request *master)
 {
 	ocf_cache_t cache = master->cache;
 	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
-	struct ocf_io *io = &master->ioi.io;
-	uint64_t io_start_page = BYTES_TO_PAGES(io->addr);
-	uint64_t io_end_page = io_start_page + BYTES_TO_PAGES(io->bytes);
+	uint64_t io_start_page = BYTES_TO_PAGES(master->io.addr);
+	uint64_t io_end_page = io_start_page + BYTES_TO_PAGES(master->io.bytes);
 	struct ocf_request *req;
 	int lock = 0;
 
-	if (io->dir == OCF_READ) {
+	if (master->io.dir == OCF_READ) {
 		master->complete(master, 0);
 		return 0;
 	}
@@ -94,14 +92,14 @@ int ocf_metadata_passive_update(struct ocf_request *master)
 		return 0;
 	}
 
-	if (io->addr % PAGE_SIZE || io->bytes % PAGE_SIZE) {
+	if (master->io.addr % PAGE_SIZE || master->io.bytes % PAGE_SIZE) {
 		ocf_cache_log(cache, log_warn,
 				"Metadata update not aligned to page size!\n");
 		master->complete(master, -OCF_ERR_INVAL);
 		return -OCF_ERR_INVAL;
 	}
 
-	if (io->bytes > MAX_PASSIVE_IO_SIZE) {
+	if (master->io.bytes > MAX_PASSIVE_IO_SIZE) {
 		//FIXME handle greater IOs
 		ocf_cache_log(cache, log_warn,
 				"IO size exceedes max supported size!\n");
@@ -115,7 +113,7 @@ int ocf_metadata_passive_update(struct ocf_request *master)
 		return -OCF_ERR_NO_MEM;
 	}
 
-	req->io_queue = io->io_queue;;
+	req->io_queue = master->io.io_queue;;
 	req->info.internal = true;
 	req->engine_handler = passive_io_resume;
 	req->rw = OCF_WRITE;

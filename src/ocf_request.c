@@ -432,6 +432,14 @@ void ocf_req_hash(struct ocf_request *req)
 	}
 }
 
+void ocf_io_end_func(ocf_io_t io, int error)
+{
+	struct ocf_request *req = ocf_io_to_req(io);
+
+	if (req->io.end)
+		req->io.end(io, req->io.priv1, req->io.priv2, error);
+}
+
 void ocf_req_forward_volume_io(struct ocf_request *req, ocf_volume_t volume,
 		int dir, uint64_t addr, uint64_t bytes, uint64_t offset)
 {
@@ -581,14 +589,14 @@ uint8_t ocf_forward_get_io_class(ocf_forward_token_t token)
 {
 	struct ocf_request *req = (struct ocf_request *)(token & ~1);
 
-	return req->ioi.io.io_class;
+	return req->io.io_class;
 }
 
 uint64_t ocf_forward_get_flags(ocf_forward_token_t token)
 {
 	struct ocf_request *req = (struct ocf_request *)(token & ~1);
 
-	return (token & 1) ? 0 : req->ioi.io.flags;
+	return (token & 1) ? 0 : req->io.flags;
 }
 
 static inline void _ocf_forward_get(ocf_forward_token_t token)

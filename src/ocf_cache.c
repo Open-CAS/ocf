@@ -298,7 +298,7 @@ static void ocf_cache_volume_io_complete_generic(struct ocf_request *req,
 	ocf_cache_t cache = req->cache;
 
 	ocf_refcnt_dec(&cache->refcnt.metadata);
-	ocf_io_end(&req->ioi.io, error);
+	ocf_io_end_func(req, error);
 }
 
 static void ocf_cache_io_complete(struct ocf_request *req, int error)
@@ -312,21 +312,21 @@ static void ocf_cache_io_complete(struct ocf_request *req, int error)
 		return;
 
 	ocf_refcnt_dec(&cache->refcnt.metadata);
-	ocf_io_end(&req->ioi.io, error);
+	ocf_io_end_func(req, req->error);
 }
 
-static void ocf_cache_volume_submit_io(struct ocf_io *io)
+static void ocf_cache_volume_submit_io(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_cache_t cache = req->cache;
 	int result;
 
 	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
-		ocf_io_end(io, -OCF_ERR_IO);
+		ocf_io_end_func(io, -OCF_ERR_IO);
 		return;
 	}
 	if (unlikely(!ocf_cache_is_standby(cache))) {
-		ocf_io_end(io, -OCF_ERR_CACHE_NOT_STANDBY);
+		ocf_io_end_func(io, -OCF_ERR_CACHE_NOT_STANDBY);
 		return;
 	}
 
@@ -347,17 +347,17 @@ static void ocf_cache_volume_submit_io(struct ocf_io *io)
 	ocf_cache_io_complete(req, 0);
 }
 
-static void ocf_cache_volume_submit_flush(struct ocf_io *io)
+static void ocf_cache_volume_submit_flush(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_cache_t cache = req->cache;
 
 	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
-		ocf_io_end(io, -OCF_ERR_IO);
+		ocf_io_end_func(io, -OCF_ERR_IO);
 		return;
 	}
 	if (unlikely(!ocf_cache_is_standby(cache))) {
-		ocf_io_end(io, -OCF_ERR_CACHE_NOT_STANDBY);
+		ocf_io_end_func(io, -OCF_ERR_CACHE_NOT_STANDBY);
 		return;
 	}
 
@@ -366,17 +366,17 @@ static void ocf_cache_volume_submit_flush(struct ocf_io *io)
 }
 
 
-static void ocf_cache_volume_submit_discard(struct ocf_io *io)
+static void ocf_cache_volume_submit_discard(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_cache_t cache = req->cache;
 
 	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
-		ocf_io_end(io, -OCF_ERR_IO);
+		ocf_io_end_func(io, -OCF_ERR_IO);
 		return;
 	}
 	if (unlikely(!ocf_cache_is_standby(cache))) {
-		ocf_io_end(io, -OCF_ERR_CACHE_NOT_STANDBY);
+		ocf_io_end_func(io, -OCF_ERR_CACHE_NOT_STANDBY);
 		return;
 	}
 
@@ -453,20 +453,15 @@ static void *ocf_cache_io_allocator_new(ocf_io_allocator_t allocator,
 		ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir)
 {
-	struct ocf_request *req;
+	ocf_cache_t cache = ocf_volume_to_cache(volume);
 
-	req = ocf_req_new(queue, NULL, addr, bytes, dir);
-	if (!req)
-		return NULL;
-
-	return &req->ioi;
+	return ocf_req_new_cache(cache, queue, addr, bytes, dir);
 }
 
 static void ocf_cache_io_allocator_del(ocf_io_allocator_t allocator, void *obj)
 {
-	struct ocf_request *req;
+	struct ocf_request *req = obj;
 
-	req = container_of(obj, struct ocf_request, ioi);
 	ocf_req_put(req);
 }
 

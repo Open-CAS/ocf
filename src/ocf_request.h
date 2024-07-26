@@ -122,12 +122,79 @@ struct ocf_req_discard_info {
 struct ocf_request;
 typedef int (*ocf_req_cb)(struct ocf_request *req);
 
+struct ocf_request_io {
+	/**
+	 * @brief OCF IO destination address
+	 */
+	uint64_t addr;
+
+	/**
+	 * @brief OCF IO flags
+	 */
+	uint64_t flags;
+
+	/**
+	 * @brief OCF IO size in bytes
+	 */
+	uint32_t bytes;
+
+	/**
+	 * @brief OCF IO destination class
+	 */
+	uint8_t io_class;
+
+	/**
+	 * @brief OCF IO direction
+	 */
+	uint8_t dir:1;
+
+	/**
+	 * @brief OCF IO reference count
+	 */
+	env_atomic ref_count;
+
+	/**
+	 * @brief Front volume handle
+	 */
+	ocf_volume_t volume;
+
+	/**
+	 * @brief Queue handle
+	 */
+	ocf_queue_t io_queue;
+
+	/**
+	 * @brief OCF IO start function
+	 */
+	ocf_start_io_t start;
+
+	/**
+	 * @brief OCF IO private 1
+	 */
+	void *priv1;
+
+	/**
+	 * @brief OCF IO private 2
+	 */
+	void *priv2;
+
+	/**
+	 * @brief OCF IO handle function
+	 */
+	ocf_handle_io_t handle;
+
+	/**
+	 * @brief OCF IO completion function
+	 */
+	ocf_end_io_t end;
+};
+
 /**
  * @brief OCF IO request
  */
 struct ocf_request {
-	struct ocf_io_internal ioi;
-	/*!< OCF IO associated with request */
+	/* This struct is temporary. It will be consolidated with ocf_request */
+	struct ocf_request_io io;
 
 	union {
 		ocf_req_end_t cache_forward_end;

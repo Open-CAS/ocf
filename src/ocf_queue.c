@@ -160,9 +160,10 @@ void ocf_queue_put(ocf_queue_t queue)
 	env_free(queue);
 }
 
-void ocf_io_handle(struct ocf_io *io, void *opaque)
+/* TODO: Remove opaque. It's not longer needed. */
+void ocf_io_handle(ocf_io_t io, void *opaque)
 {
-	struct ocf_request *req = opaque;
+	struct ocf_request *req = ocf_io_to_req(io);
 
 	OCF_CHECK_NULL(req);
 
@@ -215,10 +216,10 @@ void ocf_queue_run_single(ocf_queue_t q)
 	if (!io_req)
 		return;
 
-	if (io_req->ioi.io.handle)
-		io_req->ioi.io.handle(&io_req->ioi.io, io_req);
+	if (io_req->io.handle)
+		io_req->io.handle(io_req, io_req);
 	else
-		ocf_io_handle(&io_req->ioi.io, io_req);
+		ocf_io_handle(io_req, io_req);
 }
 
 void ocf_queue_run(ocf_queue_t q)

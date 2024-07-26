@@ -247,6 +247,6 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats);
  * @param[in] core to which request pertains
  * @param[in] io request for which stats are being updated
  */
-void ocf_core_update_stats(ocf_core_t core, struct ocf_io *io);
+void ocf_core_update_stats(ocf_core_t core, ocf_io_t io);
 
 #endif

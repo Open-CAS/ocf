@@ -58,7 +58,7 @@ ocf_io_allocator_type_t ocf_io_allocator_get_type_default(void)
  * IO internal API
  */
 
-struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
+ocf_io_t ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir,
 		uint32_t io_class, uint64_t flags)
 {
@@ -78,24 +78,23 @@ struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 		return NULL;
 	}
 
-	req->ioi.meta.volume = volume;
-	env_atomic_set(&req->ioi.meta.ref_count, 1);
+	env_atomic_set(&req->io.ref_count, 1);
+	req->io.volume = volume;
+	req->io.io_queue = queue;
+	req->io.addr = addr;
+	req->io.bytes = bytes;
+	req->io.dir = dir;
+	req->io.io_class = io_class;
+	req->io.flags = flags;
 
-	req->ioi.io.io_queue = queue;
-	req->ioi.io.addr = addr;
-	req->ioi.io.bytes = bytes;
-	req->ioi.io.dir = dir;
-	req->ioi.io.io_class = io_class;
-	req->ioi.io.flags = flags;
-
-	return &req->ioi.io;
+	return req;
 }
 
 /*
  * IO external API
  */
 
-int ocf_io_set_data(struct ocf_io *io, ctx_data_t *data, uint32_t offset)
+int ocf_io_set_data(ocf_io_t io, ctx_data_t *data, uint32_t offset)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 
@@ -105,46 +104,69 @@ int ocf_io_set_data(struct ocf_io *io, ctx_data_t *data, uint32_t offset)
 	return 0;
 }
 
-ctx_data_t *ocf_io_get_data(struct ocf_io *io)
+ctx_data_t *ocf_io_get_data(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 
 	return req->data;
 }
 
-uint32_t ocf_io_get_offset(struct ocf_io *io)
+uint32_t ocf_io_get_offset(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 
 	return req->offset;
 }
 
-void ocf_io_get(struct ocf_io *io)
+void ocf_io_get(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 
-	env_atomic_inc_return(&req->ioi.meta.ref_count);
+	env_atomic_inc_return(&req->io.ref_count);
 }
 
-void ocf_io_put(struct ocf_io *io)
+void ocf_io_put(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 	struct ocf_volume *volume;
 
-	if (env_atomic_dec_return(&req->ioi.meta.ref_count))
+	if (env_atomic_dec_return(&req->io.ref_count))
 		return;
 
-	/* Hold volume reference to avoid use after free of req */
-	volume = req->ioi.meta.volume;
+	volume = req->io.volume;
 
 	ocf_io_allocator_del(&volume->type->allocator, (void *)req);
 
 	ocf_refcnt_dec(&volume->refcnt);
 }
 
-ocf_volume_t ocf_io_get_volume(struct ocf_io *io)
+ocf_volume_t ocf_io_get_volume(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 
-	return req->ioi.meta.volume;
+	return req->io.volume;
+}
+
+void ocf_io_set_cmpl(ocf_io_t io, void *context,
+		void *context2, ocf_end_io_t fn)
+{
+	struct ocf_request *req = ocf_io_to_req(io);
+
+	req->io.priv1 = context;
+	req->io.priv2 = context2;
+	req->io.end = fn;
+}
+
+void ocf_io_set_start(ocf_io_t io, ocf_start_io_t fn)
+{
+	struct ocf_request *req = ocf_io_to_req(io);
+
+	req->io.start = fn;
+}
+
+void ocf_io_set_handle(ocf_io_t io, ocf_handle_io_t fn)
+{
+	struct ocf_request *req = ocf_io_to_req(io);
+
+	req->io.handle = fn;
 }

@@ -17,8 +17,6 @@
 #include "ocf/ocf_err.h"
 #include "ocf/ocf_io.h"
 
-struct ocf_io;
-
 /**
  * @brief OCF volume UUID maximum allowed size
  */
@@ -52,28 +50,28 @@ struct ocf_volume_ops {
 	 *
 	 * @param[in] io IO to be submitted
 	 */
-	void (*submit_io)(struct ocf_io *io);
+	void (*submit_io)(ocf_io_t io);
 
 	/**
 	 * @brief Submit IO with flush command
 	 *
 	 * @param[in] io IO to be submitted
 	 */
-	void (*submit_flush)(struct ocf_io *io);
+	void (*submit_flush)(ocf_io_t io);
 
 	/**
 	 * @brief Submit IO with metadata
 	 *
 	 * @param[in] io IO to be submitted
 	 */
-	void (*submit_metadata)(struct ocf_io *io);
+	void (*submit_metadata)(ocf_io_t io);
 
 	/**
 	 * @brief Submit IO with discard command
 	 *
 	 * @param[in] io IO to be submitted
 	 */
-	void (*submit_discard)(struct ocf_io *io);
+	void (*submit_discard)(ocf_io_t io);
 
 	/**
 	 * @brief Submit operation to write zeroes to target address (including
@@ -81,7 +79,7 @@ struct ocf_volume_ops {
 	 *
 	 * @param[in] io IO description (addr, size)
 	 */
-	void (*submit_write_zeroes)(struct ocf_io *io);
+	void (*submit_write_zeroes)(ocf_io_t io);
 
 	/**
 	 * @brief Forward the original io directly to the volume
@@ -351,7 +349,7 @@ int ocf_volume_is_atomic(ocf_volume_t volume);
  *
  * @return ocf_io on success atomic, otherwise NULL
  */
-struct ocf_io *ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
+ocf_io_t ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir,
 		uint32_t io_class, uint64_t flags);
 
@@ -361,21 +359,21 @@ struct ocf_io *ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
  *
  * @param[in] io IO
  */
-void ocf_volume_submit_io(struct ocf_io *io);
+void ocf_volume_submit_io(ocf_io_t io);
 
 /**
  * @brief Submit flush to volume
  *
  * @param[in] io IO
  */
-void ocf_volume_submit_flush(struct ocf_io *io);
+void ocf_volume_submit_flush(ocf_io_t io);
 
 /**
  * @brief Submit discard to volume
  *
  * @param[in] io IO
  */
-void ocf_volume_submit_discard(struct ocf_io *io);
+void ocf_volume_submit_discard(ocf_io_t io);
 
 /**
  * @brief Open volume

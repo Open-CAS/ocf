@@ -274,7 +274,7 @@ int ocf_volume_is_atomic(ocf_volume_t volume)
 	return volume->type->properties->caps.atomic_writes;
 }
 
-struct ocf_io *ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
+ocf_io_t ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir,
 		uint32_t io_class, uint64_t flags)
 {
@@ -283,16 +283,16 @@ struct ocf_io *ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
 
 static void ocf_volume_req_forward_complete(struct ocf_request *req, int error)
 {
-	ocf_io_end(&req->ioi.io, error);
+	ocf_io_end_func(req, error);
 }
 
-void ocf_volume_submit_io(struct ocf_io *io)
+void ocf_volume_submit_io(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_volume_t volume = ocf_io_get_volume(io);
 
 	if (!volume->opened) {
-		io->end(io, -OCF_ERR_IO);
+		ocf_io_end_func(io, -OCF_ERR_IO);
 		return;
 	}
 
@@ -300,18 +300,18 @@ void ocf_volume_submit_io(struct ocf_io *io)
 		volume->type->properties->ops.submit_io(io);
 	} else {
 		req->volume_forward_end = ocf_volume_req_forward_complete;
-		ocf_req_forward_volume_io(req, volume, io->dir, io->addr,
-				io->bytes, req->offset);
+		ocf_req_forward_volume_io(req, volume, req->io.dir, req->io.addr,
+				req->io.bytes, req->offset);
 	}
 }
 
-void ocf_volume_submit_flush(struct ocf_io *io)
+void ocf_volume_submit_flush(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_volume_t volume = ocf_io_get_volume(io);
 
 	if (!volume->opened) {
-		io->end(io, -OCF_ERR_IO);
+		ocf_io_end_func(io, -OCF_ERR_IO);
 		return;
 	}
 
@@ -323,13 +323,13 @@ void ocf_volume_submit_flush(struct ocf_io *io)
 	}
 }
 
-void ocf_volume_submit_discard(struct ocf_io *io)
+void ocf_volume_submit_discard(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_volume_t volume = ocf_io_get_volume(io);
 
 	if (!volume->opened) {
-		io->end(io, -OCF_ERR_IO);
+		ocf_io_end_func(io, -OCF_ERR_IO);
 		return;
 	}
 
@@ -338,7 +338,7 @@ void ocf_volume_submit_discard(struct ocf_io *io)
 	} else {
 		req->volume_forward_end = ocf_volume_req_forward_complete;
 		ocf_req_forward_volume_discard(req, volume,
-				io->addr, io->bytes);
+				req->io.addr, req->io.bytes);
 	}
 }
 

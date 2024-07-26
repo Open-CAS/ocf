@@ -73,6 +73,12 @@ typedef struct ocf_volume_uuid *ocf_uuid_t;
  */
 typedef void ctx_data_t;
 
+struct ocf_request;
+/**
+ * @brief handle to io
+ */
+typedef struct ocf_request *ocf_io_t;
+
 /**
  * @brief IO forward token
  *
