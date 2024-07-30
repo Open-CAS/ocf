@@ -104,6 +104,7 @@ static struct ocf_request *_ocf_cleaner_alloc_master_req(
 	/* In master, save completion context and function */
 	req->priv = attribs->cmpl_context;
 	req->master_io_req = attribs->cmpl_fn;
+	req->complete_queue = attribs->cmpl_queue;
 
 	/* The count of all requests */
 	env_atomic_set(&req->master_remaining, 1);
@@ -177,6 +178,17 @@ static void _ocf_cleaner_set_error(struct ocf_request *req)
 	master->error = -OCF_ERR_IO;
 }
 
+static int _ocf_cleaner_complete(struct ocf_request *master)
+{
+	ocf_req_end_t cmpl;
+
+	cmpl = master->master_io_req;
+	cmpl(master->priv, master->error);
+	ocf_req_put(master);
+
+	return 0;
+}
+
 static void _ocf_cleaner_complete_req(struct ocf_request *req)
 {
 	struct ocf_request *master = NULL;
@@ -203,12 +215,18 @@ static void _ocf_cleaner_complete_req(struct ocf_request *req)
 
 	OCF_DEBUG_MSG(req->cache, "All cleaning request completed");
 
-	/* Only master contains completion function and priv */
-	cmpl = master->master_io_req;
-	cmpl(master->priv, master->error);
+	if (master->complete_queue) {
+		ocf_req_get(master);
+		ocf_engine_push_req_front_cb(master,
+				_ocf_cleaner_complete, true);
+	} else {
+		/* Only master contains completion function and priv */
+		cmpl = master->master_io_req;
+		cmpl(master->priv, master->error);
 
-	/* For additional get on master allocation */
-	ocf_req_put(master);
+		/* For additional get on master allocation */
+		ocf_req_put(master);
+	}
 }
 
 static void _ocf_cleaner_on_resume(struct ocf_request *req)
