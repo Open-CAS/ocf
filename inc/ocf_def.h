@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -118,14 +119,14 @@ typedef enum {
 	ocf_cache_state_stopping = 1,    //!< ocf_cache_state_stopping
 		/*!< OCF cache instance is stopping */
 
-	ocf_cache_state_initializing = 2, //!< ocf_cache_state_initializing
-		/*!< OCF cache instance during initialization */
+	ocf_cache_state_detached = 2, //!< ocf_cache_state_detached
+		/*!< OCF cache instance without caching device attached */
 
 	ocf_cache_state_incomplete = 3, //!< ocf_cache_state_incomplete
 		/*!< OCF cache has at least one inactive core */
 
 	ocf_cache_state_standby = 4,     //!< ocf_cache_state_standby
-		/*!< OCF is currently in standby mode */
+		/*!< OCF cache is currently in standby mode */
 
 	ocf_cache_state_max              //!< ocf_cache_state_max
 		/*!< Stopper of cache state enumerator */

@@ -274,12 +274,6 @@ static void ocf_core_volume_submit_io(struct ocf_io *io)
 	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
 
-	if (unlikely(!env_bit_test(ocf_cache_state_running,
-					&cache->cache_state))) {
-		ocf_io_end(io, -OCF_ERR_CACHE_NOT_AVAIL);
-		return;
-	}
-
 	if (unlikely(ocf_cache_is_standby(cache))) {
 		ocf_io_end(io, -OCF_ERR_CACHE_STANDBY);
 		return;
@@ -340,12 +334,6 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
 
-	if (unlikely(!env_bit_test(ocf_cache_state_running,
-			&cache->cache_state))) {
-		ocf_io_end(io, -OCF_ERR_CACHE_NOT_AVAIL);
-		return;
-	}
-
 	if (unlikely(ocf_cache_is_standby(cache))) {
 		ocf_io_end(io, -OCF_ERR_CACHE_STANDBY);
 		return;
@@ -382,12 +370,6 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 	req = ocf_io_to_req(io);
 	core = ocf_volume_to_core(ocf_io_get_volume(io));
 	cache = ocf_core_get_cache(core);
-
-	if (unlikely(!env_bit_test(ocf_cache_state_running,
-			&cache->cache_state))) {
-		ocf_io_end(io, -OCF_ERR_CACHE_NOT_AVAIL);
-		return;
-	}
 
 	if (unlikely(ocf_cache_is_standby(cache))) {
 		ocf_io_end(io, -OCF_ERR_CACHE_STANDBY);

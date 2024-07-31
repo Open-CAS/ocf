@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -142,6 +143,9 @@ typedef enum {
 
 	/** Invalid operation for cache in standby state. */
 	OCF_ERR_CACHE_STANDBY,
+
+	/** Invalid operation for cache in standby state. */
+	OCF_ERR_CACHE_DETACHED,
 
 	/** Size of core volume doesn't match the size stored in cache metadata */
 	OCF_ERR_CORE_SIZE_MISMATCH,

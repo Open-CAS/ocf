@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -14,7 +15,7 @@
 #include "../ocf_def_priv.h"
 #include "../cleaning/cleaning_ops.h"
 
-static ocf_seq_no_t _ocf_mngt_get_core_seq_no(ocf_cache_t cache)
+ocf_seq_no_t ocf_mngt_get_core_seq_no(ocf_cache_t cache)
 {
 	if (cache->conf_meta->curr_core_seq_no == OCF_SEQ_NO_MAX)
 		return OCF_SEQ_NO_INVALID;
@@ -481,8 +482,9 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 			cfg->seq_cutoff_promote_on_threshold);
 
 	/* Add core sequence number for atomic metadata matching */
-	if (ocf_volume_is_atomic(&cache->device->volume)) {
-		core_sequence_no = _ocf_mngt_get_core_seq_no(cache);
+	if (ocf_cache_is_device_attached(cache) &&
+			ocf_volume_is_atomic(&cache->device->volume)) {
+		core_sequence_no = ocf_mngt_get_core_seq_no(cache);
 		if (core_sequence_no == OCF_SEQ_NO_INVALID)
 			OCF_PL_FINISH_RET(pipeline, -OCF_ERR_TOO_MANY_CORES);
 	}
@@ -490,6 +492,16 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	core->conf_meta->seq_no = core_sequence_no;
 
 	/* Update super-block with core device addition */
+
+	if (!ocf_cache_is_device_attached(cache)) {
+		if (!cache->metadata.is_volatile) {
+			ocf_cache_log(cache, log_warn, "Cache is in detached state. "
+					"The changes about the new core won't persist cache stop "
+					"unless a cache volume is attached\n");
+		}
+		OCF_PL_NEXT_RET(pipeline);
+	}
+
 	ocf_metadata_flush_superblock(cache,
 			_ocf_mngt_cache_add_core_flush_sb_complete, context);
 }
@@ -691,6 +703,9 @@ static void _ocf_mngt_cache_remove_core(ocf_pipeline_t pipeline, void *priv,
 	cache_mngt_core_remove_from_meta(core);
 	cache_mngt_core_remove_from_cache(core);
 	cache_mngt_core_deinit(core);
+
+	if (!ocf_cache_is_device_attached(cache))
+		OCF_PL_NEXT_RET(pipeline);
 
 	ocf_metadata_flush_superblock(cache,
 			ocf_mngt_cache_remove_core_flush_superblock_complete,
@@ -997,6 +1012,9 @@ int ocf_mngt_core_set_seq_cutoff_threshold(ocf_core_t core, uint32_t thresh)
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
 
+	if (!ocf_cache_is_device_attached(cache))
+		return -OCF_ERR_CACHE_DETACHED;
+
 	return _cache_mngt_set_core_seq_cutoff_threshold(core, &thresh);
 }
 
@@ -1007,6 +1025,9 @@ int ocf_mngt_core_set_seq_cutoff_threshold_all(ocf_cache_t cache,
 
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
+
+	if (!ocf_cache_is_device_attached(cache))
+		return -OCF_ERR_CACHE_DETACHED;
 
 	return ocf_core_visit(cache, _cache_mngt_set_core_seq_cutoff_threshold,
 			&thresh, true);
@@ -1082,6 +1103,9 @@ int ocf_mngt_core_set_seq_cutoff_policy(ocf_core_t core,
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
 
+	if (!ocf_cache_is_device_attached(cache))
+		return -OCF_ERR_CACHE_DETACHED;
+
 	return _cache_mngt_set_core_seq_cutoff_policy(core, &policy);
 }
 int ocf_mngt_core_set_seq_cutoff_policy_all(ocf_cache_t cache,
@@ -1091,6 +1115,9 @@ int ocf_mngt_core_set_seq_cutoff_policy_all(ocf_cache_t cache,
 
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
+
+	if (!ocf_cache_is_device_attached(cache))
+		return -OCF_ERR_CACHE_DETACHED;
 
 	return ocf_core_visit(cache, _cache_mngt_set_core_seq_cutoff_policy,
 						  &policy, true);
@@ -1154,6 +1181,9 @@ int ocf_mngt_core_set_seq_cutoff_promotion_count(ocf_core_t core,
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
 
+	if (!ocf_cache_is_device_attached(cache))
+		return -OCF_ERR_CACHE_DETACHED;
+
 	return _cache_mngt_set_core_seq_cutoff_promo_count(core, &count);
 }
 
@@ -1164,6 +1194,9 @@ int ocf_mngt_core_set_seq_cutoff_promotion_count_all(ocf_cache_t cache,
 
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
+
+	if (!ocf_cache_is_device_attached(cache))
+		return -OCF_ERR_CACHE_DETACHED;
 
 	return ocf_core_visit(cache, _cache_mngt_set_core_seq_cutoff_promo_count,
 						  &count, true);
