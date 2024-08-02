@@ -92,8 +92,8 @@ static inline void ocf_req_init(struct ocf_request *req, ocf_cache_t cache,
 
 	env_atomic_set(&req->ref_count, 1);
 
-	req->byte_position = addr;
-	req->byte_length = bytes;
+	req->addr = addr;
+	req->bytes = bytes;
 	req->rw = rw;
 }
 
@@ -326,7 +326,7 @@ int ocf_req_alloc_map_discard(struct ocf_request *req)
 	ENV_BUILD_BUG_ON(MAX_TRIM_RQ_SIZE / ocf_cache_line_size_4 *
 			sizeof(struct ocf_map_info) > 4 * KiB);
 
-	if (req->byte_length <= MAX_TRIM_RQ_SIZE)
+	if (req->bytes <= MAX_TRIM_RQ_SIZE)
 		return ocf_req_alloc_map(req);
 
 	/*
@@ -334,9 +334,9 @@ int ocf_req_alloc_map_discard(struct ocf_request *req)
 	 * can handle more than MAX_TRIM_RQ_SIZE, so for these cache line sizes
 	 * discard request uses only part of the mapping array.
 	 */
-	req->byte_length = MAX_TRIM_RQ_SIZE;
+	req->bytes = MAX_TRIM_RQ_SIZE;
 	req->core_line_last = ocf_bytes_2_lines(req->cache,
-			req->byte_position + req->byte_length - 1);
+			req->addr + req->bytes - 1);
 	req->core_line_count = req->core_line_last - req->core_line_first + 1;
 
 	return ocf_req_alloc_map(req);
@@ -596,7 +596,7 @@ uint64_t ocf_forward_get_flags(ocf_forward_token_t token)
 {
 	struct ocf_request *req = (struct ocf_request *)(token & ~1);
 
-	return (token & 1) ? 0 : req->io.flags;
+	return (token & 1) ? 0 : req->flags;
 }
 
 static inline void _ocf_forward_get(ocf_forward_token_t token)

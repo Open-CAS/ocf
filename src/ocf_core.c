@@ -182,16 +182,16 @@ static inline int ocf_core_validate_io(ocf_io_t io)
 	ocf_volume_t volume = ocf_io_get_volume(io);
 	ocf_core_t core = ocf_volume_to_core(volume);
 
-	if (req->io.addr + req->io.bytes > ocf_volume_get_length(volume))
+	if (req->addr + req->bytes > ocf_volume_get_length(volume))
 		return -OCF_ERR_INVAL;
 
 	if (req->io.io_class >= OCF_USER_IO_CLASS_MAX)
 		return -OCF_ERR_INVAL;
 
-	if (req->io.dir != OCF_READ && req->io.dir != OCF_WRITE)
+	if (req->rw != OCF_READ && req->rw != OCF_WRITE)
 		return -OCF_ERR_INVAL;
 
-	if (!req->io.io_queue)
+	if (!req->io_queue)
 		return -OCF_ERR_INVAL;
 
 	if (!req->io.end)
@@ -200,7 +200,7 @@ static inline int ocf_core_validate_io(ocf_io_t io)
 	/* Core volume I/O must not be queued on management queue - this would
 	 * break I/O accounting code, resulting in use-after-free type of errors
 	 * after cache detach, core remove etc. */
-	if (req->io.io_queue == ocf_core_get_cache(core)->mngt_queue)
+	if (req->io_queue == ocf_core_get_cache(core)->mngt_queue)
 		return -OCF_ERR_INVAL;
 
 	return 0;
@@ -323,7 +323,7 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 
 err:
 	ocf_io_end_func(io, ret);
-	ocf_io_put(io);
+	ocf_io_put(req);
 }
 
 static void ocf_core_volume_submit_flush(ocf_io_t io)
@@ -367,7 +367,7 @@ static void ocf_core_volume_submit_discard(ocf_io_t io)
 
 	OCF_CHECK_NULL(io);
 
-	if (req->io.bytes == 0) {
+	if (req->bytes == 0) {
 		ocf_io_end_func(io, -OCF_ERR_INVAL);
 		return;
 	}

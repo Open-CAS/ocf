@@ -32,7 +32,18 @@ void *ocf_io_allocator_default_new(ocf_io_allocator_t allocator,
 		ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir)
 {
-	return env_allocator_new(allocator->priv);
+	struct ocf_request *req;
+
+	req = env_allocator_new(allocator->priv);
+	if (!req)
+		return NULL;
+
+	req->io_queue = queue;
+	req->addr = addr;
+	req->bytes = bytes;
+	req->rw = dir;
+
+	return req;
 }
 
 void ocf_io_allocator_default_del(ocf_io_allocator_t allocator, void *obj)
@@ -80,12 +91,8 @@ ocf_io_t ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 
 	env_atomic_set(&req->io.ref_count, 1);
 	req->io.volume = volume;
-	req->io.io_queue = queue;
-	req->io.addr = addr;
-	req->io.bytes = bytes;
-	req->io.dir = dir;
 	req->io.io_class = io_class;
-	req->io.flags = flags;
+	req->flags = flags;
 
 	return req;
 }

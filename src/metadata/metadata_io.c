@@ -426,7 +426,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 		m_req->req.rw = dir;
 		m_req->req.map = LIST_POISON1;
 		m_req->req.alock_status = (uint8_t*)&m_req->alock_status;
-		m_req->req.io.flags = flags;
+		m_req->req.flags = flags;
 
 		/* If req_count == io_count and count is not multiple of
 		 * max_count, for last we can allocate data smaller that

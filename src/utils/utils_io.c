@@ -184,8 +184,8 @@ void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
 	req->cache_forward_end = ocf_submit_cache_page_end;
 	req->priv = context;
 	req->rw = dir;
-	req->byte_position = addr;
-	req->byte_length = PAGE_SIZE;
+	req->addr = addr;
+	req->bytes = PAGE_SIZE;
 
 	ocf_req_forward_cache_io(req, dir, addr, PAGE_SIZE, 0);
 

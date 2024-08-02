@@ -300,8 +300,8 @@ void ocf_volume_submit_io(ocf_io_t io)
 		volume->type->properties->ops.submit_io(io);
 	} else {
 		req->volume_forward_end = ocf_volume_req_forward_complete;
-		ocf_req_forward_volume_io(req, volume, req->io.dir, req->io.addr,
-				req->io.bytes, req->offset);
+		ocf_req_forward_volume_io(req, volume, req->rw, req->addr,
+				req->bytes, req->offset);
 	}
 }
 
@@ -338,7 +338,7 @@ void ocf_volume_submit_discard(ocf_io_t io)
 	} else {
 		req->volume_forward_end = ocf_volume_req_forward_complete;
 		ocf_req_forward_volume_discard(req, volume,
-				req->io.addr, req->io.bytes);
+				req->addr, req->bytes);
 	}
 }
 

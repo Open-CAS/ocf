@@ -431,14 +431,14 @@ void ocf_core_update_stats(ocf_core_t core, ocf_io_t io)
 
 	stats = &core->counters->debug_stats;
 
-	idx = to_packet_idx(req->io.bytes);
-	if (req->io.dir == OCF_WRITE)
+	idx = to_packet_idx(req->bytes);
+	if (req->rw == OCF_WRITE)
 		env_atomic64_inc(&stats->write_size[idx]);
 	else
 		env_atomic64_inc(&stats->read_size[idx]);
 
-	idx = to_align_idx(req->io.addr);
-	if (req->io.dir == OCF_WRITE)
+	idx = to_align_idx(req->addr);
+	if (req->rw == OCF_WRITE)
 		env_atomic64_inc(&stats->write_align[idx]);
 	else
 		env_atomic64_inc(&stats->read_align[idx]);

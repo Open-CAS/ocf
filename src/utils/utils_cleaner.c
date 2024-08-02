@@ -560,7 +560,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	ocf_part_id_t part_id;
 
 	req->cache_forward_end = _ocf_cleaner_cache_io_end;
-	req->byte_length = ocf_line_size(cache);
+	req->bytes = ocf_line_size(cache);
 
 	ocf_req_forward_cache_get(req);
 	for (i = 0; i < req->core_line_count; i++, iter++) {
@@ -581,7 +581,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 		ocf_core_stats_cache_block_update(req->core, part_id, OCF_READ,
 				ocf_line_size(cache));
 
-		req->byte_position = iter->core_line * ocf_line_size(cache);
+		req->addr = iter->core_line * ocf_line_size(cache);
 
 		ocf_req_forward_cache_io(req, OCF_READ, addr,
 				ocf_line_size(cache), offset);
@@ -624,7 +624,7 @@ static int _ocf_cleaner_do_fire(struct ocf_request *req)
 	int result;
 
 	req->engine_handler = _ocf_cleaner_check_map;
-	req->byte_position = req->core_line_count * ocf_line_size(req->cache);
+	req->addr = req->core_line_count * ocf_line_size(req->cache);
 
 	master = (req->master_io_req_type == ocf_cleaner_req_type_master) ?
 			req : req->master_io_req;

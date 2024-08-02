@@ -28,8 +28,8 @@ static void _ocf_discard_complete_req(struct ocf_request *req, int error)
 
 static int _ocf_discard_core(struct ocf_request *req)
 {
-	req->byte_position = SECTORS_TO_BYTES(req->discard.sector);
-	req->byte_length = SECTORS_TO_BYTES(req->discard.nr_sects);
+	req->addr = SECTORS_TO_BYTES(req->discard.sector);
+	req->bytes = SECTORS_TO_BYTES(req->discard.nr_sects);
 
 	ocf_engine_forward_core_discard_req(req, _ocf_discard_complete_req);
 
@@ -60,7 +60,7 @@ static int _ocf_discard_step(struct ocf_request *req);
 
 static void _ocf_discard_finish_step(struct ocf_request *req)
 {
-	req->discard.handled += BYTES_TO_SECTORS(req->byte_length);
+	req->discard.handled += BYTES_TO_SECTORS(req->bytes);
 
 	if (req->discard.handled < req->discard.nr_sects)
 		req->engine_handler = _ocf_discard_step;
@@ -149,13 +149,13 @@ static int _ocf_discard_step(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	req->byte_position = SECTORS_TO_BYTES(req->discard.sector +
+	req->addr = SECTORS_TO_BYTES(req->discard.sector +
 			req->discard.handled);
-	req->byte_length = OCF_MIN(SECTORS_TO_BYTES(req->discard.nr_sects -
+	req->bytes = OCF_MIN(SECTORS_TO_BYTES(req->discard.nr_sects -
 			req->discard.handled), MAX_TRIM_RQ_SIZE);
-	req->core_line_first = ocf_bytes_2_lines(cache, req->byte_position);
+	req->core_line_first = ocf_bytes_2_lines(cache, req->addr);
 	req->core_line_last =
-		ocf_bytes_2_lines(cache, req->byte_position + req->byte_length - 1);
+		ocf_bytes_2_lines(cache, req->addr + req->bytes - 1);
 	req->core_line_count = req->core_line_last - req->core_line_first + 1;
 	req->engine_handler = _ocf_discard_step_do;
 

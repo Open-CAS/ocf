@@ -31,8 +31,8 @@ void ocf_engine_error(struct ocf_request *req,
 	if (ocf_cache_log_rl(cache)) {
 		ocf_core_log(req->core, log_err,
 				"%s sector: %" ENV_PRIu64 ", bytes: %u\n", msg,
-				BYTES_TO_SECTORS(req->byte_position),
-				req->byte_length);
+				BYTES_TO_SECTORS(req->addr),
+				req->bytes);
 	}
 }
 
@@ -571,7 +571,7 @@ void ocf_engine_clean(struct ocf_request *req)
 void ocf_engine_update_block_stats(struct ocf_request *req)
 {
 	ocf_core_stats_vol_block_update(req->core, req->part_id, req->rw,
-			req->byte_length);
+			req->bytes);
 }
 
 void ocf_engine_update_request_stats(struct ocf_request *req)

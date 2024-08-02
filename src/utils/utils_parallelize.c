@@ -47,7 +47,7 @@ static int _ocf_parallelize_hndl(struct ocf_request *req)
 	int error;
 
 	error = parallelize->handle(parallelize, parallelize->priv,
-			req->byte_position, parallelize->shards_cnt);
+			req->addr, parallelize->shards_cnt);
 
 	env_atomic_cmpxchg(&parallelize->error, 0, error);
 
@@ -113,7 +113,7 @@ int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 		tmp_parallelize->reqs[i]->info.internal = true;
 		tmp_parallelize->reqs[i]->engine_handler =
 			_ocf_parallelize_hndl;
-		tmp_parallelize->reqs[i]->byte_position = i;
+		tmp_parallelize->reqs[i]->addr = i;
 		tmp_parallelize->reqs[i]->priv = tmp_parallelize;
 	}
 

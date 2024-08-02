@@ -123,30 +123,11 @@ struct ocf_request;
 typedef int (*ocf_req_cb)(struct ocf_request *req);
 
 struct ocf_request_io {
-	/**
-	 * @brief OCF IO destination address
-	 */
-	uint64_t addr;
-
-	/**
-	 * @brief OCF IO flags
-	 */
-	uint64_t flags;
-
-	/**
-	 * @brief OCF IO size in bytes
-	 */
-	uint32_t bytes;
 
 	/**
 	 * @brief OCF IO destination class
 	 */
 	uint8_t io_class;
-
-	/**
-	 * @brief OCF IO direction
-	 */
-	uint8_t dir:1;
 
 	/**
 	 * @brief OCF IO reference count
@@ -157,11 +138,6 @@ struct ocf_request_io {
 	 * @brief Front volume handle
 	 */
 	ocf_volume_t volume;
-
-	/**
-	 * @brief Queue handle
-	 */
-	ocf_queue_t io_queue;
 
 	/**
 	 * @brief OCF IO start function
@@ -247,17 +223,11 @@ struct ocf_request {
 	ctx_data_t *cp_data;
 	/*!< Copy of request data */
 
-	uint64_t byte_position;
-	/*!< LBA byte position of request in core domain */
-
 	uint64_t core_line_first;
 	/*! First core line */
 
 	uint64_t core_line_last;
 	/*! Last core line */
-
-	uint32_t byte_length;
-	/*!< Byte length of OCF request */
 
 	uint32_t core_line_count;
 	/*! Core line count */
@@ -265,8 +235,17 @@ struct ocf_request {
 	uint32_t alloc_core_line_count;
 	/*! Number of core lines at time of request allocation */
 
+	uint64_t addr;
+	/*!< LBA byte position of request in core domain */
+
+	uint32_t bytes;
+	/*!< Byte length of OCF request */
+
 	uint32_t offset;
 	/*!< Offset into request data*/
+
+	uint64_t flags;
+	/*!< IO flags */
 
 	int error;
 	/*!< This filed indicates an error for OCF request */

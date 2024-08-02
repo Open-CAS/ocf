@@ -65,7 +65,7 @@ static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 	/* Copy data to the backfill buffer */
 	if (req->cp_data) {
 		ctx_data_cpy(cache->owner, req->cp_data, req->data, 0, 0,
-				req->byte_length);
+				req->bytes);
 	}
 
 	req->complete(req, error);
@@ -85,12 +85,12 @@ static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
 	int ret;
 
 	req->cp_data = ctx_data_alloc(cache->owner,
-			BYTES_TO_PAGES(req->byte_length));
+			BYTES_TO_PAGES(req->bytes));
 	if (!req->cp_data) {
 		/* If buffer allocation for backfill fails, ignore the error */
 		ocf_cache_log(cache, log_warn, "Backfill buffer allocation "
 				"error (size %u)\n",
-				req->byte_length);
+				req->bytes);
 		goto err_alloc;
 	}
 
