@@ -9,8 +9,26 @@
 
 #include "ocf_env.h"
 #include "ocf_io_priv.h"
-#include "engine/cache_engine.h"
 #include "metadata/metadata_structs.h"
+
+typedef enum {
+	/* modes inherited from user API */
+	ocf_req_cache_mode_wt = ocf_cache_mode_wt,
+	ocf_req_cache_mode_wb = ocf_cache_mode_wb,
+	ocf_req_cache_mode_wa = ocf_cache_mode_wa,
+	ocf_req_cache_mode_pt = ocf_cache_mode_pt,
+	ocf_req_cache_mode_wi = ocf_cache_mode_wi,
+	ocf_req_cache_mode_wo = ocf_cache_mode_wo,
+
+	/* internal modes */
+	ocf_req_cache_mode_fast,
+		/*!< Fast path */
+	ocf_req_cache_mode_d2c,
+		/*!< Direct to Core - pass through to core without
+				touching cacheline metadata */
+
+	ocf_req_cache_mode_max,
+} ocf_req_cache_mode_t;
 
 struct ocf_req_allocator;
 
@@ -95,6 +113,12 @@ struct ocf_req_discard_info {
 };
 
 /**
+ * @brief OCF IO engine handler callback
+ */
+struct ocf_request;
+typedef int (*ocf_req_cb)(struct ocf_request *req);
+
+/**
  * @brief OCF IO request
  */
 struct ocf_request {
@@ -129,7 +153,7 @@ struct ocf_request {
 	ocf_core_t core;
 	/*!< Handle to core instance */
 
-	ocf_engine_cb engine_handler;
+	ocf_req_cb engine_handler;
 	/*!< IO engine handler */
 
 	void *priv;

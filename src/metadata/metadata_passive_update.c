@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -70,7 +71,7 @@ static int passive_io_resume(struct ocf_request *req)
 
 static void passive_io_page_lock_acquired(struct ocf_request *req)
 {
-	ocf_engine_push_req_front(req, true);
+	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
 
 int ocf_metadata_passive_update(ocf_cache_t cache, struct ocf_io *io,

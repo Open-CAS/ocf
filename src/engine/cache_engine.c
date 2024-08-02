@@ -138,7 +138,7 @@ const char *ocf_get_io_iface_name(ocf_req_cache_mode_t cache_mode)
 	return cache_mode_io_if_map[cache_mode]->name;
 }
 
-static ocf_engine_cb ocf_io_if_type_to_engine_cb(
+static ocf_req_cb ocf_io_if_type_to_engine_cb(
 		enum ocf_io_if_type io_if_type, int rw)
 {
 	if (unlikely(io_if_type == OCF_IO_MAX_IF ||
@@ -149,44 +149,13 @@ static ocf_engine_cb ocf_io_if_type_to_engine_cb(
 	return IO_IFS[io_if_type].cbs[rw];
 }
 
-static ocf_engine_cb ocf_cache_mode_to_engine_cb(
+static ocf_req_cb ocf_cache_mode_to_engine_cb(
 		ocf_req_cache_mode_t req_cache_mode, int rw)
 {
 	if (req_cache_mode == ocf_req_cache_mode_max)
 		return NULL;
 
 	return cache_mode_io_if_map[req_cache_mode]->cbs[rw];
-}
-
-struct ocf_request *ocf_engine_pop_req(ocf_queue_t q)
-{
-	unsigned long lock_flags = 0;
-	struct ocf_request *req;
-
-	OCF_CHECK_NULL(q);
-
-	/* LOCK */
-	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
-
-	if (list_empty(&q->io_list)) {
-		/* No items on the list */
-		env_spinlock_unlock_irqrestore(&q->io_list_lock,
-				lock_flags);
-		return NULL;
-	}
-
-	/* Get the first request and remove it from the list */
-	req = list_first_entry(&q->io_list, struct ocf_request, list);
-
-	env_atomic_dec(&q->io_no);
-	list_del(&req->list);
-
-	/* UNLOCK */
-	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
-
-	OCF_CHECK_NULL(req);
-
-	return req;
 }
 
 bool ocf_fallback_pt_is_on(ocf_cache_t cache)
@@ -264,14 +233,14 @@ int ocf_engine_hndl_req(struct ocf_request *req)
 	 * to into OCF workers
 	 */
 
-	ocf_engine_push_req_back(req, true);
+	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC);
 
 	return 0;
 }
 
 int ocf_engine_hndl_fast_req(struct ocf_request *req)
 {
-	ocf_engine_cb engine_cb;
+	ocf_req_cb engine_cb;
 	int ret;
 
 	engine_cb = ocf_cache_mode_to_engine_cb(req->cache_mode, req->rw);
@@ -313,7 +282,7 @@ void ocf_engine_hndl_ops_req(struct ocf_request *req)
 			ocf_io_if_type_to_engine_cb(OCF_IO_D2C_IF, req->rw) :
 			ocf_io_if_type_to_engine_cb(OCF_IO_OPS_IF, req->rw);
 
-	ocf_engine_push_req_back(req, true);
+	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC);
 }
 
 bool ocf_req_cache_mode_has_lazy_write(ocf_req_cache_mode_t mode)

@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -62,5 +63,6 @@ static int _ocf_invalidate_do(struct ocf_request *req)
 
 void ocf_engine_invalidate(struct ocf_request *req)
 {
-	ocf_engine_push_req_front_cb(req, _ocf_invalidate_do, true);
+	ocf_queue_push_req_cb(req, _ocf_invalidate_do,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
