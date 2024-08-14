@@ -185,7 +185,7 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 		req->info.seq_no++;
 }
 
-static void ocf_engine_set_hot(struct ocf_request *req)
+void ocf_engine_set_hot(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
 	struct ocf_map_info *entry;
@@ -208,7 +208,7 @@ static void ocf_engine_set_hot(struct ocf_request *req)
 	}
 }
 
-static void ocf_engine_lookup(struct ocf_request *req)
+void ocf_engine_lookup(struct ocf_request *req)
 {
 	uint32_t i;
 	uint64_t core_line;
