@@ -683,7 +683,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	int err;
 
 	/* Protect IO completion race */
-	env_atomic_inc(&req->req_remaining);
+	env_atomic_set(&req->req_remaining, 1);
 
 	for (i = 0; i < req->core_line_count; i++, iter++) {
 		core = ocf_cache_get_core(cache, iter->core_id);
@@ -725,6 +725,8 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 		ocf_core_stats_cache_block_update(core, part_id, OCF_READ,
 				ocf_line_size(cache));
 
+		env_atomic_inc(&req->req_remaining);
+
 		ocf_volume_submit_io(io);
 	}
 
@@ -764,9 +766,6 @@ static int _ocf_cleaner_check_map(struct ocf_request *req)
 static int _ocf_cleaner_do_fire(struct ocf_request *req, uint32_t count)
 {
 	int result;
-
-	/* Set counts of cache IOs */
-	env_atomic_set(&req->req_remaining, count);
 
 	req->engine_handler = _ocf_cleaner_check_map;
 	req->core_line_count = count;
