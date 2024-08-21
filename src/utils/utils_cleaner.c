@@ -823,6 +823,7 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 	int err;
 	ocf_core_id_t core_id;
 	uint64_t core_sector;
+	bool skip;
 
 	/* Allocate master request */
 	master = _ocf_cleaner_alloc_master_req(cache, max, attribs);
@@ -858,6 +859,40 @@ void ocf_cleaner_fire(struct ocf_cache *cache,
 		/* Get mapping info */
 		ocf_metadata_get_core_info(cache, cache_line, &core_id,
 				&core_sector);
+
+		if (attribs->lock_metadata) {
+			ocf_hb_cline_prot_lock_rd(&cache->metadata.lock,
+					req->lock_idx, core_id, core_sector);
+		}
+
+		skip = false;
+
+		/* when line already cleaned - rare condition under heavy
+		 * I/O workload.
+		 */
+		if (!metadata_test_dirty(cache, cache_line)) {
+			OCF_DEBUG_MSG(cache, "Not dirty");
+			skip = true;
+		}
+
+		if (!skip && !metadata_test_valid_any(cache, cache_line)) {
+			OCF_DEBUG_MSG(cache, "No any valid");
+
+			/*
+			 * Extremely disturbing cache line state
+			 * Cache line (sector) cannot be dirty and not valid
+			 */
+			ENV_BUG();
+			skip = true;
+		}
+
+		if (attribs->lock_metadata) {
+			ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock,
+					req->lock_idx, core_id, core_sector);
+		}
+
+		if (skip)
+			continue;
 
 		if (unlikely(!cache->core[core_id].opened)) {
 			OCF_DEBUG_MSG(cache, "Core object inactive");
