@@ -866,6 +866,7 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 	return 0;
 
 lock_err:
+	ocf_mngt_cache_unlock(cache);
 	ocf_mngt_cache_lock_deinit(cache);
 alloc_err:
 	env_vfree(cache);
