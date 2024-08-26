@@ -1438,6 +1438,8 @@ static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
 	if (!params->flags.cache_alloc)
 		return;
 
+	env_mutex_destroy(&cache->flush_mutex);
+
 	ocf_mngt_cache_lock_deinit(cache);
 
 	if (params->flags.metadata_inited)
