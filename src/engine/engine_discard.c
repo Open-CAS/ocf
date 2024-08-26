@@ -211,7 +211,7 @@ static int _ocf_discard_step(struct ocf_request *req)
 	ocf_hb_req_prot_lock_rd(req);
 
 	/* Travers to check if request is mapped fully */
-	ocf_engine_traverse(req);
+	ocf_engine_lookup(req);
 
 	if (ocf_engine_mapped_count(req)) {
 		/* Some cache line are mapped, lock request for WRITE access */
