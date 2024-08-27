@@ -192,7 +192,6 @@ static int _ocf_cleaner_complete(struct ocf_request *master)
 static void _ocf_cleaner_complete_req(struct ocf_request *req)
 {
 	struct ocf_request *master = NULL;
-	ocf_req_end_t cmpl;
 
 	if (ocf_cleaner_req_type_master == req->master_io_req_type) {
 		OCF_DEBUG_MSG(req->cache, "Master completion");
@@ -216,16 +215,10 @@ static void _ocf_cleaner_complete_req(struct ocf_request *req)
 	OCF_DEBUG_MSG(req->cache, "All cleaning request completed");
 
 	if (master->complete_queue) {
-		ocf_req_get(master);
 		ocf_queue_push_req_cb(master, _ocf_cleaner_complete,
 				OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 	} else {
-		/* Only master contains completion function and priv */
-		cmpl = master->master_io_req;
-		cmpl(master->priv, master->error);
-
-		/* For additional get on master allocation */
-		ocf_req_put(master);
+		_ocf_cleaner_complete(master);
 	}
 }
 
