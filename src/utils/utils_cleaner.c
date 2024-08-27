@@ -216,7 +216,6 @@ static void _ocf_cleaner_complete_req(struct ocf_request *req)
 	OCF_DEBUG_MSG(req->cache, "All cleaning request completed");
 
 	if (master->complete_queue) {
-		ocf_req_get(master);
 		ocf_queue_push_req_cb(master, _ocf_cleaner_complete,
 				OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 	} else {
