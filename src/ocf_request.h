@@ -55,8 +55,11 @@ struct ocf_req_info {
 	uint32_t cleaning_required : 1;
 	/*!< Eviction failed, need to request cleaning */
 
+	uint32_t cache_error : 1;
+	/*!< Error occurred during I/O on cache device */
+
 	uint32_t core_error : 1;
-	/*!< Error occured during I/O on core device */
+	/*!< Error occurred during I/O on core device */
 
 	uint32_t cleaner_cache_line_lock : 1;
 	/*!< Cleaner flag - acquire cache line lock */

@@ -21,10 +21,8 @@ static void _ocf_d2c_completion(struct ocf_request *req, int error)
 
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error) {
-		req->info.core_error = 1;
+	if (req->error)
 		ocf_core_stats_core_error_update(req->core, req->rw);
-	}
 
 	/* Complete request */
 	req->complete(req, req->error);
