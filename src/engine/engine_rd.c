@@ -103,21 +103,25 @@ static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
 
 	req->cp_data = ctx_data_alloc(cache->owner,
 			BYTES_TO_PAGES(req->byte_length));
-	if (!req->cp_data)
+	if (!req->cp_data) {
+		/* If buffer allocation for backfill fails, ignore the error */
+		ocf_cache_log(cache, log_warn, "Backfill buffer allocation "
+				"error (size %u)\n",
+				req->byte_length);
 		goto err_alloc;
+	}
 
 	ret = ctx_data_mlock(cache->owner, req->cp_data);
-	if (ret)
-		goto err_alloc;
+	if (ret) {
+		ocf_cache_log(cache, log_warn, "Backfill error\n");
+		ctx_data_free(cache->owner, req->cp_data);
+		req->cp_data = NULL;
+	}
 
+err_alloc:
 	/* Submit read request to core device. */
 	ocf_submit_volume_req(&req->core->volume, req,
 			_ocf_read_generic_miss_complete);
-
-	return;
-
-err_alloc:
-	_ocf_read_generic_miss_complete(req, -OCF_ERR_NO_MEM);
 }
 
 static int _ocf_read_generic_do(struct ocf_request *req)
