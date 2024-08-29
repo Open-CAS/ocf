@@ -1,16 +1,17 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 from ctypes import c_int, c_void_p, CFUNCTYPE
 from enum import Enum, auto
 from random import Random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta, datetime
 from itertools import cycle
 from threading import Thread, Condition, Event
-from copy import deepcopy
+import copy
 
 from pyocf.utils import Size
 from pyocf.types.volume import Volume
@@ -61,12 +62,12 @@ class JobSpec:
     randseed: int = 1
     rwmixwrite: int = 50
     randommap: bool = True
-    bs: Size = Size.from_B(512)
-    offset: Size = Size(0)
+    bs: Size = field(default_factory=lambda: Size.from_B(512))
+    offset: Size = field(default_factory=lambda: Size(0))
     njobs: int = 1
     qd: int = 1
-    size: Size = Size(0)
-    io_size: Size = Size(0)
+    size: Size = field(default_factory=lambda: Size(0))
+    io_size: Size = field(default_factory=lambda: Size(0))
     target: Volume = None
     time_based: bool = False
     time: timedelta = None
@@ -124,7 +125,7 @@ class Rio:
 
         def run(self):
             iogen = IoGen(
-                (self.jobspec.offset, self.jobspec.size - self.jobspec.offset),
+                (self.jobspec.offset, self.jobspec.size),
                 self.jobspec.bs,
                 self.jobspec.randseed + hash(self.name),
                 self.jobspec.readwrite.is_random(),
@@ -135,11 +136,9 @@ class Rio:
                 self.finish_time = datetime.now() + self.jobspec.time
             else:
                 if int(self.jobspec.io_size) != 0:
-                    self.io_target = min(
-                        self.jobspec.io_size, self.jobspec.size - self.jobspec.offset
-                    )
+                    self.io_target = min(self.jobspec.io_size, self.jobspec.size)
                 else:
-                    self.io_target = self.jobspec.size - self.jobspec.offset
+                    self.io_target = self.jobspec.size
 
             # TODO randrw
             iodir = (
@@ -173,6 +172,11 @@ class Rio:
         self._threads = []
         self.errors = {}
         self.error_count = 0
+
+    def copy(self):
+        r = copy.copy(self)
+        r.global_jobspec = copy.copy(self.global_jobspec)
+        return r
 
     def readwrite(self, rw: ReadWrite):
         self.global_jobspec.readwrite = rw
@@ -270,7 +274,7 @@ class Rio:
     def run_async(self, queues):
         self.clear()
 
-        jobs = deepcopy(self.jobs)
+        jobs = copy.deepcopy(self.jobs)
 
         if not jobs:
             jobs = [self.global_jobspec for _ in range(self.global_jobspec.njobs)]

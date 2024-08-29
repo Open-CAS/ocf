@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -7,10 +8,9 @@ import pytest
 from pyocf.types.volume import RamVolume
 from pyocf.types.cache import Cache, CacheMetadataSegment, CleaningPolicy
 from pyocf.types.core import Core
-from pyocf.types.shared import OcfError, OcfCompletion
+from pyocf.types.shared import OcfError
 from pyocf.utils import Size as S
 from pyocf.helpers import get_metadata_segment_size
-from ctypes import c_int
 
 def test_attach_cleaner_disabled(pyocf_ctx):
     """

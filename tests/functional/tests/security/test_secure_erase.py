@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -16,7 +17,7 @@ from pyocf.types.ctx import OcfCtx
 from pyocf.types.logger import DefaultLogger, LogLevel
 from pyocf.ocf import OcfLib
 from pyocf.types.cleaner import Cleaner
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.types.shared import OcfCompletion
 
 
@@ -90,10 +91,7 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
     io = vol.new_io(queue, S.from_sector(1).B, write_data.size, IoDir.WRITE, 0, 0,)
     io.set_data(write_data)
 
-    cmpl = OcfCompletion([("err", c_int)])
-    io.callback = cmpl.callback
-    io.submit()
-    cmpl.wait()
+    Sync(io).submit()
 
     cmpls = []
     for i in range(100):
@@ -113,10 +111,7 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
     io = vol.new_io(queue, S.from_sector(1), write_data.size, IoDir.WRITE, 0, 0)
     io.set_data(write_data)
 
-    cmpl = OcfCompletion([("err", c_int)])
-    io.callback = cmpl.callback
-    io.submit()
-    cmpl.wait()
+    Sync(io).submit()
 
     vol.close()
     stats = cache.get_stats()
@@ -167,19 +162,13 @@ def test_secure_erase_simple_io_cleaning():
     io = vol.new_io(queue, S.from_sector(1).B, read_data.size, IoDir.WRITE, 0, 0)
     io.set_data(read_data)
 
-    cmpl = OcfCompletion([("err", c_int)])
-    io.callback = cmpl.callback
-    io.submit()
-    cmpl.wait()
+    Sync(io).submit()
 
     read_data = Data(S.from_sector(8).B)
     io = vol.new_io(queue, S.from_sector(1).B, read_data.size, IoDir.READ, 0, 0)
     io.set_data(read_data)
 
-    cmpl = OcfCompletion([("err", c_int)])
-    io.callback = cmpl.callback
-    io.submit()
-    cmpl.wait()
+    Sync(io).submit()
 
     vol.close()
     stats = cache.get_stats()

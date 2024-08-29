@@ -296,7 +296,7 @@ class Cache:
 
     def standby_detach(self):
         self.write_lock()
-        c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
+        c = OcfCompletion([("priv", c_void_p), ("error", c_int)])
         self.owner.lib.ocf_mngt_cache_standby_detach(self, c, None)
         c.wait()
         self.write_unlock()

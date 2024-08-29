@@ -1,19 +1,19 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 import pytest
-from ctypes import c_int
 
 from pyocf.types.cache import Cache
 from pyocf.types.core import Core
 from pyocf.types.volume import RamVolume, ErrorDevice
 from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.utils import Size as S
-from pyocf.types.shared import OcfError, OcfCompletion
+from pyocf.types.shared import OcfError
 from pyocf.rio import Rio, ReadWrite
 
 
@@ -100,10 +100,7 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     )
     io.set_data(write_data)
 
-    cmpl = OcfCompletion([("err", c_int)])
-    io.callback = cmpl.callback
-    io.submit()
-    cmpl.wait()
+    Sync(io).submit()
     vol.close()
 
     cache.stop()
@@ -121,10 +118,7 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B, read_data.size, IoDir.READ, 0, 0)
     io.set_data(read_data)
 
-    cmpl = OcfCompletion([("err", c_int)])
-    io.callback = cmpl.callback
-    io.submit()
-    cmpl.wait()
+    Sync(io).submit()
     vol.close()
 
     assert read_data.md5() == write_data.md5()

@@ -11,19 +11,14 @@ from itertools import count
 
 import pytest
 
-from pyocf.ocf import OcfLib
 from pyocf.types.cache import (
     Cache,
     CacheMode,
-    MetadataLayout,
-    CleaningPolicy,
 )
 from pyocf.types.core import Core
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.types.shared import (
-    OcfError,
-    OcfCompletion,
     CacheLines,
     CacheLineSize,
     SeqCutOffPolicy,
@@ -129,17 +124,14 @@ def io_to_exp_obj(vol, queue, address, size, data, offset, direction, target_ioc
         _data = Data.from_bytes(bytes(size))
     else:
         _data = Data.from_bytes(data, offset, size)
-    ret = __io(io, queue, address, size, _data, direction)
+    ret = __io(io, _data)
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
     vol.close()
     return ret
 
 
-def __io(io, queue, address, size, data, direction):
+def __io(io, data):
     io.set_data(data, 0)
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
     return int(completion.results["err"])

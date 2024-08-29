@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -25,19 +26,19 @@ int ocf_ctx_register_volume_type_internal(ocf_ctx_t ctx, uint8_t type_id,
 	int result = 0;
 
 	if (!ctx || !properties)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	env_rmutex_lock(&ctx->lock);
 
 	if (type_id >= OCF_VOLUME_TYPE_MAX || ctx->volume_type[type_id]) {
 		env_rmutex_unlock(&ctx->lock);
-		result = -EINVAL;
+		result = -OCF_ERR_INVAL;
 		goto err;
 	}
 
 	ocf_volume_type_init(&ctx->volume_type[type_id], properties, extended);
 	if (!ctx->volume_type[type_id])
-		result = -EINVAL;
+		result = -OCF_ERR_INVAL;
 
 	env_rmutex_unlock(&ctx->lock);
 
@@ -58,7 +59,7 @@ int ocf_ctx_register_volume_type(ocf_ctx_t ctx, uint8_t type_id,
 		const struct ocf_volume_properties *properties)
 {
 	if (type_id >= OCF_VOLUME_TYPE_MAX_USER)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	return ocf_ctx_register_volume_type_internal(ctx, type_id,
 			properties, NULL);
@@ -150,7 +151,7 @@ int ocf_ctx_volume_create(ocf_ctx_t ctx, ocf_volume_t *volume,
 
 	volume_type = ocf_ctx_get_volume_type(ctx, type_id);
 	if (!volume_type)
-		return -EINVAL;
+		return -OCF_ERR_INVAL;
 
 	return ocf_volume_create(volume, volume_type, uuid);
 }
@@ -188,7 +189,7 @@ int ocf_ctx_create(ocf_ctx_t *ctx, const struct ocf_ctx_config *cfg)
 
 	ocf_ctx = env_zalloc(sizeof(*ocf_ctx), ENV_MEM_NORMAL);
 	if (!ocf_ctx)
-		return -ENOMEM;
+		return -OCF_ERR_NO_MEM;
 
 	INIT_LIST_HEAD(&ocf_ctx->caches);
 	env_atomic_set(&ocf_ctx->ref_count, 1);
