@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -129,22 +130,18 @@ int initialize_cache(ocf_ctx_t ctx, ocf_cache_t *cache)
 	/*
 	 * Create management queue. It will be used for performing various
 	 * asynchronous management operations, such as attaching cache volume
-	 * or adding core object.
+	 * or adding core object. This has to be done before any other
+	 * management operation. Management queue is treated specially,
+	 * and it may not be used for submitting IO requests. It also will not
+	 * be put on the cache stop - we have to put it manually at the end.
 	 */
-	ret = ocf_queue_create(*cache, &cache_priv->mngt_queue, &queue_ops);
+	ret = ocf_queue_create_mngt(*cache, &cache_priv->mngt_queue,
+			&queue_ops);
 	if (ret) {
 		ocf_mngt_cache_stop(*cache, simple_complete, &context);
 		sem_wait(&context.sem);
 		goto err_priv;
 	}
-
-	/*
-	 * Assign management queue to cache. This has to be done before any
-	 * other management operation. Management queue is treated specially,
-	 * and it may not be used for submitting IO requests. It also will not
-	 * be put on the cache stop - we have to put it manually at the end.
-	 */
-	ocf_mngt_cache_set_mngt_queue(*cache, cache_priv->mngt_queue);
 
 	/* Create queue which will be used for IO submission. */
 	ret = ocf_queue_create(*cache, &cache_priv->io_queue, &queue_ops);

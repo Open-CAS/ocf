@@ -107,6 +107,8 @@ struct ocf_cache {
 	struct ocf_cleaner cleaner;
 
 	struct list_head io_queues;
+	env_spinlock io_queues_lock;
+
 	ocf_promotion_policy_t promotion_policy;
 
 	struct {

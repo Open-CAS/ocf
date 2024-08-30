@@ -850,6 +850,11 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 		goto lock_err;
 	}
 
+	INIT_LIST_HEAD(&cache->io_queues);
+	result = env_spinlock_init(&cache->io_queues_lock);
+	if (result)
+		goto mutex_err;
+
 	ENV_BUG_ON(!ocf_refcnt_inc(&cache->refcnt.cache));
 
 	/* start with freezed metadata ref counter to indicate detached device*/
@@ -865,7 +870,10 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 
 	return 0;
 
+mutex_err:
+	env_mutex_destroy(&cache->flush_mutex);
 lock_err:
+	ocf_mngt_cache_unlock(cache);
 	ocf_mngt_cache_lock_deinit(cache);
 alloc_err:
 	env_vfree(cache);
@@ -1437,6 +1445,12 @@ static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
 	if (!params->flags.cache_alloc)
 		return;
 
+	env_spinlock_destroy(&cache->io_queues_lock);
+
+	env_mutex_destroy(&cache->flush_mutex);
+
+	ocf_mngt_cache_lock_deinit(cache);
+
 	if (params->flags.metadata_inited)
 		ocf_metadata_deinit(cache);
 
@@ -1460,8 +1474,6 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	cache->conf_meta->cache_mode = params->metadata.cache_mode;
 	cache->conf_meta->promotion_policy_type = params->metadata.promotion_policy;
 	__set_cleaning_policy(cache, ocf_cleaning_default);
-
-	INIT_LIST_HEAD(&cache->io_queues);
 
 	/* Init Partitions */
 	ocf_user_part_init(cache);
@@ -2192,6 +2204,9 @@ static void ocf_mngt_cache_remove(ocf_ctx_t ctx, ocf_cache_t cache)
 
 	/* Deinitialize locks */
 	ocf_mngt_cache_lock_deinit(cache);
+
+	env_spinlock_destroy(&cache->io_queues_lock);
+
 	env_mutex_destroy(&cache->flush_mutex);
 
 	/* Remove cache from the list */
@@ -3032,20 +3047,6 @@ int ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		ocf_log(ctx, log_err, "%s: Inserting cache failed\n", cfg->name);
 
 	return result;
-}
-
-int ocf_mngt_cache_set_mngt_queue(ocf_cache_t cache, ocf_queue_t queue)
-{
-	OCF_CHECK_NULL(cache);
-	OCF_CHECK_NULL(queue);
-
-	if (cache->mngt_queue)
-		return -OCF_ERR_INVAL;
-
-	ocf_queue_get(queue);
-	cache->mngt_queue = queue;
-
-	return 0;
 }
 
 static void _ocf_mngt_cache_attach_complete(ocf_cache_t cache, void *priv1,

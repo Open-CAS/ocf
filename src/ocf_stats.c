@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -414,9 +415,6 @@ void ocf_core_update_stats(ocf_core_t core, struct ocf_io *io)
 
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(io);
-
-	core_id = ocf_core_get_id(core);
-	cache = ocf_core_get_cache(core);
 
 	stats = &core->counters->debug_stats;
 

@@ -14,28 +14,20 @@
 #include "engine/cache_engine.h"
 #include "ocf_def_priv.h"
 
-int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
+int _ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 		const struct ocf_queue_ops *ops)
 {
 	ocf_queue_t tmp_queue;
 	int result;
 
-	OCF_CHECK_NULL(cache);
-
-	result = ocf_mngt_cache_get(cache);
-	if (result)
-		return result;
-
 	tmp_queue = env_zalloc(sizeof(*tmp_queue), ENV_MEM_NORMAL);
 	if (!tmp_queue) {
-		ocf_mngt_cache_put(cache);
 		return -OCF_ERR_NO_MEM;
 	}
 
 	env_atomic_set(&tmp_queue->io_no, 0);
 	result = env_spinlock_init(&tmp_queue->io_list_lock);
 	if (result) {
-		ocf_mngt_cache_put(cache);
 		env_free(tmp_queue);
 		return result;
 	}
@@ -46,6 +38,30 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 	tmp_queue->cache = cache;
 	tmp_queue->ops = ops;
 
+	*queue = tmp_queue;
+
+	return 0;
+}
+
+int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
+		const struct ocf_queue_ops *ops)
+{
+	ocf_queue_t tmp_queue;
+	int result;
+	unsigned long flags = 0;
+
+	OCF_CHECK_NULL(cache);
+
+	result = ocf_mngt_cache_get(cache);
+	if (result)
+		return result;
+
+	result = _ocf_queue_create(cache, &tmp_queue, ops);
+	if (result) {
+		ocf_mngt_cache_put(cache);
+		return result;
+	}
+
 	result = ocf_queue_seq_cutoff_init(tmp_queue);
 	if (result) {
 		ocf_mngt_cache_put(cache);
@@ -53,7 +69,57 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 		return result;
 	}
 
+	env_spinlock_lock_irqsave(&cache->io_queues_lock, flags);
 	list_add(&tmp_queue->list, &cache->io_queues);
+	env_spinlock_unlock_irqrestore(&cache->io_queues_lock, flags);
+
+	*queue = tmp_queue;
+
+	return 0;
+}
+
+int ocf_queue_visit(ocf_cache_t cache, ocf_cache_queue_visitor_t visitor,
+		void *ctx)
+{
+	ocf_queue_t queue;
+	int result = 0;
+	unsigned long flags = 0;
+
+	env_spinlock_lock_irqsave(&cache->io_queues_lock, flags);
+
+	list_for_each_entry(queue, &cache->io_queues, list) {
+		result = visitor(queue, ctx);
+		if (result)
+			break;
+	}
+
+	env_spinlock_unlock_irqrestore(&cache->io_queues_lock, flags);
+
+	return result;
+}
+
+int ocf_queue_create_mngt(ocf_cache_t cache, ocf_queue_t *queue,
+		const struct ocf_queue_ops *ops)
+{
+	ocf_queue_t tmp_queue;
+	int result;
+
+	OCF_CHECK_NULL(cache);
+
+	if (cache->mngt_queue)
+		return -OCF_ERR_INVAL;
+
+	result = ocf_mngt_cache_get(cache);
+	if (result)
+		return result;
+
+	result = _ocf_queue_create(cache, &tmp_queue, ops);
+	if (result) {
+		ocf_mngt_cache_put(cache);
+		return result;
+	}
+
+	cache->mngt_queue = tmp_queue;
 
 	*queue = tmp_queue;
 
@@ -69,16 +135,24 @@ void ocf_queue_get(ocf_queue_t queue)
 
 void ocf_queue_put(ocf_queue_t queue)
 {
+	ocf_cache_t cache = queue->cache;
+	unsigned long flags = 0;
+
 	OCF_CHECK_NULL(queue);
 
-	if (env_atomic_dec_return(&queue->ref_count) == 0) {
+	if (env_atomic_dec_return(&queue->ref_count))
+		return;
+
+	queue->ops->stop(queue);
+	if (queue != queue->cache->mngt_queue) {
+		env_spinlock_lock_irqsave(&cache->io_queues_lock, flags);
 		list_del(&queue->list);
-		queue->ops->stop(queue);
+		env_spinlock_unlock_irqrestore(&cache->io_queues_lock, flags);
 		ocf_queue_seq_cutoff_deinit(queue);
-		ocf_mngt_cache_put(queue->cache);
-		env_spinlock_destroy(&queue->io_list_lock);
-		env_free(queue);
 	}
+	ocf_mngt_cache_put(queue->cache);
+	env_spinlock_destroy(&queue->io_list_lock);
+	env_free(queue);
 }
 
 void ocf_io_handle(struct ocf_io *io, void *opaque)
