@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -693,6 +694,11 @@ void ocf_alock_waitlist_remove_entry(struct ocf_alock *alock,
 	ocf_alock_waitlist_unlock(alock, entry, flags);
 }
 
+static inline void update_deferred_flag(struct ocf_request *req, int lock)
+{
+	req->is_deferred = (lock == OCF_LOCK_NOT_ACQUIRED);
+}
+
 int ocf_alock_lock_rd(struct ocf_alock *alock,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl)
 {
@@ -730,6 +736,7 @@ int ocf_alock_lock_rd(struct ocf_alock *alock,
 		env_mutex_unlock(&alock->lock);
 	}
 
+	update_deferred_flag(req, lock);
 	return lock;
 }
 
@@ -769,6 +776,7 @@ int ocf_alock_lock_wr(struct ocf_alock *alock,
 		env_mutex_unlock(&alock->lock);
 	}
 
+	update_deferred_flag(req, lock);
 	return lock;
 }
 
