@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -67,4 +68,12 @@ void ocf_refcnt_unfreeze(struct ocf_refcnt *rc)
 bool ocf_refcnt_frozen(struct ocf_refcnt *rc)
 {
 	return !!env_atomic_read(&rc->freeze);
+}
+
+bool ocf_refcnt_zeroed(struct ocf_refcnt *rc)
+{
+	if (env_atomic_read(&rc->counter) != 0)
+		return false;
+
+	return true;
 }
