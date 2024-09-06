@@ -458,14 +458,12 @@ static inline void ocf_mngt_cache_attach_config_set_default(
  * @brief Get amount of free RAM needed to attach cache volume
  *
  * @param[in] cache Cache handle
- * @param[in] cfg Caching device configuration
- * @param[out] ram_needed Amount of RAM needed in bytes
+ * @param[in] volume_size Volume size in bytes
  *
- * @retval 0 Success
- * @retval Non-zero Error occurred
+ * @retval Amount of RAM needed in bytes
  */
-int ocf_mngt_get_ram_needed(ocf_cache_t cache,
-		struct ocf_mngt_cache_device_config *cfg, uint64_t *ram_needed);
+uint64_t ocf_mngt_get_ram_needed(ocf_cache_t cache,
+		uint64_t volume_size);
 
 /**
  * @brief Completion callback of cache attach operation
