@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -105,6 +106,14 @@ static void _fill_blocks(struct ocf_stats_blocks *blocks,
 	_set(&blocks->volume_rd, rd, total);
 	_set(&blocks->volume_wr, wr, total);
 	_set(&blocks->volume_total, total, total);
+
+	/* Pass Through */
+	rd = _bytes4k(s->pass_through_blocks.read);
+	wr = _bytes4k(s->pass_through_blocks.write);
+	total = rd + wr;
+	_set(&blocks->pass_through_rd, rd, total);
+	_set(&blocks->pass_through_wr, wr, total);
+	_set(&blocks->pass_through_total, total, total);
 }
 
 static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
@@ -135,6 +144,14 @@ static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
 	_set(&blocks->volume_rd, rd, total);
 	_set(&blocks->volume_wr, wr, total);
 	_set(&blocks->volume_total, total, total);
+
+	/* Pass Through */
+	rd = _bytes4k(s->pass_through_blocks.read);
+	wr = _bytes4k(s->pass_through_blocks.write);
+	total = rd + wr;
+	_set(&blocks->pass_through_rd, rd, total);
+	_set(&blocks->pass_through_wr, wr, total);
+	_set(&blocks->pass_through_total, total, total);
 }
 
 static void _fill_errors(struct ocf_stats_errors *errors,
@@ -209,6 +226,7 @@ static int _accumulate_io_class_stats(ocf_core_t core, void *cntx)
 	_accumulate_block(&total->cache_blocks, &stats.cache_blocks);
 	_accumulate_block(&total->core_blocks, &stats.core_blocks);
 	_accumulate_block(&total->blocks, &stats.blocks);
+	_accumulate_block(&total->pass_through_blocks, &stats.pass_through_blocks);
 
 	_accumulate_reqs(&total->read_reqs, &stats.read_reqs);
 	_accumulate_reqs(&total->write_reqs, &stats.write_reqs);
@@ -395,6 +413,7 @@ static int _accumulate_stats(ocf_core_t core, void *cntx)
 	_accumulate_block(&total->cache_volume, &stats.cache_volume);
 	_accumulate_block(&total->core_volume, &stats.core_volume);
 	_accumulate_block(&total->core, &stats.core);
+	_accumulate_block(&total->pass_through_blocks, &stats.pass_through_blocks);
 
 	_accumulate_reqs(&total->read_reqs, &stats.read_reqs);
 	_accumulate_reqs(&total->write_reqs, &stats.write_reqs);

@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -45,6 +46,9 @@ int ocf_io_d2c(struct ocf_request *req)
 	ocf_submit_volume_req(&core->volume, req, _ocf_d2c_completion);
 
 	ocf_engine_update_block_stats(req);
+
+	ocf_core_stats_pt_block_update(req->core, req->part_id, req->rw,
+			req->byte_length);
 
 	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
 			req->info.hit_no, req->core_line_count);

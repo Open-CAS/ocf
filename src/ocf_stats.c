@@ -50,6 +50,7 @@ static void ocf_stats_part_init(struct ocf_counters_part *stats)
 	ocf_stats_block_init(&stats->blocks);
 	ocf_stats_block_init(&stats->core_blocks);
 	ocf_stats_block_init(&stats->cache_blocks);
+	ocf_stats_block_init(&stats->pass_through_blocks);
 }
 
 static void ocf_stats_error_init(struct ocf_counters_error *stats)
@@ -96,6 +97,15 @@ void ocf_core_stats_core_block_update(ocf_core_t core, ocf_part_id_t part_id,
 {
 	struct ocf_counters_block *counters =
 		&core->counters->part_counters[part_id].core_blocks;
+
+	_ocf_stats_block_update(counters, dir, bytes);
+}
+
+void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes)
+{
+	struct ocf_counters_block *counters =
+		&core->counters->part_counters[part_id].pass_through_blocks;
 
 	_ocf_stats_block_update(counters, dir, bytes);
 }
@@ -313,6 +323,7 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 	copy_block_stats(&stats->blocks, &part_stat->blocks);
 	copy_block_stats(&stats->cache_blocks, &part_stat->cache_blocks);
 	copy_block_stats(&stats->core_blocks, &part_stat->core_blocks);
+	copy_block_stats(&stats->pass_through_blocks, &part_stat->pass_through_blocks);
 
 	return 0;
 }
@@ -358,6 +369,7 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 		accum_block_stats(&stats->core, &curr->blocks);
 		accum_block_stats(&stats->core_volume, &curr->core_blocks);
 		accum_block_stats(&stats->cache_volume, &curr->cache_blocks);
+		accum_block_stats(&stats->pass_through_blocks, &curr->pass_through_blocks);
 
 		stats->cache_occupancy += env_atomic_read(&core->runtime_meta->
 				part_counters[i].cached_clines);

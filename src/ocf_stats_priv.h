@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -92,6 +93,9 @@ struct ocf_stats_io_class {
 
 	/** Block requests for core volume statistics */
 	struct ocf_stats_block core_blocks;
+
+	/** Pass Through block requests statistics */
+	struct ocf_stats_block pass_through_blocks;
 };
 
 #define IO_PACKET_NO 12
@@ -139,6 +143,9 @@ struct ocf_stats_core {
 	/** Block requests submitted by user to this core */
 	struct ocf_stats_block core;
 
+	/** Pass Through block requests statistics */
+	struct ocf_stats_block pass_through_blocks;
+
 	/** Cache volume error statistics */
 	struct ocf_stats_error cache_errors;
 
@@ -160,6 +167,8 @@ struct ocf_counters_part {
 
 	struct ocf_counters_block core_blocks;
 	struct ocf_counters_block cache_blocks;
+
+	struct ocf_counters_block pass_through_blocks;
 };
 
 #ifdef OCF_DEBUG_STATS
@@ -187,6 +196,8 @@ void ocf_core_stats_core_block_update(ocf_core_t core, ocf_part_id_t part_id,
 void ocf_core_stats_cache_block_update(ocf_core_t core, ocf_part_id_t part_id,
 		int dir, uint64_t bytes);
 void ocf_core_stats_vol_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes);
+void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
 		int dir, uint64_t bytes);
 
 void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
