@@ -414,7 +414,7 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 			OCF_PL_FINISH_RET(pipeline, result);
 	}
 
-	result = ocf_volume_open(volume, NULL);
+	result = ocf_volume_open(volume, cfg->volume_params);
 	if (result)
 		OCF_PL_FINISH_RET(pipeline, result);
 

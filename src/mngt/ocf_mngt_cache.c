@@ -107,9 +107,6 @@ struct ocf_cache_attach_context {
 		bool device_alloc : 1;
 			/*!< data structure allocated */
 
-		bool volume_stored : 1;
-			/*!< underlying device volume is stored in contex */
-
 		bool volume_inited : 1;
 			/*!< underlying device volume is initialized */
 
@@ -895,8 +892,14 @@ static void _ocf_mngt_attach_cache_device(ocf_pipeline_t pipeline,
 
 	context->flags.device_alloc = true;
 
-	ocf_volume_move(&cache->device->volume, device_cfg->volume);
+	ret = ocf_volume_init(&cache->device->volume, device_cfg->volume->type,
+			NULL, false);
+	if (ret)
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_NO_MEM);
+
 	context->flags.volume_inited = true;
+
+	ocf_volume_move(&cache->device->volume, device_cfg->volume);
 	cache->device->volume.cache = cache;
 
 	/*
@@ -1911,8 +1914,6 @@ static void _ocf_mngt_attach_handle_error(
 
 	if (context->flags.volume_inited)
 		ocf_volume_deinit(&cache->device->volume);
-	else
-		ocf_volume_deinit(context->cfg.device.volume);
 
 	if (context->flags.front_volume_opened)
 		ocf_volume_close(&cache->device->front_volume);
@@ -2460,9 +2461,15 @@ static void _ocf_mngt_activate_set_cache_device(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 	int ret;
 
+	ret = ocf_volume_init(&cache->device->volume, device_cfg->volume->type,
+			NULL, false);
+	if (ret)
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_NO_MEM);
+
+	context->flags.volume_inited = true;
+
 	ocf_volume_move(&cache->device->volume, device_cfg->volume);
 	cache->device->volume.cache = cache;
-	context->flags.volume_inited = true;
 
 	ret = ocf_volume_open(&cache->device->volume,
 			device_cfg->volume_params);
@@ -2581,11 +2588,6 @@ static void _ocf_mngt_activate_handle_error(
 
 	if (context->flags.volume_inited)
 		ocf_volume_deinit(&cache->device->volume);
-	else
-		ocf_volume_deinit(context->cfg.device.volume);
-
-	if (context->flags.volume_stored)
-		ocf_volume_move(&cache->device->volume, &context->cache_volume);
 
 	if (context->flags.metadata_frozen)
 		ocf_refcnt_unfreeze(&cache->refcnt.metadata);
@@ -2612,12 +2614,6 @@ static void _ocf_mngt_cache_activate_finish(ocf_pipeline_t pipeline,
 
 	ocf_pipeline_destroy(cache->stop_pipeline);
 	cache->stop_pipeline = stop_pipeline;
-
-	if (context->flags.volume_stored) {
-		if (context->cache_volume.opened)
-			ocf_volume_close(&context->cache_volume);
-		ocf_volume_deinit(&context->cache_volume);
-	}
 
 out:
 	context->cmpl(context->cache, context->priv1, context->priv2, error);
