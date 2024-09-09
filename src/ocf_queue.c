@@ -126,6 +126,11 @@ int ocf_queue_create_mngt(ocf_cache_t cache, ocf_queue_t *queue,
 	return 0;
 }
 
+bool ocf_queue_is_mngt(ocf_queue_t queue)
+{
+	return queue == queue->cache->mngt_queue;
+}
+
 void ocf_queue_get(ocf_queue_t queue)
 {
 	OCF_CHECK_NULL(queue);
@@ -144,7 +149,7 @@ void ocf_queue_put(ocf_queue_t queue)
 		return;
 
 	queue->ops->stop(queue);
-	if (queue != queue->cache->mngt_queue) {
+	if (!ocf_queue_is_mngt(queue)) {
 		env_spinlock_lock_irqsave(&cache->io_queues_lock, flags);
 		list_del(&queue->list);
 		env_spinlock_unlock_irqrestore(&cache->io_queues_lock, flags);
@@ -245,12 +250,6 @@ uint32_t ocf_queue_pending_io(ocf_queue_t q)
 {
 	OCF_CHECK_NULL(q);
 	return env_atomic_read(&q->io_no);
-}
-
-ocf_cache_t ocf_queue_get_cache(ocf_queue_t q)
-{
-	OCF_CHECK_NULL(q);
-	return q->cache;
 }
 
 void ocf_queue_push_req(struct ocf_request *req, uint flags)

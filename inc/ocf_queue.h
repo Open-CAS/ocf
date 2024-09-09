@@ -153,12 +153,12 @@ void *ocf_queue_get_priv(ocf_queue_t q);
 uint32_t ocf_queue_pending_io(ocf_queue_t q);
 
 /**
- * @brief Get cache instance to which I/O queue belongs
+ * @brief Return if queue is management queue
  *
- * @param[in] q I/O queue
+ * @param[in] queue - queue object
  *
- * @retval Cache instance
+ * @retval true - if management queue, otherwise false
  */
-ocf_cache_t ocf_queue_get_cache(ocf_queue_t q);
+bool ocf_queue_is_mngt(ocf_queue_t queue);
 
 #endif

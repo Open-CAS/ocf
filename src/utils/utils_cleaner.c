@@ -40,10 +40,10 @@
 static struct ocf_request *_ocf_cleaner_alloc_req(struct ocf_cache *cache,
 		uint32_t count, const struct ocf_cleaner_attribs *attribs)
 {
-	struct ocf_request *req = ocf_req_new_extended(attribs->io_queue, NULL,
-			0, count * ocf_line_size(cache), OCF_READ);
+	struct ocf_request *req;
 	int ret;
 
+	req = ocf_req_new_cleaner(cache, attribs->io_queue, count);
 	if (!req)
 		return NULL;
 

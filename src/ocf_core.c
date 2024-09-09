@@ -154,7 +154,7 @@ static uint64_t _calc_dirty_for(uint64_t dirty_since)
 	return dirty_since ? (current_time - dirty_since) : 0;
 }
 
-static inline struct ocf_request *ocf_io_to_req(struct ocf_io *io)
+struct ocf_request *ocf_io_to_req(struct ocf_io *io)
 {
 	struct ocf_io_internal *ioi;
 
@@ -489,9 +489,10 @@ static void *ocf_core_io_allocator_new(ocf_io_allocator_t allocator,
 		ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir)
 {
+	ocf_core_t core = ocf_volume_to_core(volume);
 	struct ocf_request *req;
 
-	req = ocf_req_new(queue, NULL, addr, bytes, dir);
+	req = ocf_req_new(queue, core, addr, bytes, dir);
 	if (!req)
 		return NULL;
 

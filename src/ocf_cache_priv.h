@@ -85,6 +85,8 @@ struct ocf_cache {
 		/* # of requests accessing attached metadata, excluding
 		 * management reqs */
 		struct ocf_refcnt metadata __attribute__((aligned(64)));
+		/* # of requests in d2c mode */
+		struct ocf_refcnt d2c;
 	} refcnt;
 
 	struct {

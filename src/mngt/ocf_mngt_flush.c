@@ -432,7 +432,7 @@ static void _ocf_mngt_flush_container(
 	fc->end = end;
 	fc->context = context;
 
-	req = ocf_req_new(cache->mngt_queue, NULL, 0, 0, 0);
+	req = ocf_req_new_mngt(cache, cache->mngt_queue);
 	if (!req) {
 		error = OCF_ERR_NO_MEM;
 		goto finish;
