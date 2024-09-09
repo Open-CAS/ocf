@@ -1010,7 +1010,8 @@ class Cache:
 
     # settle all queues accociated with this cache (mngt and I/O)
     def settle(self):
-        Queue.settle_many(self.io_queues + [self.mngt_queue])
+        while not self.owner.lib.ocf_dbg_cache_is_settled(self.cache_handle):
+            pass
 
     @staticmethod
     def get_by_name(cache_name, owner=None):

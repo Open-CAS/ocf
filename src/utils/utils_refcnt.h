@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -39,6 +40,8 @@ void ocf_refcnt_freeze(struct ocf_refcnt *rc);
 void ocf_refcnt_unfreeze(struct ocf_refcnt *rc);
 
 bool ocf_refcnt_frozen(struct ocf_refcnt *rc);
+
+bool ocf_refcnt_zeroed(struct ocf_refcnt *rc);
 
 /* Register callback to be called when reference counter drops to 0.
  * Must be called after counter is frozen.
