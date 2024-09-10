@@ -235,6 +235,15 @@ struct ocf_engine_callbacks
 int ocf_engine_prepare_clines(struct ocf_request *req);
 
 /**
+* @brief Check if the OCF request is mapped to cache (lookup cache)
+*
+* @note This function checks if there is a HIT without updating hotness info
+*
+* @param req OCF request
+*/
+void ocf_engine_lookup(struct ocf_request *req);
+
+/**
  * @brief Traverse OCF request (lookup cache)
  *
  * @note This function does not evict cachelines. Only lookup in metadata is
@@ -284,5 +293,7 @@ void ocf_engine_update_request_stats(struct ocf_request *req);
 void inc_fallback_pt_error_counter(ocf_cache_t cache);
 
 void ocf_engine_on_resume(struct ocf_request *req);
+
+void ocf_engine_set_hot(struct ocf_request *req);
 
 #endif /* ENGINE_COMMON_H_ */
