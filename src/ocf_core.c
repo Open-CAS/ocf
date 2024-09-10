@@ -10,8 +10,11 @@
 #include "ocf_io_priv.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
+#include "engine/engine_rd.h"
 #include "utils/utils_user_part.h"
 #include "ocf_request.h"
+
+#define MAX_FAST_PATH_CACHE_LINES (64)
 
 struct ocf_core_volume {
 	ocf_core_t core;
@@ -218,6 +221,29 @@ static void ocf_req_complete(struct ocf_request *req, int error)
 	ocf_io_put(&req->ioi.io);
 }
 
+static inline int _ocf_core_submit_io_fast_rd_generic(struct ocf_io *io,
+		struct ocf_request *req)
+{
+	int res;
+
+	switch (req->cache_mode) {
+		case ocf_req_cache_mode_wt:
+		case ocf_req_cache_mode_wa:
+		case ocf_req_cache_mode_wi:
+		case ocf_req_cache_mode_wb:
+		case ocf_req_cache_mode_wo:
+			res = ocf_read_generic_try_fast(req);
+			break;
+		default:
+			break;
+	}
+
+	if (res == OCF_FAST_PATH_NO)
+		ocf_req_clear_map(req);
+
+	return res;
+}
+
 static inline ocf_req_cache_mode_t _ocf_core_req_resolve_fast_mode(
 		ocf_cache_t cache, struct ocf_request *req)
 {
@@ -247,6 +273,14 @@ static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
 
 	if (req->cache_mode == ocf_req_cache_mode_pt)
 		return OCF_FAST_PATH_NO;
+
+	/* If a read request isn't too big for a lookup in submission context,
+	   check it is a read-hit and if cache line lock could be acquired
+	   without waiting. If so, submit immediately */
+	if (req->rw == OCF_READ) {
+		if (req->core_line_count <= MAX_FAST_PATH_CACHE_LINES)
+			return _ocf_core_submit_io_fast_rd_generic(io, req);
+	}
 
 	resolved_mode = _ocf_core_req_resolve_fast_mode(cache, req);
 	if (resolved_mode == ocf_req_cache_mode_max)
