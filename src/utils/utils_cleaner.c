@@ -376,7 +376,11 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 				req->map[i].core_line);
 	}
 
-	ocf_metadata_flush_do_asynch(cache, req, _ocf_cleaner_metadata_io_end);
+	if (!req->cache->metadata.is_volatile) {
+		ocf_metadata_flush_do_asynch(cache, req, _ocf_cleaner_metadata_io_end);
+	} else {
+		_ocf_cleaner_finish_req(req);
+	}
 	return 0;
 }
 
