@@ -5,6 +5,9 @@
 #
 
 from .volume_exp_obj import OcfInternalVolume
+from .queue import Queue
+from .io import Sync, IoDir
+from .data import Data
 
 
 class CoreVolume(OcfInternalVolume):
@@ -18,3 +21,16 @@ class CoreVolume(OcfInternalVolume):
 
     def md5(self):
         return self._exp_obj_md5(4096)
+
+    def sync_io(
+        self,
+        queue: Queue,
+        address: int,
+        data: Data,
+        direction: IoDir,
+        io_class=0,
+        flags=0,
+        submit_func=Sync.submit,
+    ):
+        super().sync_io(queue, address, data, direction, io_class, flags, submit_func)
+        self.core.cache.settle()
