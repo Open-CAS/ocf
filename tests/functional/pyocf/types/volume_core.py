@@ -1,12 +1,10 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-from .core import Core
 from .volume_exp_obj import OcfInternalVolume
-from .io import IoDir
-from .volume import Volume
 
 
 class CoreVolume(OcfInternalVolume):
