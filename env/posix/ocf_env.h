@@ -195,18 +195,9 @@ static inline void env_secure_free(const void *ptr, size_t size)
 	}
 }
 
-#include <sys/sysinfo.h>
-
 static inline uint64_t env_get_free_memory(void)
 {
-	struct sysinfo info;
-	int ret;
-
-	ret = sysinfo(&info);
-	if (ret != 0)
-		return 0;
-
-	return (uint64_t)info.totalram * info.mem_unit;
+	return (uint64_t)(-1);
 }
 
 /* ALLOCATOR */
