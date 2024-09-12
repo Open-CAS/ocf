@@ -33,7 +33,7 @@ static ocf_cache_line_t ocf_cl_lock_line_get_entry(
 	return req->map[index].coll_idx;
 }
 
-static int ocf_cl_lock_line_fast(struct ocf_alock *alock,
+int ocf_cl_lock_line_fast(struct ocf_alock *alock,
 		struct ocf_request *req, int rw)
 {
 	int32_t i;

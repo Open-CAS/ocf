@@ -258,3 +258,46 @@ int ocf_read_generic(struct ocf_request *req)
 
 	return 0;
 }
+
+int ocf_read_generic_try_fast(struct ocf_request *req)
+{
+	struct ocf_alock *c = ocf_cache_line_concurrency(req->cache);
+
+	/* Calculate hashes for hash-bucket locking */
+	ocf_req_hash(req);
+
+	/* Read-lock hash buckets associated with request target core & LBAs
+	* (core lines) to assure that cache mapping for these core lines does
+	* not change during traversation */
+	ocf_hb_req_prot_lock_rd(req);
+
+	/* check CL status */
+	ocf_engine_lookup(req);
+
+	if (ocf_engine_is_mapped(req) && ocf_engine_is_hit(req) &&
+			ocf_cl_lock_line_fast(c, req, OCF_READ) == OCF_LOCK_ACQUIRED) {
+
+		OCF_DEBUG_RQ(req, "Submit read generic fast");
+
+		ocf_req_get(req);
+		ocf_engine_set_hot(req);
+		ocf_hb_req_prot_unlock_rd(req);
+
+		if (ocf_engine_needs_repart(req)) {
+			ocf_hb_req_prot_lock_wr(req);
+			ocf_user_part_move(req);
+			ocf_hb_req_prot_unlock_wr(req);
+		}
+
+		ocf_read_generic_submit_hit(req);
+
+		/* Update statistics */
+		ocf_engine_update_request_stats(req);
+		ocf_engine_update_block_stats(req);
+		return OCF_FAST_PATH_YES;
+	} else {
+		ocf_hb_req_prot_unlock_rd(req);
+		OCF_DEBUG_RQ(req, "Failed to read generic fast");
+		return OCF_FAST_PATH_NO;
+	}
+}
