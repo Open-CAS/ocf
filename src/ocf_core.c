@@ -218,41 +218,48 @@ static void ocf_req_complete(struct ocf_request *req, int error)
 	ocf_io_put(&req->ioi.io);
 }
 
-static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
-		ocf_core_t core, ocf_cache_t cache)
+static inline ocf_req_cache_mode_t _ocf_core_req_resolve_fast_mode(
+		ocf_cache_t cache, struct ocf_request *req)
 {
-	ocf_req_cache_mode_t original_cache_mode;
-	int fast;
+	switch (req->cache_mode) {
+		case ocf_req_cache_mode_wb:
+		case ocf_req_cache_mode_wo:
+			return ocf_req_cache_mode_fast;
+		default:
+			break;
+	}
+
+	if (!cache->use_submit_io_fast)
+		return ocf_req_cache_mode_max;
+
+	return ocf_req_cache_mode_fast;
+}
+
+static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
+		ocf_cache_t cache)
+{
+	ocf_req_cache_mode_t original_mode, resolved_mode;
+	int ret;
 
 	if (req->d2c) {
-		return -OCF_ERR_IO;
+		return OCF_FAST_PATH_NO;
 	}
 
-	original_cache_mode = req->cache_mode;
+	if (req->cache_mode == ocf_req_cache_mode_pt)
+		return OCF_FAST_PATH_NO;
 
-	switch (req->cache_mode) {
-	case ocf_req_cache_mode_pt:
-		return -OCF_ERR_IO;
-	case ocf_req_cache_mode_wb:
-	case ocf_req_cache_mode_wo:
-		req->cache_mode = ocf_req_cache_mode_fast;
-		break;
-	default:
-		if (cache->use_submit_io_fast)
-			break;
+	resolved_mode = _ocf_core_req_resolve_fast_mode(cache, req);
+	if (resolved_mode == ocf_req_cache_mode_max)
+		return OCF_FAST_PATH_NO;
 
-		if (io->dir == OCF_WRITE)
-			return -OCF_ERR_IO;
+	original_mode = req->cache_mode;
+	req->cache_mode = resolved_mode;
 
-		req->cache_mode = ocf_req_cache_mode_fast;
-	}
+	ret = ocf_engine_hndl_fast_req(req);
+	if (ret == OCF_FAST_PATH_NO)
+		req->cache_mode = original_mode;
 
-	fast = ocf_engine_hndl_fast_req(req);
-	if (fast != OCF_FAST_PATH_NO)
-		return 0;
-
-	req->cache_mode = original_cache_mode;
-	return -OCF_ERR_IO;
+	return ret;
 }
 
 static void ocf_core_volume_submit_io(struct ocf_io *io)
@@ -297,7 +304,7 @@ static void ocf_core_volume_submit_io(struct ocf_io *io)
 	/* Prevent race condition */
 	ocf_req_get(req);
 
-	if (!ocf_core_submit_io_fast(io, req, core, cache)) {
+	if (ocf_core_submit_io_fast(io, req, cache) == OCF_FAST_PATH_YES) {
 		ocf_core_seq_cutoff_update(core, req);
 		ocf_req_put(req);
 		return;
