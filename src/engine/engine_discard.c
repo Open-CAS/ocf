@@ -51,7 +51,7 @@ static int _ocf_discard_core(struct ocf_request *req)
 	}
 
 	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_core_complete);
-	err = ocf_io_set_data(io, req->data, 0);
+	err = ocf_io_set_data(io, req->data, req->offset);
 	if (err) {
 		_ocf_discard_core_complete(io, err);
 		return err;

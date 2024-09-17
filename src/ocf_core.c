@@ -438,11 +438,12 @@ static int ocf_core_io_set_data(struct ocf_io *io,
 
 	OCF_CHECK_NULL(io);
 
-	if (!data || offset)
+	if (!data)
 		return -OCF_ERR_INVAL;
 
 	req = ocf_io_to_req(io);
 	req->data = data;
+	req->offset = offset;
 
 	return 0;
 }
