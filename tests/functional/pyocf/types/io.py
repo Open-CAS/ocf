@@ -22,6 +22,11 @@ from .data import Data
 from .shared import OcfCompletion
 
 
+class WriteMode(IntEnum):
+    ZERO_PAD = 0
+    READ_MODIFY_WRITE = 1
+
+
 class IoDir(IntEnum):
     READ = 0
     WRITE = 1
@@ -120,7 +125,7 @@ class Sync:
         self.io = io
 
     def sync_submit(self, submit_method):
-        if getattr(self.io, 'callback', None):
+        if getattr(self.io, "callback", None):
             raise Exception("completion callback is already set")
         cmpl = OcfCompletion([("err", c_int)])
         self.io.callback = cmpl.callback

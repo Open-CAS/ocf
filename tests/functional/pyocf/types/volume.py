@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -24,14 +25,16 @@ from hashlib import md5
 import weakref
 from enum import IntEnum
 import warnings
+from typing import Union
 
-from .io import Io, IoOps, IoDir
+from .io import Io, IoOps, IoDir, WriteMode, Sync
 from .queue import Queue
 from .shared import OcfErrorCode, Uuid
 from ..ocf import OcfLib
 from ..utils import print_buffer, Size as S
-from .data import Data
+from .data import Data, DataSeek
 from .queue import Queue
+
 
 
 class IoFlags(IntEnum):
@@ -340,6 +343,66 @@ class Volume:
             flags,
         )
         return Io.from_pointer(io)
+
+    def sync_io(
+        self,
+        queue,
+        address: int,
+        data: Data,
+        direction: IoDir,
+        io_class=0,
+        flags=0,
+        submit_func=Sync.submit,
+    ):
+        assert address % 512 == 0
+        assert data.size % 512 == 0
+
+        io = self.new_io(queue, address, data.size, direction, io_class, flags)
+        io.set_data(data)
+        completion = submit_func(Sync(io))
+
+        assert int(completion.results["err"]) == 0
+
+    def write_sync_4k(
+        self,
+        queue: Queue,
+        address: int,
+        data: Union[bytes, Data],
+        mode: WriteMode,
+        io_class=0,
+        flags=0,
+    ):
+        if mode not in list(WriteMode):
+            raise ValueError(f"illegal write mode: {mode}")
+
+        size = len(data)
+
+        address_4k = (address // 4096) * 4096
+
+        end_address_4k = ((address + size + 4095) // 4096) * 4096
+        size_4k = end_address_4k - address_4k
+
+        write_data = Data(size_4k)
+
+        if mode == WriteMode.ZERO_PAD:
+            write_data.zero(size_4k)
+        elif mode == WriteMode.READ_MODIFY_WRITE:
+            self.sync_io(queue, address_4k, write_data, IoDir.READ)
+
+        write_data.seek(DataSeek.BEGIN, address - address_4k)
+        write_data.write(data, size)
+
+        self.sync_io(queue, address_4k, write_data, IoDir.WRITE, io_class, flags)
+
+    def read_sync(self, queue: Queue, address: int, size: int, io_class=0, flags=0) -> bytes:
+        read_data = Data(size)
+        self.sync_io(queue, address, read_data, IoDir.READ, io_class, flags)
+
+        data = bytes(size)
+        read_data.seek(DataSeek.BEGIN, 0)
+        read_data.read(data, size)
+
+        return data
 
 
 class RamVolume(Volume):
