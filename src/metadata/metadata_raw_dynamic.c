@@ -16,7 +16,7 @@
 #include "../ocf_def_priv.h"
 #include "../ocf_priv.h"
 
-#define OCF_METADATA_RAW_DEBUG  0
+#define OCF_METADATA_RAW_DEBUG 0
 
 #if 1 == OCF_METADATA_RAW_DEBUG
 #define OCF_DEBUG_TRACE(cache) \
