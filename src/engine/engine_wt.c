@@ -68,7 +68,7 @@ static void _ocf_write_wt_do_flush_metadata_compl(struct ocf_request *req,
 
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
-	req->complete(req, req->info.core_error ? req->error : 0);
+	req->complete(req, error);
 
 	ocf_req_put(req);
 }
@@ -100,14 +100,9 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error) {
-		/* An error occured */
-
-		/* Complete request */
-		req->complete(req, req->info.core_error ? req->error : 0);
-
+	if (req->info.cache_error || req->info.core_error) {
+		req->complete(req, req->error);
 		ocf_engine_invalidate(req);
-
 		return;
 	}
 
@@ -117,9 +112,7 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 				OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 	} else {
 		ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
-
-		req->complete(req, req->info.core_error ? req->error : 0);
-
+		req->complete(req, 0);
 		ocf_req_put(req);
 	}
 }
@@ -127,11 +120,14 @@ static void _ocf_write_wt_req_complete(struct ocf_request *req)
 static void _ocf_write_wt_cache_complete(struct ocf_request *req, int error)
 {
 	if (error) {
-		req->error = req->error ?: error;
+		/* Cache error code is not propagated further to the user here
+		 * because data could be successfully written to the core device
+		 * despite the cache IO error.
+		 * Error flag is set though to indicate that the error occurred
+		 * and to invalidate the request in completion. */
+		req->info.cache_error = 1;
 		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
-
-		if (req->error)
-			inc_fallback_pt_error_counter(req->cache);
+		inc_fallback_pt_error_counter(req->cache);
 	}
 
 	_ocf_write_wt_req_complete(req);

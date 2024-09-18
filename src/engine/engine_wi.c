@@ -107,7 +107,6 @@ static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 {
 	if (error) {
 		req->error = error;
-		req->info.core_error = 1;
 		ocf_core_stats_core_error_update(req->core, OCF_WRITE);
 	}
 

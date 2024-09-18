@@ -78,7 +78,6 @@ static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 			 */
 			req->complete(req, req->error);
 
-			req->info.core_error = 1;
 			ocf_core_stats_core_error_update(req->core, OCF_READ);
 
 			ctx_data_free(cache->owner, req->cp_data);
