@@ -60,10 +60,12 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 	backfill_queue_dec_unblock(req->cache);
 
 	/* We must free the pages we have allocated */
-	ctx_data_secure_erase(cache->owner, req->data);
-	ctx_data_munlock(cache->owner, req->data);
-	ctx_data_free(cache->owner, req->data);
-	req->data = NULL;
+	if (likely(req->data)) {
+		ctx_data_secure_erase(cache->owner, req->data);
+		ctx_data_munlock(cache->owner, req->data);
+		ctx_data_free(cache->owner, req->data);
+		req->data = NULL;
+	}
 
 	if (req->error) {
 		ocf_engine_invalidate(req);
@@ -79,12 +81,17 @@ static int _ocf_backfill_do(struct ocf_request *req)
 {
 	unsigned int reqs_to_issue;
 
+	req->data = req->cp_data;
+	if (unlikely(req->data == NULL)) {
+		env_atomic_set(&req->req_remaining, 1);
+		_ocf_backfill_complete(req, -OCF_ERR_NO_MEM);
+		return 0;
+	}
+
 	reqs_to_issue = ocf_engine_io_count(req);
 
 	/* There will be #reqs_to_issue completions */
 	env_atomic_set(&req->req_remaining, reqs_to_issue);
-
-	req->data = req->cp_data;
 
 	ocf_submit_cache_reqs(req->cache, req, OCF_WRITE, 0, req->byte_length,
 				reqs_to_issue, _ocf_backfill_complete);

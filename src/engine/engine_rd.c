@@ -28,32 +28,23 @@ static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 	struct ocf_alock *c = ocf_cache_line_concurrency(
 			req->cache);
 
+	OCF_DEBUG_RQ(req, "HIT completion");
+
 	if (error) {
 		req->error |= error;
 		ocf_core_stats_cache_error_update(req->core, OCF_READ);
 		inc_fallback_pt_error_counter(req->cache);
 	}
 
-	/* Handle callback-caller race to let only one of the two complete the
-	 * request. Also, complete original request only if this is the last
-	 * sub-request to complete
-	 */
-	if (env_atomic_dec_return(&req->req_remaining) == 0) {
-		OCF_DEBUG_RQ(req, "HIT completion");
+	if (env_atomic_dec_return(&req->req_remaining) > 0)
+		return;
 
-		if (req->error) {
-			ocf_queue_push_req_pt(req);
-		} else {
-			ocf_req_unlock(c, req);
-
-			/* Complete request */
-			req->complete(req, req->error);
-
-			/* Free the request at the last point
-			 * of the completion path
-			 */
-			ocf_req_put(req);
-		}
+	if (req->error) {
+		ocf_queue_push_req_pt(req);
+	} else {
+		ocf_req_unlock(c, req);
+		req->complete(req, req->error);
+		ocf_req_put(req);
 	}
 }
 
@@ -61,45 +52,38 @@ static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 {
 	struct ocf_cache *cache = req->cache;
 
+	OCF_DEBUG_RQ(req, "MISS completion");
+
 	if (error)
 		req->error = error;
 
-	/* Handle callback-caller race to let only one of the two complete the
-	 * request. Also, complete original request only if this is the last
-	 * sub-request to complete
-	 */
-	if (env_atomic_dec_return(&req->req_remaining) == 0) {
-		OCF_DEBUG_RQ(req, "MISS completion");
+	if (env_atomic_dec_return(&req->req_remaining) > 0)
+		return;
 
-		if (req->error) {
-			/*
-			 * --- Do not submit this request to write-back-thread.
-			 * Stop it here ---
-			 */
-			req->complete(req, req->error);
-
-			ocf_core_stats_core_error_update(req->core, OCF_READ);
-
-			ctx_data_free(cache->owner, req->cp_data);
-			req->cp_data = NULL;
-
-			/* Invalidate metadata */
-			ocf_engine_invalidate(req);
-
-			return;
-		}
-
-		/* Copy pages to copy vec, since this is the one needed
-		 * by the above layer
-		 */
-		ctx_data_cpy(cache->owner, req->cp_data, req->data, 0, 0,
-				req->byte_length);
-
-		/* Complete request */
+	if (req->error) {
 		req->complete(req, req->error);
 
-		ocf_engine_backfill(req);
+		ocf_core_stats_core_error_update(req->core, OCF_READ);
+
+		ctx_data_free(cache->owner, req->cp_data);
+		req->cp_data = NULL;
+
+		/* Invalidate metadata */
+		ocf_engine_invalidate(req);
+
+		return;
 	}
+
+	/* Copy data to the backfill buffer */
+	if (req->cp_data) {
+		ctx_data_cpy(cache->owner, req->cp_data, req->data, 0, 0,
+				req->byte_length);
+	}
+
+	/* Complete request */
+	req->complete(req, req->error);
+
+	ocf_engine_backfill(req);
 }
 
 void ocf_read_generic_submit_hit(struct ocf_request *req)
@@ -119,21 +103,25 @@ static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
 
 	req->cp_data = ctx_data_alloc(cache->owner,
 			BYTES_TO_PAGES(req->byte_length));
-	if (!req->cp_data)
+	if (!req->cp_data) {
+		/* If buffer allocation for backfill fails, ignore the error */
+		ocf_cache_log(cache, log_warn, "Backfill buffer allocation "
+				"error (size %u)\n",
+				req->byte_length);
 		goto err_alloc;
+	}
 
 	ret = ctx_data_mlock(cache->owner, req->cp_data);
-	if (ret)
-		goto err_alloc;
+	if (ret) {
+		ocf_cache_log(cache, log_warn, "Backfill error\n");
+		ctx_data_free(cache->owner, req->cp_data);
+		req->cp_data = NULL;
+	}
 
+err_alloc:
 	/* Submit read request to core device. */
 	ocf_submit_volume_req(&req->core->volume, req,
 			_ocf_read_generic_miss_complete);
-
-	return;
-
-err_alloc:
-	_ocf_read_generic_miss_complete(req, -OCF_ERR_NO_MEM);
 }
 
 static int _ocf_read_generic_do(struct ocf_request *req)
