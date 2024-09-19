@@ -7,9 +7,9 @@
 #include "../ocf_cache_priv.h"
 #include "engine_d2c.h"
 #include "engine_common.h"
+#include "engine_io.h"
 #include "cache_engine.h"
 #include "../ocf_request.h"
-#include "../utils/utils_io.h"
 #include "../metadata/metadata.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "d2c"
@@ -17,31 +17,26 @@
 
 static void _ocf_d2c_completion(struct ocf_request *req, int error)
 {
-	req->error = error;
-
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error)
+	if (error)
 		ocf_core_stats_core_error_update(req->core, req->rw);
 
 	/* Complete request */
-	req->complete(req, req->error);
+	req->complete(req, error);
 
 	/* Release OCF request */
 	ocf_req_put(req);
 }
 
-int ocf_io_d2c(struct ocf_request *req)
+int ocf_d2c_io(struct ocf_request *req)
 {
-	ocf_core_t core = req->core;
-
 	OCF_DEBUG_TRACE(req->cache);
-
 
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	ocf_submit_volume_req(&core->volume, req, _ocf_d2c_completion);
+	ocf_engine_forward_core_io_req(req, _ocf_d2c_completion);
 
 	ocf_engine_update_block_stats(req);
 
@@ -55,5 +50,50 @@ int ocf_io_d2c(struct ocf_request *req)
 	ocf_req_put(req);
 
 	return 0;
+}
 
+int ocf_d2c_flush(struct ocf_request *req)
+{
+	OCF_DEBUG_TRACE(req->cache);
+
+	/* Get OCF request - increase reference counter */
+	ocf_req_get(req);
+
+	ocf_engine_forward_core_flush_req(req, _ocf_d2c_completion);
+
+	ocf_engine_update_block_stats(req);
+
+	ocf_core_stats_pt_block_update(req->core, req->part_id, req->rw,
+			req->byte_length);
+
+	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
+			req->info.hit_no, req->core_line_count);
+
+	/* Put OCF request - decrease reference counter */
+	ocf_req_put(req);
+
+	return 0;
+}
+
+int ocf_d2c_discard(struct ocf_request *req)
+{
+	OCF_DEBUG_TRACE(req->cache);
+
+	/* Get OCF request - increase reference counter */
+	ocf_req_get(req);
+
+	ocf_engine_forward_core_discard_req(req, _ocf_d2c_completion);
+
+	ocf_engine_update_block_stats(req);
+
+	ocf_core_stats_pt_block_update(req->core, req->part_id, req->rw,
+			req->byte_length);
+
+	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
+			req->info.hit_no, req->core_line_count);
+
+	/* Put OCF request - decrease reference counter */
+	ocf_req_put(req);
+
+	return 0;
 }

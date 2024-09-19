@@ -8,10 +8,10 @@
 #include "cache_engine.h"
 #include "engine_common.h"
 #include "engine_discard.h"
+#include "engine_io.h"
 #include "../metadata/metadata.h"
 #include "../ocf_request.h"
 #include "../utils/utils_io.h"
-#include "../utils/utils_cache_line.h"
 #include "../concurrency/ocf_concurrency.h"
 
 #define OCF_ENGINE_DEBUG 0
@@ -25,75 +25,33 @@ static void _ocf_discard_complete_req(struct ocf_request *req, int error)
 
 	ocf_req_put(req);
 }
-static void _ocf_discard_core_complete(struct ocf_io *io, int error)
-{
-	struct ocf_request *req = io->priv1;
-
-	OCF_DEBUG_RQ(req, "Core DISCARD Completion");
-
-	_ocf_discard_complete_req(req, error);
-
-	ocf_io_put(io);
-}
 
 static int _ocf_discard_core(struct ocf_request *req)
 {
-	struct ocf_io *io;
-	int err;
+	req->byte_position = SECTORS_TO_BYTES(req->discard.sector);
+	req->byte_length = SECTORS_TO_BYTES(req->discard.nr_sects);
 
-	io = ocf_volume_new_io(&req->core->volume, req->io_queue,
-			SECTORS_TO_BYTES(req->discard.sector),
-			SECTORS_TO_BYTES(req->discard.nr_sects),
-			OCF_WRITE, 0, 0);
-	if (!io) {
-		_ocf_discard_complete_req(req, -OCF_ERR_NO_MEM);
-		return -OCF_ERR_NO_MEM;
-	}
-
-	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_core_complete);
-	err = ocf_io_set_data(io, req->data, req->offset);
-	if (err) {
-		_ocf_discard_core_complete(io, err);
-		return err;
-	}
-
-	ocf_volume_submit_discard(io);
+	ocf_engine_forward_core_discard_req(req, _ocf_discard_complete_req);
 
 	return 0;
 }
 
-static void _ocf_discard_cache_flush_complete(struct ocf_io *io, int error)
+static void _ocf_discard_cache_flush_complete(struct ocf_request *req, int error)
 {
-	struct ocf_request *req = io->priv1;
-
 	if (error) {
 		ocf_metadata_error(req->cache);
 		_ocf_discard_complete_req(req, error);
-		ocf_io_put(io);
 		return;
 	}
 
 	req->engine_handler = _ocf_discard_core;
 	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
-
-	ocf_io_put(io);
 }
 
 static int _ocf_discard_flush_cache(struct ocf_request *req)
 {
-	struct ocf_io *io;
-
-	io = ocf_volume_new_io(&req->cache->device->volume, req->io_queue,
-			0, 0, OCF_WRITE, 0, 0);
-	if (!io) {
-		ocf_metadata_error(req->cache);
-		_ocf_discard_complete_req(req, -OCF_ERR_NO_MEM);
-		return -OCF_ERR_NO_MEM;
-	}
-
-	ocf_io_set_cmpl(io, req, NULL, _ocf_discard_cache_flush_complete);
-
-	ocf_volume_submit_flush(io);
+	ocf_engine_forward_cache_flush_req(req,
+			_ocf_discard_cache_flush_complete);
 
 	return 0;
 }
@@ -116,9 +74,6 @@ static void _ocf_discard_finish_step(struct ocf_request *req)
 
 static void _ocf_discard_step_complete(struct ocf_request *req, int error)
 {
-	if (error)
-		req->error |= error;
-
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
@@ -127,9 +82,9 @@ static void _ocf_discard_step_complete(struct ocf_request *req, int error)
 	/* Release WRITE lock of request */
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
-	if (req->error) {
+	if (error) {
 		ocf_metadata_error(req->cache);
-		_ocf_discard_complete_req(req, req->error);
+		_ocf_discard_complete_req(req, error);
 		return;
 	}
 
@@ -242,7 +197,7 @@ static int _ocf_discard_step(struct ocf_request *req)
 	return 0;
 }
 
-int ocf_discard(struct ocf_request *req)
+int ocf_engine_discard(struct ocf_request *req)
 {
 	OCF_DEBUG_TRACE(req->cache);
 

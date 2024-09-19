@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -87,6 +88,41 @@ static void volume_submit_discard(struct ocf_io *io)
 	io->end(io, 0);
 }
 
+void volume_forward_io(ocf_volume_t volume, ocf_forward_token_t token,
+		int dir, uint64_t addr, uint64_t bytes, uint64_t offset)
+{
+	struct ocf_io *io = ocf_forward_get_io(token);
+	struct myvolume *myvolume = ocf_volume_get_priv(volume);
+	struct volume_data *data = ocf_io_get_data(io);
+
+	if (dir == OCF_WRITE) {
+		memcpy(myvolume->mem + addr,
+				data->ptr + offset, bytes);
+	} else {
+		memcpy(data->ptr + offset,
+				myvolume->mem + addr, bytes);
+	}
+
+	printf("VOL FWD: (name: %s), IO: (dir: %s, addr: %ld, bytes: %ld)\n",
+			myvolume->name, dir == OCF_READ ? "read" : "write",
+			addr, bytes);
+
+	ocf_forward_end(token, 0);
+}
+
+
+void volume_forward_flush(ocf_volume_t volume, ocf_forward_token_t token)
+{
+	ocf_forward_end(token, 0);
+}
+
+void volume_forward_discard(ocf_volume_t volume, ocf_forward_token_t token,
+		uint64_t addr, uint64_t bytes)
+{
+	ocf_forward_end(token, 0);
+}
+
+
 /*
  * Let's set maximum io size to 128 KiB.
  */
@@ -145,6 +181,9 @@ const struct ocf_volume_properties volume_properties = {
 		.submit_io = volume_submit_io,
 		.submit_flush = volume_submit_flush,
 		.submit_discard = volume_submit_discard,
+		.forward_io = volume_forward_io,
+		.forward_flush = volume_forward_flush,
+		.forward_discard = volume_forward_discard,
 		.get_max_io_size = volume_get_max_io_size,
 		.get_length = volume_get_length,
 	},

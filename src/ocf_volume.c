@@ -1,11 +1,13 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
 #include "ocf_priv.h"
 #include "ocf_volume_priv.h"
+#include "ocf_request.h"
 #include "ocf_io_priv.h"
 #include "ocf_env.h"
 
@@ -326,6 +328,46 @@ void ocf_volume_submit_discard(struct ocf_io *io)
 	}
 
 	volume->type->properties->ops.submit_discard(io);
+}
+
+void ocf_volume_forward_io(ocf_volume_t volume, ocf_forward_token_t token,
+		int dir, uint64_t addr, uint64_t bytes, uint64_t offset)
+{
+	ENV_BUG_ON(!volume->type->properties->ops.forward_io);
+
+	if (!volume->opened) {
+		ocf_forward_end(token, -OCF_ERR_IO);
+		return;
+	}
+
+	volume->type->properties->ops.forward_io(volume, token,
+			dir, addr, bytes, offset);
+}
+
+void ocf_volume_forward_flush(ocf_volume_t volume, ocf_forward_token_t token)
+{
+	ENV_BUG_ON(!volume->type->properties->ops.forward_flush);
+
+	if (!volume->opened) {
+		ocf_forward_end(token, -OCF_ERR_IO);
+		return;
+	}
+
+	volume->type->properties->ops.forward_flush(volume, token);
+}
+
+void ocf_volume_forward_discard(ocf_volume_t volume, ocf_forward_token_t token,
+		uint64_t addr, uint64_t bytes)
+{
+	ENV_BUG_ON(!volume->type->properties->ops.forward_discard);
+
+	if (!volume->opened) {
+		ocf_forward_end(token, -OCF_ERR_IO);
+		return;
+	}
+
+	volume->type->properties->ops.forward_discard(volume, token,
+			addr, bytes);
 }
 
 int ocf_volume_open(ocf_volume_t volume, void *volume_params)

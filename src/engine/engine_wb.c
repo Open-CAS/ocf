@@ -8,12 +8,12 @@
 #include "../ocf_cache_priv.h"
 #include "cache_engine.h"
 #include "engine_common.h"
+#include "engine_io.h"
 #include "engine_wb.h"
 #include "engine_wi.h"
 #include "engine_inv.h"
 #include "../metadata/metadata.h"
 #include "../ocf_request.h"
-#include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_request.h"
 #include "../utils/utils_user_part.h"
@@ -50,17 +50,11 @@ static void _ocf_write_wb_update_bits(struct ocf_request *req)
 static void _ocf_write_wb_io_flush_metadata(struct ocf_request *req, int error)
 {
 	if (error)
-		req->error = error;
-
-	if (env_atomic_dec_return(&req->req_remaining))
-		return;
-
-	if (req->error)
 		ocf_engine_error(req, true, "Failed to write data to cache");
 
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
-	req->complete(req, req->error);
+	req->complete(req, error);
 
 	ocf_req_put(req);
 }
@@ -69,37 +63,29 @@ static int ocf_write_wb_do_flush_metadata(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
 
-	env_atomic_set(&req->req_remaining, 1); /* One core IO */
-
 	_ocf_write_wb_update_bits(req);
 
 	if (req->info.flush_metadata) {
 		OCF_DEBUG_RQ(req, "Flush metadata");
 		ocf_metadata_flush_do_asynch(cache, req,
 				_ocf_write_wb_io_flush_metadata);
+	} else {
+		_ocf_write_wb_io_flush_metadata(req, 0);
 	}
-
-	_ocf_write_wb_io_flush_metadata(req, 0);
 
 	return 0;
 }
 
 static void _ocf_write_wb_complete(struct ocf_request *req, int error)
 {
-	if (error) {
-		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
-		req->error |= error;
-	}
-
-	if (env_atomic_dec_return(&req->req_remaining))
-		return;
-
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error) {
+	if (error) {
+		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
+
 		ocf_engine_error(req, true, "Failed to write data to cache");
 
-		req->complete(req, req->error);
+		req->complete(req, error);
 
 		ocf_engine_invalidate(req);
 	} else {
@@ -111,10 +97,6 @@ static void _ocf_write_wb_complete(struct ocf_request *req, int error)
 
 static inline void _ocf_write_wb_submit(struct ocf_request *req)
 {
-	struct ocf_cache *cache = req->cache;
-
-	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req));
-
 	/*
 	 * 1. Submit data
 	 * 2. Wait for completion of data
@@ -137,8 +119,7 @@ static inline void _ocf_write_wb_submit(struct ocf_request *req)
 	OCF_DEBUG_RQ(req, "Submit Data");
 
 	/* Data IO */
-	ocf_submit_cache_reqs(cache, req, OCF_WRITE, 0, req->byte_length,
-			ocf_engine_io_count(req), _ocf_write_wb_complete);
+	ocf_engine_forward_cache_io_req(req, OCF_WRITE, _ocf_write_wb_complete);
 }
 
 int ocf_write_wb_do(struct ocf_request *req)

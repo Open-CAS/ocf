@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -8,9 +9,9 @@
 #include "engine_wt.h"
 #include "engine_wi.h"
 #include "engine_common.h"
+#include "engine_io.h"
 #include "cache_engine.h"
 #include "../ocf_request.h"
-#include "../utils/utils_io.h"
 #include "../metadata/metadata.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "wa"

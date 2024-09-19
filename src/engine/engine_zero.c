@@ -19,23 +19,17 @@
 
 static int ocf_zero_purge(struct ocf_request *req)
 {
-	if (req->error) {
-		ocf_engine_error(req, true, "Failed to discard data on cache");
-	} else {
-		/* There are mapped cache line, need to remove them */
+	/* There are mapped cache line, need to remove them */
 
-		ocf_hb_req_prot_lock_wr(req); /*- Metadata WR access ---------------*/
+	ocf_hb_req_prot_lock_wr(req); /*- Metadata WR access ---------------*/
 
-		/* Remove mapped cache lines from metadata */
-		ocf_purge_map_info(req);
+	/* Remove mapped cache lines from metadata */
+	ocf_purge_map_info(req);
 
-		ocf_hb_req_prot_unlock_wr(req); /*- END Metadata WR access ---------*/
-	}
+	ocf_hb_req_prot_unlock_wr(req); /*- END Metadata WR access ---------*/
 
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
-
-	req->complete(req, req->error);
-
+	req->complete(req, 0);
 	ocf_req_put(req);
 
 	return 0;
@@ -45,11 +39,13 @@ static void _ocf_zero_io_flush_metadata(struct ocf_request *req, int error)
 {
 	if (error) {
 		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
-		req->error = error;
-	}
+		ocf_engine_error(req, true, "Failed to discard data on cache");
 
-	if (env_atomic_dec_return(&req->req_remaining))
+		ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
+		req->complete(req, error);
+		ocf_req_put(req);
 		return;
+	}
 
 	ocf_queue_push_req_cb(req, ocf_zero_purge,
 			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);

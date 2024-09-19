@@ -431,3 +431,130 @@ void ocf_req_hash(struct ocf_request *req)
 				ocf_core_get_id(req->core));
 	}
 }
+
+void ocf_req_forward_cache_io(struct ocf_request *req, int dir, uint64_t addr,
+		uint64_t bytes, uint64_t offset)
+{
+	ocf_volume_t volume = ocf_cache_get_volume(req->cache);
+	ocf_forward_token_t token = ocf_req_to_cache_forward_token(req);
+
+	req->cache_error = 0;
+
+	ocf_req_forward_cache_get(req);
+	ocf_volume_forward_io(volume, token, dir, addr, bytes, offset);
+}
+
+void ocf_req_forward_cache_flush(struct ocf_request *req)
+{
+	ocf_volume_t volume = ocf_cache_get_volume(req->cache);
+	ocf_forward_token_t token = ocf_req_to_cache_forward_token(req);
+
+	req->cache_error = 0;
+
+	ocf_req_forward_cache_get(req);
+	ocf_volume_forward_flush(volume, token);
+}
+
+void ocf_req_forward_cache_discard(struct ocf_request *req, uint64_t addr,
+		uint64_t bytes)
+{
+	ocf_volume_t volume = ocf_cache_get_volume(req->cache);
+	ocf_forward_token_t token = ocf_req_to_cache_forward_token(req);
+
+	req->cache_error = 0;
+
+	ocf_req_forward_cache_get(req);
+	ocf_volume_forward_discard(volume, token, addr, bytes);
+}
+
+void ocf_req_forward_core_io(struct ocf_request *req, int dir, uint64_t addr,
+		uint64_t bytes, uint64_t offset)
+{
+	ocf_volume_t volume = ocf_core_get_volume(req->core);
+	ocf_forward_token_t token = ocf_req_to_core_forward_token(req);
+
+	req->core_error = 0;
+
+	ocf_req_forward_core_get(req);
+	ocf_volume_forward_io(volume, token, dir, addr, bytes, offset);
+}
+
+void ocf_req_forward_core_flush(struct ocf_request *req)
+{
+	ocf_volume_t volume = ocf_core_get_volume(req->core);
+	ocf_forward_token_t token = ocf_req_to_core_forward_token(req);
+
+	req->core_error = 0;
+
+	ocf_req_forward_core_get(req);
+	ocf_volume_forward_flush(volume, token);
+}
+
+void ocf_req_forward_core_discard(struct ocf_request *req, uint64_t addr,
+		uint64_t bytes)
+{
+	ocf_volume_t volume = ocf_core_get_volume(req->core);
+	ocf_forward_token_t token = ocf_req_to_core_forward_token(req);
+
+	req->core_error = 0;
+
+	ocf_req_forward_core_get(req);
+	ocf_volume_forward_discard(volume, token, addr, bytes);
+}
+
+struct ocf_io *ocf_forward_get_io(ocf_forward_token_t token)
+{
+	struct ocf_request *req = (struct ocf_request *)(token & ~1);
+
+	return &req->ioi.io;
+}
+
+static inline void _ocf_forward_get(ocf_forward_token_t token)
+{
+	struct ocf_request *req = (struct ocf_request *)(token & ~1);
+
+	if (token & 1)
+		ocf_req_forward_cache_get(req);
+	else
+		ocf_req_forward_core_get(req);
+}
+
+void ocf_forward_get(ocf_forward_token_t token)
+{
+	_ocf_forward_get(token);
+}
+
+void ocf_forward_io(ocf_volume_t volume, ocf_forward_token_t token,
+		int dir, uint64_t addr, uint64_t bytes, uint64_t offset)
+{
+	_ocf_forward_get(token);
+	ocf_volume_forward_io(volume, token, dir, addr, bytes, offset);
+}
+
+void ocf_forward_flush(ocf_volume_t volume, ocf_forward_token_t token)
+{
+	_ocf_forward_get(token);
+	ocf_volume_forward_flush(volume, token);
+}
+
+void ocf_forward_discard(ocf_volume_t volume, ocf_forward_token_t token,
+		uint64_t addr, uint64_t bytes)
+{
+	_ocf_forward_get(token);
+	ocf_volume_forward_discard(volume, token, addr, bytes);
+}
+
+void ocf_forward_end(ocf_forward_token_t token, int error)
+{
+	struct ocf_request *req = ocf_req_forward_token_to_req(token);
+
+	req->error |= error;
+
+	if (token & 1) {
+		req->cache_error = req->cache_error ?: error;
+		ocf_req_forward_cache_put(req);
+	} else {
+		req->core_error = req->core_error ?: error;
+		ocf_req_forward_core_put(req);
+	}
+}

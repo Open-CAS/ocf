@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -91,6 +92,22 @@ class ReplicatedVolume(Volume):
         self._prepare_io(discard)
         self.primary.submit_discard(discard)
         self.secondary.submit_discard(discard)
+
+    def do_forward_io(self, token, rw, addr, nbytes, offset):
+        if rw == IoDir.WRITE:
+            Io.forward_get(token)
+            self.secondary.do_forward_io(token, rw, addr, nbytes, offset)
+        self.primary.do_forward_io(token, rw, addr, nbytes, offset)
+
+    def do_forward_flush(self, token):
+        Io.forward_get(token)
+        self.secondary.do_forward_flush(token)
+        self.primary.do_forward_flush(token)
+
+    def do_forward_discard(self, token, addr, nbytes):
+        Io.forward_get(token)
+        self.secondary.do_forward_discard(token, addr, nbytes)
+        self.primary.do_forward_discard(token, addr, nbytes)
 
     def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
         self.primary.dump()

@@ -48,6 +48,14 @@ class FlushValVolume(RamVolume):
         self.flush_last = True
         super().submit_flush(flush)
 
+    def forward_io(self, token, rw, addr, nbytes, offset):
+        self.flush_last = False
+        super().forward_io(token, rw, addr, nbytes, offset)
+
+    def forward_flush(self, token):
+        self.flush_last = True
+        super().forward_flush(token)
+
 
 def test_flush_after_mngmt(pyocf_ctx):
     """

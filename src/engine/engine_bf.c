@@ -10,10 +10,11 @@
 #include "engine_bf.h"
 #include "engine_inv.h"
 #include "engine_common.h"
+#include "engine_io.h"
 #include "cache_engine.h"
 #include "../ocf_request.h"
-#include "../utils/utils_io.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../utils/utils_io.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "bf"
 #include "engine_debug.h"
@@ -43,19 +44,9 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 	struct ocf_cache *cache = req->cache;
 
 	if (error) {
-		req->error = error;
 		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
-	}
-
-	if (req->error)
 		inc_fallback_pt_error_counter(req->cache);
-
-	/* Handle callback-caller race to let only one of the two complete the
-	 * request. Also, complete original request only if this is the last
-	 * sub-request to complete
-	 */
-	if (env_atomic_dec_return(&req->req_remaining))
-		return;
+	}
 
 	backfill_queue_dec_unblock(req->cache);
 
@@ -67,7 +58,7 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 		req->data = NULL;
 	}
 
-	if (req->error) {
+	if (error) {
 		ocf_engine_invalidate(req);
 	} else {
 		ocf_req_unlock(ocf_cache_line_concurrency(cache), req);
@@ -79,22 +70,13 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 
 static int _ocf_backfill_do(struct ocf_request *req)
 {
-	unsigned int reqs_to_issue;
-
 	req->data = req->cp_data;
 	if (unlikely(req->data == NULL)) {
-		env_atomic_set(&req->req_remaining, 1);
 		_ocf_backfill_complete(req, -OCF_ERR_NO_MEM);
 		return 0;
 	}
 
-	reqs_to_issue = ocf_engine_io_count(req);
-
-	/* There will be #reqs_to_issue completions */
-	env_atomic_set(&req->req_remaining, reqs_to_issue);
-
-	ocf_submit_cache_reqs(req->cache, req, OCF_WRITE, 0, req->byte_length,
-				reqs_to_issue, _ocf_backfill_complete);
+	ocf_engine_forward_cache_io_req(req, OCF_WRITE, _ocf_backfill_complete);
 
 	return 0;
 }

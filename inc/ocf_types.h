@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -71,6 +72,17 @@ typedef struct ocf_volume_uuid *ocf_uuid_t;
  * @brief handle to object designating ocf context object
  */
 typedef void ctx_data_t;
+
+/**
+ * @brief IO forward token
+ *
+ * The token is associated with IO that is being forwarded. It allows
+ * OCF to keep track of which IO has been forwarded where. It also has
+ * refcount which can be increased/decreased on each forward level, so
+ * that there is no need to introduce additional counters if at some
+ * level the forward needs to be splitted into several sub-forwards.
+ */
+typedef uint64_t ocf_forward_token_t;
 
 /**
  * @brief handle to I/O queue

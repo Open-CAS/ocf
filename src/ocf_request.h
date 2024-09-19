@@ -9,6 +9,7 @@
 
 #include "ocf_env.h"
 #include "ocf_io_priv.h"
+#include "ocf_def_priv.h"
 #include "metadata/metadata_structs.h"
 
 typedef enum {
@@ -127,6 +128,11 @@ typedef int (*ocf_req_cb)(struct ocf_request *req);
 struct ocf_request {
 	struct ocf_io_internal ioi;
 	/*!< OCF IO associated with request */
+
+	ocf_req_end_t cache_forward_end;
+	ocf_req_end_t core_forward_end;
+	env_atomic cache_remaining;
+	env_atomic core_remaining;
 
 	env_atomic ref_count;
 	/*!< Reference usage count, once OCF request reaches zero it
@@ -260,7 +266,7 @@ struct ocf_request {
 	struct ocf_req_info info;
 	/*!< Detailed request info */
 
-	void (*complete)(struct ocf_request *ocf_req, int error);
+	ocf_req_end_t complete;
 	/*!< Request completion function */
 
 	struct ocf_req_discard_info discard;
@@ -275,8 +281,6 @@ struct ocf_request {
 
 	struct ocf_map_info __map[0];
 };
-
-typedef void (*ocf_req_end_t)(struct ocf_request *req, int error);
 
 /**
  * @brief Initialize OCF request allocation utility
@@ -511,5 +515,58 @@ static inline bool ocf_req_is_4k(uint64_t addr, uint32_t bytes)
 {
 	return !((addr % PAGE_SIZE) || (bytes % PAGE_SIZE));
 }
+
+static inline void ocf_req_forward_cache_get(struct ocf_request *req)
+{
+	env_atomic_inc(&req->cache_remaining);
+}
+
+static inline void ocf_req_forward_cache_put(struct ocf_request *req)
+{
+	if (env_atomic_dec_return(&req->cache_remaining) == 0)
+		req->cache_forward_end(req, req->cache_error);
+}
+
+static inline void ocf_req_forward_core_get(struct ocf_request *req)
+{
+	env_atomic_inc(&req->core_remaining);
+}
+
+static inline void ocf_req_forward_core_put(struct ocf_request *req)
+{
+	if (env_atomic_dec_return(&req->core_remaining) == 0)
+		req->core_forward_end(req, req->core_error);
+}
+
+static inline ocf_forward_token_t ocf_req_to_cache_forward_token(struct ocf_request *req)
+{
+	return (ocf_forward_token_t)req | 1;
+}
+
+static inline ocf_forward_token_t ocf_req_to_core_forward_token(struct ocf_request *req)
+{
+	return (ocf_forward_token_t)req;
+}
+
+static inline struct ocf_request *ocf_req_forward_token_to_req(ocf_forward_token_t token)
+{
+	return (struct ocf_request *)(token & ~1);
+}
+
+void ocf_req_forward_cache_io(struct ocf_request *req, int dir, uint64_t addr,
+		uint64_t bytes, uint64_t offset);
+
+void ocf_req_forward_cache_flush(struct ocf_request *req);
+
+void ocf_req_forward_cache_discard(struct ocf_request *req, uint64_t addr,
+		uint64_t bytes);
+
+void ocf_req_forward_core_io(struct ocf_request *req, int dir, uint64_t addr,
+		uint64_t bytes, uint64_t offset);
+
+void ocf_req_forward_core_flush(struct ocf_request *req);
+
+void ocf_req_forward_core_discard(struct ocf_request *req, uint64_t addr,
+		uint64_t bytes);
 
 #endif /* __OCF_REQUEST_H__ */

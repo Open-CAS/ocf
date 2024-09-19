@@ -43,6 +43,8 @@ enum ocf_io_if_type {
 	OCF_IO_FLUSH_IF,
 	OCF_IO_DISCARD_IF,
 	OCF_IO_D2C_IF,
+	OCF_IO_D2C_FLUSH_IF,
+	OCF_IO_D2C_DISCARD_IF,
 	OCF_IO_PRIV_MAX_IF,
 };
 
@@ -96,26 +98,40 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 		},
 		.name = "Fast",
 	},
-	[OCF_IO_DISCARD_IF] = {
-		.cbs = {
-			[OCF_READ] = ocf_discard,
-			[OCF_WRITE] = ocf_discard,
-		},
-		.name = "Discard",
-	},
-	[OCF_IO_D2C_IF] = {
-		.cbs = {
-			[OCF_READ] = ocf_io_d2c,
-			[OCF_WRITE] = ocf_io_d2c,
-		},
-		.name = "Direct to core",
-	},
 	[OCF_IO_FLUSH_IF] = {
 		.cbs = {
 			[OCF_READ] = ocf_engine_flush,
 			[OCF_WRITE] = ocf_engine_flush,
 		},
-		.name = "Ops engine",
+		.name = "Flush",
+	},
+	[OCF_IO_DISCARD_IF] = {
+		.cbs = {
+			[OCF_READ] = ocf_engine_discard,
+			[OCF_WRITE] = ocf_engine_discard,
+		},
+		.name = "Discard",
+	},
+	[OCF_IO_D2C_IF] = {
+		.cbs = {
+			[OCF_READ] = ocf_d2c_io,
+			[OCF_WRITE] = ocf_d2c_io,
+		},
+		.name = "Direct to core io",
+	},
+	[OCF_IO_D2C_FLUSH_IF] = {
+		.cbs = {
+			[OCF_READ] = ocf_d2c_flush,
+			[OCF_WRITE] = ocf_d2c_flush,
+		},
+		.name = "Direct to core flush",
+	},
+	[OCF_IO_D2C_DISCARD_IF] = {
+		.cbs = {
+			[OCF_READ] = ocf_d2c_discard,
+			[OCF_WRITE] = ocf_d2c_discard,
+		},
+		.name = "Direct to core discard",
 	},
 };
 
@@ -136,17 +152,6 @@ const char *ocf_get_io_iface_name(ocf_req_cache_mode_t cache_mode)
 		return "Unknown";
 
 	return cache_mode_io_if_map[cache_mode]->name;
-}
-
-static ocf_req_cb ocf_io_if_type_to_engine_cb(
-		enum ocf_io_if_type io_if_type, int rw)
-{
-	if (unlikely(io_if_type == OCF_IO_MAX_IF ||
-			io_if_type == OCF_IO_PRIV_MAX_IF)) {
-		return NULL;
-	}
-
-	return IO_IFS[io_if_type].cbs[rw];
 }
 
 static ocf_req_cb ocf_cache_mode_to_engine_cb(
@@ -257,17 +262,12 @@ int ocf_engine_hndl_fast_req(struct ocf_request *req)
 	return ret;
 }
 
-static void ocf_engine_hndl_2dc_req(struct ocf_request *req)
-{
-	IO_IFS[OCF_IO_D2C_IF].cbs[req->rw](req);
-}
-
 void ocf_engine_hndl_discard_req(struct ocf_request *req)
 {
 	ocf_req_get(req);
 
 	if (req->d2c) {
-		ocf_engine_hndl_2dc_req(req);
+		IO_IFS[OCF_IO_D2C_DISCARD_IF].cbs[req->rw](req);
 		return;
 	}
 
@@ -279,8 +279,8 @@ void ocf_engine_hndl_flush_req(struct ocf_request *req)
 	ocf_req_get(req);
 
 	req->engine_handler = (req->d2c) ?
-			ocf_io_if_type_to_engine_cb(OCF_IO_D2C_IF, req->rw) :
-			ocf_io_if_type_to_engine_cb(OCF_IO_FLUSH_IF, req->rw);
+			IO_IFS[OCF_IO_D2C_FLUSH_IF].cbs[req->rw] :
+			IO_IFS[OCF_IO_FLUSH_IF].cbs[req->rw];
 
 	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC);
 }

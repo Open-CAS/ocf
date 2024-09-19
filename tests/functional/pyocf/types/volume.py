@@ -51,6 +51,9 @@ class VolumeOps(Structure):
     SUBMIT_METADATA = CFUNCTYPE(None, c_void_p)
     SUBMIT_DISCARD = CFUNCTYPE(None, c_void_p)
     SUBMIT_WRITE_ZEROES = CFUNCTYPE(None, c_void_p)
+    FORWARD_IO = CFUNCTYPE(None, c_void_p, c_uint64, c_int, c_uint64, c_uint64, c_uint64)
+    FORWARD_FLUSH = CFUNCTYPE(None, c_void_p, c_uint64)
+    FORWARD_DISCARD = CFUNCTYPE(None, c_void_p, c_uint64, c_uint64, c_uint64)
     ON_INIT = CFUNCTYPE(c_int, c_void_p)
     ON_DEINIT = CFUNCTYPE(None, c_void_p)
     OPEN = CFUNCTYPE(c_int, c_void_p, c_void_p)
@@ -64,6 +67,9 @@ class VolumeOps(Structure):
         ("_submit_metadata", SUBMIT_METADATA),
         ("_submit_discard", SUBMIT_DISCARD),
         ("_submit_write_zeroes", SUBMIT_WRITE_ZEROES),
+        ("_forward_io", FORWARD_IO),
+        ("_forward_flush", FORWARD_FLUSH),
+        ("_forward_discard", FORWARD_DISCARD),
         ("_on_init", ON_INIT),
         ("_on_deinit", ON_DEINIT),
         ("_open", OPEN),
@@ -132,6 +138,18 @@ class Volume:
         def _submit_write_zeroes(write_zeroes):
             raise NotImplementedError
 
+        @VolumeOps.FORWARD_IO
+        def _forward_io(volume, token, rw, addr, nbytes, offset):
+            Volume.get_instance(volume).forward_io(token, rw, addr, nbytes, offset)
+
+        @VolumeOps.FORWARD_FLUSH
+        def _forward_flush(volume, token):
+            Volume.get_instance(volume).forward_flush(token)
+
+        @VolumeOps.FORWARD_DISCARD
+        def _forward_discard(volume, token, addr, nbytes):
+            Volume.get_instance(volume).forward_discard(token, addr, nbytes)
+
         @VolumeOps.ON_INIT
         def _on_init(ref):
             return 0
@@ -181,6 +199,9 @@ class Volume:
             _submit_metadata=_submit_metadata,
             _submit_discard=_submit_discard,
             _submit_write_zeroes=_submit_write_zeroes,
+            _forward_io=_forward_io,
+            _forward_flush=_forward_flush,
+            _forward_discard=_forward_discard,
             _open=_open,
             _close=_close,
             _get_max_io_size=_get_max_io_size,
@@ -329,6 +350,28 @@ class Volume:
         else:
             self._reject_io(io)
 
+    def _reject_forward(self, token):
+        Io.forward_end(token, -OcfErrorCode.OCF_ERR_IO)
+
+    def forward_io(self, token, rw, addr, nbytes, offset):
+        if self.is_online:
+            self.inc_stats(IoDir(rw))
+            self.do_forward_io(token, rw, addr, nbytes, offset)
+        else:
+            self._reject_forward(token)
+
+    def forward_flush(self, token):
+        if self.is_online:
+            self.do_forward_flush(token)
+        else:
+            self._reject_forward(token)
+
+    def forward_discard(self, token, addr, nbytes):
+        if self.is_online:
+            self.do_forward_discard(token, addr, nbytes)
+        else:
+            self._reject_forward(token)
+
     def new_io(
         self, queue: Queue, addr: int, length: int, direction: IoDir, io_class: int, flags: int,
     ):
@@ -470,6 +513,37 @@ class RamVolume(Volume):
         except:  # noqa E722
             io.contents._end(io, -OcfErrorCode.OCF_ERR_IO)
 
+    def do_forward_io(self, token, rw, addr, nbytes, offset):
+        try:
+            io = Io.get_by_forward_token(token)
+
+            if rw == IoDir.WRITE:
+                src_ptr = cast(OcfLib.getInstance().ocf_io_get_data(io), c_void_p)
+                src = Data.get_instance(src_ptr.value).handle.value + offset
+                dst = self.data_ptr + addr
+            elif rw == IoDir.READ:
+                dst_ptr = cast(OcfLib.getInstance().ocf_io_get_data(io), c_void_p)
+                dst = Data.get_instance(dst_ptr.value).handle.value + offset
+                src = self.data_ptr + addr
+
+            memmove(dst, src, nbytes)
+
+            Io.forward_end(token, 0)
+        except Exception as e:  # noqa E722
+            Io.forward_end(token, -OcfErrorCode.OCF_ERR_IO)
+
+    def do_forward_flush(self, token):
+        Io.forward_end(token, 0)
+
+    def do_forward_discard(self, token, addr, nbytes):
+        try:
+            dst = self.data_ptr + addr
+            memset(dst, 0, nbytes)
+
+            Io.forward_end(token, 0)
+        except:  # noqa E722
+            Io.forward_end(token, -OcfErrorCode.OCF_ERR_NOT_SUPP)
+
     def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
         if size == 0:
             size = int(self.size) - int(offset)
@@ -517,44 +591,68 @@ class ErrorDevice(Volume):
         super().close()
         self.vol.close()
 
-    def should_forward_io(self, io):
+    def should_forward_io(self, rw, addr):
         if not self.armed:
             return True
 
-        direction = IoDir(io.contents._dir)
+        direction = IoDir(rw)
         seq_no_match = (
             self.error_seq_no[direction] >= 0
             and self.error_seq_no[direction] <= self.io_seq_no[direction]
         )
-        sector_match = io.contents._addr in self.error_sectors
+        sector_match = addr in self.error_sectors
 
         self.io_seq_no[direction] += 1
 
         return not seq_no_match and not sector_match
 
-    def complete_with_error(self, io):
+    def complete_submit_with_error(self, io):
         self.error = True
         direction = IoDir(io.contents._dir)
         self.stats["errors"][direction] += 1
         io.contents._end(io, -OcfErrorCode.OCF_ERR_IO)
 
     def do_submit_io(self, io):
-        if self.should_forward_io(io):
+        if self.should_forward_io(io.contents._dir, io.contents._addr):
             self.vol.do_submit_io(io)
         else:
-            self.complete_with_error(io)
+            self.complete_submit_with_error(io)
 
-    def do_submit_flush(self, flush):
-        if self.data_only or self.should_forward_io(flush):
-            self.vol.do_submit_flush(flush)
+    def do_submit_flush(self, io):
+        if self.data_only or self.should_forward_io(io.contents._dir, io.contents._addr):
+            self.vol.do_submit_flush(io)
         else:
-            self.complete_with_error(flush)
+            self.complete_submit_with_error(io)
 
-    def do_submit_discard(self, discard):
-        if self.data_only or self.should_forward_io(discard):
-            self.vol.do_submit_discard(discard)
+    def do_submit_discard(self, io):
+        if self.data_only or self.should_forward_io(io.contents._dir, io.contents._addr):
+            self.vol.do_submit_discard(io)
         else:
-            self.complete_with_error(discard)
+            self.complete_submit_with_error(io)
+
+    def complete_forward_with_error(self, token, rw):
+        self.error = True
+        direction = IoDir(rw)
+        self.stats["errors"][direction] += 1
+        Io.forward_end(token, -OcfErrorCode.OCF_ERR_IO)
+
+    def do_forward_io(self, token, rw, addr, nbytes, offset):
+        if self.should_forward_io(rw, addr):
+            self.vol.do_forward_io(token, rw, addr, nbytes, offset)
+        else:
+            self.complete_forward_with_error(token, rw)
+
+    def do_forward_flush(self, token):
+        if self.data_only or self.should_forward_io(0, 0):
+            self.vol.do_forward_flush(token)
+        else:
+            self.complete_forward_with_error(token, rw)
+
+    def do_forward_discard(self, token, addr, nbytes):
+        if self.data_only or self.should_forward_io(0, addr):
+            self.vol.do_forward_discard(token, addr, nbytes)
+        else:
+            self.complete_forward_with_error(token, rw)
 
     def arm(self):
         self.armed = True
@@ -611,31 +709,88 @@ class TraceDevice(Volume):
         super().close()
         self.vol.close()
 
-    def _trace(self, io, io_type):
+    def _trace(self, io_type, rw, addr, nbytes, flags):
         submit = True
 
         if self.trace_fcn:
-            submit = self.trace_fcn(self, io, io_type)
+            submit = self.trace_fcn(self, io_type, rw, addr, nbytes, flags)
 
         return submit
 
     def do_submit_io(self, io):
-        submit = self._trace(io, TraceDevice.IoType.Data)
+        submit = self._trace(
+            TraceDevice.IoType.Data,
+            io.contents._dir,
+            io.contents._addr,
+            io.contents._bytes,
+            io.contents._flags
+        )
 
         if submit:
             self.vol.do_submit_io(io)
 
     def do_submit_flush(self, io):
-        submit = self._trace(io, TraceDevice.IoType.Flush)
+        submit = self._trace(
+            TraceDevice.IoType.Flush,
+            io.contents._dir,
+            io.contents._addr,
+            io.contents._bytes,
+            io.contents._flags
+        )
 
         if submit:
             self.vol.do_submit_flush(io)
 
     def do_submit_discard(self, io):
-        submit = self._trace(io, TraceDevice.IoType.Discard)
+        submit = self._trace(
+            TraceDevice.IoType.Discard,
+            io.contents._dir,
+            io.contents._addr,
+            io.contents._bytes,
+            io.contents._flags
+        )
 
         if submit:
             self.vol.do_submit_discard(io)
+
+    def do_forward_io(self, token, rw, addr, nbytes, offset):
+        io = Io.get_by_forward_token(token)
+        submit = self._trace(
+            TraceDevice.IoType.Data,
+            rw,
+            addr,
+            nbytes,
+            io.contents._flags
+        )
+
+        if submit:
+            self.vol.do_forward_io(token, rw, addr, nbytes, offset)
+
+    def do_forward_flush(self, token):
+        io = Io.get_by_forward_token(token)
+        submit = self._trace(
+            TraceDevice.IoType.Flush,
+            IoDir.WRITE,
+            0,
+            0,
+            io.contents._flags
+        )
+
+        if submit:
+            self.vol.do_forward_flush(token)
+
+    def do_forward_discard(self, token, addr, nbytes):
+        io = Io.get_by_forward_token(token)
+        submit = self._trace(
+            TraceDevice.IoType.Discard,
+            IoDir.WRITE,
+            addr,
+            nbytes,
+            io.contents._flags
+        )
+
+        if submit:
+            self.vol.do_forward_discard(token, addr, nbytes)
 
     def get_length(self):
         return self.vol.get_length()
