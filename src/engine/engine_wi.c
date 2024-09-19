@@ -133,6 +133,19 @@ static int _ocf_write_wi_core_write(struct ocf_request *req)
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
+	if (req->info.dirty_any) {
+		ocf_hb_req_prot_lock_rd(req);
+		/* Need to clean, start it */
+		ocf_engine_clean(req);
+		ocf_hb_req_prot_unlock_rd(req);
+
+		/* The processing shall be resumed once the async cleaning
+		   ends */
+		ocf_req_put(req);
+
+		return 0;
+	}
+
 	env_atomic_set(&req->req_remaining, 1); /* One core IO */
 
 	OCF_DEBUG_RQ(req, "Submit");
