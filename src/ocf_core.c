@@ -10,6 +10,7 @@
 #include "ocf_io_priv.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
+#include "engine/engine_d2c.h"
 #include "utils/utils_user_part.h"
 #include "ocf_request.h"
 
@@ -241,10 +242,6 @@ static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
 	ocf_req_cache_mode_t original_mode, resolved_mode;
 	int ret;
 
-	if (req->d2c) {
-		return OCF_FAST_PATH_NO;
-	}
-
 	if (req->cache_mode == ocf_req_cache_mode_pt)
 		return OCF_FAST_PATH_NO;
 
@@ -286,21 +283,27 @@ static void ocf_core_volume_submit_io(struct ocf_io *io)
 		return;
 	}
 
-	ret = ocf_req_alloc_map(req);
-	if (ret) {
-		ocf_io_end(io, ret);
+	req->core = core;
+	req->complete = ocf_req_complete;
+
+	ocf_io_get(io);
+
+	if (unlikely(req->d2c)) {
+		ocf_core_update_stats(core, io);
+		ocf_d2c_io_fast(req);
 		return;
 	}
 
+	ret = ocf_req_alloc_map(req);
+	if (ret)
+		goto err;
+
 	req->part_id = ocf_user_part_class2id(cache, io->io_class);
-	req->core = core;
-	req->complete = ocf_req_complete;
 
 	ocf_resolve_effective_cache_mode(cache, core, req);
 
 	ocf_core_update_stats(core, io);
 
-	ocf_io_get(io);
 	/* Prevent race condition */
 	ocf_req_get(req);
 
@@ -317,9 +320,14 @@ static void ocf_core_volume_submit_io(struct ocf_io *io)
 	ret = ocf_engine_hndl_req(req);
 	if (ret) {
 		dec_counter_if_req_was_dirty(req);
-		ocf_io_end(io, ret);
-		ocf_io_put(io);
+		goto err;
 	}
+
+	return;
+
+err:
+	ocf_io_end(io, ret);
+	ocf_io_put(io);
 }
 
 static void ocf_core_volume_submit_flush(struct ocf_io *io)
@@ -350,6 +358,11 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 	req->complete = ocf_req_complete;
 
 	ocf_io_get(io);
+
+	if (unlikely(req->d2c)) {
+		ocf_d2c_flush_fast(req);
+		return;
+	}
 
 	ocf_engine_hndl_flush_req(req);
 }
@@ -383,16 +396,22 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 		return;
 	}
 
-	ret = ocf_req_alloc_map_discard(req);
-	if (ret) {
-		ocf_io_end(io, -OCF_ERR_NO_MEM);
-		return;
-	}
-
 	req->core = core;
 	req->complete = ocf_req_complete;
 
 	ocf_io_get(io);
+
+	if (unlikely(req->d2c)) {
+		ocf_d2c_discard_fast(req);
+		return;
+	}
+
+	ret = ocf_req_alloc_map_discard(req);
+	if (ret) {
+		ocf_io_end(io, -OCF_ERR_NO_MEM);
+		ocf_io_put(io);
+		return;
+	}
 
 	ocf_engine_hndl_discard_req(req);
 }

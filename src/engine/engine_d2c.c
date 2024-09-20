@@ -29,7 +29,7 @@ static void _ocf_d2c_completion(struct ocf_request *req, int error)
 	ocf_req_put(req);
 }
 
-int ocf_d2c_io(struct ocf_request *req)
+int ocf_d2c_io_fast(struct ocf_request *req)
 {
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -46,13 +46,10 @@ int ocf_d2c_io(struct ocf_request *req)
 	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
 			req->info.hit_no, req->core_line_count);
 
-	/* Put OCF request - decrease reference counter */
-	ocf_req_put(req);
-
 	return 0;
 }
 
-int ocf_d2c_flush(struct ocf_request *req)
+int ocf_d2c_flush_fast(struct ocf_request *req)
 {
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -69,13 +66,10 @@ int ocf_d2c_flush(struct ocf_request *req)
 	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
 			req->info.hit_no, req->core_line_count);
 
-	/* Put OCF request - decrease reference counter */
-	ocf_req_put(req);
-
 	return 0;
 }
 
-int ocf_d2c_discard(struct ocf_request *req)
+int ocf_d2c_discard_fast(struct ocf_request *req)
 {
 	OCF_DEBUG_TRACE(req->cache);
 
@@ -91,9 +85,6 @@ int ocf_d2c_discard(struct ocf_request *req)
 
 	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
 			req->info.hit_no, req->core_line_count);
-
-	/* Put OCF request - decrease reference counter */
-	ocf_req_put(req);
 
 	return 0;
 }
