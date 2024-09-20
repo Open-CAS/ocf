@@ -420,8 +420,9 @@ static int to_packet_idx(uint32_t len)
 	return IO_PACKET_SIZE;
 }
 
-void ocf_core_update_stats(ocf_core_t core, struct ocf_io *io)
+void ocf_core_update_stats(ocf_core_t core, ocf_io_t io)
 {
+	struct ocf_request *req = ocf_io_to_req(io);
 	struct ocf_counters_debug *stats;
 	int idx;
 
@@ -430,14 +431,14 @@ void ocf_core_update_stats(ocf_core_t core, struct ocf_io *io)
 
 	stats = &core->counters->debug_stats;
 
-	idx = to_packet_idx(io->bytes);
-	if (io->dir == OCF_WRITE)
+	idx = to_packet_idx(req->bytes);
+	if (req->rw == OCF_WRITE)
 		env_atomic64_inc(&stats->write_size[idx]);
 	else
 		env_atomic64_inc(&stats->read_size[idx]);
 
-	idx = to_align_idx(io->addr);
-	if (io->dir == OCF_WRITE)
+	idx = to_align_idx(req->addr);
+	if (req->rw == OCF_WRITE)
 		env_atomic64_inc(&stats->write_align[idx]);
 	else
 		env_atomic64_inc(&stats->read_align[idx]);
@@ -445,6 +446,6 @@ void ocf_core_update_stats(ocf_core_t core, struct ocf_io *io)
 
 #else
 
-void ocf_core_update_stats(ocf_core_t core, struct ocf_io *io) {}
+void ocf_core_update_stats(ocf_core_t core, ocf_io_t io) {}
 
 #endif

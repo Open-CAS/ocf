@@ -31,8 +31,8 @@ void ocf_engine_error(struct ocf_request *req,
 	if (ocf_cache_log_rl(cache)) {
 		ocf_core_log(req->core, log_err,
 				"%s sector: %" ENV_PRIu64 ", bytes: %u\n", msg,
-				BYTES_TO_SECTORS(req->byte_position),
-				req->byte_length);
+				BYTES_TO_SECTORS(req->addr),
+				req->bytes);
 	}
 }
 
@@ -529,27 +529,23 @@ int ocf_engine_prepare_clines(struct ocf_request *req)
 static int _ocf_engine_clean_getter(struct ocf_cache *cache,
 		void *getter_context, uint32_t item, ocf_cache_line_t *line)
 {
-	struct ocf_cleaner_attribs *attribs = getter_context;
-	struct ocf_request *req = attribs->cmpl_context;
+	struct ocf_request *req = getter_context;
+	struct ocf_map_info *entry;
 
-	for (; attribs->getter_item < req->core_line_count;
-			attribs->getter_item++) {
+	if (unlikely(item >= req->core_line_count))
+		return -1;
 
-		struct ocf_map_info *entry = &req->map[attribs->getter_item];
+	entry = &req->map[item];
 
-		if (entry->status != LOOKUP_HIT)
-			continue;
+	if (entry->status != LOOKUP_HIT)
+		return -1;
 
-		if (!metadata_test_dirty(cache, entry->coll_idx))
-			continue;
+	if (!metadata_test_dirty(cache, entry->coll_idx))
+		return -1;
 
-		/* Line to be cleaned found, go to next item and return */
-		*line = entry->coll_idx;
-		attribs->getter_item++;
-		return 0;
-	}
-
-	return -1;
+	/* Line to be cleaned found, go to next item and return */
+	*line = entry->coll_idx;
+	return 0;
 }
 
 void ocf_engine_clean(struct ocf_request *req)
@@ -562,10 +558,9 @@ void ocf_engine_clean(struct ocf_request *req)
 			.cmpl_fn = _ocf_engine_clean_end,
 
 			.getter = _ocf_engine_clean_getter,
-			.getter_context = &attribs,
-			.getter_item = 0,
+			.getter_context = req,
 
-			.count = req->info.dirty_any,
+			.count = req->core_line_count,
 			.io_queue = req->io_queue
 	};
 
@@ -576,7 +571,7 @@ void ocf_engine_clean(struct ocf_request *req)
 void ocf_engine_update_block_stats(struct ocf_request *req)
 {
 	ocf_core_stats_vol_block_update(req->core, req->part_id, req->rw,
-			req->byte_length);
+			req->bytes);
 }
 
 void ocf_engine_update_request_stats(struct ocf_request *req)

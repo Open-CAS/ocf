@@ -1057,9 +1057,9 @@ static void _ocf_mngt_test_volume_discard(
 	 * Submit discard request
 	 */
 
-	ocf_submit_volume_discard(&cache->device->volume,
-			context->test.reserved_lba_addr, PAGE_SIZE,
-			_ocf_mngt_test_volume_discard_complete, context);
+	ocf_submit_cache_discard(cache, context->test.reserved_lba_addr,
+			PAGE_SIZE, _ocf_mngt_test_volume_discard_complete,
+			context);
 }
 
 static void _ocf_mngt_test_volume_second_read_complete(void *priv, int error)
@@ -1819,11 +1819,11 @@ static void _ocf_mngt_attach_discard(ocf_pipeline_t pipeline,
 
 	if (!discard && ocf_volume_is_atomic(&cache->device->volume)) {
 		/* discard doesn't zero data - need to explicitly write zeros */
-		ocf_submit_write_zeros(&cache->device->volume, addr, length,
+		ocf_submit_cache_write_zeros(cache, addr, length,
 				_ocf_mngt_attach_discard_complete, context);
 	} else {
 		/* Discard volume after metadata */
-		ocf_submit_volume_discard(&cache->device->volume, addr, length,
+		ocf_submit_cache_discard(cache, addr, length,
 				_ocf_mngt_attach_discard_complete, context);
 	}
 }
@@ -1843,8 +1843,8 @@ static void _ocf_mngt_attach_flush(ocf_pipeline_t pipeline,
 	bool discard = cache->device->volume.features.discard_zeroes;
 
 	if (!discard && ocf_volume_is_atomic(&cache->device->volume)) {
-		ocf_submit_volume_flush(&cache->device->volume,
-				_ocf_mngt_attach_flush_complete, context);
+		ocf_submit_cache_flush(cache, _ocf_mngt_attach_flush_complete,
+				context);
 	} else {
 		ocf_pipeline_next(pipeline);
 	}

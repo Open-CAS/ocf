@@ -122,14 +122,60 @@ struct ocf_req_discard_info {
 struct ocf_request;
 typedef int (*ocf_req_cb)(struct ocf_request *req);
 
+struct ocf_request_io {
+
+	/**
+	 * @brief OCF IO destination class
+	 */
+	uint8_t io_class;
+
+	/**
+	 * @brief OCF IO reference count
+	 */
+	env_atomic ref_count;
+
+	/**
+	 * @brief Front volume handle
+	 */
+	ocf_volume_t volume;
+
+	/**
+	 * @brief OCF IO start function
+	 */
+	ocf_start_io_t start;
+
+	/**
+	 * @brief OCF IO private 1
+	 */
+	void *priv1;
+
+	/**
+	 * @brief OCF IO private 2
+	 */
+	void *priv2;
+
+	/**
+	 * @brief OCF IO handle function
+	 */
+	ocf_handle_io_t handle;
+
+	/**
+	 * @brief OCF IO completion function
+	 */
+	ocf_end_io_t end;
+};
+
 /**
  * @brief OCF IO request
  */
 struct ocf_request {
-	struct ocf_io_internal ioi;
-	/*!< OCF IO associated with request */
+	/* This struct is temporary. It will be consolidated with ocf_request */
+	struct ocf_request_io io;
 
-	ocf_req_end_t cache_forward_end;
+	union {
+		ocf_req_end_t cache_forward_end;
+		ocf_req_end_t volume_forward_end;
+	};
 	ocf_req_end_t core_forward_end;
 	env_atomic cache_remaining;
 	env_atomic core_remaining;
@@ -177,17 +223,11 @@ struct ocf_request {
 	ctx_data_t *cp_data;
 	/*!< Copy of request data */
 
-	uint64_t byte_position;
-	/*!< LBA byte position of request in core domain */
-
 	uint64_t core_line_first;
 	/*! First core line */
 
 	uint64_t core_line_last;
 	/*! Last core line */
-
-	uint32_t byte_length;
-	/*!< Byte length of OCF request */
 
 	uint32_t core_line_count;
 	/*! Core line count */
@@ -195,8 +235,17 @@ struct ocf_request {
 	uint32_t alloc_core_line_count;
 	/*! Number of core lines at time of request allocation */
 
+	uint64_t addr;
+	/*!< LBA byte position of request in core domain */
+
+	uint32_t bytes;
+	/*!< Byte length of OCF request */
+
 	uint32_t offset;
 	/*!< Offset into request data*/
+
+	uint64_t flags;
+	/*!< IO flags */
 
 	int error;
 	/*!< This filed indicates an error for OCF request */
@@ -553,6 +602,17 @@ static inline struct ocf_request *ocf_req_forward_token_to_req(ocf_forward_token
 	return (struct ocf_request *)(token & ~1);
 }
 
+void ocf_req_forward_volume_io(struct ocf_request *req, ocf_volume_t volume,
+		int dir, uint64_t addr, uint64_t bytes, uint64_t offset);
+
+void ocf_req_forward_volume_flush(struct ocf_request *req, ocf_volume_t volume);
+
+void ocf_req_forward_volume_discard(struct ocf_request *req,
+		ocf_volume_t volume, uint64_t addr, uint64_t bytes);
+
+void ocf_req_forward_volume_io_simple(struct ocf_request *req,
+		ocf_volume_t volume, int dir, uint64_t addr, uint64_t bytes);
+
 void ocf_req_forward_cache_io(struct ocf_request *req, int dir, uint64_t addr,
 		uint64_t bytes, uint64_t offset);
 
@@ -560,6 +620,12 @@ void ocf_req_forward_cache_flush(struct ocf_request *req);
 
 void ocf_req_forward_cache_discard(struct ocf_request *req, uint64_t addr,
 		uint64_t bytes);
+
+void ocf_req_forward_cache_write_zeros(struct ocf_request *req, uint64_t addr,
+		uint64_t bytes);
+
+void ocf_req_forward_cache_metadata(struct ocf_request *req, int dir,
+		uint64_t addr, uint64_t bytes, uint64_t offset);
 
 void ocf_req_forward_core_io(struct ocf_request *req, int dir, uint64_t addr,
 		uint64_t bytes, uint64_t offset);

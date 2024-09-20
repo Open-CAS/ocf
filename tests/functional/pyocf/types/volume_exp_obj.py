@@ -5,7 +5,7 @@
 #
 
 import logging
-from ctypes import c_int, c_void_p, CFUNCTYPE, byref, c_uint32, c_uint64, cast, POINTER
+from ctypes import c_int, c_void_p, CFUNCTYPE, byref, c_uint8, c_uint32, c_uint64, cast, POINTER
 
 from ..ocf import OcfLib
 from .volume import Volume, VOLUME_POISON
@@ -24,11 +24,11 @@ class OcfInternalVolume(Volume):
         queue = self.parent.get_default_queue()  # TODO multiple queues?
         return self.new_io(queue, addr, _bytes, _dir, _class, _flags)
 
-    def _alloc_io(self, io, rw=None, addr=None, nbytes=None, offset=0):
+    def _alloc_io(self, io):
         exp_obj_io = self.__alloc_io(
-            addr or io.contents._addr,
-            nbytes or io.contents._bytes,
-            rw or io.contents._dir,
+            io.contents._addr,
+            io.contents._bytes,
+            io.contents._dir,
             io.contents._class,
             io.contents._flags,
         )
@@ -46,10 +46,10 @@ class OcfInternalVolume(Volume):
         return exp_obj_io
 
     def get_length(self):
-        return Size.from_B(OcfLib.getInstance().ocf_volume_get_length(self.handle))
+        return Size.from_B(lib.ocf_volume_get_length(self.handle))
 
     def get_max_io_size(self):
-        return Size.from_B(OcfLib.getInstance().ocf_volume_get_max_io_size(self.handle))
+        return Size.from_B(lib.ocf_volume_get_max_io_size(self.handle))
 
     def do_submit_io(self, io):
         io = self._alloc_io(io)
@@ -64,8 +64,12 @@ class OcfInternalVolume(Volume):
         io.submit_discard()
 
     def do_forward_io(self, token, rw, addr, nbytes, offset):
-        orig_io = Io.get_by_forward_token(token)
-        io = self._alloc_io(orig_io, rw, addr, nbytes, offset)
+        flags = lib.ocf_forward_get_flags(token)
+        io_class = lib.ocf_forward_get_io_class(token)
+        cdata = lib.ocf_forward_get_data(token)
+
+        io = self.__alloc_io(addr, nbytes, rw, io_class, flags)
+        lib.ocf_io_set_data(byref(io), cdata, offset)
 
         def cb(error):
             nonlocal io
@@ -77,14 +81,36 @@ class OcfInternalVolume(Volume):
         io.submit()
 
     def do_forward_flush(self, token):
-        orig_io = Io.get_by_forward_token(token)
-        io = self._alloc_io(orig_io)
+        flags = lib.ocf_forward_get_flags(token)
+        io_class = lib.ocf_forward_get_io_class(token)
+
+        io = self.__alloc_io(0, 0, 0, io_class, flags)
+
+        def cb(error):
+            nonlocal io
+            Io.forward_end(io.token, error)
+
+        io.token = token
+        io.callback = cb
+
         io.submit_flush()
 
+
     def do_forward_discard(self, token, addr, nbytes):
-        orig_io = Io.get_by_forward_token(token)
-        io = self._alloc_io(orig_io, addr=addr, nbytes=nbytes)
+        flags = lib.ocf_forward_get_flags(token)
+        io_class = lib.ocf_forward_get_io_class(token)
+
+        io = self.__alloc_io(addr, nbytes, 0, io_class, flags)
+
+        def cb(error):
+            nonlocal io
+            Io.forward_end(io.token, error)
+
+        io.token = token
+        io.callback = cb
+
         io.submit_discard()
+
 
     def _read(self, offset=0, size=0):
         if size == 0:
@@ -160,3 +186,9 @@ lib.ocf_volume_get_length.argtypes = [c_void_p]
 lib.ocf_volume_get_length.restype = c_uint64
 lib.ocf_io_get_data.argtypes = [POINTER(Io)]
 lib.ocf_io_get_data.restype = c_void_p
+lib.ocf_forward_get_data.argtypes = [c_uint64]
+lib.ocf_forward_get_data.restype = c_void_p
+lib.ocf_forward_get_flags.argtypes = [c_uint64]
+lib.ocf_forward_get_flags.restype = c_uint64
+lib.ocf_forward_get_io_class.argtypes = [c_uint64]
+lib.ocf_forward_get_io_class.restype = c_uint8

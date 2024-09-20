@@ -239,7 +239,7 @@ err_sem:
 /*
  * Callback function called when write completes.
  */
-void complete_write(struct ocf_io *io, int error)
+void complete_write(ocf_io_t io, void *priv1, void *priv2, int error)
 {
 	struct volume_data *data = ocf_io_get_data(io);
 
@@ -253,7 +253,7 @@ void complete_write(struct ocf_io *io, int error)
 /*
  * Callback function called when read completes.
  */
-void complete_read(struct ocf_io *io, int error)
+void complete_read(ocf_io_t io, void *priv1, void *priv2, int error)
 {
 	struct volume_data *data = ocf_io_get_data(io);
 
@@ -274,7 +274,7 @@ int submit_io(ocf_core_t core, struct volume_data *data,
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	ocf_volume_t core_vol = ocf_core_get_front_volume(core);
 	struct cache_priv *cache_priv = ocf_cache_get_priv(cache);
-	struct ocf_io *io;
+	ocf_io_t io;
 
 	/* Allocate new io */
 	io = ocf_volume_new_io(core_vol, cache_priv->io_queue, addr, len, dir, 0, 0);

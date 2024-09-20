@@ -155,12 +155,9 @@ static uint64_t _calc_dirty_for(uint64_t dirty_since)
 	return dirty_since ? (current_time - dirty_since) : 0;
 }
 
-struct ocf_request *ocf_io_to_req(struct ocf_io *io)
+struct ocf_request *ocf_io_to_req(ocf_io_t io)
 {
-	struct ocf_io_internal *ioi;
-
-	ioi = container_of(io, struct ocf_io_internal, io);
-	return container_of(ioi, struct ocf_request, ioi);
+	return io;
 }
 
 static inline ocf_core_t ocf_volume_to_core(ocf_volume_t volume)
@@ -179,30 +176,31 @@ static inline void dec_counter_if_req_was_dirty(struct ocf_request *req)
 	ocf_refcnt_dec(&req->cache->refcnt.dirty);
 }
 
-static inline int ocf_core_validate_io(struct ocf_io *io)
+static inline int ocf_core_validate_io(ocf_io_t io)
 {
+	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_volume_t volume = ocf_io_get_volume(io);
 	ocf_core_t core = ocf_volume_to_core(volume);
 
-	if (io->addr + io->bytes > ocf_volume_get_length(volume))
+	if (req->addr + req->bytes > ocf_volume_get_length(volume))
 		return -OCF_ERR_INVAL;
 
-	if (io->io_class >= OCF_USER_IO_CLASS_MAX)
+	if (req->io.io_class >= OCF_USER_IO_CLASS_MAX)
 		return -OCF_ERR_INVAL;
 
-	if (io->dir != OCF_READ && io->dir != OCF_WRITE)
+	if (req->rw != OCF_READ && req->rw != OCF_WRITE)
 		return -OCF_ERR_INVAL;
 
-	if (!io->io_queue)
+	if (!req->io_queue)
 		return -OCF_ERR_INVAL;
 
-	if (!io->end)
+	if (!req->io.end)
 		return -OCF_ERR_INVAL;
 
 	/* Core volume I/O must not be queued on management queue - this would
 	 * break I/O accounting code, resulting in use-after-free type of errors
 	 * after cache detach, core remove etc. */
-	if (io->io_queue == ocf_core_get_cache(core)->mngt_queue)
+	if (req->io_queue == ocf_core_get_cache(core)->mngt_queue)
 		return -OCF_ERR_INVAL;
 
 	return 0;
@@ -211,12 +209,12 @@ static inline int ocf_core_validate_io(struct ocf_io *io)
 static void ocf_req_complete(struct ocf_request *req, int error)
 {
 	/* Complete IO */
-	ocf_io_end(&req->ioi.io, error);
+	ocf_io_end_func(req, error);
 
 	dec_counter_if_req_was_dirty(req);
 
 	/* Invalidate OCF IO, it is not valid after completion */
-	ocf_io_put(&req->ioi.io);
+	ocf_io_put(req);
 }
 
 static inline ocf_req_cache_mode_t _ocf_core_req_resolve_fast_mode(
@@ -236,8 +234,7 @@ static inline ocf_req_cache_mode_t _ocf_core_req_resolve_fast_mode(
 	return ocf_req_cache_mode_fast;
 }
 
-static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
-		ocf_cache_t cache)
+static int ocf_core_submit_io_fast(struct ocf_request *req, ocf_cache_t cache)
 {
 	ocf_req_cache_mode_t original_mode, resolved_mode;
 	int ret;
@@ -259,9 +256,9 @@ static int ocf_core_submit_io_fast(struct ocf_io *io, struct ocf_request *req,
 	return ret;
 }
 
-static void ocf_core_volume_submit_io(struct ocf_io *io)
+static void ocf_core_volume_submit_io(ocf_io_t io)
 {
-	struct ocf_request *req;
+	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_core_t core;
 	ocf_cache_t cache;
 	int ret;
@@ -270,20 +267,18 @@ static void ocf_core_volume_submit_io(struct ocf_io *io)
 
 	ret = ocf_core_validate_io(io);
 	if (ret < 0) {
-		ocf_io_end(io, ret);
+		ocf_io_end_func(io, ret);
 		return;
 	}
 
-	req = ocf_io_to_req(io);
-	core = ocf_volume_to_core(ocf_io_get_volume(io));
+	core = req->core;
 	cache = ocf_core_get_cache(core);
 
 	if (unlikely(ocf_cache_is_standby(cache))) {
-		ocf_io_end(io, -OCF_ERR_CACHE_STANDBY);
+		ocf_io_end_func(io, -OCF_ERR_CACHE_STANDBY);
 		return;
 	}
 
-	req->core = core;
 	req->complete = ocf_req_complete;
 
 	ocf_io_get(io);
@@ -298,16 +293,17 @@ static void ocf_core_volume_submit_io(struct ocf_io *io)
 	if (ret)
 		goto err;
 
-	req->part_id = ocf_user_part_class2id(cache, io->io_class);
+	req->part_id = ocf_user_part_class2id(cache, req->io.io_class);
 
 	ocf_resolve_effective_cache_mode(cache, core, req);
 
 	ocf_core_update_stats(core, io);
 
-	/* Prevent race condition */
+	/* In case of fastpath prevent completing the requets before updating
+	 * sequential cutoff info */
 	ocf_req_get(req);
 
-	if (ocf_core_submit_io_fast(io, req, cache) == OCF_FAST_PATH_YES) {
+	if (ocf_core_submit_io_fast(req, cache) == OCF_FAST_PATH_YES) {
 		ocf_core_seq_cutoff_update(core, req);
 		ocf_req_put(req);
 		return;
@@ -326,14 +322,13 @@ static void ocf_core_volume_submit_io(struct ocf_io *io)
 	return;
 
 err:
-	ocf_io_end(io, ret);
-	ocf_io_put(io);
+	ocf_io_end_func(io, ret);
+	ocf_io_put(req);
 }
 
-static void ocf_core_volume_submit_flush(struct ocf_io *io)
+static void ocf_core_volume_submit_flush(ocf_io_t io)
 {
-	struct ocf_request *req;
-	ocf_core_t core;
+	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_cache_t cache;
 	int ret;
 
@@ -341,20 +336,17 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 
 	ret = ocf_core_validate_io(io);
 	if (ret < 0) {
-		ocf_io_end(io, ret);
+		ocf_io_end_func(io, ret);
 		return;
 	}
 
-	req = ocf_io_to_req(io);
-	core = ocf_volume_to_core(ocf_io_get_volume(io));
-	cache = ocf_core_get_cache(core);
+	cache = ocf_core_get_cache(req->core);
 
 	if (unlikely(ocf_cache_is_standby(cache))) {
-		ocf_io_end(io, -OCF_ERR_CACHE_STANDBY);
+		ocf_io_end_func(io, -OCF_ERR_CACHE_STANDBY);
 		return;
 	}
 
-	req->core = core;
 	req->complete = ocf_req_complete;
 
 	ocf_io_get(io);
@@ -367,36 +359,32 @@ static void ocf_core_volume_submit_flush(struct ocf_io *io)
 	ocf_engine_hndl_flush_req(req);
 }
 
-static void ocf_core_volume_submit_discard(struct ocf_io *io)
+static void ocf_core_volume_submit_discard(ocf_io_t io)
 {
-	struct ocf_request *req;
-	ocf_core_t core;
+	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_cache_t cache;
 	int ret;
 
 	OCF_CHECK_NULL(io);
 
-	if (io->bytes == 0) {
-		ocf_io_end(io, -OCF_ERR_INVAL);
+	if (req->bytes == 0) {
+		ocf_io_end_func(io, -OCF_ERR_INVAL);
 		return;
 	}
 
 	ret = ocf_core_validate_io(io);
 	if (ret < 0) {
-		ocf_io_end(io, ret);
+		ocf_io_end_func(io, ret);
 		return;
 	}
 
-	req = ocf_io_to_req(io);
-	core = ocf_volume_to_core(ocf_io_get_volume(io));
-	cache = ocf_core_get_cache(core);
+	cache = ocf_core_get_cache(req->core);
 
 	if (unlikely(ocf_cache_is_standby(cache))) {
-		ocf_io_end(io, -OCF_ERR_CACHE_STANDBY);
+		ocf_io_end_func(io, -OCF_ERR_CACHE_STANDBY);
 		return;
 	}
 
-	req->core = core;
 	req->complete = ocf_req_complete;
 
 	ocf_io_get(io);
@@ -408,8 +396,7 @@ static void ocf_core_volume_submit_discard(struct ocf_io *io)
 
 	ret = ocf_req_alloc_map_discard(req);
 	if (ret) {
-		ocf_io_end(io, -OCF_ERR_NO_MEM);
-		ocf_io_put(io);
+		ocf_io_end_func(io, -OCF_ERR_NO_MEM);
 		return;
 	}
 
@@ -447,39 +434,8 @@ static uint64_t ocf_core_volume_get_byte_length(ocf_volume_t volume)
 	return ocf_volume_get_length(&core->volume);
 }
 
-
-/* *** IO OPS *** */
-
-static int ocf_core_io_set_data(struct ocf_io *io,
-		ctx_data_t *data, uint32_t offset)
-{
-	struct ocf_request *req;
-
-	OCF_CHECK_NULL(io);
-
-	if (!data)
-		return -OCF_ERR_INVAL;
-
-	req = ocf_io_to_req(io);
-	req->data = data;
-	req->offset = offset;
-
-	return 0;
-}
-
-static ctx_data_t *ocf_core_io_get_data(struct ocf_io *io)
-{
-	struct ocf_request *req;
-
-	OCF_CHECK_NULL(io);
-
-	req = ocf_io_to_req(io);
-	return req->data;
-}
-
 const struct ocf_volume_properties ocf_core_volume_properties = {
 	.name = "OCF_Core",
-	.io_priv_size = 0, /* Not used - custom allocator */
 	.volume_priv_size = sizeof(struct ocf_core_volume),
 	.caps = {
 		.atomic_writes = 0,
@@ -495,15 +451,11 @@ const struct ocf_volume_properties ocf_core_volume_properties = {
 		.get_max_io_size = ocf_core_volume_get_max_io_size,
 		.get_length = ocf_core_volume_get_byte_length,
 	},
-	.io_ops = {
-		.set_data = ocf_core_io_set_data,
-		.get_data = ocf_core_io_get_data,
-	},
 	.deinit = NULL,
 };
 
 static int ocf_core_io_allocator_init(ocf_io_allocator_t allocator,
-		uint32_t priv_size, const char *name)
+		const char *name)
 {
 	return 0;
 }
@@ -523,14 +475,15 @@ static void *ocf_core_io_allocator_new(ocf_io_allocator_t allocator,
 	if (!req)
 		return NULL;
 
-	return &req->ioi;
+	req->core = ocf_volume_to_core(volume);
+
+	return req;
 }
 
 static void ocf_core_io_allocator_del(ocf_io_allocator_t allocator, void *obj)
 {
-	struct ocf_request *req;
+	struct ocf_request *req = obj;
 
-	req = container_of(obj, struct ocf_request, ioi);
 	ocf_req_put(req);
 }
 

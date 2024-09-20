@@ -76,15 +76,15 @@ static inline void ocf_zero_map_info(struct ocf_request *req)
 
 		if (map_idx == 0) {
 			/* First */
-			start_bit = BYTES_TO_SECTORS(req->byte_position)
-					% ocf_line_sectors(cache);
+			start_bit = (BYTES_TO_SECTORS(req->addr)
+					% ocf_line_sectors(cache));
 		}
 
 		if (map_idx == (count - 1)) {
 			/* Last */
-			end_bit = BYTES_TO_SECTORS(req->byte_position +
-					req->byte_length - 1) %
-					ocf_line_sectors(cache);
+			end_bit = (BYTES_TO_SECTORS(req->addr +
+						req->bytes - 1) %
+					ocf_line_sectors(cache));
 		}
 
 		ocf_metadata_flush_mark(cache, req, map_idx, INVALID,

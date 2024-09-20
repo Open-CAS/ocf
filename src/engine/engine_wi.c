@@ -143,7 +143,7 @@ static int _ocf_write_wi_core_write(struct ocf_request *req)
 	ocf_engine_update_block_stats(req);
 
 	ocf_core_stats_pt_block_update(req->core, req->part_id, req->rw,
-			req->byte_length);
+			req->bytes);
 
 	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
 			req->info.hit_no, req->core_line_count);

@@ -12,134 +12,116 @@
 #include "utils_io.h"
 #include "utils_cache_line.h"
 
-struct ocf_submit_volume_context {
-	env_atomic req_remaining;
-	int error;
+struct ocf_submit_cache_context {
 	ocf_submit_end_t cmpl;
 	void *priv;
 };
 
-static void _ocf_volume_flush_end(struct ocf_io *io, int error)
+static void ocf_submit_cache_end(struct ocf_request *req, int error)
 {
-	ocf_submit_end_t cmpl = io->priv1;
+	struct ocf_submit_cache_context *context = req->priv;
 
-	cmpl(io->priv2, error);
-	ocf_io_put(io);
+	context->cmpl(context->priv, error);
+	env_vfree(context);
+	ocf_req_put(req);
 }
 
-void ocf_submit_volume_flush(ocf_volume_t volume,
+void ocf_submit_cache_flush(ocf_cache_t cache,
 		ocf_submit_end_t cmpl, void *priv)
 {
-	struct ocf_io *io;
+	struct ocf_submit_cache_context *context;
+	struct ocf_request *req;
 
-	io = ocf_volume_new_io(volume, NULL, 0, 0, OCF_WRITE, 0, 0);
-	if (!io)
+	context = env_vzalloc(sizeof(*context));
+	if (!context)
 		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
-	ocf_io_set_cmpl(io, cmpl, priv, _ocf_volume_flush_end);
+	context->cmpl = cmpl;
+	context->priv = priv;
 
-	ocf_volume_submit_flush(io);
-}
-
-static void ocf_submit_volume_end(struct ocf_io *io, int error)
-{
-	struct ocf_submit_volume_context *context = io->priv1;
-
-	if (error)
-		context->error = error;
-
-	ocf_io_put(io);
-
-	if (env_atomic_dec_return(&context->req_remaining))
+	req = ocf_req_new_mngt(cache, cache->mngt_queue);
+	if (!req) {
+		cmpl(priv, -OCF_ERR_NO_MEM);
+		env_vfree(context);
 		return;
+	}
 
-	context->cmpl(context->priv, context->error);
-	env_vfree(context);
+	req->cache_forward_end = ocf_submit_cache_end;
+	req->priv = context;
+
+	ocf_req_forward_cache_flush(req);
 }
 
-void ocf_submit_volume_discard(ocf_volume_t volume, uint64_t addr,
+void ocf_submit_cache_discard(ocf_cache_t cache, uint64_t addr,
 		uint64_t length, ocf_submit_end_t cmpl, void *priv)
 {
-	struct ocf_submit_volume_context *context;
+	struct ocf_submit_cache_context *context;
 	uint64_t bytes;
 	uint64_t sector_mask = (1 << ENV_SECTOR_SHIFT) - 1;
 	uint64_t max_length = (uint32_t)~0 & ~sector_mask;
-	struct ocf_io *io;
+	struct ocf_request *req;
 
 	context = env_vzalloc(sizeof(*context));
 	if (!context)
 		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
-	env_atomic_set(&context->req_remaining, 1);
 	context->cmpl = cmpl;
 	context->priv = priv;
 
+	req = ocf_req_new_mngt(cache, cache->mngt_queue);
+	if (!req) {
+		cmpl(priv, -OCF_ERR_NO_MEM);
+		env_vfree(context);
+		return;
+	}
+
+	req->cache_forward_end = ocf_submit_cache_end;
+	req->priv = context;
+
+	ocf_req_forward_cache_get(req);
 	while (length) {
 		bytes = OCF_MIN(length, max_length);
 
-		io = ocf_volume_new_io(volume, NULL, addr, bytes,
-				OCF_WRITE, 0, 0);
-		if (!io) {
-			context->error = -OCF_ERR_NO_MEM;
-			break;
-		}
-
-		env_atomic_inc(&context->req_remaining);
-
-		ocf_io_set_cmpl(io, context, NULL, ocf_submit_volume_end);
-		ocf_volume_submit_discard(io);
+		ocf_req_forward_cache_discard(req, addr, bytes);
 
 		addr += bytes;
 		length -= bytes;
 	}
-
-	if (env_atomic_dec_return(&context->req_remaining))
-		return;
-
-	cmpl(priv, context->error);
-	env_vfree(context);
+	ocf_req_forward_cache_put(req);
 }
 
-void ocf_submit_write_zeros(ocf_volume_t volume, uint64_t addr,
+void ocf_submit_cache_write_zeros(ocf_cache_t cache, uint64_t addr,
 		uint64_t length, ocf_submit_end_t cmpl, void *priv)
 {
-	struct ocf_submit_volume_context *context;
+	struct ocf_submit_cache_context *context;
 	uint32_t bytes;
 	uint32_t max_length = ~((uint32_t)PAGE_SIZE - 1);
-	struct ocf_io *io;
+	struct ocf_request *req;
 
 	context = env_vzalloc(sizeof(*context));
 	if (!context)
 		OCF_CMPL_RET(priv, -OCF_ERR_NO_MEM);
 
-	env_atomic_set(&context->req_remaining, 1);
 	context->cmpl = cmpl;
 	context->priv = priv;
 
+	req = ocf_req_new_mngt(cache, cache->mngt_queue);
+	if (!req) {
+		cmpl(priv, -OCF_ERR_NO_MEM);
+		env_vfree(context);
+		return;
+	}
+
+	ocf_req_forward_cache_get(req);
 	while (length) {
 		bytes = OCF_MIN(length, max_length);
 
-		io = ocf_volume_new_io(volume, NULL, addr, bytes,
-				OCF_WRITE, 0, 0);
-		if (!io) {
-			context->error = -OCF_ERR_NO_MEM;
-			break;
-		}
-
-		env_atomic_inc(&context->req_remaining);
-
-		ocf_io_set_cmpl(io, context, NULL, ocf_submit_volume_end);
-		ocf_volume_submit_write_zeroes(io);
+		ocf_req_forward_cache_write_zeros(req, addr, bytes);
 
 		addr += bytes;
 		length -= bytes;
 	}
-
-	if (env_atomic_dec_return(&context->req_remaining))
-		return;
-
-	cmpl(priv, context->error);
-	env_vfree(context);
+	ocf_req_forward_cache_put(req);
 }
 
 struct ocf_submit_cache_page_context {
@@ -149,12 +131,12 @@ struct ocf_submit_cache_page_context {
 	void *priv;
 };
 
-static void ocf_submit_cache_page_end(struct ocf_io *io, int error)
+static void ocf_submit_cache_page_end(struct ocf_request *req, int error)
 {
-	struct ocf_submit_cache_page_context *context = io->priv1;
-	ctx_data_t *data = ocf_io_get_data(io);
+	struct ocf_submit_cache_page_context *context = req->priv;
+	ctx_data_t *data = req->data;
 
-	if (io->dir == OCF_READ) {
+	if (req->rw == OCF_READ) {
 		ctx_data_rd_check(context->cache->owner, context->buffer,
 				data, PAGE_SIZE);
 	}
@@ -162,7 +144,7 @@ static void ocf_submit_cache_page_end(struct ocf_io *io, int error)
 	context->cmpl(context->priv, error);
 	ctx_data_free(context->cache->owner, data);
 	env_vfree(context);
-	ocf_io_put(io);
+	ocf_req_put(req);
 }
 
 void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
@@ -170,7 +152,7 @@ void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
 {
 	struct ocf_submit_cache_page_context *context;
 	ctx_data_t *data;
-	struct ocf_io *io;
+	struct ocf_request *req;
 	int result = 0;
 
 	context = env_vmalloc(sizeof(*context));
@@ -182,10 +164,10 @@ void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
 	context->cmpl = cmpl;
 	context->priv = priv;
 
-	io = ocf_new_cache_io(cache, NULL, addr, PAGE_SIZE, dir, 0, 0);
-	if (!io) {
+	req = ocf_req_new_mngt(cache, cache->mngt_queue);
+	if (!req) {
 		result = -OCF_ERR_NO_MEM;
-		goto err_io;
+		goto err_req;
 	}
 
 	data = ctx_data_alloc(cache->owner, 1);
@@ -197,20 +179,21 @@ void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
 	if (dir == OCF_WRITE)
 		ctx_data_wr_check(cache->owner, data, buffer, PAGE_SIZE);
 
-	result = ocf_io_set_data(io, data, 0);
-	if (result)
-		goto err_set_data;
+	req->data = data;
 
-	ocf_io_set_cmpl(io, context, NULL, ocf_submit_cache_page_end);
+	req->cache_forward_end = ocf_submit_cache_page_end;
+	req->priv = context;
+	req->rw = dir;
+	req->addr = addr;
+	req->bytes = PAGE_SIZE;
 
-	ocf_volume_submit_io(io);
+	ocf_req_forward_cache_io(req, dir, addr, PAGE_SIZE, 0);
+
 	return;
 
-err_set_data:
-	ctx_data_free(cache->owner, data);
 err_data:
-	ocf_io_put(io);
-err_io:
+	ocf_req_put(req);
+err_req:
 	env_vfree(context);
 	cmpl(priv, result);
 }

@@ -11,19 +11,19 @@
 
 typedef void (*ocf_submit_end_t)(void *priv, int error);
 
-void ocf_submit_volume_flush(ocf_volume_t volume,
+void ocf_submit_cache_flush(ocf_cache_t cache,
 		ocf_submit_end_t cmpl, void *priv);
 
-void ocf_submit_volume_discard(ocf_volume_t volume, uint64_t addr,
+void ocf_submit_cache_discard(ocf_cache_t cache, uint64_t addr,
 		uint64_t length, ocf_submit_end_t cmpl, void *priv);
 
-void ocf_submit_write_zeros(ocf_volume_t volume, uint64_t addr,
+void ocf_submit_cache_write_zeros(ocf_cache_t cache, uint64_t addr,
 		uint64_t length, ocf_submit_end_t cmpl, void *priv);
 
 void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
 		void *buffer, ocf_submit_end_t cmpl, void *priv);
 
-static inline struct ocf_io *ocf_new_cache_io(ocf_cache_t cache,
+static inline ocf_io_t ocf_new_cache_io(ocf_cache_t cache,
 		ocf_queue_t queue, uint64_t addr, uint32_t bytes,
 		uint32_t dir, uint32_t io_class, uint64_t flags)
 
@@ -32,7 +32,7 @@ static inline struct ocf_io *ocf_new_cache_io(ocf_cache_t cache,
 			addr, bytes, dir, io_class, flags);
 }
 
-static inline struct ocf_io *ocf_new_core_io(ocf_core_t core,
+static inline ocf_io_t ocf_new_core_io(ocf_core_t core,
 		ocf_queue_t queue, uint64_t addr, uint32_t bytes,
 		uint32_t dir, uint32_t io_class, uint64_t flags)
 {

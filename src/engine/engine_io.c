@@ -16,7 +16,7 @@ void ocf_engine_forward_cache_io(struct ocf_request *req, int dir,
 		uint64_t offset, uint64_t size, ocf_req_end_t callback)
 {
 	ocf_cache_t cache = req->cache;
-	uint32_t seek = req->byte_position % ocf_line_size(cache);
+	uint32_t seek = req->addr % ocf_line_size(cache);
 	uint32_t first_cl = ocf_bytes_2_lines(cache, offset + seek);
 	uint64_t addr;
 
@@ -27,7 +27,7 @@ void ocf_engine_forward_cache_io(struct ocf_request *req, int dir,
 	addr += (offset + seek) % ocf_line_size(cache);
 
 	ocf_core_stats_cache_block_update(req->core, req->part_id,
-			dir, req->byte_length);
+			dir, req->bytes);
 
 	ocf_req_forward_cache_io(req, dir, addr, size,
 			req->offset + offset);
@@ -45,12 +45,12 @@ void ocf_engine_forward_cache_io_req(struct ocf_request *req, int dir,
 	if (ocf_engine_is_sequential(req)) {
 		addr = cache->device->metadata_offset;
 		addr += req->map[0].coll_idx * ocf_line_size(cache);
-		addr += req->byte_position % ocf_line_size(cache);
+		addr += req->addr % ocf_line_size(cache);
 
 		ocf_core_stats_cache_block_update(req->core, req->part_id,
-				dir, req->byte_length);
+				dir, req->bytes);
 
-		ocf_req_forward_cache_io(req, dir, addr, req->byte_length,
+		ocf_req_forward_cache_io(req, dir, addr, req->bytes,
 				req->offset);
 		return;
 	}
@@ -67,7 +67,7 @@ void ocf_engine_forward_cache_io_req(struct ocf_request *req, int dir,
 		bytes = ocf_line_size(cache);
 
 		if (i == 0) {
-			uint64_t seek = (req->byte_position) %
+			uint64_t seek = (req->addr) %
 					ocf_line_size(cache);
 
 			addr += seek;
@@ -87,13 +87,13 @@ void ocf_engine_forward_cache_io_req(struct ocf_request *req, int dir,
 
 		if (i == (req->core_line_count - 1)) {
 			uint64_t skip = (ocf_line_size(cache) -
-				((req->byte_position + req->byte_length) %
+				((req->addr + req->bytes) %
 				ocf_line_size(cache))) % ocf_line_size(cache);
 
 			bytes -= skip;
 		}
 
-		bytes = OCF_MIN(bytes, req->byte_length - total_bytes);
+		bytes = OCF_MIN(bytes, req->bytes - total_bytes);
 		ENV_BUG_ON(bytes == 0);
 
 		ocf_core_stats_cache_block_update(req->core, req->part_id,
@@ -105,7 +105,7 @@ void ocf_engine_forward_cache_io_req(struct ocf_request *req, int dir,
 		total_bytes += bytes;
 	}
 
-	ENV_BUG_ON(total_bytes != req->byte_length);
+	ENV_BUG_ON(total_bytes != req->bytes);
 
 	ocf_req_forward_cache_put(req);
 }
@@ -123,27 +123,27 @@ void ocf_engine_forward_cache_discard_req(struct ocf_request *req,
 {
 	req->cache_forward_end = callback;
 
-	ocf_req_forward_cache_discard(req, req->byte_position,
-			req->byte_length);
+	ocf_req_forward_cache_discard(req, req->addr,
+			req->bytes);
 }
 
 void ocf_engine_forward_core_io_req(struct ocf_request *req,
 		ocf_req_end_t callback)
 {
 	ocf_core_stats_core_block_update(req->core, req->part_id, req->rw,
-			req->byte_length);
+			req->bytes);
 
 	req->core_forward_end = callback;
 
-	ocf_req_forward_core_io(req, req->rw, req->byte_position,
-			req->byte_length, req->offset);
+	ocf_req_forward_core_io(req, req->rw, req->addr,
+			req->bytes, req->offset);
 }
 
 void ocf_engine_forward_core_flush_req(struct ocf_request *req,
 		ocf_req_end_t callback)
 {
 	ocf_core_stats_core_block_update(req->core, req->part_id, req->rw,
-			req->byte_length);
+			req->bytes);
 
 	req->core_forward_end = callback;
 
@@ -154,9 +154,9 @@ void ocf_engine_forward_core_discard_req(struct ocf_request *req,
 		ocf_req_end_t callback)
 {
 	ocf_core_stats_core_block_update(req->core, req->part_id, req->rw,
-			req->byte_length);
+			req->bytes);
 
 	req->core_forward_end = callback;
 
-	ocf_req_forward_core_discard(req, req->byte_position, req->byte_length);
+	ocf_req_forward_core_discard(req, req->addr, req->bytes);
 }

@@ -106,6 +106,6 @@ ocf_core_id_t ocf_core_get_id(ocf_core_t core);
 
 int ocf_core_volume_type_init(ocf_ctx_t ctx);
 
-struct ocf_request *ocf_io_to_req(struct ocf_io *io);
+struct ocf_request *ocf_io_to_req(ocf_io_t io);
 
 #endif /* __OCF_CORE_PRIV_H__ */

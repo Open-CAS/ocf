@@ -39,7 +39,7 @@ class IoOps(Structure):
 class Io(Structure):
     START = CFUNCTYPE(None, c_void_p)
     HANDLE = CFUNCTYPE(None, c_void_p, c_void_p)
-    END = CFUNCTYPE(None, c_void_p, c_int)
+    END = CFUNCTYPE(None, c_void_p, c_void_p, c_void_p, c_int)
 
     _instances_ = {}
     _fields_ = [
@@ -68,10 +68,6 @@ class Io(Structure):
         return cls._instances_[cast(ref, c_void_p).value]
 
     @staticmethod
-    def get_by_forward_token(token):
-        return OcfLib.getInstance().ocf_forward_get_io(token)
-
-    @staticmethod
     def forward_get(token):
         OcfLib.getInstance().ocf_forward_get(token)
 
@@ -90,8 +86,8 @@ class Io(Structure):
 
     @staticmethod
     @END
-    def c_end(io, err):
-        Io.get_instance(io).end(err)
+    def c_end(io, priv1, priv2, err):
+        Io.get_instance(io).end(priv1, priv2, err)
 
     @staticmethod
     @START
@@ -103,7 +99,7 @@ class Io(Structure):
     def c_handle(io, opaque):
         Io.get_instance(io).handle(opaque)
 
-    def end(self, err):
+    def end(self, priv1, priv2, err):
         try:
             self.callback(err)
         except:  # noqa E722
@@ -163,9 +159,6 @@ IoOps._fields_ = [("_set_data", IoOps.SET_DATA), ("_get_data", IoOps.GET_DATA)]
 lib = OcfLib.getInstance()
 
 lib.ocf_forward_get.argtypes = [c_uint64]
-
-lib.ocf_forward_get_io.argtypes = [c_uint64]
-lib.ocf_forward_get_io.restype = POINTER(Io)
 
 lib.ocf_forward_end.argtypes = [c_uint64, c_int]
 
