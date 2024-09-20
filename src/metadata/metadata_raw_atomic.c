@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -50,7 +51,7 @@ static void _raw_atomic_io_discard_cmpl(struct _raw_atomic_flush_ctx *ctx,
 		ocf_metadata_error(ctx->req->cache);
 
 	/* Call metadata flush completed call back */
-	OCF_DEBUG_MSG(cache, "Asynchronous flushing complete");
+	OCF_DEBUG_MSG(ctx->req->cache, "Asynchronous flushing complete");
 
 	ctx->complete(ctx->req, ctx->req->error);
 
@@ -78,8 +79,8 @@ static int _raw_atomic_io_discard_do(struct ocf_cache *cache, void *context,
 		return req->error;
 	}
 
-	OCF_DEBUG_PARAM(cache, "Page to flushing = %u, count of pages = %u",
-			start_line, len);
+	OCF_DEBUG_PARAM(cache, "Page to flushing = %" ENV_PRIu64 ", count of pages = %u",
+			start_addr, len);
 
 	env_atomic_inc(&ctx->flush_req_cnt);
 

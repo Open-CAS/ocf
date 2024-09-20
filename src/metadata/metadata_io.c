@@ -321,7 +321,7 @@ static void metadata_io_io_end(struct metadata_io_request *m_req, int error)
 			metadata_io_req_drain(m_req);
 	}
 
-	OCF_DEBUG_PARAM(cache, "Page = %u", m_req->page);
+	OCF_DEBUG_PARAM(m_req->cache, "Page = %u", m_req->page);
 
 	if (a_req->mio_conc)
 		ocf_mio_async_unlock(a_req->mio_conc, m_req);

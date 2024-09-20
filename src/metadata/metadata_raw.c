@@ -16,7 +16,7 @@
 
 #if 1 == OCF_METADATA_RAW_DEBUG
 #define OCF_DEBUG_TRACE(cache) \
-	ocf_cache_log(log_info, "[Metadata][Raw] %s\n", __func__)
+	ocf_cache_log(cache, log_info, "[Metadata][Raw] %s\n", __func__)
 
 #define OCF_DEBUG_MSG(cache, msg) \
 	ocf_cache_log(cache, log_info, "[Metadata][Raw] %s - %s\n", \
