@@ -59,7 +59,8 @@ static int _ocf_parallelize_hndl(struct ocf_request *req)
 int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 		ocf_cache_t cache, unsigned shards_cnt, uint32_t priv_size,
 		ocf_parallelize_handle_t handle,
-		ocf_parallelize_finish_t finish)
+		ocf_parallelize_finish_t finish,
+		bool use_mngt_queue)
 {
 	ocf_parallelize_t tmp_parallelize;
 	struct list_head *iter;
@@ -97,7 +98,7 @@ int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 
 	iter = cache->io_queues.next;
 	for (i = 0; i < shards_cnt; i++) {
-		if (queue_count > 0) {
+		if (queue_count > 0 && !use_mngt_queue) {
 			queue = list_entry(iter, struct ocf_queue, list);
 			iter = iter->next;
 			if (iter == &cache->io_queues)

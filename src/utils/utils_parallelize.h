@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -19,7 +20,8 @@ typedef void (*ocf_parallelize_finish_t)(ocf_parallelize_t parallelize,
 int ocf_parallelize_create(ocf_parallelize_t *parallelize,
 		ocf_cache_t cache, unsigned shards_cnt, uint32_t priv_size,
 		ocf_parallelize_handle_t handle,
-		ocf_parallelize_finish_t finish);
+		ocf_parallelize_finish_t finish,
+		bool use_mngt_queue);
 
 void ocf_parallelize_destroy(ocf_parallelize_t parallelize);
 

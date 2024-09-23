@@ -547,7 +547,8 @@ void cleaning_policy_alru_populate(ocf_cache_t cache,
 
 	result = ocf_parallelize_create(&parallelize, cache,
 			OCF_ALRU_POPULATE_SHARDS_CNT, sizeof(*context),
-			ocf_alru_populate_handle, ocf_alru_populate_finish);
+			ocf_alru_populate_handle, ocf_alru_populate_finish,
+			true);
 	if (result) {
 		cmpl(priv, result);
 		return;

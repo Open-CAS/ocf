@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -882,7 +883,7 @@ void ocf_metadata_init_collision(ocf_pipeline_t pipeline, void *priv,
 	result = ocf_parallelize_create(&parallelize, cache,
 			ocf_cache_get_queue_count(cache), sizeof(*context),
 			ocf_metadata_init_collision_handle,
-			ocf_metadata_init_finish);
+			ocf_metadata_init_finish, false);
 	if (result)
 		OCF_PL_FINISH_RET(pipeline, result);
 
@@ -934,7 +935,7 @@ void ocf_metadata_init_hash_table(ocf_pipeline_t pipeline, void *priv,
 	result = ocf_parallelize_create(&parallelize, cache,
 			ocf_cache_get_queue_count(cache), sizeof(*context),
 			ocf_metadata_init_hash_table_handle,
-			ocf_metadata_init_finish);
+			ocf_metadata_init_finish, false);
 	if (result)
 		OCF_PL_FINISH_RET(pipeline, result);
 
