@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -53,5 +54,20 @@ void ocf_composite_volume_destroy(ocf_composite_volume_t cvolume);
 int ocf_composite_volume_add(ocf_composite_volume_t cvolume,
 		ocf_volume_type_t type, struct ocf_volume_uuid *uuid,
 		void *volume_params);
+
+typedef int (*ocf_composite_volume_member_visitor_t)(ocf_volume_t subvolume,
+		void *priv);
+
+/**
+ * @brief Call @visitor on every valid member of composite volume
+ *
+ * @param[in] cvolume composite volume handle
+ * @param[in] visitor function callback
+ * @param[in] priv pointer to be passed to the callback
+ *
+ * @return subvolume in composite volume
+ */
+int ocf_composite_volume_member_visit(ocf_composite_volume_t cvolume,
+		ocf_composite_volume_member_visitor_t visitor, void *priv);
 
 #endif /* __OCF_COMPOSITE_VOLUME_H__ */
