@@ -672,7 +672,7 @@ static void ocf_mngt_rebuild_metadata(ocf_cache_t cache,
 	result = ocf_parallelize_create(&parallelize, cache,
 			OCF_MNGT_REBUILD_METADATA_SHARDS_CNT,
 			sizeof(*context), ocf_mngt_rebuild_metadata_handle,
-			ocf_mngt_rebuild_metadata_finish);
+			ocf_mngt_rebuild_metadata_finish, false);
         if (result) {
                 cmpl(priv, result);
                 return;

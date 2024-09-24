@@ -930,7 +930,7 @@ void ocf_lru_populate(ocf_cache_t cache,
 
 	result = ocf_parallelize_create(&parallelize, cache, OCF_NUM_LRU_LISTS,
 			sizeof(*context), ocf_lru_populate_handle,
-			ocf_lru_populate_finish);
+			ocf_lru_populate_finish, false);
 	if (result) {
 		cmpl(priv, result);
 		return;
