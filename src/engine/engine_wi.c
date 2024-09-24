@@ -90,6 +90,8 @@ static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *req)
 		/* Request was dirty and need to flush metadata */
 		ocf_metadata_flush_do_asynch(cache, req,
 				_ocf_write_wi_io_flush_metadata);
+
+		return 0;
 	}
 
 	_ocf_write_wi_io_flush_metadata(req, 0);
