@@ -1192,8 +1192,6 @@ void ocf_metadata_flush_do_asynch(struct ocf_cache *cache,
 	 * line persistent in case of recovery
 	 */
 
-	env_atomic_inc(&req->req_remaining); /* Core device IO */
-
 	result |= ocf_metadata_raw_flush_do_asynch(cache, req,
 			&(ctrl->raw_desc[metadata_segment_collision]),
 			complete);

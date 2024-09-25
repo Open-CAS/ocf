@@ -103,7 +103,6 @@ static int _ocf_zero_do(struct ocf_request *req)
 	ocf_zero_map_info(req);
 
 	/* Discard marked cache lines */
-	env_atomic_set(&req->req_remaining, 1);
 	if (req->info.flush_metadata) {
 		/* Request was dirty and need to flush metadata */
 		ocf_metadata_flush_do_asynch(cache, req,

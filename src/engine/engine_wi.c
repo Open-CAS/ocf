@@ -77,8 +77,6 @@ static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *req)
 
 	/* There are mapped cache line, need to remove them */
 
-	env_atomic_set(&req->req_remaining, 1); /* One core IO */
-
 	ocf_hb_req_prot_lock_wr(req); /*- Metadata WR access ---------------*/
 
 	/* Remove mapped cache lines from metadata */
@@ -90,6 +88,8 @@ static int ocf_write_wi_update_and_flush_metadata(struct ocf_request *req)
 		/* Request was dirty and need to flush metadata */
 		ocf_metadata_flush_do_asynch(cache, req,
 				_ocf_write_wi_io_flush_metadata);
+
+		return 0;
 	}
 
 	_ocf_write_wi_io_flush_metadata(req, 0);
