@@ -656,7 +656,7 @@ static void _ocf_cleaner_fire_error(struct ocf_request *master,
 	_ocf_cleaner_dealloc_req(req);
 }
 
-uint32_t ocf_cleaner_populate_req(struct ocf_request *req, uint32_t curr,
+static uint32_t ocf_cleaner_populate_req(struct ocf_request *req, uint32_t curr,
 		const struct ocf_cleaner_attribs *attribs)
 {
 	uint32_t count = attribs->count;

@@ -14,7 +14,7 @@
 #include "engine/cache_engine.h"
 #include "ocf_def_priv.h"
 
-int _ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
+static int _ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 		const struct ocf_queue_ops *ops)
 {
 	ocf_queue_t tmp_queue;

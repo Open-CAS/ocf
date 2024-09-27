@@ -27,7 +27,7 @@ struct ocf_composite_volume {
 	unsigned max_io_size;
 };
 
-void ocf_composite_forward_io(ocf_volume_t cvolume,
+static void ocf_composite_forward_io(ocf_volume_t cvolume,
 		ocf_forward_token_t token, int dir, uint64_t addr,
 		uint64_t bytes, uint64_t offset)
 {
@@ -74,7 +74,7 @@ void ocf_composite_forward_io(ocf_volume_t cvolume,
 	ocf_forward_end(token, 0);
 }
 
-void ocf_composite_forward_flush(ocf_volume_t cvolume,
+static void ocf_composite_forward_flush(ocf_volume_t cvolume,
 		ocf_forward_token_t token)
 {
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
@@ -87,7 +87,7 @@ void ocf_composite_forward_flush(ocf_volume_t cvolume,
 	ocf_forward_end(token, 0);
 }
 
-void ocf_composite_forward_discard(ocf_volume_t cvolume,
+static void ocf_composite_forward_discard(ocf_volume_t cvolume,
 		ocf_forward_token_t token, uint64_t addr, uint64_t bytes)
 {
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
@@ -132,7 +132,7 @@ void ocf_composite_forward_discard(ocf_volume_t cvolume,
 	ocf_forward_end(token, 0);
 }
 
-void ocf_composite_forward_write_zeros(ocf_volume_t cvolume,
+static void ocf_composite_forward_write_zeros(ocf_volume_t cvolume,
 		ocf_forward_token_t token, uint64_t addr, uint64_t bytes)
 {
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
@@ -177,7 +177,7 @@ void ocf_composite_forward_write_zeros(ocf_volume_t cvolume,
 	ocf_forward_end(token, 0);
 }
 
-void ocf_composite_forward_metadata(ocf_volume_t cvolume,
+static void ocf_composite_forward_metadata(ocf_volume_t cvolume,
 		ocf_forward_token_t token, int dir, uint64_t addr,
 		uint64_t bytes, uint64_t offset)
 {
@@ -224,7 +224,7 @@ void ocf_composite_forward_metadata(ocf_volume_t cvolume,
 	ocf_forward_end(token, 0);
 }
 
-void ocf_composite_forward_io_simple(ocf_volume_t cvolume,
+static void ocf_composite_forward_io_simple(ocf_volume_t cvolume,
 		ocf_forward_token_t token, int dir,
 		uint64_t addr, uint64_t bytes)
 {
