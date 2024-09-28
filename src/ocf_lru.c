@@ -376,7 +376,7 @@ static inline bool _lru_lru_all_empty(struct ocf_lru_iter *iter)
 	return iter->num_avail_lrus == 0;
 }
 
-static bool inline _lru_trylock_hash(struct ocf_lru_iter *iter,
+static inline bool _lru_trylock_hash(struct ocf_lru_iter *iter,
 		ocf_core_id_t core_id, uint64_t core_line)
 {
 	if (iter->hash_locked != NULL && iter->hash_locked(
@@ -389,7 +389,7 @@ static bool inline _lru_trylock_hash(struct ocf_lru_iter *iter,
 			core_id, core_line);
 }
 
-static void inline _lru_unlock_hash(struct ocf_lru_iter *iter,
+static inline void _lru_unlock_hash(struct ocf_lru_iter *iter,
 		ocf_core_id_t core_id, uint64_t core_line)
 {
 	if (iter->hash_locked != NULL && iter->hash_locked(
@@ -402,7 +402,7 @@ static void inline _lru_unlock_hash(struct ocf_lru_iter *iter,
 			core_id, core_line);
 }
 
-static bool inline _lru_iter_evition_lock(struct ocf_lru_iter *iter,
+static inline bool _lru_iter_evition_lock(struct ocf_lru_iter *iter,
 		ocf_cache_line_t cache_line,
 		ocf_core_id_t *core_id, uint64_t *core_line)
 
