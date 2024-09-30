@@ -659,8 +659,6 @@ void ocf_forward_end(ocf_forward_token_t token, int error)
 {
 	struct ocf_request *req = ocf_req_forward_token_to_req(token);
 
-	req->error |= error;
-
 	if (token & 1) {
 		req->cache_error = req->cache_error ?: error;
 		ocf_req_forward_cache_put(req);
