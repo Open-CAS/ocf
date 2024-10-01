@@ -462,7 +462,6 @@ static void _raw_ram_flush_do_asynch_io_complete(ocf_cache_t cache,
 	OCF_DEBUG_MSG(cache, "Asynchronous flushing complete");
 
 	/* Call metadata flush completed call back */
-	ctx->req->error |= ctx->error;
 	ctx->complete(ctx->req, ctx->error);
 
 	env_free(ctx);
