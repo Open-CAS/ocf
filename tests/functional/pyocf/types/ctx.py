@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2024 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -113,6 +114,10 @@ class OcfCtx:
 
     def stop_caches(self):
         for cache in self.caches[:]:
+            try:
+                cache.get_volume().disarm()
+            except AttributeError:
+                pass
             cache.stop()
 
     def exit(self):
