@@ -87,6 +87,8 @@ class Rio:
             self.ios = Size(0)
             self.io_target = 0
             self.finish_time = None
+            self.submitted_reads = 0
+            self.submitted_writes = 0
 
             self.qd_condition = Condition()
             self.qd = 0
@@ -159,6 +161,12 @@ class Rio:
                 io.callback = self.get_io_cb()
                 self.ios += self.jobspec.bs
                 io.submit()
+
+                if iodir is IoDir.WRITE:
+                    self.submitted_writes += 1
+                if iodir is IoDir.READ:
+                    self.submitted_reads += 1
+
                 with self.qd_condition:
                     self.qd += 1
 
@@ -172,6 +180,8 @@ class Rio:
         self._threads = []
         self.errors = {}
         self.error_count = 0
+        self.submitted_reads = 0
+        self.submitted_writes = 0
 
     def copy(self):
         r = copy.copy(self)
@@ -254,6 +264,8 @@ class Rio:
             thread.join()
             self.errors.update({thread.name: thread.errors})
             self.error_count += len(thread.errors)
+            self.submitted_reads += thread.submitted_reads
+            self.submitted_writes += thread.submitted_writes
 
         self.global_jobspec.target.close()
 
