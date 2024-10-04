@@ -840,7 +840,9 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 	}
 
 	/* Lock cache during setup - this trylock should always succeed */
-	ENV_BUG_ON(ocf_mngt_cache_trylock(cache));
+	result = ocf_mngt_cache_trylock(cache);
+	if (result)
+		goto lock_init_err;
 
 	if (env_mutex_init(&cache->flush_mutex)) {
 		result = -OCF_ERR_NO_MEM;
@@ -852,7 +854,9 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 	if (result)
 		goto mutex_err;
 
-	ENV_BUG_ON(!ocf_refcnt_inc(&cache->refcnt.cache));
+	result = !ocf_refcnt_inc(&cache->refcnt.cache);
+	if (result)
+		goto cache_refcnt_inc_err;
 
 	/* start with freezed metadata ref counter to indicate detached device*/
 	ocf_refcnt_freeze(&cache->refcnt.metadata);
@@ -869,10 +873,13 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 
 	return 0;
 
+cache_refcnt_inc_err:
+	env_spinlock_destroy(&cache->io_queues_lock);
 mutex_err:
 	env_mutex_destroy(&cache->flush_mutex);
 lock_err:
 	ocf_mngt_cache_unlock(cache);
+lock_init_err:
 	ocf_mngt_cache_lock_deinit(cache);
 alloc_err:
 	env_vfree(cache);
