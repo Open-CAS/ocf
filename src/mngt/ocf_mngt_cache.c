@@ -66,9 +66,6 @@ struct ocf_cache_mngt_init_params {
 		bool metadata_inited : 1;
 			/*!< Metadata is inited to valid state */
 
-		bool added_to_list : 1;
-			/*!< Cache is added to context list */
-
 		bool cache_locked : 1;
 			/*!< Cache has been locked */
 	} flags;
@@ -1476,15 +1473,7 @@ static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
 	if (params->flags.metadata_inited)
 		ocf_metadata_deinit(cache);
 
-	if (!params->flags.added_to_list)
-		return;
-
-	env_rmutex_lock(&ctx->lock);
-
-	list_del(&cache->list);
 	env_vfree(cache);
-
-	env_rmutex_unlock(&ctx->lock);
 }
 
 static void _ocf_mngt_cache_init(ocf_cache_t cache,
@@ -1563,7 +1552,6 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	}
 
 	list_add_tail(&tmp_cache->list, &ctx->caches);
-	params.flags.added_to_list = true;
 	env_rmutex_unlock(&ctx->lock);
 
 	ocf_cache_log(tmp_cache, log_debug, "Metadata initialized\n");
