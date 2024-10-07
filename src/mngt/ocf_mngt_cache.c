@@ -1493,6 +1493,8 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	params.metadata.promotion_policy = cfg->promotion_policy;
 	params.locked = cfg->locked;
 
+	ocf_ctx_get(ctx);
+
 	result = env_rmutex_lock_interruptible(&ctx->lock);
 	if (result)
 		goto _cache_mngt_init_instance_ERROR;
@@ -1533,8 +1535,6 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	_ocf_mngt_cache_init(tmp_cache, &params);
 
-	ocf_ctx_get(ctx);
-
 	if (!params.locked) {
 		/* User did not request to lock cache instance after creation -
 		   unlock it here since we have acquired the lock to
@@ -1550,6 +1550,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 _cache_mngt_init_instance_ERROR:
 	_ocf_mngt_init_handle_error(ctx, &params);
 	*cache = NULL;
+	ocf_ctx_put(ctx);
 	return result;
 }
 
