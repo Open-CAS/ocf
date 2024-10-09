@@ -5,6 +5,7 @@
  */
 
 #include "ocf/ocf.h"
+#include "ocf_env_refcnt.h"
 #include "metadata/metadata.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
@@ -133,7 +134,7 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 
 	info->attached = ocf_cache_is_device_attached(cache);
 	info->standby_detached = ocf_cache_is_standby(cache) &&
-		ocf_refcnt_frozen(&cache->refcnt.metadata);
+		env_refcnt_frozen(&cache->refcnt.metadata);
 	if (info->attached && !info->standby_detached) {
 		info->volume_type = ocf_ctx_get_volume_type_id(cache->owner,
 				cache->device->volume.type);
@@ -297,8 +298,8 @@ static void ocf_cache_volume_io_complete_generic(struct ocf_request *req,
 {
 	ocf_cache_t cache = req->cache;
 
-	ocf_refcnt_dec(&cache->refcnt.metadata);
 	ocf_io_end_func(req, error);
+	env_refcnt_dec(&cache->refcnt.metadata);
 }
 
 static void ocf_cache_io_complete(struct ocf_request *req, int error)
@@ -311,7 +312,7 @@ static void ocf_cache_io_complete(struct ocf_request *req, int error)
 	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	ocf_refcnt_dec(&cache->refcnt.metadata);
+	env_refcnt_dec(&cache->refcnt.metadata);
 	ocf_io_end_func(req, req->error);
 }
 
@@ -321,7 +322,7 @@ static void ocf_cache_volume_submit_io(ocf_io_t io)
 	ocf_cache_t cache = req->cache;
 	int result;
 
-	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
+	if (!env_refcnt_inc(&cache->refcnt.metadata)) {
 		ocf_io_end_func(io, -OCF_ERR_IO);
 		return;
 	}
@@ -343,6 +344,7 @@ static void ocf_cache_volume_submit_io(ocf_io_t io)
 				"Metadata update error (error=%d)!\n", result);
 	}
 
+	// TODO pass it actually
 	// TODO why the result is not passed to io_cmpl???
 	ocf_cache_io_complete(req, 0);
 }
@@ -352,7 +354,7 @@ static void ocf_cache_volume_submit_flush(ocf_io_t io)
 	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_cache_t cache = req->cache;
 
-	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
+	if (!env_refcnt_inc(&cache->refcnt.metadata)) {
 		ocf_io_end_func(io, -OCF_ERR_IO);
 		return;
 	}
@@ -371,7 +373,7 @@ static void ocf_cache_volume_submit_discard(ocf_io_t io)
 	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_cache_t cache = req->cache;
 
-	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
+	if (!env_refcnt_inc(&cache->refcnt.metadata)) {
 		ocf_io_end_func(io, -OCF_ERR_IO);
 		return;
 	}
@@ -487,6 +489,6 @@ int ocf_cache_volume_type_init(ocf_ctx_t ctx)
 
 bool ocf_dbg_cache_is_settled(ocf_cache_t cache)
 {
-	return ocf_refcnt_zeroed(&cache->refcnt.metadata) &&
-			ocf_refcnt_zeroed(&cache->refcnt.d2c);
+	return env_refcnt_zeroed(&cache->refcnt.metadata) &&
+			env_refcnt_zeroed(&cache->refcnt.d2c);
 }

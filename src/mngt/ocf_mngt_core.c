@@ -11,6 +11,7 @@
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
 #include "../utils/utils_pipeline.h"
+#include "../utils/utils_cleaner.h"
 #include "../ocf_stats_priv.h"
 #include "../ocf_def_priv.h"
 #include "../cleaning/cleaning_ops.h"

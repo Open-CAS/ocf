@@ -9,6 +9,7 @@
 #include "ocf_volume_priv.h"
 #include "ocf_core_priv.h"
 #include "ocf_request.h"
+#include "ocf_env_refcnt.h"
 #include "ocf_io_priv.h"
 #include "ocf_env.h"
 
@@ -111,8 +112,11 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 	volume->uuid.data = NULL;
 	volume->uuid_copy = false;
 
-	ocf_refcnt_init(&volume->refcnt);
-	ocf_refcnt_freeze(&volume->refcnt);
+	ret = env_refcnt_init(&volume->refcnt, "volume", sizeof("volume"));
+	if (ret)
+		goto err1;
+
+	env_refcnt_freeze(&volume->refcnt);
 
 	if (!uuid)
 		return 0;
@@ -123,7 +127,7 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 		data = env_vmalloc(uuid->size);
 		if (!data) {
 			ret = -OCF_ERR_NO_MEM;
-			goto err;
+			goto err2;
 		}
 
 		volume->uuid.data = data;
@@ -131,7 +135,7 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 		ret = env_memcpy(data, uuid->size, uuid->data, uuid->size);
 		if (ret) {
 			ret = -OCF_ERR_INVAL;
-			goto err;
+			goto err3;
 		}
 	} else {
 		volume->uuid.data = uuid->data;
@@ -142,19 +146,22 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 	if (volume->type->properties->ops.on_init) {
 		ret = volume->type->properties->ops.on_init(volume);
 		if (ret)
-			goto err;
+			goto err3;
 	}
 
 	return 0;
 
-err:
-	ocf_refcnt_unfreeze(&volume->refcnt);
-	env_free(volume->priv);
-	volume->priv = NULL;
+err3:
 	if (volume->uuid_copy && volume->uuid.data)
 		env_vfree(volume->uuid.data);
 	volume->uuid.data = NULL;
 	volume->uuid.size = 0;
+err2:
+	env_refcnt_unfreeze(&volume->refcnt);
+	env_refcnt_deinit(&volume->refcnt);
+err1:
+	env_free(volume->priv);
+	volume->priv = NULL;
 	return ret;
 }
 
@@ -168,6 +175,7 @@ void ocf_volume_deinit(ocf_volume_t volume)
 	env_free(volume->priv);
 	volume->priv = NULL;
 	volume->type = NULL;
+	env_refcnt_deinit(&volume->refcnt);
 
 	if (volume->uuid_copy && volume->uuid.data) {
 		env_vfree(volume->uuid.data);
@@ -181,7 +189,14 @@ void ocf_volume_move(ocf_volume_t volume, ocf_volume_t from)
 	OCF_CHECK_NULL(volume);
 	OCF_CHECK_NULL(from);
 
-	ocf_volume_deinit(volume);
+	ENV_BUG_ON(!env_refcnt_zeroed(&volume->refcnt));
+	ENV_BUG_ON(!env_refcnt_zeroed(&from->refcnt));
+
+	env_free(volume->priv);
+	if (volume->uuid_copy && volume->uuid.data)
+		env_vfree(volume->uuid.data);
+
+	/* volume->refcnt is not reinitialized */
 
 	volume->opened = from->opened;
 	volume->type = from->type;
@@ -190,7 +205,8 @@ void ocf_volume_move(ocf_volume_t volume, ocf_volume_t from)
 	volume->priv = from->priv;
 	volume->cache = from->cache;
 	volume->features = from->features;
-	volume->refcnt = from->refcnt;
+	env_refcnt_init(&volume->refcnt, "volume", sizeof("volume"));
+	env_refcnt_freeze(&volume->refcnt);
 
 	/*
 	 * Deinitialize original volume without freeing resources.
@@ -442,7 +458,7 @@ int ocf_volume_open(ocf_volume_t volume, void *volume_params)
 	if (ret)
 		return ret;
 
-	ocf_refcnt_unfreeze(&volume->refcnt);
+	env_refcnt_unfreeze(&volume->refcnt);
 	volume->opened = true;
 
 	return 0;
@@ -465,8 +481,8 @@ void ocf_volume_close(ocf_volume_t volume)
 		return;
 
 	env_completion_init(&cmpl);
-	ocf_refcnt_freeze(&volume->refcnt);
-	ocf_refcnt_register_zero_cb(&volume->refcnt, ocf_volume_close_end,
+	env_refcnt_freeze(&volume->refcnt);
+	env_refcnt_register_zero_cb(&volume->refcnt, ocf_volume_close_end,
 			&cmpl);
 	env_completion_wait(&cmpl);
 	env_completion_destroy(&cmpl);

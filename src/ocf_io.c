@@ -10,6 +10,10 @@
 #include "ocf_volume_priv.h"
 #include "ocf_core_priv.h"
 #include "utils/utils_io_allocator.h"
+#include "ocf_env_refcnt.h"
+#ifdef OCF_DEBUG_STATS
+#include "ocf_stats_priv.h"
+#endif
 
 int ocf_io_allocator_default_init(ocf_io_allocator_t allocator,
 		const char *name)
@@ -79,13 +83,13 @@ ocf_io_t ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 	if ((addr % sector_size) || (bytes % sector_size))
 		return NULL;
 
-	if (!ocf_refcnt_inc(&volume->refcnt))
+	if (!env_refcnt_inc(&volume->refcnt))
 		return NULL;
 
 	req = ocf_io_allocator_new(&volume->type->allocator, volume, queue,
 			addr, bytes, dir);
 	if (!req) {
-		ocf_refcnt_dec(&volume->refcnt);
+		env_refcnt_dec(&volume->refcnt);
 		return NULL;
 	}
 
@@ -144,7 +148,7 @@ void ocf_io_put(ocf_io_t io)
 
 	ocf_io_allocator_del(&volume->type->allocator, (void *)req);
 
-	ocf_refcnt_dec(&volume->refcnt);
+	env_refcnt_dec(&volume->refcnt);
 }
 
 ocf_volume_t ocf_io_get_volume(ocf_io_t io)
