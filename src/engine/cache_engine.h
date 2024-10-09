@@ -14,6 +14,7 @@ struct ocf_thread_priv;
 #define LOOKUP_HIT 5
 #define LOOKUP_MISS 6
 #define LOOKUP_REMAPPED 8
+#define LOOKUP_HIT_INVALID 9
 
 static inline ocf_req_cache_mode_t ocf_cache_mode_to_req_cache_mode(
 		ocf_cache_mode_t mode)
