@@ -463,7 +463,6 @@ static inline void ocf_metadata_config_init(ocf_cache_t cache, size_t size)
 
 static void ocf_metadata_deinit_fixed_size(struct ocf_cache *cache)
 {
-	int result = 0;
 	uint32_t i;
 
 	struct ocf_metadata_ctrl *ctrl = (struct ocf_metadata_ctrl *)
@@ -481,9 +480,6 @@ static void ocf_metadata_deinit_fixed_size(struct ocf_cache *cache)
 
 	env_vfree(ctrl);
 	cache->metadata.priv = NULL;
-
-	if (result)
-		ENV_BUG();
 }
 
 static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(

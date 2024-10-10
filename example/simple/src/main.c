@@ -23,15 +23,6 @@ struct cache_priv {
 };
 
 /*
- * Helper function for error handling.
- */
-void error(char *msg)
-{
-	printf("ERROR: %s", msg);
-	exit(1);
-}
-
-/*
  * Queue ops providing interface for running queue thread in asynchronous
  * way. Optional synchronous kick callback is not provided. The stop()
  * operation is called just before queue is being destroyed.
@@ -318,8 +309,10 @@ void perform_workload(ocf_core_t core)
 
 	/* Allocate data buffer and fill it with example data */
 	data1 = ctx_data_alloc(1);
-	if (!data1)
-		error("Unable to allocate data1\n");
+	if (!data1) {
+		printf("Error: Unable to allocate data1\n");
+		return;
+	}
 	strcpy(data1->ptr, "This is some test data");
 	/* Prepare and submit write IO to the core */
 	submit_io(core, data1, 0, 512, OCF_WRITE, complete_write);
@@ -332,8 +325,10 @@ void perform_workload(ocf_core_t core)
 
 	/* Allocate data buffer for read */
 	data2 = ctx_data_alloc(1);
-	if (!data2)
-		error("Unable to allocate data2\n");
+	if (!data2) {
+		printf("Error: Unable to allocate data2\n");
+		return;
+	}
 	/* Prepare and submit read IO to the core */
 	submit_io(core, data2, 0, 512, OCF_READ, complete_read);
 	/* After read completes, complete_read() callback will be called,
@@ -360,21 +355,29 @@ int main(int argc, char *argv[])
 
 	/* Initialize completion semaphore */
 	ret = sem_init(&context.sem, 0, 0);
-	if (ret)
-		error("Unable to initialize completion semaphore\n");
+	if (ret) {
+		printf("Error: Unable to initialize completion semaphore\n");
+		goto sem_err;
+	}
 	context.error = &ret;
 
 	/* Initialize OCF context */
-	if (ctx_init(&ctx))
-		error("Unable to initialize context\n");
+	if (ctx_init(&ctx)) {
+		printf("Error: Unable to initialize context\n");
+		goto ctx_err;
+	}
 
 	/* Start cache */
-	if (initialize_cache(ctx, &cache1))
-		error("Unable to start cache\n");
+	if (initialize_cache(ctx, &cache1)) {
+		printf("Error: Unable to start cache\n");
+		goto cache_err;
+	}
 
 	/* Add core */
-	if (initialize_core(cache1, &core1))
-		error("Unable to add core\n");
+	if (initialize_core(cache1, &core1)) {
+		printf("Error: Unable to add core\n");
+		goto core_err;
+	}
 
 	/* Do some actual io operations */
 	perform_workload(core1);
@@ -382,27 +385,31 @@ int main(int argc, char *argv[])
 	/* Remove core from cache */
 	ocf_mngt_cache_remove_core(core1, remove_core_complete, &context);
 	sem_wait(&context.sem);
-	if (ret)
-		error("Unable to remove core\n");
+	if (ret) {
+		printf("Error: Unable to remove core\n");
+		goto core_err;
+	}
 
 	/* Stop cache */
 	ocf_mngt_cache_stop(cache1, simple_complete, &context);
 	sem_wait(&context.sem);
-	if (ret)
-		error("Unable to stop cache\n");
+	if (ret) {
+		printf("Error: Unable to stop cache\n");
+	}
 
+core_err:
 	cache_priv = ocf_cache_get_priv(cache1);
 
 	/* Put the management queue */
 	ocf_queue_put(cache_priv->mngt_queue);
 
 	free(cache_priv);
-
+cache_err:
 	/* Deinitialize context */
 	ctx_cleanup(ctx);
-
+ctx_err:
 	/* Destroy completion semaphore */
 	sem_destroy(&context.sem);
-
-	return 0;
+sem_err:
+	return ret;
 }

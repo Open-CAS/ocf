@@ -66,9 +66,6 @@ struct ocf_cache_mngt_init_params {
 		bool metadata_inited : 1;
 			/*!< Metadata is inited to valid state */
 
-		bool added_to_list : 1;
-			/*!< Cache is added to context list */
-
 		bool cache_locked : 1;
 			/*!< Cache has been locked */
 	} flags;
@@ -826,33 +823,59 @@ static void _ocf_mngt_load_metadata(ocf_pipeline_t pipeline,
  * @brief allocate memory for new cache, add it to cache queue, set initial
  * values and running state
  */
-static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
+static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params,
+		char *new_cache_name)
 {
 	ocf_cache_t cache = env_vzalloc(sizeof(*cache));
 	int result;
 
-	if (!cache)
+	if (!cache) {
+		ocf_log(params->ctx, log_err, "Failed to allocate cache %s\n",
+				new_cache_name);
 		return -OCF_ERR_NO_MEM;
+	}
 
 	if (ocf_mngt_cache_lock_init(cache)) {
+		ocf_log(params->ctx, log_err,
+				"Failed to allocate cache %s lock\n",
+				new_cache_name);
 		result = -OCF_ERR_NO_MEM;
 		goto alloc_err;
 	}
 
 	/* Lock cache during setup - this trylock should always succeed */
-	ENV_BUG_ON(ocf_mngt_cache_trylock(cache));
+	result = ocf_mngt_cache_trylock(cache);
+	if (result) {
+		ocf_log(params->ctx, log_crit,
+				"Failed to lock the newly created cache %s\n",
+				new_cache_name);
+		goto lock_init_err;
+	}
 
 	if (env_mutex_init(&cache->flush_mutex)) {
+		ocf_log(params->ctx, log_err,
+				"Failed to allocate cache %s flush lock\n",
+				new_cache_name);
 		result = -OCF_ERR_NO_MEM;
 		goto lock_err;
 	}
 
 	INIT_LIST_HEAD(&cache->io_queues);
 	result = env_spinlock_init(&cache->io_queues_lock);
-	if (result)
+	if (result) {
+		ocf_log(params->ctx, log_err,
+				"Failed to allocate cache %s queue lock\n",
+				new_cache_name);
 		goto mutex_err;
+	}
 
-	ENV_BUG_ON(!ocf_refcnt_inc(&cache->refcnt.cache));
+	result = !ocf_refcnt_inc(&cache->refcnt.cache);
+	if (result) {
+		ocf_log(params->ctx, log_crit,
+				"Failed to increment %s refcnt\n",
+				new_cache_name);
+		goto cache_refcnt_inc_err;
+	}
 
 	/* start with freezed metadata ref counter to indicate detached device*/
 	ocf_refcnt_freeze(&cache->refcnt.metadata);
@@ -869,10 +892,13 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params)
 
 	return 0;
 
+cache_refcnt_inc_err:
+	env_spinlock_destroy(&cache->io_queues_lock);
 mutex_err:
 	env_mutex_destroy(&cache->flush_mutex);
 lock_err:
 	ocf_mngt_cache_unlock(cache);
+lock_init_err:
 	ocf_mngt_cache_lock_deinit(cache);
 alloc_err:
 	env_vfree(cache);
@@ -950,7 +976,7 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 
 	ocf_log(param->ctx, log_info, "Inserting cache %s\n", cfg->name);
 
-	ret = _ocf_mngt_init_new_cache(param);
+	ret = _ocf_mngt_init_new_cache(param, cfg->name);
 	if (ret)
 		goto out;
 
@@ -1442,20 +1468,15 @@ static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
 
 	env_mutex_destroy(&cache->flush_mutex);
 
+	if (params->flags.cache_locked)
+		ocf_mngt_cache_unlock(cache);
+
 	ocf_mngt_cache_lock_deinit(cache);
 
 	if (params->flags.metadata_inited)
 		ocf_metadata_deinit(cache);
 
-	if (!params->flags.added_to_list)
-		return;
-
-	env_rmutex_lock(&ctx->lock);
-
-	list_del(&cache->list);
 	env_vfree(cache);
-
-	env_rmutex_unlock(&ctx->lock);
 }
 
 static void _ocf_mngt_cache_init(ocf_cache_t cache,
@@ -1493,6 +1514,8 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	params.metadata.promotion_policy = cfg->promotion_policy;
 	params.locked = cfg->locked;
 
+	ocf_ctx_get(ctx);
+
 	result = env_rmutex_lock_interruptible(&ctx->lock);
 	if (result)
 		goto _cache_mngt_init_instance_ERROR;
@@ -1501,6 +1524,8 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	result = _ocf_mngt_init_prepare_cache(&params, cfg);
 	if (result) {
 		env_rmutex_unlock(&ctx->lock);
+		ocf_log(ctx, log_err, "Failed to prepare cache %s\n",
+				cfg->name);
 		goto _cache_mngt_init_instance_ERROR;
 	}
 
@@ -1514,6 +1539,8 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 	result = ocf_metadata_init(tmp_cache, params.metadata.line_size);
 	if (result) {
 		env_rmutex_unlock(&ctx->lock);
+		ocf_log(ctx, log_err, "Failed to initialize cache %s "
+				"metadata\n", cfg->name);
 		result =  -OCF_ERR_NO_MEM;
 		goto _cache_mngt_init_instance_ERROR;
 	}
@@ -1521,19 +1548,18 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 
 	result = ocf_cache_set_name(tmp_cache, cfg->name, OCF_CACHE_NAME_SIZE);
 	if (result) {
+		ocf_log(ctx, log_err, "Failed to set cache %s name\n",
+				cfg->name);
 		env_rmutex_unlock(&ctx->lock);
 		goto _cache_mngt_init_instance_ERROR;
 	}
 
 	list_add_tail(&tmp_cache->list, &ctx->caches);
-	params.flags.added_to_list = true;
 	env_rmutex_unlock(&ctx->lock);
 
 	ocf_cache_log(tmp_cache, log_debug, "Metadata initialized\n");
 
 	_ocf_mngt_cache_init(tmp_cache, &params);
-
-	ocf_ctx_get(ctx);
 
 	if (!params.locked) {
 		/* User did not request to lock cache instance after creation -
@@ -1550,6 +1576,7 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 _cache_mngt_init_instance_ERROR:
 	_ocf_mngt_init_handle_error(ctx, &params);
 	*cache = NULL;
+	ocf_ctx_put(ctx);
 	return result;
 }
 

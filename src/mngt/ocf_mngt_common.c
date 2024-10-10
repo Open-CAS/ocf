@@ -270,8 +270,10 @@ static int _ocf_mngt_cache_trylock(ocf_cache_t cache,
 		return -OCF_ERR_CACHE_NOT_EXIST;
 
 	result = trylock_fn(&cache->lock);
-	if (result)
+	if (result) {
+		ocf_mngt_cache_put(cache);
 		return result;
+	}
 
 	if (env_bit_test(ocf_cache_state_stopping, &cache->cache_state)) {
 		/* Cache already stopping, do not allow any operation */

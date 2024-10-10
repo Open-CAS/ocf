@@ -139,12 +139,17 @@ static ocf_req_cb ocf_cache_mode_to_engine_cb(
 
 bool ocf_fallback_pt_is_on(ocf_cache_t cache)
 {
-	ENV_BUG_ON(env_atomic_read(&cache->fallback_pt_error_counter) < 0);
+	int threshold = cache->fallback_pt_error_threshold;
+	int counter;
 
-	return (cache->fallback_pt_error_threshold !=
-			OCF_CACHE_FALLBACK_PT_INACTIVE &&
-			env_atomic_read(&cache->fallback_pt_error_counter) >=
-			cache->fallback_pt_error_threshold);
+	if (threshold == OCF_CACHE_FALLBACK_PT_INACTIVE)
+		return false;
+
+	counter = env_atomic_read(&cache->fallback_pt_error_counter);
+
+	ENV_BUG_ON(counter < 0);
+
+	return counter >= threshold;
 }
 
 void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
