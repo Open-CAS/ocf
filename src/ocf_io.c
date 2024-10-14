@@ -125,13 +125,6 @@ uint32_t ocf_io_get_offset(ocf_io_t io)
 	return req->offset;
 }
 
-void ocf_io_get(ocf_io_t io)
-{
-	struct ocf_request *req = ocf_io_to_req(io);
-
-	env_atomic_inc_return(&req->io.ref_count);
-}
-
 void ocf_io_put(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
