@@ -99,7 +99,7 @@ void ocf_user_part_move(struct ocf_request *req)
 	struct ocf_map_info *entry;
 	ocf_cache_line_t line;
 	ocf_part_id_t id_old, id_new;
-	uint32_t i;
+	uint32_t i, remapped = 0;
 
 	entry = &req->map[0];
 	for (i = 0; i < req->core_line_count; i++, entry++) {
@@ -161,7 +161,16 @@ void ocf_user_part_move(struct ocf_request *req)
 		env_atomic_dec(&req->core->runtime_meta->
 				part_counters[id_old].cached_clines);
 
+		remapped++;
+
 		/* DONE */
+	}
+
+	if (unlikely(remapped != ocf_engine_repart_count(req))) {
+		ocf_cache_log(cache, log_warn, "Inconsitency on remapping to "
+				"ioclass %hu. Expected %u, remapped %u cache "
+				"lines\n", req->part_id,
+				ocf_engine_repart_count(req), remapped);
 	}
 }
 
