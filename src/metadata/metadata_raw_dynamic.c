@@ -402,7 +402,7 @@ static int raw_dynamic_load_all_read(struct ocf_request *req)
 
 	count = metadata_io_size(context->i_page, raw->ssd_pages);
 
-	req->cache_forward_end = raw_dynamic_load_all_read_end;
+	ocf_req_forward_cache_init(req, raw_dynamic_load_all_read_end);
 
 	ocf_req_forward_cache_io(req, OCF_READ,
 			PAGES_TO_BYTES(ssd_pages_offset + context->i_page),

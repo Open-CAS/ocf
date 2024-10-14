@@ -111,7 +111,7 @@ static int metadata_io_read_i_atomic_step(struct ocf_request *req)
 	/* Reset position in data buffer */
 	ctx_data_seek(cache->owner, req->data, ctx_data_seek_begin, 0);
 
-	req->cache_forward_end = metadata_io_read_i_atomic_step_end;
+	ocf_req_forward_cache_init(req, metadata_io_read_i_atomic_step_end);
 
 	ocf_req_forward_cache_metadata(req, OCF_READ,
 			cache->device->metadata_offset +
@@ -217,7 +217,7 @@ static int metadata_io_do(struct ocf_request *req)
 
 	ctx_data_seek(cache->owner, req->data, ctx_data_seek_begin, 0);
 
-	req->cache_forward_end = metadata_io_end;
+	ocf_req_forward_cache_init(req, metadata_io_end);
 
 	ocf_req_forward_cache_io(req, req->rw, PAGES_TO_BYTES(m_req->page),
 			PAGES_TO_BYTES(m_req->count), 0);

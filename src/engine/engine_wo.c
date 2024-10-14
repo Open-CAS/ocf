@@ -62,7 +62,7 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 	uint64_t offset = 0;
 	uint64_t increment = 0;
 
-	req->cache_forward_end = ocf_read_wo_cache_complete;
+	ocf_req_forward_cache_init(req, ocf_read_wo_cache_complete);
 
 	ocf_req_forward_cache_get(req);
 

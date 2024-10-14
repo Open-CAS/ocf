@@ -290,7 +290,7 @@ static int _ocf_cleaner_fire_flush_cache(struct ocf_request *req)
 {
 	OCF_DEBUG_TRACE(req->cache);
 
-	req->cache_forward_end = _ocf_cleaner_flush_cache_end;
+	ocf_req_forward_cache_init(req, _ocf_cleaner_flush_cache_end);
 	ocf_req_forward_cache_flush(req);
 
 	return 0;
@@ -390,9 +390,8 @@ static void _ocf_cleaner_flush_core_end(struct ocf_request *req, int error)
 
 static int _ocf_cleaner_fire_flush_core(struct ocf_request *req)
 {
-	req->core_forward_end = _ocf_cleaner_flush_core_end;
-
 	/* Submit flush request */
+	ocf_req_forward_core_init(req, _ocf_cleaner_flush_core_end);
 	ocf_req_forward_core_flush(req);
 
 	return 0;
@@ -494,7 +493,7 @@ static int _ocf_cleaner_fire_core(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	req->core_forward_end = _ocf_cleaner_core_io_end;
+	ocf_req_forward_core_init(req, _ocf_cleaner_core_io_end);
 
 	/* Submits writes to the core */
 	ocf_req_forward_core_get(req);
@@ -559,7 +558,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 	uint64_t addr, offset;
 	ocf_part_id_t part_id;
 
-	req->cache_forward_end = _ocf_cleaner_cache_io_end;
+	ocf_req_forward_cache_init(req, _ocf_cleaner_cache_io_end);
 	req->bytes = ocf_line_size(cache);
 
 	ocf_req_forward_cache_get(req);
