@@ -261,7 +261,7 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_core_t core;
 	ocf_cache_t cache;
-	int ret;
+	int ret, fastpath;
 
 	OCF_CHECK_NULL(io);
 
@@ -303,15 +303,15 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 	 * sequential cutoff info */
 	ocf_req_get(req);
 
-	if (ocf_core_submit_io_fast(req, cache) == OCF_FAST_PATH_YES) {
-		ocf_core_seq_cutoff_update(core, req);
-		ocf_req_put(req);
-		return;
-	}
+	fastpath = ocf_core_submit_io_fast(req, cache);
 
-	ocf_req_put(req);
-	ocf_req_clear_map(req);
 	ocf_core_seq_cutoff_update(core, req);
+	ocf_req_put(req);
+
+	if (fastpath == OCF_FAST_PATH_YES)
+		return;
+
+	ocf_req_clear_map(req);
 
 	ret = ocf_engine_hndl_req(req);
 	if (ret) {
