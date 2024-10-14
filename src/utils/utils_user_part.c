@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -107,22 +108,19 @@ void ocf_user_part_move(struct ocf_request *req)
 			continue;
 		}
 
-		/* Moving cachelines to another partition is needed only
-		 * for those already mapped before this request and remapped
-		 * cachelines are assigned to target partition during eviction.
-		 * So only hit cachelines are interesting.
-		 */
-		if (entry->status != LOOKUP_HIT) {
-			/* No HIT */
-			continue;
-		}
-
 		line = entry->coll_idx;
 		id_old = ocf_metadata_get_partition_id(cache, line);
 		id_new = req->part_id;
 
 		ENV_BUG_ON(id_old >= OCF_USER_IO_CLASS_MAX ||
 				id_new >= OCF_USER_IO_CLASS_MAX);
+
+		if (unlikely(entry->status == LOOKUP_MISS)) {
+			ocf_cache_log(cache, log_err, "Attempt to remap "
+					"an unmapped cache line from ioclass "
+					"%hu to ioclass %hu\n", id_old, id_new);
+			ENV_BUG();
+		}
 
 		if (id_old == id_new) {
 			/* Partition of the request and cache line is the same,
