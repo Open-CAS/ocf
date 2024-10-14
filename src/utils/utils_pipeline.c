@@ -37,6 +37,7 @@ static int _ocf_pipeline_run_step(struct ocf_request *req)
 
 	while (true) {
 		step = &pipeline->properties->steps[pipeline->next_step];
+		ocf_cache_log(req->cache, log_debug, "PL STEP: %s\n", step->name);
 		switch (step->type) {
 		case ocf_pipeline_step_single:
 			pipeline->next_step++;
