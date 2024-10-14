@@ -130,11 +130,6 @@ struct ocf_request_io {
 	uint8_t io_class;
 
 	/**
-	 * @brief OCF IO reference count
-	 */
-	env_atomic ref_count;
-
-	/**
 	 * @brief Front volume handle
 	 */
 	ocf_volume_t volume;
