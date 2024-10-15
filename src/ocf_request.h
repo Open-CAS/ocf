@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -254,6 +254,9 @@ struct ocf_request {
 	uint8_t rw : 1;
 	/*!< Indicator of IO direction - Read/Write */
 
+	uint8_t alock_rw: 1;
+	/*!< Read/Write mode for alock*/
+
 	uint8_t d2c : 1;
 	/**!< request affects metadata cachelines (is not direct-to-core) */
 
@@ -308,9 +311,6 @@ struct ocf_request {
 	/*!< Request completion function */
 
 	struct ocf_req_discard_info discard;
-
-	uint32_t alock_rw;
-	/*!< Read/Write mode for alock*/
 
 	uint8_t *alock_status;
 	/*!< Mapping for locked/unlocked alock entries */
