@@ -295,9 +295,6 @@ struct ocf_request {
 
 	ocf_req_cache_mode_t cache_mode;
 
-	uint64_t timestamp;
-	/*!< Tracing timestamp */
-
 	ocf_queue_t io_queue;
 	/*!< I/O queue handle for which request should be submitted */
 
