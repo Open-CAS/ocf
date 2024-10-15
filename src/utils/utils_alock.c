@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -499,7 +499,7 @@ static inline void ocf_alock_unlock_one_rd_common(struct ocf_alock *alock,
 		const ocf_cache_line_t entry)
 {
 	bool locked = false;
-	bool exchanged = true;
+	bool exchanged = false;
 
 	uint32_t idx = _WAITERS_LIST_ITEM(entry);
 	struct ocf_alock_waiters_list *lst = &alock->waiters_lsts[idx];
@@ -521,7 +521,7 @@ static inline void ocf_alock_unlock_one_rd_common(struct ocf_alock *alock,
 		if (entry != waiter->entry)
 			continue;
 
-		if (exchanged) {
+		if (!exchanged) {
 			if (waiter->rw == OCF_WRITE)
 				locked = ocf_alock_trylock_entry_rd2wr(alock, entry);
 			else if (waiter->rw == OCF_READ)
@@ -538,7 +538,7 @@ static inline void ocf_alock_unlock_one_rd_common(struct ocf_alock *alock,
 		}
 
 		if (locked) {
-			exchanged = false;
+			exchanged = true;
 			list_del(iter);
 
 			ocf_alock_mark_index_locked(alock, waiter->req, waiter->idx, true);
@@ -550,7 +550,7 @@ static inline void ocf_alock_unlock_one_rd_common(struct ocf_alock *alock,
 		}
 	}
 
-	if (exchanged) {
+	if (!exchanged) {
 		/* No exchange, no waiters on the list, unlock and return
 		 * WR -> IDLE
 		 */
@@ -586,7 +586,7 @@ static inline void ocf_alock_unlock_one_wr_common(struct ocf_alock *alock,
 		const ocf_cache_line_t entry)
 {
 	bool locked = false;
-	bool exchanged = true;
+	bool exchanged = false;
 
 	uint32_t idx = _WAITERS_LIST_ITEM(entry);
 	struct ocf_alock_waiters_list *lst = &alock->waiters_lsts[idx];
@@ -608,7 +608,7 @@ static inline void ocf_alock_unlock_one_wr_common(struct ocf_alock *alock,
 		if (entry != waiter->entry)
 			continue;
 
-		if (exchanged) {
+		if (!exchanged) {
 			if (waiter->rw == OCF_WRITE)
 				locked = ocf_alock_trylock_entry_wr2wr(alock, entry);
 			else if (waiter->rw == OCF_READ)
@@ -625,7 +625,7 @@ static inline void ocf_alock_unlock_one_wr_common(struct ocf_alock *alock,
 		}
 
 		if (locked) {
-			exchanged = false;
+			exchanged = true;
 			list_del(iter);
 
 			ocf_alock_mark_index_locked(alock, waiter->req, waiter->idx, true);
@@ -637,7 +637,7 @@ static inline void ocf_alock_unlock_one_wr_common(struct ocf_alock *alock,
 		}
 	}
 
-	if (exchanged) {
+	if (!exchanged) {
 		/* No exchange, no waiters on the list, unlock and return
 		 * WR -> IDLE
 		 */
