@@ -20,7 +20,7 @@ void ocf_engine_forward_cache_io(struct ocf_request *req, int dir,
 	uint32_t first_cl = ocf_bytes_2_lines(cache, offset + seek);
 	uint64_t addr;
 
-	req->cache_forward_end = callback;
+	ocf_req_forward_cache_init(req, callback);
 
 	addr = cache->device->metadata_offset;
 	addr += req->map[first_cl].coll_idx * ocf_line_size(cache);
@@ -40,7 +40,7 @@ void ocf_engine_forward_cache_io_req(struct ocf_request *req, int dir,
 	uint64_t addr, bytes, total_bytes = 0, addr_next = 0;
 	uint32_t i;
 
-	req->cache_forward_end = callback;
+	ocf_req_forward_cache_init(req, callback);
 
 	if (ocf_engine_is_sequential(req)) {
 		addr = cache->device->metadata_offset;
@@ -113,7 +113,7 @@ void ocf_engine_forward_cache_io_req(struct ocf_request *req, int dir,
 void ocf_engine_forward_cache_flush_req(struct ocf_request *req,
 		ocf_req_end_t callback)
 {
-	req->cache_forward_end = callback;
+	ocf_req_forward_cache_init(req, callback);
 
 	ocf_req_forward_cache_flush(req);
 }
@@ -121,7 +121,7 @@ void ocf_engine_forward_cache_flush_req(struct ocf_request *req,
 void ocf_engine_forward_cache_discard_req(struct ocf_request *req,
 		ocf_req_end_t callback)
 {
-	req->cache_forward_end = callback;
+	ocf_req_forward_cache_init(req, callback);
 
 	ocf_req_forward_cache_discard(req, req->addr,
 			req->bytes);
@@ -133,7 +133,7 @@ void ocf_engine_forward_core_io_req(struct ocf_request *req,
 	ocf_core_stats_core_block_update(req->core, req->part_id, req->rw,
 			req->bytes);
 
-	req->core_forward_end = callback;
+	ocf_req_forward_core_init(req, callback);
 
 	ocf_req_forward_core_io(req, req->rw, req->addr,
 			req->bytes, req->offset);
@@ -145,7 +145,7 @@ void ocf_engine_forward_core_flush_req(struct ocf_request *req,
 	ocf_core_stats_core_block_update(req->core, req->part_id, req->rw,
 			req->bytes);
 
-	req->core_forward_end = callback;
+	ocf_req_forward_core_init(req, callback);
 
 	ocf_req_forward_core_flush(req);
 }
@@ -156,7 +156,7 @@ void ocf_engine_forward_core_discard_req(struct ocf_request *req,
 	ocf_core_stats_core_block_update(req->core, req->part_id, req->rw,
 			req->bytes);
 
-	req->core_forward_end = callback;
+	ocf_req_forward_core_init(req, callback);
 
 	ocf_req_forward_core_discard(req, req->addr, req->bytes);
 }

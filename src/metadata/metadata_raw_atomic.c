@@ -118,7 +118,7 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 	}
 
 	req->priv = complete;
-	req->cache_forward_end = _raw_atomic_io_discard_cmpl;
+	ocf_req_forward_cache_init(req, _raw_atomic_io_discard_cmpl);
 
 	if (line_no == 1) {
 		map = &req->map[0];

@@ -332,7 +332,7 @@ static void ocf_cache_volume_submit_io(ocf_io_t io)
 
 	env_atomic_set(&req->req_remaining, 3);
 
-	req->cache_forward_end = ocf_cache_io_complete;
+	ocf_req_forward_cache_init(req, ocf_cache_io_complete);
 	ocf_req_forward_cache_io(req, req->rw, req->addr,
 			req->bytes, req->offset);
 
@@ -361,7 +361,7 @@ static void ocf_cache_volume_submit_flush(ocf_io_t io)
 		return;
 	}
 
-	req->cache_forward_end = ocf_cache_volume_io_complete_generic;
+	ocf_req_forward_cache_init(req, ocf_cache_volume_io_complete_generic);
 	ocf_req_forward_cache_flush(req);
 }
 
@@ -380,7 +380,7 @@ static void ocf_cache_volume_submit_discard(ocf_io_t io)
 		return;
 	}
 
-	req->cache_forward_end = ocf_cache_volume_io_complete_generic;
+	ocf_req_forward_cache_init(req, ocf_cache_volume_io_complete_generic);
 	ocf_req_forward_cache_discard(req, req->addr,
 			req->bytes);
 }

@@ -46,7 +46,7 @@ void ocf_submit_cache_flush(ocf_cache_t cache,
 		return;
 	}
 
-	req->cache_forward_end = ocf_submit_cache_end;
+	ocf_req_forward_cache_init(req, ocf_submit_cache_end);
 	req->priv = context;
 
 	ocf_req_forward_cache_flush(req);
@@ -75,7 +75,7 @@ void ocf_submit_cache_discard(ocf_cache_t cache, uint64_t addr,
 		return;
 	}
 
-	req->cache_forward_end = ocf_submit_cache_end;
+	ocf_req_forward_cache_init(req, ocf_submit_cache_end);
 	req->priv = context;
 
 	ocf_req_forward_cache_get(req);
@@ -181,7 +181,7 @@ void ocf_submit_cache_page(ocf_cache_t cache, uint64_t addr, int dir,
 
 	req->data = data;
 
-	req->cache_forward_end = ocf_submit_cache_page_end;
+	ocf_req_forward_cache_init(req, ocf_submit_cache_page_end);
 	req->priv = context;
 	req->rw = dir;
 	req->addr = addr;

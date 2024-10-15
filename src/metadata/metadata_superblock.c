@@ -705,7 +705,7 @@ int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
 		goto err_data;
 	}
 
-	req->volume_forward_end = ocf_metadata_read_sb_complete;
+	ocf_req_forward_volume_init(req, ocf_metadata_read_sb_complete);
 	req->priv = context;
 
 	ocf_req_forward_volume_io_simple(req, volume, OCF_READ, 0,

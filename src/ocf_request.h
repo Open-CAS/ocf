@@ -172,10 +172,7 @@ struct ocf_request {
 	/* This struct is temporary. It will be consolidated with ocf_request */
 	struct ocf_request_io io;
 
-	union {
-		ocf_req_end_t cache_forward_end;
-		ocf_req_end_t volume_forward_end;
-	};
+	ocf_req_end_t cache_forward_end;
 	ocf_req_end_t core_forward_end;
 	env_atomic cache_remaining;
 	env_atomic core_remaining;
@@ -602,6 +599,9 @@ static inline struct ocf_request *ocf_req_forward_token_to_req(ocf_forward_token
 	return (struct ocf_request *)(token & ~1);
 }
 
+void ocf_req_forward_volume_init(struct ocf_request *req,
+		ocf_req_end_t callback);
+
 void ocf_req_forward_volume_io(struct ocf_request *req, ocf_volume_t volume,
 		int dir, uint64_t addr, uint64_t bytes, uint64_t offset);
 
@@ -612,6 +612,9 @@ void ocf_req_forward_volume_discard(struct ocf_request *req,
 
 void ocf_req_forward_volume_io_simple(struct ocf_request *req,
 		ocf_volume_t volume, int dir, uint64_t addr, uint64_t bytes);
+
+void ocf_req_forward_cache_init(struct ocf_request *req,
+		ocf_req_end_t callback);
 
 void ocf_req_forward_cache_io(struct ocf_request *req, int dir, uint64_t addr,
 		uint64_t bytes, uint64_t offset);
@@ -626,6 +629,9 @@ void ocf_req_forward_cache_write_zeros(struct ocf_request *req, uint64_t addr,
 
 void ocf_req_forward_cache_metadata(struct ocf_request *req, int dir,
 		uint64_t addr, uint64_t bytes, uint64_t offset);
+
+void ocf_req_forward_core_init(struct ocf_request *req,
+		ocf_req_end_t callback);
 
 void ocf_req_forward_core_io(struct ocf_request *req, int dir, uint64_t addr,
 		uint64_t bytes, uint64_t offset);

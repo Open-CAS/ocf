@@ -281,7 +281,7 @@ ocf_io_t ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
 	return ocf_io_new(volume, queue, addr, bytes, dir, io_class, flags);
 }
 
-static void ocf_volume_req_forward_complete(struct ocf_request *req, int error)
+static void ocf_volume_req_forward_end(struct ocf_request *req, int error)
 {
 	ocf_io_end_func(req, error);
 }
@@ -299,7 +299,7 @@ void ocf_volume_submit_io(ocf_io_t io)
 	if (likely(volume->type->properties->ops.submit_io)) {
 		volume->type->properties->ops.submit_io(io);
 	} else {
-		req->volume_forward_end = ocf_volume_req_forward_complete;
+		ocf_req_forward_volume_init(req, ocf_volume_req_forward_end);
 		ocf_req_forward_volume_io(req, volume, req->rw, req->addr,
 				req->bytes, req->offset);
 	}
@@ -318,7 +318,7 @@ void ocf_volume_submit_flush(ocf_io_t io)
 	if (likely(volume->type->properties->ops.submit_flush)) {
 		volume->type->properties->ops.submit_flush(io);
 	} else {
-		req->volume_forward_end = ocf_volume_req_forward_complete;
+		ocf_req_forward_volume_init(req, ocf_volume_req_forward_end);
 		ocf_req_forward_volume_flush(req, volume);
 	}
 }
@@ -336,7 +336,7 @@ void ocf_volume_submit_discard(ocf_io_t io)
 	if (likely(volume->type->properties->ops.submit_discard)) {
 		volume->type->properties->ops.submit_discard(io);
 	} else {
-		req->volume_forward_end = ocf_volume_req_forward_complete;
+		ocf_req_forward_volume_init(req, ocf_volume_req_forward_end);
 		ocf_req_forward_volume_discard(req, volume,
 				req->addr, req->bytes);
 	}
