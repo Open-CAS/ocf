@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -98,22 +99,12 @@ void ocf_user_part_move(struct ocf_request *req)
 	struct ocf_map_info *entry;
 	ocf_cache_line_t line;
 	ocf_part_id_t id_old, id_new;
-	uint32_t i;
+	uint32_t i, remapped = 0;
 
 	entry = &req->map[0];
 	for (i = 0; i < req->core_line_count; i++, entry++) {
 		if (!entry->re_part) {
 			/* Changing partition not required */
-			continue;
-		}
-
-		/* Moving cachelines to another partition is needed only
-		 * for those already mapped before this request and remapped
-		 * cachelines are assigned to target partition during eviction.
-		 * So only hit cachelines are interesting.
-		 */
-		if (entry->status != LOOKUP_HIT) {
-			/* No HIT */
 			continue;
 		}
 
@@ -123,6 +114,13 @@ void ocf_user_part_move(struct ocf_request *req)
 
 		ENV_BUG_ON(id_old >= OCF_USER_IO_CLASS_MAX ||
 				id_new >= OCF_USER_IO_CLASS_MAX);
+
+		if (unlikely(entry->status == LOOKUP_MISS)) {
+			ocf_cache_log(cache, log_err, "Attempt to remap "
+					"an unmapped cache line from ioclass "
+					"%hu to ioclass %hu\n", id_old, id_new);
+			ENV_BUG();
+		}
 
 		if (id_old == id_new) {
 			/* Partition of the request and cache line is the same,
@@ -163,7 +161,16 @@ void ocf_user_part_move(struct ocf_request *req)
 		env_atomic_dec(&req->core->runtime_meta->
 				part_counters[id_old].cached_clines);
 
+		remapped++;
+
 		/* DONE */
+	}
+
+	if (unlikely(remapped != ocf_engine_repart_count(req))) {
+		ocf_cache_log(cache, log_warn, "Inconsitency on remapping to "
+				"ioclass %hu. Expected %u, remapped %u cache "
+				"lines\n", req->part_id,
+				ocf_engine_repart_count(req), remapped);
 	}
 }
 
