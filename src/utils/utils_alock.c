@@ -521,20 +521,18 @@ static inline void ocf_alock_unlock_one_rd_common(struct ocf_alock *alock,
 		if (entry != waiter->entry)
 			continue;
 
+		ENV_BUG_ON(waiter->rw != OCF_READ && waiter->rw != OCF_WRITE);
+
 		if (!exchanged) {
 			if (waiter->rw == OCF_WRITE)
 				locked = ocf_alock_trylock_entry_rd2wr(alock, entry);
 			else if (waiter->rw == OCF_READ)
 				locked = ocf_alock_trylock_entry_rd2rd(alock, entry);
-			else
-				ENV_BUG();
 		} else {
 			if (waiter->rw == OCF_WRITE)
 				locked = ocf_alock_trylock_entry_wr(alock, entry);
 			else if (waiter->rw == OCF_READ)
 				locked = ocf_alock_trylock_entry_rd(alock, entry);
-			else
-				ENV_BUG();
 		}
 
 		if (locked) {
@@ -608,20 +606,18 @@ static inline void ocf_alock_unlock_one_wr_common(struct ocf_alock *alock,
 		if (entry != waiter->entry)
 			continue;
 
+		ENV_BUG_ON(waiter->rw != OCF_READ && waiter->rw != OCF_WRITE);
+
 		if (!exchanged) {
 			if (waiter->rw == OCF_WRITE)
 				locked = ocf_alock_trylock_entry_wr2wr(alock, entry);
 			else if (waiter->rw == OCF_READ)
 				locked = ocf_alock_trylock_entry_wr2rd(alock, entry);
-			else
-				ENV_BUG();
 		} else {
 			if (waiter->rw == OCF_WRITE)
 				locked = ocf_alock_trylock_entry_wr(alock, entry);
 			else if (waiter->rw == OCF_READ)
 				locked = ocf_alock_trylock_entry_rd(alock, entry);
-			else
-				ENV_BUG();
 		}
 
 		if (locked) {
