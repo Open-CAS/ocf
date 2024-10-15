@@ -550,7 +550,7 @@ static ocf_cache_line_t _acp_trylock_dirty(struct ocf_cache *cache,
 	ocf_engine_lookup_map_entry(cache, &info, core_id,
 			core_line);
 
-	if (info.status == LOOKUP_HIT &&
+	if ((info.status == LOOKUP_HIT || info.status == LOOKUP_HIT_INVALID) &&
 			metadata_test_dirty(cache, info.coll_idx)) {
 		locked = ocf_cache_line_try_lock_rd(
 				ocf_cache_line_concurrency(cache),
