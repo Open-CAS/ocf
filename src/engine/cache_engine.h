@@ -47,4 +47,7 @@ void ocf_engine_hndl_flush_req(struct ocf_request *req);
 
 void ocf_engine_hndl_discard_req(struct ocf_request *req);
 
+void ocf_debug_request_trace(struct ocf_request *req,
+		ocf_req_cache_mode_t engine, uint8_t info);
+
 #endif

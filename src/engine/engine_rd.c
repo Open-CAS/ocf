@@ -183,10 +183,10 @@ int ocf_read_generic(struct ocf_request *req)
 	int lock = OCF_LOCK_NOT_ACQUIRED;
 	struct ocf_cache *cache = req->cache;
 
-
 	if (env_atomic_read(&cache->pending_read_misses_list_blocked)) {
 		/* There are conditions to bypass IO */
 		req->force_pt = true;
+		ocf_debug_request_trace(req, ocf_req_cache_mode_pt, 4);
 		ocf_read_pt(req);
 		return 0;
 	}
@@ -204,9 +204,11 @@ int ocf_read_generic(struct ocf_request *req)
 		if (lock >= 0) {
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* Lock was not acquired, need to wait for resume */
+				ocf_debug_request_trace(req, ocf_req_cache_mode_rd, 1);
 				OCF_DEBUG_RQ(req, "NO LOCK");
 			} else {
 				/* Lock was acquired can perform IO */
+				ocf_debug_request_trace(req, ocf_req_cache_mode_rd, 2);
 				_ocf_read_generic_do(req);
 			}
 		} else {
@@ -217,6 +219,7 @@ int ocf_read_generic(struct ocf_request *req)
 	} else {
 		ocf_req_clear(req);
 		req->force_pt = true;
+		ocf_debug_request_trace(req, ocf_req_cache_mode_pt, 5);
 		ocf_read_pt(req);
 	}
 

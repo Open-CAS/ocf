@@ -36,12 +36,14 @@ int ocf_write_wa(struct ocf_request *req)
 		ocf_req_clear(req);
 
 		/* There is HIT, do WT */
+		ocf_debug_request_trace(req, ocf_req_cache_mode_wt, 2);
 		ocf_write_wt(req);
 
 	} else {
 		ocf_req_clear(req);
 
 		/* MISS, do WI */
+		ocf_debug_request_trace(req, ocf_req_cache_mode_wi, 3);
 		ocf_write_wi(req);
 	}
 

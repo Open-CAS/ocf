@@ -87,6 +87,7 @@ static void _ocf_write_wb_complete(struct ocf_request *req, int error)
 
 		req->complete(req, error);
 
+		ocf_debug_request_trace(req, ocf_req_cache_mode_invalidate, 0);
 		ocf_engine_invalidate(req);
 	} else {
 		ocf_queue_push_req_cb(req, ocf_write_wb_do_flush_metadata,
@@ -149,7 +150,6 @@ int ocf_write_wb(struct ocf_request *req)
 {
 	int lock = OCF_LOCK_NOT_ACQUIRED;
 
-
 	/* Not sure if we need this. */
 	ocf_req_get(req);
 
@@ -166,7 +166,9 @@ int ocf_write_wb(struct ocf_request *req)
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* WR lock was not acquired, need to wait for resume */
 				OCF_DEBUG_RQ(req, "NO LOCK");
+				ocf_debug_request_trace(req, ocf_req_cache_mode_wb, 3);
 			} else {
+				ocf_debug_request_trace(req, ocf_req_cache_mode_wb, 2);
 				ocf_write_wb_do(req);
 			}
 		} else {
@@ -176,6 +178,7 @@ int ocf_write_wb(struct ocf_request *req)
 		}
 	} else {
 		ocf_req_clear(req);
+		ocf_debug_request_trace(req, ocf_req_cache_mode_wi, 0);
 		ocf_write_wi(req);
 	}
 
