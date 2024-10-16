@@ -313,17 +313,16 @@ static inline void ocf_alock_unlock_entry_rd(struct ocf_alock *alock,
 	env_atomic_dec(access);
 }
 
-static inline bool ocf_alock_trylock_entry_wr2wr(struct ocf_alock *alock,
+static inline void ocf_alock_lock_entry_wr2wr(struct ocf_alock *alock,
 		ocf_cache_line_t entry)
 {
 	env_atomic *access = &alock->access[entry];
 	int v = env_atomic_read(access);
 
 	ENV_BUG_ON(v != OCF_CACHE_LINE_ACCESS_WR);
-	return true;
 }
 
-static inline bool ocf_alock_trylock_entry_wr2rd(struct ocf_alock *alock,
+static inline void ocf_alock_lock_entry_wr2rd(struct ocf_alock *alock,
 		ocf_cache_line_t entry)
 {
 	env_atomic *access = &alock->access[entry];
@@ -331,7 +330,6 @@ static inline bool ocf_alock_trylock_entry_wr2rd(struct ocf_alock *alock,
 
 	ENV_BUG_ON(v != OCF_CACHE_LINE_ACCESS_WR);
 	env_atomic_set(access, OCF_CACHE_LINE_ACCESS_ONE_RD);
-	return true;
 }
 
 static inline bool ocf_alock_trylock_entry_rd2wr(struct ocf_alock *alock,
@@ -491,68 +489,95 @@ unlock:
 }
 
 /*
- * Unlocks the given read lock. If any waiters are registered for the same
- * cacheline, one is awakened and the lock is either upgraded to a write lock
- * or kept as a readlock. If there are no waiters, it's just unlocked.
+ * Unlocks the given read lock.
+ *
+ * The lock can be upgraded to write lock and passed to the first waiter if the
+ * current owner is the last one holding the read lock.
+ *
+ * If there are requests waiting for read access to the cache line, the lock
+ * will be granted to all such waiters that are not preceded by a write request
  */
 static inline void ocf_alock_unlock_one_rd_common(struct ocf_alock *alock,
 		const ocf_cache_line_t entry)
 {
-	bool locked = false;
-	bool exchanged = false;
-
+	bool locked = false, no_waiters = true;
+	int rw;
 	uint32_t idx = _WAITERS_LIST_ITEM(entry);
 	struct ocf_alock_waiters_list *lst = &alock->waiters_lsts[idx];
-	struct ocf_alock_waiter *waiter;
-
-	struct list_head *iter, *next;
+	struct ocf_alock_waiter *waiter, *waiter_tmp;
 
 	/*
 	 * Lock exchange scenario
 	 * 1. RD -> IDLE
-	 * 2. RD -> RD
-	 * 3. RD -> WR
+	 * 2. RD -> WR
+	 * 3. RD -> RD
+	 * 4. RD -> Multiple RD
 	 */
 
-	/* Check is requested page is on the list */
-	list_for_each_safe(iter, next, &lst->head) {
-		waiter = list_entry(iter, struct ocf_alock_waiter, item);
+	/* Check if any request is waiting for the cache line */
+	list_for_each_entry_safe(waiter, waiter_tmp, &lst->head, item) {
+		if (entry == waiter->entry) {
+			no_waiters = false;
+			break;
+		}
+	}
 
+	 /* RD -> IDLE */
+	if (no_waiters) {
+		ocf_alock_unlock_entry_rd(alock, entry);
+		return;
+	}
+
+	ENV_BUG_ON(waiter->rw != OCF_READ && waiter->rw != OCF_WRITE);
+
+	 /* RD -> WR/RD */
+	if (waiter->rw == OCF_WRITE)
+		locked = ocf_alock_trylock_entry_rd2wr(alock, entry);
+	else if (waiter->rw == OCF_READ)
+		locked = ocf_alock_trylock_entry_rd2rd(alock, entry);
+
+	if (unlikely(!locked)) {
+		ocf_alock_unlock_entry_rd(alock, entry);
+		return;
+	}
+
+	rw = waiter->rw;
+
+	list_del(&waiter->item);
+
+	ocf_alock_mark_index_locked(alock, waiter->req, waiter->idx, true);
+	ocf_alock_entry_locked(alock, waiter->req, waiter->cmpl);
+
+	env_allocator_del(alock->allocator, waiter);
+
+	/* If we upgraded to write lock, the read reaquests won't be able to
+	 * lock the cache line anyways
+	 */
+	if (rw == OCF_WRITE)
+		return;
+
+	waiter = waiter_tmp;
+
+	 /* RD -> Multiple RD */
+	list_for_each_entry_safe_from(waiter, waiter_tmp, &lst->head, item) {
 		if (entry != waiter->entry)
 			continue;
 
 		ENV_BUG_ON(waiter->rw != OCF_READ && waiter->rw != OCF_WRITE);
 
-		if (!exchanged) {
-			if (waiter->rw == OCF_WRITE)
-				locked = ocf_alock_trylock_entry_rd2wr(alock, entry);
-			else if (waiter->rw == OCF_READ)
-				locked = ocf_alock_trylock_entry_rd2rd(alock, entry);
-		} else {
-			if (waiter->rw == OCF_WRITE)
-				locked = ocf_alock_trylock_entry_wr(alock, entry);
-			else if (waiter->rw == OCF_READ)
-				locked = ocf_alock_trylock_entry_rd(alock, entry);
-		}
+		if (waiter->rw == OCF_WRITE)
+			return;
 
-		if (locked) {
-			exchanged = true;
-			list_del(iter);
+		locked = ocf_alock_trylock_entry_rd(alock, entry);
+		/* There is no limit for number of readers */
+		ENV_BUG_ON(!locked);
 
-			ocf_alock_mark_index_locked(alock, waiter->req, waiter->idx, true);
-			ocf_alock_entry_locked(alock, waiter->req, waiter->cmpl);
+		list_del(&waiter->item);
 
-			env_allocator_del(alock->allocator, waiter);
-		} else {
-			break;
-		}
-	}
+		ocf_alock_mark_index_locked(alock, waiter->req, waiter->idx, true);
+		ocf_alock_entry_locked(alock, waiter->req, waiter->cmpl);
 
-	if (!exchanged) {
-		/* No exchange, no waiters on the list, unlock and return
-		 * WR -> IDLE
-		 */
-		ocf_alock_unlock_entry_rd(alock, entry);
+		env_allocator_del(alock->allocator, waiter);
 	}
 }
 
@@ -576,68 +601,90 @@ void ocf_alock_unlock_one_rd(struct ocf_alock *alock,
 }
 
 /*
- * Unlocks the given write lock. If any waiters are registered for the same
- * cacheline, one is awakened and the lock is either downgraded to a readlock
- * or kept as a writelock. If there are no waiters, it's just unlocked.
+ * Unlocks the given write lock.
+ *
+ * The lock can be passed to the first waiter
+ *
+ * If there are requests waiting for read access to the cache line, the lock
+ * will be downgraded and granted to all such waiters that are not preceded by
+ * a write request
  */
 static inline void ocf_alock_unlock_one_wr_common(struct ocf_alock *alock,
 		const ocf_cache_line_t entry)
 {
-	bool locked = false;
-	bool exchanged = false;
-
+	bool locked = false, no_waiters = true;
+	int rw;
 	uint32_t idx = _WAITERS_LIST_ITEM(entry);
 	struct ocf_alock_waiters_list *lst = &alock->waiters_lsts[idx];
-	struct ocf_alock_waiter *waiter;
-
-	struct list_head *iter, *next;
+	struct ocf_alock_waiter *waiter, *waiter_tmp;
 
 	/*
 	 * Lock exchange scenario
 	 * 1. WR -> IDLE
-	 * 2. WR -> RD
-	 * 3. WR -> WR
+	 * 2. WR -> WR
+	 * 3. WR -> RD
+	 * 4. WR -> Multiple RD
 	 */
 
-	/* Check is requested page is on the list */
-	list_for_each_safe(iter, next, &lst->head) {
-		waiter = list_entry(iter, struct ocf_alock_waiter, item);
+	/* Check if any request is waiting for the cache line */
+	list_for_each_entry_safe(waiter, waiter_tmp, &lst->head, item) {
+		if (entry == waiter->entry) {
+			no_waiters = false;
+			break;
+		}
+	}
 
+	 /* WR -> IDLE */
+	if (no_waiters) {
+		ocf_alock_unlock_entry_wr(alock, entry);
+		return;
+	}
+
+	ENV_BUG_ON(waiter->rw != OCF_READ && waiter->rw != OCF_WRITE);
+
+	 /* WR -> WR/RD */
+	if (waiter->rw == OCF_WRITE)
+		ocf_alock_lock_entry_wr2wr(alock, entry);
+	else if (waiter->rw == OCF_READ)
+		ocf_alock_lock_entry_wr2rd(alock, entry);
+
+	rw = waiter->rw;
+
+	list_del(&waiter->item);
+
+	ocf_alock_mark_index_locked(alock, waiter->req, waiter->idx, true);
+	ocf_alock_entry_locked(alock, waiter->req, waiter->cmpl);
+
+	env_allocator_del(alock->allocator, waiter);
+
+	/* If we passed the write lock, the read requests won't be able to lock
+	 * the cache line anyways
+	 */
+	if (rw == OCF_WRITE)
+		return;
+
+	waiter = waiter_tmp;
+
+	 /* WR -> Multiple RD */
+	list_for_each_entry_safe_from(waiter, waiter_tmp, &lst->head, item) {
 		if (entry != waiter->entry)
 			continue;
 
 		ENV_BUG_ON(waiter->rw != OCF_READ && waiter->rw != OCF_WRITE);
 
-		if (!exchanged) {
-			if (waiter->rw == OCF_WRITE)
-				locked = ocf_alock_trylock_entry_wr2wr(alock, entry);
-			else if (waiter->rw == OCF_READ)
-				locked = ocf_alock_trylock_entry_wr2rd(alock, entry);
-		} else {
-			if (waiter->rw == OCF_WRITE)
-				locked = ocf_alock_trylock_entry_wr(alock, entry);
-			else if (waiter->rw == OCF_READ)
-				locked = ocf_alock_trylock_entry_rd(alock, entry);
-		}
+		if (waiter->rw == OCF_WRITE)
+			return;
 
-		if (locked) {
-			exchanged = true;
-			list_del(iter);
+		locked = ocf_alock_trylock_entry_rd(alock, entry);
+		/* There is no limit for number of readers */
+		ENV_BUG_ON(!locked);
 
-			ocf_alock_mark_index_locked(alock, waiter->req, waiter->idx, true);
-			ocf_alock_entry_locked(alock, waiter->req, waiter->cmpl);
+		list_del(&waiter->item);
 
-			env_allocator_del(alock->allocator, waiter);
-		} else {
-			break;
-		}
-	}
+		ocf_alock_mark_index_locked(alock, waiter->req, waiter->idx, true);
+		ocf_alock_entry_locked(alock, waiter->req, waiter->cmpl);
 
-	if (!exchanged) {
-		/* No exchange, no waiters on the list, unlock and return
-		 * WR -> IDLE
-		 */
-		ocf_alock_unlock_entry_wr(alock, entry);
+		env_allocator_del(alock->allocator, waiter);
 	}
 }
 
