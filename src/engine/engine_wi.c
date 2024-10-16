@@ -194,9 +194,12 @@ int ocf_write_wi(struct ocf_request *req)
 
 	if (lock >= 0) {
 		if (lock == OCF_LOCK_ACQUIRED) {
+			ocf_debug_request_trace(req, ocf_req_cache_mode_wi, 1);
+
 			req->engine_handler(req);
 		} else {
 			/* WR lock was not acquired, need to wait for resume */
+			ocf_debug_request_trace(req, ocf_req_cache_mode_wi, 2);
 			OCF_DEBUG_RQ(req, "NO LOCK");
 		}
 	} else {

@@ -97,7 +97,6 @@ int ocf_read_pt(struct ocf_request *req)
 
 	OCF_DEBUG_TRACE(req->cache);
 
-
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
@@ -136,14 +135,17 @@ int ocf_read_pt(struct ocf_request *req)
 		 * because of this force read data from cache
 		 */
 		ocf_req_clear(req);
+		ocf_debug_request_trace(req, ocf_req_cache_mode_rd, 0);
 		ocf_read_generic(req);
 	} else {
 		if (lock >= 0) {
 			if (lock == OCF_LOCK_ACQUIRED) {
 				/* Lock acquired perform read off operations */
+				ocf_debug_request_trace(req, ocf_req_cache_mode_pt, 2);
 				ocf_read_pt_do(req);
 			} else {
 				/* WR lock was not acquired, need to wait for resume */
+				ocf_debug_request_trace(req, ocf_req_cache_mode_pt, 3);
 				OCF_DEBUG_RQ(req, "NO LOCK");
 			}
 		} else {

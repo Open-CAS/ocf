@@ -612,6 +612,7 @@ static int _ocf_engine_refresh(struct ocf_request *req)
 		req->engine_handler = req->priv;
 		req->priv = NULL;
 
+		ocf_debug_request_trace(req, ocf_req_refresh, 0xd);
 		req->engine_handler(req);
 	} else {
 		ENV_WARN(true, "Inconsistent request");
