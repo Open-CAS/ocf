@@ -181,9 +181,11 @@ static int _ocf_discard_step(struct ocf_request *req)
 
 	if (lock >= 0) {
 		if (OCF_LOCK_ACQUIRED == lock) {
+			ocf_debug_request_trace(req, ocf_req_cache_mode_discard, 0);
 			_ocf_discard_step_do(req);
 		} else {
 			/* WR lock was not acquired, need to wait for resume */
+			ocf_debug_request_trace(req, ocf_req_cache_mode_discard, 1);
 			OCF_DEBUG_RQ(req, "NO LOCK")
 		}
 	} else {
