@@ -148,7 +148,7 @@ struct ocf_request *ocf_req_new_cleaner(ocf_cache_t cache, ocf_queue_t queue,
 
 	if (map_allocated) {
 		req->map = req->__map;
-		req->alock_status = (uint8_t*)&req->__map[count];
+		req->alock_status = (uint8_t*)&req->map[count];
 		req->alloc_core_line_count = count;
 	} else {
 		req->alloc_core_line_count = 1;
@@ -288,7 +288,7 @@ struct ocf_request *ocf_req_new_cache(ocf_cache_t cache, ocf_queue_t queue,
 
 	if (map_allocated) {
 		req->map = req->__map;
-		req->alock_status = (uint8_t *)&req->__map[core_line_count];
+		req->alock_status = (uint8_t *)&req->map[core_line_count];
 		req->alloc_core_line_count = core_line_count;
 	} else {
 		req->alloc_core_line_count = 1;
