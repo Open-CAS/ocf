@@ -46,15 +46,6 @@ typedef void (*ocf_handle_io_t)(ocf_io_t io, void *opaque);
 typedef void (*ocf_end_io_t)(ocf_io_t io, void *priv1, void *priv2, int error);
 
 /**
- * @brief Increase reference counter in OCF IO
- *
- * @note Wrapper for get IO operation
- *
- * @param[in] io OCF IO
- */
-void ocf_io_get(ocf_io_t io);
-
-/**
  * @brief Decrease reference counter in OCF IO
  *
  * @note If IO don't have any reference - deallocate it
