@@ -108,6 +108,204 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
     )
 
 
+@pytest.mark.parametrize("io_dir", IoDir)
+@pytest.mark.parametrize(
+    "cls", [CacheLineSize.LINE_4KiB, CacheLineSize.LINE_16KiB, CacheLineSize.LINE_64KiB]
+)
+@pytest.mark.parametrize("cache_mode", [CacheMode.WT, CacheMode.WB])
+def test_eviction_priority_1(pyocf_ctx, cls: CacheLineSize, cache_mode: CacheMode, io_dir: IoDir):
+    """Verify if data of higher priority is not evicted by low priority data"""
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(200))
+    cache = Cache.start_on_device(cache_device, cache_mode=cache_mode, cache_line_size=cls)
+    core = Core.using_device(core_device)
+    cache.add_core(core)
+    vol = CoreVolume(core)
+
+    high_prio_ioclass = 1
+    low_prio_ioclass = 2
+
+    cache.configure_partition(
+        part_id=high_prio_ioclass,
+        name="high_prio",
+        max_size=100,
+        priority=1,
+    )
+    cache.configure_partition(
+        part_id=low_prio_ioclass,
+        name="low_prio",
+        max_size=100,
+        priority=2,
+    )
+
+    def get_ioclass_occupancy(cache, ioclass_id):
+        return cache.get_ioclass_stats(ioclass_id)["usage"]["occupancy"]["value"]
+
+    cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)
+
+    cache_size_4k = cache.get_stats()["conf"]["size"].blocks_4k
+    cache_line_size_4k = Size(cls).blocks_4k
+
+    data = Data(4096)
+
+    # Populate cache with high priority data
+    for i in range(cache_size_4k):
+        send_io(vol, data, i * 4096, high_prio_ioclass, io_dir)
+
+    high_prio_ioclass_occupancy = get_ioclass_occupancy(cache, high_prio_ioclass)
+
+    assert isclose(
+        high_prio_ioclass_occupancy, cache_size_4k, abs_tol=cache_line_size_4k
+    ), "High priority data should occupy the whole cache"
+
+    # Write data of lower priority
+    for i in range(cache_size_4k, 2 * cache_size_4k):
+        send_io(vol, data, i * 4096, low_prio_ioclass, io_dir)
+
+    high_prio_ioclass_occupancy = get_ioclass_occupancy(cache, high_prio_ioclass)
+    low_prio_ioclass_occupancy = get_ioclass_occupancy(cache, low_prio_ioclass)
+
+    assert isclose(
+        high_prio_ioclass_occupancy, cache_size_4k, abs_tol=cache_line_size_4k
+    ), "High priority data shouldn't be evicted"
+
+    assert low_prio_ioclass_occupancy == 0
+
+
+@pytest.mark.parametrize(
+    ("cache_mode", "io_dir"),
+    [
+        (CacheMode.WB, IoDir.READ),
+        (CacheMode.WT, IoDir.WRITE),
+        (CacheMode.WT, IoDir.READ),
+    ],
+)
+@pytest.mark.parametrize("cls", [CacheLineSize.LINE_16KiB, CacheLineSize.LINE_64KiB])
+def test_eviction_priority_2(pyocf_ctx, cls: CacheLineSize, cache_mode: CacheMode, io_dir: IoDir):
+    """Verify if data of low priority gets evicted by high priority data"""
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(200))
+    cache = Cache.start_on_device(cache_device, cache_mode=cache_mode, cache_line_size=cls)
+    core = Core.using_device(core_device)
+    cache.add_core(core)
+    vol = CoreVolume(core)
+
+    high_prio_ioclass = 1
+    low_prio_ioclass = 2
+
+    cache.configure_partition(
+        part_id=high_prio_ioclass,
+        name="high_prio",
+        max_size=100,
+        priority=1,
+    )
+    cache.configure_partition(
+        part_id=low_prio_ioclass,
+        name="low_prio",
+        max_size=100,
+        priority=2,
+    )
+
+    def get_ioclass_occupancy(cache, ioclass_id):
+        return cache.get_ioclass_stats(ioclass_id)["usage"]["occupancy"]["value"]
+
+    cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)
+
+    cache_size_4k = cache.get_stats()["conf"]["size"].blocks_4k
+    cache_line_size_4k = Size(cls).blocks_4k
+
+    data = Data(4096)
+
+    # Populate cache with low priority data
+    for i in range(cache_size_4k):
+        send_io(vol, data, i * 4096, low_prio_ioclass, io_dir)
+
+    low_prio_ioclass_occupancy = get_ioclass_occupancy(cache, low_prio_ioclass)
+
+    assert isclose(
+        low_prio_ioclass_occupancy, cache_size_4k, abs_tol=cache_line_size_4k
+    ), "Low priority data should occupy the whole cache"
+
+    # Write data of higher priority
+    for i in range(cache_size_4k, 2 * cache_size_4k):
+        send_io(vol, data, i * 4096, high_prio_ioclass, io_dir)
+
+    high_prio_ioclass_occupancy = get_ioclass_occupancy(cache, high_prio_ioclass)
+    low_prio_ioclass_occupancy = get_ioclass_occupancy(cache, low_prio_ioclass)
+
+    assert low_prio_ioclass_occupancy == 0, "Low priority data should be evicted from cache"
+
+    assert isclose(
+        high_prio_ioclass_occupancy, cache_size_4k, abs_tol=cache_line_size_4k
+    ), "High priority data should occupy the whole cache"
+
+
+@pytest.mark.parametrize("io_dir", IoDir)
+@pytest.mark.parametrize("cls", [CacheLineSize.LINE_16KiB, CacheLineSize.LINE_64KiB])
+@pytest.mark.parametrize("cache_mode", [CacheMode.WT, CacheMode.WB])
+def test_eviction_freelist(pyocf_ctx, cls: CacheLineSize, cache_mode: CacheMode, io_dir: IoDir):
+    """Verify that no eviction from low priority ioclass occurs if free cachelines are avaliable"""
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(200))
+    cache = Cache.start_on_device(cache_device, cache_mode=cache_mode, cache_line_size=cls)
+    core = Core.using_device(core_device)
+    cache.add_core(core)
+    vol = CoreVolume(core)
+
+    high_prio_ioclass = 1
+    low_prio_ioclasses = list(range(2, 33))
+
+    cache.configure_partition(
+        part_id=high_prio_ioclass,
+        name="high_prio",
+        max_size=100,
+        priority=1,
+    )
+    for low_prio_ioclass in low_prio_ioclasses:
+        cache.configure_partition(
+            part_id=low_prio_ioclass,
+            name=f"low_prio_{low_prio_ioclass}",
+            max_size=100,
+            priority=low_prio_ioclass * 5,
+        )
+
+    def get_ioclass_occupancy(cache, ioclass_id):
+        return cache.get_ioclass_stats(ioclass_id)["usage"]["occupancy"]["value"]
+
+    cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)
+
+    cache_size_4k = cache.get_stats()["conf"]["size"].blocks_4k
+    cache_line_size_4k = Size(cls).blocks_4k
+
+    cache_lines_written = 5
+    data = Data(4096 * cache_line_size_4k)
+    expected_occpancy_4k = (cache_lines_written * data.size) / 4096
+
+    for i, ioclass in enumerate([high_prio_ioclass] + low_prio_ioclasses):
+        for j in range(cache_lines_written):
+            addr = (cache_lines_written * i + j) * data.size
+            send_io(vol, data, addr, ioclass, io_dir)
+        assert (
+            get_ioclass_occupancy(cache, ioclass) == expected_occpancy_4k
+        ), f"Doesn't match for ioclass {ioclass}"
+
+    for ioclass in [high_prio_ioclass] + low_prio_ioclasses:
+        assert (
+            get_ioclass_occupancy(cache, ioclass) == expected_occpancy_4k
+        ), f"Doesn't match for ioclass {ioclass}"
+
+    while cache.get_stats()["usage"]["free"]["value"] > 0:
+        addr += data.size
+        send_io(vol, data, addr, high_prio_ioclass, io_dir)
+
+    assert cache.get_stats()["usage"]["occupancy"]["value"] == cache_size_4k
+
+    for ioclass in low_prio_ioclasses:
+        assert (
+            get_ioclass_occupancy(cache, ioclass) == expected_occpancy_4k
+        ), f"Doesn't match for ioclass {ioclass}"
+
+
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     """ Verify if overflown pinned ioclass is evicted """
@@ -169,14 +367,23 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
         cache.get_partition_info(part_id=pinned_ioclass_id)["_curr_size"], cls
     )
     assert isclose(
-        part_current_size.blocks_4k, ceil(cache_size.blocks_4k * 0.1), abs_tol=Size(cls).blocks_4k,
+        part_current_size.blocks_4k,
+        ceil(cache_size.blocks_4k * 0.1),
+        abs_tol=Size(cls).blocks_4k,
     ), "Overflown part has not been evicted"
 
 
-def send_io(vol: CoreVolume, data: Data, addr: int = 0, target_ioclass: int = 0):
+def send_io(
+    vol: CoreVolume, data: Data, addr: int = 0, target_ioclass: int = 0, io_dir: IoDir = IoDir.WRITE
+):
     vol.open()
     io = vol.new_io(
-        vol.parent.get_default_queue(), addr, data.size, IoDir.WRITE, target_ioclass, 0,
+        vol.parent.get_default_queue(),
+        addr,
+        data.size,
+        io_dir,
+        target_ioclass,
+        0,
     )
 
     io.set_data(data)
