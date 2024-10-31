@@ -28,6 +28,13 @@ typedef enum {
 		/*!< Direct to Core - pass through to core without
 				touching cacheline metadata */
 
+	ocf_req_refresh,
+	ocf_req_cache_mode_discard,
+	ocf_req_cache_mode_flush,
+	ocf_req_cache_mode_invalidate,
+	ocf_req_cache_mode_rd,
+		/*!< Just for debug purposes */
+
 	ocf_req_cache_mode_max,
 } ocf_req_cache_mode_t;
 
@@ -319,6 +326,8 @@ struct ocf_request {
 
 	uint32_t alock_rw;
 	/*!< Read/Write mode for alock*/
+
+	uint64_t engine_trace;
 
 	uint8_t *alock_status;
 	/*!< Mapping for locked/unlocked alock entries */
