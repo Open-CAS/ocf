@@ -106,6 +106,8 @@ struct ocf_cache {
 	env_atomic flush_in_progress;
 	env_mutex flush_mutex;
 
+	env_atomic attach_pt;
+
 	struct ocf_cleaner cleaner;
 
 	struct list_head io_queues;
