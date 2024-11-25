@@ -569,7 +569,7 @@ class Cache:
     def free_device_config(self, cfg):
         lib = OcfLib.getInstance().ocf_volume_destroy(cfg._volume)
 
-    def attach_device(
+    def attach_device_async(
         self,
         device,
         force=False,
@@ -593,14 +593,39 @@ class Cache:
 
         self.write_lock()
 
-        c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
+        def callback(c):
+            self.write_unlock()
+            self.free_device_config(device_config)
+
+        c = OcfCompletion(
+            [("cache", c_void_p), ("priv", c_void_p), ("error", c_int)],
+            callback=callback
+        )
 
         self.owner.lib.ocf_mngt_cache_attach(self.cache_handle, byref(attach_cfg), c, None)
+
+        return c
+
+    def attach_device(
+        self,
+        device,
+        force=False,
+        perform_test=False,
+        cache_line_size=None,
+        open_cores=False,
+        disable_cleaner=False,
+    ):
+
+        c = self.attach_device_async(
+            device,
+            force,
+            perform_test,
+            cache_line_size,
+            open_cores,
+            disable_cleaner
+        )
+
         c.wait()
-
-        self.write_unlock()
-
-        self.free_device_config(device_config)
 
         if c.results["error"]:
             raise OcfError(

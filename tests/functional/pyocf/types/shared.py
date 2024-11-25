@@ -83,7 +83,7 @@ class OcfCompletion:
             except KeyError:
                 raise KeyError(f"No completion argument {key} specified")
 
-    def __init__(self, completion_args: list, context=None):
+    def __init__(self, completion_args: list, context=None, callback=None):
         """
         Provide ctypes arg list, and optionally index of status argument in
         completion function which will be extracted (default - last argument).
@@ -95,6 +95,7 @@ class OcfCompletion:
         self.results = OcfCompletion.CompletionResult(completion_args)
         self._as_parameter_ = self.callback
         self.context = context
+        self.user_callback = callback
 
     @property
     def callback(self):
@@ -102,6 +103,8 @@ class OcfCompletion:
         def complete(*args):
             self.results.results = args
             self.e.set()
+            if self.user_callback:
+                self.user_callback(self)
 
         return complete
 

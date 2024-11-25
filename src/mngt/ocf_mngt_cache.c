@@ -1901,18 +1901,35 @@ static void _ocf_mngt_attach_shutdown_status(ocf_pipeline_t pipeline,
 		_ocf_mngt_attach_shutdown_status_complete, context);
 }
 
+
+static void _ocf_mngt_attach_post_init_finish(void *priv)
+{
+	struct ocf_cache_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_refcnt_unfreeze(&cache->refcnt.d2c);
+
+	env_atomic_set(&cache->attach_pt, 0);
+
+	ocf_cache_log(cache, log_debug, "Cache attached\n");
+
+	ocf_pipeline_next(context->pipeline);
+}
+
 static void _ocf_mngt_attach_post_init(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
+	env_atomic_set(&cache->attach_pt, 1);
+
 	ocf_cleaner_refcnt_unfreeze(cache);
 	ocf_refcnt_unfreeze(&cache->refcnt.metadata);
 
-	ocf_cache_log(cache, log_debug, "Cache attached\n");
-
-	ocf_pipeline_next(pipeline);
+	ocf_refcnt_freeze(&cache->refcnt.d2c);
+	ocf_refcnt_register_zero_cb(&cache->refcnt.d2c,
+			_ocf_mngt_attach_post_init_finish, context);
 }
 
 static void _ocf_mngt_attach_handle_error(

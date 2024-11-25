@@ -4,6 +4,7 @@
 #
 
 
+from time import sleep
 import pytest
 
 
@@ -18,7 +19,6 @@ from pyocf.utils import Size
 CORE_SIZE = 4096
 
 
-@pytest.mark.xfail(reason="Data corruption when switching from D2C")
 def test_d2c_io(pyocf_ctx):
     """
     Start cache in D2C
@@ -46,7 +46,8 @@ def test_d2c_io(pyocf_ctx):
     d2c_data.write(b"a" * CORE_SIZE, CORE_SIZE)
     d2c_io.set_data(d2c_data)
 
-    cache.attach_device(cache_device)
+    c = cache.attach_device_async(cache_device)
+    sleep(1)
 
     wt_io = vol.new_io(queue, 0, CORE_SIZE, IoDir.WRITE, 0, 0)
     wt_data = Data(CORE_SIZE)
@@ -55,11 +56,19 @@ def test_d2c_io(pyocf_ctx):
 
     wt_completion = Sync(wt_io).submit()
     assert int(wt_completion.results["err"]) == 0
-    assert cache.get_stats()["req"]["wr_full_misses"]["value"] == 1
 
     d2c_completion = Sync(d2c_io).submit()
     assert int(d2c_completion.results["err"]) == 0
-    assert cache.get_stats()["req"]["wr_pt"]["value"] == 1
+
+    c.wait()
+
+    if c.results["error"]:
+        raise OcfError(
+            f"Attaching cache device failed",
+            c.results["error"],
+        )
+
+    assert cache.get_stats()["req"]["wr_pt"]["value"] == 2
 
     read_io = vol.new_io(queue, 0, CORE_SIZE, IoDir.READ, 0, 0)
     read_data = Data(CORE_SIZE)
@@ -67,6 +76,7 @@ def test_d2c_io(pyocf_ctx):
 
     read_completion = Sync(read_io).submit()
     assert int(read_completion.results["err"]) == 0
+    assert cache.get_stats()["req"]["rd_full_misses"]["value"] == 1
 
     cache.stop()
 

@@ -162,6 +162,11 @@ void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		return;
 	}
 
+	if (env_atomic_read(&cache->attach_pt)) {
+		req->cache_mode = ocf_req_cache_mode_pt;
+		return;
+	}
+
 	if (cache->pt_unaligned_io && !ocf_req_is_4k(req->addr, req->bytes)) {
 		req->cache_mode = ocf_req_cache_mode_pt;
 		return;
