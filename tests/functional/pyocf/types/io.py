@@ -81,9 +81,6 @@ class Io(Structure):
     def put(self):
         OcfLib.getInstance().ocf_io_put(byref(self))
 
-    def get(self):
-        OcfLib.getInstance().ocf_io_get(byref(self))
-
     @staticmethod
     @END
     def c_end(io, priv1, priv2, err):

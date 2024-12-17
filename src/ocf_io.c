@@ -89,7 +89,6 @@ ocf_io_t ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 		return NULL;
 	}
 
-	env_atomic_set(&req->io.ref_count, 1);
 	req->io.volume = volume;
 	req->io.io_class = io_class;
 	req->flags = flags;
@@ -125,22 +124,10 @@ uint32_t ocf_io_get_offset(ocf_io_t io)
 	return req->offset;
 }
 
-void ocf_io_get(ocf_io_t io)
-{
-	struct ocf_request *req = ocf_io_to_req(io);
-
-	env_atomic_inc_return(&req->io.ref_count);
-}
-
 void ocf_io_put(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
-	struct ocf_volume *volume;
-
-	if (env_atomic_dec_return(&req->io.ref_count))
-		return;
-
-	volume = req->io.volume;
+	struct ocf_volume *volume = req->io.volume;
 
 	ocf_io_allocator_del(&volume->type->allocator, (void *)req);
 
