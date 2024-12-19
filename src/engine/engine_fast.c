@@ -38,6 +38,7 @@ static void _ocf_read_fast_complete(struct ocf_request *req, int error)
 
 		OCF_DEBUG_RQ(req, "ERROR");
 
+		ocf_debug_request_trace(req, ocf_req_cache_mode_pt, 1);
 		ocf_queue_push_req_pt(req);
 	} else {
 		ocf_req_unlock(ocf_cache_line_concurrency(req->cache), req);
@@ -55,6 +56,7 @@ static int _ocf_read_fast_do(struct ocf_request *req)
 	if (ocf_engine_is_miss(req)) {
 		/* It seams that after resume, now request is MISS, do PT */
 		OCF_DEBUG_RQ(req, "Switching to read PT");
+		ocf_debug_request_trace(req, ocf_req_cache_mode_pt, 0);
 		ocf_read_pt_do(req);
 		return 0;
 
@@ -129,8 +131,10 @@ int ocf_read_fast(struct ocf_request *req)
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* Lock was not acquired, need to wait for resume */
 				OCF_DEBUG_RQ(req, "NO LOCK");
+				ocf_debug_request_trace(req, ocf_req_cache_mode_fast, 0);
 			} else {
 				/* Lock was acquired can perform IO */
+				ocf_debug_request_trace(req, ocf_req_cache_mode_fast, 1);
 				_ocf_read_fast_do(req);
 			}
 		} else {
@@ -194,9 +198,12 @@ int ocf_write_fast(struct ocf_request *req)
 
 			if (lock != OCF_LOCK_ACQUIRED) {
 				/* Lock was not acquired, need to wait for resume */
+				ocf_debug_request_trace(req, ocf_req_cache_mode_wb, 0);
 				OCF_DEBUG_RQ(req, "NO LOCK");
 			} else {
 				/* Lock was acquired can perform IO */
+				ocf_debug_request_trace(req, ocf_req_cache_mode_wb, 1);
+
 				ocf_write_wb_do(req);
 			}
 		} else {

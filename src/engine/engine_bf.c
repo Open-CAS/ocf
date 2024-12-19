@@ -59,6 +59,7 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 	}
 
 	if (error) {
+		ocf_debug_request_trace(req, ocf_req_cache_mode_invalidate, 1);
 		ocf_engine_invalidate(req);
 	} else {
 		ocf_req_unlock(ocf_cache_line_concurrency(cache), req);

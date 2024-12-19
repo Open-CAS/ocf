@@ -41,6 +41,9 @@ enum ocf_io_if_type {
 	OCF_IO_FAST_IF,
 	OCF_IO_FLUSH_IF,
 	OCF_IO_DISCARD_IF,
+	OCF_IO_REFRESH_IF,
+	OCF_IO_INVALIDATE_IF,
+	OCF_IO_RD_IF,
 	OCF_IO_PRIV_MAX_IF,
 };
 
@@ -108,6 +111,18 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 		},
 		.name = "Discard",
 	},
+	[OCF_IO_REFRESH_IF] = {
+		.cbs = { },
+		.name = "Refresh",
+	},
+	[OCF_IO_INVALIDATE_IF] = {
+		.cbs = { },
+		.name = "Invalidate",
+	},
+	[OCF_IO_RD_IF] = {
+		.cbs = { },
+		.name = "Read generic",
+	},
 };
 
 static const struct ocf_io_if *cache_mode_io_if_map[ocf_req_cache_mode_max] = {
@@ -118,7 +133,28 @@ static const struct ocf_io_if *cache_mode_io_if_map[ocf_req_cache_mode_max] = {
 	[ocf_req_cache_mode_wo] = &IO_IFS[OCF_IO_WO_IF],
 	[ocf_req_cache_mode_pt] = &IO_IFS[OCF_IO_PT_IF],
 	[ocf_req_cache_mode_fast] = &IO_IFS[OCF_IO_FAST_IF],
+	[ocf_req_refresh] = &IO_IFS[OCF_IO_REFRESH_IF],
+	[ocf_req_cache_mode_discard] = &IO_IFS[OCF_IO_DISCARD_IF],
+	[ocf_req_cache_mode_invalidate] = &IO_IFS[OCF_IO_INVALIDATE_IF],
+	[ocf_req_cache_mode_rd] = &IO_IFS[OCF_IO_RD_IF],
 };
+
+void ocf_debug_request_trace(struct ocf_request *req,
+		ocf_req_cache_mode_t engine, uint8_t origin)
+{
+	ENV_WARN_ONCE(origin & ~0xf, "Invalid req origin origin\n");
+	ENV_WARN_ONCE(engine & ~0xe, "Invalid req engine\n");
+
+	ENV_WARN_ONCE(req->engine_trace & 0xff00000000000000,
+			"Request trace too long\n");
+
+	req->engine_trace <<= 4;
+	// +1 to make sure that WT has a different value than zero
+	req->engine_trace |= (engine + 1);
+
+	req->engine_trace <<= 4;
+	req->engine_trace |= origin;
+}
 
 const char *ocf_get_io_iface_name(ocf_req_cache_mode_t cache_mode)
 {
@@ -216,6 +252,7 @@ int ocf_engine_hndl_req(struct ocf_request *req)
 	 * to into OCF workers
 	 */
 
+	ocf_debug_request_trace(req, req->cache_mode, 0xf);
 	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC);
 
 	return 0;
@@ -232,6 +269,7 @@ int ocf_engine_hndl_fast_req(struct ocf_request *req)
 
 	ocf_req_get(req);
 
+	ocf_debug_request_trace(req, req->cache_mode, 0xe);
 	ret = engine_cb(req);
 
 	if (ret == OCF_FAST_PATH_NO)
@@ -244,6 +282,7 @@ void ocf_engine_hndl_discard_req(struct ocf_request *req)
 {
 	ocf_req_get(req);
 
+	ocf_debug_request_trace(req, ocf_req_cache_mode_discard, 0);
 	IO_IFS[OCF_IO_DISCARD_IF].cbs[req->rw](req);
 }
 
@@ -251,6 +290,7 @@ void ocf_engine_hndl_flush_req(struct ocf_request *req)
 {
 	ocf_req_get(req);
 
+	ocf_debug_request_trace(req, ocf_req_cache_mode_flush, 0);
 	req->engine_handler = IO_IFS[OCF_IO_FLUSH_IF].cbs[req->rw];
 
 	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC);

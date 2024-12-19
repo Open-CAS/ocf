@@ -230,9 +230,12 @@ int ocf_read_wo(struct ocf_request *req)
 	if (lock >= 0) {
 		if (lock != OCF_LOCK_ACQUIRED) {
 			/* Lock was not acquired, need to wait for resume */
+			ocf_debug_request_trace(req, ocf_req_cache_mode_wo, 0);
+
 			OCF_DEBUG_RQ(req, "NO LOCK");
 		} else {
 			/* Lock was acquired can perform IO */
+			ocf_debug_request_trace(req, ocf_req_cache_mode_wo, 1);
 			ocf_read_wo_do(req);
 		}
 	} else {
