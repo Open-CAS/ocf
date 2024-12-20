@@ -436,7 +436,9 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 			 * Attach bottom device to core structure
 			 * in cache
 			 */
+			env_refcnt_freeze(&tvolume->refcnt);
 			ocf_volume_move(&core->volume, tvolume);
+			env_refcnt_unfreeze(&tvolume->refcnt);
 			ocf_mngt_core_pool_remove(cache->owner, tvolume);
 
 			core->opened = true;
@@ -730,6 +732,12 @@ static void _ocf_mngt_load_init_cleaning(ocf_pipeline_t pipeline,
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_error_t result;
+
+	result = env_refcnt_init(&cache->cleaner.refcnt, "cleaner", sizeof("cleaner"));
+	if (result) {
+		ocf_cache_log(cache, log_err, "Cannot initialize cleaner refcount\n");
+		OCF_PL_FINISH_RET(pipeline, result);
+	}
 
 	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown) {
 		/* Cleaning policy structures have been loaded so no need to populate
@@ -1963,7 +1971,7 @@ static void _ocf_mngt_attach_post_init_finish(void *priv)
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_refcnt_unfreeze(&cache->refcnt.d2c);
+	env_refcnt_unfreeze(&cache->refcnt.d2c);
 
 	env_atomic_set(&cache->attach_pt, 0);
 
@@ -1983,8 +1991,8 @@ static void _ocf_mngt_attach_post_init(ocf_pipeline_t pipeline,
 	ocf_cleaner_refcnt_unfreeze(cache);
 	env_refcnt_unfreeze(&cache->refcnt.metadata);
 
-	ocf_refcnt_freeze(&cache->refcnt.d2c);
-	ocf_refcnt_register_zero_cb(&cache->refcnt.d2c,
+	env_refcnt_freeze(&cache->refcnt.d2c);
+	env_refcnt_register_zero_cb(&cache->refcnt.d2c,
 			_ocf_mngt_attach_post_init_finish, context);
 }
 
