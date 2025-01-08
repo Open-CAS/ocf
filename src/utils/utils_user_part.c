@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -112,7 +113,7 @@ void ocf_user_part_move(struct ocf_request *req)
 		 * cachelines are assigned to target partition during eviction.
 		 * So only hit cachelines are interesting.
 		 */
-		if (entry->status != LOOKUP_HIT) {
+		if (entry->status != LOOKUP_HIT && entry->status != LOOKUP_HIT_INVALID) {
 			/* No HIT */
 			continue;
 		}
