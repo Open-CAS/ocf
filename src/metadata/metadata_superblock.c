@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2020-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -127,7 +127,7 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 		return -OCF_ERR_CRC_MISMATCH;
 	}
 
-	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
+	if (superblock->clean_shutdown > ocf_metadata_detached) {
 		ocf_log_invalid_superblock("shutdown status");
 		return -OCF_ERR_INVAL;
 	}
