@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
- * Copyright(c) 2023-2024 Huawei Technologies
+ * Copyright(c) 2023-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -378,12 +378,12 @@ typedef struct {
 
 static inline int env_atomic_read(const env_atomic *a)
 {
-	return a->counter; /* TODO */
+	return __atomic_load_n(&a->counter, __ATOMIC_SEQ_CST);
 }
 
 static inline void env_atomic_set(env_atomic *a, int i)
 {
-	a->counter = i; /* TODO */
+	__atomic_store_n(&a->counter, i, __ATOMIC_SEQ_CST);
 }
 
 static inline void env_atomic_add(int i, env_atomic *a)
@@ -453,12 +453,12 @@ static inline int env_atomic_add_unless(env_atomic *a, int i, int u)
 
 static inline long env_atomic64_read(const env_atomic64 *a)
 {
-	return a->counter; /* TODO */
+	return __atomic_load_n(&a->counter, __ATOMIC_SEQ_CST);
 }
 
 static inline void env_atomic64_set(env_atomic64 *a, long i)
 {
-	a->counter = i; /* TODO */
+	__atomic_store_n(&a->counter, i, __ATOMIC_SEQ_CST);
 }
 
 static inline void env_atomic64_add(long i, env_atomic64 *a)
