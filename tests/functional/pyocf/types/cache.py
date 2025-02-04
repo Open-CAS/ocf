@@ -956,6 +956,28 @@ class Cache:
             "errors": struct_to_dict(errors),
         }
 
+    def get_ioclass_stats(self, io_class_id):
+        usage = UsageStats()
+        req = RequestsStats()
+        block = BlocksStats()
+
+        self.read_lock()
+
+        status = self.owner.lib.ocf_stats_collect_part_cache(
+            self.cache_handle, io_class_id, byref(usage), byref(req), byref(block)
+        )
+
+        self.read_unlock()
+
+        if status:
+            raise OcfError(f"Failed to retrieve ioclass {io_class_id} stats", status)
+
+        return {
+            "usage": struct_to_dict(usage),
+            "block": struct_to_dict(block),
+            "req": struct_to_dict(req),
+        }
+
     def reset_stats(self):
         self.owner.lib.ocf_core_stats_initialize_all(self.cache_handle)
 
@@ -1081,6 +1103,14 @@ lib.ocf_stats_collect_cache.argtypes = [
     c_void_p,
 ]
 lib.ocf_stats_collect_cache.restype = c_int
+lib.ocf_stats_collect_part_cache.argtypes = [
+    c_void_p,
+    c_uint16,
+    c_void_p,
+    c_void_p,
+    c_void_p,
+]
+lib.ocf_stats_collect_part_cache.restype = c_int
 lib.ocf_cache_get_info.argtypes = [c_void_p, c_void_p]
 lib.ocf_cache_get_info.restype = c_int
 lib.ocf_mngt_cache_cleaning_set_param.argtypes = [

@@ -228,6 +228,12 @@ void ocf_engine_lookup(struct ocf_request *req)
 		ocf_engine_lookup_map_entry(cache, entry, core_id,
 				core_line);
 
+		/*
+		 * The flag could have been set on the previous lookup, but
+		 * cache line might be remapped in the meantime.
+		 */
+		entry->re_part = false;
+
 		if (entry->status != LOOKUP_HIT) {
 			/* There is miss then lookup for next map entry */
 			OCF_DEBUG_PARAM(cache, "Miss, core line = %llu",
@@ -267,6 +273,11 @@ int ocf_engine_check(struct ocf_request *req)
 			core_line <= req->core_line_last; core_line++, i++) {
 
 		struct ocf_map_info *entry = &(req->map[i]);
+		/*
+		 * The flag could have been set on the previous traverse, but
+		 * cache line might be remapped in the meantime.
+		 */
+		entry->re_part = false;
 
 		if (entry->status == LOOKUP_MISS) {
 			continue;
