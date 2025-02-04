@@ -213,8 +213,7 @@ static void ocf_req_complete(struct ocf_request *req, int error)
 
 	dec_counter_if_req_was_dirty(req);
 
-	/* Invalidate OCF IO, it is not valid after completion */
-	ocf_io_put(req);
+	ocf_req_put(req);
 }
 
 static inline ocf_req_cache_mode_t _ocf_core_req_resolve_fast_mode(
@@ -261,7 +260,7 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_core_t core;
 	ocf_cache_t cache;
-	int ret;
+	int ret, fastpath;
 
 	OCF_CHECK_NULL(io);
 
@@ -281,7 +280,7 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 
 	req->complete = ocf_req_complete;
 
-	ocf_io_get(io);
+	ocf_req_get(req);
 
 	if (unlikely(req->d2c)) {
 		ocf_core_update_stats(core, io);
@@ -303,15 +302,15 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 	 * sequential cutoff info */
 	ocf_req_get(req);
 
-	if (ocf_core_submit_io_fast(req, cache) == OCF_FAST_PATH_YES) {
-		ocf_core_seq_cutoff_update(core, req);
-		ocf_req_put(req);
-		return;
-	}
+	fastpath = ocf_core_submit_io_fast(req, cache);
 
-	ocf_req_put(req);
-	ocf_req_clear_map(req);
 	ocf_core_seq_cutoff_update(core, req);
+	ocf_req_put(req);
+
+	if (fastpath == OCF_FAST_PATH_YES)
+		return;
+
+	ocf_req_clear_map(req);
 
 	ret = ocf_engine_hndl_req(req);
 	if (ret) {
@@ -323,7 +322,7 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 
 err:
 	ocf_io_end_func(io, ret);
-	ocf_io_put(req);
+	ocf_req_put(req);
 }
 
 static void ocf_core_volume_submit_flush(ocf_io_t io)
@@ -349,7 +348,7 @@ static void ocf_core_volume_submit_flush(ocf_io_t io)
 
 	req->complete = ocf_req_complete;
 
-	ocf_io_get(io);
+	ocf_req_get(req);
 
 	if (unlikely(req->d2c)) {
 		ocf_d2c_flush_fast(req);
@@ -387,7 +386,7 @@ static void ocf_core_volume_submit_discard(ocf_io_t io)
 
 	req->complete = ocf_req_complete;
 
-	ocf_io_get(io);
+	ocf_req_get(req);
 
 	if (unlikely(req->d2c)) {
 		ocf_d2c_discard_fast(req);
