@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -643,7 +643,9 @@ static void ocf_mngt_cache_remove_core_finish(ocf_pipeline_t pipeline,
 				context->core_name);
 	}
 
-	ocf_cleaner_refcnt_unfreeze(cache);
+	if (ocf_cache_is_device_attached(cache)) {
+		ocf_cleaner_refcnt_unfreeze(cache);
+	}
 
 	context->cmpl(context->priv, error);
 
@@ -826,7 +828,9 @@ static void ocf_mngt_cache_detach_core_finish(ocf_pipeline_t pipeline,
 				context->core_name);
 	}
 
-	ocf_cleaner_refcnt_unfreeze(context->cache);
+	if (ocf_cache_is_device_attached(cache)) {
+		ocf_cleaner_refcnt_unfreeze(cache);
+	}
 
 	context->cmpl(context->priv, error);
 
