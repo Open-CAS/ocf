@@ -1,10 +1,11 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
+#include "ocf_env_refcnt.h"
 #include "ocf_mngt_common.h"
 #include "../ocf_priv.h"
 #include "../metadata/metadata.h"
@@ -15,7 +16,6 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_user_part.h"
 #include "../utils/utils_pipeline.h"
-#include "../utils/utils_refcnt.h"
 #include "../ocf_request.h"
 #include "../ocf_def_priv.h"
 
@@ -82,12 +82,6 @@ struct ocf_mngt_cache_flush_context
 	struct flush_containers_context fcs;
 };
 
-static void _ocf_mngt_begin_flush_complete(void *priv)
-{
-	struct ocf_mngt_cache_flush_context *context = priv;
-	ocf_pipeline_next(context->pipeline);
-}
-
 static void _ocf_mngt_begin_flush(ocf_pipeline_t pipeline, void *priv,
 		ocf_pipeline_arg_t arg)
 {
@@ -102,11 +96,11 @@ static void _ocf_mngt_begin_flush(ocf_pipeline_t pipeline, void *priv,
 		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_FLUSH_IN_PROGRESS);
 	context->flags.lock = true;
 
-	ocf_refcnt_freeze(&cache->refcnt.dirty);
+	env_refcnt_freeze(&cache->refcnt.dirty);
 	context->flags.freeze = true;
 
-	ocf_refcnt_register_zero_cb(&cache->refcnt.dirty,
-			_ocf_mngt_begin_flush_complete, context);
+	ocf_mngt_continue_pipeline_on_zero_refcnt(&cache->refcnt.dirty,
+			context->pipeline);
 }
 
 bool ocf_mngt_core_is_dirty(ocf_core_t core)
@@ -615,7 +609,7 @@ static void _ocf_mngt_flush_finish(ocf_pipeline_t pipeline, void *priv,
 	ocf_core_t core = context->core;
 
 	if (context->flags.freeze)
-		ocf_refcnt_unfreeze(&cache->refcnt.dirty);
+		env_refcnt_unfreeze(&cache->refcnt.dirty);
 
 	if (context->flags.lock)
 		env_mutex_unlock(&cache->flush_mutex);
@@ -956,8 +950,8 @@ static void _ocf_mngt_deinit_clean_policy(ocf_pipeline_t pipeline, void *priv,
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
-	ocf_refcnt_freeze(&cache->cleaner.refcnt);
-	ocf_refcnt_register_zero_cb(&cache->cleaner.refcnt,
+	env_refcnt_freeze(&cache->cleaner.refcnt);
+	env_refcnt_register_zero_cb(&cache->cleaner.refcnt,
 			_ocf_mngt_cleaning_deinit_complete, context);
 }
 
@@ -1011,7 +1005,7 @@ static void _ocf_mngt_set_cleaning_finish(ocf_pipeline_t pipeline, void *priv,
 	struct ocf_mngt_cache_set_cleaning_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_refcnt_unfreeze(&cache->cleaner.refcnt);
+	env_refcnt_unfreeze(&cache->cleaner.refcnt);
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	context->cmpl(context->priv, error);

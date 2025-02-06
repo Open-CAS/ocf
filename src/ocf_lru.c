@@ -1,10 +1,12 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include "ocf_env.h"
 #include "ocf_space.h"
+#include "ocf_env_refcnt.h"
 #include "ocf_lru.h"
 #include "utils/utils_cleaner.h"
 #include "utils/utils_cache_line.h"
@@ -582,7 +584,8 @@ static void ocf_lru_clean_end(void *private_data, int error)
 				entries[i].cache_line);
 	}
 
-	ocf_refcnt_dec(&ctx->counter);
+	env_atomic_set(&ctx->cleaner_running, 0);
+	env_refcnt_dec(&ctx->counter);
 }
 
 void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
@@ -600,21 +603,20 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 	struct flush_data *entries = ctx->entries;
 	struct ocf_lru_iter iter;
 	unsigned lru_idx;
-	int cnt;
 	unsigned i;
 	unsigned lock_idx;
 
 	if (ocf_mngt_cache_is_locked(cache))
 		return;
-	cnt = ocf_refcnt_inc(&ctx->counter);
-	if (!cnt) {
+
+	if (unlikely(!env_refcnt_inc(&ctx->counter))) {
 		/* cleaner disabled by management operation */
 		return;
 	}
 
-	if (cnt > 1) {
+	if (env_atomic_cmpxchg(&ctx->cleaner_running, 0, 1) != 0) {
 		/* cleaning already running for this partition */
-		ocf_refcnt_dec(&ctx->counter);
+		env_refcnt_dec(&ctx->counter);
 		return;
 	}
 
@@ -641,7 +643,7 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 	ocf_metadata_end_shared_access(&cache->metadata.lock, lock_idx);
 
 	if (i == 0) {
-		ocf_refcnt_dec(&ctx->counter);
+		env_refcnt_dec(&ctx->counter);
 		return;
 	}
 

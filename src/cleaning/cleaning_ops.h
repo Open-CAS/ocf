@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -9,7 +10,7 @@
 #include "../metadata/metadata_superblock.h"
 #include "../metadata/metadata_structs.h"
 #include "../ocf_cache_priv.h"
-#include "../utils/utils_refcnt.h"
+#include "ocf_env_refcnt.h"
 
 struct cleaning_policy_ops {
 	void (*setup)(ocf_cache_t cache);
@@ -125,7 +126,7 @@ static inline int ocf_cleaning_add_core(ocf_cache_t cache,
 	ocf_cleaning_t policy;
 	int result = 0;
 
-	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+	if (unlikely(!env_refcnt_inc(&cache->cleaner.refcnt)))
 		return -OCF_ERR_NO_LOCK;
 
 	policy = cache->cleaner.policy;
@@ -138,7 +139,7 @@ static inline int ocf_cleaning_add_core(ocf_cache_t cache,
 	result = cleaning_policy_ops[policy].add_core(cache, core_id);
 
 unlock:
-	ocf_refcnt_dec(&cache->cleaner.refcnt);
+	env_refcnt_dec(&cache->cleaner.refcnt);
 
 	return result;
 }
@@ -148,7 +149,7 @@ static inline void ocf_cleaning_remove_core(ocf_cache_t cache,
 {
 	ocf_cleaning_t policy;
 
-	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+	if (unlikely(!env_refcnt_inc(&cache->cleaner.refcnt)))
 		return;
 
 	policy = cache->cleaner.policy;
@@ -161,7 +162,7 @@ static inline void ocf_cleaning_remove_core(ocf_cache_t cache,
 	cleaning_policy_ops[policy].remove_core(cache, core_id);
 
 unlock:
-	ocf_refcnt_dec(&cache->cleaner.refcnt);
+	env_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline void ocf_cleaning_init_cache_block(ocf_cache_t cache,
@@ -169,7 +170,7 @@ static inline void ocf_cleaning_init_cache_block(ocf_cache_t cache,
 {
 	ocf_cleaning_t policy;
 
-	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+	if (unlikely(!env_refcnt_inc(&cache->cleaner.refcnt)))
 		return;
 
 	policy = cache->cleaner.policy;
@@ -181,7 +182,7 @@ static inline void ocf_cleaning_init_cache_block(ocf_cache_t cache,
 	cleaning_policy_ops[policy].init_cache_block(cache, cache_line);
 
 unlock:
-	ocf_refcnt_dec(&cache->cleaner.refcnt);
+	env_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline void ocf_cleaning_purge_cache_block(ocf_cache_t cache,
@@ -189,7 +190,7 @@ static inline void ocf_cleaning_purge_cache_block(ocf_cache_t cache,
 {
 	ocf_cleaning_t policy;
 
-	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+	if (unlikely(!env_refcnt_inc(&cache->cleaner.refcnt)))
 		return;
 
 	policy = cache->cleaner.policy;
@@ -201,7 +202,7 @@ static inline void ocf_cleaning_purge_cache_block(ocf_cache_t cache,
 	cleaning_policy_ops[policy].purge_cache_block(cache, cache_line);
 
 unlock:
-	ocf_refcnt_dec(&cache->cleaner.refcnt);
+	env_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline void ocf_cleaning_purge_range(ocf_cache_t cache,
@@ -209,7 +210,7 @@ static inline void ocf_cleaning_purge_range(ocf_cache_t cache,
 {
 	ocf_cleaning_t policy;
 
-	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+	if (unlikely(!env_refcnt_inc(&cache->cleaner.refcnt)))
 		return;
 
 	policy = cache->cleaner.policy;
@@ -222,7 +223,7 @@ static inline void ocf_cleaning_purge_range(ocf_cache_t cache,
 			end_byte);
 
 unlock:
-	ocf_refcnt_dec(&cache->cleaner.refcnt);
+	env_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline void ocf_cleaning_set_hot_cache_line(ocf_cache_t cache,
@@ -230,7 +231,7 @@ static inline void ocf_cleaning_set_hot_cache_line(ocf_cache_t cache,
 {
 	ocf_cleaning_t policy;
 
-	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt)))
+	if (unlikely(!env_refcnt_inc(&cache->cleaner.refcnt)))
 		return;
 
 	policy = cache->cleaner.policy;
@@ -242,7 +243,7 @@ static inline void ocf_cleaning_set_hot_cache_line(ocf_cache_t cache,
 	cleaning_policy_ops[policy].set_hot_cache_line(cache, cache_line);
 
 unlock:
-	ocf_refcnt_dec(&cache->cleaner.refcnt);
+	env_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline int ocf_cleaning_set_param(ocf_cache_t cache,
@@ -274,7 +275,7 @@ static inline void ocf_cleaning_perform_cleaning(ocf_cache_t cache,
 {
 	ocf_cleaning_t policy;
 
-	if (unlikely(!ocf_refcnt_inc(&cache->cleaner.refcnt))) {
+	if (unlikely(!env_refcnt_inc(&cache->cleaner.refcnt))) {
 		cmpl(&cache->cleaner, 1000);
 		return;
 	}
@@ -283,14 +284,14 @@ static inline void ocf_cleaning_perform_cleaning(ocf_cache_t cache,
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
 	if (unlikely(!cleaning_policy_ops[policy].perform_cleaning)) {
-		ocf_refcnt_dec(&cache->cleaner.refcnt);
+		env_refcnt_dec(&cache->cleaner.refcnt);
 		cmpl(&cache->cleaner, 1000);
 		return;
 	}
 
 	cleaning_policy_ops[policy].perform_cleaning(cache, cmpl);
 
-	ocf_refcnt_dec(&cache->cleaner.refcnt);
+	env_refcnt_dec(&cache->cleaner.refcnt);
 }
 
 static inline const char *ocf_cleaning_get_name(ocf_cleaning_t policy)
