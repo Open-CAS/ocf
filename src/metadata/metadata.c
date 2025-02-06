@@ -715,7 +715,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	OCF_DEBUG_PARAM(cache, "Metadata count pages fixed = %u", ctrl->count_pages_fixed);
 	OCF_DEBUG_PARAM(cache, "Metadata count pages variable = %u", ctrl->count_pages_variable);
 	OCF_DEBUG_PARAM(cache, "Metadata end pages = %u", ctrl->start_page
-			+ ctrl->count_pages_fixed + ctrl->count_pages_variable);
+			+ ocf_metadata_get_pages_count(cache));
 
 	superblock = ctrl->segment[metadata_segment_sb_config];
 
@@ -790,7 +790,7 @@ finalize:
 			ctrl->raw_desc[metadata_segment_hash].entries;
 
 	cache->device->metadata_offset =
-			(ctrl->count_pages_fixed + ctrl->count_pages_variable) * PAGE_SIZE;
+			ocf_metadata_get_pages_count(cache) * PAGE_SIZE;
 
 	cache->conf_meta->cachelines = ctrl->cachelines;
 	cache->conf_meta->line_size = line_size;
@@ -949,7 +949,7 @@ void ocf_metadata_init_hash_table(ocf_pipeline_t pipeline, void *priv,
 /*
  * Get count of pages that is dedicated for metadata
  */
-ocf_cache_line_t ocf_metadata_get_pages_count(struct ocf_cache *cache)
+uint32_t ocf_metadata_get_pages_count(struct ocf_cache *cache)
 {
 	struct ocf_metadata_ctrl *ctrl = NULL;
 

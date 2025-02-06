@@ -21,8 +21,8 @@
 struct ocf_metadata_ctrl {
 	ocf_cache_line_t cachelines;
 	ocf_cache_line_t start_page;
-	ocf_cache_line_t count_pages_fixed;
-	ocf_cache_line_t count_pages_variable;
+	uint32_t count_pages_fixed;
+	uint32_t count_pages_variable;
 	uint32_t device_lines;
 	size_t mapping_size;
 	struct ocf_metadata_raw raw_desc[metadata_segment_max];

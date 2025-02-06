@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -125,7 +126,7 @@ ocf_metadata_get_cachelines_count(struct ocf_cache *cache);
  * @param cache - Cache instance
  * @return Pages required for store metadata on cache device
  */
-ocf_cache_line_t ocf_metadata_get_pages_count(struct ocf_cache *cache);
+uint32_t ocf_metadata_get_pages_count(struct ocf_cache *cache);
 
 /**
  * @brief Flush metadata

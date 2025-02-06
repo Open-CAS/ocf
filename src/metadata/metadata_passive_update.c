@@ -76,7 +76,6 @@ static void passive_io_page_lock_acquired(struct ocf_request *req)
 int ocf_metadata_passive_update(struct ocf_request *master)
 {
 	ocf_cache_t cache = master->cache;
-	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
 	uint64_t io_start_page = BYTES_TO_PAGES(master->addr);
 	uint64_t io_end_page = io_start_page + BYTES_TO_PAGES(master->bytes);
 	struct ocf_request *req;
@@ -87,7 +86,7 @@ int ocf_metadata_passive_update(struct ocf_request *master)
 		return 0;
 	}
 
-	if (io_start_page >= ctrl->count_pages_fixed + ctrl->count_pages_variable) {
+	if (io_start_page >= ocf_metadata_get_pages_count(cache)) {
 		master->complete(master, 0);
 		return 0;
 	}
