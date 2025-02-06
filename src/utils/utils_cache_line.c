@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -11,20 +12,13 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 		ocf_core_id_t core_id, ocf_part_id_t part_id)
 {
 	ocf_core_t core;
-	bool is_valid;
+	bool is_valid, changed;
 
 	ENV_BUG_ON(core_id >= OCF_CORE_MAX);
 	core = ocf_cache_get_core(cache, core_id);
 
-	if (metadata_clear_valid_sec_changed(cache, line, start_bit, end_bit,
-			&is_valid)) {
-		/*
-		 * Update the number of cached data for that core object
-		 */
-		env_atomic_dec(&core->runtime_meta->cached_clines);
-		env_atomic_dec(&core->runtime_meta->
-				part_counters[part_id].cached_clines);
-	}
+	changed = metadata_clear_valid_sec_changed(cache, line,
+			start_bit, end_bit, &is_valid);
 
 	/* If we have waiters, do not remove cache line
 	 * for this cache line which will use one, clear
@@ -32,6 +26,11 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 	 */
 	if (!is_valid && !ocf_cache_line_are_waiters(
 			ocf_cache_line_concurrency(cache), line)) {
+		if (changed) {
+			env_atomic_dec(&core->runtime_meta->cached_clines);
+			env_atomic_dec(&core->runtime_meta->
+					part_counters[part_id].cached_clines);
+		}
 		ocf_lru_rm_cline(cache, line);
 		ocf_metadata_remove_cache_line(cache, line);
 	}
