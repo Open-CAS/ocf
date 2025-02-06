@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2023-2024 Huawei Technologies
+ * Copyright(c) 2023-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -1760,7 +1760,7 @@ static void _ocf_mngt_init_promotion(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _ocf_mngt_zero_superblock_complete(void *priv, int error)
+static void _ocf_mngt_attach_zero_superblock_complete(void *priv, int error)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
@@ -1774,14 +1774,14 @@ static void _ocf_mngt_zero_superblock_complete(void *priv, int error)
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void _ocf_mngt_zero_superblock(ocf_pipeline_t pipeline,
+static void _ocf_mngt_attach_zero_superblock(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	ocf_metadata_zero_superblock(cache,
-			_ocf_mngt_zero_superblock_complete, context);
+			_ocf_mngt_attach_zero_superblock_complete, context);
 }
 
 static void _ocf_mngt_attach_flush_metadata_complete(void *priv, int error)
@@ -2011,7 +2011,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_attach_init_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_populate_free),
 		OCF_PL_STEP(_ocf_mngt_attach_init_services),
-		OCF_PL_STEP(_ocf_mngt_zero_superblock),
+		OCF_PL_STEP(_ocf_mngt_attach_zero_superblock),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_discard),
 		OCF_PL_STEP(_ocf_mngt_attach_flush),
@@ -2170,6 +2170,31 @@ static void ocf_mngt_cache_stop_unplug(ocf_pipeline_t pipeline,
 
 	_ocf_mngt_cache_unplug(cache, true, &context->unplug_context,
 			ocf_mngt_cache_stop_unplug_complete, context);
+}
+
+static void _ocf_mngt_detach_zero_superblock_complete(void *priv, int error)
+{
+	struct ocf_mngt_cache_unplug_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (error) {
+		ocf_cache_log(cache, log_err,
+				"ERROR: Failed to clear the superblock on the detached device\n"
+				"The metadata on the device is in an invalid state"
+				" - manual superblock clearing is recommended.\n");
+	}
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+static void _ocf_mngt_detach_zero_superblock(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_unplug_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	ocf_metadata_zero_superblock(cache,
+			_ocf_mngt_detach_zero_superblock_complete, context);
 }
 
 static void _ocf_mngt_cache_put_io_queues(ocf_cache_t cache)
@@ -2443,7 +2468,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_standby_attach_pipeline_propertie
 		OCF_PL_STEP(_ocf_mngt_attach_populate_free),
 		OCF_PL_STEP(_ocf_mngt_standby_prepare_mempool),
 		OCF_PL_STEP(_ocf_mngt_standby_init_pio_concurrency),
-		OCF_PL_STEP(_ocf_mngt_zero_superblock),
+		OCF_PL_STEP(_ocf_mngt_attach_zero_superblock),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_discard),
 		OCF_PL_STEP(_ocf_mngt_attach_flush),
@@ -3147,6 +3172,8 @@ static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
 		struct _ocf_mngt_cache_unplug_context *context,
 		_ocf_mngt_cache_unplug_end_t cmpl, void *priv)
 {
+	struct ocf_mngt_cache_unplug_context *ctx = priv;
+
 	context->cmpl = cmpl;
 	context->priv = priv;
 	context->cache = cache;
@@ -3157,14 +3184,13 @@ static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
 	__deinit_promotion_policy(cache);
 
 	if (!stop) {
-		/* Just set correct shutdown status */
-		ocf_metadata_set_shutdown_status(cache, ocf_metadata_detached,
-				_ocf_mngt_cache_unplug_complete, context);
-	} else {
-		/* Flush metadata */
-		ocf_metadata_flush_all(cache,
-				_ocf_mngt_cache_unplug_complete, context);
+		/* Skip metadata update - will be zeroed later in the detach pipeline */
+		OCF_PL_NEXT_RET(ctx->pipeline);
 	}
+
+	/* Flush metadata */
+	ocf_metadata_flush_all(cache,
+			_ocf_mngt_cache_unplug_complete, context);
 }
 
 static int _ocf_mngt_cache_load_core_log(ocf_core_t core, void *cntx)
@@ -3850,6 +3876,7 @@ struct ocf_pipeline_properties ocf_mngt_cache_detach_pipeline_properties = {
 		OCF_PL_STEP(ocf_mngt_cache_stop_check_dirty),
 		OCF_PL_STEP(ocf_mngt_cache_detach_update_metadata),
 		OCF_PL_STEP(ocf_mngt_cache_detach_unplug),
+		OCF_PL_STEP(_ocf_mngt_detach_zero_superblock),
 		OCF_PL_STEP(ocf_mngt_cache_close_cache_volume),
 		OCF_PL_STEP(ocf_mngt_cache_deinit_metadata),
 		OCF_PL_STEP(ocf_mngt_cache_deinit_cache_volume),

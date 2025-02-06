@@ -1,16 +1,13 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
-# Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2024-2025 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 import logging
-from ctypes import c_int, c_void_p, byref, c_uint32, memmove, cast
-from random import randrange
-from itertools import count
+from ctypes import c_void_p, memmove, cast
 
 import pytest
-
 from pyocf.types.cache import (
     Cache,
     CacheMode,
@@ -70,12 +67,32 @@ def test_detach_cache_twice(pyocf_ctx):
     cache.stop()
 
 
+def test_detach_cache_zero_superblock(pyocf_ctx):
+    """Check if superblock is zeroed after detach and the cache device can be reattached without
+    --force option.
+    """
+    cache_device = RamVolume(Size.from_MiB(50))
+    cache = Cache.start_on_device(cache_device)
+
+    cache.detach_device()
+
+    data = cache_device.get_bytes()
+
+    page_size = 4096
+    assert data[:page_size] == b'\x00'*page_size
+
+    cache.attach_device(cache_device, force=False)
+    cache.detach_device()
+
+    cache.stop()
+
+
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", [CacheMode.WB, CacheMode.WT, CacheMode.WO])
 @pytest.mark.parametrize("new_cache_size", [80, 120])
 def test_attach_different_size(pyocf_ctx, new_cache_size, mode: CacheMode, cls: CacheLineSize):
     """Start cache and add partition with limited occupancy. Fill partition with data,
-    attach cache with different size and trigger IO. Verify if occupancy thresold is
+    attach cache with different size and trigger IO. Verify if occupancy threshold is
     respected with both original and new cache device.
     """
     cache_device = RamVolume(Size.from_MiB(100))

@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -21,9 +22,8 @@
  * @brief Metadata shutdown status
  */
 enum ocf_metadata_shutdown_status {
-	ocf_metadata_clean_shutdown = 1, /*!< OCF shutdown graceful*/
 	ocf_metadata_dirty_shutdown = 0, /*!< Dirty OCF shutdown*/
-	ocf_metadata_detached = 2, /*!< Cache device detached */
+	ocf_metadata_clean_shutdown = 1, /*!< OCF shutdown graceful*/
 };
 
 /**
