@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -271,7 +271,7 @@ static int ocf_metadata_calculate_metadata_size(
 	lowest_diff = cache_lines;
 
 	do {
-		count_pages = ctrl->count_pages;
+		count_pages = 0;
 		for (i = metadata_segment_variable_size_start;
 				i < metadata_segment_max; i++) {
 			struct ocf_metadata_raw *raw = &ctrl->raw_desc[i];
@@ -286,7 +286,7 @@ static int ocf_metadata_calculate_metadata_size(
 			/*
 			 * Setup SSD location and size
 			 */
-			raw->ssd_pages_offset = count_pages;
+			raw->ssd_pages_offset = ctrl->count_pages_fixed + count_pages;
 			raw->ssd_pages = OCF_DIV_ROUND_UP(raw->entries,
 					raw->entries_in_page);
 
@@ -321,7 +321,7 @@ static int ocf_metadata_calculate_metadata_size(
 		/* Cache size in bytes */
 		diff_lines = ctrl->device_lines * line_size;
 		/* Sub metadata size which is in 4 kiB unit */
-		diff_lines -= (int64_t)count_pages * PAGE_SIZE;
+		diff_lines -= (int64_t)(ctrl->count_pages_fixed + count_pages) * PAGE_SIZE;
 		/* Convert back to cache lines */
 		diff_lines /= line_size;
 		/* Calculate difference */
@@ -344,7 +344,7 @@ static int ocf_metadata_calculate_metadata_size(
 
 	} while (diff_lines);
 
-	ctrl->count_pages = count_pages;
+	ctrl->count_pages_variable = count_pages;
 	ctrl->cachelines = cache_lines;
 	OCF_DEBUG_PARAM(cache, "Cache lines = %u", ctrl->cachelines);
 
@@ -447,6 +447,7 @@ void ocf_metadata_deinit_variable_size(struct ocf_cache *cache)
 			i < metadata_segment_max; i++) {
 		ocf_metadata_segment_destroy(cache, ctrl->segment[i]);
 	}
+	ctrl->count_pages_variable = 0;
 }
 
 static inline void ocf_metadata_config_init(ocf_cache_t cache, size_t size)
@@ -530,7 +531,7 @@ static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(
 		page += ocf_metadata_raw_size_on_ssd(raw);
 	}
 
-	ctrl->count_pages = page;
+	ctrl->count_pages_fixed = page;
 
 	return ctrl;
 }
@@ -711,9 +712,10 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	}
 
 	OCF_DEBUG_PARAM(cache, "Metadata begin pages = %u", ctrl->start_page);
-	OCF_DEBUG_PARAM(cache, "Metadata count pages = %u", ctrl->count_pages);
+	OCF_DEBUG_PARAM(cache, "Metadata count pages fixed = %u", ctrl->count_pages_fixed);
+	OCF_DEBUG_PARAM(cache, "Metadata count pages variable = %u", ctrl->count_pages_variable);
 	OCF_DEBUG_PARAM(cache, "Metadata end pages = %u", ctrl->start_page
-			+ ctrl->count_pages);
+			+ ctrl->count_pages_fixed + ctrl->count_pages_variable);
 
 	superblock = ctrl->segment[metadata_segment_sb_config];
 
@@ -787,7 +789,8 @@ finalize:
 	cache->device->hash_table_entries =
 			ctrl->raw_desc[metadata_segment_hash].entries;
 
-	cache->device->metadata_offset = ctrl->count_pages * PAGE_SIZE;
+	cache->device->metadata_offset =
+			(ctrl->count_pages_fixed + ctrl->count_pages_variable) * PAGE_SIZE;
 
 	cache->conf_meta->cachelines = ctrl->cachelines;
 	cache->conf_meta->line_size = line_size;
@@ -954,7 +957,7 @@ ocf_cache_line_t ocf_metadata_get_pages_count(struct ocf_cache *cache)
 
 	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
-	return ctrl->count_pages;
+	return ctrl->count_pages_fixed + ctrl->count_pages_variable;
 }
 
 /*

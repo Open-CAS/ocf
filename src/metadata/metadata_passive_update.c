@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -87,7 +87,7 @@ int ocf_metadata_passive_update(struct ocf_request *master)
 		return 0;
 	}
 
-	if (io_start_page >= ctrl->count_pages) {
+	if (io_start_page >= ctrl->count_pages_fixed + ctrl->count_pages_variable) {
 		master->complete(master, 0);
 		return 0;
 	}

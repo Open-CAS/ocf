@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2020-2021 Intel Corporation
+ * Copyright(c) 2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -20,7 +21,8 @@
 struct ocf_metadata_ctrl {
 	ocf_cache_line_t cachelines;
 	ocf_cache_line_t start_page;
-	ocf_cache_line_t count_pages;
+	ocf_cache_line_t count_pages_fixed;
+	ocf_cache_line_t count_pages_variable;
 	uint32_t device_lines;
 	size_t mapping_size;
 	struct ocf_metadata_raw raw_desc[metadata_segment_max];
