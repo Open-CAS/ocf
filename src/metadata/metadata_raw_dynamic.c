@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -366,10 +366,10 @@ static void raw_dynamic_load_all_complete(
 {
 	context->cmpl(context->priv, error);
 
-	ocf_req_put(context->req);
 	env_secure_free(context->page, PAGE_SIZE);
 	env_free(context->zpage);
 	ctx_data_free(context->cache->owner, context->req->data);
+	ocf_req_put(context->req);
 	env_vfree(context);
 }
 
