@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -164,5 +165,19 @@ static inline void list_move_tail(struct list_head *it, struct list_head *l1)
 	     _list_entry_helper(item, (item)->field_name.next, field_name) != \
 		     _list_entry_helper(item, (plist)->next, field_name); \
 	     item = q, q = _list_entry_helper(q, (q)->field_name.next, field_name))
+/**
+ * Iterate over a list starting at specified element. Works even if entries are
+ * deleted during loop.
+ * @param list pointer to list item (iterator)
+ * @param q another pointer to list item, used as helper
+ * @param plist pointer to list_head item
+ * @param field_name name of list_head field in list entry
+ */
+#define list_for_each_entry_safe_from(item, q, plist, field_name)		\
+	for (q = _list_entry_helper(item, (item)->field_name.next, field_name); \
+	     _list_entry_helper(item, (item)->field_name.next, field_name) != \
+		     _list_entry_helper(item, (plist)->next, field_name); \
+	     item = q, q = _list_entry_helper(q, (q)->field_name.next, field_name))
+
 
 #endif // __OCF_ENV_LIST__
