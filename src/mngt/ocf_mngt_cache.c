@@ -3733,6 +3733,9 @@ int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, ocf_promotion_t type,
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
 
+	if (!ocf_cache_is_device_attached(cache))
+		return -OCF_ERR_CACHE_DETACHED;
+
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	result = ocf_promotion_set_param(cache, type, param_id, param_value);

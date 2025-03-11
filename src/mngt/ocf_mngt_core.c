@@ -1258,6 +1258,9 @@ int ocf_mngt_core_set_seq_cutoff_promote_on_threshold(ocf_core_t core,
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
 
+	if (!ocf_cache_is_device_attached(cache))
+		return -OCF_ERR_CACHE_DETACHED;
+
 	return _cache_mngt_set_core_seq_cutoff_promote_on_threshold(core, &promote);
 }
 
@@ -1268,6 +1271,9 @@ int ocf_mngt_core_set_seq_cutoff_promote_on_threshold_all(ocf_cache_t cache,
 
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
+
+	if (!ocf_cache_is_device_attached(cache))
+		return -OCF_ERR_CACHE_DETACHED;
 
 	return ocf_core_visit(cache,
 			_cache_mngt_set_core_seq_cutoff_promote_on_threshold,
