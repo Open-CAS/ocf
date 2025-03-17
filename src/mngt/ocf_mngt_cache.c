@@ -2114,7 +2114,7 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 
 typedef void (*_ocf_mngt_cache_unplug_end_t)(void *context, int error);
 
-struct _ocf_mngt_cache_unplug_context {
+struct _ocf_mngt_cache_deinit_services_context {
 	_ocf_mngt_cache_unplug_end_t cmpl;
 	void *priv;
 	ocf_cache_t cache;
@@ -2133,11 +2133,13 @@ struct ocf_mngt_cache_unplug_context {
 
 	/* Fields that belong to both cache detach and cache stop pipelines */
 
-	/* unplug context - this is private structure of _ocf_mngt_cache_unplug,
-	 * it is member of stop context only to reserve memory in advance for
-	 * _ocf_mngt_cache_unplug, eliminating the possibility of ENOMEM error
-	 * at the point where we are effectively unable to handle it */
-	struct _ocf_mngt_cache_unplug_context unplug_context;
+	/* unplug context - this is private structure of
+	 * _ocf_mngt_cache_deinit_services, it is member of stop context only
+	 * to reserve memory in advance for _ocf_mngt_cache_deinit_services,
+	 * eliminating the possibility of ENOMEM error at the point where we
+	 * are effectively unable to handle it
+	 */
+	struct _ocf_mngt_cache_deinit_services_context deinit_services_context;
 	ocf_mngt_cache_stop_end_t cmpl;
 	void *priv;
 	ocf_pipeline_t pipeline;
@@ -2202,7 +2204,7 @@ static void ocf_mngt_cache_stop_remove_cores(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void ocf_mngt_cache_stop_unplug_complete(void *priv, int error)
+static void ocf_mngt_cache_stop_deinit_services_complete(void *priv, int error)
 {
 	struct ocf_mngt_cache_unplug_context *context = priv;
 
@@ -2214,18 +2216,19 @@ static void ocf_mngt_cache_stop_unplug_complete(void *priv, int error)
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
-		struct _ocf_mngt_cache_unplug_context *context,
+static void _ocf_mngt_cache_deinit_services(ocf_cache_t cache, bool stop,
+		struct _ocf_mngt_cache_deinit_services_context *context,
 		_ocf_mngt_cache_unplug_end_t cmpl, void *priv);
 
-static void ocf_mngt_cache_stop_unplug(ocf_pipeline_t pipeline,
+static void ocf_mngt_cache_stop_deinit_services(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_unplug_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	_ocf_mngt_cache_unplug(cache, true, &context->unplug_context,
-			ocf_mngt_cache_stop_unplug_complete, context);
+	_ocf_mngt_cache_deinit_services(cache, true,
+			&context->deinit_services_context,
+			ocf_mngt_cache_stop_deinit_services_complete, context);
 }
 
 static void _ocf_mngt_detach_zero_superblock_complete(void *priv, int error)
@@ -2413,7 +2416,7 @@ struct ocf_pipeline_properties ocf_mngt_cache_stop_pipeline_properties = {
 		OCF_PL_STEP(ocf_mngt_cache_stop_wait_metadata_io),
 		OCF_PL_STEP(ocf_mngt_cache_stop_check_dirty),
 		OCF_PL_STEP(ocf_mngt_cache_stop_remove_cores),
-		OCF_PL_STEP(ocf_mngt_cache_stop_unplug),
+		OCF_PL_STEP(ocf_mngt_cache_stop_deinit_services),
 		OCF_PL_STEP(ocf_mngt_cache_close_cache_volume),
 		OCF_PL_STEP(ocf_mngt_cache_deinit_metadata),
 		OCF_PL_STEP(ocf_mngt_cache_deinit_cache_volume),
@@ -3216,17 +3219,16 @@ void ocf_mngt_cache_attach(ocf_cache_t cache,
 	_ocf_mngt_cache_attach(cache, cfg, _ocf_mngt_cache_attach_complete, cmpl, priv);
 }
 
-static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
+static void _ocf_mngt_cache_deinit_services_complete(void *priv, int error)
 {
-	struct _ocf_mngt_cache_unplug_context *context = priv;
+	struct _ocf_mngt_cache_deinit_services_context *context = priv;
 
 	context->cmpl(context->priv, error ? -OCF_ERR_WRITE_CACHE : 0);
 }
 
 /**
- * @brief Unplug caching device from cache instance. Variable size metadata
- *	  containers are deinitialiazed as well as other cacheline related
- *	  structures. Cache volume is closed.
+ * @brief Stop cleaner, deinitialize cleaning policy and promotion policy
+ *		metadata
  *
  * @param cache OCF cache instance
  * @param stop	- true if unplugging during stop - in this case we mark
@@ -3237,8 +3239,8 @@ static void _ocf_mngt_cache_unplug_complete(void *priv, int error)
  * @param cmpl Completion callback
  * @param priv Completion context
  */
-static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
-		struct _ocf_mngt_cache_unplug_context *context,
+static void _ocf_mngt_cache_deinit_services(ocf_cache_t cache, bool stop,
+		struct _ocf_mngt_cache_deinit_services_context *context,
 		_ocf_mngt_cache_unplug_end_t cmpl, void *priv)
 {
 	struct ocf_mngt_cache_unplug_context *ctx = priv;
@@ -3259,7 +3261,7 @@ static void _ocf_mngt_cache_unplug(ocf_cache_t cache, bool stop,
 
 	/* Flush metadata */
 	ocf_metadata_flush_all(cache,
-			_ocf_mngt_cache_unplug_complete, context);
+			_ocf_mngt_cache_deinit_services_complete, context);
 }
 
 static int _ocf_mngt_cache_load_core_log(ocf_core_t core, void *cntx)
@@ -3885,7 +3887,7 @@ static void ocf_mngt_cache_detach_unplug_complete(void *priv, int error)
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void ocf_mngt_cache_detach_unplug(ocf_pipeline_t pipeline,
+static void ocf_mngt_cache_detach_deinit_services(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_unplug_context *context = priv;
@@ -3893,9 +3895,8 @@ static void ocf_mngt_cache_detach_unplug(ocf_pipeline_t pipeline,
 
 	ENV_BUG_ON(cache->conf_meta->dirty_flushed == DIRTY_NOT_FLUSHED);
 
-	/* Do the actual detach - deinit cacheline metadata,
-	 * stop cleaner thread and close cache bottom device */
-	_ocf_mngt_cache_unplug(cache, false, &context->unplug_context,
+	_ocf_mngt_cache_deinit_services(cache, false,
+			&context->deinit_services_context,
 			ocf_mngt_cache_detach_unplug_complete, context);
 }
 
@@ -3940,7 +3941,7 @@ struct ocf_pipeline_properties ocf_mngt_cache_detach_pipeline_properties = {
 		OCF_PL_STEP(ocf_mngt_cache_detach_stop_cleaner_io),
 		OCF_PL_STEP(ocf_mngt_cache_stop_check_dirty),
 		OCF_PL_STEP(ocf_mngt_cache_detach_update_metadata),
-		OCF_PL_STEP(ocf_mngt_cache_detach_unplug),
+		OCF_PL_STEP(ocf_mngt_cache_detach_deinit_services),
 		OCF_PL_STEP(_ocf_mngt_detach_zero_superblock),
 		OCF_PL_STEP(ocf_mngt_cache_close_cache_volume),
 		OCF_PL_STEP(ocf_mngt_cache_deinit_metadata),
