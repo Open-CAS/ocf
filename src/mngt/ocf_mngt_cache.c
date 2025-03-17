@@ -3821,7 +3821,6 @@ static void ocf_mngt_cache_detach_remove_cores(ocf_pipeline_t pipeline,
 	/* remove cacheline metadata and cleaning policy meta for all cores */
 	for_each_core_metadata(cache, core, core_id) {
 		cache_mngt_core_deinit_attached_meta(core);
-		cache_mngt_core_remove_from_cleaning_pol(core);
 		if (--no == 0)
 			break;
 	}
