@@ -2200,7 +2200,13 @@ static void ocf_mngt_cache_stop_deinit_services_complete(void *priv, int error)
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void _ocf_mngt_cache_deinit_services(ocf_cache_t cache);
+static void _ocf_mngt_cache_deinit_services(ocf_cache_t cache)
+{
+	ocf_stop_cleaner(cache);
+
+	__deinit_cleaning_policy(cache);
+	__deinit_promotion_policy(cache);
+}
 
 static void ocf_mngt_cache_stop_deinit_services(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
@@ -3200,18 +3206,6 @@ void ocf_mngt_cache_attach(ocf_cache_t cache,
 		OCF_CMPL_RET(cache, priv, result);
 
 	_ocf_mngt_cache_attach(cache, cfg, _ocf_mngt_cache_attach_complete, cmpl, priv);
-}
-
-/**
- * @brief Stop cleaner, deinitialize cleaning policy and promotion policy
- *		metadata
- */
-static void _ocf_mngt_cache_deinit_services(ocf_cache_t cache)
-{
-	ocf_stop_cleaner(cache);
-
-	__deinit_cleaning_policy(cache);
-	__deinit_promotion_policy(cache);
 }
 
 static int _ocf_mngt_cache_load_core_log(ocf_core_t core, void *cntx)
