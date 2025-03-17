@@ -3855,7 +3855,7 @@ static void ocf_mngt_cache_detach_stop_cleaner_io(ocf_pipeline_t pipeline,
 			pipeline);
 }
 
-static void ocf_mngt_cache_detach_update_metadata(ocf_pipeline_t pipeline,
+static void ocf_mngt_cache_detach_remove_cores(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_unplug_context *context = priv;
@@ -3927,7 +3927,7 @@ struct ocf_pipeline_properties ocf_mngt_cache_detach_pipeline_properties = {
 		OCF_PL_STEP(ocf_mngt_cache_detach_stop_cache_io),
 		OCF_PL_STEP(ocf_mngt_cache_detach_stop_cleaner_io),
 		OCF_PL_STEP(ocf_mngt_cache_stop_check_dirty),
-		OCF_PL_STEP(ocf_mngt_cache_detach_update_metadata),
+		OCF_PL_STEP(ocf_mngt_cache_detach_remove_cores),
 		OCF_PL_STEP(ocf_mngt_cache_detach_deinit_services),
 		OCF_PL_STEP(_ocf_mngt_detach_zero_superblock),
 		OCF_PL_STEP(ocf_mngt_cache_close_cache_volume),
