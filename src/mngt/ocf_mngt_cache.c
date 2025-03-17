@@ -2190,16 +2190,6 @@ static void ocf_mngt_cache_stop_remove_cores(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
-static void ocf_mngt_cache_stop_deinit_services_complete(void *priv, int error)
-{
-	struct ocf_mngt_cache_unplug_context *context = priv;
-
-	if (error)
-		context->cache_write_error = -OCF_ERR_WRITE_CACHE;
-
-	ocf_pipeline_next(context->pipeline);
-}
-
 static void _ocf_mngt_cache_deinit_services(ocf_cache_t cache)
 {
 	ocf_stop_cleaner(cache);
@@ -2216,8 +2206,27 @@ static void ocf_mngt_cache_stop_deinit_services(ocf_pipeline_t pipeline,
 
 	_ocf_mngt_cache_deinit_services(cache);
 
+	ocf_pipeline_next(context->pipeline);
+}
+
+static void ocf_mngt_cache_stop_flush_metadata_completion(void *priv, int error)
+{
+	struct ocf_mngt_cache_unplug_context *context = priv;
+
+	if (error)
+		context->cache_write_error = -OCF_ERR_WRITE_CACHE;
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+static void ocf_mngt_cache_stop_flush_metadata(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_unplug_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
 	ocf_metadata_flush_all(cache,
-			ocf_mngt_cache_stop_deinit_services_complete, context);
+			ocf_mngt_cache_stop_flush_metadata_completion, context);
 }
 
 static void _ocf_mngt_detach_zero_superblock_complete(void *priv, int error)
@@ -2406,6 +2415,7 @@ struct ocf_pipeline_properties ocf_mngt_cache_stop_pipeline_properties = {
 		OCF_PL_STEP(ocf_mngt_cache_stop_check_dirty),
 		OCF_PL_STEP(ocf_mngt_cache_stop_remove_cores),
 		OCF_PL_STEP(ocf_mngt_cache_stop_deinit_services),
+		OCF_PL_STEP(ocf_mngt_cache_stop_flush_metadata),
 		OCF_PL_STEP(ocf_mngt_cache_close_cache_volume),
 		OCF_PL_STEP(ocf_mngt_cache_deinit_metadata),
 		OCF_PL_STEP(ocf_mngt_cache_deinit_cache_volume),
