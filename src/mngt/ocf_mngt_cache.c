@@ -2114,12 +2114,6 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 
 typedef void (*_ocf_mngt_cache_unplug_end_t)(void *context, int error);
 
-struct _ocf_mngt_cache_deinit_services_context {
-	_ocf_mngt_cache_unplug_end_t cmpl;
-	void *priv;
-	ocf_cache_t cache;
-};
-
 struct ocf_mngt_cache_unplug_context {
 	/* Fields that belong to cache stop pipeline */
 	ocf_ctx_t ctx;
@@ -2132,14 +2126,6 @@ struct ocf_mngt_cache_unplug_context {
 	uint8_t composite_vol_id;
 
 	/* Fields that belong to both cache detach and cache stop pipelines */
-
-	/* unplug context - this is private structure of
-	 * _ocf_mngt_cache_deinit_services, it is member of stop context only
-	 * to reserve memory in advance for _ocf_mngt_cache_deinit_services,
-	 * eliminating the possibility of ENOMEM error at the point where we
-	 * are effectively unable to handle it
-	 */
-	struct _ocf_mngt_cache_deinit_services_context deinit_services_context;
 	ocf_mngt_cache_stop_end_t cmpl;
 	void *priv;
 	ocf_pipeline_t pipeline;
@@ -2208,17 +2194,13 @@ static void ocf_mngt_cache_stop_deinit_services_complete(void *priv, int error)
 {
 	struct ocf_mngt_cache_unplug_context *context = priv;
 
-	if (error) {
-		ENV_BUG_ON(error != -OCF_ERR_WRITE_CACHE);
-		context->cache_write_error = error;
-	}
+	if (error)
+		context->cache_write_error = -OCF_ERR_WRITE_CACHE;
 
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void _ocf_mngt_cache_deinit_services(ocf_cache_t cache, bool stop,
-		struct _ocf_mngt_cache_deinit_services_context *context,
-		_ocf_mngt_cache_unplug_end_t cmpl, void *priv);
+static void _ocf_mngt_cache_deinit_services(ocf_cache_t cache);
 
 static void ocf_mngt_cache_stop_deinit_services(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
@@ -2226,8 +2208,9 @@ static void ocf_mngt_cache_stop_deinit_services(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_unplug_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	_ocf_mngt_cache_deinit_services(cache, true,
-			&context->deinit_services_context,
+	_ocf_mngt_cache_deinit_services(cache);
+
+	ocf_metadata_flush_all(cache,
 			ocf_mngt_cache_stop_deinit_services_complete, context);
 }
 
@@ -3219,49 +3202,16 @@ void ocf_mngt_cache_attach(ocf_cache_t cache,
 	_ocf_mngt_cache_attach(cache, cfg, _ocf_mngt_cache_attach_complete, cmpl, priv);
 }
 
-static void _ocf_mngt_cache_deinit_services_complete(void *priv, int error)
-{
-	struct _ocf_mngt_cache_deinit_services_context *context = priv;
-
-	context->cmpl(context->priv, error ? -OCF_ERR_WRITE_CACHE : 0);
-}
-
 /**
  * @brief Stop cleaner, deinitialize cleaning policy and promotion policy
  *		metadata
- *
- * @param cache OCF cache instance
- * @param stop	- true if unplugging during stop - in this case we mark
- *			clean shutdown in metadata and flush all containers.
- *		- false if the device is to be detached from cache - loading
- *			metadata from this device will not be possible.
- * @param context - context for this call, must be zeroed
- * @param cmpl Completion callback
- * @param priv Completion context
  */
-static void _ocf_mngt_cache_deinit_services(ocf_cache_t cache, bool stop,
-		struct _ocf_mngt_cache_deinit_services_context *context,
-		_ocf_mngt_cache_unplug_end_t cmpl, void *priv)
+static void _ocf_mngt_cache_deinit_services(ocf_cache_t cache)
 {
-	struct ocf_mngt_cache_unplug_context *ctx = priv;
-
-	context->cmpl = cmpl;
-	context->priv = priv;
-	context->cache = cache;
-
 	ocf_stop_cleaner(cache);
 
 	__deinit_cleaning_policy(cache);
 	__deinit_promotion_policy(cache);
-
-	if (!stop) {
-		/* Skip metadata update - will be zeroed later in the detach pipeline */
-		OCF_PL_NEXT_RET(ctx->pipeline);
-	}
-
-	/* Flush metadata */
-	ocf_metadata_flush_all(cache,
-			_ocf_mngt_cache_deinit_services_complete, context);
 }
 
 static int _ocf_mngt_cache_load_core_log(ocf_core_t core, void *cntx)
@@ -3883,8 +3833,9 @@ static void ocf_mngt_cache_detach_deinit_services(ocf_pipeline_t pipeline,
 
 	ENV_BUG_ON(cache->conf_meta->dirty_flushed == DIRTY_NOT_FLUSHED);
 
-	_ocf_mngt_cache_deinit_services(cache, false,
-			&context->deinit_services_context, NULL, context);
+	_ocf_mngt_cache_deinit_services(cache);
+
+	ocf_pipeline_next(pipeline);
 }
 
 static void ocf_mngt_cache_detach_finish(ocf_pipeline_t pipeline,
