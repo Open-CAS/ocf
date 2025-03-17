@@ -11,6 +11,7 @@ import pytest
 from pyocf.types.cache import (
     Cache,
     CacheMode,
+    CleaningPolicy,
 )
 from pyocf.types.core import Core
 from pyocf.types.data import Data
@@ -63,6 +64,23 @@ def test_detach_cache_twice(pyocf_ctx):
 
     with pytest.raises(OcfError, match="Detaching cache device failed"):
         cache.detach_device()
+
+    cache.stop()
+
+
+@pytest.mark.parametrize("cleaning_policy", CleaningPolicy)
+def test_detach_cache_with_cleaning(pyocf_ctx, cleaning_policy):
+    cache_device = RamVolume(Size.from_MiB(100))
+    core_device = RamVolume(Size.from_MiB(100))
+
+    cache = Cache.start_on_device(cache_device)
+    core = Core.using_device(core_device)
+
+    cache.add_core(core)
+
+    cache.set_cleaning_policy(cleaning_policy)
+
+    cache.detach_device()
 
     cache.stop()
 
