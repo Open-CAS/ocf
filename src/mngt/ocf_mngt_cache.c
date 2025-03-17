@@ -3875,18 +3875,6 @@ static void ocf_mngt_cache_detach_update_metadata(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void ocf_mngt_cache_detach_unplug_complete(void *priv, int error)
-{
-	struct ocf_mngt_cache_unplug_context *context = priv;
-
-	if (error) {
-		ENV_BUG_ON(error != -OCF_ERR_WRITE_CACHE);
-		context->cache_write_error = error;
-	}
-
-	ocf_pipeline_next(context->pipeline);
-}
-
 static void ocf_mngt_cache_detach_deinit_services(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -3896,8 +3884,7 @@ static void ocf_mngt_cache_detach_deinit_services(ocf_pipeline_t pipeline,
 	ENV_BUG_ON(cache->conf_meta->dirty_flushed == DIRTY_NOT_FLUSHED);
 
 	_ocf_mngt_cache_deinit_services(cache, false,
-			&context->deinit_services_context,
-			ocf_mngt_cache_detach_unplug_complete, context);
+			&context->deinit_services_context, NULL, context);
 }
 
 static void ocf_mngt_cache_detach_finish(ocf_pipeline_t pipeline,
