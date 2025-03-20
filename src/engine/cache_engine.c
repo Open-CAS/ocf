@@ -161,7 +161,7 @@ void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		return;
 	}
 
-	if (env_atomic_read(&cache->attach_pt)) {
+	if (unlikely(env_atomic_read(&cache->attach_pt))) {
 		req->cache_mode = ocf_req_cache_mode_pt;
 		return;
 	}
@@ -171,7 +171,7 @@ void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		return;
 	}
 
-	if (req->core_line_count > cache->conf_meta->cachelines) {
+	if (unlikely(req->core_line_count > cache->conf_meta->cachelines)) {
 		req->cache_mode = ocf_req_cache_mode_pt;
 		return;
 	}
