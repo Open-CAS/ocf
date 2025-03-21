@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -12,21 +12,21 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 		ocf_core_id_t core_id, ocf_part_id_t part_id)
 {
 	ocf_core_t core;
-	bool is_valid, changed;
+	bool line_remains_valid, line_became_invalid;
 
 	ENV_BUG_ON(core_id >= OCF_CORE_MAX);
 	core = ocf_cache_get_core(cache, core_id);
 
-	changed = metadata_clear_valid_sec_changed(cache, line,
-			start_bit, end_bit, &is_valid);
+	line_became_invalid = metadata_clear_valid_sec_changed(cache, line,
+			start_bit, end_bit, &line_remains_valid);
 
 	/* If we have waiters, do not remove cache line
 	 * for this cache line which will use one, clear
 	 * only valid bits
 	 */
-	if (!is_valid && !ocf_cache_line_are_waiters(
+	if (!line_remains_valid && !ocf_cache_line_are_waiters(
 			ocf_cache_line_concurrency(cache), line)) {
-		if (changed) {
+		if (line_became_invalid) {
 			env_atomic_dec(&core->runtime_meta->cached_clines);
 			env_atomic_dec(&core->runtime_meta->
 					part_counters[part_id].cached_clines);
