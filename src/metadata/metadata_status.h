@@ -317,28 +317,28 @@ static inline void metadata_set_valid_sec_one(struct ocf_cache *cache,
 	ocf_metadata_set_valid(cache, line, pos, pos);
 }
 /*
- * Marks given cache line's bits as invalid
+ * Marks given cache line's sectors as invalid
  *
- * @return true if any of the cache line's bits was valid and the cache line
- * became invalid (all bits invalid) after the operation
- * @return false in other cases
+ * @return true if line was valid and became invalid (all sectors invalid)
+ * @return false if line was invalid and remains invalid or
+ *		if line was valid and still has valid sectors
  */
 static inline bool metadata_clear_valid_sec_changed(
 		struct ocf_cache *cache, ocf_cache_line_t line,
-		uint8_t start, uint8_t stop, bool *is_valid)
+		uint8_t start, uint8_t stop, bool *line_remains_valid)
 {
-	bool was_any_valid, _line_remains_valid;
+	bool line_was_valid, _line_remains_valid;
 
-	was_any_valid = ocf_metadata_test_valid(cache, line, 0,
+	line_was_valid = ocf_metadata_test_valid(cache, line, 0,
 			ocf_line_end_sector(cache), false);
 
 	_line_remains_valid = ocf_metadata_clear_valid(cache, line,
 			start, stop);
 
-	if (likely(is_valid))
-		*is_valid = _line_remains_valid;
+	if (likely(line_remains_valid != NULL))
+		*line_remains_valid = _line_remains_valid;
 
-	return was_any_valid && !_line_remains_valid;
+	return line_was_valid && !_line_remains_valid;
 }
 
 #endif /* METADATA_STATUS_H_ */
