@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -326,15 +327,18 @@ static inline bool metadata_clear_valid_sec_changed(
 		struct ocf_cache *cache, ocf_cache_line_t line,
 		uint8_t start, uint8_t stop, bool *is_valid)
 {
-	bool was_any_valid;
+	bool was_any_valid, _line_remains_valid;
 
 	was_any_valid = ocf_metadata_test_valid(cache, line, 0,
 			ocf_line_end_sector(cache), false);
 
-	*is_valid = ocf_metadata_clear_valid(cache, line,
+	_line_remains_valid = ocf_metadata_clear_valid(cache, line,
 			start, stop);
 
-	return was_any_valid && !*is_valid;
+	if (likely(is_valid))
+		*is_valid = _line_remains_valid;
+
+	return was_any_valid && !_line_remains_valid;
 }
 
 #endif /* METADATA_STATUS_H_ */
