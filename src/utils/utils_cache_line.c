@@ -20,20 +20,26 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 	line_became_invalid = metadata_clear_valid_sec_changed(cache, line,
 			start_bit, end_bit, &line_remains_valid);
 
-	/* If we have waiters, do not remove cache line
-	 * for this cache line which will use one, clear
-	 * only valid bits
-	 */
-	if (!line_remains_valid && !ocf_cache_line_are_waiters(
-			ocf_cache_line_concurrency(cache), line)) {
-		if (line_became_invalid) {
-			env_atomic_dec(&core->runtime_meta->cached_clines);
-			env_atomic_dec(&core->runtime_meta->
-					part_counters[part_id].cached_clines);
-		}
-		ocf_lru_rm_cline(cache, line);
-		ocf_metadata_remove_cache_line(cache, line);
+	if (line_remains_valid) {
+		ENV_BUG_ON(line_became_invalid);
+		return;
 	}
+
+	/* If there are any waiters, don't transfer the line to the freelist.
+	 * The new owner will take care about the repart anyways
+	 */
+	if (ocf_cache_line_are_waiters(ocf_cache_line_concurrency(cache), line))
+		return;
+
+	ocf_lru_rm_cline(cache, line);
+	ocf_metadata_remove_cache_line(cache, line);
+
+	if (!line_became_invalid)
+		return;
+
+	env_atomic_dec(&core->runtime_meta->cached_clines);
+	env_atomic_dec(&core->runtime_meta->
+			part_counters[part_id].cached_clines);
 }
 
 void set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
