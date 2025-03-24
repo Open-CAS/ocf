@@ -1,6 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
-# Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2024-2025 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -212,7 +212,9 @@ def test_stop(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, with_flush: bool):
 
     cls_no = 10
 
-    run_io_and_cache_data_if_possible(front_vol, mode, cls, cls_no)
+    run_io_and_cache_data_if_possible(cache, front_vol, mode, cls, cls_no)
+
+    cache.settle()
 
     stats = cache.get_stats()
     assert int(stats["conf"]["dirty"]) == (
@@ -494,7 +496,7 @@ def test_start_stop_noqueue(pyocf_ctx):
     assert not c.results["error"], "Failed to stop cache: {}".format(c.results["error"])
 
 
-def run_io_and_cache_data_if_possible(vol, mode, cls, cls_no):
+def run_io_and_cache_data_if_possible(cache, vol, mode, cls, cls_no):
     queue = vol.parent.get_default_queue()
 
     test_data = Data(cls_no * cls)
@@ -507,6 +509,8 @@ def run_io_and_cache_data_if_possible(vol, mode, cls, cls_no):
     else:
         logger.info("[STAGE] Write to exported object")
         io_to_core(vol, queue, test_data, 0)
+
+    cache.settle()
 
     stats = vol.parent.cache.get_stats()
     assert stats["usage"]["occupancy"]["value"] == (
