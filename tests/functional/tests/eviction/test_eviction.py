@@ -1,10 +1,11 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
-# Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2024-2025 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 import logging
+import time
 from math import ceil, isclose
 from ctypes import c_int
 
@@ -44,6 +45,8 @@ def test_eviction_two_cores(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
     test_data = Data(valid_io_size)
     send_io(vol1, test_data)
     send_io(vol2, test_data)
+
+    cache.settle()
 
     stats1 = core1.get_stats()
     stats2 = core2.get_stats()
@@ -285,6 +288,7 @@ def test_eviction_freelist(pyocf_ctx, cls: CacheLineSize, cache_mode: CacheMode,
         for j in range(cache_lines_written):
             addr = (cache_lines_written * i + j) * data.size
             send_io(vol, data, addr, ioclass, io_dir)
+            cache.settle()
         assert (
             get_ioclass_occupancy(cache, ioclass) == expected_occpancy_4k
         ), f"Doesn't match for ioclass {ioclass}"
@@ -297,6 +301,9 @@ def test_eviction_freelist(pyocf_ctx, cls: CacheLineSize, cache_mode: CacheMode,
     while cache.get_stats()["usage"]["free"]["value"] > 0:
         addr += data.size
         send_io(vol, data, addr, high_prio_ioclass, io_dir)
+
+    cache.settle()
+    time.sleep(1)
 
     assert cache.get_stats()["usage"]["occupancy"]["value"] == cache_size_4k
 

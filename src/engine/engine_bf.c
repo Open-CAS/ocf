@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -39,6 +39,23 @@ static inline void backfill_queue_inc_block(struct ocf_cache *cache)
 		env_atomic_set(&cache->pending_read_misses_list_blocked, 1);
 }
 
+static int _ocf_backfill_update_metadata(struct ocf_request *req)
+{
+	ocf_cache_t cache = req->cache;
+
+	ocf_hb_req_prot_lock_wr(req);
+
+	ocf_set_valid_map_info(req);
+
+	ocf_hb_req_prot_unlock_wr(req);
+
+	ocf_req_unlock(ocf_cache_line_concurrency(cache), req);
+
+	ocf_req_put(req);
+
+	return 0;
+}
+
 static void _ocf_backfill_complete(struct ocf_request *req, int error)
 {
 	struct ocf_cache *cache = req->cache;
@@ -61,10 +78,8 @@ static void _ocf_backfill_complete(struct ocf_request *req, int error)
 	if (error) {
 		ocf_engine_invalidate(req);
 	} else {
-		ocf_req_unlock(ocf_cache_line_concurrency(cache), req);
-
-		/* put the request at the last point of the completion path */
-		ocf_req_put(req);
+		ocf_queue_push_req_cb(req, _ocf_backfill_update_metadata,
+				OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 	}
 }
 
