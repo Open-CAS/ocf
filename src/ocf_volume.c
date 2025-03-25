@@ -205,8 +205,6 @@ void ocf_volume_move(ocf_volume_t volume, ocf_volume_t from)
 	volume->priv = from->priv;
 	volume->cache = from->cache;
 	volume->features = from->features;
-	env_refcnt_init(&volume->refcnt, "volume", sizeof("volume"));
-	env_refcnt_freeze(&volume->refcnt);
 
 	/*
 	 * Deinitialize original volume without freeing resources.
