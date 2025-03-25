@@ -1965,8 +1965,8 @@ static void _ocf_mngt_attach_shutdown_status(ocf_pipeline_t pipeline,
 		_ocf_mngt_attach_shutdown_status_complete, context);
 }
 
-
-static void _ocf_mngt_attach_post_init_finish(void *priv)
+static void _ocf_mngt_attach_disable_pt(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
@@ -1980,7 +1980,7 @@ static void _ocf_mngt_attach_post_init_finish(void *priv)
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void _ocf_mngt_attach_post_init(ocf_pipeline_t pipeline,
+static void _ocf_mngt_attach_switch_to_pt(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_attach_context *context = priv;
@@ -1990,10 +1990,9 @@ static void _ocf_mngt_attach_post_init(ocf_pipeline_t pipeline,
 
 	ocf_cleaner_refcnt_unfreeze(cache);
 	env_refcnt_unfreeze(&cache->refcnt.metadata);
-
 	env_refcnt_freeze(&cache->refcnt.d2c);
-	env_refcnt_register_zero_cb(&cache->refcnt.d2c,
-			_ocf_mngt_attach_post_init_finish, context);
+
+	ocf_mngt_continue_pipeline_on_zero_refcnt(&cache->refcnt.d2c, pipeline);
 }
 
 static void _ocf_mngt_attach_handle_error(
@@ -2080,7 +2079,8 @@ struct ocf_pipeline_properties _ocf_mngt_cache_attach_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_attach_discard),
 		OCF_PL_STEP(_ocf_mngt_attach_flush),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
-		OCF_PL_STEP(_ocf_mngt_attach_post_init),
+		OCF_PL_STEP(_ocf_mngt_attach_switch_to_pt),
+		OCF_PL_STEP(_ocf_mngt_attach_disable_pt),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
@@ -2107,7 +2107,8 @@ struct ocf_pipeline_properties _ocf_mngt_cache_load_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
 		OCF_PL_STEP(_ocf_mngt_attach_flush_metadata),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
-		OCF_PL_STEP(_ocf_mngt_attach_post_init),
+		OCF_PL_STEP(_ocf_mngt_attach_switch_to_pt),
+		OCF_PL_STEP(_ocf_mngt_attach_disable_pt),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
@@ -2780,7 +2781,8 @@ struct ocf_pipeline_properties _ocf_mngt_cache_activate_pipeline_properties = {
 		OCF_PL_STEP(_ocf_mngt_load_rebuild_metadata),
 		OCF_PL_STEP(_ocf_mngt_load_init_cleaning),
 		OCF_PL_STEP(_ocf_mngt_attach_shutdown_status),
-		OCF_PL_STEP(_ocf_mngt_attach_post_init),
+		OCF_PL_STEP(_ocf_mngt_attach_switch_to_pt),
+		OCF_PL_STEP(_ocf_mngt_attach_disable_pt),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
