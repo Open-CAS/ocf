@@ -85,6 +85,30 @@ def test_detach_cache_with_cleaning(pyocf_ctx, cleaning_policy):
     cache.stop()
 
 
+def test_d2c_io(pyocf_ctx):
+    cache_device = RamVolume(Size.from_MiB(100))
+    core_device_1 = RamVolume(Size.from_MiB(10))
+
+    cache = Cache.start_on_device(cache_device, cache_mode=CacheMode.WB)
+    core_1 = Core.using_device(core_device_1, name="core_1")
+
+    cache.add_core(core_1)
+
+    cache.detach_device()
+
+    vol = CoreVolume(core_1)
+    queue = core_1.cache.get_default_queue()
+    data = Data(4096)
+    vol.open()
+    io = vol.new_io(queue, 0, data.size, IoDir.WRITE, 0, 0)
+    io.set_data(data)
+
+    completion = Sync(io).submit()
+
+    vol.close()
+    assert completion.results["err"] == 0
+
+
 def test_detach_cache_zero_superblock(pyocf_ctx):
     """Check if superblock is zeroed after detach and the cache device can be reattached without
     --force option.
