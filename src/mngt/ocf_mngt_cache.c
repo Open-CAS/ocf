@@ -2163,7 +2163,7 @@ static void ocf_mngt_cache_stop_check_dirty(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache, bool attached)
+static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache)
 {
 	ocf_core_t core;
 	ocf_core_id_t core_id;
@@ -2172,8 +2172,6 @@ static void _ocf_mngt_cache_stop_remove_cores(ocf_cache_t cache, bool attached)
 	/* All exported objects removed, cleaning up rest. */
 	for_each_core(cache, core, core_id) {
 		cache_mngt_core_remove_from_cache(core);
-		if (attached)
-			cache_mngt_core_remove_from_cleaning_pol(core);
 		cache_mngt_core_deinit(core);
 		if (--no == 0)
 			break;
@@ -2186,7 +2184,7 @@ static void ocf_mngt_cache_stop_remove_cores(ocf_pipeline_t pipeline,
 	struct ocf_mngt_cache_unplug_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	_ocf_mngt_cache_stop_remove_cores(cache, true);
+	_ocf_mngt_cache_stop_remove_cores(cache);
 
 	ocf_pipeline_next(pipeline);
 }
@@ -3433,7 +3431,7 @@ void ocf_mngt_cache_standby_activate(ocf_cache_t cache,
 static void ocf_mngt_cache_stop_detached(ocf_cache_t cache,
 		ocf_mngt_cache_stop_end_t cmpl, void *priv)
 {
-	_ocf_mngt_cache_stop_remove_cores(cache, false);
+	_ocf_mngt_cache_stop_remove_cores(cache);
 	_ocf_mngt_cache_put_io_queues(cache);
 	ocf_mngt_cache_remove(cache->owner, cache);
 	ocf_cache_log(cache, log_info, "Cache %s successfully stopped\n",
