@@ -2327,6 +2327,7 @@ static void _ocf_mngt_cache_dealloc(void *priv)
 	env_refcnt_deinit(&cache->refcnt.cache);
 	env_refcnt_deinit(&cache->refcnt.dirty);
 	env_refcnt_deinit(&cache->refcnt.metadata);
+	env_refcnt_deinit(&cache->refcnt.d2c);
 	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++)
 		env_refcnt_deinit(&cache->user_parts[i].cleaning.counter);
 
