@@ -496,6 +496,37 @@ def test_start_stop_noqueue(pyocf_ctx):
     assert not c.results["error"], "Failed to stop cache: {}".format(c.results["error"])
 
 
+@pytest.mark.parametrize("cleaning_policy", CleaningPolicy)
+def test_load_cache_with_four_cores_with_cleaning(pyocf_ctx, cleaning_policy):
+    cache_device = RamVolume(Size.from_MiB(100))
+    core_device_1 = RamVolume(Size.from_MiB(30))
+    core_device_2 = RamVolume(Size.from_MiB(30))
+    core_device_3 = RamVolume(Size.from_MiB(30))
+    core_device_4 = RamVolume(Size.from_MiB(30))
+
+    cache = Cache.start_on_device(cache_device, cache_mode=CacheMode.WB)
+    core_1 = Core.using_device(core_device_1, name="core_1")
+    core_2 = Core.using_device(core_device_2, name="core_2")
+    core_3 = Core.using_device(core_device_3, name="core_3")
+    core_4 = Core.using_device(core_device_4, name="core_4")
+
+    cache.add_core(core_1)
+    cache.add_core(core_2)
+    cache.add_core(core_3)
+    cache.add_core(core_4)
+
+    cache.set_cleaning_policy(cleaning_policy)
+
+    cache.stop()
+
+    cache = Cache.load_from_device(cache_device)
+
+    conf_stats = cache.get_stats()['conf']
+
+    assert conf_stats['core_count'] == 4
+    assert conf_stats['cleaning_policy'] == cleaning_policy
+
+
 def run_io_and_cache_data_if_possible(cache, vol, mode, cls, cls_no):
     queue = vol.parent.get_default_queue()
 
