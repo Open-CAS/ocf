@@ -17,6 +17,7 @@ from pyocf.types.io import IoDir, Sync
 from pyocf.types.queue import Queue
 from pyocf.utils import Size as S
 from pyocf.types.shared import OcfError, OcfErrorCode, OcfCompletion, CacheLineSize
+from pyocf.rio import Rio, ReadWrite
 
 
 @pytest.mark.parametrize("cache_mode", CacheMode)
@@ -152,13 +153,15 @@ def test_detach_cache_detach_core_cleaning(pyocf_ctx, cleaning_policy, promotion
     cache.set_promotion_policy(promotion_policy)
 
     for core in [core_1, core_2]:
-        vol = CoreVolume(core)
-        queue = core.cache.get_default_queue()
-
-        core_size = core.get_stats()["size"]
-        data = Data(core_size.B)
-
-        _io_to_core(vol, queue, data)
+        r = (
+            Rio()
+            .target(CoreVolume(core))
+            .readwrite(ReadWrite.WRITE)
+            .size(core.get_stats()["size"])
+            .qd(1)
+            .bs(S.from_KiB(64))
+            .run([core.cache.get_default_queue()])
+        )
 
     core_1.detach()
 
@@ -178,13 +181,15 @@ def test_detach_cache_retach_core_cleaning(pyocf_ctx, cleaning_policy, promotion
 
     def _write_cores(cores_list):
         for core in cores_list:
-            vol = CoreVolume(core)
-            queue = core.cache.get_default_queue()
-
-            core_size = core.get_stats()["size"]
-            data = Data(core_size.B)
-
-            _io_to_core(vol, queue, data)
+            r = (
+                Rio()
+                .target(CoreVolume(core))
+                .readwrite(ReadWrite.WRITE)
+                .size(core.get_stats()["size"])
+                .qd(1)
+                .bs(S.from_KiB(64))
+                .run([core.cache.get_default_queue()])
+            )
 
     cache.add_core(core_1)
     cache.add_core(core_2)
@@ -222,13 +227,15 @@ def test_reattach_cache_reattach_core_cleaning(pyocf_ctx, cleaning_policy, promo
 
     def _write_cores(cores_list):
         for core in cores_list:
-            vol = CoreVolume(core)
-            queue = core.cache.get_default_queue()
-
-            core_size = core.get_stats()["size"]
-            data = Data(core_size.B)
-
-            _io_to_core(vol, queue, data)
+            r = (
+                Rio()
+                .target(CoreVolume(core))
+                .readwrite(ReadWrite.WRITE)
+                .size(core.get_stats()["size"])
+                .qd(1)
+                .bs(S.from_KiB(64))
+                .run([core.cache.get_default_queue()])
+            )
 
     cache.add_core(core_1)
     cache.add_core(core_2)

@@ -25,6 +25,7 @@ from pyocf.types.shared import (
 from pyocf.types.volume import RamVolume
 from pyocf.types.volume_core import CoreVolume
 from pyocf.utils import Size
+from pyocf.rio import Rio, ReadWrite
 
 logger = logging.getLogger(__name__)
 
@@ -96,17 +97,15 @@ def test_d2c_io(pyocf_ctx):
 
     cache.detach_device()
 
-    vol = CoreVolume(core_1)
-    queue = core_1.cache.get_default_queue()
-    data = Data(4096)
-    vol.open()
-    io = vol.new_io(queue, 0, data.size, IoDir.WRITE, 0, 0)
-    io.set_data(data)
-
-    completion = Sync(io).submit()
-
-    vol.close()
-    assert completion.results["err"] == 0
+    r = (
+        Rio()
+        .target(CoreVolume(core_1))
+        .readwrite(ReadWrite.WRITE)
+        .size(core_1.get_stats()["size"])
+        .qd(1)
+        .bs(Size.from_KiB(64))
+        .run([core_1.cache.get_default_queue()])
+    )
 
 
 def test_detach_cache_zero_superblock(pyocf_ctx):
