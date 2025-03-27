@@ -3860,13 +3860,13 @@ static void ocf_mngt_cache_detach_finish(ocf_pipeline_t pipeline,
 		}
 
 		_ocf_mngt_cache_set_detached(cache);
+
+		ocf_pipeline_destroy(cache->stop_pipeline);
+		cache->stop_pipeline = NULL;
 	} else {
 		ocf_cache_log(cache, log_err,
 				"Detaching device failed\n");
 	}
-
-	ocf_pipeline_destroy(cache->stop_pipeline);
-	cache->stop_pipeline = NULL;
 
 	context->cmpl(cache, context->priv,
 			error ?: context->cache_write_error);

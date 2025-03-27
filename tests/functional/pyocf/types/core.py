@@ -1,6 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
-# Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2024-2025 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -182,6 +182,17 @@ class Core:
         if c.results["error"]:
             raise OcfError("Couldn't flush cache", c.results["error"])
 
+    def detach(self):
+        self.cache.write_lock()
+
+        c = OcfCompletion([("priv", c_void_p), ("error", c_int)])
+        self.cache.owner.lib.ocf_mngt_cache_detach_core(self.handle, c, None)
+        c.wait()
+        self.cache.write_unlock()
+
+        if c.results["error"]:
+            raise OcfError("Couldn't detach core", c.results["error"])
+
     def reset_stats(self):
         lib.ocf_core_stats_initialize(self.handle)
 
@@ -207,3 +218,5 @@ lib.ocf_core_stats_initialize.argtypes = [c_void_p]
 lib.ocf_core_stats_initialize.restype = c_void_p
 lib.ocf_mngt_core_flush.argtypes = [c_void_p, c_void_p, c_void_p]
 lib.ocf_mngt_core_flush.restype = c_void_p
+lib.ocf_mngt_cache_detach_core.argtypes = [c_void_p, c_void_p, c_void_p]
+lib.ocf_mngt_cache_detach_core.restype = c_void_p

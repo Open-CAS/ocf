@@ -170,10 +170,13 @@ static inline struct ocf_request *ocf_req_new_d2c(ocf_queue_t queue,
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	struct ocf_request *req;
+	uint32_t request_size = 1;
 
-	req = env_mpool_new(cache->owner->resources.req, 1);
+	req = env_mpool_new(cache->owner->resources.req, request_size);
 	if (unlikely(!req))
 		        return NULL;
+
+	req->alloc_core_line_count = request_size;
 
 	ocf_req_init(req, cache, queue, core, addr, bytes, rw);
 
