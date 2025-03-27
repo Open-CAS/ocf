@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
- * Copyright(c) 2023-2024 Huawei Technologies
+ * Copyright(c) 2023-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -9,6 +9,14 @@
 #include "../engine/engine_common.h"
 #include "../ocf_request.h"
 #include "utils_pipeline.h"
+
+#define OCF_PL_DEBUG 0
+#if OCF_PL_DEBUG == 1
+#define OCF_DEBUG_LOG(cache, format, ...) \
+	ocf_cache_log(cache, log_debug, format, ##__VA_ARGS__)
+#else
+#define OCF_DEBUG_LOG(cache, format, ...)
+#endif
 
 #define OCF_PIPELINE_ALIGNMENT 64
 
@@ -37,7 +45,7 @@ static int _ocf_pipeline_run_step(struct ocf_request *req)
 
 	while (true) {
 		step = &pipeline->properties->steps[pipeline->next_step];
-		ocf_cache_log(req->cache, log_debug, "PL STEP: %s\n", step->name);
+		OCF_DEBUG_LOG(req->cache, "PL STEP: %s\n", step->name);
 		switch (step->type) {
 		case ocf_pipeline_step_single:
 			pipeline->next_step++;
