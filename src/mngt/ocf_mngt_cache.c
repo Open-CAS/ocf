@@ -383,6 +383,11 @@ static void _ocf_mngt_deinit_added_cores(
 		if (context->cfg.open_cores)
 			ocf_volume_close(volume);
 
+		if (core->front_volume.opened) {
+			ocf_volume_close(&core->front_volume);
+			ocf_volume_deinit(&core->front_volume);
+		}
+
 		if (core->seq_cutoff)
 			ocf_core_seq_cutoff_deinit(core);
 
