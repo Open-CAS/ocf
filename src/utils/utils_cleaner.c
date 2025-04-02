@@ -595,6 +595,7 @@ static int _ocf_cleaner_check_map(struct ocf_request *req)
 {
 	ocf_core_id_t core_id;
 	uint64_t core_line;
+	bool nothing_to_submit = true;
 	int i;
 
 	for (i = 0; i < req->core_line_count; ++i) {
@@ -611,6 +612,12 @@ static int _ocf_cleaner_check_map(struct ocf_request *req)
 			continue;
 
 		req->map[i].flush = true;
+		nothing_to_submit = false;
+	}
+
+	if (nothing_to_submit) {
+		_ocf_cleaner_finish_req(req);
+		return 0;
 	}
 
 	_ocf_cleaner_fire_cache(req);
