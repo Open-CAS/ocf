@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -9,6 +10,8 @@
 #include "../metadata/metadata.h"
 #include "../engine/cache_engine.h"
 #include "../ocf_lru.h"
+#include "../prefetch/ocf_metadata_algid.h"
+#include "ocf/ocf_feedback_counters.h"
 #include "utils_user_part.h"
 
 static struct ocf_lst_entry *ocf_user_part_lst_getter_valid(
@@ -99,6 +102,8 @@ void ocf_user_part_move(struct ocf_request *req)
 	ocf_cache_line_t line;
 	ocf_part_id_t id_old, id_new;
 	uint32_t i;
+	/* read cache-line's associated core, algorithm and size */
+	pf_algo_id_t pa_id;
 
 	entry = &req->map[0];
 	for (i = 0; i < req->core_line_count; i++, entry++) {
@@ -112,7 +117,7 @@ void ocf_user_part_move(struct ocf_request *req)
 		 * cachelines are assigned to target partition during eviction.
 		 * So only hit cachelines are interesting.
 		 */
-		if (entry->status != LOOKUP_HIT) {
+		if (entry->status != LOOKUP_HIT && entry->status != LOOKUP_HIT_INVALID) {
 			/* No HIT */
 			continue;
 		}
@@ -162,6 +167,22 @@ void ocf_user_part_move(struct ocf_request *req)
 				part_counters[id_new].cached_clines);
 		env_atomic_dec(&req->core->runtime_meta->
 				part_counters[id_old].cached_clines);
+
+		/* get algorithm-id for feedback */
+		pa_id = ocf_metadata_get_algorithm_id(cache, line);
+
+		/* count for prefetchers or admission */
+		if (req->rw == OCF_READ) {
+			/* if read - good algorithm (TP), well done! */
+			ocf_cache_feedback_counters_req_cache_read_blocks_inc(req->core, req, pa_id);
+		} else {
+			/* if overwrite - bad algorithm (FP), no need to read data which is
+			 * overwritten soon */
+			ocf_cache_feedback_counters_req_cache_overwritten_blocks_inc(req->core, req, pa_id);
+		}
+		/* override algorithm id on cacheline metadata (avoid second feedback and
+		 * eviction feedback for original algorithm). */
+		ocf_metadata_set_algorithm_id(cache, line, req->io.pa_id);
 
 		/* DONE */
 	}

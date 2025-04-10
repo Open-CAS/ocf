@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -11,12 +12,12 @@
 ocf_part_id_t ocf_metadata_get_partition_id(struct ocf_cache *cache,
 		ocf_cache_line_t line)
 {
-	const struct ocf_metadata_list_info *info;
+	const struct ocf_lru_meta *info;
 	struct ocf_metadata_ctrl *ctrl =
 		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	info = ocf_metadata_raw_rd_access(cache,
-			&(ctrl->raw_desc[metadata_segment_list_info]), line);
+			&(ctrl->raw_desc[metadata_segment_lru]), line);
 
 	ENV_BUG_ON(!info);
 
@@ -26,12 +27,12 @@ ocf_part_id_t ocf_metadata_get_partition_id(struct ocf_cache *cache,
 void ocf_metadata_set_partition_id(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_part_id_t part_id)
 {
-	struct ocf_metadata_list_info *info;
+	struct ocf_lru_meta *info;
 	struct ocf_metadata_ctrl *ctrl =
 		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
 	info = ocf_metadata_raw_wr_access(cache,
-			&(ctrl->raw_desc[metadata_segment_list_info]), line);
+			&(ctrl->raw_desc[metadata_segment_lru]), line);
 
 	if (info)
 		info->partition_id = part_id;

@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf_priv.h"
@@ -17,7 +18,7 @@ static inline uint8_t ocf_atomic_addr2pos(struct ocf_cache *cache,
 		uint64_t addr)
 {
 	addr -= cache->device->metadata_offset;
-	addr = BYTES_TO_SECTORS(addr);
+	addr = BYTES_TO_PAGES_ROUND_DOWN(addr);
 	addr %= ocf_line_sectors(cache);
 
 	return addr;

@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -10,11 +11,10 @@
 #include "ocf_env.h"
 #include "ocf_volume_priv.h"
 #include "ocf_core_priv.h"
+#include "ocf_part.h"
 #include "metadata/metadata_structs.h"
-#include "metadata/metadata_partition_structs.h"
 #include "utils/utils_list.h"
 #include "utils/utils_pipeline.h"
-#include "utils/utils_refcnt.h"
 #include "utils/utils_async_lock.h"
 #include "ocf_stats_priv.h"
 #include "cleaning/cleaning.h"
@@ -50,6 +50,10 @@ struct ocf_cache_device {
 	} concurrency;
 
 	struct ocf_superblock_runtime *runtime_meta;
+
+	struct {
+		unsigned int portion;  /* size of a small LRU list */
+	} lru;
 };
 
 struct ocf_cache {
@@ -70,6 +74,7 @@ struct ocf_cache {
 	struct ocf_user_part user_parts[OCF_USER_IO_CLASS_MAX + 1];
 
 	struct ocf_part free;
+	struct ocf_part free_detached;
 
 	uint32_t fallback_pt_error_threshold;
 	ocf_queue_t mngt_queue;
@@ -78,12 +83,17 @@ struct ocf_cache {
 
 	struct {
 		/* cache get/put counter */
-		struct ocf_refcnt cache __attribute__((aligned(64)));
+		struct env_refcnt cache;
 		/* # of requests potentially dirtying cachelines */
-		struct ocf_refcnt dirty __attribute__((aligned(64)));
+		struct env_refcnt dirty;
 		/* # of requests accessing attached metadata, excluding
 		 * management reqs */
-		struct ocf_refcnt metadata __attribute__((aligned(64)));
+		struct env_refcnt metadata;
+		/* # of requests in d2c mode */
+		struct env_refcnt d2c;
+		/* # of unsettled cache lock operations (lock not acquired,
+		 * waiter not added yet) */
+		struct env_refcnt lock;
 	} refcnt;
 
 	struct {
@@ -91,7 +101,29 @@ struct ocf_cache {
 		struct ocf_alock *concurrency;
 	} standby;
 
+	struct {
+		/* # of in-flight requests to the uppermost cache instance */
+		struct env_refcnt fixed_topology;
+		env_mutex topology_lock;
+	} main;
+
 	struct ocf_core core[OCF_CORE_MAX];
+
+	struct {
+		/*
+		 * When stopping multilevel cache instance the user passes
+		 * the lower cache handle but in reality the caches are stopped
+		 * in order from the top to the lowest one. In the meantime
+		 * the user's callback should be stored in the lowest cache's
+		 * stop pipeline priv so it can be called after stopping
+		 * the whole stack. However, if the lowest cache is detached,
+		 * the stop pipeline isn't allocated and there is no place to
+		 * store the user's callback. To fix this problem, the user's
+		 * callback for the detached cache is stored here.
+		 */
+		ocf_mngt_cache_stop_end_t user_cmpl;
+		void *user_ctx;
+	} detached_ml_stop_ctx;
 
 	ocf_pipeline_t stop_pipeline;
 
@@ -106,6 +138,8 @@ struct ocf_cache {
 	struct ocf_cleaner cleaner;
 
 	struct list_head io_queues;
+	env_spinlock io_queues_lock;
+
 	ocf_promotion_policy_t promotion_policy;
 
 	struct {
@@ -123,15 +157,20 @@ struct ocf_cache {
 
 	uint16_t ocf_core_inactive_count;
 
-	bool pt_unaligned_io;
-
 	bool use_submit_io_fast;
+
+	uint8_t ocf_classifier;
+	uint8_t ocf_prefetcher;
 
 	struct {
 		struct ocf_async_lock lock;
 	} __attribute__((aligned(64)));
 	// This should be on it's own cacheline ideally
 	env_atomic last_access_ms;
+
+	ocf_cache_t lower_cache;
+
+	ocf_cache_t upper_cache;
 };
 
 static inline ocf_core_t ocf_cache_get_core(ocf_cache_t cache,
@@ -179,6 +218,9 @@ static inline uint64_t ocf_get_cache_occupancy(ocf_cache_t cache)
 uint32_t ocf_cache_get_queue_count(ocf_cache_t cache);
 
 int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size);
+
+int ocf_cache_set_upper_cache_name(ocf_cache_t cache, const char *src,
+		size_t src_size);
 
 int ocf_cache_volume_type_init(ocf_ctx_t ctx);
 

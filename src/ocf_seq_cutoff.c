@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2020-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -92,14 +93,14 @@ static void ocf_seq_cutoff_base_init(struct ocf_seq_cutoff *base, int nstreams)
 	}
 }
 
-void ocf_seq_cutoff_base_deinit(struct ocf_seq_cutoff *base)
+static void ocf_seq_cutoff_base_deinit(struct ocf_seq_cutoff *base)
 {
 	env_rwlock_destroy(&base->lock);
 }
 
 int ocf_core_seq_cutoff_init(ocf_core_t core)
 {
-	ocf_core_log(core, log_info, "Seqential cutoff init\n");
+	ocf_core_log(core, log_info, "Sequential cutoff init\n");
 
 	core->seq_cutoff = env_vmalloc(sizeof(struct ocf_seq_cutoff_percore));
 	if (!core->seq_cutoff)
@@ -208,7 +209,7 @@ bool ocf_core_seq_cutoff_check(ocf_core_t core, struct ocf_request *req)
 
 	env_rwlock_read_lock(&req->io_queue->seq_cutoff->lock);
 	result = ocf_core_seq_cutoff_base_check(req->io_queue->seq_cutoff,
-			req->byte_position, req->byte_length, req->rw,
+			req->addr, req->bytes, req->rw,
 			threshold, &queue_stream);
 	env_rwlock_read_unlock(&req->io_queue->seq_cutoff->lock);
 	if (queue_stream)
@@ -216,7 +217,7 @@ bool ocf_core_seq_cutoff_check(ocf_core_t core, struct ocf_request *req)
 
 	env_rwlock_read_lock(&core->seq_cutoff->lock);
 	result = ocf_core_seq_cutoff_base_check(core->seq_cutoff,
-			req->byte_position, req->byte_length, req->rw,
+			req->addr, req->bytes, req->rw,
 			threshold, &core_stream);
 	env_rwlock_read_unlock(&core->seq_cutoff->lock);
 
@@ -308,7 +309,7 @@ void ocf_core_seq_cutoff_update(ocf_core_t core, struct ocf_request *req)
 	if (policy == ocf_seq_cutoff_policy_never)
 		return;
 
-	if (req->byte_length >= threshold && promote_on_threshold)
+	if (req->bytes >= threshold && promote_on_threshold)
 		promote = true;
 
 	if (promotion_count == 1)
@@ -317,7 +318,7 @@ void ocf_core_seq_cutoff_update(ocf_core_t core, struct ocf_request *req)
 	if (req->seq_cutoff_core || promote) {
 		env_rwlock_write_lock(&core->seq_cutoff->lock);
 		stream = ocf_core_seq_cutoff_base_update(core->seq_cutoff,
-				req->byte_position, req->byte_length, req->rw,
+				req->addr, req->bytes, req->rw,
 				promote);
 		env_rwlock_write_unlock(&core->seq_cutoff->lock);
 
@@ -327,7 +328,7 @@ void ocf_core_seq_cutoff_update(ocf_core_t core, struct ocf_request *req)
 
 	env_rwlock_write_lock(&req->io_queue->seq_cutoff->lock);
 	stream = ocf_core_seq_cutoff_base_update(req->io_queue->seq_cutoff,
-			req->byte_position, req->byte_length, req->rw, true);
+			req->addr, req->bytes, req->rw, true);
 	env_rwlock_write_unlock(&req->io_queue->seq_cutoff->lock);
 
 	if (stream->bytes >= threshold && promote_on_threshold)

@@ -5,6 +5,7 @@
  */
 
 #include "ocf_concurrency.h"
+#include "ocf_pio_concurrency.h"
 #include "../metadata/metadata_internal.h"
 #include "../metadata/metadata_io.h"
 #include "../ocf_priv.h"

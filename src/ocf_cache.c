@@ -1,10 +1,11 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
+#include "ocf_env_refcnt.h"
 #include "metadata/metadata.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
@@ -15,6 +16,7 @@
 #include "ocf_cache_priv.h"
 #include "ocf_queue_priv.h"
 #include "utils/utils_stats.h"
+#include "ocf/ocf_debug.h"
 
 ocf_volume_t ocf_cache_get_volume(ocf_cache_t cache)
 {
@@ -51,6 +53,15 @@ int ocf_cache_set_name(ocf_cache_t cache, const char *src, size_t src_size)
 			src, src_size);
 }
 
+int ocf_cache_set_upper_cache_name(ocf_cache_t cache, const char *src,
+		size_t src_size)
+{
+	OCF_CHECK_NULL(cache);
+
+	return env_strncpy(cache->conf_meta->upper_name, OCF_CACHE_NAME_SIZE,
+			src, src_size);
+}
+
 bool ocf_cache_mode_is_valid(ocf_cache_mode_t mode)
 {
 	return mode >= ocf_cache_mode_wt && mode < ocf_cache_mode_max;
@@ -74,10 +85,10 @@ bool ocf_cache_is_running(ocf_cache_t cache)
 	return env_bit_test(ocf_cache_state_running, &cache->cache_state);
 }
 
-bool ocf_cache_is_initializing(ocf_cache_t cache)
+bool ocf_cache_is_detached(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
-	return env_bit_test(ocf_cache_state_initializing, &cache->cache_state);
+	return env_bit_test(ocf_cache_state_detached, &cache->cache_state);
 }
 
 bool ocf_cache_is_standby(ocf_cache_t cache)
@@ -132,11 +143,12 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 
 	info->attached = ocf_cache_is_device_attached(cache);
 	info->standby_detached = ocf_cache_is_standby(cache) &&
-		ocf_refcnt_frozen(&cache->refcnt.metadata);
+		env_refcnt_frozen(&cache->refcnt.metadata);
 	if (info->attached && !info->standby_detached) {
 		info->volume_type = ocf_ctx_get_volume_type_id(cache->owner,
 				cache->device->volume.type);
-		info->size = cache->conf_meta->cachelines;
+		info->size = ocf_line_count(cache) -
+			env_atomic_read(&cache->free_detached.runtime->curr_size);
 	}
 	info->state = cache->cache_state;
 	info->cache_line_size = ocf_line_size(cache);
@@ -223,6 +235,8 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	info->cleaning_policy = cache->cleaner.policy;
 	info->promotion_policy = cache->conf_meta->promotion_policy_type;
 	info->cache_line_size = ocf_line_size(cache);
+	info->ocf_classifier = cache->ocf_classifier;
+	info->ocf_prefetcher = cache->ocf_prefetcher;
 
 	return 0;
 }
@@ -248,6 +262,12 @@ ocf_cache_line_size_t ocf_cache_get_line_size(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
 	return ocf_line_size(cache);
+}
+
+ocf_cache_line_t ocf_cache_get_line_count(ocf_cache_t cache)
+{
+	OCF_CHECK_NULL(cache);
+	return ocf_line_count(cache);
 }
 
 uint64_t ocf_cache_bytes_2_lines(ocf_cache_t cache, uint64_t bytes)
@@ -280,12 +300,84 @@ void *ocf_cache_get_priv(ocf_cache_t cache)
 	return cache->priv;
 }
 
-struct ocf_cache_volume_io_priv {
-	struct ocf_io *io;
-	struct ctx_data_t *data;
-	env_atomic remaining;
-	env_atomic error;
-};
+ocf_cache_t ocf_cache_ml_get_upper_cache(ocf_cache_t cache)
+{
+	return cache->upper_cache;
+}
+
+ocf_cache_t ocf_cache_ml_get_lower_cache(ocf_cache_t cache)
+{
+	return cache->lower_cache;
+}
+
+ocf_cache_t ocf_cache_ml_get_highest_cache(ocf_cache_t cache)
+{
+	while (ocf_cache_ml_is_lower(cache))
+		cache = ocf_cache_ml_get_upper_cache(cache);
+
+	return cache;
+}
+
+ocf_cache_t ocf_cache_ml_get_lowest_cache(ocf_cache_t cache)
+{
+	while (ocf_cache_ml_is_upper(cache))
+		cache = ocf_cache_ml_get_lower_cache(cache);
+
+	return cache;
+}
+
+ocf_cache_t ocf_cache_ml_get_main_cache(ocf_cache_t cache)
+{
+	return ocf_cache_ml_get_lowest_cache(cache);
+}
+
+bool ocf_cache_ml_is_upper(ocf_cache_t cache)
+{
+	return !!cache->lower_cache;
+}
+
+bool ocf_cache_ml_is_lower(ocf_cache_t cache)
+{
+	return !!cache->upper_cache;
+}
+
+ocf_core_t ocf_cache_ml_get_upper_core(ocf_core_t core)
+{
+	return core->upper_core;
+}
+
+bool ocf_cache_ml_is_multilevel(ocf_cache_t cache)
+{
+	return !!cache->lower_cache || !!cache->upper_cache;
+}
+
+bool ocf_cache_ml_is_main(ocf_cache_t cache)
+{
+	return !cache->lower_cache;
+}
+
+ocf_core_t ocf_cache_ml_get_lower_core(ocf_core_t core)
+{
+	return core->lower_core;
+}
+
+ocf_core_t ocf_cache_ml_get_highest_core(ocf_core_t core)
+{
+	ocf_core_t ret = core;
+
+	for (; ocf_cache_ml_get_upper_core(ret);
+		ret = ocf_cache_ml_get_upper_core(ret)
+		);
+
+	return ret;
+}
+
+ocf_core_t ocf_cache_ml_get_lowest_core(ocf_core_t core)
+{
+	for (;core->lower_core != NULL; core = core->lower_core);
+	
+	return core;
+}
 
 struct ocf_cache_volume {
 	ocf_cache_t cache;
@@ -298,81 +390,36 @@ static inline ocf_cache_t ocf_volume_to_cache(ocf_volume_t volume)
 	return cache_volume->cache;
 }
 
-static void ocf_cache_volume_io_complete_generic(struct ocf_io *vol_io,
+static void ocf_cache_volume_io_complete_generic(struct ocf_request *req,
 		int error)
 {
-	struct ocf_cache_volume_io_priv *priv;
-	struct ocf_io *io = vol_io->priv1;
-	ocf_cache_t cache = ocf_volume_to_cache(ocf_io_get_volume(io));
+	ocf_cache_t cache = req->cache;
 
-	priv = ocf_io_get_priv(io);
+	env_refcnt_dec(&cache->refcnt.metadata);
+	ocf_io_end(req, error);
+}
 
-	if (env_atomic_dec_return(&priv->remaining))
+static void ocf_cache_io_complete(struct ocf_request *req, int error)
+{
+	ocf_cache_t cache = req->cache;
+
+	if (error)
+		req->error = req->error ?: error;
+
+	if (env_atomic_dec_return(&req->req_remaining))
 		return;
 
-	ocf_io_put(vol_io);
-	ocf_io_end(io, error);
-	ocf_refcnt_dec(&cache->refcnt.metadata);
+	env_refcnt_dec(&cache->refcnt.metadata);
+	ocf_io_end(req, req->error);
 }
 
-static void ocf_cache_io_complete(struct ocf_io *io, int error)
+static void ocf_cache_volume_submit_io(ocf_io_t io)
 {
-	struct ocf_cache_volume_io_priv *priv;
-	ocf_cache_t cache;
-
-	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
-
-	priv = ocf_io_get_priv(io);
-
-	env_atomic_cmpxchg(&priv->error, 0, error);
-
-	if (env_atomic_dec_return(&priv->remaining))
-		return;
-
-	ocf_refcnt_dec(&cache->refcnt.metadata);
-	ocf_io_end(io, env_atomic_read(&priv->error));
-}
-
-static void ocf_cache_volume_io_complete(struct ocf_io *vol_io, int error)
-{
-	struct ocf_io *io = vol_io->priv1;
-
-	ocf_io_put(vol_io);
-
-	ocf_cache_io_complete(io, error);
-}
-
-static int ocf_cache_volume_prepare_vol_io(struct ocf_io *io,
-		struct ocf_io **vol_io)
-{
-	ocf_cache_t cache;
-	struct ocf_io *tmp_io;
-
-	OCF_CHECK_NULL(io);
-
-	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
-
-	tmp_io = ocf_volume_new_io(ocf_cache_get_volume(cache), io->io_queue,
-			io->addr, io->bytes, io->dir, io->io_class, io->flags);
-	if (!tmp_io)
-		return -OCF_ERR_NO_MEM;
-
-	*vol_io = tmp_io;
-
-	return 0;
-}
-
-static void ocf_cache_volume_submit_io(struct ocf_io *io)
-{
-	struct ocf_cache_volume_io_priv *priv;
-	struct ocf_io *vol_io;
-	ocf_cache_t cache;
+	struct ocf_request *req = ocf_io_to_req(io);
+	ocf_cache_t cache = req->cache;
 	int result;
 
-	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
-	priv = ocf_io_get_priv(io);
-
-	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
+	if (!env_refcnt_inc(&cache->refcnt.metadata)) {
 		ocf_io_end(io, -OCF_ERR_IO);
 		return;
 	}
@@ -381,46 +428,28 @@ static void ocf_cache_volume_submit_io(struct ocf_io *io)
 		return;
 	}
 
-	env_atomic_set(&priv->remaining, 3);
-	env_atomic_set(&priv->error, 0);
+	env_atomic_set(&req->req_remaining, 3);
 
-	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
-	if (result) {
-		ocf_io_end(io, result);
-		return;
-	}
+	req->cache_forward_end = ocf_cache_io_complete;
+	ocf_req_forward_cache_io(req, req->rw, req->addr,
+			req->bytes, req->offset);
 
-	result = ocf_io_set_data(vol_io, priv->data, 0);
-	if (result) {
-		ocf_io_put(vol_io);
-		ocf_io_end(io, result);
-		return;
-	}
-
-	ocf_io_set_cmpl(vol_io, io, NULL, ocf_cache_volume_io_complete);
-	ocf_volume_submit_io(vol_io);
-
-	result = ocf_metadata_passive_update(cache, io, ocf_cache_io_complete);
+	req->complete = ocf_cache_io_complete;
+	result = ocf_metadata_passive_update(req);
 	if (result) {
 		ocf_cache_log(cache, log_crit,
 				"Metadata update error (error=%d)!\n", result);
 	}
 
-	ocf_cache_io_complete(io, 0);
+	ocf_cache_io_complete(req, 0);
 }
 
-
-static void ocf_cache_volume_submit_flush(struct ocf_io *io)
+static void ocf_cache_volume_submit_flush(ocf_io_t io)
 {
-	struct ocf_cache_volume_io_priv *priv;
-	struct ocf_io *vol_io;
-	ocf_cache_t cache;
-	int result;
+	struct ocf_request *req = ocf_io_to_req(io);
+	ocf_cache_t cache = req->cache;
 
-	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
-	priv = ocf_io_get_priv(io);
-
-	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
+	if (!env_refcnt_inc(&cache->refcnt.metadata)) {
 		ocf_io_end(io, -OCF_ERR_IO);
 		return;
 	}
@@ -429,30 +458,17 @@ static void ocf_cache_volume_submit_flush(struct ocf_io *io)
 		return;
 	}
 
-	env_atomic_set(&priv->remaining, 1);
-
-	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
-	if (result) {
-		ocf_io_end(io, result);
-		return;
-	}
-	ocf_io_set_cmpl(vol_io, io, NULL, ocf_cache_volume_io_complete_generic);
-
-	ocf_volume_submit_flush(vol_io);
+	req->cache_forward_end = ocf_cache_volume_io_complete_generic;
+	ocf_req_forward_cache_flush(req);
 }
 
 
-static void ocf_cache_volume_submit_discard(struct ocf_io *io)
+static void ocf_cache_volume_submit_discard(ocf_io_t io)
 {
-	struct ocf_cache_volume_io_priv *priv;
-	struct ocf_io *vol_io;
-	ocf_cache_t cache;
-	int result;
+	struct ocf_request *req = ocf_io_to_req(io);
+	ocf_cache_t cache = req->cache;
 
-	cache = ocf_volume_to_cache(ocf_io_get_volume(io));
-	priv = ocf_io_get_priv(io);
-
-	if (!ocf_refcnt_inc(&cache->refcnt.metadata)) {
+	if (!env_refcnt_inc(&cache->refcnt.metadata)) {
 		ocf_io_end(io, -OCF_ERR_IO);
 		return;
 	}
@@ -461,16 +477,9 @@ static void ocf_cache_volume_submit_discard(struct ocf_io *io)
 		return;
 	}
 
-	env_atomic_set(&priv->remaining, 1);
-
-	result = ocf_cache_volume_prepare_vol_io(io, &vol_io);
-	if (result) {
-		ocf_io_end(io, result);
-		return;
-	}
-	ocf_io_set_cmpl(vol_io, io, NULL, ocf_cache_volume_io_complete_generic);
-
-	ocf_volume_submit_discard(vol_io);
+	req->cache_forward_end = ocf_cache_volume_io_complete_generic;
+	ocf_req_forward_cache_discard(req, req->addr,
+			req->bytes);
 }
 
 /* *** VOLUME OPS *** */
@@ -507,34 +516,12 @@ static uint64_t ocf_cache_volume_get_byte_length(ocf_volume_t volume)
 	return ocf_volume_get_length(ocf_cache_get_volume(cache));
 }
 
-/* *** IO OPS *** */
-
-static int ocf_cache_io_set_data(struct ocf_io *io,
-		ctx_data_t *data, uint32_t offset)
-{
-	struct ocf_cache_volume_io_priv *priv = ocf_io_get_priv(io);
-
-	if (!data || offset)
-		return -OCF_ERR_INVAL;
-
-	priv->data = data;
-
-	return 0;
-}
-
-static ctx_data_t *ocf_cache_io_get_data(struct ocf_io *io)
-{
-	struct ocf_cache_volume_io_priv *priv = ocf_io_get_priv(io);
-
-	return priv->data;
-}
-
 const struct ocf_volume_properties ocf_cache_volume_properties = {
 	.name = "OCF_Cache",
-	.io_priv_size = sizeof(struct ocf_cache_volume_io_priv),
 	.volume_priv_size = sizeof(struct ocf_cache_volume),
 	.caps = {
 		.atomic_writes = 0,
+		.composite_volume = 0,
 	},
 	.ops = {
 		.submit_io = ocf_cache_volume_submit_io,
@@ -547,15 +534,56 @@ const struct ocf_volume_properties ocf_cache_volume_properties = {
 		.get_max_io_size = ocf_cache_volume_get_max_io_size,
 		.get_length = ocf_cache_volume_get_byte_length,
 	},
-	.io_ops = {
-		.set_data = ocf_cache_io_set_data,
-		.get_data = ocf_cache_io_get_data,
-	},
 	.deinit = NULL,
+};
+
+static int ocf_cache_io_allocator_init(ocf_io_allocator_t allocator,
+		const char *name)
+{
+	return 0;
+}
+
+static void ocf_cache_io_allocator_deinit(ocf_io_allocator_t allocator)
+{
+}
+
+static void *ocf_cache_io_allocator_new(ocf_io_allocator_t allocator,
+		ocf_volume_t volume, ocf_queue_t queue,
+		uint64_t addr, uint32_t bytes, uint32_t dir)
+{
+	ocf_cache_t cache = ocf_volume_to_cache(volume);
+
+	return ocf_req_new_cache(cache, queue, addr, bytes, dir);
+}
+
+static void ocf_cache_io_allocator_del(ocf_io_allocator_t allocator, void *obj)
+{
+	struct ocf_request *req = obj;
+
+	ocf_req_put(req);
+}
+
+const struct ocf_io_allocator_type ocf_cache_io_allocator_type = {
+	.ops = {
+		.allocator_init = ocf_cache_io_allocator_init,
+		.allocator_deinit = ocf_cache_io_allocator_deinit,
+		.allocator_new = ocf_cache_io_allocator_new,
+		.allocator_del = ocf_cache_io_allocator_del,
+	},
+};
+
+const struct ocf_volume_extended ocf_cache_volume_extended = {
+	.allocator_type = &ocf_cache_io_allocator_type,
 };
 
 int ocf_cache_volume_type_init(ocf_ctx_t ctx)
 {
 	return ocf_ctx_register_volume_type_internal(ctx, OCF_VOLUME_TYPE_CACHE,
-			&ocf_cache_volume_properties, NULL);
+			&ocf_cache_volume_properties,
+			&ocf_cache_volume_extended);
+}
+bool ocf_dbg_cache_is_settled(ocf_cache_t cache)
+{
+	return env_refcnt_zeroed(&cache->refcnt.metadata) &&
+			env_refcnt_zeroed(&cache->refcnt.d2c);
 }

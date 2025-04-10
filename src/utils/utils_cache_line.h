@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -59,6 +60,33 @@ static inline uint64_t ocf_lines_2_bytes(struct ocf_cache *cache,
 void set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx);
 
+/**
+ * @brief Set cache line invalid and unvailable
+ *
+ * @note Collision page must be locked by the caller (either exclusive access
+ * to collision table page OR write lock on metadata hash bucket combined with
+ * shared access to the collision page)
+ *
+ * @param cache Cache instance
+ * @param start_bit Start bit of cache line for which state will be set
+ * @param end_bit End bit of cache line for which state will be set
+ * @param line Cache line to be set as unavailable
+ */
+void set_cache_line_unavailable(struct ocf_cache *cache, uint8_t start_bit,
+		uint8_t end_bit, ocf_cache_line_t line);
+
+
+/**
+ * @brief Set cache line available and move it to the freelist
+ *
+ * @note Collision page must be locked by the caller (either exclusive access
+ * to collision table page OR write lock on metadata hash bucket combined with
+ * shared access to the collision page)
+ *
+ * @param cache Cache instance
+ * @param line Cache line to be set as available
+ */
+void set_cache_line_available(struct ocf_cache *cache, ocf_cache_line_t line);
 
 /**
  * @brief Set cache line invalid without flush
@@ -192,7 +220,7 @@ static inline void ocf_purge_map_info(struct ocf_request *req)
 		if (map_idx == 0) {
 			/* First */
 
-			start_bit = BYTES_TO_SECTORS(req->byte_position)
+			start_bit = BYTES_TO_PAGES_ROUND_DOWN(req->addr)
 					% ocf_line_sectors(cache);
 
 		}
@@ -200,8 +228,8 @@ static inline void ocf_purge_map_info(struct ocf_request *req)
 		if (map_idx == (count - 1)) {
 			/* Last */
 
-			end_bit = BYTES_TO_SECTORS(req->byte_position +
-					req->byte_length - 1) %
+			end_bit = BYTES_TO_PAGES_ROUND_DOWN(req->addr +
+					req->bytes - 1) %
 					ocf_line_sectors(cache);
 		}
 
@@ -218,7 +246,7 @@ static inline
 uint8_t ocf_map_line_start_sector(struct ocf_request *req, uint32_t line)
 {
 	if (line == 0) {
-		return BYTES_TO_SECTORS(req->byte_position)
+		return BYTES_TO_PAGES_ROUND_DOWN(req->addr)
 					% ocf_line_sectors(req->cache);
 	}
 
@@ -229,8 +257,8 @@ static inline
 uint8_t ocf_map_line_end_sector(struct ocf_request *req, uint32_t line)
 {
 	if (line == req->core_line_count - 1) {
-		return BYTES_TO_SECTORS(req->byte_position +
-					req->byte_length - 1) %
+		return BYTES_TO_PAGES_ROUND_DOWN(req->addr +
+					req->bytes - 1) %
 					ocf_line_sectors(req->cache);
 	}
 

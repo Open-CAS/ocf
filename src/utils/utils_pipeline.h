@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -70,6 +71,7 @@ typedef bool (*ocf_pipeline_cond_step_predicate_t)(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg);
 
 struct ocf_pipeline_step {
+	char *name;
 	enum ocf_pipeline_step_type type;
 	ocf_pipeline_step_hndl_t hndl;
 	ocf_pipeline_cond_step_predicate_t pred;
@@ -79,14 +81,19 @@ struct ocf_pipeline_step {
 	};
 };
 
+#define xstr(a) str(a)
+#define str(a) #a
+
 #define OCF_PL_STEP(_hndl) \
 	{ \
+		.name = xstr(_hndl), \
 		.type = ocf_pipeline_step_single, \
 		.hndl = _hndl, \
 	}
 
 #define OCF_PL_STEP_ARG_INT(_hndl, _int) \
 	{ \
+		.name = xstr(_hndl), \
 		.type = ocf_pipeline_step_single, \
 		.hndl = _hndl, \
 		.arg = { \
@@ -97,6 +104,7 @@ struct ocf_pipeline_step {
 
 #define OCF_PL_STEP_ARG_PTR(_hndl, _ptr) \
 	{ \
+		.name = xstr(_hndl), \
 		.type = ocf_pipeline_step_single, \
 		.hndl = _hndl, \
 		.arg = { \
@@ -107,6 +115,7 @@ struct ocf_pipeline_step {
 
 #define OCF_PL_STEP_FOREACH(_hndl, _args) \
 	{ \
+		.name = xstr(_hndl), \
 		.type = ocf_pipeline_step_foreach, \
 		.hndl = _hndl, \
 		.args = _args, \
@@ -114,11 +123,13 @@ struct ocf_pipeline_step {
 
 #define OCF_PL_STEP_TERMINATOR() \
 	{ \
+		.name = "<TERMINATOR>", \
 		.type = ocf_pipeline_step_terminator, \
 	}
 
 #define OCF_PL_STEP_COND(_pred, _hndl) \
 	{ \
+		.name = xstr(_hndl), \
 		.pred = _pred, \
 		.type = ocf_pipeline_step_conditional, \
 		.hndl = _hndl, \
@@ -126,6 +137,7 @@ struct ocf_pipeline_step {
 
 #define OCF_PL_STEP_COND_ARG_INT(_pred, _hndl, _int) \
 	{ \
+		.name = xstr(_hndl), \
 		.pred = _pred, \
 		.type = ocf_pipeline_step_conditional, \
 		.hndl = _hndl, \
@@ -137,6 +149,7 @@ struct ocf_pipeline_step {
 
 #define OCF_PL_STEP_COND_ARG_PTR(_pred, _hndl, _ptr) \
 	{ \
+		.name = xstr(_hndl), \
 		.pred = _pred, \
 		.type = ocf_pipeline_step_conditional, \
 		.hndl = _hndl, \

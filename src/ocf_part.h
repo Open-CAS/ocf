@@ -1,16 +1,19 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __METADATA_PARTITION_STRUCTS_H__
 #define __METADATA_PARTITION_STRUCTS_H__
 
-#include "../utils/utils_list.h"
-#include "../cleaning/cleaning.h"
-#include "../ocf_space.h"
+#include "utils/utils_list.h"
+#include "utils/utils_cleaner.h"
+#include "cleaning/cleaning.h"
+#include "ocf_space.h"
+#include "ocf_env_refcnt.h"
 
-#define OCF_NUM_PARTITIONS OCF_USER_IO_CLASS_MAX + 2
+#define OCF_NUM_PARTITIONS OCF_USER_IO_CLASS_MAX + 3
 
 struct ocf_user_part_config {
 	char name[OCF_IO_CLASS_NAME_MAX];
@@ -30,6 +33,7 @@ struct ocf_user_part_config {
 
 struct ocf_part_runtime {
 	env_atomic curr_size;
+	env_atomic evict_counter;
 	struct ocf_lru_part_meta lru[OCF_NUM_LRU_LISTS];
 };
 
@@ -55,6 +59,7 @@ struct ocf_lru_iter
 	uint32_t num_avail_lrus;
 	/* current lru list index */
 	uint32_t lru_idx;
+	uint32_t lru_element_idx;
 	/* callback to determine whether given hash bucket is already
 	 * locked by the caller */
 	_lru_hash_locked_pfn hash_locked;
@@ -68,8 +73,9 @@ struct ocf_lru_iter
 
 struct ocf_part_cleaning_ctx {
 	ocf_cache_t cache;
-	struct ocf_refcnt counter;
-	ocf_cache_line_t cline[OCF_EVICTION_CLEAN_SIZE];
+	struct env_refcnt counter;
+	env_atomic cleaner_running;
+	struct flush_data entries[OCF_EVICTION_CLEAN_SIZE];
 };
 
 /* common partition data for both user-deined partitions as

@@ -549,7 +549,7 @@ static ocf_cache_line_t _acp_trylock_dirty(struct ocf_cache *cache,
 	ocf_engine_lookup_map_entry(cache, &info, core_id,
 			core_line);
 
-	if (info.status == LOOKUP_HIT &&
+	if ((info.status == LOOKUP_HIT || info.status == LOOKUP_HIT_INVALID) &&
 			metadata_test_dirty(cache, info.coll_idx)) {
 		locked = ocf_cache_line_try_lock_rd(
 				ocf_cache_line_concurrency(cache),
@@ -651,8 +651,6 @@ static void _acp_flush(struct acp_context *acp)
 		.cmpl_context = acp,
 		.cmpl_fn = _acp_flush_end,
 		.lock_cacheline = false,
-		.lock_metadata = true,
-		.do_sort = false,
 		.cmpl_queue = true,
 		.io_queue = cache->cleaner.io_queue,
 	};

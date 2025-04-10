@@ -8,9 +8,9 @@
 #include "engine_pt.h"
 #include "engine_rd.h"
 #include "engine_common.h"
+#include "engine_io.h"
 #include "cache_engine.h"
 #include "../ocf_request.h"
-#include "../utils/utils_io.h"
 #include "../utils/utils_user_part.h"
 #include "../metadata/metadata.h"
 #include "../concurrency/ocf_concurrency.h"
@@ -20,21 +20,13 @@
 
 static void _ocf_read_pt_complete(struct ocf_request *req, int error)
 {
-	if (error)
-		req->error |= error;
-
-	if (env_atomic_dec_return(&req->req_remaining))
-		return;
-
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error) {
-		req->info.core_error = 1;
+	if (error)
 		ocf_core_stats_core_error_update(req->core, OCF_READ);
-	}
 
 	/* Complete request */
-	req->complete(req, req->error);
+	req->complete(req, error);
 
 	ocf_req_unlock(ocf_cache_line_concurrency(req->cache), req);
 
@@ -44,12 +36,10 @@ static void _ocf_read_pt_complete(struct ocf_request *req, int error)
 
 static inline void _ocf_read_pt_submit(struct ocf_request *req)
 {
-	env_atomic_set(&req->req_remaining, 1); /* Core device IO */
-
 	OCF_DEBUG_RQ(req, "Submit");
 
 	/* Core read */
-	ocf_submit_volume_req(&req->core->volume, req, _ocf_read_pt_complete);
+	ocf_engine_forward_core_io_req(req, _ocf_read_pt_complete);
 }
 
 int ocf_read_pt_do(struct ocf_request *req)
@@ -87,6 +77,10 @@ int ocf_read_pt_do(struct ocf_request *req)
 
 	/* Update statistics */
 	ocf_engine_update_block_stats(req);
+
+	ocf_core_stats_pt_block_update(req->core, req->part_id, req->rw,
+			req->bytes);
+
 	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
 			req->info.hit_no, req->core_line_count);
 
@@ -102,7 +96,6 @@ int ocf_read_pt(struct ocf_request *req)
 	int lock = OCF_LOCK_NOT_ACQUIRED;
 
 	OCF_DEBUG_TRACE(req->cache);
-
 
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
@@ -165,8 +158,9 @@ int ocf_read_pt(struct ocf_request *req)
 	return 0;
 }
 
-void ocf_engine_push_req_front_pt(struct ocf_request *req)
+void ocf_queue_push_req_pt(struct ocf_request *req)
 {
-	ocf_engine_push_req_front_cb(req, ocf_read_pt_do, true);
+	ocf_queue_push_req_cb(req, ocf_read_pt_do,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
 

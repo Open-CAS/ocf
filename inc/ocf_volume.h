@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -15,8 +16,6 @@
 #include "ocf_env_headers.h"
 #include "ocf/ocf_err.h"
 #include "ocf/ocf_io.h"
-
-struct ocf_io;
 
 /**
  * @brief OCF volume UUID maximum allowed size
@@ -40,6 +39,9 @@ struct ocf_volume_uuid {
 struct ocf_volume_caps {
 	uint32_t atomic_writes : 1;
 		/*!< Volume supports atomic writes */
+
+	uint32_t composite_volume : 1;
+		/*!< Volume may be composed of multiple sub-volumes */
 };
 
 /**
@@ -51,28 +53,28 @@ struct ocf_volume_ops {
 	 *
 	 * @param[in] io IO to be submitted
 	 */
-	void (*submit_io)(struct ocf_io *io);
+	void (*submit_io)(ocf_io_t io);
 
 	/**
 	 * @brief Submit IO with flush command
 	 *
 	 * @param[in] io IO to be submitted
 	 */
-	void (*submit_flush)(struct ocf_io *io);
+	void (*submit_flush)(ocf_io_t io);
 
 	/**
 	 * @brief Submit IO with metadata
 	 *
 	 * @param[in] io IO to be submitted
 	 */
-	void (*submit_metadata)(struct ocf_io *io);
+	void (*submit_metadata)(ocf_io_t io);
 
 	/**
 	 * @brief Submit IO with discard command
 	 *
 	 * @param[in] io IO to be submitted
 	 */
-	void (*submit_discard)(struct ocf_io *io);
+	void (*submit_discard)(ocf_io_t io);
 
 	/**
 	 * @brief Submit operation to write zeroes to target address (including
@@ -80,7 +82,81 @@ struct ocf_volume_ops {
 	 *
 	 * @param[in] io IO description (addr, size)
 	 */
-	void (*submit_write_zeroes)(struct ocf_io *io);
+	void (*submit_write_zeroes)(ocf_io_t io);
+
+	/**
+	 * @brief Forward the original io directly to the volume
+	 *
+	 * @param[in] volume Volume to which IO is being submitted
+	 * @param[in] token Token representing IO to be forwarded
+	 * @param[in] dir Direction OCF_READ/OCF_WRITE
+	 * @param[in] addr Address to which IO is being submitted
+	 * @param[in] bytes Length of the IO
+	 * @param[in] offset Offset within the IO data
+	 */
+	void (*forward_io)(ocf_volume_t volume, ocf_forward_token_t token,
+			int dir, uint64_t addr, uint64_t bytes,
+			uint64_t offset);
+
+	/**
+	 * @brief Forward the original flush io directly to the volume
+	 *
+	 * @param[in] volume Volume to which IO is being submitted
+	 * @param[in] token Token representing IO to be forwarded
+	 */
+	void (*forward_flush)(ocf_volume_t volume, ocf_forward_token_t token);
+
+	/**
+	 * @brief Forward the original discard io directly to the volume
+	 *
+	 * @param[in] volume Volume to which IO is being submitted
+	 * @param[in] token Token representing IO to be forwarded
+	 * @param[in] addr Address to which IO is being submitted
+	 * @param[in] bytes Length of the IO
+	 */
+	void (*forward_discard)(ocf_volume_t volume, ocf_forward_token_t token,
+			uint64_t addr, uint64_t bytes);
+
+	/**
+	 * @brief Froward operation to write zeros to target address (including
+	 *        metadata extended LBAs in atomic mode)
+	 *
+	 * @param[in] volume Volume to which IO is being submitted
+	 * @param[in] token Token representing IO to be forwarded
+	 * @param[in] addr Address to which IO is being submitted
+	 * @param[in] bytes Length of the IO
+	 */
+	void (*forward_write_zeros)(ocf_volume_t volume,
+			ocf_forward_token_t token, uint64_t addr,
+			uint64_t bytes);
+
+	/**
+	 * @brief Forward the metadata io directly to the volume
+	 *
+	 * @param[in] volume Volume to which IO is being submitted
+	 * @param[in] token Token representing IO to be forwarded
+	 * @param[in] dir Direction OCF_READ/OCF_WRITE
+	 * @param[in] addr Address to which IO is being submitted
+	 * @param[in] bytes Length of the IO
+	 * @param[in] offset Offset within the IO data
+	 */
+	void (*forward_metadata)(ocf_volume_t volume, ocf_forward_token_t token,
+			int dir, uint64_t addr, uint64_t bytes,
+			uint64_t offset);
+
+	/**
+	 * @brief Forward the io directly to the volume in context
+	 *	  where cache is not initialized yet
+	 *
+	 * @param[in] volume Volume to which IO is being submitted
+	 * @param[in] token Token representing IO to be forwarded
+	 * @param[in] dir Direction OCF_READ/OCF_WRITE
+	 * @param[in] addr Address to which IO is being submitted
+	 * @param[in] bytes Length of the IO
+	 */
+	void (*forward_io_simple)(ocf_volume_t volume,
+			ocf_forward_token_t token, int dir,
+			uint64_t addr, uint64_t bytes);
 
 	/**
 	 * @brief Volume initialization callback, called when volume object
@@ -137,6 +213,46 @@ struct ocf_volume_ops {
 	 * @return Maximum io size in bytes
 	 */
 	unsigned int (*get_max_io_size)(ocf_volume_t volume);
+
+	/**
+	 * @brief Add subvolume to composite volume
+	 *
+	 * @param[in] volume composite volume handle
+	 * @param[in] type type of added subvolume
+	 * @param[in] uuid UUID of added subvolume
+	 * @param[in] volume_params params to be passed to subvolume open
+	 *
+	 * @return Zero when success, othewise an error
+	 */
+	int (*composite_volume_add)(ocf_volume_t cvolume,
+			ocf_volume_type_t type, struct ocf_volume_uuid *uuid,
+			void *volume_params);
+
+	/**
+	 * @brief Add subvolume to composite volume
+	 *
+	 * @param[in] volume composite volume handle
+	 * @param[in] uuid UUID of added subvolume
+	 * @param[in] tgt_id Target subvolume id
+	 * @param[in] type type of added subvolume
+	 * @param[in] volume_params params to be passed to subvolume open
+	 *
+	 * @return Zero when success, othewise an error
+	 */
+	int (*composite_volume_attach_member)(ocf_volume_t volume,
+			struct ocf_volume_uuid *uuid, uint8_t tgt_id,
+			ocf_volume_type_t type, void *volume_params);
+
+	/**
+	 * @brief Detach composite member volume
+	 *
+	 * @param[in] volume composite volume handle
+	 * @param[in] subvolume_id volume to be detached
+	 *
+	 * @return Zero on success, otherwise error code
+	 */
+	int (*composite_volume_detach_member)(ocf_volume_t volume,
+			uint8_t subvolume_id);
 };
 
 /**
@@ -146,17 +262,11 @@ struct ocf_volume_properties {
 	const char *name;
 		/*!< The name of volume operations */
 
-	uint32_t io_priv_size;
-		/*!< Size of io private context structure */
-
 	uint32_t volume_priv_size;
 		/*!< Size of volume private context structure */
 
 	struct ocf_volume_caps caps;
 		/*!< Volume capabilities */
-
-	struct ocf_io_ops io_ops;
-		/*!< IO operations */
 
 	void (*deinit)(void);
 		/*!< Deinitialize volume type */
@@ -270,6 +380,15 @@ ocf_cache_t ocf_volume_get_cache(ocf_volume_t volume);
 int ocf_volume_is_atomic(ocf_volume_t volume);
 
 /**
+ * @brief Check if volume is composited of multiple sub-volumes
+ *
+ * @param[in] volume Volume
+ *
+ * @return True if volume is composite, otherwise false
+ */
+bool ocf_volume_is_composite(ocf_volume_t volume);
+
+/**
  * @brief Allocate new io
  *
  * @param[in] volume Volume
@@ -282,7 +401,7 @@ int ocf_volume_is_atomic(ocf_volume_t volume);
  *
  * @return ocf_io on success atomic, otherwise NULL
  */
-struct ocf_io *ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
+ocf_io_t ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir,
 		uint32_t io_class, uint64_t flags);
 
@@ -292,21 +411,21 @@ struct ocf_io *ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
  *
  * @param[in] io IO
  */
-void ocf_volume_submit_io(struct ocf_io *io);
+void ocf_volume_submit_io(ocf_io_t io);
 
 /**
  * @brief Submit flush to volume
  *
  * @param[in] io IO
  */
-void ocf_volume_submit_flush(struct ocf_io *io);
+void ocf_volume_submit_flush(ocf_io_t io);
 
 /**
  * @brief Submit discard to volume
  *
  * @param[in] io IO
  */
-void ocf_volume_submit_discard(struct ocf_io *io);
+void ocf_volume_submit_discard(ocf_io_t io);
 
 /**
  * @brief Open volume
@@ -319,11 +438,36 @@ void ocf_volume_submit_discard(struct ocf_io *io);
 int ocf_volume_open(ocf_volume_t volume, void *volume_params);
 
 /**
- * @brief Get volume max io size
+ * @brief Close volume
  *
  * @param[in] volume Volume
  */
 void ocf_volume_close(ocf_volume_t volume);
+
+/**
+ * @brief Add subvolume to composite volume
+ *
+ * @param[in] volume composite volume handle
+ * @param[in] tgt_id Target subvolume id
+ * @param[in] uuid UUID of added subvolume
+ * @param[in] type type of added subvolume
+ * @param[in] volume_params params to be passed to subvolume open
+ *
+ * @return Zero when success, othewise an error
+ */
+int ocf_composite_volume_attach_member(ocf_volume_t volume, ocf_uuid_t uuid,
+		uint8_t tgt_id, ocf_volume_type_t vol_type, void *vol_params);
+
+/**
+  * @brief Detach composite member volume
+  *
+  * @param[in] volume composite volume handle
+  * @param[in] subvolume_id volume to be detached
+  *
+  * @return Zero when success, othewise en error
+  */
+int ocf_composite_volume_detach_member(ocf_volume_t volume,
+		uint8_t subvolume_id);
 
 /**
  * @brief Get volume max io size
@@ -335,6 +479,19 @@ void ocf_volume_close(ocf_volume_t volume);
 unsigned int ocf_volume_get_max_io_size(ocf_volume_t volume);
 
 /**
+ * @brief Add subvolume to composite volume
+ *
+ * @param[in] volume composite volume handle
+ * @param[in] type type of added subvolume
+ * @param[in] uuid UUID of added subvolume
+ * @param[in] volume_params params to be passed to subvolume open
+ *
+ * @return Zero when success, othewise an error
+ */
+int ocf_composite_volume_add(ocf_volume_t volume, ocf_volume_type_t type,
+		struct ocf_volume_uuid *uuid, void *volume_params);
+
+/**
  * @brief Get volume length
  *
  * @param[in] volume Volume
@@ -342,5 +499,32 @@ unsigned int ocf_volume_get_max_io_size(ocf_volume_t volume);
  * @return Length of volume in bytes
  */
 uint64_t ocf_volume_get_length(ocf_volume_t volume);
+
+/*
+ * @brief Check if uuid instances contain the same data
+ *
+ * @param[in] a first uuid
+ * @param[in] b second uuid
+ * @param[out] diff 0 if equal, non-0 otherwise
+ *
+ * @retval 0 if comparison successful
+ * @retval other value if comparison failed
+ */
+static inline int ocf_uuid_compare(const struct ocf_volume_uuid * const a,
+		const struct ocf_volume_uuid * const b,
+		int *diff)
+{
+	if (a->size != b->size) {
+		*diff = -1;
+
+		return 0;
+	}
+
+	return env_memcmp(a->data, a->size, b->data, b->size, diff);
+}
+
+#ifdef OCF_DEBUG_STATS
+void ocf_volume_chkpts_stats_init(ocf_volume_t volume);
+#endif
 
 #endif /* __OCF_VOLUME_H__ */

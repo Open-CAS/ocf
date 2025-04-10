@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2022 Intel Corporation
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -12,85 +13,297 @@
 #include "utils/utils_user_part.h"
 #include "ocf_request.h"
 #include "ocf_composite_volume_priv.h"
+#include "ocf/ocf_blktrace.h"
 
-#define OCF_COMPOSITE_VOLUME_MEMBERS_MAX 16
+
+#ifdef OCF_DEBUG_STATS
+#include "utils/utils_stats.h"
+
+struct ocf_composite_volume_counters_block {
+	struct ocf_counters_block blocks;
+	struct ocf_counters_block prefetch_blocks[pa_id_num];
+};
+
+struct ocf_composite_volume_stats_block {
+	struct ocf_stats_block blocks;
+	struct ocf_stats_block prefetch_blocks[pa_id_num];
+};
+#endif
 
 struct ocf_composite_volume {
+	/* 'members_cnt' describes how many members were added at the composite
+	 * initialization. Even if a member is detached, 'member_cnt' shall not
+	 * be decremented.
+	 */
 	uint8_t members_cnt;
 	struct {
+		/* A member is 'detached' only if it was once added but has been
+		 * detached. For members that were never added, this flag is irrelevant
+		 */
+		bool detached;
 		struct ocf_volume volume;
 		void *volume_params;
+#ifdef OCF_DEBUG_STATS
+		ocf_composite_volume_counters_block_t member_stats;
+#endif
 	} member[OCF_COMPOSITE_VOLUME_MEMBERS_MAX];
 	uint64_t end_addr[OCF_COMPOSITE_VOLUME_MEMBERS_MAX];
 	uint64_t length;
 	unsigned max_io_size;
 };
 
-struct ocf_composite_volume_io {
-	struct ocf_io *member_io[OCF_COMPOSITE_VOLUME_MEMBERS_MAX];
-	ctx_data_t *data;
-	uint8_t begin_member;
-	uint8_t end_member;
-	env_atomic remaining;
-	env_atomic error;
-};
+#define for_each_composite_member(_composite, _id) \
+	for (_id = 0; _id < _composite->members_cnt; _id++)
 
-static void ocf_composite_volume_master_cmpl(struct ocf_io *master_io,
-		int error)
+#define for_each_composite_member_attached(_composite, _id) \
+	for_each_composite_member(_composite, _id) \
+		if (_composite->member[_id].detached == false)
+
+#define for_each_composite_member_detached(_composite, _id) \
+	for_each_composite_member(_composite, _id) \
+		if (_composite->member[_id].detached == true)
+
+#define for_each_composite_member_opened(_composite, _id) \
+	for_each_composite_member_attached(_composite, _id) \
+		if (_composite->member[_id].volume.opened == true)
+
+static void ocf_composite_forward_io(ocf_volume_t cvolume,
+		ocf_forward_token_t token, int dir, uint64_t addr,
+		uint64_t bytes, uint64_t offset)
 {
-	struct ocf_composite_volume_io *cio = ocf_io_get_priv(master_io);
-
-	env_atomic_cmpxchg(&cio->error, 0, error);
-
-	if (env_atomic_dec_return(&cio->remaining))
-		return;
-
-	ocf_io_end(master_io, env_atomic_read(&cio->error));
-}
-
-static void ocf_composite_volume_io_cmpl(struct ocf_io *io, int error)
-{
-	struct ocf_io *master_io = io->priv1;
-
-	ocf_composite_volume_master_cmpl(master_io, error);
-}
-
-static void ocf_composite_volume_handle_io(struct ocf_io *master_io,
-		void (*hndl)(struct ocf_io *io))
-{
-	struct ocf_composite_volume_io *cio = ocf_io_get_priv(master_io);
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	uint64_t member_bytes, caddr;
 	int i;
+	uint64_t maddr = addr;
 
-	env_atomic_set(&cio->remaining,
-			cio->end_member - cio->begin_member + 1);
-	env_atomic_set(&cio->error, 0);
+	ENV_BUG_ON(maddr >= composite->length);
+	ENV_BUG_ON(maddr + bytes > composite->length);
 
-	for (i = cio->begin_member; i < cio->end_member; i++) {
-		ocf_io_set_cmpl(cio->member_io[i], master_io, NULL,
-				ocf_composite_volume_io_cmpl);
+	caddr = maddr;
 
-		cio->member_io[i]->io_class = master_io->io_class;
-		cio->member_io[i]->flags = master_io->flags;
+	for (i = 0; i < composite->members_cnt; i++) {
+		if (addr >= composite->end_addr[i])
+			continue;
 
-		hndl(cio->member_io[i]);
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_fwd_end(cvolume, addr, token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		addr = addr - (i > 0 ? composite->end_addr[i-1] : 0);
+		break;
 	}
 
-	ocf_composite_volume_master_cmpl(master_io, 0);
+	for (; i < composite->members_cnt && bytes; i++) {
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_fwd_end(cvolume, addr, token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		member_bytes = OCF_MIN(bytes, composite->end_addr[i] - caddr);
+
+		OCF_BLKTRACE_REMAP_COMPOSITE(&composite->member[i].volume,
+						addr, caddr, token, dir);
+		ocf_forward_io(&composite->member[i].volume, token, dir, addr,
+				member_bytes, offset);
+
+		addr = 0;
+		caddr = composite->end_addr[i];
+		bytes -= member_bytes;
+		offset += member_bytes;
+	}
+
+	/* Put io forward counter to account for the original forward */
+	ocf_fwd_end(cvolume, maddr, token, 0);
 }
 
-static void ocf_composite_volume_submit_io(struct ocf_io *master_io)
+static void ocf_composite_forward_flush(ocf_volume_t cvolume,
+		ocf_forward_token_t token)
 {
-	ocf_composite_volume_handle_io(master_io, ocf_volume_submit_io);
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	int i;
+
+	for_each_composite_member_opened(composite, i) {
+		ocf_forward_flush(&composite->member[i].volume, token);
+	}
+
+	/* Put io forward counter to account for the original forward */
+	ocf_forward_end(token, 0);
 }
 
-static void ocf_composite_volume_submit_flush(struct ocf_io *master_io)
+static void ocf_composite_forward_discard(ocf_volume_t cvolume,
+		ocf_forward_token_t token, uint64_t addr, uint64_t bytes)
 {
-	ocf_composite_volume_handle_io(master_io, ocf_volume_submit_flush);
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	uint64_t member_bytes, caddr;
+	int i;
+
+	caddr = addr;
+
+	ENV_BUG_ON(addr >= composite->length);
+	ENV_BUG_ON(addr + bytes > composite->length);
+
+	for (i = 0; i < composite->members_cnt; i++) {
+		if (addr >= composite->end_addr[i])
+			continue;
+
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_fwd_end(cvolume, addr, token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		addr = addr - (i > 0 ? composite->end_addr[i-1] : 0);
+		break;
+	}
+
+	for (; i < composite->members_cnt && bytes; i++) {
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_fwd_end(cvolume, addr, token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		member_bytes = OCF_MIN(bytes, composite->end_addr[i] - caddr);
+
+		ocf_forward_discard(&composite->member[i].volume, token, addr,
+				member_bytes);
+
+		addr = 0;
+		caddr = composite->end_addr[i];
+		bytes -= member_bytes;
+	}
+
+	/* Put io forward counter to account for the original forward */
+	ocf_forward_end(token, 0);
 }
 
-static void ocf_composite_volume_submit_discard(struct ocf_io *master_io)
+static void ocf_composite_forward_write_zeros(ocf_volume_t cvolume,
+		ocf_forward_token_t token, uint64_t addr, uint64_t bytes)
 {
-	ocf_composite_volume_handle_io(master_io, ocf_volume_submit_discard);
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	uint64_t member_bytes, caddr;
+	int i;
+
+	caddr = addr;
+
+	ENV_BUG_ON(addr >= composite->length);
+	ENV_BUG_ON(addr + bytes > composite->length);
+
+	for (i = 0; i < composite->members_cnt; i++) {
+		if (addr >= composite->end_addr[i])
+			continue;
+
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_fwd_end(cvolume, addr, token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		addr = addr - (i > 0 ? composite->end_addr[i-1] : 0);
+		break;
+	}
+
+	for (; i < composite->members_cnt && bytes; i++) {
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_fwd_end(cvolume, addr, token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		member_bytes = OCF_MIN(bytes, composite->end_addr[i] - caddr);
+
+		ocf_forward_write_zeros(&composite->member[i].volume, token,
+				addr, member_bytes);
+
+		addr = 0;
+		caddr = composite->end_addr[i];
+		bytes -= member_bytes;
+	}
+
+	/* Put io forward counter to account for the original forward */
+	ocf_forward_end(token, 0);
+}
+
+static void ocf_composite_forward_metadata(ocf_volume_t cvolume,
+		ocf_forward_token_t token, int dir, uint64_t addr,
+		uint64_t bytes, uint64_t offset)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	uint64_t member_bytes, caddr;
+	int i;
+
+	ENV_BUG_ON(addr >= composite->length);
+	ENV_BUG_ON(addr + bytes > composite->length);
+
+	caddr = addr;
+
+	for (i = 0; i < composite->members_cnt; i++) {
+		if (addr >= composite->end_addr[i])
+			continue;
+
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_fwd_end(cvolume, addr, token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		addr = addr - (i > 0 ? composite->end_addr[i-1] : 0);
+		break;
+	}
+
+	for (; i < composite->members_cnt && bytes; i++) {
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_fwd_end(cvolume, addr, token, -OCF_ERR_INVAL);
+			return;
+		}
+
+		member_bytes = OCF_MIN(bytes, composite->end_addr[i] - caddr);
+
+		ocf_forward_metadata(&composite->member[i].volume, token, dir,
+				addr, member_bytes, offset);
+
+		addr = 0;
+		caddr = composite->end_addr[i];
+		bytes -= member_bytes;
+		offset += member_bytes;
+	}
+
+	/* Put io forward counter to account for the original forward */
+	ocf_forward_end(token, 0);
+}
+
+static void ocf_composite_forward_io_simple(ocf_volume_t cvolume,
+		ocf_forward_token_t token, int dir,
+		uint64_t addr, uint64_t bytes)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	uint64_t caddr;
+	int i;
+
+	ENV_BUG_ON(addr >= composite->length);
+	ENV_BUG_ON(addr + bytes > composite->length);
+
+	caddr = addr;
+
+	for (i = 0; i < composite->members_cnt; i++) {
+		if (addr >= composite->end_addr[i])
+			continue;
+
+		if (unlikely(!composite->member[i].volume.opened)) {
+			ocf_forward_end(token, -OCF_ERR_IO);
+			return;
+		}
+
+		addr = addr - (i > 0 ? composite->end_addr[i-1] : 0);
+		break;
+	}
+
+	if (caddr + bytes > composite->end_addr[i]) {
+		ocf_forward_end(token, -OCF_ERR_IO);
+		return;
+	}
+
+	ocf_forward_io_simple(&composite->member[i].volume, token,
+			dir, addr, bytes);
+
+	/* Put io forward counter to account for the original forward */
+	ocf_forward_end(token, 0);
 }
 
 /* *** VOLUME OPS *** */
@@ -102,7 +315,7 @@ static int ocf_composite_volume_open(ocf_volume_t cvolume, void *volume_params)
 
 	composite->length = 0;
 	composite->max_io_size = UINT_MAX;
-	for (i = 0; i < composite->members_cnt; i++) {
+	for_each_composite_member_attached(composite, i) {
 		ocf_volume_t volume = &composite->member[i].volume;
 		result = ocf_volume_open(volume,
 				composite->member[i].volume_params);
@@ -129,8 +342,131 @@ static void ocf_composite_volume_close(ocf_volume_t cvolume)
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
 	int i;
 
-	for (i = 0; i < composite->members_cnt; i++)
+	for_each_composite_member_opened(composite, i)
 		ocf_volume_close(&composite->member[i].volume);
+}
+
+#define get_subvolume_length(_composite, _id) \
+	(_id == 0 ? _composite->end_addr[_id] : \
+	_composite->end_addr[_id] - _composite->end_addr[_id - 1])
+
+static int composite_volume_attach_member(ocf_volume_t cvolume, ocf_uuid_t uuid,
+		uint8_t tgt_id, ocf_volume_type_t vol_type, void *vol_params)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	ocf_ctx_t ctx = cvolume->type->owner;
+	struct ocf_volume new_vol = {};
+	uint64_t new_vol_size, tgt_vol_size;
+	unsigned new_vol_max_io_size;
+	int ret;
+
+	if (tgt_id >= OCF_COMPOSITE_VOLUME_MEMBERS_MAX) {
+		ocf_log(ctx, log_err, "Failed to attach subvolume to "
+				"the composite volume. Invalid subvolume "
+				"target id\n");
+		return -OCF_ERR_COMPOSITE_INVALID_ID;
+	}
+
+	if (tgt_id >= composite->members_cnt) {
+		ocf_log(ctx, log_err, "Failed to attach subvolume to "
+				"the composite volume. Can't attach to "
+				"uninitialized member\n");
+		return -OCF_ERR_COMPOSITE_UNINITIALISED_VOLUME;
+	}
+
+	if (!composite->member[tgt_id].detached) {
+		ocf_log(ctx, log_err, "Failed to attach subvolume to "
+				"the composite volume. The target member is "
+				"already attached\n");
+		return -OCF_ERR_COMPOSITE_ATTACHED;
+	}
+
+	ret = ocf_volume_init(&new_vol, vol_type, uuid, true);
+	if (ret)
+		return ret;
+
+	ret = ocf_volume_open(&new_vol, vol_params);
+	if (ret) {
+		ocf_volume_deinit(&new_vol);
+		return ret;
+	}
+
+	new_vol_size = ocf_volume_get_length(&new_vol);
+
+	new_vol_max_io_size = ocf_volume_get_max_io_size(&new_vol);
+
+	ocf_volume_close(&new_vol);
+
+	tgt_vol_size = get_subvolume_length(composite, tgt_id);
+
+	if (new_vol_size != tgt_vol_size) {
+		ocf_log(ctx, log_err, "Failed to attach subvolume to "
+				"the composite volume. The new subvolume must "
+				"be of size %"ENV_PRIu64" but "
+				"is %"ENV_PRIu64"\n", tgt_vol_size,
+				new_vol_size);
+		ocf_volume_deinit(&new_vol);
+		return -OCF_ERR_COMPOSITE_INVALID_SIZE;
+	}
+
+	if (composite->max_io_size > new_vol_max_io_size) {
+		ocf_log(ctx, log_err, "Failed to attach subvolume to the "
+				"composite volume. The max io size can't be "
+				"smaller than composite's max io size\n");
+		ocf_volume_deinit(&new_vol);
+		return -OCF_ERR_INVAL;
+	}
+
+	ocf_volume_move(&composite->member[tgt_id].volume, &new_vol);
+	ocf_volume_deinit(&new_vol);
+
+	composite->member[tgt_id].detached = false;
+
+	if (cvolume->opened)
+		ocf_volume_open(&composite->member[tgt_id].volume, vol_params);
+
+	composite->member[tgt_id].volume_params = vol_params;
+
+	return 0;
+}
+
+static int composite_volume_detach_member(ocf_volume_t cvolume,
+		uint8_t subvolume_id)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	ocf_ctx_t ctx = cvolume->type->owner;
+
+	if (subvolume_id >= OCF_COMPOSITE_VOLUME_MEMBERS_MAX) {
+		ocf_log(ctx, log_err, "Failed to detach subvolume from "
+				"the composite volume. Invalid subvolume "
+				"target id\n");
+		return -OCF_ERR_COMPOSITE_INVALID_ID;
+	}
+
+	if (subvolume_id >= composite->members_cnt) {
+		ocf_log(ctx, log_err, "Failed to detach subvolume from "
+				"the composite volume. Can't detach "
+				"uninitialized member\n");
+		return -OCF_ERR_COMPOSITE_UNINITIALISED_VOLUME;
+	}
+
+	if (composite->member[subvolume_id].detached) {
+		ocf_log(ctx, log_err, "Failed to detach subvolume from "
+				"the composite volume. The target member is "
+				"already detached\n");
+		return -OCF_ERR_COMPOSITE_DETACHED;
+	}
+
+	ocf_volume_close(&composite->member[subvolume_id].volume);
+
+#ifdef OCF_DEBUG_STATS
+	env_free(&composite->member[subvolume_id].member_stats);
+#endif
+
+	composite->member[subvolume_id].detached = true;
+	composite->member[subvolume_id].volume_params = NULL;
+
+	return 0;
 }
 
 static unsigned int ocf_composite_volume_get_max_io_size(ocf_volume_t cvolume)
@@ -147,205 +483,100 @@ static uint64_t ocf_composite_volume_get_byte_length(ocf_volume_t cvolume)
 	return composite->length;
 }
 
+#ifdef OCF_DEBUG_STATS
+static int ocf_composite_volume_init_stats(
+		struct ocf_composite_volume *composite, uint8_t id)
+{
+	size_t stats_size = sizeof(*composite->member[id].member_stats);
+	stats_size *= OCF_CORE_MAX * OCF_USER_IO_CLASS_MAX;
+
+	composite->member[id].member_stats =
+		env_zalloc(stats_size, ENV_MEM_NORMAL);
+	if (!composite->member[id].member_stats)
+		return -OCF_ERR_NO_MEM;
+
+	return 0;
+}
+#endif
+
 static void ocf_composite_volume_on_deinit(ocf_volume_t cvolume)
 {
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
 	int i;
 
-	for (i = 0; i < composite->members_cnt; i++)
+	for (i = 0; i < composite->members_cnt; i++) {
+#ifdef OCF_DEBUG_STATS
+		env_free(composite->member[i].member_stats);
+#endif
 		ocf_volume_deinit(&composite->member[i].volume);
-}
-
-/* *** IO OPS *** */
-
-static int ocf_composite_io_set_data(struct ocf_io *io,
-		ctx_data_t *data, uint32_t offset)
-{
-	ocf_volume_t cvolume = ocf_io_get_volume(io);
-	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
-	struct ocf_composite_volume_io *cio = ocf_io_get_priv(io);
-	uint64_t member_volume_start, member_data_offset;
-	int i, ret = 0;
-
-	cio->data = data;
-
-	for (i = cio->begin_member; i < cio->end_member; i++) {
-		/* Each member IO will have the same data set, but with
-		 * different offset. First member will use bare offset set from
-		 * caller, each subsequent member IO has to skip over parts
-		 * "belonging" to previous members. */
-
-		if (i == cio->begin_member) {
-			member_data_offset = offset;
-		} else {
-			member_volume_start = composite->end_addr[i - 1];
-			member_data_offset = member_volume_start - io->addr;
-			member_data_offset += offset;
-		}
-
-		ret = ocf_io_set_data(cio->member_io[i], data,
-				member_data_offset);
-		if (ret)
-			break;
 	}
-
-	return ret;
 }
 
-static ctx_data_t *ocf_composite_io_get_data(struct ocf_io *io)
+static int composite_volume_add(ocf_volume_t cvolume, ocf_volume_type_t type,
+		struct ocf_volume_uuid *uuid, void *volume_params)
 {
-	struct ocf_composite_volume_io *cio = ocf_io_get_priv(io);
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	ocf_volume_t volume;
+	int result;
 
-	return cio->data;
+	if (composite->members_cnt >= OCF_COMPOSITE_VOLUME_MEMBERS_MAX)
+		return -OCF_ERR_INVAL;
+
+	volume = &composite->member[composite->members_cnt].volume;
+	result = ocf_volume_init(volume, type, uuid, true);
+	if (result)
+		return result;
+#ifdef OCF_DEBUG_STATS
+	result = ocf_composite_volume_init_stats(composite,
+			composite->members_cnt);
+	if (result) {
+		ocf_volume_deinit(volume);
+		return result;
+	}
+#endif
+	composite->member[composite->members_cnt].volume_params = volume_params;
+	composite->member[composite->members_cnt].detached = false;
+	composite->members_cnt++;
+
+	return 0;
 }
 
 const struct ocf_volume_properties ocf_composite_volume_properties = {
 	.name = "OCF Composite",
-	.io_priv_size = sizeof(struct ocf_composite_volume_io),
 	.volume_priv_size = sizeof(struct ocf_composite_volume),
 	.caps = {
 		.atomic_writes = 0,
+		.composite_volume = 1,
 	},
 	.ops = {
-		.submit_io = ocf_composite_volume_submit_io,
-		.submit_flush = ocf_composite_volume_submit_flush,
-		.submit_discard = ocf_composite_volume_submit_discard,
-		.submit_metadata = NULL,
+		.forward_io = ocf_composite_forward_io,
+		.forward_flush = ocf_composite_forward_flush,
+		.forward_discard = ocf_composite_forward_discard,
+		.forward_write_zeros = ocf_composite_forward_write_zeros,
+		.forward_metadata = ocf_composite_forward_metadata,
+		.forward_io_simple = ocf_composite_forward_io_simple,
 
 		.open = ocf_composite_volume_open,
 		.close = ocf_composite_volume_close,
 		.get_max_io_size = ocf_composite_volume_get_max_io_size,
 		.get_length = ocf_composite_volume_get_byte_length,
 
+		.composite_volume_add = composite_volume_add,
+		.composite_volume_attach_member =
+			composite_volume_attach_member,
+		.composite_volume_detach_member =
+			composite_volume_detach_member,
+
 		.on_deinit = ocf_composite_volume_on_deinit,
 	},
-	.io_ops = {
-		.set_data = ocf_composite_io_set_data,
-		.get_data = ocf_composite_io_get_data,
-	},
 	.deinit = NULL,
-};
-
-static int ocf_composite_io_allocator_init(ocf_io_allocator_t allocator,
-		uint32_t priv_size, const char *name)
-{
-	return ocf_io_allocator_default_init(allocator, priv_size, name);
-}
-
-static void ocf_composite_io_allocator_deinit(ocf_io_allocator_t allocator)
-{
-	ocf_io_allocator_default_deinit(allocator);
-}
-
-static void *ocf_composite_io_allocator_new(ocf_io_allocator_t allocator,
-		ocf_volume_t cvolume, ocf_queue_t queue,
-		uint64_t addr, uint32_t bytes, uint32_t dir)
-{
-	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
-	struct ocf_composite_volume_io *cio;
-	struct ocf_io_internal *ioi;
-	uint64_t member_addr, member_bytes, cur_addr, cur_bytes;
-	int i;
-
-	ioi = ocf_io_allocator_default_new(allocator, cvolume, queue,
-			addr, bytes, dir);
-	if (!ioi)
-		return NULL;
-
-	cio = ocf_io_get_priv(&ioi->io);
-
-	if (bytes == 0) {
-		/* Flush io - allocate io for each volume */
-		for (i = 0; i < composite->members_cnt; i++) {
-			cio->member_io[i] = ocf_io_new(&composite->member[i].volume,
-					queue, 0, 0, dir, 0, 0);
-			if (!cio->member_io[i])
-				goto err;
-		}
-		cio->begin_member = 0;
-		cio->end_member = composite->members_cnt;
-
-		return ioi;
-	}
-
-	for (i = 0; i < composite->members_cnt; i++) {
-		if (addr < composite->end_addr[i]) {
-			cio->begin_member = i;
-			break;
-		}
-	}
-
-	cur_addr = addr;
-	cur_bytes = bytes;
-
-	for (; i < composite->members_cnt; i++) {
-		member_addr = cur_addr - (i > 0 ? composite->end_addr[i-1] : 0);
-		member_bytes =
-			OCF_MIN(cur_addr + cur_bytes, composite->end_addr[i])
-			- cur_addr;
-
-		cio->member_io[i] = ocf_io_new(&composite->member[i].volume, queue,
-				member_addr, member_bytes, dir, 0, 0);
-		if (!cio->member_io[i])
-			goto err;
-
-		cur_addr += member_bytes;
-		cur_bytes -= member_bytes;
-
-		if (!cur_bytes) {
-			cio->end_member = i + 1;
-			break;
-		}
-	}
-
-	ENV_BUG_ON(cur_bytes != 0);
-
-	return ioi;
-
-err:
-	for (i = 0; i < composite->members_cnt; i++) {
-		if (cio->member_io[i])
-			ocf_io_put(cio->member_io[i]);
-	}
-
-	ocf_io_allocator_default_del(allocator, ioi);
-
-	return NULL;
-}
-
-static void ocf_composite_io_allocator_del(ocf_io_allocator_t allocator, void *obj)
-{
-	struct ocf_io_internal *ioi = obj;
-	struct ocf_composite_volume_io *cio = ocf_io_get_priv(&ioi->io);
-	int i;
-
-	for (i = cio->begin_member; i < cio->end_member; i++) {
-		if (cio->member_io[i])
-			ocf_io_put(cio->member_io[i]);
-	}
-
-	ocf_io_allocator_default_del(allocator, ioi);
-}
-
-const struct ocf_io_allocator_type ocf_composite_io_allocator_type = {
-	.ops = {
-		.allocator_init = ocf_composite_io_allocator_init,
-		.allocator_deinit = ocf_composite_io_allocator_deinit,
-		.allocator_new = ocf_composite_io_allocator_new,
-		.allocator_del = ocf_composite_io_allocator_del,
-	},
-};
-
-const struct ocf_volume_extended ocf_composite_volume_extended = {
-	.allocator_type = &ocf_composite_io_allocator_type,
 };
 
 int ocf_composite_volume_type_init(ocf_ctx_t ctx)
 {
 	return ocf_ctx_register_volume_type_internal(ctx,
 			OCF_VOLUME_TYPE_COMPOSITE,
-			&ocf_composite_volume_properties,
-			&ocf_composite_volume_extended);
+			&ocf_composite_volume_properties, NULL);
 }
 
 int ocf_composite_volume_create(ocf_composite_volume_t *volume, ocf_ctx_t ctx)
@@ -364,24 +595,349 @@ void ocf_composite_volume_destroy(ocf_composite_volume_t cvolume)
 	ocf_volume_destroy(cvolume);
 }
 
-int ocf_composite_volume_add(ocf_composite_volume_t cvolume,
-		ocf_volume_type_t type, struct ocf_volume_uuid *uuid,
-		void *volume_params)
+int ocf_composite_volume_member_visit(ocf_composite_volume_t cvolume,
+		ocf_composite_volume_member_visitor_t visitor, void *priv,
+		ocf_composite_visitor_member_state_t svol_status)
 {
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
-	ocf_volume_t volume;
-	int result;
+	int i;
+	int res;
+	ocf_composite_visitor_member_state_t s;
 
-	if (composite->members_cnt >= OCF_COMPOSITE_VOLUME_MEMBERS_MAX)
+	if (svol_status != ocf_composite_visitor_member_state_attached &&
+			svol_status != ocf_composite_visitor_member_state_opened &&
+			svol_status != ocf_composite_visitor_member_state_detached &&
+			svol_status != ocf_composite_visitor_member_state_any) {
 		return -OCF_ERR_INVAL;
+	}
 
-	volume = &composite->member[composite->members_cnt].volume;
-	result = ocf_volume_init(volume, type, uuid, true);
-	if (result)
-		return result;
 
-	composite->member[composite->members_cnt].volume_params = volume_params;
-	composite->members_cnt++;
+	for_each_composite_member(composite, i) {
+		if (composite->member[i].detached)
+			s = ocf_composite_visitor_member_state_detached;
+		else if (composite->member[i].volume.opened)
+			s = ocf_composite_visitor_member_state_opened;
+		else
+			s = ocf_composite_visitor_member_state_attached;
+
+		if (!(s & svol_status))
+			continue;
+
+		res = visitor(&composite->member[i].volume, priv, s);
+		if (res != 0)
+			return res;
+	}
 
 	return 0;
 }
+
+ocf_volume_t ocf_composite_volume_get_subvolume_by_index(ocf_composite_volume_t cvolume, int index)
+{
+	struct ocf_composite_volume* composite = ocf_volume_get_priv(cvolume);
+	if (index >= 0 && index < composite->members_cnt)
+		return &composite->member[index].volume;
+	else
+		return NULL;
+}
+
+void ocf_composite_volume_set_uuid(ocf_composite_volume_t cvolume, struct ocf_volume_uuid* uuid,
+	bool uuid_copy)
+{
+	ocf_volume_set_uuid(cvolume, uuid);
+	cvolume->uuid_copy = uuid_copy;
+}
+
+int ocf_composite_volume_get_id_from_uuid(ocf_composite_volume_t cvolume,
+		ocf_uuid_t target_uuid)
+{
+	struct ocf_composite_volume* composite = ocf_volume_get_priv(cvolume);
+	const struct ocf_volume_uuid *subvol_uuid;
+	int i, diff, result;
+
+	for_each_composite_member_attached(composite, i) {
+		subvol_uuid = ocf_volume_get_uuid(&composite->member[i].volume);
+		result = ocf_uuid_compare(subvol_uuid, target_uuid, &diff);
+		if (result)
+			return -OCF_ERR_UNKNOWN;
+		else if (!diff)
+			return i;
+
+	}
+
+	return -OCF_ERR_COMPOSITE_VOLUME_MEMBER_NOT_EXIST;
+}
+
+int ocf_composite_volume_get_subvolume_addr_range(
+		ocf_composite_volume_t cvolume, uint8_t subvolume_id,
+		uint64_t *begin_addr, uint64_t *end_addr)
+{
+	struct ocf_composite_volume* composite = ocf_volume_get_priv(cvolume);
+
+	if (subvolume_id >= OCF_COMPOSITE_VOLUME_MEMBERS_MAX)
+		return -OCF_ERR_INVAL;
+
+	if (composite->member[subvolume_id].detached)
+		return -OCF_ERR_COMPOSITE_VOLUME_MEMBER_NOT_EXIST;
+
+	*begin_addr = subvolume_id > 0 ? composite->end_addr[subvolume_id - 1] : 0;
+	*end_addr = composite->end_addr[subvolume_id];
+
+	return 0;
+}
+
+#ifdef OCF_DEBUG_STATS
+void ocf_composite_volume_update_stats(ocf_core_t core, ocf_io_t master_io,
+		ocf_part_id_t part_id, int dir, pf_algo_id_t pa_id)
+{
+	int i, core_id, index;
+	struct ocf_composite_volume_io *cio = ocf_io_get_priv(master_io);
+	ocf_volume_t cvolume = ocf_io_get_volume(master_io);
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+	struct ocf_counters_block *counters;
+	if (ocf_ctx_get_volume_type_id(cvolume->cache->owner,
+		ocf_volume_get_type(cvolume)) != OCF_VOLUME_TYPE_COMPOSITE) {
+		return;
+	}
+	for (i = cio->begin_member; i < cio->end_member; i++) {
+		core_id = ocf_core_get_id(core);
+		index = OCF_COMPOSITE_VOLUME_MEMBER_STATS_GET_INDEX(core_id, part_id);
+		if (PA_ID_VALID(pa_id)) {
+			counters = &(composite->member[i].member_stats[index]
+				.prefetch_blocks[pa_id]);
+       		} else {
+			counters = &composite->member[i].member_stats[index].blocks;
+		}
+		ocf_stats_block_update(counters, dir, cio->member_io[i]->bytes);
+	}
+}
+
+static void _block_init(struct ocf_counters_block *stats)
+{
+	env_atomic64_set(&stats->read_bytes, 0);
+	env_atomic64_set(&stats->write_bytes, 0);
+}
+
+static void _ocf_composite_volume_stats_initialize(struct ocf_composite_volume *composite,
+	int core_id, int composite_volume_member_id)
+{
+	int i, pa, index;
+	for (i = 0; i != OCF_USER_IO_CLASS_MAX; i++) {
+		index= OCF_COMPOSITE_VOLUME_MEMBER_STATS_GET_INDEX(core_id, i);
+		_block_init(&composite->member[composite_volume_member_id]
+			.member_stats[index].blocks);
+		for_each_valid_pa_id(pa)
+			_block_init(&composite->member[composite_volume_member_id]
+				.member_stats[index].prefetch_blocks[pa]);
+	}
+}
+
+int ocf_composite_volume_stats_initialize(ocf_cache_t cache, ocf_core_t core,
+	int composite_volume_member_id)
+{
+	int core_id, i;
+	struct ocf_composite_volume *composite;
+	if (ocf_ctx_get_volume_type_id(cache->owner,
+		ocf_volume_get_type(&cache->device->volume)) != OCF_VOLUME_TYPE_COMPOSITE) {
+			return 0;
+	}
+	composite = ocf_volume_get_priv(&cache->device->volume);
+
+	if (composite_volume_member_id >= composite->members_cnt &&
+		composite_volume_member_id != OCF_COMPOSITE_VOLUME_MEMBER_ID_INVALID) {
+			return -OCF_ERR_INVAL;
+	}
+
+	core_id = ocf_core_get_id(core);
+	if (composite_volume_member_id != OCF_COMPOSITE_VOLUME_MEMBER_ID_INVALID) {
+		_ocf_composite_volume_stats_initialize(composite,
+			core_id, composite_volume_member_id);
+	} else {
+		for_each_composite_member(composite, i) {
+			_ocf_composite_volume_stats_initialize(composite, core_id, i);
+		}
+	}
+	return 0;
+}
+
+int ocf_composite_volume_stats_initialize_all_cores(ocf_cache_t cache,
+	int composite_volume_member_id)
+{
+	int i;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	struct ocf_composite_volume *composite;
+	if (ocf_ctx_get_volume_type_id(cache->owner,
+		ocf_volume_get_type(&cache->device->volume)) != OCF_VOLUME_TYPE_COMPOSITE) {
+			return 0;
+	}
+	composite = ocf_volume_get_priv(&cache->device->volume);
+
+	if (composite_volume_member_id >= composite->members_cnt &&
+		composite_volume_member_id != OCF_COMPOSITE_VOLUME_MEMBER_ID_INVALID) {
+			return -OCF_ERR_INVAL;
+	}
+
+	if (composite_volume_member_id != OCF_COMPOSITE_VOLUME_MEMBER_ID_INVALID) {
+		for_each_core(cache, core, core_id) {
+			_ocf_composite_volume_stats_initialize(composite, core_id,
+				composite_volume_member_id);
+		}
+	} else {
+		for_each_composite_member(composite, i) {
+			for_each_core(cache, core, core_id) {
+				_ocf_composite_volume_stats_initialize(composite,
+					core_id, i);
+			}
+		}
+	}
+	return 0;
+}
+
+static void accum_block_stats(struct ocf_stats_block *dest,
+		const struct ocf_counters_block *from)
+{
+	dest->read += env_atomic64_read(&from->read_bytes);
+	dest->write += env_atomic64_read(&from->write_bytes);
+}
+
+int _composite_volume_member_stats_cache(struct stats_ctx stats,
+	ocf_composite_volume_stats_block_t total, ocf_cache_t cache)
+{
+	int i, pa, index;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	ocf_composite_volume_counters_block_t counters;
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(&cache->device->volume);
+	for_each_core(cache, core, core_id) {
+		for (i = 0; i <= OCF_IO_CLASS_ID_MAX; i++) {
+			index = OCF_COMPOSITE_VOLUME_MEMBER_STATS_GET_INDEX(core_id, i);
+			counters = &composite->member[stats.composite_volume_member_id]
+					.member_stats[index];
+			accum_block_stats(&total->blocks, &counters->blocks);
+                        for_each_valid_pa_id(pa) {
+                                accum_block_stats(&total->prefetch_blocks[pa],
+					&counters->prefetch_blocks[pa]);
+                        }
+                }
+        }
+	return 0;
+}
+
+int _composite_volume_member_stats_core(struct stats_ctx stats,
+	ocf_composite_volume_stats_block_t total, ocf_cache_t cache)
+{
+	int i, pa, index;
+	ocf_composite_volume_counters_block_t counters;
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(&cache->device->volume);
+	for (i = 0; i <= OCF_IO_CLASS_ID_MAX; i++) {
+		index = OCF_COMPOSITE_VOLUME_MEMBER_STATS_GET_INDEX(stats.core_id, i);
+		counters = &composite->member[stats.composite_volume_member_id]
+			.member_stats[index];
+		accum_block_stats(&total->blocks, &counters->blocks);
+		for_each_valid_pa_id(pa) {
+			accum_block_stats(&total->prefetch_blocks[pa],
+				&counters->prefetch_blocks[pa]);
+		}
+        }
+	return 0;
+}
+
+int _composite_volume_member_stats_part_cache(struct stats_ctx stats,
+	ocf_composite_volume_stats_block_t total, ocf_cache_t cache)
+{
+	int pa, index;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	ocf_composite_volume_counters_block_t counters;
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(&cache->device->volume);
+	for_each_core(cache, core, core_id) {
+		index = OCF_COMPOSITE_VOLUME_MEMBER_STATS_GET_INDEX(core_id,
+			stats.part_id);
+		counters = &composite->member[stats.composite_volume_member_id]
+			.member_stats[index];
+		accum_block_stats(&total->blocks, &counters->blocks);
+		for_each_valid_pa_id(pa) {
+			accum_block_stats(&total->prefetch_blocks[pa],
+				&counters->prefetch_blocks[pa]);
+		}
+        }
+	return 0;
+}
+
+int _composite_volume_member_stats_part_core(struct stats_ctx stats,
+	ocf_composite_volume_stats_block_t total, ocf_cache_t cache)
+{
+	int pa;
+	ocf_composite_volume_counters_block_t counters;
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(&cache->device->volume);
+	int index = OCF_COMPOSITE_VOLUME_MEMBER_STATS_GET_INDEX(stats.core_id,
+			stats.part_id);
+
+	counters = &composite->member[stats.composite_volume_member_id]
+		.member_stats[index];
+	accum_block_stats(&total->blocks, &counters->blocks);
+	for_each_valid_pa_id(pa) {
+		accum_block_stats(&total->prefetch_blocks[pa],
+			&counters->prefetch_blocks[pa]);
+	}
+	return 0;
+}
+
+static void _fill_cache_blocks(struct ocf_stats_blocks *blocks,
+		ocf_composite_volume_stats_block_t s)
+{
+	uint64_t rd, wr, total;
+	uint64_t pa_rd;
+	uint64_t pa_wr;
+	int pa;
+	rd = _bytes4k(s->blocks.read);
+	wr = _bytes4k(s->blocks.write);
+	total = rd + wr;
+	/* OCF: add all prefetcher-written blocks to the cache total */
+	for_each_valid_pa_id(pa) {
+		pa_rd = _bytes4k(s->prefetch_blocks[pa].read);
+		pa_wr = _bytes4k(s->prefetch_blocks[pa].write);
+		total += pa_rd + pa_wr;
+	}
+	for_each_valid_pa_id(pa) {
+		pa_rd = _bytes4k(s->prefetch_blocks[pa].read);
+		_set(&blocks->prefetch_cache_rd[pa], pa_rd, total);
+		pa_wr = _bytes4k(s->prefetch_blocks[pa].write);
+		_set(&blocks->prefetch_cache_wr[pa], pa_wr, total);
+	}
+	_set(&blocks->cache_volume_rd, rd, total);
+	_set(&blocks->cache_volume_wr, wr, total);
+	_set(&blocks->cache_volume_total, total, total);
+}
+
+int ocf_composite_volume_get_member_stats(ocf_cache_t cache, struct stats_ctx stats,
+	struct ocf_stats_blocks *blocks, ocf_composite_volume_get_stats_t collect_stats)
+{
+	int result;
+	ocf_composite_volume_stats_block_t total;
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(&cache->device->volume);
+
+	if (stats.composite_volume_member_id >= composite->members_cnt)
+		return -OCF_ERR_COMPOSITE_VOLUME_MEMBER_NOT_EXIST;
+
+	total = env_vzalloc(sizeof(*total));
+	if (!total)
+		return -OCF_ERR_NO_MEM;
+
+	if (ocf_cache_is_standby(cache)) {
+		result = -OCF_ERR_CACHE_STANDBY;
+		goto mem_free;
+	}
+
+	_ocf_stats_zero(blocks);
+
+	result = collect_stats(stats, total, cache);
+
+	if (blocks)
+		_fill_cache_blocks(blocks, total);
+
+mem_free:
+	env_vfree(total);
+	return result;
+}
+#endif

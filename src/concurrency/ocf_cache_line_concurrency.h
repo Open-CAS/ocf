@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -112,23 +113,6 @@ void ocf_req_unlock(struct ocf_alock *c,
 		struct ocf_request *req);
 
 /**
- * @Check if cache line is used.
- *
- * Cache line is used when:
- * 1. It is locked for write or read access
- * or
- * 2. There is set locked bit in metadata
- *
- * @param cache - OCF cache instance
- * @param line - Cache line to be unlocked
- *
- * @retval true - cache line is used
- * @retval false - cache line is not used
- */
-bool ocf_cache_line_is_used(struct ocf_alock *c,
-		ocf_cache_line_t line);
-
-/**
  * @brief Check if for specified cache line there are waiters
  * on the waiting list
  *
@@ -204,5 +188,20 @@ ocf_cache_line_concurrency(ocf_cache_t cache)
 {
 	return cache->device->concurrency.cache_line;
 }
+
+/**
+ * @brief Try to lock cacheline fast
+ *
+ * @param alock - alock object
+ * @param req - OCF request
+ * @param rw - io direction (OCF_READ/OCF_WRITE)
+ *
+ * @returns lock acquisition status or negative error code in case of internal
+ *		error
+ * @retval OCF_LOCK_ACQUIRED - OCF request has been locked and can be processed
+ * @retval OCF_LOCK_NOT_ACQUIRED - OCF request lock not acquired
+ */
+int ocf_cl_lock_line_fast(struct ocf_alock *alock,
+		struct ocf_request *req, int rw);
 
 #endif /* OCF_CONCURRENCY_H_ */

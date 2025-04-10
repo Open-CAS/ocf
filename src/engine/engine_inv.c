@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -18,18 +19,12 @@
 
 static void _ocf_invalidate_req(struct ocf_request *req, int error)
 {
-	if (error) {
-		req->error = error;
-		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
-	}
-
-	if (env_atomic_dec_return(&req->req_remaining))
-		return;
-
 	OCF_DEBUG_RQ(req, "Completion");
 
-	if (req->error)
+	if (error) {
+		ocf_core_stats_cache_error_update(req->core, OCF_WRITE);
 		ocf_engine_error(req, true, "Failed to flush metadata to cache");
+	}
 
 	ocf_req_unlock_wr(ocf_cache_line_concurrency(req->cache), req);
 
@@ -47,20 +42,19 @@ static int _ocf_invalidate_do(struct ocf_request *req)
 	ocf_purge_map_info(req);
 	ocf_hb_req_prot_unlock_wr(req);
 
-	env_atomic_inc(&req->req_remaining);
-
 	if (ocf_volume_is_atomic(&cache->device->volume) &&
 			req->info.flush_metadata) {
 		/* Metadata flush IO */
 		ocf_metadata_flush_do_asynch(cache, req, _ocf_invalidate_req);
+	} else {
+		_ocf_invalidate_req(req, 0);
 	}
-
-	_ocf_invalidate_req(req, 0);
 
 	return 0;
 }
 
 void ocf_engine_invalidate(struct ocf_request *req)
 {
-	ocf_engine_push_req_front_cb(req, _ocf_invalidate_do, true);
+	ocf_queue_push_req_cb(req, _ocf_invalidate_do,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }

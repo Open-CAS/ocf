@@ -1,17 +1,18 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __METADATA_PARTITION_H__
 #define __METADATA_PARTITION_H__
 
-#include "metadata_partition_structs.h"
 #include "../ocf_cache_priv.h"
 
 #define PARTITION_DEFAULT		0
 #define PARTITION_UNSPECIFIED		((ocf_part_id_t)-1)
 #define PARTITION_FREELIST		OCF_USER_IO_CLASS_MAX + 1
+#define PARTITION_FREE_DETACHED		OCF_USER_IO_CLASS_MAX + 2
 #define PARTITION_SIZE_MIN		0
 #define PARTITION_SIZE_MAX		100
 

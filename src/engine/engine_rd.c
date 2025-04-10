@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -10,14 +11,15 @@
 #include "engine_inv.h"
 #include "engine_bf.h"
 #include "engine_common.h"
+#include "engine_io.h"
 #include "cache_engine.h"
 #include "../concurrency/ocf_concurrency.h"
-#include "../utils/utils_io.h"
 #include "../ocf_request.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_user_part.h"
 #include "../metadata/metadata.h"
 #include "../ocf_def_priv.h"
+#include "ocf/ocf_blktrace.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "rd"
 #include "engine_debug.h"
@@ -27,32 +29,23 @@ static void _ocf_read_generic_hit_complete(struct ocf_request *req, int error)
 	struct ocf_alock *c = ocf_cache_line_concurrency(
 			req->cache);
 
+	OCF_DEBUG_RQ(req, "HIT completion, prefetch=%d", req->io.prefetch);
+
 	if (error) {
-		req->error |= error;
 		ocf_core_stats_cache_error_update(req->core, OCF_READ);
 		inc_fallback_pt_error_counter(req->cache);
-	}
 
-	/* Handle callback-caller race to let only one of the two complete the
-	 * request. Also, complete original request only if this is the last
-	 * sub-request to complete
-	 */
-	if (env_atomic_dec_return(&req->req_remaining) == 0) {
-		OCF_DEBUG_RQ(req, "HIT completion");
+		ocf_queue_push_req_pt(req);
+	} else {
+		ocf_req_unlock(c, req);
 
-		if (req->error) {
-			ocf_engine_push_req_front_pt(req);
-		} else {
-			ocf_req_unlock(c, req);
+		/* Complete request */
+		req->complete(req, error);
 
-			/* Complete request */
-			req->complete(req, req->error);
-
-			/* Free the request at the last point
-			 * of the completion path
-			 */
-			ocf_req_put(req);
-		}
+		/* Free the request at the last point
+		 * of the completion path
+		 */
+		ocf_req_put(req);
 	}
 }
 
@@ -60,54 +53,44 @@ static void _ocf_read_generic_miss_complete(struct ocf_request *req, int error)
 {
 	struct ocf_cache *cache = req->cache;
 
-	if (error)
-		req->error = error;
+	OCF_DEBUG_RQ(req, "MISS completion");
 
-	/* Handle callback-caller race to let only one of the two complete the
-	 * request. Also, complete original request only if this is the last
-	 * sub-request to complete
-	 */
-	if (env_atomic_dec_return(&req->req_remaining) == 0) {
-		OCF_DEBUG_RQ(req, "MISS completion");
-
-		if (req->error) {
-			/*
-			 * --- Do not submit this request to write-back-thread.
-			 * Stop it here ---
-			 */
-			req->complete(req, req->error);
-
-			req->info.core_error = 1;
-			ocf_core_stats_core_error_update(req->core, OCF_READ);
-
-			ctx_data_free(cache->owner, req->cp_data);
-			req->cp_data = NULL;
-
-			/* Invalidate metadata */
-			ocf_engine_invalidate(req);
-
-			return;
-		}
-
-		/* Copy pages to copy vec, since this is the one needed
-		 * by the above layer
+	if (error) {
+		/*
+		 * --- Do not submit this request to write-back-thread.
+		 * Stop it here ---
 		 */
-		ctx_data_cpy(cache->owner, req->cp_data, req->data, 0, 0,
-				req->byte_length);
+		req->complete(req, error);
 
-		/* Complete request */
-		req->complete(req, req->error);
+		ocf_core_stats_core_error_update(req->core, OCF_READ);
 
-		ocf_engine_backfill(req);
+		ctx_data_free(cache->owner, req->cp_data);
+		req->cp_data = NULL;
+
+		/* Invalidate metadata */
+		ocf_engine_invalidate(req);
+
+		return;
 	}
+
+	/* Copy pages to copy vec, since this is the one needed
+	 * by the above layer
+	 */
+	if (req->cp_data) {
+		ctx_data_cpy(cache->owner, req->cp_data, req->data, 0, 0,
+				req->bytes);
+	}
+
+	/* Complete request */
+	req->complete(req, error);
+
+	ocf_engine_backfill(req);
 }
 
 void ocf_read_generic_submit_hit(struct ocf_request *req)
 {
-	env_atomic_set(&req->req_remaining, ocf_engine_io_count(req));
-
-	ocf_submit_cache_reqs(req->cache, req, OCF_READ, 0, req->byte_length,
-		ocf_engine_io_count(req), _ocf_read_generic_hit_complete);
+	ocf_engine_forward_cache_io_req(req, OCF_READ,
+			_ocf_read_generic_hit_complete);
 }
 
 static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
@@ -115,25 +98,23 @@ static inline void _ocf_read_generic_submit_miss(struct ocf_request *req)
 	struct ocf_cache *cache = req->cache;
 	int ret;
 
-	env_atomic_set(&req->req_remaining, 1);
-
 	req->cp_data = ctx_data_alloc(cache->owner,
-			BYTES_TO_PAGES(req->byte_length));
-	if (!req->cp_data)
+			BYTES_TO_PAGES(req->bytes));
+	if (!req->cp_data) {
+		ENV_WARN(true, "ctx_data_alloc(%u) failed\n",
+				(int)BYTES_TO_PAGES(req->bytes));
 		goto err_alloc;
+	}
 
 	ret = ctx_data_mlock(cache->owner, req->cp_data);
-	if (ret)
-		goto err_alloc;
-
-	/* Submit read request to core device. */
-	ocf_submit_volume_req(&req->core->volume, req,
-			_ocf_read_generic_miss_complete);
-
-	return;
+	if (ret) {
+		ctx_data_free(cache->owner, req->cp_data);
+		req->cp_data = NULL;
+	}
 
 err_alloc:
-	_ocf_read_generic_miss_complete(req, -OCF_ERR_NO_MEM);
+	/* Submit read request to core device. */
+	ocf_engine_forward_core_io_req(req, _ocf_read_generic_miss_complete);
 }
 
 static int _ocf_read_generic_do(struct ocf_request *req)
@@ -256,4 +237,48 @@ int ocf_read_generic(struct ocf_request *req)
 	ocf_req_put(req);
 
 	return 0;
+}
+
+bool ocf_read_generic_fast(struct ocf_request *req)
+{
+	struct ocf_alock *c = ocf_cache_line_concurrency(req->cache);
+
+
+	/* Calculate hashes for hash-bucket locking */
+	ocf_req_hash(req);
+
+	/* Read-lock hash buckets associated with request target core & LBAs
+	* (core lines) to assure that cache mapping for these core lines does
+	* not change during traversation */
+	ocf_hb_req_prot_lock_rd(req);
+
+	/* check CL status */
+	ocf_engine_lookup(req);
+
+	if (ocf_engine_is_mapped(req) && ocf_engine_is_hit(req) &&
+		ocf_cl_lock_line_fast(c, req, OCF_READ) == OCF_LOCK_ACQUIRED) {
+	 	OCF_BLKTRACE_REQ_ASYNC_LOCK(req);
+
+		ocf_req_get(req);
+
+		ocf_engine_set_hot(req);
+		ocf_engine_update_pf(req);
+		ocf_hb_req_prot_unlock_rd(req);
+
+		if (ocf_engine_needs_repart(req)) {
+			ocf_hb_req_prot_lock_wr(req);
+			ocf_user_part_move(req);
+			ocf_hb_req_prot_unlock_wr(req);
+		}
+
+		ocf_read_generic_submit_hit(req);
+
+		/* Update statistics */
+		ocf_engine_update_request_stats(req);
+		ocf_engine_update_block_stats(req);
+		return true;
+	} else {
+		ocf_hb_req_prot_unlock_rd(req);
+		return false;
+	}
 }

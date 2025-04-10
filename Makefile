@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2012-2021 Intel Corporation
+# Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -15,7 +16,7 @@ ifeq ($(strip $(OUTDIR)),)
 endif
 
 ifeq ($(strip $(CMD)),)
-INSTALL=ln -fs
+INSTALL=ln -fsr
 else ifeq ($(strip $(CMD)),cp)
 INSTALL=cp
 else ifeq ($(strip $(CMD)),install)
@@ -32,6 +33,12 @@ $(error Invalid environment selected)
 endif
 endif
 
+define RUN_INSTALL =
+@echo " INSTALL  $@"
+@mkdir -p $(dir $@)
+@$(INSTALL) $< $@
+endef
+
 #
 # Installing headers
 #
@@ -42,13 +49,8 @@ INC_RM=$(shell find $(OUTDIR)/include/ocf -name '*.[h]' -xtype l 2>/dev/null)
 inc: $(INC_OUT) $(INC_RM)
 	@$(MAKE) distcleandir
 
-$(INC_OUT):
-ifeq ($(strip $(OUTDIR)),)
-	$(error No output specified for installing headers)
-endif
-	@echo " INSTALL  $@"
-	@mkdir -p $(dir $@)
-	@$(INSTALL) $(subst $(OUTDIR)/include/ocf,$(PWD)/inc,$@) $@
+$(OUTDIR)/include/ocf/%.h: $(PWD)/inc/%.h
+	$(RUN_INSTALL);
 
 $(INC_RM): validate
 	$(if $(shell readlink $@ | grep $(PWD)/inc), \
@@ -64,13 +66,8 @@ SRC_RM=$(shell find $(OUTDIR)/src/ocf -name '*.[c|h]' -xtype l 2>/dev/null)
 src: $(SRC_OUT) $(SRC_RM)
 	@$(MAKE) distcleandir
 
-$(SRC_OUT):
-ifeq ($(strip $(OUTDIR)),)
-	$(error No output specified for installing sources)
-endif
-	@echo " INSTALL  $@"
-	@mkdir -p $(dir $@)
-	@$(INSTALL) $(subst $(OUTDIR)/src/ocf,$(PWD)/src,$@) $@
+$(OUTDIR)/src/ocf/%: $(PWD)/src/%
+	$(RUN_INSTALL);
 
 $(SRC_RM): validate
 	$(if $(shell readlink $@ | grep $(PWD)/src), \
@@ -93,13 +90,8 @@ endif
 
 env_dep: $(OCF_ENV_OUT) $(OCF_ENV_RM)
 
-$(OCF_ENV_OUT):
-ifeq ($(strip $(OUTDIR)),)
-	$(error No output specified for installing sources)
-endif
-	@echo " INSTALL  $@"
-	@mkdir -p $(dir $@)
-	@$(INSTALL) $(subst $(OUTDIR)/src/ocf/env,$(OCF_ENV_DIR),$@) $@
+$(OUTDIR)/src/ocf/env/%: $(OCF_ENV_DIR)%
+	$(RUN_INSTALL);
 
 $(OCF_ENV_RM): validate
 	$(if $(shell readlink $@ | grep $(OCF_ENV_DIR)), \

@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2020-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -15,6 +16,14 @@ struct ocf_metadata_segment
 	struct ocf_metadata_raw *raw;
 	struct ocf_metadata_segment *superblock;
 };
+
+int ocf_metadata_segment_init_in_place(
+		struct ocf_metadata_segment *segment,
+		struct ocf_cache *cache,
+		struct ocf_metadata_raw *raw,
+		ocf_flush_page_synch_t lock_page_pfn,
+		ocf_flush_page_synch_t unlock_page_pfn,
+		struct ocf_metadata_segment *superblock);
 
 int ocf_metadata_segment_init(
 		struct ocf_metadata_segment **self,

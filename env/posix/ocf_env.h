@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
- * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2021-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -13,6 +13,7 @@
 #ifndef __USE_GNU
 #define __USE_GNU
 #endif
+#undef OCF_REPORT_MEMORY_ALLOCATIONS
 
 #include <linux/limits.h>
 #include <linux/stddef.h>
@@ -42,6 +43,7 @@
 
 #define OCF_ALLOCATOR_NAME_MAX 128
 
+#define PAGE_SHIFT 12
 #define PAGE_SIZE 4096
 
 #define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
@@ -84,7 +86,7 @@ void env_stack_trace(void);
 	const typeof(((type *)0)->member)*__mptr = (ptr);    \
 	(type *)((char *)__mptr - offsetof(type, member)); })
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
+#define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
 /* STRING OPERATIONS */
 #define env_memcpy(dest, dmax, src, slen) ({ \
@@ -102,24 +104,28 @@ void env_stack_trace(void);
 #define env_strdup strndup
 #define env_strnlen(s, smax) strnlen(s, smax)
 #define env_strncmp(s1, slen1, s2, slen2) strncmp(s1, s2, min(slen1, slen2))
-#define env_strncpy(dest, dmax, src, slen) ({ \
-		strncpy(dest, src, min(dmax - 1, slen)); \
-		dest[dmax - 1] = '\0'; \
-		0; \
-	})
+
+int env_strncpy(char *dest, size_t dmax, const char *src, size_t slen);
 
 /* MEMORY MANAGEMENT */
 static inline void *env_malloc(size_t size, int flags)
 {
-	return malloc(size);
+	void *ptr = malloc(size);
+#ifdef OCF_REPORT_MEMORY_ALLOCATIONS
+	printf("%s %p %ld\n",__func__ ,ptr,size);
+#endif
+	return ptr;
 }
 
 static inline void *env_zalloc(size_t size, int flags)
 {
 	void *ptr = malloc(size);
+#ifdef OCF_REPORT_MEMORY_ALLOCATIONS
+	printf("%s %p %ld\n",__func__ ,ptr,size);
+#endif
 
 	if (ptr)
-		memset(ptr, 0, size);
+		env_memset(ptr, size, 0);
 
 	return ptr;
 }
@@ -131,7 +137,11 @@ static inline void env_free(const void *ptr)
 
 static inline void *env_vmalloc_flags(size_t size, int flags)
 {
-	return malloc(size);
+	void *ptr = malloc(size);
+#ifdef OCF_REPORT_MEMORY_ALLOCATIONS
+	printf("%s %p %ld\n",__func__ ,ptr,size);
+#endif
+	return ptr;
 }
 
 static inline void *env_vzalloc_flags(size_t size, int flags)
@@ -141,7 +151,11 @@ static inline void *env_vzalloc_flags(size_t size, int flags)
 
 static inline void *env_vmalloc(size_t size)
 {
-	return malloc(size);
+	void *ptr = malloc(size);
+#ifdef OCF_REPORT_MEMORY_ALLOCATIONS
+	printf("%s %p %ld\n",__func__ ,ptr,size);
+#endif
+	return ptr;
 }
 
 static inline void *env_vzalloc(size_t size)
@@ -152,6 +166,33 @@ static inline void *env_vzalloc(size_t size)
 static inline void env_vfree(const void *ptr)
 {
 	free((void *)ptr);
+}
+
+#define ENV_PROCESSOR_CACHE_LINE_SIZE   64
+
+static inline void *env_aligned_alloc(size_t alignment, size_t size)
+{
+	void *memptr = NULL;
+
+	if (posix_memalign(&memptr, alignment, size))
+		return NULL;
+
+	return memptr;
+}
+
+static inline void *env_aligned_zalloc(size_t alignment, size_t size)
+{
+	void *ptr = env_aligned_alloc(alignment, size);
+
+	if (ptr)
+		memset(ptr, 0, size);
+
+	return ptr;
+}
+
+static inline void env_aligned_free(const void *p)
+{
+	free((void *)p);
 }
 
 /* SECURE MEMORY MANAGEMENT */
@@ -172,6 +213,9 @@ static inline void env_vfree(const void *ptr)
 static inline void *env_secure_alloc(size_t size)
 {
 	void *ptr = malloc(size);
+#ifdef OCF_REPORT_MEMORY_ALLOCATIONS
+	printf("%s %p %ld\n",__func__ ,ptr,size);
+#endif
 
 #if SECURE_MEMORY_HANDLING
 	if (ptr && mlock(ptr, size)) {
@@ -187,7 +231,7 @@ static inline void env_secure_free(const void *ptr, size_t size)
 {
 	if (ptr) {
 #if SECURE_MEMORY_HANDLING
-		memset(ptr, size, 0);
+		env_memset(ptr, size, 0);
 		/* TODO: flush CPU caches ? */
 		ENV_BUG_ON(munlock(ptr));
 #endif
@@ -195,18 +239,24 @@ static inline void env_secure_free(const void *ptr, size_t size)
 	}
 }
 
+#include <sys/sysinfo.h>
+
 static inline uint64_t env_get_free_memory(void)
 {
-	return (uint64_t)(-1);
+	struct sysinfo info;
+	int ret;
+
+	ret = sysinfo(&info);
+	if (ret != 0)
+		return 0;
+
+	return (uint64_t)info.totalram * info.mem_unit;
 }
 
 /* ALLOCATOR */
 typedef struct _env_allocator env_allocator;
 
 env_allocator *env_allocator_create(uint32_t size, const char *name, bool zero);
-
-#define env_allocator_create_extended(size, name, limit, zero) \
-	env_allocator_create(size, name, zero)
 
 void env_allocator_destroy(env_allocator *allocator);
 
@@ -368,13 +418,55 @@ static inline void env_completion_destroy(env_completion *completion)
 }
 
 /* ATOMIC VARIABLES */
+
+typedef struct {
+	volatile uint8_t counter;
+} env_atomic8;
+
+static inline uint8_t env_atomic8_read(const env_atomic8 *a)
+{
+	return a->counter; /* TODO */
+}
+
+static inline void env_atomic8_set(env_atomic8 *a, uint8_t i)
+{
+	a->counter = i; /* TODO */
+}
+
+static inline uint8_t env_atomic8_cmpxchg(env_atomic8 *a,
+		uint8_t old, uint8_t new_value)
+{
+	return __sync_val_compare_and_swap(&a->counter, old, new_value);
+}
+
+static inline void env_atomic8_sub(uint8_t i, env_atomic8 *a)
+{
+	__sync_sub_and_fetch(&a->counter, i);
+}
+
+static inline void env_atomic8_dec(env_atomic8 *a)
+{
+	env_atomic8_sub(1, a);
+}
+
+static inline uint8_t env_atomic8_add_unless(env_atomic8 *a, uint8_t i, uint8_t u)
+{
+	uint8_t c, old;
+	c = env_atomic8_read(a);
+	for (;;) {
+		if (unlikely(c == (u)))
+			break;
+		old = env_atomic8_cmpxchg((a), c, c + (i));
+		if (likely(old == c))
+			break;
+		c = old;
+	}
+	return c != (u);
+}
+
 typedef struct {
 	volatile int counter;
 } env_atomic;
-
-typedef struct {
-	volatile long counter;
-} env_atomic64;
 
 static inline int env_atomic_read(const env_atomic *a)
 {
@@ -451,6 +543,10 @@ static inline int env_atomic_add_unless(env_atomic *a, int i, int u)
 	return c != (u);
 }
 
+typedef struct {
+	volatile long counter;
+} env_atomic64;
+
 static inline long env_atomic64_read(const env_atomic64 *a)
 {
 	return a->counter; /* TODO */
@@ -479,6 +575,11 @@ static inline void env_atomic64_inc(env_atomic64 *a)
 static inline void env_atomic64_dec(env_atomic64 *a)
 {
 	env_atomic64_sub(1, a);
+}
+
+static inline long env_atomic64_add_return(long i, env_atomic64 *a)
+{
+	return __sync_add_and_fetch(&a->counter, i);
 }
 
 static inline long env_atomic64_inc_return(env_atomic64 *a)
@@ -527,6 +628,37 @@ static inline void env_spinlock_unlock(env_spinlock *l)
 static inline void env_spinlock_destroy(env_spinlock *l)
 {
 	ENV_BUG_ON(pthread_spin_destroy(&l->lock));
+}
+
+/* 8-BIT SPIN LOCKS */
+typedef env_atomic8 env_spinlock8;
+
+static inline int env_spinlock8_init(env_spinlock8 *l)
+{
+	env_atomic8_set(l, 0);
+
+	return 0;
+}
+
+static inline void env_spinlock8_lock(env_spinlock8 *l)
+{
+	uint32_t step = 0;
+
+	while (env_atomic8_cmpxchg(l, 0, 1)) {
+		if (unlikely(++step == 1000000)) {
+			env_cond_resched();
+			step = 0;
+		}
+	}
+}
+
+static inline void env_spinlock8_unlock(env_spinlock8 *l)
+{
+	env_atomic8_set(l, 0);
+}
+
+static inline void env_spinlock8_destroy(env_spinlock8 *l)
+{
 }
 
 /* RW LOCKS */
@@ -592,6 +724,10 @@ static inline bool env_bit_test(int nr, const volatile unsigned long *addr)
 }
 
 /* SCHEDULING */
+#define ENV_SEC_TO_NSEC(_sec)	((_sec) * 1000000000)
+#define ENV_NSEC_TO_SEC(_sec)	((_sec) / 1000000000)
+#define ENV_NSEC_TO_MSEC(_sec)	((_sec) / 1000000)
+
 static inline int env_in_interrupt(void)
 {
 	return 0;
@@ -599,29 +735,28 @@ static inline int env_in_interrupt(void)
 
 static inline uint64_t env_get_tick_count(void)
 {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return tv.tv_sec * 1000000 + tv.tv_usec;
+	struct timespec tv;
+	return clock_gettime(CLOCK_REALTIME, &tv) ? 0 : ENV_SEC_TO_NSEC(tv.tv_sec) + tv.tv_nsec;
 }
 
 static inline uint64_t env_ticks_to_nsecs(uint64_t j)
 {
-	return j * 1000;
+	return j;
 }
 
 static inline uint64_t env_ticks_to_msecs(uint64_t j)
 {
-	return j / 1000;
+	return ENV_NSEC_TO_MSEC(j);
 }
 
 static inline uint64_t env_ticks_to_secs(uint64_t j)
 {
-	return j / 1000000;
+	return ENV_NSEC_TO_SEC(j);
 }
 
 static inline uint64_t env_secs_to_ticks(uint64_t j)
 {
-	return j * 1000000;
+	return ENV_SEC_TO_NSEC(j);
 }
 
 /* SORTING */

@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -284,6 +285,10 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache);
 	OCF_CHECK_NULL(cfg);
+
+#ifndef OCF_USER_OVERRIDE_CLASSES
+	return -OCF_ERR_INVAL;
+#endif
 
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;

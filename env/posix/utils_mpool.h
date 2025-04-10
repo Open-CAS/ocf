@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -34,16 +35,12 @@ struct env_mpool;
  * @param flags Allocation flags
  * @param mpool_max Maximal allocator size (power of two)
  * @param fallback Should allocations fall back to vmalloc if allocator fails
- * @param limits Array of rpool preallocation limits per each mpool allocation
- * 		order or NULL if defaults are to be used. Array should have
- * 		mpool_max elements
  * @param name_prefix Format name prefix
  *
  * @return CAS memory pool
  */
 struct env_mpool *env_mpool_create(uint32_t hdr_size, uint32_t elem_size,
 		int flags, int mpool_max, bool fallback,
-		const uint32_t limits[env_mpool_max],
 		const char *name_perfix, bool zero);
 
 /**

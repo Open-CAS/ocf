@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -9,26 +10,8 @@
 #include "ocf/ocf.h"
 #include "utils/utils_io_allocator.h"
 
-struct ocf_io_meta {
-	ocf_volume_t volume;
-	const struct ocf_io_ops *ops;
-	env_atomic ref_count;
-	struct ocf_request *req;
-};
-
-
-struct ocf_io_internal {
-	struct ocf_io_meta meta;
-	struct ocf_io io;
-};
-
-static inline struct ocf_io_internal *ocf_io_get_internal(struct ocf_io* io)
-{
-	return container_of(io, struct ocf_io_internal, io);
-}
-
 int ocf_io_allocator_default_init(ocf_io_allocator_t allocator,
-		uint32_t priv_size, const char *name);
+		const char *name);
 
 void ocf_io_allocator_default_deinit(ocf_io_allocator_t allocator);
 
@@ -38,20 +21,18 @@ void *ocf_io_allocator_default_new(ocf_io_allocator_t allocator,
 
 void ocf_io_allocator_default_del(ocf_io_allocator_t allocator, void *obj);
 
-int ocf_io_allocator_init(ocf_io_allocator_t allocator, ocf_io_allocator_type_t type,
-		uint32_t priv_size, const char *name);
-
-
-struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
+ocf_io_t ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir,
 		uint32_t io_class, uint64_t flags);
 
 
-static inline void ocf_io_end(struct ocf_io *io, int error)
-{
-	if (io->end)
-		io->end(io, error);
+void ocf_io_end_func(ocf_io_t io, int error);
 
-}
+#define ocf_io_end(_io, _error)                                 \
+	do {                                            \
+		OCF_BLKTRACE_COMPLETE_IO(_io);          \
+		ocf_io_end_func(_io, _error);           \
+	} while(0)
+
 
 #endif /* __OCF_IO_PRIV_H__ */

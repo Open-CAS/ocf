@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -151,7 +152,7 @@ ocf_core_state_t ocf_core_get_state(ocf_core_t core);
  *
  * @param[in] io IO to be submitted
  */
-static inline void ocf_core_submit_io(struct ocf_io *io)
+static inline void ocf_core_submit_io(ocf_io_t io)
 {
 	ocf_volume_submit_io(io);
 }
@@ -161,7 +162,7 @@ static inline void ocf_core_submit_io(struct ocf_io *io)
  *
  * @param[in] io IO to be submitted
  */
-static inline void ocf_core_submit_flush(struct ocf_io *io)
+static inline void ocf_core_submit_flush(ocf_io_t io)
 {
 	ocf_volume_submit_flush(io);
 }
@@ -171,7 +172,7 @@ static inline void ocf_core_submit_flush(struct ocf_io *io)
  *
  * @param[in] io IO to be submitted
  */
-static inline void ocf_core_submit_discard(struct ocf_io *io)
+static inline void ocf_core_submit_discard(ocf_io_t io)
 {
 	ocf_volume_submit_discard(io);
 }

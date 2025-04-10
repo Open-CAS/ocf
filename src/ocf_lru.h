@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef __EVICTION_LRU_H__
@@ -34,8 +35,9 @@ void ocf_lru_add_free(ocf_cache_t cache, ocf_cache_line_t cline);
 uint32_t ocf_lru_num_free(ocf_cache_t cache);
 struct ocf_lru_list *ocf_lru_get_list(struct ocf_part *part,
 		uint32_t lru_idx, bool clean);
-void ocf_lru_remove_locked(ocf_cache_t cache, struct ocf_lru_list *list,
+void ocf_lru_detach(ocf_cache_t cache, struct ocf_part *part,
 		ocf_cache_line_t cline);
+void ocf_lru_restore(ocf_cache_t cache, ocf_cache_line_t cline);
 
 typedef void (*ocf_lru_populate_end_t)(void *priv, int error);
 

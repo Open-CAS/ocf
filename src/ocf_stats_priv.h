@@ -1,10 +1,14 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef __OCF_STATS_PRIV_H__
 #define __OCF_STATS_PRIV_H__
+
+#include "ocf/ocf_prefetch_common.h"
+#include "ocf/ocf_feedback_counters_def.h"
 
 struct ocf_counters_block {
 	env_atomic64 read_bytes;
@@ -17,6 +21,7 @@ struct ocf_counters_error {
 };
 
 struct ocf_counters_req {
+	env_atomic64 deferred;
 	env_atomic64 partial_miss;
 	env_atomic64 full_miss;
 	env_atomic64 total;
@@ -27,9 +32,12 @@ struct ocf_counters_req {
  * @brief OCF requests statistics like hit, miss, etc...
  *
  * @note To calculate number of hits request do:
- * total - (partial_miss + full_miss)
+ * total - (deferred + partial_miss + full_miss)
  */
 struct ocf_stats_req {
+	/** Number of deferred hits */
+	uint64_t deferred;
+
 	/** Number of partial misses */
 	uint64_t partial_miss;
 
@@ -65,6 +73,30 @@ struct ocf_stats_block {
 	uint64_t write;
 };
 
+#if OCF_CCNT_ATOMIC
+#define X(cnt) env_atomic64 cnt;
+#else
+#define X(cnt) uint64_t cnt;
+#endif
+struct ocf_core_ocf_counters_cache_alg {
+		OCF_CNT_CACHE_ALG
+};
+struct ocf_core_ocf_counters_cache_feedback {
+	struct ocf_core_ocf_counters_cache_alg alg_cnt[pa_id_num];
+	OCF_CNT_CACHE_GLB
+};
+#undef X
+
+#define X(cnt) uint64_t cnt;
+struct ocf_stats_cache_alg {
+		OCF_CNT_CACHE_ALG
+};
+struct ocf_stats_cache_feedback { \
+	struct ocf_stats_cache_alg alg_cnt[pa_id_num]; \
+	OCF_CNT_CACHE_GLB \
+};
+#undef X
+
 /**
  * Statistics appropriate for given IO class
  */
@@ -84,18 +116,44 @@ struct ocf_stats_io_class {
 	/** Writes requests statistics */
 	struct ocf_stats_req write_reqs;
 
+	/** Prefetch requests per Prefetch Algorithm */
+	struct ocf_stats_req prefetch_reqs[pa_id_num];
+
+	/** Prefetch requests per Prefetch Algorithm */
+	struct ocf_stats_block prefetch_cache_blocks[pa_id_num];
+	struct ocf_stats_block prefetch_core_blocks[pa_id_num];
+
 	/** Block requests for ocf volume statistics */
 	struct ocf_stats_block blocks;
 
 	/** Block requests for cache volume statistics */
 	struct ocf_stats_block cache_blocks;
 
+	/** OCF Caching Feedback statistics */
+	struct ocf_stats_cache_feedback ocf_feedback;
+
 	/** Block requests for core volume statistics */
 	struct ocf_stats_block core_blocks;
+
+	/** Pass Through block requests statistics */
+	struct ocf_stats_block pass_through_blocks;
 };
 
 #define IO_PACKET_NO 12
 #define IO_ALIGN_NO 4
+
+#ifdef OCF_DEBUG_STATS
+typedef struct {
+	uint64_t chkpts_cnt;
+	uint64_t chkpts_alloc_free;
+	uint64_t chkpts_alloc_sub;
+	uint64_t chkpts_sub_comp;
+	uint64_t chkpts_comp_free;
+	uint64_t chkpts_push_back_cnt;
+	uint64_t chkpts_push_back_pop;
+	uint64_t chkpts_push_front_cnt;
+	uint64_t chkpts_push_front_pop;
+} chkpts_core_stats_t;
 
 /**
  * @brief Core debug statistics
@@ -112,7 +170,19 @@ struct ocf_stats_core_debug {
 
 	/** I/O alignment for writes */
 	uint64_t write_align[IO_ALIGN_NO];
+
+	/** I/O went to queue */
+	uint64_t read_slow_path;
+	uint64_t write_slow_path;
+	uint64_t concurrent_requests;
+	chkpts_core_stats_t chkpts_stats_core_rd;
+	chkpts_core_stats_t chkpts_stats_core_wr;
+	chkpts_core_stats_t chkpts_stats_cache_rd;
+	chkpts_core_stats_t chkpts_stats_cache_wr;
+	chkpts_core_stats_t chkpts_stats_ocf_rd;
+	chkpts_core_stats_t chkpts_stats_ocf_wr;
 };
+#endif
 
 /**
  * @brief OCF core statistics
@@ -130,6 +200,9 @@ struct ocf_stats_core {
 	/** Write requests statistics */
 	struct ocf_stats_req write_reqs;
 
+	/** Prefetch requests per Prefetch Algorithm */
+	struct ocf_stats_req prefetch_reqs[pa_id_num];
+
 	/** Block requests for cache volume statistics */
 	struct ocf_stats_block cache_volume;
 
@@ -139,14 +212,26 @@ struct ocf_stats_core {
 	/** Block requests submitted by user to this core */
 	struct ocf_stats_block core;
 
+	/** Block requests submitted by Prefetcher to this core */
+	struct ocf_stats_block prefetch_cache_blocks[pa_id_num];
+	struct ocf_stats_block prefetch_core_blocks[pa_id_num];
+
+	/** Pass Through block requests statistics */
+	struct ocf_stats_block pass_through_blocks;
+
+	/** OCF Caching Feedback to this core */
+	struct ocf_stats_cache_feedback ocf_feedback;
+
 	/** Cache volume error statistics */
 	struct ocf_stats_error cache_errors;
 
 	/** Core volume error statistics */
 	struct ocf_stats_error core_errors;
 
+#ifdef OCF_DEBUG_STATS
 	/** Debug statistics */
 	struct ocf_stats_core_debug debug_stat;
+#endif
 };
 
 /**
@@ -155,11 +240,18 @@ struct ocf_stats_core {
 struct ocf_counters_part {
 	struct ocf_counters_req read_reqs;
 	struct ocf_counters_req write_reqs;
+	struct ocf_counters_req prefetch_reqs[pa_id_num];
 
 	struct ocf_counters_block blocks;
+	struct ocf_counters_block prefetch_cache_blocks[pa_id_num];
+	struct ocf_counters_block prefetch_core_blocks[pa_id_num];
 
 	struct ocf_counters_block core_blocks;
 	struct ocf_counters_block cache_blocks;
+
+	struct ocf_counters_block pass_through_blocks;
+
+	struct ocf_core_ocf_counters_cache_feedback ocf_feedback;
 };
 
 #ifdef OCF_DEBUG_STATS
@@ -169,6 +261,9 @@ struct ocf_counters_debug {
 
 	env_atomic64 read_align[IO_ALIGN_NO];
 	env_atomic64 write_align[IO_ALIGN_NO];
+
+	env_atomic64 read_slow_path;
+	env_atomic64 write_slow_path;
 };
 #endif
 
@@ -182,15 +277,20 @@ struct ocf_counters_core {
 #endif
 };
 
+void ocf_stats_block_update(struct ocf_counters_block *counters, int dir,
+		uint64_t bytes);
 void ocf_core_stats_core_block_update(ocf_core_t core, ocf_part_id_t part_id,
-		int dir, uint64_t bytes);
+		int dir, uint64_t bytes, pf_algo_id_t pa_id);
 void ocf_core_stats_cache_block_update(ocf_core_t core, ocf_part_id_t part_id,
-		int dir, uint64_t bytes);
+		int dir, uint64_t bytes, pf_algo_id_t pa_id);
 void ocf_core_stats_vol_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes, pf_algo_id_t pa_id);
+void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
 		int dir, uint64_t bytes);
 
 void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
-		uint8_t dir, uint64_t hit_no, uint64_t core_line_count);
+		uint8_t dir, uint64_t hit_no, uint32_t core_line_count,
+		pf_algo_id_t pa_id, uint8_t deferred);
 void ocf_core_stats_request_pt_update(ocf_core_t core, ocf_part_id_t part_id,
 		uint8_t dir, uint64_t hit_no, uint64_t core_line_count);
 
@@ -236,6 +336,8 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats);
  * @param[in] core to which request pertains
  * @param[in] io request for which stats are being updated
  */
-void ocf_core_update_stats(ocf_core_t core, struct ocf_io *io);
+void ocf_core_update_stats(ocf_core_t core, ocf_io_t io);
+void ocf_core_update_stats_slow_path(ocf_core_t core, ocf_io_t io);
+void ocf_stats_chkpts_update(ocf_io_t io, struct ocf_volume *volume);
 
 #endif

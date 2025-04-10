@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -9,6 +10,7 @@
 #include "engine/cache_engine.h"
 #include "utils/utils_user_part.h"
 #include "utils/utils_cache_line.h"
+#include "ocf/ocf_feedback_counters.h"
 
 #ifdef OCF_DEBUG_STATS
 static void ocf_stats_debug_init(struct ocf_counters_debug *stats)
@@ -24,12 +26,16 @@ static void ocf_stats_debug_init(struct ocf_counters_debug *stats)
 		env_atomic64_set(&stats->read_align[i], 0);
 		env_atomic64_set(&stats->write_align[i], 0);
 	}
+
+	env_atomic64_set(&stats->read_slow_path, 0);
+	env_atomic64_set(&stats->write_slow_path, 0);
 }
 #endif
 
 static void ocf_stats_req_init(struct ocf_counters_req *stats)
 {
 	env_atomic64_set(&stats->full_miss, 0);
+	env_atomic64_set(&stats->deferred, 0);
 	env_atomic64_set(&stats->partial_miss, 0);
 	env_atomic64_set(&stats->total, 0);
 	env_atomic64_set(&stats->pass_through, 0);
@@ -43,12 +49,19 @@ static void ocf_stats_block_init(struct ocf_counters_block *stats)
 
 static void ocf_stats_part_init(struct ocf_counters_part *stats)
 {
+	pf_algo_id_t pa;
 	ocf_stats_req_init(&stats->read_reqs);
 	ocf_stats_req_init(&stats->write_reqs);
+	for_each_valid_pa_id(pa) {
+		ocf_stats_req_init(&stats->prefetch_reqs[pa]);
+		ocf_stats_block_init(&stats->prefetch_cache_blocks[pa]);
+		ocf_stats_block_init(&stats->prefetch_core_blocks[pa]);
+	}
 
 	ocf_stats_block_init(&stats->blocks);
 	ocf_stats_block_init(&stats->core_blocks);
 	ocf_stats_block_init(&stats->cache_blocks);
+	ocf_stats_block_init(&stats->pass_through_blocks);
 }
 
 static void ocf_stats_error_init(struct ocf_counters_error *stats)
@@ -57,7 +70,7 @@ static void ocf_stats_error_init(struct ocf_counters_error *stats)
 	env_atomic_set(&stats->write, 0);
 }
 
-static void _ocf_stats_block_update(struct ocf_counters_block *counters, int dir,
+void ocf_stats_block_update(struct ocf_counters_block *counters, int dir,
 		uint64_t bytes)
 {
 	switch (dir) {
@@ -73,42 +86,77 @@ static void _ocf_stats_block_update(struct ocf_counters_block *counters, int dir
 }
 
 void ocf_core_stats_vol_block_update(ocf_core_t core, ocf_part_id_t part_id,
-		int dir, uint64_t bytes)
+		int dir, uint64_t bytes, pf_algo_id_t pa_id)
 {
 	struct ocf_counters_block *counters =
 		&core->counters->part_counters[part_id].blocks;
 
-	_ocf_stats_block_update(counters, dir, bytes);
+	ocf_stats_block_update(counters, dir, bytes);
 }
 
 void ocf_core_stats_cache_block_update(ocf_core_t core, ocf_part_id_t part_id,
-		int dir, uint64_t bytes)
+		int dir, uint64_t bytes, pf_algo_id_t pa_id)
 {
 	struct ocf_counters_block *counters =
 		&core->counters->part_counters[part_id].cache_blocks;
 
-	_ocf_stats_block_update(counters, dir, bytes);
+	if (PA_ID_VALID(pa_id)) {
+		counters = &core->counters->part_counters[part_id].
+					    prefetch_cache_blocks[pa_id];
+	}
+
+	ocf_stats_block_update(counters, dir, bytes);
+
+	if (OCF_WRITE == dir) {
+		/* count for prefetchers or admission */
+		ocf_cache_feedback_counters_core_cache_written_blocks_add(core, pa_id, bytes);
+	}
 }
 
 void ocf_core_stats_core_block_update(ocf_core_t core, ocf_part_id_t part_id,
-		int dir, uint64_t bytes)
+		int dir, uint64_t bytes, pf_algo_id_t pa_id)
 {
 	struct ocf_counters_block *counters =
 		&core->counters->part_counters[part_id].core_blocks;
 
-	_ocf_stats_block_update(counters, dir, bytes);
+	if (PA_ID_VALID(pa_id)) {
+		counters = &core->counters->part_counters[part_id].
+					    prefetch_core_blocks[pa_id];
+	}
+
+	ocf_stats_block_update(counters, dir, bytes);
+
+	if (OCF_READ == dir) {
+		/* count for prefetchers or admission */
+		ocf_cache_feedback_counters_core_core_read_blocks_add(core, pa_id, bytes);
+	}
+}
+
+void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
+		int dir, uint64_t bytes)
+{
+	struct ocf_counters_block *counters =
+		&core->counters->part_counters[part_id].pass_through_blocks;
+
+	ocf_stats_block_update(counters, dir, bytes);
 }
 
 void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
-		uint8_t dir, uint64_t hit_no, uint64_t core_line_count)
+		uint8_t dir, uint64_t hit_no, uint32_t core_line_count,
+		pf_algo_id_t pa_id, uint8_t deferred)
 {
 	struct ocf_counters_req *counters;
+	uint64_t miss_bytes, total_bytes, cline_size_bytes;
 
 	switch (dir) {
 		case OCF_READ:
 			counters = &core->counters->part_counters[part_id].read_reqs;
+			if (PA_ID_VALID(pa_id))
+				counters = &core->counters->part_counters[part_id].
+							    prefetch_reqs[pa_id];
 			break;
 		case OCF_WRITE:
+			ENV_BUG_ON(PA_ID_VALID(pa_id));
 			counters = &core->counters->part_counters[part_id].write_reqs;
 			break;
 		default:
@@ -121,6 +169,23 @@ void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
 		env_atomic64_inc(&counters->full_miss);
 	else if (hit_no < core_line_count)
 		env_atomic64_inc(&counters->partial_miss);
+	else if (deferred)
+		env_atomic64_inc(&counters->deferred);
+
+	/* core reads which are not prefetch - prefetch core reads should not be
+	 * counted as misses.
+	 *
+	 *  NOTE: unaligned i/o (not on 4KB boundary) - in order to count accurately,
+	 *   we need to check exact range. Perhaps not needed. Let's wait to see the
+	 *   impact and decide later if improving accuracy is worth it.
+	 */
+	if ((OCF_READ == dir) && !PA_ID_VALID(pa_id)) {
+		cline_size_bytes = ocf_cache_get_line_size(ocf_core_get_cache(core));
+		total_bytes = (uint64_t)core_line_count * (uint32_t)cline_size_bytes;	/* The cast is to avoid overflow */
+		miss_bytes = (core_line_count - hit_no) * cline_size_bytes;
+		ocf_cache_feedback_counters_core_g_cache_miss_blocks_add(core, miss_bytes);
+		ocf_cache_feedback_counters_core_g_total_read_blocks_add(core, total_bytes);
+	}
 }
 
 void ocf_core_stats_request_pt_update(ocf_core_t core, ocf_part_id_t part_id,
@@ -200,7 +265,12 @@ void ocf_core_stats_initialize(ocf_core_t core)
 
 #ifdef OCF_DEBUG_STATS
 	ocf_stats_debug_init(&exp_obj_stats->debug_stats);
+	ocf_volume_chkpts_stats_init(ocf_core_get_volume(core));
+	ocf_volume_chkpts_stats_init(ocf_core_get_front_volume(core));
+	ocf_volume_chkpts_stats_init(ocf_cache_get_volume(ocf_core_get_cache(core)));
 #endif
+
+	ocf_cache_feedback_counters_core_reset(core);
 }
 
 int ocf_core_stats_initialize_all(ocf_cache_t cache)
@@ -223,6 +293,7 @@ int ocf_core_stats_initialize_all(ocf_cache_t cache)
 static void copy_req_stats(struct ocf_stats_req *dest,
 		const struct ocf_counters_req *from)
 {
+	dest->deferred = env_atomic64_read(&from->deferred);
 	dest->partial_miss = env_atomic64_read(&from->partial_miss);
 	dest->full_miss = env_atomic64_read(&from->full_miss);
 	dest->total = env_atomic64_read(&from->total);
@@ -232,6 +303,7 @@ static void copy_req_stats(struct ocf_stats_req *dest,
 static void accum_req_stats(struct ocf_stats_req *dest,
 		const struct ocf_counters_req *from)
 {
+	dest->deferred += env_atomic64_read(&from->deferred);
 	dest->partial_miss += env_atomic64_read(&from->partial_miss);
 	dest->full_miss += env_atomic64_read(&from->full_miss);
 	dest->total += env_atomic64_read(&from->total);
@@ -252,6 +324,44 @@ static void accum_block_stats(struct ocf_stats_block *dest,
 	dest->write += env_atomic64_read(&from->write_bytes);
 }
 
+#if OCF_CCNT_ATOMIC
+#define CCNT_PA_GET(pa_id, cnt)	env_atomic64_read(&from->alg_cnt[pa_id].cnt)
+#define CCNT_G_GET(cnt)	        env_atomic64_read(&from->cnt)
+#else
+#define CCNT_PA_GET(pa_id, cnt)	(from->alg_cnt[pa_id].cnt)
+#define CCNT_G_GET(cnt)	        (from->cnt)
+#endif
+
+static void copy_ocf_counters_cache_feedback(
+		struct ocf_stats_cache_feedback *dest,
+		const struct ocf_core_ocf_counters_cache_feedback *from)
+{
+	pf_algo_id_t pa_id;
+	for_each_valid_pa_id(pa_id) {
+		#define X(cnt) dest->alg_cnt[pa_id].cnt = CCNT_PA_GET(pa_id, cnt);
+			OCF_CNT_CACHE_ALG
+		#undef X
+	}
+	#define X(cnt) dest->cnt = CCNT_G_GET(cnt);
+		OCF_CNT_CACHE_GLB
+	#undef X
+}
+
+static void accum_ocf_counters_cache_feedback(
+		struct ocf_stats_cache_feedback *dest,
+		const struct ocf_core_ocf_counters_cache_feedback *from)
+{
+	pf_algo_id_t pa_id;
+	for_each_valid_pa_id(pa_id) {
+		#define X(cnt) dest->alg_cnt[pa_id].cnt += CCNT_PA_GET(pa_id, cnt);
+			OCF_CNT_CACHE_ALG
+		#undef X
+	}
+	#define X(cnt) dest->cnt += CCNT_G_GET(cnt);
+		OCF_CNT_CACHE_GLB
+	#undef X
+}
+
 static void copy_error_stats(struct ocf_stats_error *dest,
 		const struct ocf_counters_error *from)
 {
@@ -260,9 +370,23 @@ static void copy_error_stats(struct ocf_stats_error *dest,
 }
 
 #ifdef OCF_DEBUG_STATS
-static void copy_debug_stats(struct ocf_stats_core_debug *dest,
+static void copy_debug_stats_chkpts(chkpts_core_stats_t *dest, const chkpts_stats_t *src)
+{
+	dest->chkpts_cnt = env_atomic64_read(&src->chkpts_cnt);
+	dest->chkpts_alloc_free = env_atomic64_read(&src->chkpts_alloc_free);
+	dest->chkpts_alloc_sub = env_atomic64_read(&src->chkpts_alloc_sub);
+	dest->chkpts_sub_comp = env_atomic64_read(&src->chkpts_sub_comp);
+	dest->chkpts_comp_free = env_atomic64_read(&src->chkpts_comp_free);
+	dest->chkpts_push_back_cnt = env_atomic64_read(&src->chkpts_push_back_cnt);
+	dest->chkpts_push_back_pop = env_atomic64_read(&src->chkpts_push_back_pop);
+	dest->chkpts_push_front_cnt = env_atomic64_read(&src->chkpts_push_front_cnt);
+	dest->chkpts_push_front_pop = env_atomic64_read(&src->chkpts_push_front_pop);
+}
+
+static void copy_debug_stats(ocf_core_t core, struct ocf_stats_core_debug *dest,
 		const struct ocf_counters_debug *from)
 {
+	ocf_volume_t vol;
 	int i;
 
 	for (i = 0; i < IO_PACKET_NO; i++) {
@@ -274,6 +398,19 @@ static void copy_debug_stats(struct ocf_stats_core_debug *dest,
 		dest->read_align[i] = env_atomic64_read(&from->read_align[i]);
 		dest->write_align[i] = env_atomic64_read(&from->write_align[i]);
 	}
+	dest->read_slow_path = env_atomic64_read(&from->read_slow_path);
+	dest->write_slow_path = env_atomic64_read(&from->write_slow_path);
+	dest->concurrent_requests = env_atomic_read(&core->front_volume.refcnt.counter);
+
+	vol = ocf_core_get_volume(core);
+	copy_debug_stats_chkpts(&dest->chkpts_stats_core_rd, &vol->chkpts_stats_rd);
+	copy_debug_stats_chkpts(&dest->chkpts_stats_core_wr, &vol->chkpts_stats_wr);
+	vol = ocf_core_get_front_volume(core);
+	copy_debug_stats_chkpts(&dest->chkpts_stats_ocf_rd, &vol->chkpts_stats_rd);
+	copy_debug_stats_chkpts(&dest->chkpts_stats_ocf_wr, &vol->chkpts_stats_wr);
+	vol = ocf_cache_get_volume(ocf_core_get_cache(core));
+	copy_debug_stats_chkpts(&dest->chkpts_stats_cache_rd, &vol->chkpts_stats_rd);
+	copy_debug_stats_chkpts(&dest->chkpts_stats_cache_wr, &vol->chkpts_stats_wr);
 }
 #endif
 
@@ -282,6 +419,7 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 {
 	ocf_cache_t cache;
 	struct ocf_counters_part *part_stat;
+	pf_algo_id_t pa;
 
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(stats);
@@ -309,9 +447,21 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 	copy_req_stats(&stats->read_reqs, &part_stat->read_reqs);
 	copy_req_stats(&stats->write_reqs, &part_stat->write_reqs);
 
+	for_each_valid_pa_id(pa) {
+		copy_req_stats(&stats->prefetch_reqs[pa],
+			       &part_stat->prefetch_reqs[pa]);
+		copy_block_stats(&stats->prefetch_cache_blocks[pa],
+				 &part_stat->prefetch_cache_blocks[pa]);
+		copy_block_stats(&stats->prefetch_core_blocks[pa],
+				 &part_stat->prefetch_core_blocks[pa]);
+	}
+
 	copy_block_stats(&stats->blocks, &part_stat->blocks);
 	copy_block_stats(&stats->cache_blocks, &part_stat->cache_blocks);
 	copy_block_stats(&stats->core_blocks, &part_stat->core_blocks);
+	copy_block_stats(&stats->pass_through_blocks, &part_stat->pass_through_blocks);
+
+	copy_ocf_counters_cache_feedback(&stats->ocf_feedback, &part_stat->ocf_feedback);
 
 	return 0;
 }
@@ -342,11 +492,12 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 			&core_stats->cache_errors);
 
 #ifdef OCF_DEBUG_STATS
-	copy_debug_stats(&stats->debug_stat,
+	copy_debug_stats(core, &stats->debug_stat,
 			&core_stats->debug_stats);
 #endif
 
 	for (i = 0; i != OCF_USER_IO_CLASS_MAX; i++) {
+		pf_algo_id_t pa;
 		curr = &core_stats->part_counters[i];
 
 		accum_req_stats(&stats->read_reqs,
@@ -354,14 +505,27 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 		accum_req_stats(&stats->write_reqs,
 				&curr->write_reqs);
 
+		for_each_valid_pa_id(pa) {
+			accum_req_stats(&stats->prefetch_reqs[pa],
+					&curr->prefetch_reqs[pa]);
+			accum_block_stats(&stats->prefetch_cache_blocks[pa],
+					  &curr->prefetch_cache_blocks[pa]);
+			accum_block_stats(&stats->prefetch_core_blocks[pa],
+					  &curr->prefetch_core_blocks[pa]);
+		}
+
 		accum_block_stats(&stats->core, &curr->blocks);
 		accum_block_stats(&stats->core_volume, &curr->core_blocks);
 		accum_block_stats(&stats->cache_volume, &curr->cache_blocks);
+		accum_block_stats(&stats->pass_through_blocks, &curr->pass_through_blocks);
 
 		stats->cache_occupancy += env_atomic_read(&core->runtime_meta->
 				part_counters[i].cached_clines);
 		stats->dirty += env_atomic_read(&core->runtime_meta->
 				part_counters[i].dirty_clines);
+
+		/* NOTE: does it make sense to accumulate over all io-classes? */
+		accum_ocf_counters_cache_feedback(&stats->ocf_feedback, &curr->ocf_feedback);
 	}
 
 	return 0;
@@ -400,41 +564,88 @@ static int to_packet_idx(uint32_t len)
 	int i = 0;
 
 	for (i = 0; i < IO_PACKET_SIZE; i++) {
-		if (len == io_packet_size[i])
+		if (len <= io_packet_size[i])
 			return i;
 	}
 
 	return IO_PACKET_SIZE;
 }
 
-void ocf_core_update_stats(ocf_core_t core, struct ocf_io *io)
+void ocf_core_update_stats(ocf_core_t core, ocf_io_t io)
 {
+	struct ocf_request *req = ocf_io_to_req(io);
 	struct ocf_counters_debug *stats;
 	int idx;
 
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(io);
 
-	core_id = ocf_core_get_id(core);
-	cache = ocf_core_get_cache(core);
-
 	stats = &core->counters->debug_stats;
 
-	idx = to_packet_idx(io->bytes);
-	if (io->dir == OCF_WRITE)
+	idx = to_packet_idx(req->bytes);
+	if (req->rw == OCF_WRITE)
 		env_atomic64_inc(&stats->write_size[idx]);
 	else
 		env_atomic64_inc(&stats->read_size[idx]);
 
-	idx = to_align_idx(io->addr);
-	if (io->dir == OCF_WRITE)
+	idx = to_align_idx(req->addr);
+	if (req->rw == OCF_WRITE)
 		env_atomic64_inc(&stats->write_align[idx]);
 	else
 		env_atomic64_inc(&stats->read_align[idx]);
 }
 
+void ocf_core_update_stats_slow_path(ocf_core_t core, ocf_io_t io)
+{
+	struct ocf_request *req = ocf_io_to_req(io);
+	struct ocf_counters_debug *stats;
+
+	OCF_CHECK_NULL(core);
+	OCF_CHECK_NULL(io);
+
+	stats = &core->counters->debug_stats;
+
+	/* Increase slow-path counters */
+	if (req->rw == OCF_WRITE)
+		env_atomic64_inc(&stats->write_slow_path);
+	else
+		env_atomic64_inc(&stats->read_slow_path);
+}
+
+void ocf_stats_chkpts_update(ocf_io_t io, struct ocf_volume *volume)
+{
+	struct ocf_request *req = ocf_io_to_req(io);
+
+	if (req->io.chkpts[DEBUG_CHKPT_ALLOC] &&
+		req->io.chkpts[DEBUG_CHKPT_SUBMIT] &&
+		req->io.chkpts[DEBUG_CHKPT_COMPLETE]) {
+		chkpts_stats_t *cpstts;
+		uint64_t ts = env_get_tick_count();
+
+		cpstts = req->rw == OCF_READ ? &volume->chkpts_stats_rd : &volume->chkpts_stats_wr;
+		env_atomic64_inc(&cpstts->chkpts_cnt);
+		env_atomic64_add(ts - req->io.chkpts[DEBUG_CHKPT_ALLOC], &cpstts->chkpts_alloc_free);
+		env_atomic64_add(req->io.chkpts[DEBUG_CHKPT_SUBMIT] - req->io.chkpts[DEBUG_CHKPT_ALLOC], &cpstts->chkpts_alloc_sub);
+		env_atomic64_add(req->io.chkpts[DEBUG_CHKPT_COMPLETE] - req->io.chkpts[DEBUG_CHKPT_SUBMIT], &cpstts->chkpts_sub_comp);
+		env_atomic64_add(ts - req->io.chkpts[DEBUG_CHKPT_COMPLETE], &cpstts->chkpts_comp_free);
+
+		if (req->io.chkpts[DEBUG_CHKPT_POP]) {
+			if (req->io.chkpts[DEBUG_CHKPT_PUSH_PRIO_LOW]) {
+				env_atomic64_inc(&cpstts->chkpts_push_back_cnt);
+				env_atomic64_add(req->io.chkpts[DEBUG_CHKPT_POP] - req->io.chkpts[DEBUG_CHKPT_PUSH_PRIO_LOW], &cpstts->chkpts_push_back_pop);
+			} else if (req->io.chkpts[DEBUG_CHKPT_PUSH_PRIO_HIGH]) {
+				env_atomic64_inc(&cpstts->chkpts_push_front_cnt);
+				env_atomic64_add(req->io.chkpts[DEBUG_CHKPT_POP] - req->io.chkpts[DEBUG_CHKPT_PUSH_PRIO_HIGH], &cpstts->chkpts_push_front_pop);
+			} else {
+				ENV_WARN(true, "got push back/front (%"ENV_PRIu64"/%"ENV_PRIu64") timestamp but not pop\n",
+					req->io.chkpts[DEBUG_CHKPT_PUSH_PRIO_LOW], req->io.chkpts[DEBUG_CHKPT_PUSH_PRIO_HIGH]);
+			}
+		}
+	}
+}
 #else
 
-void ocf_core_update_stats(ocf_core_t core, struct ocf_io *io) {}
+void ocf_core_update_stats(ocf_core_t core, ocf_io_t io) {}
+void ocf_core_update_stats_slow_path(ocf_core_t core, ocf_io_t io) {}
 
 #endif

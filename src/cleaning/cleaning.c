@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -17,17 +18,24 @@
 
 int ocf_start_cleaner(ocf_cache_t cache)
 {
+#ifdef CLEANER_ENABLE
 	return ctx_cleaner_init(cache->owner, &cache->cleaner);
+#endif
+	return 0;
 }
 
 void ocf_stop_cleaner(ocf_cache_t cache)
 {
+#ifdef CLEANER_ENABLE
 	ctx_cleaner_stop(cache->owner, &cache->cleaner);
+#endif
 }
 
 void ocf_kick_cleaner(ocf_cache_t cache)
 {
+#ifdef CLEANER_ENABLE
 	ctx_cleaner_kick(cache->owner, &cache->cleaner);
+#endif
 }
 
 void ocf_cleaner_set_cmpl(ocf_cleaner_t cleaner, ocf_cleaner_end_t fn)

@@ -37,6 +37,7 @@ static int _ocf_pipeline_run_step(struct ocf_request *req)
 
 	while (true) {
 		step = &pipeline->properties->steps[pipeline->next_step];
+		ocf_cache_log(req->cache, log_debug, "PL STEP: %s\n", step->name);
 		switch (step->type) {
 		case ocf_pipeline_step_single:
 			pipeline->next_step++;
@@ -47,7 +48,7 @@ static int _ocf_pipeline_run_step(struct ocf_request *req)
 			if (step->pred(pipeline, pipeline->priv, &step->arg)) {
 				step->hndl(pipeline, pipeline->priv, &step->arg);
 				return 0;
-			}	
+			}
 			continue;
 		case ocf_pipeline_step_foreach:
 			arg = &step->args[pipeline->next_arg++];
@@ -87,7 +88,7 @@ int ocf_pipeline_create(ocf_pipeline_t *pipeline, ocf_cache_t cache,
 		tmp_pipeline->priv = (void *)priv;
 	}
 
-	req = ocf_req_new(cache->mngt_queue, NULL, 0, 0, 0);
+	req = ocf_req_new_mngt(cache, cache->mngt_queue);
 	if (!req) {
 		env_vfree(tmp_pipeline);
 		return -OCF_ERR_NO_MEM;
@@ -126,12 +127,12 @@ void *ocf_pipeline_get_priv(ocf_pipeline_t pipeline)
 
 void ocf_pipeline_next(ocf_pipeline_t pipeline)
 {
-	ocf_engine_push_req_front(pipeline->req, false);
+	ocf_queue_push_req(pipeline->req, OCF_QUEUE_PRIO_HIGH);
 }
 
 void ocf_pipeline_finish(ocf_pipeline_t pipeline, int error)
 {
 	pipeline->finish = true;
 	pipeline->error = error;
-	ocf_engine_push_req_front(pipeline->req, false);
+	ocf_queue_push_req(pipeline->req, OCF_QUEUE_PRIO_HIGH);
 }

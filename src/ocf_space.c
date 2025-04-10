@@ -1,16 +1,23 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf_space.h"
 #include "utils/utils_user_part.h"
 #include "engine/engine_common.h"
+#include "prefetch/ocf_evict_counters.h"
+
+#define	EVICT_RETRY			2
+#define MORE_THAN_60_PCT(_a, _b)	((uint64_t)(_a) * 5 > (uint64_t)(_b) * 3)
 
 static uint32_t ocf_evict_calculate(ocf_cache_t cache,
 		struct ocf_user_part *user_part, uint32_t to_evict)
 {
-
+	struct ocf_lru_part_meta *lru = user_part->part.runtime->lru;
+	uint dirty = 0;
+	uint i;
 	uint32_t curr_part_size = ocf_part_get_occupancy(&user_part->part);
 	uint32_t min_part_size = ocf_user_part_get_min_size(cache, user_part);
 
@@ -19,6 +26,16 @@ static uint32_t ocf_evict_calculate(ocf_cache_t cache,
 		 * Cannot evict from this partition because current size
 		 * is less than minimum size
 		 */
+		return 0;
+	}
+	/*
+	 * OCF: If cache is more than 60% dirty then
+	 *	return 0 to force dirty lines eviction
+	 */
+	for (i = 0; i < OCF_NUM_LRU_LISTS; i++) {
+		dirty += lru[i].dirty.num_nodes;
+	}
+	if (MORE_THAN_60_PCT(dirty, cache->device->collision_table_entries)) {
 		return 0;
 	}
 
@@ -49,11 +66,16 @@ static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
 		struct ocf_request *req, uint32_t evict_cline_no,
 		bool overflown_only, int16_t max_priority)
 {
-	uint32_t to_evict = 0, evicted = 0;
+	uint32_t to_evict = 0, evicted = 0, evicted_now;
 	struct ocf_user_part *user_part;
 	ocf_part_id_t part_id;
 	unsigned overflow_size;
+	int i;
+	int32_t counter = 0;
+	bool no_more_counters = true;
 
+	/* prepare to try evict twice in case all counters are 0 */
+	for (i = 0; i < EVICT_RETRY; i++) {
 	/* For each partition from the lowest priority to highest one */
 	for_each_user_part(cache, user_part, part_id) {
 		/*
@@ -89,14 +111,38 @@ static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
 		if (overflown_only)
 			to_evict = OCF_MIN(to_evict, overflow_size);
 
-		evicted += ocf_lru_req_clines(req, &user_part->part, to_evict);
-
+		if (!overflown_only) {
+			counter = ocf_evict_counters_inc(cache, part_id,
+				-(int32_t)to_evict);
+			if (counter <= -(int32_t)to_evict) {
+				ocf_evict_counters_inc(cache, part_id,
+					to_evict);
+				counter += to_evict;
+				goto after_evict;
+			}
+		}
+		evicted += evicted_now =
+			ocf_lru_req_clines(req, &user_part->part, to_evict);
+		if (!overflown_only && evicted_now < to_evict) {
+			ocf_evict_counters_inc(cache, part_id,
+				to_evict - evicted_now);
+			counter += to_evict - evicted_now;
+		}
+after_evict:
+		if (counter > 0)
+			no_more_counters = false;
 		if (evicted >= evict_cline_no) {
 			/* Evicted requested number of cache line, stop
 			 */
 			goto out;
 		}
 
+	}
+	if (overflown_only)
+		break;
+	else if (no_more_counters)
+		/* update evict counters and try again */
+		ocf_evict_counters_update(cache, max_priority);
 	}
 
 out:

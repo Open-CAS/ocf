@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -11,6 +12,15 @@
 #include "ocf_ctx_priv.h"
 #include "ocf_volume_priv.h"
 #include "ocf_seq_cutoff.h"
+#include "classifier/ocf_classifier.h"
+#include "utils/utils_pipeline.h"
+
+typedef enum {
+	mode_disabled,
+	mode_enabled,
+	mode_none,
+	mode_max
+} ocf_enable_disable_param_mode_t;
 
 #define ocf_core_log_prefix(core, lvl, prefix, fmt, ...) \
 	ocf_cache_log_prefix(ocf_core_get_cache(core), lvl, ".%s" prefix, \
@@ -76,9 +86,18 @@ struct ocf_core_meta_runtime {
 	} part_counters[OCF_USER_IO_CLASS_MAX];
 };
 
+struct ocf_core_volume_uuid {
+	char cache_name[OCF_CACHE_NAME_SIZE];
+	char core_name[OCF_CORE_NAME_SIZE];
+};
+
 struct ocf_core {
+	ocf_cache_t cache;
 	struct ocf_volume front_volume;
-	struct ocf_volume volume;
+	struct ocf_volume *volume;
+
+	struct ocf_core *lower_core;
+	struct ocf_core *upper_core;
 
 	struct ocf_core_meta_config *conf_meta;
 	struct ocf_core_meta_runtime *runtime_meta;
@@ -86,6 +105,8 @@ struct ocf_core {
 	struct ocf_seq_cutoff *seq_cutoff;
 
 	env_atomic flushed;
+
+	uint32_t minimal_io_size;
 
 	/* This bit means that core volume is initialized */
 	uint32_t has_volume : 1;
@@ -95,6 +116,17 @@ struct ocf_core {
 	uint32_t added : 1;
 
 	struct ocf_counters_core *counters;
+	/* Per core classifier, default value taken frm cache */
+	uint8_t ocf_classifier;
+	/* Per core prefetcher, default value taken frm cache */
+	uint8_t ocf_prefetcher;
+
+	void *ocf_prefetch_handles[pa_id_num];	/* OCF: Prefetch Handles */
+
+	/* OCF: Classifier Handlers */
+	#define X(classifier)	void *classifier_handler_##classifier;
+	OCF_CLASSIFIER_HANDLERS_X
+	#undef X
 
 	void *priv;
 };
@@ -104,5 +136,10 @@ bool ocf_core_is_valid(ocf_cache_t cache, ocf_core_id_t id);
 ocf_core_id_t ocf_core_get_id(ocf_core_t core);
 
 int ocf_core_volume_type_init(ocf_ctx_t ctx);
+
+int ocf_core_get_front_uuid(ocf_core_t core,
+		struct ocf_core_volume_uuid *core_uuid);
+
+struct ocf_request *ocf_io_to_req(ocf_io_t io);
 
 #endif /* __OCF_CORE_PRIV_H__ */

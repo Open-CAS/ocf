@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -36,14 +37,16 @@ struct ocf_superblock_config {
 
 	char name[OCF_CACHE_NAME_SIZE];
 
+	char upper_name[OCF_CACHE_NAME_SIZE];
+
 	ocf_cache_line_t cachelines;
 	uint32_t valid_parts_no;
 
 	ocf_cache_line_size_t line_size;
 	uint32_t core_count;
 
-	unsigned long valid_core_bitmap[(OCF_CORE_MAX /
-			(sizeof(unsigned long) * 8)) + 1];
+	unsigned long valid_core_bitmap[OCF_DIV_ROUND_UP_STATIC(OCF_CORE_MAX,
+			sizeof(unsigned long) * 8)];
 
 	bool cleaner_disabled;
 	ocf_cleaning_t cleaning_policy_type;

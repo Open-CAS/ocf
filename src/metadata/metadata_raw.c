@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -189,7 +190,7 @@ static uint32_t _raw_ram_checksum(ocf_cache_t cache,
 /*
  * RAM Implementation - Entry page number
  */
-uint32_t _raw_ram_page(struct ocf_metadata_raw *raw, uint32_t entry)
+static uint32_t _raw_ram_page(struct ocf_metadata_raw *raw, uint32_t entry)
 {
 	ENV_BUG_ON(entry >= raw->entries);
 
@@ -221,7 +222,7 @@ static int _raw_ram_drain_page(ocf_cache_t cache,
 	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, page);
 
 	ctx_data_rd_check(cache->owner, _RAW_RAM_ADDR(raw, line), data, size);
-	ctx_data_seek(cache->owner, data, ctx_data_seek_current,
+	(void)ctx_data_seek(cache->owner, data, ctx_data_seek_current,
 			PAGE_SIZE - size);
 
 	return 0;
@@ -620,7 +621,7 @@ static int _raw_ram_flush_do_asynch(ocf_cache_t cache,
 
 		result  |= metadata_io_write_i_asynch(cache, req->io_queue, ctx,
 				raw->ssd_pages_offset + start_page, count,
-				req->ioi.io.flags,
+				req->flags,
 				_raw_ram_flush_do_asynch_fill,
 				_raw_ram_flush_do_asynch_io_complete,
 				raw->mio_conc);

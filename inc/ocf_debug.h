@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -17,5 +18,7 @@ struct ocf_dbg_seq_cutoff_status {
 
 void ocf_dbg_get_seq_cutoff_status(ocf_core_t core,
 		struct ocf_dbg_seq_cutoff_status *status);
+
+bool ocf_dbg_cache_is_settled(ocf_cache_t cache);
 
 #endif /* __OCF_DEBUG_H__ */

@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -7,34 +8,19 @@
 #include "ocf_def_priv.h"
 #include "ocf_io_priv.h"
 #include "ocf_volume_priv.h"
+#include "ocf_core_priv.h"
 #include "utils/utils_io_allocator.h"
-
-/*
- * This is io allocator dedicated for bottom devices.
- * Out IO structure looks like this:
- * --------------> +-------------------------+
- * | OCF is aware  |                         |
- * | of this part. | struct ocf_io_meta      |
- * |               |                         |
- * |               +-------------------------+ <----------------
- * |               |                         |  Bottom adapter |
- * |               | struct ocf_io           |  is aware of    |
- * |               |                         |  this part.     |
- * --------------> +-------------------------+                 |
- *                 |                         |                 |
- *                 | Bottom adapter specific |                 |
- *                 | context data structure. |                 |
- *                 |                         |                 |
- *                 +-------------------------+ <----------------
- */
-
-#define OCF_IO_TOTAL(priv_size) \
-		(sizeof(struct ocf_io_internal) + priv_size)
+#include "prefetch/ocf_prefetch.h"
+#include "ocf/ocf_blktrace.h"
+#include "ocf_env_refcnt.h"
+#ifdef OCF_DEBUG_STATS
+#include "ocf_stats_priv.h"
+#endif
 
 int ocf_io_allocator_default_init(ocf_io_allocator_t allocator,
-		uint32_t priv_size, const char *name)
+		const char *name)
 {
-	allocator->priv = env_allocator_create(OCF_IO_TOTAL(priv_size), name,
+	allocator->priv = env_allocator_create(sizeof(struct ocf_request), name,
 			true);
 	if (!allocator->priv)
 		return -OCF_ERR_NO_MEM;
@@ -52,7 +38,18 @@ void *ocf_io_allocator_default_new(ocf_io_allocator_t allocator,
 		ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir)
 {
-	return env_allocator_new(allocator->priv);
+	struct ocf_request *req;
+
+	req = env_allocator_new(allocator->priv);
+	if (!req)
+		return NULL;
+
+	req->io_queue = queue;
+	req->addr = addr;
+	req->bytes = bytes;
+	req->rw = dir;
+
+	return req;
 }
 
 void ocf_io_allocator_default_del(ocf_io_allocator_t allocator, void *obj)
@@ -78,89 +75,122 @@ ocf_io_allocator_type_t ocf_io_allocator_get_type_default(void)
  * IO internal API
  */
 
-struct ocf_io *ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
+ocf_io_t ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 		uint64_t addr, uint32_t bytes, uint32_t dir,
 		uint32_t io_class, uint64_t flags)
 {
-	struct ocf_io_internal *ioi;
+	struct ocf_request *req;
 	uint32_t sector_size = SECTORS_TO_BYTES(1);
 
 	if ((addr % sector_size) || (bytes % sector_size))
 		return NULL;
 
-	if (!ocf_refcnt_inc(&volume->refcnt))
+	if (!env_refcnt_inc(&volume->refcnt))
 		return NULL;
 
-	ioi = ocf_io_allocator_new(&volume->type->allocator, volume, queue,
+	req = ocf_io_allocator_new(&volume->type->allocator, volume, queue,
 			addr, bytes, dir);
-	if (!ioi) {
-		ocf_refcnt_dec(&volume->refcnt);
+	if (!req) {
+		env_refcnt_dec(&volume->refcnt);
 		return NULL;
 	}
 
-	ioi->meta.volume = volume;
-	ioi->meta.ops = &volume->type->properties->io_ops;
-	env_atomic_set(&ioi->meta.ref_count, 1);
+	env_atomic_set(&req->io.ref_count, 1);
+	req->io.volume = volume;
+	req->io.io_class = io_class;
+	req->flags = flags;
 
-	ioi->io.io_queue = queue;
-	ioi->io.addr = addr;
-	ioi->io.bytes = bytes;
-	ioi->io.dir = dir;
-	ioi->io.io_class = io_class;
-	ioi->io.flags = flags;
+	req->io.pa_id = pa_id_none;
+	OCF_BLKTRACE_CLEAR(&req->io.ocf_io_blktrace);
 
-	return &ioi->io;
+#ifdef OCF_DEBUG_STATS
+	env_memset(req->io.chkpts, sizeof(req->io.chkpts), 0);
+	req->io.chkpts[DEBUG_CHKPT_ALLOC] = env_get_tick_count();
+#endif
+
+	return req;
 }
 
 /*
  * IO external API
  */
 
-void *ocf_io_get_priv(struct ocf_io* io)
+int ocf_io_set_data(ocf_io_t io, ctx_data_t *data, uint32_t offset)
 {
-	return (void *)io + sizeof(struct ocf_io);
+	struct ocf_request *req = ocf_io_to_req(io);
+
+	req->data = data;
+	req->offset = offset;
+
+	return 0;
 }
 
-int ocf_io_set_data(struct ocf_io *io, ctx_data_t *data, uint32_t offset)
+ctx_data_t *ocf_io_get_data(ocf_io_t io)
 {
-	struct ocf_io_internal *ioi = ocf_io_get_internal(io);
+	struct ocf_request *req = ocf_io_to_req(io);
 
-	return ioi->meta.ops->set_data(io, data, offset);
+	return req->data;
 }
 
-ctx_data_t *ocf_io_get_data(struct ocf_io *io)
+uint32_t ocf_io_get_offset(ocf_io_t io)
 {
-	struct ocf_io_internal *ioi = ocf_io_get_internal(io);
+	struct ocf_request *req = ocf_io_to_req(io);
 
-	return ioi->meta.ops->get_data(io);
+	return req->offset;
 }
 
-void ocf_io_get(struct ocf_io *io)
+void ocf_io_get(ocf_io_t io)
 {
-	struct ocf_io_internal *ioi = ocf_io_get_internal(io);
+	struct ocf_request *req = ocf_io_to_req(io);
 
-	env_atomic_inc_return(&ioi->meta.ref_count);
+	env_atomic_inc_return(&req->io.ref_count);
 }
 
-void ocf_io_put(struct ocf_io *io)
+void ocf_io_put(ocf_io_t io)
 {
-	struct ocf_io_internal *ioi = ocf_io_get_internal(io);
+	struct ocf_request *req = ocf_io_to_req(io);
 	struct ocf_volume *volume;
 
-	if (env_atomic_dec_return(&ioi->meta.ref_count))
+	if (env_atomic_dec_return(&req->io.ref_count))
 		return;
 
-	/* Hold volume reference to avoid use after free of ioi */
-	volume = ioi->meta.volume;
+	volume = req->io.volume;
 
-	ocf_io_allocator_del(&ioi->meta.volume->type->allocator, (void *)ioi);
+#ifdef OCF_DEBUG_STATS
+	ocf_stats_chkpts_update(io, volume);
+#endif
+	ocf_io_allocator_del(&volume->type->allocator, (void *)req);
 
-	ocf_refcnt_dec(&volume->refcnt);
+	env_refcnt_dec(&volume->refcnt);
 }
 
-ocf_volume_t ocf_io_get_volume(struct ocf_io *io)
+ocf_volume_t ocf_io_get_volume(ocf_io_t io)
 {
-	struct ocf_io_internal *ioi = ocf_io_get_internal(io);
+	struct ocf_request *req = ocf_io_to_req(io);
 
-	return ioi->meta.volume;
+	return req->io.volume;
+}
+
+void ocf_io_set_cmpl(ocf_io_t io, void *context,
+		void *context2, ocf_end_io_t fn)
+{
+	struct ocf_request *req = ocf_io_to_req(io);
+
+	req->io.priv1 = context;
+	req->io.priv2 = context2;
+	req->io.end = fn;
+}
+
+void ocf_io_set_start(ocf_io_t io, ocf_start_io_t fn)
+{
+	struct ocf_request *req = ocf_io_to_req(io);
+
+	req->io.start = fn;
+}
+
+void ocf_io_set_handle(ocf_io_t io, ocf_handle_io_t fn)
+{
+	struct ocf_request *req = ocf_io_to_req(io);
+
+	req->io.handle = fn;
 }

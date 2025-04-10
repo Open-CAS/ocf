@@ -1,9 +1,11 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
+#include "ocf_mngt_core_pool_priv.h"
 #include "ocf_mngt_common.h"
 #include "../ocf_priv.h"
 #include "../ocf_core_priv.h"

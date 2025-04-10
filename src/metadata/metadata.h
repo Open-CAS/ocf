@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -203,8 +204,11 @@ uint64_t ocf_metadata_get_reserved_lba(ocf_cache_t cache);
  * temporary defined in this file.
  */
 
-ocf_cache_line_t
-ocf_metadata_get_hash(struct ocf_cache *cache, ocf_cache_line_t index);
+struct ocf_hash_entry *ocf_metadata_get_hash_p(struct ocf_cache *cache,
+		ocf_cache_line_t index);
+
+ocf_cache_line_t ocf_metadata_get_hash(struct ocf_cache *cache,
+		ocf_cache_line_t index);
 
 void ocf_metadata_set_hash(struct ocf_cache *cache,
 		ocf_cache_line_t index, ocf_cache_line_t line);
@@ -215,6 +219,7 @@ struct ocf_metadata_load_properties {
 	ocf_cache_mode_t cache_mode;
 	ocf_cache_line_size_t line_size;
 	char *cache_name;
+	char *upper_cache_name;
 	bool cleaner_disabled;
 };
 
@@ -242,5 +247,8 @@ void ocf_metadata_zero_superblock(ocf_cache_t cache,
  * @return false - status bits have illegal value
  */
 bool ocf_metadata_check(struct ocf_cache *cache, ocf_cache_line_t line);
+
+bool ocf_metadata_is_hit_no_lock(ocf_cache_t cache, ocf_core_id_t core_id,
+		uint64_t core_line);
 
 #endif /* METADATA_H_ */

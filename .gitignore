@@ -1,0 +1,22 @@
+# make and build files
+*.lst
+*.o
+*.d
+*.eep
+*.lss
+*.map
+*.sym
+
+# I keep these, since I prefer having the reference of the final build
+# *.elf
+# *.hex
+
+build/
+.vscode/
+example/simple/include/
+example/simple/simple
+example/simple/src/ocf/
+ocf_sim/include/
+ocf_sim/ocf_sim
+ocf_sim/src/ocf/
+trace*

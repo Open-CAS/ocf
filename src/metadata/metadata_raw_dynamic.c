@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -37,7 +38,7 @@
  * Check if page is valid for specified RAW descriptor
  */
 
-uint32_t raw_dynamic_segment_size_on_ssd(struct ocf_metadata_raw *raw)
+static uint32_t raw_dynamic_segment_size_on_ssd(struct ocf_metadata_raw *raw)
 {
 	const size_t alignment = 128 * KiB / PAGE_SIZE;
 
@@ -351,8 +352,6 @@ struct raw_dynamic_load_all_context {
 	unsigned flapping_idx;
 	struct ocf_request *req;
 	ocf_cache_t cache;
-	struct ocf_io *io;
-	ctx_data_t *data;
 	uint8_t *zpage;
 	uint8_t *page;
 	uint64_t i_page;
@@ -370,17 +369,15 @@ static void raw_dynamic_load_all_complete(
 	ocf_req_put(context->req);
 	env_secure_free(context->page, PAGE_SIZE);
 	env_free(context->zpage);
-	ctx_data_free(context->cache->owner, context->data);
+	ctx_data_free(context->cache->owner, context->req->data);
 	env_vfree(context);
 }
 
 static int raw_dynamic_load_all_update(struct ocf_request *req);
 
-static void raw_dynamic_load_all_read_end(struct ocf_io *io, int error)
+static void raw_dynamic_load_all_read_end(struct ocf_request *req, int error)
 {
-	struct raw_dynamic_load_all_context *context = io->priv1;
-
-	ocf_io_put(io);
+	struct raw_dynamic_load_all_context *context = req->priv;
 
 	if (error) {
 		raw_dynamic_load_all_complete(context, error);
@@ -388,7 +385,8 @@ static void raw_dynamic_load_all_read_end(struct ocf_io *io, int error)
 	}
 
 	context->req->engine_handler = raw_dynamic_load_all_update;
-	ocf_engine_push_req_front(context->req, true);
+	ocf_queue_push_req(req,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
 
 static int raw_dynamic_load_all_read(struct ocf_request *req)
@@ -397,7 +395,6 @@ static int raw_dynamic_load_all_read(struct ocf_request *req)
 	struct ocf_metadata_raw *raw = context->raw;
 	uint64_t ssd_pages_offset;
 	uint64_t count;
-	int result;
 
 	ssd_pages_offset = raw->ssd_pages_offset +
 			raw_dynamic_segment_size_on_ssd(raw) *
@@ -405,28 +402,11 @@ static int raw_dynamic_load_all_read(struct ocf_request *req)
 
 	count = metadata_io_size(context->i_page, raw->ssd_pages);
 
-	/* Allocate IO */
-	context->io = ocf_new_cache_io(context->cache, req->io_queue,
-		PAGES_TO_BYTES(ssd_pages_offset + context->i_page),
-		PAGES_TO_BYTES(count), OCF_READ, 0, 0);
+	req->cache_forward_end = raw_dynamic_load_all_read_end;
 
-	if (!context->io) {
-		raw_dynamic_load_all_complete(context, -OCF_ERR_NO_MEM);
-		return 0;
-	}
-
-	/* Setup IO */
-	result = ocf_io_set_data(context->io, context->data, 0);
-	if (result) {
-		ocf_io_put(context->io);
-		raw_dynamic_load_all_complete(context, result);
-		return 0;
-	}
-	ocf_io_set_cmpl(context->io, context, NULL,
-			raw_dynamic_load_all_read_end);
-
-	/* Submit IO */
-	ocf_volume_submit_io(context->io);
+	ocf_req_forward_cache_io(req, OCF_READ,
+			PAGES_TO_BYTES(ssd_pages_offset + context->i_page),
+			PAGES_TO_BYTES(count), 0);
 
 	return 0;
 }
@@ -440,10 +420,10 @@ static int raw_dynamic_load_all_update(struct ocf_request *req)
 	int result = 0;
 
 	/* Reset head of data buffer */
-	ctx_data_seek_check(context->cache->owner, context->data,
+	ctx_data_seek_check(context->cache->owner, req->data,
 			ctx_data_seek_begin, 0);
 
-	result = raw_dynamic_update_pages(cache, raw, context->data,
+	result = raw_dynamic_update_pages(cache, raw, req->data,
 			context->i_page, count, &context->page, context->zpage);
 
 	context->i_page += count;
@@ -454,7 +434,8 @@ static int raw_dynamic_load_all_update(struct ocf_request *req)
 	}
 
 	context->req->engine_handler = raw_dynamic_load_all_read;
-	ocf_engine_push_req_front(context->req, true);
+	ocf_queue_push_req(context->req,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 
 	return 0;
 }
@@ -463,6 +444,7 @@ void raw_dynamic_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 		ocf_metadata_end_t cmpl, void *priv, unsigned flapping_idx)
 {
 	struct raw_dynamic_load_all_context *context;
+	struct ocf_request *req;
 	int result;
 
 	ENV_BUG_ON(raw->flapping ? flapping_idx > 1 : flapping_idx != 0);
@@ -478,36 +460,39 @@ void raw_dynamic_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	context->cmpl = cmpl;
 	context->priv = priv;
 
-	context->data = ctx_data_alloc(cache->owner, RAW_DYNAMIC_LOAD_PAGES);
-	if (!context->data) {
-		result = -OCF_ERR_NO_MEM;
-		goto err_data;
-	}
-
 	context->zpage = env_zalloc(PAGE_SIZE, ENV_MEM_NORMAL);
 	if (!context->zpage) {
 		result = -OCF_ERR_NO_MEM;
 		goto err_zpage;
 	}
 
-	context->req = ocf_req_new(cache->mngt_queue, NULL, 0, 0, 0);
-	if (!context->req) {
+	req = ocf_req_new_mngt(cache, cache->mngt_queue);
+	if (!req) {
 		result = -OCF_ERR_NO_MEM;
 		goto err_req;
 	}
 
-	context->req->info.internal = true;
-	context->req->priv = context;
-	context->req->engine_handler = raw_dynamic_load_all_read;
+	req->data = ctx_data_alloc(cache->owner, RAW_DYNAMIC_LOAD_PAGES);
+	if (!req->data) {
+		result = -OCF_ERR_NO_MEM;
+		goto err_data;
+	}
 
-	ocf_engine_push_req_front(context->req, true);
+	req->info.internal = true;
+	req->priv = context;
+	req->engine_handler = raw_dynamic_load_all_read;
+
+	context->req = req;
+
+	ocf_queue_push_req(context->req,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 	return;
 
+err_data:
+	ocf_req_put(req);
 err_req:
 	env_free(context->zpage);
 err_zpage:
-	ctx_data_free(cache->owner, context->data);
-err_data:
 	env_vfree(context);
 	OCF_CMPL_RET(priv, result);
 }

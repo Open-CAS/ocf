@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -7,6 +8,31 @@
 #include "metadata.h"
 #include "metadata_internal.h"
 #include "../utils/utils_cache_line.h"
+
+static inline void ocf_metadata_list_info_set(struct ocf_metadata_list_info* info,
+	ocf_cache_line_t next, ocf_cache_line_t prev)
+{
+	struct ocf_metadata_list_info t = {.entry = *(const volatile uint64_t *)&info->entry};
+	t.next_col = next;
+	t.prev_col = prev;
+	*(volatile uint64_t *)&info->entry = t.entry; 	// atomic write
+}
+
+static inline void ocf_metadata_list_info_set_next(struct ocf_metadata_list_info* info,
+	ocf_cache_line_t next)
+{
+	struct ocf_metadata_list_info t = {.entry = *(const volatile uint64_t *)&info->entry};
+	t.next_col = next;
+	*(volatile uint64_t *)&info->entry = t.entry;	// atomic write
+}
+
+static inline void ocf_metadata_list_info_set_prev(struct ocf_metadata_list_info* info,
+	ocf_cache_line_t prev)
+{
+	struct ocf_metadata_list_info t = {.entry = *(const volatile uint64_t *)&info->entry};
+	t.prev_col = prev;
+	*(volatile uint64_t *)&info->entry = t.entry;	// atomic write
+}
 
 void ocf_metadata_set_collision_info(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_cache_line_t next,
@@ -20,8 +46,7 @@ void ocf_metadata_set_collision_info(struct ocf_cache *cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
 
 	if (info) {
-		info->next_col = next;
-		info->prev_col = prev;
+		ocf_metadata_list_info_set(info, next, prev);
 	} else {
 		ocf_metadata_error(cache);
 	}
@@ -38,7 +63,7 @@ void ocf_metadata_set_collision_next(struct ocf_cache *cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
 
 	if (info)
-		info->next_col = next;
+		ocf_metadata_list_info_set_next(info, next);
 	else
 		ocf_metadata_error(cache);
 }
@@ -54,7 +79,7 @@ void ocf_metadata_set_collision_prev(struct ocf_cache *cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
 
 	if (info)
-		info->prev_col = prev;
+		ocf_metadata_list_info_set_prev(info, prev);
 	else
 		ocf_metadata_error(cache);
 }
@@ -72,10 +97,11 @@ void ocf_metadata_get_collision_info(struct ocf_cache *cache,
 	info = ocf_metadata_raw_rd_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
 	if (info) {
+		struct ocf_metadata_list_info t = { .entry = info->entry }; // atomic read
 		if (next)
-			*next = info->next_col;
+			*next = t.next_col;
 		if (prev)
-			*prev = info->prev_col;
+			*prev = t.prev_col;
 	} else {
 		ocf_metadata_error(cache);
 

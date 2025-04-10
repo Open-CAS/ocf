@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
- * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -96,6 +96,14 @@ struct ocf_cache_info {
 
 	bool standby_detached;
 		/*!< true if cache volume detached in standby mode */
+
+	uint8_t ocf_classifier;
+		/*!< the first bit is on in case of OCF_CLASSIFIER_IGNORE_OCF
+		     the second bit is on in case of OCF_CLASSIFIER_SWAP */
+
+	uint8_t ocf_prefetcher;
+		/*!< the first bit is on in case of OCF_PREFETCHER_READAHEAD
+		     the second bit is on in case of OCF_PREFETCHER_STREAM */
 };
 
 /**
@@ -156,14 +164,14 @@ bool ocf_cache_is_device_attached(ocf_cache_t cache);
 bool ocf_cache_is_running(ocf_cache_t cache);
 
 /**
- * @brief Check if cache object is initializing
+ * @brief Check if cache is detached
  *
- * @param[in] cache Cache object
+ * @param[in] cache Cache
  *
- * @retval 1 Caching device is initializing
- * @retval 0 Caching device is not initializing
+ * @retval 1 Caching device is detached
+ * @retval 0 Caching device is not detached
  */
-bool ocf_cache_is_initializing(ocf_cache_t cache);
+bool ocf_cache_is_detached(ocf_cache_t cache);
 
 /**
  * @brief Check if cache object is standby
@@ -192,6 +200,15 @@ ocf_cache_mode_t ocf_cache_get_mode(ocf_cache_t cache);
  * @retval Cache line size
  */
 ocf_cache_line_size_t ocf_cache_get_line_size(ocf_cache_t cache);
+
+/**
+ * @brief Get number of cache lines of given cache object
+ *
+ * @param[in] cache Cache object
+ *
+ * @retval Number of cache lines
+ */
+ocf_cache_line_t ocf_cache_get_line_count(ocf_cache_t cache);
 
 /**
  * @brief Convert bytes to cache lines
@@ -266,5 +283,122 @@ void ocf_cache_set_priv(ocf_cache_t cache, void *priv);
  * @retval Private data
  */
 void *ocf_cache_get_priv(ocf_cache_t cache);
+
+/**
+ * @brief Get the upper cache of the given cache
+ *
+ * @param[in] cache Handle to cache instance
+ *
+ * @retval Corresponding upper cache
+ */
+ocf_cache_t ocf_cache_ml_get_upper_cache(ocf_cache_t cache);
+
+/**
+ * @brief Get the lower cache of the given cache
+ *
+ * @param[in] cache Handle to cache instance
+ *
+ * @retval Corresponding lower cache
+ */
+ocf_cache_t ocf_cache_ml_get_lower_cache(ocf_cache_t cache);
+
+/**
+ * @brief Get the highest cache in the multilevel stack
+ *
+ * @param[in] cache Handle to cache instance within multi-level stack
+ *
+ * @retval Corresponding highest cache
+ */
+ocf_cache_t ocf_cache_ml_get_highest_cache(ocf_cache_t cache);
+
+/**
+ * @brief Get the lowest cache in the multilevel stack
+ *
+ * @param[in] cache Handle to cache instance within multilevel stack
+ *
+ * @retval Corresponding lowest cache
+ */
+ocf_cache_t ocf_cache_ml_get_lowest_cache(ocf_cache_t cache);
+
+/**
+ * @brief Get the main cache in the multilevel stack
+ *
+ * @param[in] cache Handle to cache instance within multilevel stack
+ *
+ * @retval Corresponding main cache
+ */
+ocf_cache_t ocf_cache_ml_get_main_cache(ocf_cache_t cache);
+
+/**
+ * @brief Check if cache is upper cache of another cache in multilevel stack
+ *
+ * @param[in] cache Handle to cache instance within multilevel stack
+ *
+ * @retval true if is upper, false otherwise
+ */
+bool ocf_cache_ml_is_upper(ocf_cache_t cache);
+
+/**
+ * @brief Check if cache is lower cache of another cache in multilevel stack
+ *
+ * @param[in] cache Handle to cache instance within multilevel stack
+ *
+ * @retval true if is lower, false otherwise
+ */
+bool ocf_cache_ml_is_lower(ocf_cache_t cache);
+
+/**
+ * @brief Check if cache belongs to multi-level stack
+ *
+ * @param[in] cache Handle to cache instance
+ *
+ * @retval true if cache is in multilevel stack, false otherwise
+ */
+bool ocf_cache_ml_is_multilevel(ocf_cache_t cache);
+
+/**
+ * @brief Check if cache the main cache in multi-level stack
+ *
+ * @param[in] cache Handle to cache instance
+ *
+ * @retval true if cache is main, false otherwise
+ */
+bool ocf_cache_ml_is_main(ocf_cache_t cache);
+
+/**
+ * @brief Get respective core in the upper cache
+ *
+ * @param[in] core A core in the cache
+ *
+ * @retval Upper core corresponding to given core
+ */
+ocf_core_t ocf_cache_ml_get_upper_core(ocf_core_t core);
+
+/**
+ * @brief Get respective core in the lower cache
+ *
+ * @param[in] core A core in the upper cache
+ *
+ * @retval Lower core corresponding to given core
+ */
+ocf_core_t ocf_cache_ml_get_lower_core(ocf_core_t core);
+
+/**
+ * @brief Get respective core in the highest cache
+ *
+ * @param[in] core A core in the cache
+ *
+ * @retval core corresponding to given core
+ */
+ocf_core_t ocf_cache_ml_get_highest_core(ocf_core_t core);
+
+/**
+ * @brief Get respective core in the lowest cache
+ *
+ * @param[in] core A core in the cache
+ *
+ * @retval core corresponding to given core
+ */
+ocf_core_t ocf_cache_ml_get_lowest_core(ocf_core_t core);
 
 #endif /* __OCF_CACHE_H__ */

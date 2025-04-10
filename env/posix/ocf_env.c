@@ -1,11 +1,21 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf_env.h"
 #include <sched.h>
 #include <execinfo.h>
+#include <string.h>
+
+int env_strncpy(char *dest, size_t dmax, const char *src, size_t slen)
+{
+	size_t len = min(dmax - 1, slen);
+	strncpy(dest, src, len);
+	dest[len] = '\0';
+	return 0;
+}
 
 /* ALLOCATOR */
 struct _env_allocator {
@@ -40,13 +50,16 @@ void *env_allocator_new(env_allocator *allocator)
 	struct _env_allocator_item *item = NULL;
 
 	item = malloc(allocator->item_size);
+#ifdef OCF_REPORT_MEMORY_ALLOCATIONS
+	printf("%s %p %u\n",__func__ ,item, allocator->item_size);
+#endif
 
 	if (!item) {
 		return NULL;
 	}
 
 	if (allocator->zero) {
-		memset(item, 0, allocator->item_size);
+		env_memset(item, allocator->item_size, 0);
 	}
 
 	item->cpu = 0;
@@ -65,6 +78,9 @@ env_allocator *env_allocator_create(uint32_t size, const char *name, bool zero)
 		error = __LINE__;
 		goto err;
 	}
+#ifdef OCF_REPORT_MEMORY_ALLOCATIONS
+	printf("%s %p %ld\n",__func__ , allocator, sizeof(*allocator));
+#endif
 
 	allocator->item_size = size + sizeof(struct _env_allocator_item);
 	allocator->zero = zero;

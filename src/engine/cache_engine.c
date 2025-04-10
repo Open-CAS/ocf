@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -18,14 +19,14 @@
 #include "engine_wb.h"
 #include "engine_wo.h"
 #include "engine_fast.h"
+#include "engine_flush.h"
 #include "engine_discard.h"
-#include "engine_d2c.h"
-#include "engine_ops.h"
 #include "../utils/utils_user_part.h"
-#include "../utils/utils_refcnt.h"
 #include "../ocf_request.h"
 #include "../metadata/metadata.h"
 #include "../ocf_space.h"
+#include "ocf/ocf_blktrace.h"
+#include "../classifier/ocf_classifier.h"
 
 enum ocf_io_if_type {
 	/* Public OCF IO interfaces to be set by user */
@@ -39,9 +40,8 @@ enum ocf_io_if_type {
 
 	/* Private OCF interfaces */
 	OCF_IO_FAST_IF,
+	OCF_IO_FLUSH_IF,
 	OCF_IO_DISCARD_IF,
-	OCF_IO_D2C_IF,
-	OCF_IO_OPS_IF,
 	OCF_IO_PRIV_MAX_IF,
 };
 
@@ -95,26 +95,19 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 		},
 		.name = "Fast",
 	},
+	[OCF_IO_FLUSH_IF] = {
+		.cbs = {
+			[OCF_READ] = ocf_engine_flush,
+			[OCF_WRITE] = ocf_engine_flush,
+		},
+		.name = "Flush",
+	},
 	[OCF_IO_DISCARD_IF] = {
 		.cbs = {
-			[OCF_READ] = ocf_discard,
-			[OCF_WRITE] = ocf_discard,
+			[OCF_READ] = ocf_engine_discard,
+			[OCF_WRITE] = ocf_engine_discard,
 		},
 		.name = "Discard",
-	},
-	[OCF_IO_D2C_IF] = {
-		.cbs = {
-			[OCF_READ] = ocf_io_d2c,
-			[OCF_WRITE] = ocf_io_d2c,
-		},
-		.name = "Direct to core",
-	},
-	[OCF_IO_OPS_IF] = {
-		.cbs = {
-			[OCF_READ] = ocf_engine_ops,
-			[OCF_WRITE] = ocf_engine_ops,
-		},
-		.name = "Ops engine",
 	},
 };
 
@@ -126,7 +119,6 @@ static const struct ocf_io_if *cache_mode_io_if_map[ocf_req_cache_mode_max] = {
 	[ocf_req_cache_mode_wo] = &IO_IFS[OCF_IO_WO_IF],
 	[ocf_req_cache_mode_pt] = &IO_IFS[OCF_IO_PT_IF],
 	[ocf_req_cache_mode_fast] = &IO_IFS[OCF_IO_FAST_IF],
-	[ocf_req_cache_mode_d2c] = &IO_IFS[OCF_IO_D2C_IF],
 };
 
 const char *ocf_get_io_iface_name(ocf_req_cache_mode_t cache_mode)
@@ -137,18 +129,7 @@ const char *ocf_get_io_iface_name(ocf_req_cache_mode_t cache_mode)
 	return cache_mode_io_if_map[cache_mode]->name;
 }
 
-static ocf_engine_cb ocf_io_if_type_to_engine_cb(
-		enum ocf_io_if_type io_if_type, int rw)
-{
-	if (unlikely(io_if_type == OCF_IO_MAX_IF ||
-			io_if_type == OCF_IO_PRIV_MAX_IF)) {
-		return NULL;
-	}
-
-	return IO_IFS[io_if_type].cbs[rw];
-}
-
-static ocf_engine_cb ocf_cache_mode_to_engine_cb(
+ocf_req_cb ocf_cache_mode_to_engine_cb(
 		ocf_req_cache_mode_t req_cache_mode, int rw)
 {
 	if (req_cache_mode == ocf_req_cache_mode_max)
@@ -157,67 +138,31 @@ static ocf_engine_cb ocf_cache_mode_to_engine_cb(
 	return cache_mode_io_if_map[req_cache_mode]->cbs[rw];
 }
 
-struct ocf_request *ocf_engine_pop_req(ocf_queue_t q)
-{
-	unsigned long lock_flags = 0;
-	struct ocf_request *req;
-
-	OCF_CHECK_NULL(q);
-
-	/* LOCK */
-	env_spinlock_lock_irqsave(&q->io_list_lock, lock_flags);
-
-	if (list_empty(&q->io_list)) {
-		/* No items on the list */
-		env_spinlock_unlock_irqrestore(&q->io_list_lock,
-				lock_flags);
-		return NULL;
-	}
-
-	/* Get the first request and remove it from the list */
-	req = list_first_entry(&q->io_list, struct ocf_request, list);
-
-	env_atomic_dec(&q->io_no);
-	list_del(&req->list);
-
-	/* UNLOCK */
-	env_spinlock_unlock_irqrestore(&q->io_list_lock, lock_flags);
-
-	OCF_CHECK_NULL(req);
-
-	return req;
-}
-
 bool ocf_fallback_pt_is_on(ocf_cache_t cache)
 {
-	ENV_BUG_ON(env_atomic_read(&cache->fallback_pt_error_counter) < 0);
+	int counter = env_atomic_read(&cache->fallback_pt_error_counter);
+	int threshold = cache->fallback_pt_error_threshold;
 
-	return (cache->fallback_pt_error_threshold !=
-			OCF_CACHE_FALLBACK_PT_INACTIVE &&
-			env_atomic_read(&cache->fallback_pt_error_counter) >=
-			cache->fallback_pt_error_threshold);
+	ENV_BUG_ON(counter < 0);
+
+	return (threshold != OCF_CACHE_FALLBACK_PT_INACTIVE &&
+			counter >= threshold);
 }
 
 void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		ocf_core_t core, struct ocf_request *req)
 {
-	if (req->d2c) {
-		req->cache_mode = ocf_req_cache_mode_d2c;
-		return;
-	}
-
 	if (ocf_fallback_pt_is_on(cache)){
 		req->cache_mode = ocf_req_cache_mode_pt;
 		return;
 	}
 
-	if (cache->pt_unaligned_io && !ocf_req_is_4k(req->byte_position,
-						     req->byte_length)) {
+	if (!ocf_req_is_4k(req->addr, req->bytes)) {
 		req->cache_mode = ocf_req_cache_mode_pt;
 		return;
 	}
 
-	if (req->core_line_count > cache->conf_meta->cachelines) {
+	if (req->core_line_count > ocf_cache_get_line_count(cache)) {
 		req->cache_mode = ocf_req_cache_mode_pt;
 		return;
 	}
@@ -228,10 +173,12 @@ void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		return;
 	}
 
-	req->cache_mode = ocf_user_part_get_cache_mode(cache,
+	req->cache_mode = (ocf_req_cache_mode_t)ocf_user_part_get_cache_mode(cache,
 				ocf_user_part_class2id(cache, req->part_id));
-	if (!ocf_cache_mode_is_valid(req->cache_mode))
-		req->cache_mode = cache->conf_meta->cache_mode;
+	if (!ocf_cache_mode_is_valid((ocf_cache_mode_t)req->cache_mode))
+		req->cache_mode = (ocf_req_cache_mode_t)ocf_cache_get_mode(cache);
+
+	ocf_classifier(req);
 
 	if (req->rw == OCF_WRITE &&
 	    ocf_req_cache_mode_has_lazy_write(req->cache_mode) &&
@@ -258,14 +205,14 @@ int ocf_engine_hndl_req(struct ocf_request *req)
 	 * to into OCF workers
 	 */
 
-	ocf_engine_push_req_back(req, true);
+	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC);
 
 	return 0;
 }
 
 int ocf_engine_hndl_fast_req(struct ocf_request *req)
 {
-	ocf_engine_cb engine_cb;
+	ocf_req_cb engine_cb;
 	int ret;
 
 	engine_cb = ocf_cache_mode_to_engine_cb(req->cache_mode, req->rw);
@@ -282,32 +229,20 @@ int ocf_engine_hndl_fast_req(struct ocf_request *req)
 	return ret;
 }
 
-static void ocf_engine_hndl_2dc_req(struct ocf_request *req)
-{
-	IO_IFS[OCF_IO_D2C_IF].cbs[req->rw](req);
-}
-
 void ocf_engine_hndl_discard_req(struct ocf_request *req)
 {
 	ocf_req_get(req);
 
-	if (req->d2c) {
-		ocf_engine_hndl_2dc_req(req);
-		return;
-	}
-
 	IO_IFS[OCF_IO_DISCARD_IF].cbs[req->rw](req);
 }
 
-void ocf_engine_hndl_ops_req(struct ocf_request *req)
+void ocf_engine_hndl_flush_req(struct ocf_request *req)
 {
 	ocf_req_get(req);
 
-	req->engine_handler = (req->d2c) ?
-			ocf_io_if_type_to_engine_cb(OCF_IO_D2C_IF, req->rw) :
-			ocf_io_if_type_to_engine_cb(OCF_IO_OPS_IF, req->rw);
+	req->engine_handler = IO_IFS[OCF_IO_FLUSH_IF].cbs[req->rw];
 
-	ocf_engine_push_req_back(req, true);
+	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC);
 }
 
 bool ocf_req_cache_mode_has_lazy_write(ocf_req_cache_mode_t mode)

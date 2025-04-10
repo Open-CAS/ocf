@@ -1,11 +1,13 @@
 /*
  * Copyright(c) 2020-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "metadata.h"
 #include "metadata_core.h"
 #include "metadata_internal.h"
+#include "metadata_segment.h"
 #include "metadata_segment_id.h"
 #include "metadata_superblock.h"
 #include "../ocf_priv.h"
@@ -25,14 +27,6 @@
 #define OCF_DEBUG_TRACE(cache)
 #define OCF_DEBUG_PARAM(cache, format, ...)
 #endif
-
-int ocf_metadata_segment_init_in_place(
-		struct ocf_metadata_segment *segment,
-		struct ocf_cache *cache,
-		struct ocf_metadata_raw *raw,
-		ocf_flush_page_synch_t lock_page_pfn,
-		ocf_flush_page_synch_t unlock_page_pfn,
-		struct ocf_metadata_segment *superblock);
 
 /**
  * @brief Super Block - Set Shutdown Status
@@ -80,6 +74,9 @@ static void ocf_metadata_store_segment(ocf_pipeline_t pipeline,
 	int error;
 
 	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
+
+	if (!context->ctrl->raw_desc[segment].mem_pool_limit)
+		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_NO_MEM);
 
 	context->segment_copy[segment].mem_pool =
 		env_malloc(ctrl->raw_desc[segment].mem_pool_limit, ENV_MEM_NORMAL);
@@ -512,8 +509,7 @@ static void ocf_metadata_flush_disk(ocf_pipeline_t pipeline,
 	struct ocf_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_submit_volume_flush(ocf_cache_get_volume(cache),
-		ocf_metadata_flush_disk_end, context);
+	ocf_submit_cache_flush(cache, ocf_metadata_flush_disk_end, context);
 }
 
 struct ocf_pipeline_arg ocf_metadata_flush_sb_args[] = {
@@ -552,6 +548,16 @@ void ocf_metadata_flush_superblock(ocf_cache_t cache,
 	int result;
 
 	OCF_DEBUG_TRACE(cache);
+
+	ENV_BUG_ON(!ocf_cache_is_device_attached(cache));
+
+	if (cache->metadata.is_volatile) {
+		/*
+		 * metadata ia volatile, no need to flush anything.
+		 */
+		cmpl(priv, 0);
+		return;
+	}
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_flush_sb_pipeline_props);
@@ -656,10 +662,10 @@ unsigned ocf_metadata_superblock_get_next_flapping_idx(
 	return (sb->config->flapping_idx + 1) % 2;
 }
 
-static void ocf_metadata_read_sb_complete(struct ocf_io *io, int error)
+static void ocf_metadata_read_sb_complete(struct ocf_request *req, int error)
 {
-	struct ocf_metadata_read_sb_ctx *context = io->priv1;
-	ctx_data_t *data = ocf_io_get_data(io);
+	struct ocf_metadata_read_sb_ctx *context = req->priv;
+	ctx_data_t *data = req->data;
 
 	if (!error) {
 		/* Read data from data into super block buffer */
@@ -668,12 +674,12 @@ static void ocf_metadata_read_sb_complete(struct ocf_io *io, int error)
 	}
 
 	ctx_data_free(context->ctx, data);
-	ocf_io_put(io);
 
 	context->error = error;
 	context->cmpl(context);
 
 	env_free(context);
+	env_free(req);
 }
 
 int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
@@ -681,8 +687,7 @@ int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
 {
 	struct ocf_metadata_read_sb_ctx *context;
 	size_t sb_pages = BYTES_TO_PAGES(sizeof(context->superblock));
-	ctx_data_t *data;
-	struct ocf_io *io;
+	struct ocf_request *req;
 	int result = 0;
 
 	/* Allocate memory for first page of super block */
@@ -697,43 +702,31 @@ int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
 	context->priv1 = priv1;
 	context->priv2 = priv2;
 
-	/* Allocate resources for IO */
-	io = ocf_volume_new_io(volume, NULL, 0, sb_pages * PAGE_SIZE,
-			OCF_READ, 0, 0);
-	if (!io) {
+	req = env_zalloc(sizeof(*req), ENV_MEM_NORMAL);
+	if (!req) {
 		ocf_log(ctx, log_err, "Memory allocation error");
 		result = -OCF_ERR_NO_MEM;
-		goto err_io;
+		goto err_req;
 	}
 
-	data = ctx_data_alloc(ctx, sb_pages);
-	if (!data) {
+	req->data = ctx_data_alloc(ctx, sb_pages);
+	if (!req->data) {
 		ocf_log(ctx, log_err, "Memory allocation error");
 		result = -OCF_ERR_NO_MEM;
 		goto err_data;
 	}
 
-	/*
-	 * Read first page of cache device in order to recover metadata
-	 * properties
-	 */
-	result = ocf_io_set_data(io, data, 0);
-	if (result) {
-		ocf_log(ctx, log_err, "Metadata IO configuration error\n");
-		result = -OCF_ERR_IO;
-		goto err_set_data;
-	}
+	req->volume_forward_end = ocf_metadata_read_sb_complete;
+	req->priv = context;
 
-	ocf_io_set_cmpl(io, context, NULL, ocf_metadata_read_sb_complete);
-	ocf_volume_submit_io(io);
+	ocf_req_forward_volume_io_simple(req, volume, OCF_READ, 0,
+			sb_pages * PAGE_SIZE);
 
 	return 0;
 
-err_set_data:
-	ctx_data_free(ctx, data);
 err_data:
-	ocf_io_put(io);
-err_io:
+	env_free(req);
+err_req:
 	env_free(context);
 	return result;
 }

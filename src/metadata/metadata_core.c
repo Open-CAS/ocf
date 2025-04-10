@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2020-2021 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -43,6 +44,7 @@ void ocf_metadata_set_core_info(struct ocf_cache *cache,
 	if (collision) {
 		collision->core_id = core_id;
 		collision->core_line = core_sector;
+		ENV_BUG_ON((core_sector != ULLONG_MAX) && (core_sector >> CORE_LINE_BITS));
 	} else {
 		ocf_metadata_error(cache);
 	}

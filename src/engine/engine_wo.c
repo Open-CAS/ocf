@@ -1,16 +1,18 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
+ * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
+#include "engine_wo.h"
 #include "../ocf_cache_priv.h"
 #include "cache_engine.h"
 #include "engine_common.h"
+#include "engine_io.h"
 #include "engine_rd.h"
 #include "engine_pt.h"
 #include "../metadata/metadata.h"
-#include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_user_part.h"
 #include "../concurrency/ocf_concurrency.h"
@@ -21,12 +23,9 @@
 static void ocf_read_wo_cache_complete(struct ocf_request *req, int error)
 {
 	if (error) {
+		req->error = req->error ?: error;
 		ocf_core_stats_cache_error_update(req->core, OCF_READ);
-		req->error |= error;
 	}
-
-	if (env_atomic_dec_return(&req->req_remaining))
-		return;
 
 	OCF_DEBUG_RQ(req, "Completion");
 
@@ -46,8 +45,7 @@ static void ocf_read_wo_cache_io(struct ocf_request *req, uint64_t offset,
 		uint64_t size)
 {
 	OCF_DEBUG_RQ(req, "Submit cache");
-	env_atomic_inc(&req->req_remaining);
-	ocf_submit_cache_reqs(req->cache, req, OCF_READ, offset, size, 1,
+	ocf_engine_forward_cache_io(req, OCF_READ, offset, size,
 			ocf_read_wo_cache_complete);
 }
 
@@ -64,7 +62,9 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 	uint64_t offset = 0;
 	uint64_t increment = 0;
 
-	env_atomic_set(&req->req_remaining, 1);
+	req->cache_forward_end = ocf_read_wo_cache_complete;
+
+	ocf_req_forward_cache_get(req);
 
 	for (line = 0; line < req->core_line_count; ++line) {
 		entry = &req->map[line];
@@ -89,13 +89,13 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 		if (entry->status == LOOKUP_MISS) {
 			/* all sectors invalid */
 			i = e + 1;
-			increment = SECTORS_TO_BYTES(e - s + 1);
+			increment = PAGES_TO_BYTES(e - s + 1);
 			valid = false;
 		}
 		else if (ocf_engine_map_all_sec_valid(req, line)) {
 			/* all sectors valid */
 			i = e + 1;
-			increment = SECTORS_TO_BYTES(e - s + 1);
+			increment = PAGES_TO_BYTES(e - s + 1);
 			valid = true;
 		} else {
 			/* need to iterate through CL sector by sector */
@@ -109,7 +109,7 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 				 increment = 0;
 				 do {
 					++i;
-					increment += SECTORS_TO_BYTES(1);
+					increment += PAGES_TO_BYTES(1);
 				 } while (i <= e && metadata_test_valid_one(
 						cache, entry->coll_idx, i)
 						== valid);
@@ -145,34 +145,31 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 	if (io)
 		ocf_read_wo_cache_io(req, io_start, offset - io_start);
 
-	ocf_read_wo_cache_complete(req, 0);
+	ocf_req_forward_cache_put(req);
 
 	return 0;
 }
 
 static void _ocf_read_wo_core_complete(struct ocf_request *req, int error)
 {
-	if (error) {
-		req->error |= error;
-		req->info.core_error = 1;
+	if (error)
 		ocf_core_stats_core_error_update(req->core, OCF_READ);
-	}
 
 	/* if all mapped cachelines are clean, the data we've read from core
 	 * is valid and we can complete the request */
-	if (!req->info.dirty_any || req->error) {
+	if (error || !req->info.dirty_any) {
 		OCF_DEBUG_RQ(req, "Completion");
-		req->complete(req, req->error);
+		req->complete(req, error);
 		ocf_req_unlock_rd(ocf_cache_line_concurrency(req->cache), req);
 		ocf_req_put(req);
 		return;
 	}
 
 	req->engine_handler = ocf_read_wo_cache_do;
-	ocf_engine_push_req_front(req, true);
+	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
 
-int ocf_read_wo_do(struct ocf_request *req)
+static int ocf_read_wo_do(struct ocf_request *req)
 {
 	ocf_req_get(req);
 
@@ -190,8 +187,7 @@ int ocf_read_wo_do(struct ocf_request *req)
 	} else {
 
 		OCF_DEBUG_RQ(req, "Submit core");
-		ocf_submit_volume_req(&req->core->volume, req,
-				_ocf_read_wo_core_complete);
+		ocf_engine_forward_core_io_req(req, _ocf_read_wo_core_complete);
 	}
 
 	ocf_engine_update_request_stats(req);

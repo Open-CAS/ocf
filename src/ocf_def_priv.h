@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -14,6 +15,19 @@
 
 #define BYTES_TO_PAGES(x)	((((uint64_t)x) + (PAGE_SIZE - 1)) / PAGE_SIZE)
 #define PAGES_TO_BYTES(x)	(((uint64_t)x) * PAGE_SIZE)
+
+#ifdef PAGE_SHIFT
+#if PAGE_SHIFT != 12
+#error "PAGE_SHIFT must be 12."
+#endif
+#else
+#define PAGE_SHIFT	12
+#endif
+
+#define BYTES_TO_PAGES_ROUND_DOWN(x)	((x) >> PAGE_SHIFT)
+
+#define OCF_DIV_ROUND_UP_STATIC(n, d) \
+	(((n) + (d) - 1) / (d))
 
 #define OCF_DIV_ROUND_UP(x, y)			\
 	({					\
@@ -55,5 +69,9 @@ ocf_rotate_right(unsigned long long bits, unsigned shift, unsigned width)
 	return ((bits >> shift) | (bits << (width - shift))) &
 		((1ULL << width) - 1);
 }
+
+struct ocf_request;
+
+typedef void (*ocf_req_end_t)(struct ocf_request *req, int error);
 
 #endif

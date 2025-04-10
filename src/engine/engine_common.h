@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -8,6 +9,7 @@
 
 #include "../ocf_request.h"
 #include "../utils/utils_cache_line.h"
+#include "../prefetch/ocf_prefetch.h"
 
 /**
  * @file engine_common.h
@@ -222,6 +224,13 @@ struct ocf_engine_callbacks
 };
 
 /**
+ * @brief Prepare cache lines for miss request
+ *
+ * @param req OCF request
+ */
+void ocf_prepare_clines_miss(struct ocf_request *req);
+
+/**
  * @brief Map and lock cachelines
  *
  * @param req OCF request
@@ -232,6 +241,15 @@ struct ocf_engine_callbacks
  * @retval <0 other error code
  */
 int ocf_engine_prepare_clines(struct ocf_request *req);
+
+/**
+ * @brief Check if the OCF request is mapped to cache (lookup cache)
+ *
+ * @note This function checks if there is a HIT.
+ *
+ * @param req OCF request
+ */
+void ocf_engine_lookup(struct ocf_request *req);
 
 /**
  * @brief Traverse OCF request (lookup cache)
@@ -280,40 +298,12 @@ void ocf_engine_update_block_stats(struct ocf_request *req);
  */
 void ocf_engine_update_request_stats(struct ocf_request *req);
 
-/**
- * @brief Push front OCF request to the OCF thread worker queue
- *
- * @param req OCF request
- * @param allow_sync caller allows for request from queue to be ran immediately
-		from push function in caller context
- */
-void ocf_engine_push_req_back(struct ocf_request *req,
-		bool allow_sync);
-
-/**
- * @brief Push back OCF request to the OCF thread worker queue
- *
- * @param req OCF request
- * @param allow_sync caller allows for request from queue to be ran immediately
-		from push function in caller context
- */
-void ocf_engine_push_req_front(struct ocf_request *req,
-		bool allow_sync);
-
-/**
- * @brief Set interface and push from request to the OCF thread worker queue
- *
- * @param req OCF request
- * @param engine_cb IO engine handler callback
- * @param allow_sync caller allows for request from queue to be ran immediately
-		from push function in caller context
- */
-void ocf_engine_push_req_front_cb(struct ocf_request *req,
-		ocf_engine_cb engine_cb,
-		bool allow_sync);
-
 void inc_fallback_pt_error_counter(ocf_cache_t cache);
 
 void ocf_engine_on_resume(struct ocf_request *req);
+
+void ocf_engine_set_hot(struct ocf_request *req);
+
+void ocf_engine_update_pf(struct ocf_request *req);
 
 #endif /* ENGINE_COMMON_H_ */

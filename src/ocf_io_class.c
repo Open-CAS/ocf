@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2021-2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -25,6 +26,10 @@ int ocf_cache_io_class_get_info(ocf_cache_t cache, uint32_t io_class,
 
 	if (io_class >= OCF_USER_IO_CLASS_MAX)
 		return -OCF_ERR_INVAL;
+
+#ifndef OCF_USER_OVERRIDE_CLASSES
+	return -OCF_ERR_IO_CLASS_NOT_EXIST;
+#endif
 
 	if (!ocf_user_part_is_valid(&cache->user_parts[part_id])) {
 		/* Partition does not exist */
