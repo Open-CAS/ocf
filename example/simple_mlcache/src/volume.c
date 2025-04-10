@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
- * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
+ * Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -76,7 +76,6 @@ void volume_forward_discard(ocf_volume_t cvolume, ocf_forward_token_t token,
 	ocf_forward_end(token, 0);
 }
 
-
 /*
  * Let's set maximum io size to 128 KiB.
  */
@@ -103,7 +102,6 @@ const struct ocf_volume_properties volume_properties = {
 	.volume_priv_size = sizeof(struct myvolume),
 	.caps = {
 		.atomic_writes = 0,
-		.composite_volume = 0,
 	},
 	.ops = {
 		.open = volume_open,
