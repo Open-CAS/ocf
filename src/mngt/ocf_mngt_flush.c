@@ -231,8 +231,10 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	}
 
 	core_revmap = env_vzalloc(sizeof(*core_revmap) * OCF_CORE_MAX);
-	if (!core_revmap)
-		return -OCF_ERR_NO_MEM;
+	if (!core_revmap) {
+		ret = -OCF_ERR_NO_MEM;
+		goto unlock;
+	}
 
 	/* TODO: Alloc fcs and data tables in single allocation */
 	fc = env_vzalloc(sizeof(**fctbl) * _fcnum);
@@ -547,7 +549,6 @@ static void _ocf_mngt_flush_all_cores(
 	if (ret) {
 		ocf_cache_log(cache, log_err, "Flushing operation aborted, "
 				"no memory\n");
-		ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 		complete(context, ret);
 		return;
 	}
