@@ -214,7 +214,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	struct flush_container *fc;
 	struct flush_container *curr;
 	uint32_t *core_revmap;
-	uint32_t num;
+	uint32_t _fcnum;
 	uint64_t core_line;
 	ocf_core_id_t core_id;
 	ocf_core_t core;
@@ -224,8 +224,8 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
-	num = cache->conf_meta->core_count;
-	if (num == 0) {
+	_fcnum = cache->conf_meta->core_count;
+	if (_fcnum == 0) {
 		*fcnum = 0;
 		goto unlock;
 	}
@@ -235,7 +235,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 		return -OCF_ERR_NO_MEM;
 
 	/* TODO: Alloc fcs and data tables in single allocation */
-	fc = env_vzalloc(sizeof(**fctbl) * num);
+	fc = env_vzalloc(sizeof(**fctbl) * _fcnum);
 	if (!fc) {
 		env_vfree(core_revmap);
 		ret = -OCF_ERR_NO_MEM;
@@ -296,16 +296,16 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	}
 
 	if (dirty_total != dirty_found) {
-		for (i = 0; i < num; i++)
+		for (i = 0; i < _fcnum; i++)
 			fc[i].count = fc[i].iter;
 	}
 
-	for (i = 0; i < num; i++)
+	for (i = 0; i < _fcnum; i++)
 		fc[i].iter = 0;
 
 	env_vfree(core_revmap);
 	*fctbl = fc;
-	*fcnum = num;
+	*fcnum = _fcnum;
 
 unlock:
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
