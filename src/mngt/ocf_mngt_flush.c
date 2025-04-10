@@ -239,9 +239,8 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	/* TODO: Alloc fcs and data tables in single allocation */
 	fc = env_vzalloc(sizeof(**fctbl) * _fcnum);
 	if (!fc) {
-		env_vfree(core_revmap);
 		ret = -OCF_ERR_NO_MEM;
-		goto unlock;
+		goto free_core_revmap;
 	}
 
 	for_each_core(cache, core, core_id) {
@@ -263,10 +262,8 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	}
 
 	if (!dirty_total) {
-		env_vfree(core_revmap);
-		env_vfree(fc);
 		*fcnum = 0;
-		goto unlock;
+		goto free_fc;
 	}
 
 	for (line = 0; line < cache->device->collision_table_entries; line++) {
@@ -305,10 +302,14 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	for (i = 0; i < _fcnum; i++)
 		fc[i].iter = 0;
 
-	env_vfree(core_revmap);
 	*fctbl = fc;
 	*fcnum = _fcnum;
+	goto free_core_revmap;
 
+free_fc:
+	env_vfree(fc);
+free_core_revmap:
+	env_vfree(core_revmap);
 unlock:
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 	return ret;
