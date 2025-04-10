@@ -224,10 +224,6 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
-	/*
-	 * TODO: Create containers for each physical device, not for
-	 *       each core. Cores can be partitions of single device.
-	 */
 	num = cache->conf_meta->core_count;
 	if (num == 0) {
 		*fcnum = 0;
@@ -280,14 +276,12 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 
 			ENV_BUG_ON(curr->iter >= curr->count);
 
-			/* It's core_id cacheline and it's valid and it's dirty! */
 			curr->flush_data[curr->iter].cache_line = line;
 			curr->flush_data[curr->iter].core_line = core_line;
 			curr->flush_data[curr->iter].core_id = core_id;
 			curr->iter++;
 			dirty_found++;
 
-			/* stop if all cachelines were found */
 			if (dirty_found == dirty_total)
 				break;
 		}
