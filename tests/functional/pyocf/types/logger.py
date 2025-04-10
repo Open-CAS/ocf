@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -128,12 +129,13 @@ class DefaultLogger(Logger):
         ch.setFormatter(fmt)
         ch.setLevel(LevelMapping[level])
         self.logger.addHandler(ch)
+        self.handler = ch
 
     def log(self, lvl: int, msg: str):
-        self.logger.log(LevelMapping[lvl], msg)
+        self.logger.log(LevelMapping[LogLevel(lvl)], msg)
 
     def close(self):
-        self.logger.handlers = []
+        self.logger.removeHandler(self.handler)
 
 
 class FileLogger(Logger):

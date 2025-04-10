@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -11,9 +12,14 @@ INCDIR=$(ADAPTERDIR)/ocf/include
 WRAPDIR=$(ADAPTERDIR)/c/wrappers
 HELPDIR=$(ADAPTERDIR)/c/helpers
 
+DEBUG_STATS ?= 0
 CC=gcc
-CFLAGS=-g -Wall -I$(INCDIR) -I$(SRCDIR)/ocf/env
+CFLAGS=-g -Wall -MMD -I$(INCDIR) -I$(SRCDIR)/ocf/env -DOCF_USER_OVERRIDE_CLASSES
 LDFLAGS=-pthread -lz
+
+ifeq ($(DEBUG_STATS),1)
+CFLAGS += -DOCF_DEBUG_STATS
+endif
 
 SRC=$(shell find $(SRCDIR) $(WRAPDIR) $(HELPDIR) -name \*.c)
 OBJS=$(patsubst %.c, %.o, $(SRC))
@@ -26,9 +32,9 @@ $(OCFLIB): $(OBJS)
 	@echo "Building $@"
 	@$(CC) -coverage -shared -o $@ $(CFLAGS) $^ -fPIC $(LDFLAGS)
 
-%.o: %.c
+%.o: %.c Makefile
 	@echo "Compiling $@"
-	@$(CC) -coverage -c $(CFLAGS) -o $@ -fPIC $^ $(LDFLAGS)
+	@$(CC) -coverage -c $(CFLAGS) -o $@ -fPIC $< $(LDFLAGS)
 
 sync:
 	@echo "Syncing OCF sources"
@@ -49,5 +55,7 @@ distclean: clean
 	@rm -rf $(SRCDIR)/ocf
 	@rm -rf $(INCDIR)/ocf
 	@echo "  DISTCLEAN "
+
+-include $(SRC:.c=.d)
 
 .PHONY: all clean sync config_random distclean

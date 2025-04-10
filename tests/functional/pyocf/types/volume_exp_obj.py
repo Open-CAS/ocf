@@ -1,17 +1,17 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 import logging
-from ctypes import c_int, c_void_p, CFUNCTYPE, byref, c_uint32, c_uint64, cast, POINTER
+from ctypes import c_void_p, byref, c_uint8, c_uint32, c_uint64, POINTER
 
 from ..ocf import OcfLib
 from .volume import Volume, VOLUME_POISON
 from pyocf.utils import Size
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir, Io
-from pyocf.types.shared import OcfCompletion, OcfError
+from pyocf.types.io import IoDir, Io, Sync
 
 
 class OcfInternalVolume(Volume):
@@ -23,55 +23,68 @@ class OcfInternalVolume(Volume):
         queue = self.parent.get_default_queue()  # TODO multiple queues?
         return self.new_io(queue, addr, _bytes, _dir, _class, _flags)
 
-    def _alloc_io(self, io):
-        exp_obj_io = self.__alloc_io(
-            io.contents._addr,
-            io.contents._bytes,
-            io.contents._dir,
-            io.contents._class,
-            io.contents._flags,
-        )
+    def get_length(self):
+        return Size.from_B(lib.ocf_volume_get_length(self.handle))
 
-        cdata = OcfLib.getInstance().ocf_io_get_data(io)
-        OcfLib.getInstance().ocf_io_set_data(byref(exp_obj_io), cdata, 0)
+    def get_max_io_size(self):
+        return Size.from_B(lib.ocf_volume_get_max_io_size(self.handle))
+
+    def do_forward_io(self, token, rw, addr, nbytes, offset):
+        flags = lib.ocf_forward_get_flags(token)
+        io_class = lib.ocf_forward_get_io_class(token)
+        cdata = lib.ocf_forward_get_data(token)
+
+        io = self.__alloc_io(addr, nbytes, rw, io_class, flags)
+        lib.ocf_io_set_data(byref(io), cdata, offset)
 
         def cb(error):
             nonlocal io
-            io = cast(io, POINTER(Io))
-            io.contents._end(io, error)
+            Io.forward_end(io.token, error)
 
-        exp_obj_io.callback = cb
+        io.token = token
+        io.callback = cb
 
-        return exp_obj_io
-
-    def get_length(self):
-        return Size.from_B(OcfLib.getInstance().ocf_volume_get_length(self.handle))
-
-    def get_max_io_size(self):
-        return Size.from_B(OcfLib.getInstance().ocf_volume_get_max_io_size(self.handle))
-
-    def do_submit_io(self, io):
-        io = self._alloc_io(io)
         io.submit()
 
-    def do_submit_flush(self, flush):
-        io = self._alloc_io(flush)
+    def do_forward_flush(self, token):
+        flags = lib.ocf_forward_get_flags(token)
+        io_class = lib.ocf_forward_get_io_class(token)
+
+        io = self.__alloc_io(0, 0, 0, io_class, flags)
+
+        def cb(error):
+            nonlocal io
+            Io.forward_end(io.token, error)
+
+        io.token = token
+        io.callback = cb
+
         io.submit_flush()
 
-    def do_submit_discard(self, discard):
-        io = self._alloc_io(discard)
+
+    def do_forward_discard(self, token, addr, nbytes):
+        flags = lib.ocf_forward_get_flags(token)
+        io_class = lib.ocf_forward_get_io_class(token)
+
+        io = self.__alloc_io(addr, nbytes, 0, io_class, flags)
+
+        def cb(error):
+            nonlocal io
+            Io.forward_end(io.token, error)
+
+        io.token = token
+        io.callback = cb
+
         io.submit_discard()
+
 
     def _read(self, offset=0, size=0):
         if size == 0:
             size = self.get_length().B - offset
         exp_obj_io = self.__alloc_io(offset, size, IoDir.READ, 0, 0)
-        completion = OcfCompletion([("err", c_int)])
-        exp_obj_io.callback = completion
         data = Data.from_bytes(bytes(size))
         exp_obj_io.set_data(data)
-        exp_obj_io.submit()
-        completion.wait()
+        completion = Sync(exp_obj_io).submit()
         error = completion.results["err"]
         if error:
             raise Exception("error reading exported object for dump")
@@ -79,7 +92,7 @@ class OcfInternalVolume(Volume):
 
     def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
         data = self._read(offset, size)
-        data.dump(ignore=ifnore, **kwargs)
+        data.dump(ignore=ignore, **kwargs)
 
     def md5(self):
         raise NotImplementedError
@@ -98,12 +111,7 @@ class OcfInternalVolume(Volume):
         while position < read_buffer_all.size:
             io = self.new_io(self.parent.get_default_queue(), position, read_size, IoDir.READ, 0, 0)
             io.set_data(read_buffer)
-
-            cmpl = OcfCompletion([("err", c_int)])
-            io.callback = cmpl.callback
-            io.submit()
-            cmpl.wait()
-
+            cmpl = Sync(io).submit()
             if cmpl.results["err"]:
                 raise Exception("Error reading whole exported object")
 
@@ -136,3 +144,9 @@ lib.ocf_volume_get_length.argtypes = [c_void_p]
 lib.ocf_volume_get_length.restype = c_uint64
 lib.ocf_io_get_data.argtypes = [POINTER(Io)]
 lib.ocf_io_get_data.restype = c_void_p
+lib.ocf_forward_get_data.argtypes = [c_uint64]
+lib.ocf_forward_get_data.restype = c_void_p
+lib.ocf_forward_get_flags.argtypes = [c_uint64]
+lib.ocf_forward_get_flags.restype = c_uint64
+lib.ocf_forward_get_io_class.argtypes = [c_uint64]
+lib.ocf_forward_get_io_class.restype = c_uint8

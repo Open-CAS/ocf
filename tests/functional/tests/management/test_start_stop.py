@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -25,15 +26,14 @@ from pyocf.types.cache import (
     MetadataLayout,
     CleaningPolicy,
     CacheConfig,
-    PromotionPolicy,
-    Backfill,
     CacheDeviceConfig,
     CacheAttachConfig,
+    UciClassifier,
 )
 from pyocf.types.core import Core
 from pyocf.types.ctx import OcfCtx
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.types.queue import Queue
 from pyocf.types.shared import (
     Uuid,
@@ -74,38 +74,57 @@ def test_start_check_default(pyocf_ctx):
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", CacheMode)
 def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
+	_test_start_write_first_and_check_mode(pyocf_ctx, mode, cls,
+                                               UciClassifier.DEFAULT)
+
+
+@pytest.mark.parametrize("cls", CacheLineSize)
+def test_start_write_first_and_check_mode_with_classifier(pyocf_ctx, cls: CacheLineSize):
+	_test_start_write_first_and_check_mode(pyocf_ctx, CacheMode.WT, cls,
+                                               UciClassifier.ALL)
+
+
+def _test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheLineSize,
+					   ocf_classifier: UciClassifier):
     """Test starting cache in different modes with different cache line sizes.
     After start check proper cache mode behaviour, starting with write operation.
     """
 
     cache_device = RamVolume(Size.from_MiB(50))
     core_device = RamVolume(Size.from_MiB(10))
-    cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
+    cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls,
+                                  ocf_classifier=ocf_classifier)
     core = Core.using_device(core_device)
 
     cache.add_core(core)
     vol = CoreVolume(core)
     queue = cache.get_default_queue()
 
+    if ocf_classifier == UciClassifier.ALL:
+        cache.settle()  # let swap detection finish
+        check_stats_after_swap_detection(core)
+
     logger.info("[STAGE] Initial write to exported object")
+    cache.settle()
     cache_device.reset_stats()
     core_device.reset_stats()
 
     test_data = Data.from_string("This is test data")
-    io_to_core(vol, queue, test_data, Size.from_sector(1).B)
+    io_to_core(vol, queue, test_data, Size.from_MiB(1).B)
     check_stats_write_empty(core, mode, cls)
 
     logger.info("[STAGE] Read from exported object after initial write")
-    io_from_exported_object(vol, queue, test_data.size, Size.from_sector(1).B)
+    io_from_exported_object(vol, queue, test_data.size, Size.from_MiB(1).B)
     check_stats_read_after_write(core, mode, cls, True)
 
     logger.info("[STAGE] Write to exported object after read")
+    cache.settle()
     cache_device.reset_stats()
     core_device.reset_stats()
 
     test_data = Data.from_string("Changed test data")
 
-    io_to_core(vol, queue, test_data, Size.from_sector(1).B)
+    io_to_core(vol, queue, test_data, Size.from_MiB(1).B)
     check_stats_write_after_read(core, mode, cls)
 
     check_md5_sums(vol, mode)
@@ -114,13 +133,26 @@ def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: Cache
 @pytest.mark.parametrize("cls", CacheLineSize)
 @pytest.mark.parametrize("mode", CacheMode)
 def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheLineSize):
+	_test_start_read_first_and_check_mode(pyocf_ctx, mode, cls,
+                                              UciClassifier.DEFAULT)
+
+
+@pytest.mark.parametrize("cls", CacheLineSize)
+def test_start_read_first_and_check_mode_with_classifier(pyocf_ctx, cls: CacheLineSize):
+	_test_start_read_first_and_check_mode(pyocf_ctx, CacheMode.WT, cls,
+                                              UciClassifier.ALL)
+
+
+def _test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheLineSize,
+                                          ocf_classifier: UciClassifier):
     """Starting cache in different modes with different cache line sizes.
     After start check proper cache mode behaviour, starting with read operation.
     """
 
     cache_device = RamVolume(Size.from_MiB(50))
     core_device = RamVolume(Size.from_MiB(5))
-    cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
+    cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls,
+                                  ocf_classifier=ocf_classifier)
     core = Core.using_device(core_device)
 
     cache.add_core(core)
@@ -128,15 +160,21 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
     bottom_vol = core.get_volume()
     queue = cache.get_default_queue()
 
+    if ocf_classifier == UciClassifier.ALL:
+        cache.settle()  # let swap detection finish
+        check_stats_after_swap_detection(core)
+
     logger.info("[STAGE] Initial write to core device")
     test_data = Data.from_string("This is test data")
     io_to_core(bottom_vol, queue, test_data, Size.from_sector(1).B)
 
+    cache.settle()
     cache_device.reset_stats()
     core_device.reset_stats()
 
     logger.info("[STAGE] Initial read from exported object")
     io_from_exported_object(front_vol, queue, test_data.size, Size.from_sector(1).B)
+    cache.settle()
     check_stats_read_empty(core, mode, cls)
 
     logger.info("[STAGE] Write to exported object after initial read")
@@ -168,7 +206,6 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     queue_size = randrange(60000, 2 ** 32)
     unblock_size = randrange(1, queue_size)
     volatile_metadata = randrange(2) == 1
-    unaligned_io = randrange(2) == 1
     submit_fast = randrange(2) == 1
     name = "test"
 
@@ -181,7 +218,6 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
         metadata_volatile=volatile_metadata,
         max_queue_size=queue_size,
         queue_unblock_size=unblock_size,
-        pt_unaligned_io=unaligned_io,
         use_submit_fast=submit_fast,
     )
 
@@ -190,7 +226,7 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     assert stats["conf"]["cache_line_size"] == cls, "Cache line size"
     assert cache.get_name() == name, "Cache name"
     # TODO: metadata_volatile, max_queue_size,
-    #  queue_unblock_size, pt_unaligned_io, use_submit_fast
+    #  queue_unblock_size, use_submit_fast
     # TODO: test in functional tests
 
 
@@ -364,6 +400,7 @@ def test_start_cache_same_id(pyocf_ctx, mode, cls):
     cache.get_stats()
 
 
+@pytest.mark.long
 @pytest.mark.parametrize("cls", CacheLineSize)
 def test_start_cache_huge_device(pyocf_ctx_log_buffer, cls):
     """
@@ -383,11 +420,10 @@ def test_start_cache_huge_device(pyocf_ctx_log_buffer, cls):
 
     cache_device = HugeDevice()
 
-    with pytest.raises(OcfError, match="OCF_ERR_INVAL_CACHE_DEV"):
-        cache = Cache.start_on_device(cache_device, cache_line_size=cls, metadata_volatile=True)
+    cache = Cache.start_on_device(cache_device, cache_line_size=cls, metadata_volatile=True)
 
     assert any(
-        [line.find("exceeds maximum") > 0 for line in pyocf_ctx_log_buffer.get_lines()]
+        [line.find("exceeded max") > 0 for line in pyocf_ctx_log_buffer.get_lines()]
     ), "Expected to find log notifying that max size was exceeded"
 
 
@@ -520,10 +556,7 @@ def io_to_core(vol: Volume, queue: Queue, data: Data, offset: int):
     io = vol.new_io(queue, offset, data.size, IoDir.WRITE, 0, 0)
     io.set_data(data)
 
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
 
     vol.close()
     assert completion.results["err"] == 0, "IO to exported object completion"
@@ -535,10 +568,7 @@ def io_from_exported_object(vol: Volume, queue: Queue, buffer_size: int, offset:
     io = vol.new_io(queue, offset, read_buffer.size, IoDir.READ, 0, 0)
     io.set_data(read_buffer)
 
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
     vol.close()
 
     assert completion.results["err"] == 0, "IO from exported object completion"
@@ -650,3 +680,9 @@ def check_md5_sums(vol: CoreVolume, mode: CacheMode):
             vol.parent.device.md5() == vol.md5()
         ), "MD5 check: core device vs exported object"
 
+
+def check_stats_after_swap_detection(core: Core):
+    assert core.device.get_stats()[IoDir.READ] == 2, \
+        "Swap detection reads from core device"
+    assert core.cache.get_stats()["usage"]["occupancy"]["value"] == 0, \
+        "Swap detection affected cache occupancy"

@@ -1,18 +1,17 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-from ctypes import c_int
 from random import randrange
 
 import pytest
 
 from pyocf.types.cache import Cache, Core
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.types.queue import Queue
-from pyocf.types.shared import OcfCompletion
 from pyocf.types.volume import Volume, RamVolume
 from pyocf.types.volume_core import CoreVolume
 from pyocf.utils import Size
@@ -204,9 +203,6 @@ def io_operation(
     io = vol.new_io(queue, offset, data.size, io_direction, io_class, 0)
     io.set_data(data)
 
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
     vol.close()
     return completion

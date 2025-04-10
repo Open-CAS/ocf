@@ -1,10 +1,12 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 from ctypes import c_void_p, CFUNCTYPE, Structure, byref
 from threading import Thread, Condition, Event, Semaphore
+from typing import List, Optional
 import weakref
 
 from ..ocf import OcfLib
@@ -19,11 +21,7 @@ class QueueOps(Structure):
     _fields_ = [("kick", KICK), ("kick_sync", KICK_SYNC), ("stop", STOP)]
 
 
-class Queue:
-    pass
-
-
-def io_queue_run(*, queue: Queue, kick: Condition, stop: Event, sem: Semaphore):
+def io_queue_run(*, queue: "Queue", kick: Condition, stop: Event, sem: Semaphore):
     def wait_predicate():
         return stop.is_set() or OcfLib.getInstance().ocf_queue_pending_io(queue)
 
@@ -42,15 +40,19 @@ def io_queue_run(*, queue: Queue, kick: Condition, stop: Event, sem: Semaphore):
 class Queue:
     _instances_ = weakref.WeakValueDictionary()
 
-    def __init__(self, cache, name):
-
-        self.ops = QueueOps(kick=type(self)._kick, stop=type(self)._stop)
-        self.name = name
+    def __init__(self, cache, name, mngt=False):
+        self.ops: QueueOps = QueueOps(kick=type(self)._kick, stop=type(self)._stop)
+        self.name: str = name
 
         self.handle = c_void_p()
-        status = OcfLib.getInstance().ocf_queue_create(
-            cache.cache_handle, byref(self.handle), byref(self.ops)
-        )
+        if mngt:
+            status = OcfLib.getInstance().ocf_queue_create_mngt(
+                cache.cache_handle, byref(self.handle), byref(self.ops)
+            )
+        else:
+            status = OcfLib.getInstance().ocf_queue_create(
+                cache.cache_handle, byref(self.handle), byref(self.ops)
+            )
         if status:
             raise OcfError("Couldn't create queue object", status)
 
@@ -138,7 +140,10 @@ class Queue:
 
     # wait until all queues provided settle
     @staticmethod
-    def settle_many(qlist: [Queue]):
+    def settle_many(qlist: List["Queue"]):
         status = [True]
         while any(status):
             status = [q.settle() for q in qlist]
+
+
+lib = OcfLib.getInstance()

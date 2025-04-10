@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -17,12 +18,15 @@ INCDIR=include/
 
 SRC=$(shell find ${SRCDIR} -name \*.c)
 OBJS = $(patsubst %.c, %.o, $(SRC))
-CFLAGS = -Wall -Werror -I${INCDIR} -I${SRCDIR}/ocf/env/
+CFLAGS = -Wall -MMD -Werror -I${INCDIR} -I${SRCDIR}/ocf/env/
 
 all: sync
 	$(MAKE) build
 
 build: $(OBJS)
+
+%.o: %.c Makefile
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 sync:
 	@$(MAKE) -C ${OCFDIR} inc O=$(PWD)
@@ -36,5 +40,7 @@ distclean:
 	@rm -rf $(OBJS)
 	@rm -rf src/ocf
 	@rm -rf include/ocf
+
+-include $(SRC:.c=.d)
 
 .PHONY: all build sync clean distclean

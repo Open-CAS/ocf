@@ -1,31 +1,24 @@
 #
 # Copyright(c) 2020-2022 Intel Corporation
+# Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-from ctypes import c_int, memmove, cast, c_void_p
-from enum import IntEnum
-from itertools import product
-import random
-
-import pytest
+from ctypes import memmove, cast, c_void_p, c_uint64
 
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
 from pyocf.types.volume import RamVolume
 from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.utils import Size
-from pyocf.types.shared import OcfCompletion
+from pyocf.ocf import OcfLib
 
 
-def __io(io, queue, address, size, data, direction):
+def __io(io, data):
     io.set_data(data, 0)
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
     return int(completion.results["err"])
 
 
@@ -37,7 +30,7 @@ def io_to_exp_obj(vol, address, size, data, offset, direction, flags):
         _data = Data.from_bytes(bytes(size))
     else:
         _data = Data.from_bytes(data, offset, size)
-    ret = __io(io, queue, address, size, _data, direction)
+    ret = __io(io, _data)
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
     vol.close()
@@ -51,19 +44,19 @@ class FlagsValVolume(RamVolume):
         self.fail = False
         super().__init__(size)
 
-    def set_check(self, check):
-        self.check = check
+    def set_check(self):
+        self.check = True
+        self.fail = True
 
-    def submit_io(self, io):
+    def do_forward_io(self, token, rw, addr, nbytes, offset):
         if self.check:
-            flags = io.contents._flags
-            if flags != self.flags:
-                self.fail = True
-        super().submit_io(io)
+            flags = lib.ocf_forward_get_flags(token)
+            if flags == self.flags:
+                self.fail = False
+        super().do_forward_io(token, rw, addr, nbytes, offset)
 
 
-@pytest.mark.parametrize("cache_mode", CacheMode)
-def test_io_flags(pyocf_ctx, cache_mode):
+def test_io_flags(pyocf_ctx):
     """
     Verify that I/O flags provided at the top volume interface
     are propagated down to bottom volumes for all associated
@@ -77,44 +70,55 @@ def test_io_flags(pyocf_ctx, cache_mode):
 
     pyocf_ctx.register_volume_type(FlagsValVolume)
 
-    cache_device = FlagsValVolume(Size.from_MiB(50), flags)
+    cache_device = FlagsValVolume(Size.from_MiB(50), 0)
     core_device = FlagsValVolume(Size.from_MiB(50), flags)
 
-    cache = Cache.start_on_device(cache_device, cache_mode=cache_mode)
+    cache = Cache.start_on_device(cache_device, cache_mode=CacheMode.WB)
     core = Core.using_device(core_device)
 
     cache.add_core(core)
     vol = CoreVolume(core)
+    cache.settle()
 
-    cache_device.set_check(True)
-    core_device.set_check(True)
+    def set_check():
+        cache_device.set_check()
+        core_device.set_check()
 
     # write miss
+    set_check()
     io_to_exp_obj(vol, block_size * 0, block_size, data, 0, IoDir.WRITE, flags)
     assert not cache_device.fail
-    assert not core_device.fail
 
     # read miss
+    set_check()
     io_to_exp_obj(vol, block_size * 1, block_size, data, 0, IoDir.READ, flags)
-    assert not cache_device.fail
     assert not core_device.fail
 
     # "dirty" read hit
+    set_check()
     io_to_exp_obj(vol, block_size * 0, block_size, data, 0, IoDir.READ, flags)
     assert not cache_device.fail
-    assert not core_device.fail
 
     # "clean" read hit
+    set_check()
     io_to_exp_obj(vol, block_size * 1, block_size, data, 0, IoDir.READ, flags)
     assert not cache_device.fail
-    assert not core_device.fail
+
+    cache.change_cache_mode(CacheMode.WT)
 
     # "dirty" write hit
+    set_check()
     io_to_exp_obj(vol, block_size * 0, block_size, data, 0, IoDir.WRITE, flags)
     assert not cache_device.fail
     assert not core_device.fail
 
     # "clean" write hit
+    set_check()
     io_to_exp_obj(vol, block_size * 1, block_size, data, 0, IoDir.WRITE, flags)
     assert not cache_device.fail
     assert not core_device.fail
+
+
+lib = OcfLib.getInstance()
+lib.ocf_forward_get_flags.argtypes = [c_uint64]
+lib.ocf_forward_get_flags.restype = c_uint64

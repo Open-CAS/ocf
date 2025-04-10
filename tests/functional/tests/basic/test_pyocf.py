@@ -1,19 +1,19 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 import pytest
-from ctypes import c_int
 
-from pyocf.types.cache import Cache
+from pyocf.types.cache import Cache, CacheMode, CleaningPolicy, PromotionPolicy
 from pyocf.types.core import Core
 from pyocf.types.volume import RamVolume, ErrorDevice
 from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.utils import Size as S
-from pyocf.types.shared import OcfError, OcfCompletion
+from pyocf.types.shared import CacheLineSize, OcfError, SeqCutOffPolicy
 from pyocf.rio import Rio, ReadWrite
 
 
@@ -32,10 +32,11 @@ def test_simple_wt_write(pyocf_ctx):
     cache.add_core(core)
     vol = CoreVolume(core)
 
+    cache.settle()
     cache_device.reset_stats()
     core_device.reset_stats()
 
-    r = Rio().target(vol).readwrite(ReadWrite.WRITE).size(S.from_sector(1)).run([queue])
+    r = Rio().target(vol).readwrite(ReadWrite.WRITE).bs(S.from_KiB(4)).size(S.from_sector(1)).run([queue])
     assert cache_device.get_stats()[IoDir.WRITE] == 1
     cache.settle()
     stats = cache.get_stats()
@@ -100,10 +101,7 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     )
     io.set_data(write_data)
 
-    cmpl = OcfCompletion([("err", c_int)])
-    io.callback = cmpl.callback
-    io.submit()
-    cmpl.wait()
+    Sync(io).submit()
     vol.close()
 
     cache.stop()
@@ -121,11 +119,27 @@ def test_load_cache_with_cores(pyocf_ctx, open_cores):
     io = vol.new_io(cache.get_default_queue(), S.from_sector(3).B, read_data.size, IoDir.READ, 0, 0)
     io.set_data(read_data)
 
-    cmpl = OcfCompletion([("err", c_int)])
-    io.callback = cmpl.callback
-    io.submit()
-    cmpl.wait()
+    Sync(io).submit()
     vol.close()
 
     assert read_data.md5() == write_data.md5()
     assert vol.md5() == core_device.md5()
+
+
+def test_defaults(pyocf_ctx):
+    """Tests initialization with default parameters"""
+    cache = Cache.start_on_device(RamVolume(S.from_MiB(50)))
+    core = Core.using_device(RamVolume(S.from_MiB(10)))
+
+    cache.add_core(core)
+
+    core_stats = core.get_stats()
+    assert core_stats["seq_cutoff_policy"] == SeqCutOffPolicy.DEFAULT.value
+
+    cache_stats = cache.get_stats()
+    assert cache_stats["conf"]["cache_line_size"] == CacheLineSize.DEFAULT.value
+    assert cache_stats["conf"]["cache_mode"] == CacheMode.DEFAULT.value
+    assert cache_stats["conf"]["cleaning_policy"] == CleaningPolicy.DEFAULT.value
+    assert cache_stats["conf"]["promotion_policy"] == PromotionPolicy.DEFAULT.value
+    # assert metadata non volatile
+    assert cache_stats["conf"]["metadata_end_offset"] > 0

@@ -1,9 +1,10 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-from ctypes import string_at
+from ctypes import string_at, Array
 
 
 def print_buffer(
@@ -58,7 +59,8 @@ class Size:
     _MiB = _KiB * 1024
     _GiB = _MiB * 1024
     _TiB = _GiB * 1024
-    _SECTOR_SIZE = 512
+    _LINUX_SECTOR_SIZE = 512
+    _SECTOR_SIZE = 4096
     _PAGE_SIZE = 4096
 
     _unit_mapping = {
@@ -133,6 +135,10 @@ class Size:
         return cls(value * cls._SECTOR_SIZE)
 
     @classmethod
+    def from_linux_sector(cls, value):
+        return cls(value * cls._LINUX_SECTOR_SIZE)
+
+    @classmethod
     def from_page(cls, value):
         return cls(value * cls._PAGE_SIZE)
 
@@ -159,6 +165,10 @@ class Size:
     @property
     def sectors(self):
         return self.bytes // self._SECTOR_SIZE
+
+    @property
+    def linux_sectors(self):
+        return self.bytes // self._LINUX_SECTOR_SIZE
 
     @property
     def blocks_4k(self):
@@ -189,7 +199,7 @@ class Size:
         return Size(self.bytes - other.bytes)
 
     def __mul__(self, other):
-        return Size(self.bytes * int(other))
+        return Size(int(self.bytes * other))
 
     def __truediv__(self, other):
         return Size(self.bytes / int(other))
@@ -244,13 +254,18 @@ def print_structure(struct, indent=0):
         print("{}{: <20} : {}".format("   " * indent, field, value))
 
 
+def c_to_python(value):
+    if hasattr(value, "_fields_"):
+        return struct_to_dict(value)
+    elif isinstance(value, Array):
+        return [c_to_python(x) for x in value]
+    else:
+        return value
+
+
 def struct_to_dict(struct):
     d = {}
     for field, field_type in struct._fields_:
         value = getattr(struct, field)
-        if hasattr(value, "_fields_"):
-            d[field] = struct_to_dict(value)
-            continue
-        d[field] = value
-
+        d[field] = c_to_python(value)
     return d

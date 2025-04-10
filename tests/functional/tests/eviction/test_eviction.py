@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -12,7 +13,7 @@ import pytest
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.types.shared import OcfCompletion, CacheLineSize, SeqCutOffPolicy, CacheLines
 from pyocf.types.volume import RamVolume
 from pyocf.types.volume_core import CoreVolume
@@ -180,10 +181,7 @@ def send_io(vol: CoreVolume, data: Data, addr: int = 0, target_ioclass: int = 0)
 
     io.set_data(data)
 
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
     vol.close()
 
     assert completion.results["err"] == 0, "IO to exported object completion"

@@ -1,13 +1,11 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-from threading import Lock
 from .volume import Volume, VOLUME_POISON
-from .shared import OcfErrorCode
 from .io import Io, IoDir
-from ctypes import cast, c_void_p, CFUNCTYPE, c_int, POINTER, memmove, sizeof, pointer
 
 
 class ReplicatedVolume(Volume):
@@ -20,18 +18,14 @@ class ReplicatedVolume(Volume):
         ret = self.primary.open()
         if ret:
             raise Exception(f"Couldn't open primary volume. ({ret})")
-            return ret
         ret = self.secondary.open()
         if ret:
             raise Exception(f"Couldn't open secondary volume. ({ret})")
-            return ret
 
         if self.secondary.get_max_io_size() < self.primary.get_max_io_size():
             raise Exception("secondary volume max io size too small")
-            return -OcfErrorCode.OCF_ERR_INVAL
         if self.secondary.get_length() < self.primary.get_length():
             raise Exception("secondary volume size too small")
-            return -OcfErrorCode.OCF_ERR_INVAL
 
         return super().open()
 
@@ -46,51 +40,21 @@ class ReplicatedVolume(Volume):
     def get_max_io_size(self):
         return self.primary.get_max_io_size()
 
-    def _prepare_io(self, io):
-        original_cb = Io.END()
-        pointer(original_cb)[0] = io.contents._end
-        lock = Lock()
-        error = 0
-        io_remaining = 2
+    def do_forward_io(self, token, rw, addr, nbytes, offset):
+        if rw == IoDir.WRITE:
+            Io.forward_get(token)
+            self.secondary.do_forward_io(token, rw, addr, nbytes, offset)
+        self.primary.do_forward_io(token, rw, addr, nbytes, offset)
 
-        @CFUNCTYPE(None, c_void_p, c_int)
-        def cb(io, err):
-            nonlocal io_remaining
-            nonlocal error
-            nonlocal original_cb
-            nonlocal lock
-            io = cast(io, POINTER(Io))
+    def do_forward_flush(self, token):
+        Io.forward_get(token)
+        self.secondary.do_forward_flush(token)
+        self.primary.do_forward_flush(token)
 
-            with lock:
-                if err:
-                    error = err
-                io_remaining -= 1
-                finished = True if io_remaining == 0 else False
-            if finished:
-                io.contents._end = original_cb
-                original_cb(io, error)
-
-        io.contents._end = cb
-
-    def do_submit_io(self, io):
-        if io.contents._dir == IoDir.WRITE:
-            self._prepare_io(io)
-            self.primary.submit_io(io)
-            self.secondary.submit_io(io)
-        else:
-            # for read just pass through down to primary
-            # with original completion
-            self.primary.submit_io(io)
-
-    def do_submit_flush(self, flush):
-        self._prepare_io(flush)
-        self.primary.submit_flush(flush)
-        self.secondary.submit_flush(flush)
-
-    def do_submit_discard(self, discard):
-        self._prepare_io(discard)
-        self.primary.submit_discard(discard)
-        self.secondary.submit_discard(discard)
+    def do_forward_discard(self, token, addr, nbytes):
+        Io.forward_get(token)
+        self.secondary.do_forward_discard(token, addr, nbytes)
+        self.primary.do_forward_discard(token, addr, nbytes)
 
     def dump(self, offset=0, size=0, ignore=VOLUME_POISON, **kwargs):
         self.primary.dump()

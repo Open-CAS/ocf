@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -22,6 +23,7 @@ from ctypes import (
     POINTER,
 )
 from datetime import timedelta
+from typing import Optional
 
 from .data import Data
 from .io import Io, IoDir
@@ -44,6 +46,7 @@ class CoreConfig(Structure):
         ("_name", c_char * MAX_CORE_NAME_SIZE),
         ("_uuid", Uuid),
         ("_volume_type", c_uint8),
+        ("_volume_params", c_void_p),
         ("_try_add", c_bool),
         ("_seq_cutoff_threshold", c_uint32),
         ("_seq_cutoff_promotion_count", c_uint32),
@@ -59,13 +62,13 @@ class Core:
     def __init__(
         self,
         device: Volume,
-        name: str = "core",
+        name: Optional[str] = None,
         seq_cutoff_threshold: int = DEFAULT_SEQ_CUTOFF_THRESHOLD,
         seq_cutoff_promotion_count: int = DEFAULT_SEQ_CUTOFF_PROMOTION_COUNT,
     ):
         self.cache = None
         self.device = device
-        self.name = name
+        self.name = name if name else None
         self.seq_cutoff_threshold = seq_cutoff_threshold
         self.seq_cutoff_promotion_count = seq_cutoff_promotion_count
 
@@ -169,8 +172,19 @@ class Core:
         if status:
             raise OcfError("Error setting core seq cut off policy promotion count", status)
 
+    def flush(self):
+        self.cache.write_lock()
+
+        c = OcfCompletion([("core", c_void_p), ("priv", c_void_p), ("error", c_int)])
+        self.cache.owner.lib.ocf_mngt_core_flush(self.handle, c, None)
+        c.wait()
+        self.cache.write_unlock()
+
+        if c.results["error"]:
+            raise OcfError("Couldn't flush cache", c.results["error"])
+
     def reset_stats(self):
-        self.cache.owner.lib.ocf_core_stats_initialize(self.handle)
+        lib.ocf_core_stats_initialize(self.handle)
 
 
 lib = OcfLib.getInstance()
@@ -190,3 +204,5 @@ lib.ocf_stats_collect_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c
 lib.ocf_stats_collect_core.restype = c_int
 lib.ocf_core_get_info.argtypes = [c_void_p, c_void_p]
 lib.ocf_core_get_info.restype = c_int
+lib.ocf_core_stats_initialize.argtypes = [c_void_p]
+lib.ocf_mngt_core_flush.argtypes = [c_void_p, c_void_p, c_void_p]

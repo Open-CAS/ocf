@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -17,9 +18,9 @@ from pyocf.types.core import Core
 from pyocf.types.volume import RamVolume
 from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.utils import Size
-from pyocf.types.shared import OcfCompletion, CacheLineSize
+from pyocf.types.shared import CacheLineSize
 
 
 def get_byte(number, byte):
@@ -30,12 +31,9 @@ def bytes_to_uint32(byte0, byte1, byte2, byte3):
     return (int(byte3) << 24) + (int(byte2) << 16) + (int(byte1) << 8) + int(byte0)
 
 
-def __io(io, queue, address, size, data, direction):
+def __io(io, data):
     io.set_data(data, 0)
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
     return int(completion.results["err"])
 
 
@@ -45,7 +43,7 @@ def io_to_exp_obj(vol, queue, address, size, data, offset, direction):
         _data = Data.from_bytes(bytes(size))
     else:
         _data = Data.from_bytes(data, offset, size)
-    ret = __io(io, queue, address, size, _data, direction)
+    ret = __io(io, _data)
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
     return ret
@@ -184,13 +182,12 @@ def print_test_case(
 # and verifying  that the expected pattern is read from each sector.
 #
 
-
 @pytest.mark.parametrize("cacheline_size", CacheLineSize)
 @pytest.mark.parametrize("cache_mode", CacheMode)
-@pytest.mark.parametrize("rand_seed", [datetime.now()])
+@pytest.mark.parametrize("rand_seed", [datetime.now().timestamp()])
 def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed):
-    CACHELINE_COUNT = 9
     SECTOR_SIZE = Size.from_sector(1).B
+    CACHELINE_COUNT = 9
     CLS = cacheline_size // SECTOR_SIZE
     WORKSET_SIZE = CACHELINE_COUNT * cacheline_size
     WORKSET_OFFSET = 128 * cacheline_size
@@ -237,8 +234,7 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
     core_device = RamVolume(Size.from_MiB(50))
 
     cache = Cache.start_on_device(
-        cache_device, cache_mode=CacheMode.WO, cache_line_size=cacheline_size
-    )
+        cache_device, cache_mode=CacheMode.WO, cache_line_size=cacheline_size)
 
     core = Core.using_device(core_device)
     cache.add_core(core)

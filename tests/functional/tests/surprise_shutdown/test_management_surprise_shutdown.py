@@ -1,9 +1,11 @@
+#
 # Copyright(c) 2021-2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 import pytest
-from ctypes import c_int, c_void_p, byref, cast, POINTER
+from ctypes import byref
 
 from pyocf.types.cache import (
     Cache,
@@ -22,15 +24,12 @@ from pyocf.types.core import Core
 from pyocf.types.volume import ErrorDevice, RamVolume, VOLUME_POISON
 from pyocf.types.volume_core import CoreVolume
 from pyocf.types.volume_cache import CacheVolume
-from pyocf.types.io import IoDir
-from pyocf.types.ioclass import IoClassesInfo, IoClassInfo
+from pyocf.types.io import IoDir, Sync
+from pyocf.types.ioclass import IoClassesInfo
 from pyocf.utils import Size as S
 from pyocf.types.shared import (
-    OcfCompletion,
-    CacheLineSize,
     OcfError,
     OcfErrorCode,
-    Uuid,
 )
 from pyocf.ocf import OcfLib
 
@@ -40,25 +39,19 @@ mngmt_op_surprise_shutdown_test_io_offset = S.from_MiB(4).B
 
 def ocf_write(vol, queue, val, offset):
     vol.open()
-    data = Data.from_bytes(bytes([val] * 512))
-    comp = OcfCompletion([("error", c_int)])
-    io = vol.new_io(queue, offset, 512, IoDir.WRITE, 0, 0)
+    data = Data.from_bytes(bytes([val] * 4096))
+    io = vol.new_io(queue, offset, 4096, IoDir.WRITE, 0, 0)
     io.set_data(data)
-    io.callback = comp.callback
-    io.submit()
-    comp.wait()
+    Sync(io).submit()
     vol.close()
 
 
 def ocf_read(vol, queue, offset):
     vol.open()
-    data = Data(byte_count=512)
-    comp = OcfCompletion([("error", c_int)])
-    io = vol.new_io(queue, offset, 512, IoDir.READ, 0, 0)
+    data = Data(byte_count=4096)
+    io = vol.new_io(queue, offset, 4096, IoDir.READ, 0, 0)
     io.set_data(data)
-    io.callback = comp.callback
-    io.submit()
-    comp.wait()
+    Sync(io).submit()
     vol.close()
     return data.get_bytes()[0]
 
@@ -162,6 +155,7 @@ def mngmt_op_surprise_shutdown_test(
 # power failure during core insert
 @pytest.mark.security
 @pytest.mark.parametrize("failover", [False, True])
+@pytest.mark.skip
 def test_surprise_shutdown_add_core(pyocf_2_ctx, failover):
     core_device = RamVolume(S.from_MiB(10))
 

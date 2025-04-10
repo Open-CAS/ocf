@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -81,7 +82,7 @@ def test_test_standby_io_metadata(pyocf_ctx, cacheline_size):
         .target(cache_vol)
         .njobs(num_jobs)
         .readwrite(ReadWrite.RANDWRITE)
-        .size(io_offset + io_size)
+        .size(io_size)
         .bs(Size.from_KiB(16))
         .offset(io_offset)
         .qd(qd)

@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -10,28 +11,63 @@ from itertools import count
 
 import pytest
 
-from pyocf.ocf import OcfLib
 from pyocf.types.cache import (
     Cache,
     CacheMode,
-    MetadataLayout,
-    CleaningPolicy,
 )
 from pyocf.types.core import Core
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.types.shared import (
-    OcfError,
-    OcfCompletion,
     CacheLines,
     CacheLineSize,
     SeqCutOffPolicy,
+    OcfError,
 )
 from pyocf.types.volume import RamVolume
 from pyocf.types.volume_core import CoreVolume
 from pyocf.utils import Size
 
 logger = logging.getLogger(__name__)
+
+
+def test_add_remove_core_detached_cache(pyocf_ctx):
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(50))
+
+    cache = Cache(owner=pyocf_ctx)
+    cache.start_cache()
+    core = Core.using_device(core_device)
+    cache.add_core(core)
+    cache.remove_core(core)
+    cache.stop()
+
+
+def test_attach_cache_twice(pyocf_ctx):
+    cache_device_1 = RamVolume(Size.from_MiB(50))
+    cache_device_2 = RamVolume(Size.from_MiB(50))
+
+    cache = Cache(owner=pyocf_ctx)
+    cache.start_cache()
+
+    cache.attach_device(cache_device_1)
+
+    with pytest.raises(OcfError, match="Attaching cache device failed"):
+        cache.attach_device(cache_device_2)
+
+    cache.stop()
+
+
+def test_detach_cache_twice(pyocf_ctx):
+    cache_device = RamVolume(Size.from_MiB(50))
+    cache = Cache.start_on_device(cache_device)
+
+    cache.detach_device()
+
+    with pytest.raises(OcfError, match="Detaching cache device failed"):
+        cache.detach_device()
+
+    cache.stop()
 
 
 @pytest.mark.parametrize("cls", CacheLineSize)
@@ -88,17 +124,14 @@ def io_to_exp_obj(vol, queue, address, size, data, offset, direction, target_ioc
         _data = Data.from_bytes(bytes(size))
     else:
         _data = Data.from_bytes(data, offset, size)
-    ret = __io(io, queue, address, size, _data, direction)
+    ret = __io(io, _data)
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
     vol.close()
     return ret
 
 
-def __io(io, queue, address, size, data, direction):
+def __io(io, data):
     io.set_data(data, 0)
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
     return int(completion.results["err"])

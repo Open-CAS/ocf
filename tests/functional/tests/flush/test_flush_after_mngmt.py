@@ -1,31 +1,23 @@
 #
 # Copyright(c) 2020-2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-from ctypes import c_int, memmove, cast, c_void_p
-from enum import IntEnum
-from itertools import product
-import random
-
-import pytest
+from ctypes import memmove, cast, c_void_p
 
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
 from pyocf.types.volume import RamVolume
 from pyocf.types.volume_core import CoreVolume
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
+from pyocf.types.io import IoDir, Sync
 from pyocf.utils import Size
-from pyocf.types.shared import OcfCompletion
 
 
-def __io(io, queue, address, size, data, direction):
+def __io(io, data):
     io.set_data(data, 0)
-    completion = OcfCompletion([("err", c_int)])
-    io.callback = completion.callback
-    io.submit()
-    completion.wait()
+    completion = Sync(io).submit()
     return int(completion.results["err"])
 
 
@@ -36,7 +28,7 @@ def io_to_exp_obj(vol, queue, address, size, data, offset, direction, flags):
         _data = Data.from_bytes(bytes(size))
     else:
         _data = Data.from_bytes(data, offset, size)
-    ret = __io(io, queue, address, size, _data, direction)
+    ret = __io(io, _data)
     if not ret and direction == IoDir.READ:
         memmove(cast(data, c_void_p).value + offset, _data.handle, size)
     vol.close()
@@ -55,6 +47,14 @@ class FlushValVolume(RamVolume):
     def submit_flush(self, flush):
         self.flush_last = True
         super().submit_flush(flush)
+
+    def forward_io(self, token, rw, addr, nbytes, offset):
+        self.flush_last = False
+        super().forward_io(token, rw, addr, nbytes, offset)
+
+    def forward_flush(self, token):
+        self.flush_last = True
+        super().forward_flush(token)
 
 
 def test_flush_after_mngmt(pyocf_ctx):

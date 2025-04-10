@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -16,6 +17,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_INVAL = 1000000
     OCF_ERR_AGAIN = auto()
     OCF_ERR_INTR = auto()
+    OCF_ERR_BUSY = auto()
     OCF_ERR_NOT_SUPP = auto()
     OCF_ERR_NO_MEM = auto()
     OCF_ERR_NO_LOCK = auto()
@@ -31,6 +33,14 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_START_CACHE_FAIL = auto()
     OCF_ERR_CACHE_NOT_EXIST = auto()
     OCF_ERR_CORE_NOT_EXIST = auto()
+    OCF_ERR_COMPOSITE_VOLUME_MEMBER_NOT_EXIST = auto()
+    OCF_ERR_NOT_COMPOSITE_VOLUME = auto()
+    OCF_ERR_COMPOSITE_VOLUME_UUID_EXIST = auto()
+    OCF_ERR_COMPOSITE_INVALID_ID = auto()
+    OCF_ERR_COMPOSITE_UNINITIALISED_VOLUME = auto()
+    OCF_ERR_COMPOSITE_ATTACHED = auto()
+    OCF_ERR_COMPOSITE_DETACHED = auto()
+    OCF_ERR_COMPOSITE_INVALID_SIZE = auto()
     OCF_ERR_CACHE_EXIST = auto()
     OCF_ERR_CORE_EXIST = auto()
     OCF_ERR_TOO_MANY_CORES = auto()
@@ -55,11 +65,15 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_CORE_UUID_EXISTS = auto()
     OCF_ERR_CACHE_LINE_SIZE_MISMATCH = auto()
     OCF_ERR_CACHE_STANDBY = auto()
+    OCF_ERR_CACHE_DETACHED = auto()
     OCF_ERR_CORE_SIZE_MISMATCH = auto()
     OCF_ERR_STANDBY_ATTACHED = auto()
     OCF_ERR_CORE_NOT_REMOVED = auto()
     OCF_ERR_CACHE_NOT_STANDBY = auto()
+    OCF_ERR_PREFETCH_AS_PT = auto()
     OCF_ERR_CLEANER_DISABLED = auto()
+    OCF_ERR_CACHE_NOT_MAIN = auto()
+    OCF_ERR_CACHE_IS_MULTI_LEVEL = auto()
 
 
 class OcfCompletion:
@@ -159,7 +173,7 @@ class SeqCutOffPolicy(IntEnum):
     ALWAYS = 0
     FULL = 1
     NEVER = 2
-    DEFAULT = FULL
+    DEFAULT = NEVER
 
 
 class CacheLines(S):

@@ -1,23 +1,28 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 import pytest
 import random
+from datetime import timedelta
+
 from ctypes import POINTER, c_int, cast, c_void_p
 from datetime import datetime
 from threading import Event
 from collections import namedtuple
-
+from pyocf.types.core import Core
+from pyocf.types.volume_core import CoreVolume
 from pyocf.ocf import OcfLib
-from pyocf.types.volume import RamVolume, ErrorDevice, TraceDevice, IoFlags, VolumeIoPriv
+from pyocf.types.volume import RamVolume, ErrorDevice, TraceDevice, IoFlags
 from pyocf.types.cvolume import CVolume
 from pyocf.types.data import Data
-from pyocf.types.io import IoDir
-from pyocf.types.cache import Cache
+from pyocf.types.io import IoDir, Sync
+from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.shared import OcfError, OcfErrorCode, OcfCompletion
 from pyocf.utils import Size as S
+from pyocf.rio import Rio, ReadWrite
 
 
 def test_create_composite_volume(pyocf_ctx):
@@ -42,6 +47,184 @@ def test_create_composite_volume(pyocf_ctx):
     cvol = CVolume(pyocf_ctx)
     vol = RamVolume(S.from_MiB(1))
     cvol.add(vol)
+    cvol.destroy()
+
+
+def test_composite_reattach_twice_neg(pyocf_ctx):
+    """
+    title: Try to attach attached mebmer
+    description: |
+      Check that it is not possible to attach volume to attached member
+    """
+    cvol = CVolume(pyocf_ctx)
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+    cvol.add(vols[2])
+
+    cvol.open()
+
+    new_vol = RamVolume(S.from_MiB(2))
+
+    with pytest.raises(
+            OcfError,
+            match="Attaching member to composite failed. Member already attached",
+            ):
+        cvol.attach_member(new_vol, 1)
+
+    cvol.close()
+
+    cvol.destroy()
+
+
+def test_composite_attach_uninitialized_neg(pyocf_ctx):
+    """
+    title: Try to attach uninitialized subvolume
+    description: |
+      Check that it is not possible to attach uninitalized composite member
+    """
+    cvol = CVolume(pyocf_ctx)
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+    cvol.add(vols[2])
+
+    cvol.open()
+
+    cvol.detach_member(1)
+
+    new_vol = RamVolume(S.from_MiB(2))
+
+    for subvol_id in range(3, 16):
+        with pytest.raises(
+                OcfError,
+                match="Attaching member to composite failed. Uninitialised member.",
+                ):
+            cvol.attach_member(new_vol, subvol_id)
+
+    cvol.close()
+
+    cvol.destroy()
+
+
+@pytest.mark.parametrize("member_id", [0, 1, 2])
+def test_composite_dettach_member_twice_neg(pyocf_ctx, member_id):
+    """
+    title: Try to reattach subvolume to complete composite volume
+    description: |
+      Check that it is not possible to attach member to composite volume without detaching
+      any member first
+    """
+    cvol = CVolume(pyocf_ctx)
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+    cvol.add(vols[2])
+
+    cvol.open()
+
+    cvol.detach_member(member_id)
+
+    with pytest.raises(
+            OcfError,
+            match="Detaching member from composite failed. Member already detached",
+            ):
+        cvol.detach_member(member_id)
+
+    cvol.close()
+
+    cvol.destroy()
+
+def test_composite_reattach_different_size_neg(pyocf_ctx):
+    """
+    title: Try to reattach subvolumes of size different than original
+    description: |
+      Check that it is not possible to attach volume of different size than the originally
+      detach size
+    """
+    cvol = CVolume(pyocf_ctx)
+    original_size = S.from_MiB(5)
+    vols = [RamVolume(original_size), RamVolume(S.from_MiB(2))]
+    invalid_vols = [
+            RamVolume(S.from_MiB(1)),
+            RamVolume(original_size + S.from_B(1)),
+            RamVolume(original_size - S.from_B(1)),
+            RamVolume(original_size + S.from_B(512)),
+            RamVolume(original_size - S.from_B(512)),
+            RamVolume(original_size + S.from_B(4096)),
+            RamVolume(original_size - S.from_B(4096)),
+    ]
+
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+
+    cvol.open()
+
+    member_id = 0
+    cvol.detach_member(member_id)
+
+    for invalid_vol in invalid_vols:
+        with pytest.raises(OcfError,
+                match="Attaching member to composite failed. Invalid size.",
+                ):
+            cvol.attach_member(invalid_vol, member_id)
+
+    cvol.close()
+
+    cvol.destroy()
+
+
+@pytest.mark.parametrize("member_id", [0, 1, 2])
+def test_composite_reattach_member(pyocf_ctx, member_id):
+    """
+    title: Detach member from composite volume
+    description: |
+      Check that it is possible to detach member for composite volume
+    """
+    cvol = CVolume(pyocf_ctx)
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+    cvol.add(vols[2])
+
+    cvol.open()
+
+    new_vol = RamVolume(S.from_MiB(2))
+
+    cvol.detach_member(member_id)
+    cvol.attach_member(new_vol, member_id)
+
+    cvol.close()
+
+    cvol.destroy()
+
+
+def test_composite_reattach_members(pyocf_ctx):
+    """
+    title: Detach multiple subvolumes from composite
+    description: |
+      Check that it is possible to reattach multiple members to composite volume
+    """
+    cvol = CVolume(pyocf_ctx)
+
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.add(vols[0])
+    cvol.add(vols[1])
+    cvol.add(vols[2])
+
+    cvol.open()
+
+    cvol.detach_member(0)
+    cvol.detach_member(1)
+    cvol.detach_member(2)
+
+    vols = [RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2)), RamVolume(S.from_MiB(2))]
+    cvol.attach_member(vols[0], 0)
+    cvol.attach_member(vols[1], 1)
+    cvol.attach_member(vols[2], 2)
+
+    cvol.close()
+
     cvol.destroy()
 
 
@@ -165,12 +348,9 @@ def setup_tracing(backends):
             TraceDevice.IoType.Data: [],
         }
 
-    def trace(vol, io, io_type):
-        if int(io.contents._flags) & IoFlags.FLUSH:
-            io_type = TraceDevice.IoType.Flush
-
+    def trace(vol, io_type, rw, addr, nbytes, flags):
         io_trace[vol][io_type].append(
-            IoEvent(io.contents._dir, io.contents._addr, io.contents._bytes)
+            IoEvent(rw, addr, nbytes)
         )
 
         return True
@@ -289,19 +469,25 @@ def test_io_propagation_basic(pyocf_ctx):
         ret = cvol_submit_data_io(cvol, addr, io_size)
         assert ret == 0
 
-        ret = cvol_submit_flush_io(cvol, addr, io_size, IoFlags.FLUSH)
+        ret = cvol_submit_flush_io(cvol, addr, io_size)
         assert ret == 0
 
         ret = cvol_submit_discard_io(cvol, addr, io_size)
         assert ret == 0
 
-        for io_type in TraceDevice.IoType:
-            ios = io_trace[vol][io_type]
-            assert len(ios) == 1
-            io = ios[0]
-            assert io.dir == IoDir.WRITE
-            assert io.addr == addr.B - int(vol_begin[i])
-            assert io.bytes == io_size.B
+        ios = io_trace[vol][TraceDevice.IoType.Data]
+        assert len(ios) == 1
+        assert ios[0].dir == IoDir.WRITE
+        assert ios[0].addr == addr.B - int(vol_begin[i])
+        assert ios[0].bytes == io_size.B
+
+        ios = io_trace[vol][TraceDevice.IoType.Flush]
+        assert len(ios) == i + 1
+
+        ios = io_trace[vol][TraceDevice.IoType.Discard]
+        assert len(ios) == 1
+        assert ios[0].addr == addr.B - int(vol_begin[i])
+        assert ios[0].bytes == io_size.B
 
     cvol.close()
     cvol.destroy()
@@ -357,27 +543,36 @@ def test_io_propagation_cross_boundary(pyocf_ctx):
         ret = cvol_submit_data_io(cvol, addr, io_size)
         assert ret == 0
 
-        ret = cvol_submit_flush_io(cvol, addr, io_size, IoFlags.FLUSH)
+        ret = cvol_submit_flush_io(cvol, addr, io_size)
         assert ret == 0
 
         ret = cvol_submit_discard_io(cvol, addr, io_size)
         assert ret == 0
 
-        for io_type in TraceDevice.IoType:
-            ios1 = io_trace[vols[i]][io_type]
-            ios2 = io_trace[vols[i + 1]][io_type]
+        ios1 = io_trace[vols[i]][TraceDevice.IoType.Data]
+        ios2 = io_trace[vols[i + 1]][TraceDevice.IoType.Data]
+        assert len(ios1) == 1
+        assert ios1[0].dir == IoDir.WRITE
+        assert ios1[0].addr == int(vols[i].vol.size - (io_size / 2))
+        assert ios1[0].bytes == io_size.B / 2
+        assert len(ios2) == 1
+        assert ios2[0].dir == IoDir.WRITE
+        assert ios2[0].addr == 0
+        assert ios2[0].bytes == io_size.B / 2
 
-            assert len(ios1) == 1
-            io = ios1[0]
-            assert io.dir == IoDir.WRITE
-            assert io.addr == int(vols[i].vol.size - (io_size / 2))
-            assert io.bytes == io_size.B / 2
+        ios1 = io_trace[vols[i]][TraceDevice.IoType.Flush]
+        ios2 = io_trace[vols[i + 1]][TraceDevice.IoType.Flush]
+        assert len(ios1) == 1
+        assert len(ios2) == 1
 
-            assert len(ios2) == 1
-            io = ios2[0]
-            assert io.dir == IoDir.WRITE
-            assert io.addr == 0
-            assert io.bytes == io_size.B / 2
+        ios1 = io_trace[vols[i]][TraceDevice.IoType.Discard]
+        ios2 = io_trace[vols[i + 1]][TraceDevice.IoType.Discard]
+        assert len(ios1) == 1
+        assert ios1[0].addr == int(vols[i].vol.size - (io_size / 2))
+        assert ios1[0].bytes == io_size.B / 2
+        assert len(ios2) == 1
+        assert ios2[0].addr == 0
+        assert ios2[0].bytes == io_size.B / 2
 
     cvol.close()
     cvol.destroy()
@@ -471,7 +666,7 @@ def test_io_propagation_multiple_subvolumes(pyocf_ctx, rand_seed):
 
         # I/O addres range start/end offsets within a subvolume
         start_offset = S.from_B(random.randint(0, vol_size.B // 512 - 1) * 512)
-        end_offset = S.from_B(random.randint(0, vol_size.B // 512 - 1) * 512)
+        end_offset = S.from_B(random.randint(1, vol_size.B // 512 - 1) * 512)
 
         size = (vol_size - start_offset) + (subvol_count - 2) * vol_size + end_offset
         addr = first_idx * vol_size + start_offset
@@ -485,25 +680,51 @@ def test_io_propagation_multiple_subvolumes(pyocf_ctx, rand_seed):
         ret = cvol_submit_data_io(cvol, addr, size)
         assert ret == 0
 
-        ret = cvol_submit_flush_io(cvol, addr, size, IoFlags.FLUSH)
+        ret = cvol_submit_flush_io(cvol, addr, size)
         assert ret == 0
 
         ret = cvol_submit_discard_io(cvol, addr, size)
         assert ret == 0
 
         for vol in middle:
-            for io in io_trace[vol].values():
-                assert len(io) == 1
-                assert io[0].addr == 0
-                assert io[0].bytes == int(vol.vol.size)
+            ios = io_trace[vol][TraceDevice.IoType.Data]
+            assert len(ios) == 1
+            assert ios[0].addr == 0
+            assert ios[0].bytes == int(vol.vol.size)
 
-        for io in io_trace[first].values():
-            assert io[0].addr == int(start_offset)
-            assert io[0].bytes == int(vol_size - start_offset)
+            ios = io_trace[first][TraceDevice.IoType.Data]
+            assert len(ios) == 1
+            assert ios[0].addr == int(start_offset)
+            assert ios[0].bytes == int(vol_size - start_offset)
 
-        for io in io_trace[last].values():
-            assert io[0].addr == 0
-            assert io[0].bytes == int(end_offset)
+            ios = io_trace[last][TraceDevice.IoType.Data]
+            assert len(ios) == 1
+            assert ios[0].addr == 0
+            assert ios[0].bytes == int(end_offset)
+
+            ios = io_trace[vol][TraceDevice.IoType.Flush]
+            assert len(ios) == 1
+
+            ios = io_trace[first][TraceDevice.IoType.Flush]
+            assert len(ios) == 1
+
+            ios = io_trace[last][TraceDevice.IoType.Flush]
+            assert len(ios) == 1
+
+            ios = io_trace[vol][TraceDevice.IoType.Discard]
+            assert len(ios) == 1
+            assert ios[0].addr == 0
+            assert ios[0].bytes == int(vol.vol.size)
+
+            ios = io_trace[first][TraceDevice.IoType.Discard]
+            assert len(ios) == 1
+            assert ios[0].addr == int(start_offset)
+            assert ios[0].bytes == int(vol_size - start_offset)
+
+            ios = io_trace[last][TraceDevice.IoType.Discard]
+            assert len(ios) == 1
+            assert ios[0].addr == 0
+            assert ios[0].bytes == int(end_offset)
 
     cvol.close()
     cvol.destroy()
@@ -540,16 +761,16 @@ def test_io_completion(pyocf_ctx, rand_seed):
             self.pending_ios = []
             self.io_submitted = Event()
 
-        def do_submit_io(self, io):
-            self.pending_ios.append(("io", io))
+        def do_forward_io(self, token, rw, addr, nbytes, offset):
+            self.pending_ios.append(("io", token, rw, addr, nbytes, offset))
             self.io_submitted.set()
 
-        def do_submit_flush(self, flush):
-            self.pending_ios.append(("flush", flush))
+        def do_forward_flush(self, token):
+            self.pending_ios.append(("flush", token))
             self.io_submitted.set()
 
-        def do_submit_discard(self, discard):
-            self.pending_ios.append(("discard", discard))
+        def do_forward_discard(self, token, addr, nbytes):
+            self.pending_ios.append(("discard", token, addr, nbytes))
             self.io_submitted.set()
 
         def wait_submitted(self):
@@ -560,13 +781,13 @@ def test_io_completion(pyocf_ctx, rand_seed):
             if not self.pending_ios:
                 return False
 
-            io_type, io = self.pending_ios.pop()
+            io_type, token, *params = self.pending_ios.pop()
             if io_type == "io":
-                super().do_submit_io(io)
+                super().do_forward_io(token, *params)
             elif io_type == "flush":
-                super().do_submit_flush(io)
+                super().do_forward_flush(token)
             elif io_type == "discard":
-                super().do_submit_discard(io)
+                super().do_forward_discard(token, *params)
             else:
                 assert False
 
@@ -588,14 +809,18 @@ def test_io_completion(pyocf_ctx, rand_seed):
         addr = vol_size / 2
         size = (subvol_count - 1) * vol_size
 
-        for op, flags in [("submit", 0), ("submit_flush", IoFlags.FLUSH), ("submit_discard", 0)]:
+        for op, cnt in [
+            ("submit", subvol_count),
+            ("submit_flush", len(vols)),
+            ("submit_discard", subvol_count)
+        ]:
             io = cvol.new_io(
                 queue=None,
                 addr=addr,
                 length=size,
                 direction=IoDir.WRITE,
                 io_class=0,
-                flags=flags,
+                flags=0,
             )
             completion = OcfCompletion([("err", c_int)])
             io.callback = completion.callback
@@ -606,7 +831,7 @@ def test_io_completion(pyocf_ctx, rand_seed):
             submit_fn = getattr(io, op)
             submit_fn()
 
-            pending_vols = vols[:subvol_count]
+            pending_vols = vols[:cnt]
             for v in pending_vols:
                 v.wait_submitted()
 
@@ -676,7 +901,7 @@ def test_io_error(pyocf_ctx, rand_seed):
         assert ret == -OcfErrorCode.OCF_ERR_IO
 
         # verify flush properly propagated
-        ret = cvol_submit_flush_io(cvol, addr, size, IoFlags.FLUSH)
+        ret = cvol_submit_flush_io(cvol, addr, size)
         assert ret == -OcfErrorCode.OCF_ERR_IO
 
         # verdiscard discard properly propagated
@@ -767,3 +992,241 @@ def test_load(pyocf_ctx):
 
     cache.stop()
     assert Cache.get_by_name("cache1", pyocf_ctx) != 0, "Try getting cache after stopping it"
+
+
+@pytest.mark.parametrize("member_id", [0, 1, 2])
+def test_composite_detach_attach_cache_member(pyocf_ctx, member_id):
+    """
+    title: Detach and attach composite cache member
+    description: |
+      Check that it is possible to detach subvolumes from running composite
+        cache instance
+    pass_criteria:
+      - Composite volume is created w/o an error
+      - Composite subvolume is detached w/o error
+      - Composite subvolume is attached w/o error
+    steps:
+      - Create composite volume
+      - Add 3 RamVolume instances as subvolumes.
+      - Start cache and attach it using composite volume instance.
+      - Detach one subvolume from the composite cache
+      - Attach the missing subvolume to the composite cache
+    """
+
+    cvol = CVolume(pyocf_ctx)
+
+    composite_subvols = [
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40))
+            ]
+    for subvol in composite_subvols:
+        cvol.add(subvol)
+
+    cache = Cache(owner=pyocf_ctx).start_on_device(cvol, metadata_volatile=True)
+
+    cache.detach_composite_member(composite_subvols[member_id])
+    cache.attach_composite_member(composite_subvols[member_id], member_id)
+
+
+def test_composite_ops_nonvolatile_metadata_neg(pyocf_ctx):
+    """
+    title: Block composite attach and detach in non-volatile MD mode
+    description: |
+      Check if is blocked to attach and detach composite members in
+        non-volatile metadata mode
+    pass_criteria:
+      - Composite cache is created w/o an error
+      - Detaching composite volume fails
+      - Attaching composite volume fails
+      - OCF doesn't crash
+    """
+
+    cvol = CVolume(pyocf_ctx)
+
+    composite_subvols = [
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40))
+            ]
+    for subvol in composite_subvols:
+        cvol.add(subvol)
+
+    cache = Cache(owner=pyocf_ctx).start_on_device(cvol, metadata_volatile=False)
+
+    attached_vol = RamVolume(S.from_MiB(40))
+
+    with pytest.raises(OcfError, match="Detaching composite cache member failed"):
+        cache.detach_composite_member(composite_subvols[0])
+
+    with pytest.raises(OcfError, match="Attaching composite cache member failed"):
+        cache.attach_composite_member(attached_vol, 0)
+
+
+@pytest.mark.parametrize("member_id", [0, 1, 2])
+def test_composite_stop_detached(pyocf_ctx, member_id):
+    """
+    title: Detach and attach composite cache member
+    description: |
+      Check that it is possible to detach subvolumes from running composite
+        cache instance
+    pass_criteria:
+      - Composite volume is created w/o an error
+      - Composite subvolume is detached w/o error
+      - Cache is stopped w/o error
+    steps:
+      - Create composite volume
+      - Add 3 RamVolume instances as subvolumes.
+      - Start cache and attach it using composite volume instance.
+      - Detach one subvolume from the composite cache
+      - Attach the missing subvolume to the composite cache
+    """
+
+    cvol = CVolume(pyocf_ctx)
+
+    composite_subvols = [
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40)),
+            RamVolume(S.from_MiB(40))
+            ]
+    for subvol in composite_subvols:
+        cvol.add(subvol)
+
+    cache = Cache(owner=pyocf_ctx).start_on_device(cvol, metadata_volatile=True)
+
+    cache.detach_composite_member(composite_subvols[member_id])
+
+    cache.stop()
+
+
+def test_composite_detach_dirty(pyocf_ctx):
+    """
+    title: Detach and attach composite cache member
+    description: |
+      Check that it is possible to detach subvolumes from running composite
+        cache instance
+    pass_criteria:
+      - Composite volume is created w/o an error
+      - Composite subvolume is detached w/o error
+      - Cache is stopped w/o error
+    steps:
+      - Create composite volume
+      - Add 3 RamVolume instances as subvolumes.
+      - Start cache and attach it using composite volume instance.
+      - Detach one subvolume from the composite cache
+      - Attach the missing subvolume to the composite cache
+    """
+    core_size = S.from_MiB(60)
+    core_dev = RamVolume(core_size)
+    cvol = CVolume(pyocf_ctx)
+
+    core = Core.using_device(core_dev)
+
+    composite_subvols = [
+            RamVolume(S.from_MiB(20)),
+            RamVolume(S.from_MiB(20)),
+            ]
+    for subvol in composite_subvols:
+        cvol.add(subvol)
+
+    cache = Cache(owner=pyocf_ctx).start_on_device(
+            cvol,
+            metadata_volatile=True,
+            cache_mode=CacheMode.WB
+            )
+
+    cache.add_core(core)
+    core_vol = CoreVolume(core)
+    core_vol.open()
+    queue = cache.get_default_queue()
+
+    r = (
+            Rio()
+            .target(core_vol)
+            .njobs(10)
+            .bs(S.from_KiB(4))
+            .readwrite(ReadWrite.RANDWRITE)
+            .size(core_dev.size)
+            .time_based()
+            .time(timedelta(seconds=10))
+            .qd(10)
+            .run_async([queue])
+        )
+
+    import time
+
+    time.sleep(3)
+
+    cache.detach_composite_member(composite_subvols[0])
+
+    r.abort()
+    time.sleep(1)
+
+    cache.stop()
+
+@pytest.mark.parametrize("member_id", [0, 1, 2])
+def test_composite_detach_attach_read(pyocf_ctx, member_id):
+    """
+    title: Detach and attach composite cache member
+    description: |
+      Check that it is possible to detach subvolumes from running composite
+        cache instance
+    pass_criteria:
+      - Composite volume is created w/o an errors
+      - Composite subvolume is detached w/o errors
+      - Composite subvolume is attached w/o errors
+    steps:
+      - Create composite volume
+      - Add 3 RamVolume instances as subvolumes.
+      - Start cache and attach it using composite volume instance.
+      - Add core bigger than cache
+      - Fill cache with data
+      - Get md5 of core backend volume
+      - Detach one subvolume from the composite cache
+      - Check if core's md5 matches the device's md5
+      - Attach the missing subvolume to the composite cache
+      - Check if core's md5 matches the device's md5
+    """
+    core_size = S.from_MiB(105)
+    cvol = CVolume(pyocf_ctx)
+    core_dev = RamVolume(core_size)
+
+    composite_subvols = [
+            RamVolume(S.from_MiB(70)),
+            RamVolume(S.from_MiB(15)),
+            RamVolume(S.from_MiB(15))
+            ]
+    for subvol in composite_subvols:
+        cvol.add(subvol)
+
+    # TODO make the test work with non volatile metadata
+    cache = Cache(owner=pyocf_ctx).start_on_device(cvol, metadata_volatile=True)
+    core = Core.using_device(core_dev)
+    cache.add_core(core)
+
+    cache_size_4k = cache.get_stats()['conf']['size'].blocks_4k
+
+    queue = cache.get_default_queue()
+    core_vol = CoreVolume(core)
+    core_vol.open()
+
+    io_size = 1024*4
+    padding = b'asdf' * int(io_size/4)
+    for i in range(core_size/io_size):
+        write_io = core_vol.new_io(queue, i * io_size, io_size, IoDir.WRITE, 0, 0)
+        write_data = Data(io_size)
+        write_data.write(padding, io_size)
+        write_io.set_data(write_data)
+        write_cmpl = Sync(write_io).submit()
+        assert int(write_cmpl.results["err"]) == 0
+
+    occupancy = cache.get_stats()['usage']['occupancy']['value']
+
+    assert occupancy > cache_size_4k - io_size/4096
+
+    original_md5 = core_vol.md5()
+    cache.detach_composite_member(composite_subvols[member_id])
+    assert core_vol.md5() == original_md5
+
+    cache.attach_composite_member(composite_subvols[member_id], member_id)
+    assert core_vol.md5() == original_md5

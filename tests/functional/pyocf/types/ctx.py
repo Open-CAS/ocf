@@ -1,9 +1,10 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2023-2024 Huawei Technologies Co., Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-from ctypes import c_void_p, Structure, c_char_p, cast, pointer, byref, c_int, c_uint8
+from ctypes import c_void_p, Structure, c_char_p, cast, pointer, byref, c_int, c_uint8, c_size_t
 import weakref
 
 from .logger import LoggerOps, Logger
@@ -112,7 +113,9 @@ class OcfCtx:
                 self.unregister_volume_type(vol_type)
 
     def stop_caches(self):
-        for cache in self.caches[:]:
+        to_stop = {cache.get_lowest_cache() for cache in self.caches}
+
+        for cache in to_stop:
             cache.stop()
 
     def exit(self):
@@ -125,7 +128,7 @@ class OcfCtx:
 
 
 lib = OcfLib.getInstance()
-lib.ocf_mngt_cache_get_by_name.argtypes = [c_void_p, c_void_p, c_void_p]
+lib.ocf_mngt_cache_get_by_name.argtypes = [c_void_p, c_void_p, c_size_t, c_void_p]
 lib.ocf_mngt_cache_get_by_name.restype = c_int
 lib.ocf_ctx_get_volume_type.argtypes = [c_void_p, c_uint8]
 lib.ocf_ctx_get_volume_type.restype = c_void_p
