@@ -497,6 +497,8 @@ static void _ocf_mngt_flush_containers(
 	context->fcs.fcnum = fcnum;
 
 	for (i = 0; i < fcnum; i++) {
+		if (fctbl[i].count == 0)
+			continue;
 		env_atomic_inc(&context->fcs.count);
 		_ocf_mngt_flush_container(context, &fctbl[i],
 			_ocf_flush_container_complete);
