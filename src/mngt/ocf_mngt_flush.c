@@ -250,9 +250,14 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 				&core->runtime_meta->dirty_clines);
 		dirty_total += fc[j].count;
 
-		if (fc[j].count) {
-			fc[j].flush_data = env_vmalloc(fc[j].count *
-					sizeof(*fc[j].flush_data));
+		if (fc[j].count == 0)
+			continue;
+
+		fc[j].flush_data = env_vmalloc(fc[j].count *
+				sizeof(*fc[j].flush_data));
+		if (!fc[j].flush_data) {
+			ret = -OCF_ERR_NO_MEM;
+			goto free_flush_data;
 		}
 
 		if (++j == cache->conf_meta->core_count)
@@ -304,6 +309,12 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	*fcnum =  _fcnum;
 	goto free_core_revmap;
 
+free_flush_data:
+	for (j = 0; j < _fcnum; j++) {
+		if (!fc[j].flush_data)
+			continue;
+		env_vfree(fc[j].flush_data);
+	}
 free_fc:
 	env_vfree(fc);
 free_core_revmap:
