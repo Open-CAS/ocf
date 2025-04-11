@@ -225,10 +225,8 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
 	_fcnum = cache->conf_meta->core_count;
-	if (_fcnum == 0) {
-		*fcnum = 0;
+	if (_fcnum == 0)
 		goto unlock;
-	}
 
 	core_revmap = env_vzalloc(sizeof(*core_revmap) * OCF_CORE_MAX);
 	if (!core_revmap) {
@@ -262,7 +260,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	}
 
 	if (!dirty_total) {
-		*fcnum = 0;
+		_fcnum = 0;
 		goto free_fc;
 	}
 
@@ -303,7 +301,6 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 		fc[i].iter = 0;
 
 	*fctbl = fc;
-	*fcnum = _fcnum;
 	goto free_core_revmap;
 
 free_fc:
@@ -311,6 +308,7 @@ free_fc:
 free_core_revmap:
 	env_vfree(core_revmap);
 unlock:
+	*fcnum = (ret != 0 ? 0 : _fcnum);
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 	return ret;
 }
