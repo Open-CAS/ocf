@@ -334,50 +334,13 @@ static void _ocf_mngt_free_flush_containers(struct flush_container *fctbl,
 	env_vfree(fctbl);
 }
 
-/*
- * OCF will try to guess disk speed etc. and adjust flushing block
- * size accordingly, however these bounds shall be respected regardless
- * of disk speed, cache line size configured etc.
- */
-#define OCF_MNG_FLUSH_MIN (4*MiB / ocf_line_size(cache))
-#define OCF_MNG_FLUSH_MAX (100*MiB / ocf_line_size(cache))
-
-static void _ocf_mngt_flush_portion(struct flush_container *fc)
-{
-	ocf_cache_t cache = fc->cache;
-	uint64_t flush_portion_div;
-	uint32_t curr_count;
-	uint32_t flush_data_id = fc->iter;
-
-	flush_portion_div = env_ticks_to_msecs(fc->ticks2 - fc->ticks1);
-	if (unlikely(!flush_portion_div))
-		flush_portion_div = 1;
-
-	fc->flush_portion = fc->flush_portion * 1000 / flush_portion_div;
-	fc->flush_portion &= ~0x3ffULL;
-
-	/* regardless those calculations, limit flush portion to be
-	 * between OCF_MNG_FLUSH_MIN and OCF_MNG_FLUSH_MAX
-	 */
-	fc->flush_portion = OCF_MIN(fc->flush_portion, OCF_MNG_FLUSH_MAX);
-	fc->flush_portion = OCF_MAX(fc->flush_portion, OCF_MNG_FLUSH_MIN);
-
-	curr_count = OCF_MIN(fc->count - fc->iter, fc->flush_portion);
-
-	fc->iter += curr_count;
-
-	ocf_cleaner_do_flush_data_async(fc->cache,
-			&fc->flush_data[flush_data_id],
-			curr_count, &fc->attribs);
-}
-
 static void _ocf_mngt_flush_portion_end(void *private_data, int error)
 {
 	struct flush_container *fc = private_data;
 	struct ocf_mngt_cache_flush_context *context = fc->context;
 	struct flush_containers_context *fsc = &context->fcs;
 	ocf_cache_t cache = context->cache;
-	ocf_core_t core = &cache->core[fc->core_id];
+	ocf_core_t core = ocf_cache_get_core(cache, fc->core_id);
 	bool first_interrupt;
 
 	env_atomic_set(&core->flushed, fc->iter);
@@ -397,7 +360,8 @@ static void _ocf_mngt_flush_portion_end(void *private_data, int error)
 		}
 	}
 
-	if (env_atomic_read(&fsc->error) || fc->iter == fc->count) {
+	if (env_atomic_read(&core->runtime_meta->dirty_clines) == 0 ||
+			env_atomic_read(&fsc->error)) {
 		ocf_req_put(fc->req);
 		fc->end(context);
 		return;
@@ -406,6 +370,60 @@ static void _ocf_mngt_flush_portion_end(void *private_data, int error)
 	ocf_queue_push_req(fc->req, 0);
 }
 
+/*
+ * OCF will try to guess disk speed etc. and adjust flushing block
+ * size accordingly, however these bounds shall be respected regardless
+ * of disk speed, cache line size configured etc.
+ */
+#define OCF_MNG_FLUSH_MIN (4*MiB / ocf_line_size(cache))
+#define OCF_MNG_FLUSH_MAX (100*MiB / ocf_line_size(cache))
+
+static void _ocf_mngt_flush_portion(struct flush_container *fc)
+{
+	ocf_cache_t cache = fc->cache;
+	ocf_core_t core = ocf_cache_get_core(cache, fc->core_id);
+	uint64_t flush_portion_div;
+	uint32_t flush_data_offset = fc->iter;
+	uint32_t curr_flush_portion_size;
+	uint32_t core_dirty_count =
+		env_atomic_read(&core->runtime_meta->dirty_clines);
+
+	if (core_dirty_count == 0) {
+		fc->iter = fc->count;
+		_ocf_mngt_flush_portion_end(fc, 0);
+		return;
+	}
+
+	flush_portion_div = env_ticks_to_msecs(fc->ticks2 - fc->ticks1);
+	if (unlikely(!flush_portion_div))
+		flush_portion_div = 1;
+
+	fc->flush_portion = fc->flush_portion * 1000 / flush_portion_div;
+	fc->flush_portion &= ~0x3ffULL;
+
+	/* regardless those calculations, limit flush portion to be
+	 * between OCF_MNG_FLUSH_MIN and OCF_MNG_FLUSH_MAX
+	 */
+	fc->flush_portion = OCF_MIN(fc->flush_portion, OCF_MNG_FLUSH_MAX);
+	fc->flush_portion = OCF_MAX(fc->flush_portion, OCF_MNG_FLUSH_MIN);
+
+	curr_flush_portion_size = OCF_MIN(core_dirty_count, fc->flush_portion);
+
+	ENV_BUG_ON(curr_flush_portion_size == 0);
+	if (unlikely(curr_flush_portion_size + fc->iter > fc->count)) {
+		ocf_cache_log(cache, log_crit, "An invalid flush request. Flush"
+				" container size %u. Flushed cache lines %u. To"
+				" be flushed in the next iteration %u\n",
+				fc->count, fc->iter, curr_flush_portion_size);
+		ENV_BUG();
+	}
+
+	fc->iter += curr_flush_portion_size;
+
+	ocf_cleaner_do_flush_data_async(fc->cache,
+			&fc->flush_data[flush_data_offset],
+			curr_flush_portion_size, &fc->attribs);
+}
 
 static int _ofc_flush_container_step(struct ocf_request *req)
 {
