@@ -347,6 +347,7 @@ static void _ocf_mngt_flush_portion(struct flush_container *fc)
 	ocf_cache_t cache = fc->cache;
 	uint64_t flush_portion_div;
 	uint32_t curr_count;
+	uint32_t flush_data_id = fc->iter;
 
 	flush_portion_div = env_ticks_to_msecs(fc->ticks2 - fc->ticks1);
 	if (unlikely(!flush_portion_div))
@@ -363,11 +364,11 @@ static void _ocf_mngt_flush_portion(struct flush_container *fc)
 
 	curr_count = OCF_MIN(fc->count - fc->iter, fc->flush_portion);
 
-	ocf_cleaner_do_flush_data_async(fc->cache,
-			&fc->flush_data[fc->iter],
-			curr_count, &fc->attribs);
-
 	fc->iter += curr_count;
+
+	ocf_cleaner_do_flush_data_async(fc->cache,
+			&fc->flush_data[flush_data_id],
+			curr_count, &fc->attribs);
 }
 
 static void _ocf_mngt_flush_portion_end(void *private_data, int error)
