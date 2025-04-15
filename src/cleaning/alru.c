@@ -1,7 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2022      David Lee <live4thee@gmail.com>
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -836,11 +836,14 @@ static int get_data_to_flush(struct alru_context *ctx)
 		last_access = fctx->dirty_ratio_exceeded ? (uint32_t)(~0UL) : compute_timestamp(config);
 
 		#if OCF_CLEANING_DEBUG == 1
-		alru = &ocf_metadata_get_cleaning_policy(cache, cache_line)
-				->meta.alru;
-		OCF_DEBUG_PARAM(cache, "Last access=%u, timestamp=%u rel=%d",
-				last_access, alru->timestamp,
-				alru->timestamp < last_access);
+		if (cache_line != cache->device->collision_table_entries) {
+			alru = &ocf_metadata_get_cleaning_policy(
+				cache, cache_line)->meta.alru;
+			OCF_DEBUG_PARAM(cache, "Last access=%u, "
+					"timestamp=%u rel=%d",
+					last_access, alru->timestamp,
+					alru->timestamp < last_access);
+		}
 		#endif
 
 		while (more_blocks_to_flush(cache, cache_line, last_access)) {
