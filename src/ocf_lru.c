@@ -300,7 +300,6 @@ void ocf_lru_rm_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	ocf_lru_repart(cache, cline, part, &cache->free);
 }
 
-
 static inline void lru_iter_init(struct ocf_lru_iter *iter, ocf_cache_t cache,
 		struct ocf_part *part, uint32_t start_lru, bool clean,
 		_lru_hash_locked_pfn hash_locked, struct ocf_request *req)
@@ -347,6 +346,11 @@ static inline void lru_iter_eviction_init(struct ocf_lru_iter *iter,
 			req);
 }
 
+static inline void lru_iter_repart_init(struct ocf_lru_iter *iter,
+		ocf_cache_t cache, struct ocf_part *part, bool clean)
+{
+	lru_iter_init(iter, cache, part, 0, clean, NULL, NULL);
+}
 
 static inline uint32_t _lru_next_lru(struct ocf_lru_iter *iter)
 {
@@ -558,7 +562,7 @@ static inline ocf_cache_line_t lru_iter_cleaning_next(struct ocf_lru_iter *iter)
 		}
 		if (cline != end_marker) {
 			iter->curr_cline[curr_lru] =
-				ocf_metadata_get_lru(iter->cache , cline)->prev;
+				ocf_metadata_get_lru(iter->cache, cline)->prev;
 		}
 
 		if (cline == end_marker && !_lru_lru_is_empty(iter)) {
@@ -586,6 +590,69 @@ static void ocf_lru_clean_end(void *private_data, int error)
 
 	env_atomic_set(&ctx->cleaner_running, 0);
 	env_refcnt_dec(&ctx->counter);
+}
+
+static inline ocf_cache_line_t lru_iter_repart_next(struct ocf_lru_iter *iter,
+		struct ocf_part *dst_part)
+{
+	ocf_cache_t cache = iter->cache;
+	struct ocf_part *part = iter->part;
+	uint32_t curr_lru;
+	ocf_cache_line_t  cline;
+	struct ocf_lru_list *list;
+	ocf_core_id_t core_id;
+	ocf_core_t core;
+
+	if (dst_part == part)
+		return end_marker;
+
+	do {
+		curr_lru = _lru_next_lru(iter);
+
+		ocf_metadata_lru_wr_lock(&cache->metadata.lock, curr_lru);
+
+		list = ocf_lru_get_list(part, curr_lru, iter->clean);
+
+		cline = list->tail;
+		while (cline != end_marker && !ocf_cache_line_try_lock_wr(
+				iter->c, cline)) {
+			cline = ocf_metadata_get_lru(cache, cline)->prev;
+		}
+
+		if (cline != end_marker) {
+			core_id = ocf_metadata_get_core_id(cache, cline);
+			core = ocf_cache_get_core(cache, core_id);
+			if (metadata_test_dirty(cache, cline))
+				ocf_cleaning_purge_cache_block(cache, cline);
+
+			ocf_lru_repart_locked(cache, cline, part, dst_part);
+
+			if (metadata_test_dirty(cache, cline)) {
+				/* Add cline back to cleaning policy */
+				ocf_cleaning_set_hot_cache_line(cache, cline);
+				env_atomic_inc(&core->runtime_meta
+					->part_counters[dst_part->id]
+					.dirty_clines);
+				env_atomic_dec(&core->runtime_meta
+					->part_counters[part->id].dirty_clines);
+			}
+			env_atomic_inc(&core->runtime_meta
+				->part_counters[dst_part->id].cached_clines);
+			env_atomic_dec(&core->runtime_meta
+				->part_counters[part->id].cached_clines);
+			ocf_cache_line_unlock_wr(iter->c, cline);
+		}
+
+		ocf_metadata_lru_wr_unlock(&cache->metadata.lock,
+				curr_lru);
+
+		if (cline == end_marker && !_lru_lru_is_empty(iter)) {
+			/* mark list as empty */
+			_lru_lru_set_empty(iter);
+		}
+	} while (cline == end_marker && !_lru_lru_all_empty(iter));
+
+	return cline;
 }
 
 void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
@@ -761,13 +828,36 @@ uint32_t ocf_lru_req_clines(struct ocf_request *req,
 	return i;
 }
 
+void ocf_lru_repart_all(ocf_cache_t cache, struct ocf_part *src_part,
+	struct ocf_part *dst_part)
+{
+	struct ocf_lru_iter iter;
+	ocf_cache_line_t cline;
+
+	ENV_BUG_ON(src_part->id >= OCF_USER_IO_CLASS_MAX ||
+			dst_part->id >= OCF_USER_IO_CLASS_MAX);
+	if (src_part->id == dst_part->id)
+		return;
+
+	/* Repartition clean cache lines */
+	lru_iter_repart_init(&iter, cache, src_part, true);
+	do {
+		cline = lru_iter_repart_next(&iter, dst_part);
+	} while (cline != end_marker);
+
+	/* Repartition dirty cache lines */
+	lru_iter_repart_init(&iter, cache, src_part, false);
+	do {
+		cline = lru_iter_repart_next(&iter, dst_part);
+	} while (cline != end_marker);
+}
+
 /* the caller must hold the metadata lock */
 void ocf_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 {
 	const uint32_t lru_list = (cline % OCF_NUM_LRU_LISTS);
 	struct ocf_lru_meta *node;
 	struct ocf_lru_list *list;
-	ocf_part_id_t part_id;
 	struct ocf_part *part;
 	bool hot;
 	bool clean;
@@ -781,8 +871,7 @@ void ocf_lru_hot_cline(ocf_cache_t cache, ocf_cache_line_t cline)
 	if (hot)
 		return;
 
-	part_id = ocf_metadata_get_partition_id(cache, cline);
-	part = &cache->user_parts[part_id].part;
+	part = &cache->user_parts[node->partition_id].part;
 	clean = !metadata_test_dirty(cache, cline);
 	list = ocf_lru_get_list(part, lru_list, clean);
 
