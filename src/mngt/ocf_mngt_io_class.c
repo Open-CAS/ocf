@@ -330,8 +330,8 @@ out_cpy:
 	return result;
 }
 
-int ocf_repart_all_to_default(ocf_cache_t cache,
-	const struct ocf_mngt_io_classes_config *cfg)
+int ocf_repart_to_default(ocf_cache_t cache,
+	const struct ocf_mngt_io_classes_config *cfg, bool all)
 {
 	int i;
 
@@ -342,9 +342,11 @@ int ocf_repart_all_to_default(ocf_cache_t cache,
 		_ocf_mngt_set_partition_size(cache, i, 0, 0);
 
 	for (i = 1; i < OCF_USER_IO_CLASS_MAX; i++) {
-		ocf_lru_repart_all(cache,
-			&cache->user_parts[i].part,
-			&cache->user_parts[0].part);
+		if (all || !cfg->config[i].name) {
+			ocf_lru_repart_all(cache,
+				&cache->user_parts[i].part,
+				&cache->user_parts[0].part);
+		}
 	}
 
 	/* Reenable IO classes */
