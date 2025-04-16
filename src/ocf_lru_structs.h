@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef __EVICTION_LRU_STRUCTS_H__
@@ -10,6 +11,7 @@ struct ocf_lru_meta {
 	uint32_t prev;
 	uint32_t next;
 	uint8_t hot;
+	ocf_part_id_t partition_id : 8;
 } __attribute__((packed));
 
 struct ocf_lru_list {
