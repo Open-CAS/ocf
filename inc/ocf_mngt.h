@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -1023,6 +1023,19 @@ struct ocf_mngt_io_classes_config {
  */
 int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 		const struct ocf_mngt_io_classes_config *cfg);
+
+/**
+ * @brief Repartition lines to default IO class
+ *
+ * @param[in] cache Handle for cache
+ * @param[in] cfg IO class configuration
+ * @param[in] all Repartition from all IO classes (including reconfigured)
+ *
+ * @retval 0 Repartitioning successful
+ * @retval Non-zero Error occurred
+ */
+int ocf_repart_to_default(ocf_cache_t cache,
+	const struct ocf_mngt_io_classes_config *cfg, bool all);
 
 /**
  * @brief Asociate new UUID value with given core
