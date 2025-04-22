@@ -1127,6 +1127,16 @@ struct ocf_mngt_io_class_config {
 	 * @brief IO class eviction priority
 	 */
 	int16_t prio;
+
+	/**
+	 * @brief Move cache lines currently assigned to this IO class
+	 *	to the unclassified IO class
+	 *
+	 * Applies both to an IO class being updated and to one being removed
+	 * (name set to NULL). Lines will be reclassified on next access.
+	 * Ignored for the unclassified and prefetch IO classes.
+	 */
+	bool repart;
 };
 
 struct ocf_mngt_io_classes_config {
