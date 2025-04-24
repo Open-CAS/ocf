@@ -1067,6 +1067,12 @@ void ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache,
 	if (ocf_cache_is_standby(cache))
 		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_STANDBY);
 
+	if (!ocf_cache_is_device_attached(cache)) {
+		ocf_cache_log(cache, log_err, "Cannot change cleaning policy - "
+				"cache device is detached\n");
+		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_DETACHED);
+	}
+
 	old_policy = cache->cleaner.policy;
 
 	if (new_policy == old_policy) {
