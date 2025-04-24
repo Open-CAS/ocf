@@ -3643,7 +3643,7 @@ int ocf_mngt_cache_promotion_set_policy(ocf_cache_t cache, ocf_promotion_t type)
 		return -OCF_ERR_CACHE_STANDBY;
 
 	if (!ocf_cache_is_device_attached(cache))
-		result = -OCF_ERR_CACHE_DETACHED;
+		return -OCF_ERR_CACHE_DETACHED;
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
