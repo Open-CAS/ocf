@@ -687,7 +687,7 @@ void ocf_mngt_cache_flush(ocf_cache_t cache,
 	if (!ocf_cache_is_device_attached(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush cache - "
 				"cache device is detached\n");
-		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_DETACHED);
 	}
 
 	if (ocf_cache_is_incomplete(cache)) {
@@ -779,7 +779,7 @@ void ocf_mngt_core_flush(ocf_core_t core,
 	if (!ocf_cache_is_device_attached(cache)) {
 		ocf_cache_log(cache, log_err, "Cannot flush core - "
 				"cache device is detached\n");
-		OCF_CMPL_RET(core, priv, -OCF_ERR_INVAL);
+		OCF_CMPL_RET(core, priv, -OCF_ERR_CACHE_DETACHED);
 	}
 
 	if (!core->opened) {
