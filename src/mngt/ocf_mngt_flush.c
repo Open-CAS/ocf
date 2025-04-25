@@ -908,7 +908,7 @@ void ocf_mngt_core_purge(ocf_core_t core,
 		OCF_CMPL_RET(core, priv, -OCF_ERR_CACHE_STANDBY);
 
 	if (!ocf_cache_is_device_attached(cache))
-		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_DETACHED);
+		OCF_CMPL_RET(core, priv, -OCF_ERR_CACHE_DETACHED);
 
 	if (!cache->mngt_queue) {
 		ocf_core_log(core, log_err,
