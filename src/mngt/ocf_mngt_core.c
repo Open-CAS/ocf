@@ -833,7 +833,7 @@ static void ocf_mngt_cache_detach_core_finish(ocf_pipeline_t pipeline,
 		ocf_cleaner_refcnt_unfreeze(cache);
 	}
 
-	context->cmpl(context->priv, error);
+	context->cmpl(context->core, context->priv, error);
 
 	ocf_pipeline_destroy(context->pipeline);
 }
@@ -882,15 +882,15 @@ void ocf_mngt_cache_detach_core(ocf_core_t core,
 	cache = ocf_core_get_cache(core);
 
 	if (ocf_cache_is_standby(cache))
-		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_STANDBY);
+		OCF_CMPL_RET(core, priv, -OCF_ERR_CACHE_STANDBY);
 
 	if (!cache->mngt_queue)
-		OCF_CMPL_RET(priv, -OCF_ERR_INVAL);
+		OCF_CMPL_RET(core, priv, -OCF_ERR_INVAL);
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_detach_core_pipeline_props);
 	if (result)
-		OCF_CMPL_RET(priv, result);
+		OCF_CMPL_RET(core, priv, result);
 
 	context = ocf_pipeline_get_priv(pipeline);
 
