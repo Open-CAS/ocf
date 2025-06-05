@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
- * Copyright(c) 2023-2024 Huawei Technologies
+ * Copyright(c) 2023-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -211,6 +211,16 @@ uint64_t ocf_cache_bytes_2_lines(ocf_cache_t cache, uint64_t bytes);
  * @retval Core count
  */
 uint32_t ocf_cache_get_core_count(ocf_cache_t cache);
+
+/**
+ * @brief Get inactive (detached or loaded from metadata) core count of
+ * given cache object
+ *
+ * @param[in] cache Cache object
+ *
+ * @retval Core inactive count
+ */
+uint32_t ocf_cache_get_core_inactive_count(ocf_cache_t cache);
 
 /**
  * @brief Get cache mode of given cache object
