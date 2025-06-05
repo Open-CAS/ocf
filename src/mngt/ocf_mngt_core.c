@@ -293,6 +293,7 @@ static void ocf_mngt_cache_try_add_core_insert(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_cache_add_core_context *context = priv;
+	struct ocf_mngt_core_config *cfg = &context->cfg;
 	ocf_cache_t cache = context->cache;
 	ocf_core_t core = context->core;
 	ocf_volume_t volume;
@@ -302,7 +303,7 @@ static void ocf_mngt_cache_try_add_core_insert(ocf_pipeline_t pipeline,
 
 	volume = ocf_core_get_volume(core);
 
-	result = ocf_volume_open(volume, NULL);
+	result = ocf_volume_open(volume, cfg->volume_params);
 	if (result)
 		OCF_PL_FINISH_RET(pipeline, result);
 
