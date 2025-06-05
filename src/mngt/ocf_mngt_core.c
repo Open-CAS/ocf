@@ -796,7 +796,7 @@ struct ocf_mngt_cache_detach_core_context {
 static void _ocf_mngt_cache_detach_core(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_mngt_cache_remove_core_context *context = priv;
+	struct ocf_mngt_cache_detach_core_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_core_t core = context->core;
 
@@ -819,7 +819,7 @@ static void _ocf_mngt_cache_detach_core(ocf_pipeline_t pipeline,
 static void ocf_mngt_cache_detach_core_finish(ocf_pipeline_t pipeline,
 		void *priv, int error)
 {
-	struct ocf_mngt_cache_remove_core_context *context = priv;
+	struct ocf_mngt_cache_detach_core_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	if (!error) {
@@ -848,7 +848,7 @@ static void ocf_mngt_cache_detach_core_wait_cleaning_complete(void *priv)
 static void ocf_mngt_cache_detach_core_wait_cleaning(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
-	struct ocf_mngt_cache_remove_core_context *context = priv;
+	struct ocf_mngt_cache_detach_core_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
 	if (!ocf_cache_is_device_attached(cache))
