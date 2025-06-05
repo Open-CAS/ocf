@@ -213,6 +213,15 @@ uint64_t ocf_cache_bytes_2_lines(ocf_cache_t cache, uint64_t bytes);
 uint32_t ocf_cache_get_core_count(ocf_cache_t cache);
 
 /**
+ * @brief Get inactive (detached or loaded from metadata) core count of given cache object
+ *
+ * @param[in] cache Cache object
+ *
+ * @retval Core inactive count
+ */
+uint32_t ocf_cache_get_core_inactive_count(ocf_cache_t cache);
+
+/**
  * @brief Get cache mode of given cache object
  *
  * @param[in] cache Cache object

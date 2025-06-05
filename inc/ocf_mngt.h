@@ -685,10 +685,11 @@ void ocf_mngt_cache_remove_core(ocf_core_t core,
 /**
  * @brief Completion callback of detach core operation
  *
+ * @param[in] core Core handle
  * @param[in] priv Callback context
  * @param[in] error Error code (zero on success)
  */
-typedef void (*ocf_mngt_cache_detach_core_end_t)(void *priv, int error);
+typedef void (*ocf_mngt_cache_detach_core_end_t)(ocf_core_t core, void *priv, int error);
 
 /**
  * @brief Detach core from cache instance
