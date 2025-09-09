@@ -1,10 +1,10 @@
+#!/usr/bin/env bash
+
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2025 Huawei Technologies
 # SPDX-License-Identifier: BSD-3-Clause
 #
-
-#!/usr/bin/env bash
 
 LIB_DIR="/lib/x86_64-linux-gnu/"
 
