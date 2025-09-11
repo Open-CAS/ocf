@@ -760,10 +760,10 @@ void ocf_mngt_cache_remove_core(ocf_core_t core,
 	cache = ocf_core_get_cache(core);
 
 	if (ocf_cache_is_standby(cache))
-		OCF_CMPL_RET(cache, -OCF_ERR_CACHE_STANDBY);
+		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_STANDBY);
 
 	if (!cache->mngt_queue)
-		OCF_CMPL_RET(cache, -OCF_ERR_INVAL);
+		OCF_CMPL_RET(priv, -OCF_ERR_INVAL);
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_remove_core_pipeline_props);
@@ -882,10 +882,10 @@ void ocf_mngt_cache_detach_core(ocf_core_t core,
 	cache = ocf_core_get_cache(core);
 
 	if (ocf_cache_is_standby(cache))
-		OCF_CMPL_RET(cache, -OCF_ERR_CACHE_STANDBY);
+		OCF_CMPL_RET(priv, -OCF_ERR_CACHE_STANDBY);
 
 	if (!cache->mngt_queue)
-		OCF_CMPL_RET(cache, -OCF_ERR_INVAL);
+		OCF_CMPL_RET(priv, -OCF_ERR_INVAL);
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_mngt_cache_detach_core_pipeline_props);
