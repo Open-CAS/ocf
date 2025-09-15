@@ -264,6 +264,12 @@ uint32_t ocf_cache_get_core_count(ocf_cache_t cache)
 	return cache->conf_meta->core_count;
 }
 
+uint32_t ocf_cache_get_core_inactive_count(ocf_cache_t cache)
+{
+	OCF_CHECK_NULL(cache);
+	return cache->ocf_core_inactive_count;
+}
+
 ocf_ctx_t ocf_cache_get_ctx(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
