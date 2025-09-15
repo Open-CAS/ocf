@@ -185,7 +185,7 @@ class Core:
     def detach(self):
         self.cache.write_lock()
 
-        c = OcfCompletion([("priv", c_void_p), ("error", c_int)])
+        c = OcfCompletion([("core", c_void_p), ("priv", c_void_p), ("error", c_int)])
         self.cache.owner.lib.ocf_mngt_cache_detach_core(self.handle, c, None)
         c.wait()
         self.cache.write_unlock()
