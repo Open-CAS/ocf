@@ -553,6 +553,12 @@ static void _ocf_mngt_flush_core(
 		return;
 	}
 
+	if (fc->count == 0) {
+		env_vfree(fc);
+		complete(context, 0);
+		return;
+	}
+
 	fc->core_id = core_id;
 	fc->iter = 0;
 
