@@ -837,8 +837,9 @@ void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,
 	int i;
 
 	for (i = 0; i < num; i++) {
-		ocf_cleaner_sort_flush_data(fctbl[i].flush_data,
-				fctbl[i].count);
+		if (fctbl[i].count > 1)
+			ocf_cleaner_sort_flush_data(fctbl[i].flush_data,
+					fctbl[i].count);
 	}
 }
 
