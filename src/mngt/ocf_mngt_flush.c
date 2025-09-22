@@ -214,18 +214,18 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	struct flush_container *fc;
 	struct flush_container *curr;
 	uint32_t *core_revmap;
-	uint32_t _fcnum;
+	uint32_t core_count;
 	uint64_t core_line;
 	ocf_core_id_t core_id;
 	ocf_core_t core;
 	uint32_t i, j = 0, line;
-	uint32_t dirty_found = 0, dirty_total = 0;
+	uint32_t dirty_found = 0, dirty_total = 0, dirty_cores = 0;
 	int ret = 0;
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
-	_fcnum = cache->conf_meta->core_count;
-	if (_fcnum == 0)
+	core_count = cache->conf_meta->core_count;
+	if (core_count == 0)
 		goto unlock;
 
 	core_revmap = env_vzalloc(sizeof(*core_revmap) * OCF_CORE_MAX);
@@ -235,7 +235,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	}
 
 	/* TODO: Alloc fcs and data tables in single allocation */
-	fc = env_vzalloc(sizeof(**fctbl) * _fcnum);
+	fc = env_vzalloc(sizeof(**fctbl) * core_count);
 	if (!fc) {
 		ret = -OCF_ERR_NO_MEM;
 		goto free_core_revmap;
@@ -260,12 +260,15 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 			goto free_flush_data;
 		}
 
-		if (++j == cache->conf_meta->core_count)
+		if (++j == core_count)
 			break;
 	}
 
+	/* Set number of dirty cores found to flush. */
+	dirty_cores = j;
+
 	if (!dirty_total) {
-		_fcnum = 0;
+		*fcnum = 0;
 		goto free_fc;
 	}
 
@@ -298,23 +301,20 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	}
 
 	if (dirty_total != dirty_found) {
-		for (i = 0; i < _fcnum; i++)
+		for (i = 0; i < dirty_cores; i++)
 			fc[i].count = fc[i].iter;
 	}
 
-	for (i = 0; i < _fcnum; i++)
+	for (i = 0; i < dirty_cores; i++)
 		fc[i].iter = 0;
 
 	*fctbl = fc;
-	*fcnum =  _fcnum;
+	*fcnum = dirty_cores;
 	goto free_core_revmap;
 
 free_flush_data:
-	for (j = 0; j < _fcnum; j++) {
-		if (!fc[j].flush_data)
-			continue;
-		env_vfree(fc[j].flush_data);
-	}
+	for (i = 0; i < j; i++)
+		env_vfree(fc[i].flush_data);
 free_fc:
 	env_vfree(fc);
 free_core_revmap:
