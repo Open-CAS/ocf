@@ -827,8 +827,11 @@ static void _ocf_cleaner_swap(void *a, void *b, int size)
 
 void ocf_cleaner_sort_flush_data(struct flush_data *flush_data, uint32_t count)
 {
-	env_sort(flush_data, count, sizeof(*flush_data),
-			_ocf_cleaner_cmp, _ocf_cleaner_swap);
+	/* Do not sort flush data if there is nothing to sort. */
+	if (count > 1) {
+		env_sort(flush_data, count, sizeof(*flush_data),
+				_ocf_cleaner_cmp, _ocf_cleaner_swap);
+	}
 }
 
 void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,
