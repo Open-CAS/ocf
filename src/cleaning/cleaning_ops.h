@@ -14,7 +14,7 @@
 
 struct cleaning_policy_ops {
 	void (*setup)(ocf_cache_t cache);
-	int (*initialize)(ocf_cache_t cache, int init_metadata);
+	int (*initialize)(ocf_cache_t cache, int kick_cleaner);
 	void (*populate)(ocf_cache_t cache,
 			ocf_cleaning_populate_end_t cmpl, void *priv);
 	void (*deinitialize)(ocf_cache_t cache);
