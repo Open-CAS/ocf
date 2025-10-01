@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef __LAYER_CLEANING_POLICY_AGGRESSIVE_H__
@@ -13,7 +14,13 @@ void cleaning_policy_acp_setup(ocf_cache_t cache);
 int cleaning_policy_acp_initialize(ocf_cache_t cache, int kick_cleaner);
 
 void cleaning_policy_acp_populate(ocf_cache_t cache,
-                ocf_cleaning_populate_end_t cmpl, void *priv);
+		ocf_cleaning_op_end_t cmpl, void *priv);
+
+void cleaning_policy_acp_prepopulate(ocf_cache_t cache,
+		ocf_cleaning_op_end_t cmpl, void *priv);
+
+void cleaning_policy_acp_update(ocf_cache_t cache,
+		ocf_cleaning_op_end_t cmpl, void *priv);
 
 void cleaning_policy_acp_deinitialize(ocf_cache_t cache);
 

@@ -16,7 +16,11 @@ struct cleaning_policy_ops {
 	void (*setup)(ocf_cache_t cache);
 	int (*initialize)(ocf_cache_t cache, int kick_cleaner);
 	void (*populate)(ocf_cache_t cache,
-			ocf_cleaning_populate_end_t cmpl, void *priv);
+			ocf_cleaning_op_end_t cmpl, void *priv);
+	void (*prepopulate)(ocf_cache_t cache,
+			ocf_cleaning_op_end_t cmpl, void *priv);
+	void (*update)(ocf_cache_t cache,
+			ocf_cleaning_op_end_t cmpl, void *priv);
 	void (*deinitialize)(ocf_cache_t cache);
 	int (*add_core)(ocf_cache_t cache, ocf_core_id_t core_id);
 	void (*remove_core)(ocf_cache_t cache, ocf_core_id_t core_id);
@@ -47,6 +51,8 @@ static struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max] = {
 		.set_hot_cache_line = cleaning_policy_alru_set_hot_cache_line,
 		.initialize = cleaning_policy_alru_initialize,
 		.populate = cleaning_policy_alru_populate,
+		.prepopulate = cleaning_policy_alru_prepopulate,
+		.update = cleaning_policy_alru_update,
 		.deinitialize = cleaning_policy_alru_deinitialize,
 		.set_cleaning_param = cleaning_policy_alru_set_cleaning_param,
 		.get_cleaning_param = cleaning_policy_alru_get_cleaning_param,
@@ -61,6 +67,8 @@ static struct cleaning_policy_ops cleaning_policy_ops[ocf_cleaning_max] = {
 		.set_hot_cache_line = cleaning_policy_acp_set_hot_cache_line,
 		.initialize = cleaning_policy_acp_initialize,
 		.populate = cleaning_policy_acp_populate,
+		.prepopulate = cleaning_policy_acp_prepopulate,
+		.update = cleaning_policy_acp_update,
 		.deinitialize = cleaning_policy_acp_deinitialize,
 		.set_cleaning_param = cleaning_policy_acp_set_cleaning_param,
 		.get_cleaning_param = cleaning_policy_acp_get_cleaning_param,
@@ -94,7 +102,7 @@ static inline int ocf_cleaning_initialize(ocf_cache_t cache,
 
 static inline void ocf_cleaning_populate(ocf_cache_t cache,
 		ocf_cleaning_t policy,
-		ocf_cleaning_populate_end_t cmpl, void *priv)
+		ocf_cleaning_op_end_t cmpl, void *priv)
 {
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
@@ -104,6 +112,34 @@ static inline void ocf_cleaning_populate(ocf_cache_t cache,
 	}
 
 	cleaning_policy_ops[policy].populate(cache, cmpl, priv);
+}
+
+static inline void ocf_cleaning_prepopulate(ocf_cache_t cache,
+		ocf_cleaning_t policy,
+		ocf_cleaning_op_end_t cmpl, void *priv)
+{
+	ENV_BUG_ON(policy >= ocf_cleaning_max);
+
+	if (unlikely(!cleaning_policy_ops[policy].prepopulate)) {
+		cmpl(priv, 0);
+		return;
+	}
+
+	cleaning_policy_ops[policy].prepopulate(cache, cmpl, priv);
+}
+
+static inline void ocf_cleaning_update(ocf_cache_t cache,
+		ocf_cleaning_t policy,
+		ocf_cleaning_op_end_t cmpl, void *priv)
+{
+	ENV_BUG_ON(policy >= ocf_cleaning_max);
+
+	if (unlikely(!cleaning_policy_ops[policy].update)) {
+		cmpl(priv, 0);
+		return;
+	}
+
+	cleaning_policy_ops[policy].update(cache, cmpl, priv);
 }
 
 static inline void ocf_cleaning_deinitialize(ocf_cache_t cache)

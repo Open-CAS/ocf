@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -310,7 +310,7 @@ struct ocf_acp_populate_context {
 		} bucket[ACP_MAX_BUCKETS];
 	} shard[OCF_ACP_POPULATE_SHARDS_CNT];
 
-	ocf_cleaning_populate_end_t cmpl;
+	ocf_cleaning_op_end_t cmpl;
 	void *priv;
 };
 
@@ -420,7 +420,7 @@ static void ocf_acp_populate_finish(ocf_parallelize_t parallelize,
 }
 
 void cleaning_policy_acp_populate(ocf_cache_t cache,
-                ocf_cleaning_populate_end_t cmpl, void *priv)
+		ocf_cleaning_op_end_t cmpl, void *priv)
 {
 	struct ocf_acp_populate_context *context;
 	ocf_parallelize_t parallelize;
@@ -476,6 +476,101 @@ err:
 	ocf_parallelize_destroy(parallelize);
 
 	cmpl(priv, result);
+}
+
+void cleaning_policy_acp_prepopulate(ocf_cache_t cache,
+		ocf_cleaning_op_end_t cmpl, void *priv)
+{
+	ocf_cache_line_t entries = cache->device->collision_table_entries;
+	ocf_cache_line_t cline;
+	uint32_t step = 0;
+
+	for (cline = 0; cline < entries; cline++) {
+		OCF_COND_RESCHED_DEFAULT(step);
+
+		cleaning_policy_acp_init_cache_block(cache, cline);
+	}
+
+	cmpl(priv, 0);
+}
+
+struct ocf_acp_update_context {
+	ocf_cache_t cache;
+	ocf_cleaning_op_end_t cmpl;
+	void *priv;
+};
+
+static int ocf_acp_update_handle(ocf_parallelize_t parallelize,
+		void *priv, unsigned shard_id, unsigned shards_cnt)
+{
+	struct ocf_acp_update_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_cache_line_t entries = cache->device->hash_table_entries;
+	ocf_cache_line_t terminator = cache->device->collision_table_entries;
+	ocf_cache_line_t hash, cline, portion;
+	uint64_t begin, end;
+	unsigned lock_idx = shard_id % OCF_NUM_GLOBAL_META_LOCKS;
+	uint32_t step = 0;
+
+	portion = OCF_DIV_ROUND_UP((uint64_t)entries, shards_cnt);
+	begin = portion*shard_id;
+	end = OCF_MIN(portion*(shard_id + 1), entries);
+
+	ocf_metadata_start_shared_access(&cache->metadata.lock, lock_idx);
+	for (hash = begin; hash < end; hash++) {
+		OCF_COND_RESCHED_DEFAULT(step);
+
+		ocf_hb_id_naked_lock_rd(&cache->metadata.lock, hash);
+		cline = ocf_metadata_get_hash(cache, hash);
+
+		while (cline != terminator) {
+			if (metadata_test_dirty(cache, cline)) {
+				cleaning_policy_acp_set_hot_cache_line(cache,
+						cline);
+			}
+
+			cline = ocf_metadata_get_collision_next(cache, cline);
+		}
+		ocf_hb_id_naked_unlock_rd(&cache->metadata.lock, hash);
+	}
+	ocf_metadata_end_shared_access(&cache->metadata.lock, lock_idx);
+
+	return 0;
+}
+
+static void ocf_acp_update_finish(ocf_parallelize_t parallelize,
+		void *priv, int error)
+{
+	struct ocf_acp_update_context *context = priv;
+
+	ocf_kick_cleaner(context->cache);
+
+	context->cmpl(context->priv, error);
+
+	ocf_parallelize_destroy(parallelize);
+}
+
+void cleaning_policy_acp_update(ocf_cache_t cache,
+		ocf_cleaning_op_end_t cmpl, void *priv)
+{
+	struct ocf_acp_update_context *context;
+	ocf_parallelize_t parallelize;
+	int result;
+
+	result = ocf_parallelize_create(&parallelize, cache, 0,
+			sizeof(*context), ocf_acp_update_handle,
+			ocf_acp_update_finish, true);
+	if (result) {
+		cmpl(priv, result);
+		return;
+	}
+
+	context = ocf_parallelize_get_priv(parallelize);
+	context->cache = cache;
+	context->cmpl = cmpl;
+	context->priv = priv;
+
+	ocf_parallelize_run(parallelize);
 }
 
 int cleaning_policy_acp_set_cleaning_param(ocf_cache_t cache,
