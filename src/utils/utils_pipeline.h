@@ -1,6 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2024-2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -80,6 +80,8 @@ struct ocf_pipeline_step {
 		struct ocf_pipeline_arg *args;
 	};
 };
+
+typedef struct ocf_pipeline_step *ocf_pipeline_step_t;
 
 #define xstr(a) str(a)
 #define str(a) #a
