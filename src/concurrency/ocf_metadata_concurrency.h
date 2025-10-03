@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "../ocf_cache_priv.h"
@@ -153,6 +154,10 @@ bool ocf_hb_cline_naked_trylock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
 void ocf_hb_cline_naked_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t core_id, uint64_t core_line);
+void ocf_hb_id_naked_lock_rd(struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash);
+void ocf_hb_id_naked_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+		ocf_cache_line_t hash);
 void ocf_hb_id_naked_lock_wr(struct ocf_metadata_lock *metadata_lock,
 		ocf_cache_line_t hash);
 void ocf_hb_id_naked_unlock_wr(struct ocf_metadata_lock *metadata_lock,
