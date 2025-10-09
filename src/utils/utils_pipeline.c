@@ -25,6 +25,7 @@ struct ocf_pipeline {
 	struct ocf_request *req;
 	ocf_pipeline_step_t step;
 	ocf_pipeline_arg_t arg;
+	bool rollback;
 	bool finish;
 	int error;
 
@@ -109,6 +110,7 @@ int ocf_pipeline_create(ocf_pipeline_t *pipeline, ocf_cache_t cache,
 	tmp_pipeline->req = req;
 	tmp_pipeline->step = &properties->steps[0];
 	tmp_pipeline->arg = NULL;
+	tmp_pipeline->rollback = false;
 	tmp_pipeline->finish = false;
 	tmp_pipeline->error = 0;
 
@@ -142,9 +144,20 @@ void ocf_pipeline_next(ocf_pipeline_t pipeline)
 	ocf_queue_push_req(pipeline->req, OCF_QUEUE_PRIO_HIGH);
 }
 
+void ocf_pipeline_rollback(ocf_pipeline_t pipeline, int error)
+{
+	pipeline->rollback = true;
+	pipeline->error = error;
+	pipeline->step = &pipeline->properties->rollback[0];
+	pipeline->arg = NULL;
+
+	ocf_queue_push_req(pipeline->req, OCF_QUEUE_PRIO_HIGH);
+}
+
 void ocf_pipeline_finish(ocf_pipeline_t pipeline, int error)
 {
 	pipeline->finish = true;
-	pipeline->error = error;
+	if (!pipeline->rollback)
+		pipeline->error = error;
 	ocf_queue_push_req(pipeline->req, OCF_QUEUE_PRIO_HIGH);
 }

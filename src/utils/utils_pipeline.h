@@ -164,7 +164,8 @@ typedef struct ocf_pipeline_step *ocf_pipeline_step_t;
 struct ocf_pipeline_properties {
 	uint32_t priv_size;
 	ocf_pipeline_finish_t finish;
-	struct ocf_pipeline_step steps[];
+	struct ocf_pipeline_step steps[64];
+	struct ocf_pipeline_step rollback[64];
 };
 
 int ocf_pipeline_create(ocf_pipeline_t *pipeline, ocf_cache_t cache,
@@ -177,6 +178,8 @@ void *ocf_pipeline_get_priv(ocf_pipeline_t pipeline);
 void ocf_pipeline_destroy(ocf_pipeline_t pipeline);
 
 void ocf_pipeline_next(ocf_pipeline_t pipeline);
+
+void ocf_pipeline_rollback(ocf_pipeline_t pipeline, int error);
 
 void ocf_pipeline_finish(ocf_pipeline_t pipeline, int error);
 
