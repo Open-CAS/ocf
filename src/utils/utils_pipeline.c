@@ -23,8 +23,9 @@
 struct ocf_pipeline {
 	struct ocf_pipeline_properties *properties;
 	struct ocf_request *req;
-	int next_step;
-	int next_arg;
+	ocf_pipeline_step_t step;
+	ocf_pipeline_arg_t arg;
+	bool rollback;
 	bool finish;
 	int error;
 
@@ -34,7 +35,7 @@ struct ocf_pipeline {
 static int _ocf_pipeline_run_step(struct ocf_request *req)
 {
 	ocf_pipeline_t pipeline = req->priv;
-	struct ocf_pipeline_step *step;
+	ocf_pipeline_step_t step;
 	ocf_pipeline_arg_t arg;
 
 	if (pipeline->finish) {
@@ -44,28 +45,31 @@ static int _ocf_pipeline_run_step(struct ocf_request *req)
 	}
 
 	while (true) {
-		step = &pipeline->properties->steps[pipeline->next_step];
+		step = pipeline->step;
 		OCF_DEBUG_LOG(req->cache, "PL STEP: %s\n", step->name);
 		switch (step->type) {
 		case ocf_pipeline_step_single:
-			pipeline->next_step++;
+			pipeline->step++;
 			step->hndl(pipeline, pipeline->priv, &step->arg);
 			return 0;
 		case ocf_pipeline_step_conditional:
-			pipeline->next_step++;
+			pipeline->step++;
 			if (step->pred(pipeline, pipeline->priv, &step->arg)) {
 				step->hndl(pipeline, pipeline->priv, &step->arg);
 				return 0;
 			}
 			continue;
 		case ocf_pipeline_step_foreach:
-			arg = &step->args[pipeline->next_arg++];
+			if (!pipeline->arg)
+				pipeline->arg = &step->args[0];
+			arg = pipeline->arg;
 			if (arg->type == ocf_pipeline_arg_terminator) {
-				pipeline->next_arg = 0;
-				pipeline->next_step++;
+				pipeline->arg = NULL;
+				pipeline->step++;
 				continue;
 			}
 			step->hndl(pipeline, pipeline->priv, arg);
+			pipeline->arg++;
 			return 0;
 		case ocf_pipeline_step_terminator:
 			pipeline->properties->finish(pipeline, pipeline->priv,
@@ -104,7 +108,9 @@ int ocf_pipeline_create(ocf_pipeline_t *pipeline, ocf_cache_t cache,
 
 	tmp_pipeline->properties = properties;
 	tmp_pipeline->req = req;
-	tmp_pipeline->next_step = 0;
+	tmp_pipeline->step = &properties->steps[0];
+	tmp_pipeline->arg = NULL;
+	tmp_pipeline->rollback = false;
 	tmp_pipeline->finish = false;
 	tmp_pipeline->error = 0;
 
@@ -138,9 +144,20 @@ void ocf_pipeline_next(ocf_pipeline_t pipeline)
 	ocf_queue_push_req(pipeline->req, OCF_QUEUE_PRIO_HIGH);
 }
 
+void ocf_pipeline_rollback(ocf_pipeline_t pipeline, int error)
+{
+	pipeline->rollback = true;
+	pipeline->error = error;
+	pipeline->step = &pipeline->properties->rollback[0];
+	pipeline->arg = NULL;
+
+	ocf_queue_push_req(pipeline->req, OCF_QUEUE_PRIO_HIGH);
+}
+
 void ocf_pipeline_finish(ocf_pipeline_t pipeline, int error)
 {
 	pipeline->finish = true;
-	pipeline->error = error;
+	if (!pipeline->rollback)
+		pipeline->error = error;
 	ocf_queue_push_req(pipeline->req, OCF_QUEUE_PRIO_HIGH);
 }

@@ -968,9 +968,13 @@ struct ocf_mngt_cache_set_cleaning_context
 	ocf_mngt_cache_set_cleaning_policy_end_t cmpl;
 	/* completion function */
 	void *priv;
+
+	struct {
+		bool cleaner_frozen : 1;
+	} flags;
 };
 
-static void _ocf_mngt_cleaning_deinit_complete(void *priv)
+static void _ocf_mngt_cache_cleaning_set_policy_zero_cb(void *priv)
 {
 	struct ocf_mngt_cache_set_cleaning_context *context = priv;
 	ocf_cache_t cache = context->cache;
@@ -980,31 +984,96 @@ static void _ocf_mngt_cleaning_deinit_complete(void *priv)
 	ocf_pipeline_next(context->pipeline);
 }
 
-static void _ocf_mngt_deinit_clean_policy(ocf_pipeline_t pipeline, void *priv,
-		ocf_pipeline_arg_t arg)
+static void _ocf_mngt_cache_cleaning_set_policy_deinitialize(
+		ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_set_cleaning_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
-
 	env_refcnt_freeze(&cache->cleaner.refcnt);
+	context->flags.cleaner_frozen = true;
+
 	env_refcnt_register_zero_cb(&cache->cleaner.refcnt,
-			_ocf_mngt_cleaning_deinit_complete, context);
+			_ocf_mngt_cache_cleaning_set_policy_zero_cb,
+			context);
 }
 
-static void _ocf_mngt_cleaning_init_complete(void *priv, int error)
+static void _ocf_mngt_cache_cleaning_set_policy_initialize(
+		ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
 {
 	struct ocf_mngt_cache_set_cleaning_context *context = priv;
-	ocf_pipeline_t pipeline = context->pipeline;
+	ocf_cache_t cache = context->cache;
+	ocf_cleaning_t new_policy = context->new_policy;
+	int result;
+
+	result = ocf_cleaning_initialize(cache, new_policy, false);
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
+}
+
+static void _ocf_mngt_cache_cleaning_set_policy_prepopulate_cmpl(void *priv,
+		int error)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
+}
+
+static void _ocf_mngt_cache_cleaning_set_policy_prepopulate(
+		ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_cleaning_t new_policy = context->new_policy;
+
+	ocf_cleaning_prepopulate(cache, new_policy,
+			_ocf_mngt_cache_cleaning_set_policy_prepopulate_cmpl,
+			context);
+}
+
+static void _ocf_mngt_cache_cleaning_set_policy_update_cmpl(void *priv,
+		int error)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+
+	if (error) {
+		ocf_pipeline_rollback(context->pipeline, error);
+		return;
+	}
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+
+static void _ocf_mngt_cache_cleaning_set_policy_update(
+		ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_cleaning_t new_policy = context->new_policy;
+
+	__set_cleaning_policy(cache, context->new_policy);
+
+	env_refcnt_unfreeze(&cache->cleaner.refcnt);
+	context->flags.cleaner_frozen = false;
+
+	ocf_cleaning_update(cache, new_policy,
+			_ocf_mngt_cache_cleaning_set_policy_update_cmpl,
+			context);
+}
+
+static void _ocf_mngt_cleaning_set_finish(ocf_pipeline_t pipeline, void *priv,
+		int error)
+{
+	struct ocf_mngt_cache_set_cleaning_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_cleaning_t old_policy = context->old_policy;
 	ocf_cleaning_t new_policy = context->new_policy;
 	ocf_cleaning_t emergency_policy = ocf_cleaning_nop;
 
 	if (error) {
-		ocf_cache_log(cache, log_info, "Failed to initialize %s cleaning "
-				"policy. Setting %s instead\n",
+		ocf_cache_log(cache, log_info, "Failed to initialize %s "
+				"cleaning policy. Setting %s instead\n",
 				ocf_cleaning_get_name(new_policy),
 				ocf_cleaning_get_name(emergency_policy));
 		new_policy = emergency_policy;
@@ -1016,35 +1085,8 @@ static void _ocf_mngt_cleaning_init_complete(void *priv, int error)
 
 	__set_cleaning_policy(cache, new_policy);
 
-	OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, error);
-
-}
-
-static void _ocf_mngt_init_clean_policy(ocf_pipeline_t pipeline, void *priv,
-		ocf_pipeline_arg_t arg)
-{
-	int result;
-	struct ocf_mngt_cache_set_cleaning_context *context = priv;
-	ocf_cache_t cache = context->cache;
-	ocf_cleaning_t new_policy = context->new_policy;
-
-	result = ocf_cleaning_initialize(cache, new_policy, false);
-	if (result) {
-		_ocf_mngt_cleaning_init_complete(context, result);
-	} else {
-		ocf_cleaning_populate(cache, new_policy,
-				_ocf_mngt_cleaning_init_complete, context);
-	}
-}
-
-static void _ocf_mngt_set_cleaning_finish(ocf_pipeline_t pipeline, void *priv,
-		int error)
-{
-	struct ocf_mngt_cache_set_cleaning_context *context = priv;
-	ocf_cache_t cache = context->cache;
-
-	env_refcnt_unfreeze(&cache->cleaner.refcnt);
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	if (context->flags.cleaner_frozen)
+		env_refcnt_unfreeze(&cache->cleaner.refcnt);
 
 	context->cmpl(context->priv, error);
 
@@ -1052,12 +1094,18 @@ static void _ocf_mngt_set_cleaning_finish(ocf_pipeline_t pipeline, void *priv,
 }
 
 static
-struct ocf_pipeline_properties _ocf_mngt_cache_set_cleaning_policy = {
+struct ocf_pipeline_properties ocf_mngt_cache_cleaning_set_policy_properties = {
 	.priv_size = sizeof(struct ocf_mngt_cache_set_cleaning_context),
-	.finish = _ocf_mngt_set_cleaning_finish,
+	.finish = _ocf_mngt_cleaning_set_finish,
 	.steps = {
-		OCF_PL_STEP(_ocf_mngt_deinit_clean_policy),
-		OCF_PL_STEP(_ocf_mngt_init_clean_policy),
+		OCF_PL_STEP(_ocf_mngt_cache_cleaning_set_policy_deinitialize),
+		OCF_PL_STEP(_ocf_mngt_cache_cleaning_set_policy_initialize),
+		OCF_PL_STEP(_ocf_mngt_cache_cleaning_set_policy_prepopulate),
+		OCF_PL_STEP(_ocf_mngt_cache_cleaning_set_policy_update),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+	.rollback = {
+		OCF_PL_STEP(_ocf_mngt_cache_cleaning_set_policy_deinitialize),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
@@ -1097,7 +1145,7 @@ void ocf_mngt_cache_cleaning_set_policy(ocf_cache_t cache,
 		OCF_CMPL_RET(priv, -OCF_ERR_CLEANER_DISABLED);
 
 	ret = ocf_pipeline_create(&pipeline, cache,
-			&_ocf_mngt_cache_set_cleaning_policy);
+			&ocf_mngt_cache_cleaning_set_policy_properties);
 	if (ret)
 		OCF_CMPL_RET(priv, ret);
 
