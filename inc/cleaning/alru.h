@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2022      David Lee <live4thee@gmail.com>
+ * Copyright(c) 2025      Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef __OCF_CLEANING_ALRU_H__
@@ -78,6 +79,15 @@ enum ocf_cleaning_alru_parameters {
 #define OCF_ALRU_MAX_MAX_DIRTY_RATIO		100
 /** Default dirty ratio value */
 #define OCF_ALRU_DEFAULT_MAX_DIRTY_RATIO	OCF_ALRU_MAX_MAX_DIRTY_RATIO
+
+/**
+ * ALRU dirty-ratio-based cleaning trigger inertia
+ * Cleaning triggered by exceeding dirty ratio threshold will stop
+ * when dirty ratio drops below (threshold - inertia).
+ */
+
+/** Default dirty ratio trigger inertia */
+#define OCF_ALRU_DEFAULT_DIRTY_RATIO_INERTIA	5
 /**
  * @}
  */

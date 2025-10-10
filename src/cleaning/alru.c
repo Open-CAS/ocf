@@ -59,6 +59,7 @@ struct alru_flush_ctx {
 
 struct alru_context {
 	struct alru_flush_ctx flush_ctx;
+	bool dirty_ratio_triggered;
 	env_spinlock list_lock[OCF_USER_IO_CLASS_MAX];
 };
 
@@ -357,6 +358,7 @@ void cleaning_policy_alru_setup(struct ocf_cache *cache)
 	config->flush_max_buffers = OCF_ALRU_DEFAULT_FLUSH_MAX_BUFFERS;
 	config->activity_threshold = OCF_ALRU_DEFAULT_ACTIVITY_THRESHOLD;
 	config->max_dirty_ratio = OCF_ALRU_DEFAULT_MAX_DIRTY_RATIO;
+	config->dirty_ratio_inertia = OCF_ALRU_DEFAULT_DIRTY_RATIO_INERTIA;
 }
 
 int cleaning_policy_alru_initialize(ocf_cache_t cache, int kick_cleaner)
@@ -853,6 +855,8 @@ static bool check_for_dirty_ratio(ocf_cache_t cache,
 		struct alru_cleaning_policy_config *config)
 {
 	struct ocf_cache_info info;
+	struct alru_context *ctx;
+	uint32_t threshold;
 
 	if (config->max_dirty_ratio == OCF_ALRU_MAX_MAX_DIRTY_RATIO)
 		return false;
@@ -860,7 +864,19 @@ static bool check_for_dirty_ratio(ocf_cache_t cache,
 	if (ocf_cache_get_info(cache, &info))
 		return false;
 
-	return info.dirty * 100 / info.size >= config->max_dirty_ratio;
+	ctx = cache->cleaner.cleaning_policy_context;
+	if (ctx->dirty_ratio_triggered) {
+		if (config->dirty_ratio_inertia >= config->max_dirty_ratio)
+			return true;
+
+		threshold = config->max_dirty_ratio
+					- config->dirty_ratio_inertia;
+	} else {
+		threshold = config->max_dirty_ratio;
+	}
+
+	ctx->dirty_ratio_triggered = info.dirty * 100 / info.size >= threshold;
+	return ctx->dirty_ratio_triggered;
 }
 
 static bool is_cleanup_possible(ocf_cache_t cache, struct alru_flush_ctx *fctx)
