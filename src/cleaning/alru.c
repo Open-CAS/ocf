@@ -775,6 +775,16 @@ int cleaning_policy_alru_set_cleaning_param(ocf_cache_t cache,
 				"dirty ratio trigger threshold: %d\n",
 				config->dirty_ratio_threshold);
 		break;
+	case ocf_alru_dirty_ratio_inertia:
+		OCF_CLEANING_CHECK_PARAM(cache, param_value,
+				OCF_ALRU_MIN_DIRTY_RATIO_INERTIA,
+				OCF_ALRU_MAX_DIRTY_RATIO_INERTIA,
+				"dirty_ratio_inertia");
+		config->dirty_ratio_inertia = param_value;
+		ocf_cache_log(cache, log_info, "Write-back flush thread "
+				"dirty ratio trigger inertia: %d\n",
+				config->dirty_ratio_inertia);
+		break;
 	default:
 		return -OCF_ERR_INVAL;
 	}
@@ -804,6 +814,9 @@ int cleaning_policy_alru_get_cleaning_param(ocf_cache_t cache,
 		break;
 	case ocf_alru_dirty_ratio_threshold:
 		*param_value = config->dirty_ratio_threshold;
+		break;
+	case ocf_alru_dirty_ratio_inertia:
+		*param_value = config->dirty_ratio_inertia;
 		break;
 	default:
 		return -OCF_ERR_INVAL;
