@@ -18,6 +18,7 @@ enum ocf_cleaning_alru_parameters {
 	ocf_alru_flush_max_buffers,
 	ocf_alru_activity_threshold,
 	ocf_alru_dirty_ratio_threshold,
+	ocf_alru_dirty_ratio_inertia,
 };
 
 /**
@@ -87,6 +88,10 @@ enum ocf_cleaning_alru_parameters {
  * when dirty ratio drops below (threshold - inertia).
  */
 
+/** Minimum dirty ratio trigger inertia value */
+#define OCF_ALRU_MIN_DIRTY_RATIO_INERTIA		0
+/** Maximum dirty ratio trigger inertia value */
+#define OCF_ALRU_MAX_DIRTY_RATIO_INERTIA		UINT_MAX
 /** Default dirty ratio trigger inertia */
 #define OCF_ALRU_DEFAULT_DIRTY_RATIO_INERTIA	(128 * MiB)
 /**
