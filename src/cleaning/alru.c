@@ -356,7 +356,7 @@ void cleaning_policy_alru_setup(struct ocf_cache *cache)
 	config->stale_buffer_time = OCF_ALRU_DEFAULT_STALENESS_TIME;
 	config->flush_max_buffers = OCF_ALRU_DEFAULT_FLUSH_MAX_BUFFERS;
 	config->activity_threshold = OCF_ALRU_DEFAULT_ACTIVITY_THRESHOLD;
-	config->max_dirty_ratio = OCF_ALRU_DEFAULT_MAX_DIRTY_RATIO;
+	config->dirty_ratio_threshold = OCF_ALRU_DEFAULT_DIRTY_RATIO_THRESHOLD;
 }
 
 int cleaning_policy_alru_initialize(ocf_cache_t cache, int kick_cleaner)
@@ -763,15 +763,15 @@ int cleaning_policy_alru_set_cleaning_param(ocf_cache_t cache,
 				"activity time threshold: %d\n",
 				config->activity_threshold);
 		break;
-	case ocf_alru_max_dirty_ratio:
+	case ocf_alru_dirty_ratio_threshold:
 		OCF_CLEANING_CHECK_PARAM(cache, param_value,
-				OCF_ALRU_MIN_MAX_DIRTY_RATIO,
-				OCF_ALRU_MAX_MAX_DIRTY_RATIO,
-				"max_dirty_ratio");
-		config->max_dirty_ratio = param_value;
+				OCF_ALRU_MIN_DIRTY_RATIO_THRESHOLD,
+				OCF_ALRU_MAX_DIRTY_RATIO_THRESHOLD,
+				"dirty_ratio_threshold");
+		config->dirty_ratio_threshold = param_value;
 		ocf_cache_log(cache, log_info, "Write-back flush thread "
-				"max dirty ratio: %d\n",
-				config->max_dirty_ratio);
+				"dirty ratio trigger threshold: %d\n",
+				config->dirty_ratio_threshold);
 		break;
 	default:
 		return -OCF_ERR_INVAL;
@@ -800,8 +800,8 @@ int cleaning_policy_alru_get_cleaning_param(ocf_cache_t cache,
 	case ocf_alru_activity_threshold:
 		*param_value = config->activity_threshold;
 		break;
-	case ocf_alru_max_dirty_ratio:
-		*param_value = config->max_dirty_ratio;
+	case ocf_alru_dirty_ratio_threshold:
+		*param_value = config->dirty_ratio_threshold;
 		break;
 	default:
 		return -OCF_ERR_INVAL;
@@ -854,13 +854,13 @@ static bool check_for_dirty_ratio(ocf_cache_t cache,
 {
 	struct ocf_cache_info info;
 
-	if (config->max_dirty_ratio == OCF_ALRU_MAX_MAX_DIRTY_RATIO)
+	if (config->dirty_ratio_threshold == OCF_ALRU_MAX_DIRTY_RATIO_THRESHOLD)
 		return false;
 
 	if (ocf_cache_get_info(cache, &info))
 		return false;
 
-	return info.dirty * 100 / info.size >= config->max_dirty_ratio;
+	return info.dirty * 100 / info.size >= config->dirty_ratio_threshold;
 }
 
 static bool is_cleanup_possible(ocf_cache_t cache, struct alru_flush_ctx *fctx)
@@ -873,7 +873,7 @@ static bool is_cleanup_possible(ocf_cache_t cache, struct alru_flush_ctx *fctx)
 	if (check_for_dirty_ratio(cache, config)) {
 		fctx->dirty_ratio_exceeded = true;
 		OCF_DEBUG_PARAM(cache, "Dirty ratio exceeds: %u%%",
-				config->max_dirty_ratio);
+				config->dirty_ratio_threshold);
 		return true;
 	}
 

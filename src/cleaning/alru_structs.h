@@ -22,7 +22,7 @@ struct alru_cleaning_policy_config {
 	uint32_t stale_buffer_time;			/* in seconds */
 	uint32_t flush_max_buffers;			/* in lines */
 	uint32_t activity_threshold;		/* in milliseconds */
-	uint32_t max_dirty_ratio;			/* percent */
+	uint32_t dirty_ratio_threshold;		/* percent */
 };
 
 struct alru_cleaning_policy {
