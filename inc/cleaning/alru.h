@@ -80,6 +80,15 @@ enum ocf_cleaning_alru_parameters {
 /** Default dirty ratio trigger threshold value */
 #define OCF_ALRU_DEFAULT_DIRTY_RATIO_THRESHOLD	\
 		OCF_ALRU_MAX_DIRTY_RATIO_THRESHOLD
+
+/**
+ * ALRU dirty-ratio-based cleaning trigger inertia
+ * Cleaning triggered by exceeding dirty ratio threshold will stop
+ * when dirty ratio drops below (threshold - inertia).
+ */
+
+/** Default dirty ratio trigger inertia */
+#define OCF_ALRU_DEFAULT_DIRTY_RATIO_INERTIA	(128 * MiB)
 /**
  * @}
  */
