@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2022      David Lee <live4thee@gmail.com>
+ * Copyright(c) 2025      Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef __CLEANING_ALRU_STRUCTS_H__
@@ -17,11 +18,12 @@ struct alru_cleaning_policy_meta {
 } __attribute__((packed));
 
 struct alru_cleaning_policy_config {
-	uint32_t thread_wakeup_time;	/* in seconds */
-	uint32_t stale_buffer_time;	/* in seconds */
-	uint32_t flush_max_buffers;	/* in lines */
-	uint32_t activity_threshold;	/* in milliseconds */
-	uint32_t max_dirty_ratio;	/* percent */
+	uint32_t thread_wakeup_time;		/* in seconds */
+	uint32_t stale_buffer_time;			/* in seconds */
+	uint32_t flush_max_buffers;			/* in lines */
+	uint32_t activity_threshold;		/* in milliseconds */
+	uint32_t dirty_ratio_threshold;		/* percent */
+	uint32_t dirty_ratio_inertia;		/* bytes */
 };
 
 struct alru_cleaning_policy {

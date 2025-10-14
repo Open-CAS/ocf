@@ -59,6 +59,7 @@ struct alru_flush_ctx {
 
 struct alru_context {
 	struct alru_flush_ctx flush_ctx;
+	bool dirty_ratio_triggered;
 	env_spinlock list_lock[OCF_USER_IO_CLASS_MAX];
 };
 
@@ -356,7 +357,8 @@ void cleaning_policy_alru_setup(struct ocf_cache *cache)
 	config->stale_buffer_time = OCF_ALRU_DEFAULT_STALENESS_TIME;
 	config->flush_max_buffers = OCF_ALRU_DEFAULT_FLUSH_MAX_BUFFERS;
 	config->activity_threshold = OCF_ALRU_DEFAULT_ACTIVITY_THRESHOLD;
-	config->max_dirty_ratio = OCF_ALRU_DEFAULT_MAX_DIRTY_RATIO;
+	config->dirty_ratio_threshold = OCF_ALRU_DEFAULT_DIRTY_RATIO_THRESHOLD;
+	config->dirty_ratio_inertia = OCF_ALRU_DEFAULT_DIRTY_RATIO_INERTIA;
 }
 
 int cleaning_policy_alru_initialize(ocf_cache_t cache, int kick_cleaner)
@@ -763,15 +765,25 @@ int cleaning_policy_alru_set_cleaning_param(ocf_cache_t cache,
 				"activity time threshold: %d\n",
 				config->activity_threshold);
 		break;
-	case ocf_alru_max_dirty_ratio:
+	case ocf_alru_dirty_ratio_threshold:
 		OCF_CLEANING_CHECK_PARAM(cache, param_value,
-				OCF_ALRU_MIN_MAX_DIRTY_RATIO,
-				OCF_ALRU_MAX_MAX_DIRTY_RATIO,
-				"max_dirty_ratio");
-		config->max_dirty_ratio = param_value;
+				OCF_ALRU_MIN_DIRTY_RATIO_THRESHOLD,
+				OCF_ALRU_MAX_DIRTY_RATIO_THRESHOLD,
+				"dirty_ratio_threshold");
+		config->dirty_ratio_threshold = param_value;
 		ocf_cache_log(cache, log_info, "Write-back flush thread "
-				"max dirty ratio: %d\n",
-				config->max_dirty_ratio);
+				"dirty ratio trigger threshold: %d\n",
+				config->dirty_ratio_threshold);
+		break;
+	case ocf_alru_dirty_ratio_inertia:
+		OCF_CLEANING_CHECK_PARAM(cache, param_value,
+				OCF_ALRU_MIN_DIRTY_RATIO_INERTIA,
+				OCF_ALRU_MAX_DIRTY_RATIO_INERTIA,
+				"dirty_ratio_inertia");
+		config->dirty_ratio_inertia = param_value;
+		ocf_cache_log(cache, log_info, "Write-back flush thread "
+				"dirty ratio trigger inertia: %d\n",
+				config->dirty_ratio_inertia);
 		break;
 	default:
 		return -OCF_ERR_INVAL;
@@ -800,8 +812,11 @@ int cleaning_policy_alru_get_cleaning_param(ocf_cache_t cache,
 	case ocf_alru_activity_threshold:
 		*param_value = config->activity_threshold;
 		break;
-	case ocf_alru_max_dirty_ratio:
-		*param_value = config->max_dirty_ratio;
+	case ocf_alru_dirty_ratio_threshold:
+		*param_value = config->dirty_ratio_threshold;
+		break;
+	case ocf_alru_dirty_ratio_inertia:
+		*param_value = config->dirty_ratio_inertia;
 		break;
 	default:
 		return -OCF_ERR_INVAL;
@@ -850,30 +865,43 @@ static bool clean_later(ocf_cache_t cache, uint32_t *delta)
 }
 
 static bool check_for_dirty_ratio(ocf_cache_t cache,
-		struct alru_cleaning_policy_config *config)
+		struct alru_cleaning_policy_config *config,
+		struct alru_context *ctx)
 {
 	struct ocf_cache_info info;
+	/* values in cache lines */
+	ocf_cache_line_t threshold_cl, inertia_cl;
 
-	if (config->max_dirty_ratio == OCF_ALRU_MAX_MAX_DIRTY_RATIO)
+	if (config->dirty_ratio_threshold == OCF_ALRU_MAX_DIRTY_RATIO_THRESHOLD)
 		return false;
 
 	if (ocf_cache_get_info(cache, &info))
 		return false;
 
-	return info.dirty * 100 / info.size >= config->max_dirty_ratio;
+	threshold_cl = info.size / 100 * config->dirty_ratio_threshold;
+	if (ctx->dirty_ratio_triggered) {
+		inertia_cl = config->dirty_ratio_inertia / info.cache_line_size;
+		if (inertia_cl >= threshold_cl)
+			return true;
+
+		threshold_cl -= inertia_cl;
+	}
+
+	ctx->dirty_ratio_triggered = info.dirty >= threshold_cl;
+	return ctx->dirty_ratio_triggered;
 }
 
-static bool is_cleanup_possible(ocf_cache_t cache, struct alru_flush_ctx *fctx)
+static bool is_cleanup_possible(ocf_cache_t cache, struct alru_context *ctx)
 {
+	struct alru_flush_ctx *fctx = &ctx->flush_ctx;
 	struct alru_cleaning_policy_config *config;
 	uint32_t delta;
-
 	config = (void *)&cache->conf_meta->cleaning[ocf_cleaning_alru].data;
 
-	if (check_for_dirty_ratio(cache, config)) {
+	if (check_for_dirty_ratio(cache, config, ctx)) {
 		fctx->dirty_ratio_exceeded = true;
 		OCF_DEBUG_PARAM(cache, "Dirty ratio exceeds: %u%%",
-				config->max_dirty_ratio);
+				config->dirty_ratio_threshold);
 		return true;
 	}
 
@@ -1027,7 +1055,7 @@ static void alru_clean(struct alru_context *ctx)
 	ocf_cache_t cache = fctx->cache;
 	int to_clean;
 
-	if (!is_cleanup_possible(cache, fctx)) {
+	if (!is_cleanup_possible(cache, ctx)) {
 		alru_clean_complete(fctx, 0);
 		return;
 	}
