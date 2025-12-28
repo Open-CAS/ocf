@@ -4,7 +4,7 @@
 [![Tests Status](https://d1rxsi9lvcwnz5.cloudfront.net/master-status/tests/curr-badge.svg)](https://d1rxsi9lvcwnz5.cloudfront.net/master-status/tests/index.html)
 [![Coverity status](https://scan.coverity.com/projects/19083/badge.svg)](https://scan.coverity.com/projects/open-cas-ocf)
 [![codecov](https://codecov.io/gh/Open-CAS/ocf/branch/master/graph/badge.svg)](https://codecov.io/gh/Open-CAS/ocf)
-[![License](https://d1rxsi9lvcwnz5.cloudfront.net/master-status/license-badge.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
 
 Open CAS Framework (OCF) is high performance block storage caching meta-library
 written in C. It's entirely platform and system independent, accessing system API
