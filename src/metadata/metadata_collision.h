@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -15,8 +16,6 @@ struct ocf_metadata_list_info {
 		/*!<  Previous cache line in collision list */
 	ocf_cache_line_t next_col;
 		/*!<  Next cache line in collision list*/
-	ocf_part_id_t partition_id : 8;
-		/*!<  ID of partition where is assigned this cache line*/
 } __attribute__((packed));
 
 /**
