@@ -1,0 +1,21 @@
+name: Tests Status
+permissions:
+  contents: read
+  pull-requests: read
+on: [pull_request]
+jobs:
+  run-tests:
+    name: Tests Status
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - name: 'Set up Python'
+      uses: actions/setup-python@v5
+    - name: Install dependencies
+      run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+    - name: 'Build OCF library'
+      run: cd tests/functional; make -j
+    - name: 'Execute tests'
+      run: cd tests/functional; python3 -m pytest
