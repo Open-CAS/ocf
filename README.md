@@ -1,7 +1,7 @@
 # Open CAS Framework
 
 [![Build Status](https://github.com/Open-CAS/ocf/actions/workflows/build-master.yml/badge.svg)](https://github.com/Open-CAS/ocf/actions/workflows/build-master.yml)
-[![Tests Status](https://d1rxsi9lvcwnz5.cloudfront.net/master-status/tests/curr-badge.svg)](https://d1rxsi9lvcwnz5.cloudfront.net/master-status/tests/index.html)
+[![Tests Status](https://github.com/Open-CAS/ocf/actions/workflows/tests-master.yml/badge.svg)](https://github.com/Open-CAS/ocf/actions/workflows/tests-master.yml)
 [![Coverity status](https://scan.coverity.com/projects/19083/badge.svg)](https://scan.coverity.com/projects/open-cas-ocf)
 [![codecov](https://codecov.io/gh/Open-CAS/ocf/branch/master/graph/badge.svg)](https://codecov.io/gh/Open-CAS/ocf)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
