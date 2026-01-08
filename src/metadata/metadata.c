@@ -1498,7 +1498,7 @@ void ocf_metadata_get_core_and_part_id(struct ocf_cache *cache,
 		ocf_part_id_t *part_id)
 {
 	const struct ocf_metadata_map *collision;
-	const struct ocf_metadata_list_info *info;
+	const struct ocf_lru_meta *info;
 	struct ocf_metadata_ctrl *ctrl =
 		(struct ocf_metadata_ctrl *) cache->metadata.priv;
 
@@ -1506,7 +1506,7 @@ void ocf_metadata_get_core_and_part_id(struct ocf_cache *cache,
 			&(ctrl->raw_desc[metadata_segment_collision]), line);
 
 	info =  ocf_metadata_raw_rd_access(cache,
-			&(ctrl->raw_desc[metadata_segment_list_info]), line);
+			&(ctrl->raw_desc[metadata_segment_lru]), line);
 
 	ENV_BUG_ON(!collision || !info);
 

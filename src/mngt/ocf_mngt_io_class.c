@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2025 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -327,4 +328,33 @@ out_cpy:
 	env_free(old_config);
 
 	return result;
+}
+
+int ocf_repart_to_default(ocf_cache_t cache,
+	const struct ocf_mngt_io_classes_config *cfg, bool all)
+{
+	int i;
+
+	/* Temporarily disable IO classes (except for default) for
+	 * repartitioning.
+	 */
+	for (i = 1; i < OCF_USER_IO_CLASS_MAX; i++)
+		_ocf_mngt_set_partition_size(cache, i, 0, 0);
+
+	for (i = 1; i < OCF_USER_IO_CLASS_MAX; i++) {
+		if (all || !cfg->config[i].name) {
+			ocf_lru_repart_all(cache,
+				&cache->user_parts[i].part,
+				&cache->user_parts[0].part);
+		}
+	}
+
+	/* Reenable IO classes */
+	for (i = 1; i < OCF_USER_IO_CLASS_MAX; i++) {
+		/* Sizes already validated. */
+		_ocf_mngt_set_partition_size(cache, i, 0,
+			cfg->config[i].max_size);
+	}
+
+	return 0;
 }
