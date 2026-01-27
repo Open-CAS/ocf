@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -1006,7 +1007,7 @@ static void _ocf_mngt_cache_cleaning_set_policy_initialize(
 	ocf_cleaning_t new_policy = context->new_policy;
 	int result;
 
-	result = ocf_cleaning_initialize(cache, new_policy, false);
+	result = ocf_cleaning_initialize(cache, new_policy);
 
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }

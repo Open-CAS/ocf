@@ -2,6 +2,7 @@
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2022      David Lee <live4thee@gmail.com>
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -361,7 +362,7 @@ void cleaning_policy_alru_setup(struct ocf_cache *cache)
 	config->dirty_ratio_inertia = OCF_ALRU_DEFAULT_DIRTY_RATIO_INERTIA;
 }
 
-int cleaning_policy_alru_initialize(ocf_cache_t cache, int kick_cleaner)
+int cleaning_policy_alru_initialize(ocf_cache_t cache)
 {
 	struct alru_context *ctx;
 	int error = 0;
@@ -389,9 +390,6 @@ int cleaning_policy_alru_initialize(ocf_cache_t cache, int kick_cleaner)
 	cache->device->runtime_meta->cleaning_thread_access = 0;
 
 	cache->cleaner.cleaning_policy_context = ctx;
-
-	if (kick_cleaner)
-		ocf_kick_cleaner(cache);
 
 	return 0;
 }
@@ -607,9 +605,14 @@ static void cleaning_policy_alru_fill(ocf_cache_t cache,
 	ocf_parallelize_run(parallelize);
 }
 
-void cleaning_policy_alru_populate(ocf_cache_t cache,
+void cleaning_policy_alru_populate(ocf_cache_t cache, bool reconstruct,
 		ocf_cleaning_op_end_t cmpl, void *priv)
 {
+	if (!reconstruct) {
+		ocf_kick_cleaner(cache);
+		OCF_CMPL_RET(priv, 0);
+	}
+
 	cleaning_policy_alru_fill(cache, cmpl, priv,
 			ocf_alru_populate_handle);
 }
