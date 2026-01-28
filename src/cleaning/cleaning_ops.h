@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -14,8 +15,8 @@
 
 struct cleaning_policy_ops {
 	void (*setup)(ocf_cache_t cache);
-	int (*initialize)(ocf_cache_t cache, int kick_cleaner);
-	void (*populate)(ocf_cache_t cache,
+	int (*initialize)(ocf_cache_t cache);
+	void (*populate)(ocf_cache_t cache, bool reconstruct,
 			ocf_cleaning_op_end_t cmpl, void *priv);
 	void (*prepopulate)(ocf_cache_t cache,
 			ocf_cleaning_op_end_t cmpl, void *priv);
@@ -90,18 +91,18 @@ static inline void ocf_cleaning_setup(ocf_cache_t cache, ocf_cleaning_t policy)
 }
 
 static inline int ocf_cleaning_initialize(ocf_cache_t cache,
-		ocf_cleaning_t policy, int kick_cleaner)
+		ocf_cleaning_t policy)
 {
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
 
 	if (unlikely(!cleaning_policy_ops[policy].initialize))
 		return 0;
 
-	return cleaning_policy_ops[policy].initialize(cache, kick_cleaner);
+	return cleaning_policy_ops[policy].initialize(cache);
 }
 
 static inline void ocf_cleaning_populate(ocf_cache_t cache,
-		ocf_cleaning_t policy,
+		ocf_cleaning_t policy, bool reconstruct,
 		ocf_cleaning_op_end_t cmpl, void *priv)
 {
 	ENV_BUG_ON(policy >= ocf_cleaning_max);
@@ -111,7 +112,7 @@ static inline void ocf_cleaning_populate(ocf_cache_t cache,
 		return;
 	}
 
-	cleaning_policy_ops[policy].populate(cache, cmpl, priv);
+	cleaning_policy_ops[policy].populate(cache, reconstruct, cmpl, priv);
 }
 
 static inline void ocf_cleaning_prepopulate(ocf_cache_t cache,

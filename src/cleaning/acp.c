@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -246,7 +247,7 @@ void cleaning_policy_acp_setup(struct ocf_cache *cache)
 	config->flush_max_buffers = OCF_ACP_DEFAULT_FLUSH_MAX_BUFFERS;
 }
 
-int cleaning_policy_acp_initialize(ocf_cache_t cache, int kick_cleaner)
+int cleaning_policy_acp_initialize(ocf_cache_t cache)
 {
 	struct acp_context *acp;
 	int err, i;
@@ -291,9 +292,6 @@ int cleaning_policy_acp_initialize(ocf_cache_t cache, int kick_cleaner)
 			return err;
 		}
 	}
-
-	if (kick_cleaner)
-		ocf_kick_cleaner(cache);
 
 	return 0;
 }
@@ -419,7 +417,7 @@ static void ocf_acp_populate_finish(ocf_parallelize_t parallelize,
 	ocf_parallelize_destroy(parallelize);
 }
 
-void cleaning_policy_acp_populate(ocf_cache_t cache,
+void cleaning_policy_acp_populate(ocf_cache_t cache, bool reconstruct,
 		ocf_cleaning_op_end_t cmpl, void *priv)
 {
 	struct ocf_acp_populate_context *context;

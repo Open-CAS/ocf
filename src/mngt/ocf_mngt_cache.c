@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2023-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -232,7 +233,7 @@ static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
 	for (i = 0; i < ocf_cleaning_max; i++)
 		ocf_cleaning_setup(cache, i);
 
-	result = ocf_cleaning_initialize(cache, cache->cleaner.policy, false);
+	result = ocf_cleaning_initialize(cache, cache->cleaner.policy);
 	if (result)
 		env_refcnt_deinit(&cache->cleaner.refcnt);
 
@@ -736,6 +737,8 @@ static void _ocf_mngt_load_init_cleaning(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
+	bool reconstruct = context->metadata.shutdown_status ==
+			ocf_metadata_dirty_shutdown;
 	ocf_error_t result;
 
 	result = env_refcnt_init(&cache->cleaner.refcnt, "cleaner", sizeof("cleaner"));
@@ -744,20 +747,12 @@ static void _ocf_mngt_load_init_cleaning(ocf_pipeline_t pipeline,
 		OCF_PL_FINISH_RET(pipeline, result);
 	}
 
-	if (context->metadata.shutdown_status == ocf_metadata_clean_shutdown) {
-		/* Cleaning policy structures have been loaded so no need to populate
-		   them for the second time */
-		result = ocf_cleaning_initialize(cache, cache->cleaner.policy, true);
-		OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, result);
+	result = ocf_cleaning_initialize(cache, cache->cleaner.policy);
+	if (result)
+		OCF_PL_FINISH_RET(pipeline, result);
 
-	} else {
-		result = ocf_cleaning_initialize(cache, cache->cleaner.policy, false);
-		if (result)
-			OCF_PL_FINISH_RET(pipeline, result);
-
-		ocf_cleaning_populate(cache, cache->cleaner.policy,
-				_ocf_mngt_cleaning_populate_complete, context);
-	}
+	ocf_cleaning_populate(cache, cache->cleaner.policy, reconstruct,
+			_ocf_mngt_cleaning_populate_complete, context);
 }
 
 static void _ocf_mngt_init_metadata_complete(void *priv, int error)
@@ -1469,7 +1464,7 @@ static void _ocf_mngt_attach_init_services(ocf_pipeline_t pipeline,
 		OCF_PL_FINISH_RET(pipeline, result);
 	}
 
-	ocf_cleaning_populate(cache, cache->cleaner.policy,
+	ocf_cleaning_populate(cache, cache->cleaner.policy, true,
 			_ocf_mngt_cleaning_populate_init_complete, context);
 }
 
