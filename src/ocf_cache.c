@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2023-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -138,7 +139,7 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	if (info->attached && !info->standby_detached) {
 		info->volume_type = ocf_ctx_get_volume_type_id(cache->owner,
 				cache->device->volume.type);
-		info->size = cache->conf_meta->cachelines;
+		info->size = ocf_cache_get_line_count(cache);
 	}
 	info->state = cache->cache_state;
 	info->cache_line_size = ocf_line_size(cache);
@@ -250,6 +251,12 @@ ocf_cache_line_size_t ocf_cache_get_line_size(ocf_cache_t cache)
 {
 	OCF_CHECK_NULL(cache);
 	return ocf_line_size(cache);
+}
+
+ocf_cache_line_t ocf_cache_get_line_count(ocf_cache_t cache)
+{
+	OCF_CHECK_NULL(cache);
+	return ocf_line_count(cache);
 }
 
 uint64_t ocf_cache_bytes_2_lines(ocf_cache_t cache, uint64_t bytes)

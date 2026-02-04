@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -171,7 +172,7 @@ void ocf_resolve_effective_cache_mode(ocf_cache_t cache,
 		return;
 	}
 
-	if (unlikely(req->core_line_count > cache->conf_meta->cachelines)) {
+	if (unlikely(req->core_line_count > ocf_cache_get_line_count(cache))) {
 		req->cache_mode = ocf_req_cache_mode_pt;
 		return;
 	}

@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2023-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -192,6 +193,15 @@ ocf_cache_mode_t ocf_cache_get_mode(ocf_cache_t cache);
  * @retval Cache line size
  */
 ocf_cache_line_size_t ocf_cache_get_line_size(ocf_cache_t cache);
+
+/**
+ * @brief Get number of cache lines of given cache object
+ *
+ * @param[in] cache Cache object
+ *
+ * @retval Number of cache lines
+ */
+ocf_cache_line_t ocf_cache_get_line_count(ocf_cache_t cache);
 
 /**
  * @brief Convert bytes to cache lines
