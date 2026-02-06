@@ -1729,7 +1729,7 @@ static void _ocf_mngt_load_superblock_complete(void *priv, int error)
 		OCF_PL_FINISH_RET(context->pipeline, error);
 	}
 
-	if (cache->conf_meta->cachelines !=
+	if (ocf_cache_get_line_count(cache) !=
 			ocf_metadata_get_cachelines_count(cache)) {
 		ocf_cache_log(cache, log_err,
 				"ERROR: Cache device size mismatch!\n");

@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -409,5 +410,17 @@ unsigned int ocf_volume_get_max_io_size(ocf_volume_t volume);
  * @return Length of volume in bytes
  */
 uint64_t ocf_volume_get_length(ocf_volume_t volume);
+/*
+ * @brief Check if uuid instances contain the same data
+ *
+ * @param[in] a first uuid
+ * @param[in] b second uuid
+ * @param[out] diff 0 if equal, non-0 otherwise
+ *
+ * @retval 0 if comparison successful
+ * @retval other value if comparison failed
+ */
+int ocf_uuid_compare(const struct ocf_volume_uuid * const a,
+		const struct ocf_volume_uuid * const b, int *diff);
 
 #endif /* __OCF_VOLUME_H__ */

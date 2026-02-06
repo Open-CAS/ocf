@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -30,17 +31,22 @@ static int ocf_mngt_core_set_name(ocf_core_t core, const char *name)
 			name, OCF_CORE_NAME_SIZE);
 }
 
-static int ocf_core_get_by_uuid(ocf_cache_t cache, void *uuid, size_t uuid_size,
+static int ocf_core_get_by_uuid(ocf_cache_t cache, ocf_uuid_t uuid,
 		ocf_core_t *core)
 {
 	struct ocf_volume *volume;
 	ocf_core_t i_core;
 	ocf_core_id_t i_core_id;
+	int diff, result;
 
 	for_each_core_metadata(cache, i_core, i_core_id) {
 		volume = ocf_core_get_volume(i_core);
-		if (!env_strncmp(volume->uuid.data, volume->uuid.size, uuid,
-					uuid_size)) {
+
+		result = ocf_uuid_compare(&volume->uuid, uuid, &diff);
+		if (result)
+			return -OCF_ERR_UNKNOWN;
+
+		if (diff == 0) {
 			*core = i_core;
 			return 0;
 		}
@@ -253,7 +259,7 @@ static void ocf_mngt_cache_try_add_core_prepare(ocf_pipeline_t pipeline,
 	ocf_volume_t volume;
 	ocf_volume_type_t type;
 	ocf_ctx_t ctx = cache->owner;
-	int result;
+	int result, diff;
 
 	result = ocf_core_get_by_name(cache, cfg->name,
 				OCF_CORE_NAME_SIZE, &core);
@@ -273,8 +279,8 @@ static void ocf_mngt_cache_try_add_core_prepare(ocf_pipeline_t pipeline,
 		goto err;
 	}
 
-	if (env_strncmp(volume->uuid.data, volume->uuid.size, cfg->uuid.data,
-			cfg->uuid.size)) {
+	result = ocf_uuid_compare(&volume->uuid, &cfg->uuid, &diff);
+	if (result || diff) {
 		result = -OCF_ERR_INVAL;
 		goto err;
 	}
@@ -341,10 +347,11 @@ static void ocf_mngt_cache_add_core_prepare(ocf_pipeline_t pipeline,
 	if (!result)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CORE_EXIST);
 
-	result = ocf_core_get_by_uuid(cache, cfg->uuid.data,
-				cfg->uuid.size, &core);
+	result = ocf_core_get_by_uuid(cache, &cfg->uuid, &core);
 	if (!result)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_CORE_UUID_EXISTS);
+	else if (result != -OCF_ERR_CORE_NOT_EXIST)
+		OCF_PL_FINISH_RET(context->pipeline, result);
 
 	result = ocf_mngt_find_free_core(cache, &core);
 	if (result)

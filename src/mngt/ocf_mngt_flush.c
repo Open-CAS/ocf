@@ -421,6 +421,8 @@ static void _ocf_mngt_flush_portion(struct flush_container *fc)
 
 	fc->iter += curr_flush_portion_size;
 
+	fc->ticks1 = env_get_tick_count();
+
 	ocf_cleaner_do_flush_data_async(fc->cache,
 			&fc->flush_data[flush_data_offset],
 			curr_flush_portion_size, &fc->attribs);

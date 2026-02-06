@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
- * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -241,7 +242,7 @@ static void _ocf_stats_part_fill(ocf_cache_t cache, ocf_part_id_t part_id,
 	uint64_t cache_size, cache_line_size;
 
 	cache_line_size = ocf_cache_get_line_size(cache);
-	cache_size = cache->conf_meta->cachelines;
+	cache_size = ocf_cache_get_line_count(cache);
 
 	if (usage) {
 		_set(&usage->occupancy,
@@ -361,7 +362,7 @@ int ocf_stats_collect_core(ocf_core_t core,
 		goto mem_free;
 
 	cache_line_size = ocf_cache_get_line_size(cache);
-	cache_size = cache->conf_meta->cachelines;
+	cache_size = ocf_cache_get_line_count(cache);
 	cache_occupancy = ocf_get_cache_occupancy(cache);
 
 	_ocf_stats_zero(usage);
