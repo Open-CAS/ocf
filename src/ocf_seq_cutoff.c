@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2020-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -100,7 +101,7 @@ static void ocf_seq_cutoff_base_deinit(struct ocf_seq_cutoff *base)
 
 int ocf_core_seq_cutoff_init(ocf_core_t core)
 {
-	ocf_core_log(core, log_info, "Seqential cutoff init\n");
+	ocf_core_log(core, log_info, "Sequential cutoff init\n");
 
 	core->seq_cutoff = env_vmalloc(sizeof(struct ocf_seq_cutoff_percore));
 	if (!core->seq_cutoff)
