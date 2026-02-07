@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -568,6 +569,37 @@ class Cache:
 
     def free_device_config(self, cfg):
         lib = OcfLib.getInstance().ocf_volume_destroy(cfg._volume)
+
+    def attach_composite_member(self, volume, tgt_subvol_id):
+        uuid = Uuid(
+            _data=cast(create_string_buffer(volume.uuid.encode("ascii")), c_char_p),
+            _size=len(volume.uuid) + 1,
+        )
+        volume_type = self.owner.ocf_volume_type[type(volume)]
+
+        self.write_lock()
+
+        c = OcfCompletion([("cache", c_void_p), ("priv", c_void_p), ("error", c_int)])
+
+        lib.ocf_mngt_cache_attach_composite(
+            self.cache_handle,
+            byref(uuid),
+            tgt_subvol_id,
+            volume_type,
+            None,
+            c,
+            None,
+        )
+
+        c.wait()
+
+        self.write_unlock()
+
+        if c.results["error"]:
+            raise OcfError(
+                "Attaching composite cache member failed",
+                c.results["error"],
+            )
 
     def attach_device_async(
         self,
@@ -1137,3 +1169,5 @@ lib.ocf_mngt_cache_io_classes_configure.argtypes = [c_void_p, c_void_p]
 lib.ocf_volume_create.restype = c_int
 lib.ocf_volume_create.argtypes = [c_void_p, c_void_p, c_void_p]
 lib.ocf_volume_destroy.argtypes = [c_void_p]
+lib.ocf_mngt_cache_attach_composite.argtypes = [c_void_p, c_void_p, c_uint8, c_void_p, c_void_p, c_void_p, c_void_p]
+lib.ocf_mngt_cache_attach_composite.restype = None
