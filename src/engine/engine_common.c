@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -143,7 +144,8 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 
 	ENV_BUG_ON(entry->status != LOOKUP_HIT &&
 			entry->status != LOOKUP_MISS &&
-			entry->status != LOOKUP_REMAPPED);
+			entry->status != LOOKUP_REMAPPED &&
+			entry->status != LOOKUP_HIT_INVALID);
 
 	/* Handle return value */
 	if (entry->status == LOOKUP_HIT) {
@@ -152,6 +154,7 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 			req->info.hit_no++;
 		} else {
 			req->info.invalid_no++;
+			entry->status = LOOKUP_HIT_INVALID;
 		}
 
 		/* Check request is dirty */
@@ -165,7 +168,9 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 		}
 	}
 
-	if (entry->status == LOOKUP_HIT || entry->status == LOOKUP_REMAPPED) {
+	if (entry->status == LOOKUP_HIT ||
+			entry->status == LOOKUP_HIT_INVALID ||
+			entry->status == LOOKUP_REMAPPED) {
 		if (req->part_id != ocf_metadata_get_partition_id(cache,
 				entry->coll_idx)) {
 			/*
@@ -201,7 +206,7 @@ void ocf_engine_set_hot(struct ocf_request *req)
 		entry = &(req->map[i]);
 		status = entry->status;
 
-		if (status == LOOKUP_HIT) {
+		if (status == LOOKUP_HIT || status == LOOKUP_HIT_INVALID) {
 			/* Update eviction (LRU) */
 			ocf_lru_hot_cline(cache, entry->coll_idx);
 		}
@@ -341,6 +346,7 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 
 		switch (entry->status) {
 		case LOOKUP_HIT:
+		case LOOKUP_HIT_INVALID:
 		case LOOKUP_MISS:
 			break;
 
@@ -548,7 +554,7 @@ static int _ocf_engine_clean_getter(struct ocf_cache *cache,
 
 	entry = &req->map[item];
 
-	if (entry->status != LOOKUP_HIT)
+	if (entry->status != LOOKUP_HIT && entry->status != LOOKUP_HIT_INVALID)
 		return -1;
 
 	if (!metadata_test_dirty(cache, entry->coll_idx))

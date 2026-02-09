@@ -1,5 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -62,7 +64,7 @@ static inline uint32_t ocf_user_part_get_min_size(ocf_cache_t cache,
 	uint64_t ioclass_size;
 
 	ioclass_size = (uint64_t)user_part->config->min_size *
-		(uint64_t)cache->conf_meta->cachelines;
+		(uint64_t)ocf_cache_get_line_count(cache);
 
 	ioclass_size /= 100;
 
@@ -76,7 +78,7 @@ static inline uint32_t ocf_user_part_get_max_size(ocf_cache_t cache,
 	uint64_t ioclass_size, max_size, cache_size;
 
 	max_size = user_part->config->max_size;
-	cache_size = cache->conf_meta->cachelines;
+	cache_size = ocf_cache_get_line_count(cache);
 
 	ioclass_size =  max_size * cache_size;
 	ioclass_size = OCF_DIV_ROUND_UP(ioclass_size, 100);
