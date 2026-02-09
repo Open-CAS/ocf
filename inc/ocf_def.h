@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -89,6 +90,22 @@
  * Invalid value of core sequence number
  */
 #define OCF_SEQ_NO_INVALID 0
+/**
+ * @}
+ */
+
+/**
+ * @name Composite volume defines
+ * @{
+ */
+/*
+ * Maximum value of a composite volume member id
+ */
+#define OCF_COMPOSITE_VOLUME_MEMBERS_MAX 16
+/*
+ * Invalid value of composite volume member
+ */
+#define OCF_COMPOSITE_VOLUME_MEMBER_ID_INVALID OCF_COMPOSITE_VOLUME_MEMBERS_MAX
 /**
  * @}
  */

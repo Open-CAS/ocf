@@ -15,8 +15,6 @@
 #include "ocf_request.h"
 #include "ocf_composite_volume_priv.h"
 
-#define OCF_COMPOSITE_VOLUME_MEMBERS_MAX 16
-
 struct ocf_composite_volume {
 	uint8_t members_cnt;
 	struct {
