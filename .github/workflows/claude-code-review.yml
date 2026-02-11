@@ -1,0 +1,25 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are Claude Opus acting as a senior kernel engineer.
+            Review the changes in this pull request.
+            - Focus on correctness, race conditions, memory safety, and ABI compatibility.
+            - Call out undefined behavior, locking issues, and performance pitfalls.
+            - Be concise but specific; include file and line references.
