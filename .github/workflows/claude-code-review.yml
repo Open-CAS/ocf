@@ -29,13 +29,21 @@ jobs:
           fetch-depth: 1
 
       - name: Run Claude Code Review
-        id: claude-review
         if: steps.check-team.outputs.is_member == 'true'
         uses: anthropics/claude-code-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
+          prompt: |
+            Review this pull request as a senior C kernel engineer familiar with the OCF codebase.
+
+            Focus on:
+            - Memory safety and undefined behavior
+            - Race conditions and locking correctness
+            - ABI compatibility and API stability
+            - Adherence to Linux kernel coding style
+            - Performance implications
+            - Correctness of cache metadata and IO path changes
+
+            Be specific with file:line references. Flag critical issues clearly.
 
