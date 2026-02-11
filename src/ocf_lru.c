@@ -744,6 +744,7 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 	ocf_metadata_end_shared_access(&cache->metadata.lock, lock_idx);
 
 	if (i == 0) {
+		env_atomic_set(&ctx->cleaner_running, 0);
 		env_refcnt_dec(&ctx->counter);
 		return;
 	}
