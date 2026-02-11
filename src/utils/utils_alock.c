@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -96,6 +97,7 @@ int ocf_alock_init_inplace(struct ocf_alock *self, unsigned num_entries,
 {
 	uint32_t i;
 	int error = 0;
+	uint64_t size = num_entries * sizeof(self->access[0]);
 
 	OCF_DEBUG_TRACE(cache);
 
@@ -109,8 +111,10 @@ int ocf_alock_init_inplace(struct ocf_alock *self, unsigned num_entries,
 		goto rwsem_err;
 	}
 
-	self->access = env_vzalloc(num_entries * sizeof(self->access[0]));
+	ocf_cache_log(cache, log_info, "Metadata access size: %llu kiB\n",
+			OCF_DIV_ROUND_UP(size, KiB));
 
+	self->access = env_vzalloc(size);
 	if (!self->access) {
 		error = __LINE__;
 		goto allocation_err;
@@ -160,6 +164,9 @@ int ocf_alock_init(struct ocf_alock **self, unsigned num_entries,
 	int ret;
 
 	OCF_DEBUG_TRACE(cache);
+
+	ocf_cache_log(cache, log_info, "Metadata alock size: %llu kiB\n",
+			OCF_DIV_ROUND_UP((uint64_t)sizeof(*alock), KiB));
 
 	alock = env_vzalloc(sizeof(*alock));
 	if (!alock)
