@@ -5,11 +5,12 @@ on:
     types: [opened, synchronize, ready_for_review, reopened]
 
 jobs:
-  review:
+  claude-review:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
+      issues: read
       id-token: write
     steps:
       - name: Check team membership
@@ -30,14 +31,14 @@ jobs:
           fetch-depth: 1
 
       - name: Run Claude Code Review
+        id: claude-review
         if: steps.check-team.outputs.is_member == 'true'
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          track_progress: true
-          prompt: |
-            You are Claude Opus acting as a senior kernel engineer.
-            Review the changes in this pull request.
-            - Focus on correctness, race conditions, memory safety, and ABI compatibility.
-            - Call out undefined behavior, locking issues, and performance pitfalls.
-            - Be concise but specific; include file and line references.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugins: 'code-review@claude-code-plugins'
+          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://code.claude.com/docs/en/cli-reference for available options
+
