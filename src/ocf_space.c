@@ -1,11 +1,59 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf_space.h"
 #include "utils/utils_user_part.h"
 #include "engine/engine_common.h"
+
+#define EVICT_RETRY 2
+#define MIN_EVICT_QUOTA 256
+
+static inline env_atomic *_evict_counter(ocf_cache_t cache, ocf_part_id_t i)
+{
+	return &cache->user_parts[i].part.runtime->evict_counter;
+}
+
+static void ocf_evict_counters_update(ocf_cache_t cache, uint16_t priority)
+{
+	struct ocf_user_part *user_part;
+	ocf_part_id_t part_id;
+	ocf_part_id_t i;
+	ocf_cache_line_t part_sizes[OCF_USER_IO_CLASS_MAX];
+	uint64_t part_size, least_part_size;
+
+	least_part_size = ocf_cache_get_line_count(cache);
+	i = 0;
+	for_each_user_part(cache, user_part, part_id) {
+		if (priority > user_part->config->priority)
+			break;
+		part_size = part_sizes[i++] =
+			env_atomic_read(&user_part->part.runtime->curr_size);
+		if (part_size == 0)
+			continue;
+		least_part_size = OCF_MIN(least_part_size, part_size);
+	}
+	least_part_size = OCF_MAX(least_part_size, MIN_EVICT_QUOTA);
+	i = 0;
+	for_each_user_part(cache, user_part, part_id) {
+		if (priority > user_part->config->priority)
+			break;
+		part_size = part_sizes[i++];
+		if (part_size == 0)
+			continue;
+		env_atomic_add(part_size * MIN_EVICT_QUOTA / least_part_size,
+			_evict_counter(cache, part_id));
+	}
+}
+
+static int32_t ocf_evict_counters_inc(ocf_cache_t cache, ocf_part_id_t part_id,
+		int32_t delta)
+{
+	return env_atomic_add_return(delta, _evict_counter(cache, part_id));
+}
 
 static uint32_t ocf_evict_calculate(ocf_cache_t cache,
 		struct ocf_user_part *user_part, uint32_t to_evict)
@@ -45,14 +93,18 @@ static inline uint32_t ocf_evict_part_do(struct ocf_request *req,
 	return ocf_lru_req_clines(req, &user_part->part, to_evict);
 }
 
-static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
+static inline uint32_t ocf_evict_user_partitions_once(ocf_cache_t cache,
 		struct ocf_request *req, uint32_t evict_cline_no,
-		bool overflown_only, int16_t max_priority)
+		bool overflown_only, int16_t max_priority,
+		bool *no_more_counters)
 {
-	uint32_t to_evict = 0, evicted = 0;
+	uint32_t to_evict = 0, evicted = 0, evicted_now;
 	struct ocf_user_part *user_part;
 	ocf_part_id_t part_id;
 	unsigned overflow_size;
+	int32_t counter = 0;
+
+	*no_more_counters = true;
 
 	/* For each partition from the lowest priority to highest one */
 	for_each_user_part(cache, user_part, part_id) {
@@ -89,8 +141,26 @@ static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
 		if (overflown_only)
 			to_evict = OCF_MIN(to_evict, overflow_size);
 
-		evicted += ocf_lru_req_clines(req, &user_part->part, to_evict);
-
+		if (!overflown_only) {
+			counter = ocf_evict_counters_inc(cache, part_id,
+				-(int32_t)to_evict);
+			if (counter <= -(int32_t)to_evict) {
+				ocf_evict_counters_inc(cache, part_id,
+					to_evict);
+				counter += to_evict;
+				goto after_evict;
+			}
+		}
+		evicted += evicted_now =
+			ocf_lru_req_clines(req, &user_part->part, to_evict);
+		if (!overflown_only && evicted_now < to_evict) {
+			ocf_evict_counters_inc(cache, part_id,
+				to_evict - evicted_now);
+			counter += to_evict - evicted_now;
+		}
+after_evict:
+		if (counter > 0)
+			*no_more_counters = false;
 		if (evicted >= evict_cline_no) {
 			/* Evicted requested number of cache line, stop
 			 */
@@ -100,6 +170,32 @@ static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
 	}
 
 out:
+	return evicted;
+}
+
+static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
+		struct ocf_request *req, uint32_t evict_cline_no,
+		bool overflown_only, int16_t max_priority)
+{
+	uint32_t evicted = 0;
+	bool no_more_counters;
+	int i;
+
+	/* prepare to try evict twice in case all counters are 0 */
+	for (i = 0; i < EVICT_RETRY; i++) {
+		evicted = ocf_evict_user_partitions_once(cache, req,
+				evict_cline_no, overflown_only, max_priority,
+				&no_more_counters);
+		if (evicted >= evict_cline_no)
+			break;
+		if (overflown_only)
+			break;
+		if (no_more_counters) {
+			/* update evict counters and try again */
+			ocf_evict_counters_update(cache, max_priority);
+		}
+	}
+
 	return evicted;
 }
 

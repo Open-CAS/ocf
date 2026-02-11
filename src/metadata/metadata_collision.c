@@ -1,5 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2022-2023 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 

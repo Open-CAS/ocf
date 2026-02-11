@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024-2025 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -301,6 +302,7 @@ def test_eviction_freelist(pyocf_ctx, cls: CacheLineSize, cache_mode: CacheMode,
     while cache.get_stats()["usage"]["free"]["value"] > 0:
         addr += data.size
         send_io(vol, data, addr, high_prio_ioclass, io_dir)
+        cache.settle()
 
     cache.settle()
     time.sleep(1)

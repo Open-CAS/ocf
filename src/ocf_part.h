@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2023-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -33,6 +34,7 @@ struct ocf_user_part_config {
 
 struct ocf_part_runtime {
 	env_atomic curr_size;
+	env_atomic evict_counter;
 	struct ocf_lru_part_meta lru[OCF_NUM_LRU_LISTS];
 };
 
@@ -58,6 +60,7 @@ struct ocf_lru_iter
 	uint32_t num_avail_lrus;
 	/* current lru list index */
 	uint32_t lru_idx;
+	uint32_t lru_element_idx;
 	/* callback to determine whether given hash bucket is already
 	 * locked by the caller */
 	_lru_hash_locked_pfn hash_locked;
