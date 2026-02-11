@@ -892,6 +892,14 @@ struct ocf_lru_populate_context {
 	void *priv;
 };
 
+static ocf_cache_line_t ocf_get_chunk_cline(unsigned lru_idx,
+		uint32_t chunk_idx, uint32_t pos)
+{
+	uint32_t stripe = chunk_idx * OCF_NUM_LRU_LISTS + lru_idx;
+
+	return stripe * OCF_LRU_CHUNK_SIZE + pos;
+}
+
 static int ocf_lru_populate_handle(ocf_parallelize_t parallelize,
 		void *priv, unsigned shard_id, unsigned shards_cnt)
 {
@@ -901,31 +909,52 @@ static int ocf_lru_populate_handle(ocf_parallelize_t parallelize,
 	ocf_cache_line_t entries = ocf_metadata_collision_table_entries(cache);
 	struct ocf_generator_bisect_state generator;
 	struct ocf_lru_list *list;
-	unsigned lru_list = shard_id;
 	unsigned step = 0;
-	uint32_t portion, offset;
-	uint32_t i, idx;
+	uint32_t stripe_size = OCF_LRU_CHUNK_SIZE * shards_cnt;
+	uint32_t num_full_chunks = entries / stripe_size;
+	uint32_t remainder = entries % stripe_size;
+	uint32_t partial_chunk_lines = 0;
+	uint32_t num_chunks, chunk_idx, chunk_lines;
+	uint32_t ci, j;
 
-	portion = OCF_DIV_ROUND_UP((uint64_t)entries, shards_cnt);
-	offset = shard_id * portion / shards_cnt;
-	ocf_generator_bisect_init(&generator, portion, offset);
+	/* Check if this shard has a partial last chunk */
+	if (remainder > (uint32_t)shard_id * OCF_LRU_CHUNK_SIZE) {
+		partial_chunk_lines = remainder -
+				(uint32_t)shard_id * OCF_LRU_CHUNK_SIZE;
+		if (partial_chunk_lines > OCF_LRU_CHUNK_SIZE)
+			partial_chunk_lines = OCF_LRU_CHUNK_SIZE;
+	}
 
-	list = ocf_lru_get_list(&cache->free, lru_list, true);
+	num_chunks = num_full_chunks + (partial_chunk_lines > 0 ? 1 : 0);
+	if (num_chunks == 0)
+		return 0;
+
+	ocf_generator_bisect_init(&generator, num_chunks, 0);
+
+	list = ocf_lru_get_list(&cache->free, shard_id, true);
 
 	cnt = 0;
-	for (i = 0; i < portion; i++) {
-		OCF_COND_RESCHED_DEFAULT(step);
+	for (ci = 0; ci < num_chunks; ci++) {
+		chunk_idx = ocf_generator_bisect_next(&generator);
 
-		idx = ocf_generator_bisect_next(&generator);
-		cline = idx * shards_cnt + shard_id;
-		if (cline >= entries)
-			continue;
+		if (chunk_idx == num_full_chunks)
+			chunk_lines = partial_chunk_lines;
+		else
+			chunk_lines = OCF_LRU_CHUNK_SIZE;
 
-		ocf_metadata_set_partition_id(cache, cline, PARTITION_FREELIST);
+		for (j = 0; j < chunk_lines; j++) {
+			OCF_COND_RESCHED_DEFAULT(step);
 
-		add_lru_head_nobalance(cache, list, cline);
+			cline = ocf_get_chunk_cline(shard_id, chunk_idx, j);
+			ENV_BUG_ON(cline >= entries);
 
-		cnt++;
+			ocf_metadata_set_partition_id(cache, cline,
+					PARTITION_FREELIST);
+
+			add_lru_head_nobalance(cache, list, cline);
+
+			cnt++;
+		}
 	}
 
 	env_atomic_add(cnt, &context->curr_size);

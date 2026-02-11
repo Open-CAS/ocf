@@ -13,7 +13,9 @@
 #include "ocf_lru_structs.h"
 
 #define OCF_NUM_LRU_LISTS 32
-#define OCF_LRU_GET_LIST_INDEX(cline) ((cline) % OCF_NUM_LRU_LISTS)
+#define OCF_LRU_CHUNK_SIZE 256
+#define OCF_LRU_GET_LIST_INDEX(cline) \
+	(((cline) / OCF_LRU_CHUNK_SIZE) % OCF_NUM_LRU_LISTS)
 
 struct ocf_part;
 struct ocf_user_part;
