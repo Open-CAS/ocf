@@ -1,0 +1,43 @@
+name: Claude Code Review
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Check team membership
+        id: check-team
+        env:
+          GH_TOKEN: ${{ secrets.ORG_READ_TOKEN }}
+        run: |
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/orgs/Open-CAS/teams/cas-maintainers/memberships/${{ github.event.pull_request.user.login }}")
+          echo "is_member=$( [ "$STATUS" = "200" ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout code
+        if: steps.check-team.outputs.is_member == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        if: steps.check-team.outputs.is_member == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          track_progress: true
+          prompt: |
+            You are Claude Opus acting as a senior kernel engineer.
+            Review the changes in this pull request.
+            - Focus on correctness, race conditions, memory safety, and ABI compatibility.
+            - Call out undefined behavior, locking issues, and performance pitfalls.
+            - Be concise but specific; include file and line references.
