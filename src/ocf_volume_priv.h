@@ -49,8 +49,8 @@ void ocf_volume_type_deinit(struct ocf_volume_type *type);
 
 void ocf_volume_move(ocf_volume_t volume, ocf_volume_t from);
 
-void ocf_volume_set_uuid(ocf_volume_t volume,
-		const struct ocf_volume_uuid *uuid);
+int ocf_volume_set_uuid(ocf_volume_t volume,
+		const struct ocf_volume_uuid *uuid, bool uuid_copy);
 
 void ocf_volume_forward_io(ocf_volume_t volume, ocf_forward_token_t token,
 		int dir, uint64_t addr, uint64_t bytes, uint64_t offset);
