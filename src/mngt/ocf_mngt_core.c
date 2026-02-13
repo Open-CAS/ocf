@@ -956,7 +956,7 @@ int ocf_mngt_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
 	if (result)
 		return result;
 
-	ocf_volume_set_uuid(&core->volume, &new_uuid);
+	result = ocf_volume_set_uuid(&core->volume, &new_uuid, false);
 
 	return result;
 }

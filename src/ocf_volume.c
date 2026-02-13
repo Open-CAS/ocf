@@ -263,15 +263,46 @@ const struct ocf_volume_uuid *ocf_volume_get_uuid(ocf_volume_t volume)
 	return &volume->uuid;
 }
 
-void ocf_volume_set_uuid(ocf_volume_t volume, const struct ocf_volume_uuid *uuid)
+int ocf_volume_set_uuid(ocf_volume_t volume,
+		const struct ocf_volume_uuid *uuid, bool uuid_copy)
 {
+	void *data;
+	int ret;
+
 	OCF_CHECK_NULL(volume);
 
 	if (volume->uuid_copy && volume->uuid.data)
 		env_vfree(volume->uuid.data);
 
-	volume->uuid.data = uuid->data;
+	volume->uuid_copy = uuid_copy;
+
+	if (uuid_copy) {
+		data = env_vmalloc(uuid->size);
+		if (!data)
+			return -OCF_ERR_NO_MEM;
+
+		volume->uuid.data = data;
+
+		ret = env_memcpy(data, uuid->size, uuid->data, uuid->size);
+		if (ret) {
+			ret = -OCF_ERR_INVAL;
+			goto err;
+		}
+	} else {
+		volume->uuid.data = uuid->data;
+	}
+
 	volume->uuid.size = uuid->size;
+
+	return 0;
+
+err:
+	if (volume->uuid_copy && volume->uuid.data)
+		env_vfree(volume->uuid.data);
+	volume->uuid.data = NULL;
+	volume->uuid.size = 0;
+
+	return ret;
 }
 
 void *ocf_volume_get_priv(ocf_volume_t volume)
