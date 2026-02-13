@@ -915,6 +915,7 @@ void ocf_mngt_cache_detach_core(ocf_core_t core,
 int ocf_mngt_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
 {
 	struct ocf_volume_uuid *current_uuid;
+	struct ocf_volume_uuid new_uuid;
 	int result;
 	int diff;
 	ocf_cache_t cache;
@@ -940,11 +941,11 @@ int ocf_mngt_core_set_uuid(ocf_core_t core, const struct ocf_volume_uuid *uuid)
 		return 0;
 	}
 
-	result = ocf_mngt_core_set_uuid_metadata(core, uuid, NULL);
+	result = ocf_mngt_core_set_uuid_metadata(core, uuid, &new_uuid);
 	if (result)
 		return result;
 
-	ocf_volume_set_uuid(&core->volume, uuid);
+	ocf_volume_set_uuid(&core->volume, &new_uuid);
 
 	return result;
 }
