@@ -121,7 +121,7 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 	env_refcnt_freeze(&volume->refcnt);
 
 	if (!uuid)
-		return 0;
+		goto on_init;
 
 	volume->uuid_copy = uuid_copy;
 
@@ -145,6 +145,7 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 
 	volume->uuid.size = uuid->size;
 
+on_init:
 	if (volume->type->properties->ops.on_init) {
 		ret = volume->type->properties->ops.on_init(volume);
 		if (ret)
