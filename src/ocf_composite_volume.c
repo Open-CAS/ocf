@@ -268,19 +268,12 @@ static int ocf_composite_volume_open(ocf_volume_t cvolume, void *volume_params)
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
 	int result, i;
 
-	composite->length = 0;
-	composite->max_io_size = UINT_MAX;
 	for (i = 0; i < composite->members_cnt; i++) {
 		ocf_volume_t volume = &composite->member[i].volume;
 		result = ocf_volume_open(volume,
 				composite->member[i].volume_params);
 		if (result)
 			goto err;
-
-		composite->length += ocf_volume_get_length(volume);
-		composite->end_addr[i] = composite->length;
-		composite->max_io_size = OCF_MIN(composite->max_io_size,
-				ocf_volume_get_max_io_size(volume));
 	}
 
 	return 0;
@@ -315,6 +308,16 @@ static uint64_t ocf_composite_volume_get_byte_length(ocf_volume_t cvolume)
 	return composite->length;
 }
 
+static int ocf_composite_volume_on_init(ocf_volume_t cvolume)
+{
+	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
+
+	composite->length = 0;
+	composite->max_io_size = UINT_MAX;
+
+	return 0;
+}
+
 static void ocf_composite_volume_on_deinit(ocf_volume_t cvolume)
 {
 	struct ocf_composite_volume *composite = ocf_volume_get_priv(cvolume);
@@ -344,6 +347,7 @@ const struct ocf_volume_properties ocf_composite_volume_properties = {
 		.get_max_io_size = ocf_composite_volume_get_max_io_size,
 		.get_length = ocf_composite_volume_get_byte_length,
 
+		.on_init = ocf_composite_volume_on_init,
 		.on_deinit = ocf_composite_volume_on_deinit,
 	},
 	.deinit = NULL,
@@ -387,6 +391,19 @@ int ocf_composite_volume_add(ocf_composite_volume_t cvolume,
 	result = ocf_volume_init(volume, type, uuid, true);
 	if (result)
 		return result;
+
+	result = ocf_volume_open(volume, volume_params);
+	if (result) {
+		ocf_volume_deinit(volume);
+		return result;
+	}
+
+	composite->length += ocf_volume_get_length(volume);
+	composite->end_addr[composite->members_cnt] = composite->length;
+	composite->max_io_size = OCF_MIN(composite->max_io_size,
+			ocf_volume_get_max_io_size(volume));
+
+	ocf_volume_close(volume);
 
 	composite->member[composite->members_cnt].volume_params = volume_params;
 	composite->members_cnt++;
