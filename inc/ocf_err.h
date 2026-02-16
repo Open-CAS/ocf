@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -71,6 +72,27 @@ typedef enum {
 
 	/** Core ID/name does not exist */
 	OCF_ERR_CORE_NOT_EXIST,
+
+	/** Composite volume member ID does not exist */
+	OCF_ERR_COMPOSITE_VOLUME_MEMBER_NOT_EXIST,
+
+	/** The volume is not a composite */
+	OCF_ERR_NOT_COMPOSITE_VOLUME,
+
+	/** Invalid subvolume ID */
+	OCF_ERR_COMPOSITE_INVALID_ID,
+
+	/** The target subvolume isn't initialised */
+	OCF_ERR_COMPOSITE_UNINITIALISED_VOLUME,
+
+	/** The target subvolume is already attached */
+	OCF_ERR_COMPOSITE_ATTACHED,
+
+	/** The target subvolume is already detached */
+	OCF_ERR_COMPOSITE_DETACHED,
+
+	/** The target subvolume has invalid size */
+	OCF_ERR_COMPOSITE_INVALID_SIZE,
 
 	/** Cache ID/name already exists */
 	OCF_ERR_CACHE_EXIST,

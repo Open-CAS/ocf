@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -41,22 +42,22 @@ int ocf_composite_volume_create(ocf_composite_volume_t *cvolume, ocf_ctx_t ctx);
  */
 void ocf_composite_volume_destroy(ocf_composite_volume_t cvolume);
 
-/**
- * @brief Add subvolume to composite volume
- *
- * @param[in] cvolume composite volume handle
- * @param[in] type type of added subvolume
- * @param[in] uuid UUID of added subvolume
- * @param[in] volume_params params to be passed to subvolume open
- *
- * @return Zero when success, othewise an error
- */
-int ocf_composite_volume_add(ocf_composite_volume_t cvolume,
-		ocf_volume_type_t type, struct ocf_volume_uuid *uuid,
-		void *volume_params);
+typedef enum {
+	ocf_composite_member_state_attached = 1,
+	/* If subvolume is opened it must be attached as well */
+	ocf_composite_member_state_opened = 3,
+	ocf_composite_member_state_detached = 4,
+	ocf_composite_member_state_any = 7,
+} ocf_composite_member_state_t;
 
+/**
+ * @param[in] subvolume Pointer to a subvolume
+ * @param[in] priv Priv
+ * @param[in] subvol_status flag with the info if current subvolume is opened,
+ *		attached or detached
+ */
 typedef int (*ocf_composite_volume_member_visitor_t)(ocf_volume_t subvolume,
-		void *priv);
+		void *priv, ocf_composite_member_state_t subvol_status);
 
 /**
  * @brief Call @visitor on every valid member of composite volume
@@ -64,10 +65,61 @@ typedef int (*ocf_composite_volume_member_visitor_t)(ocf_volume_t subvolume,
  * @param[in] cvolume composite volume handle
  * @param[in] visitor function callback
  * @param[in] priv pointer to be passed to the callback
+ * @param[in] subvol_status info whether iterate over
+ *		opened/attached/detached/all volumes
+ *
+ * @return 0 if the visitor function was called for all subvolumes, error code
+ *		otherwise
+ */
+int ocf_composite_volume_member_visit(ocf_composite_volume_t cvolume,
+		ocf_composite_volume_member_visitor_t visitor, void *priv,
+		ocf_composite_member_state_t subvolume_status);
+
+/**
+ * @brief Get subvolume by index in composite volume
+ *
+ * @param[in] cvolume composite volume handle
+ * @param[in] index subvolume index
  *
  * @return subvolume in composite volume
  */
-int ocf_composite_volume_member_visit(ocf_composite_volume_t cvolume,
-		ocf_composite_volume_member_visitor_t visitor, void *priv);
+ocf_volume_t ocf_composite_volume_get_subvolume_by_index(
+		ocf_composite_volume_t cvolume, int index);
+
+/**
+ * @brief Get range of addresses from a subvolume
+ *
+ * @param[in] cvolume composite volume handle
+ * @param[in] subvolume_id subvolume index
+ * @param[out] begin_addr beginning of the address range
+ * @param[out] end_addr end of the address range
+ *
+ * @return 0 in case of success, error code otherwise
+ */
+int ocf_composite_volume_get_subvolume_addr_range(
+		ocf_composite_volume_t cvolume, uint8_t subvolume_id,
+		uint64_t *begin_addr, uint64_t *end_addr);
+
+/**
+ * @brief Set composite volume UUID
+ *
+ * @param[in] cvolume Volume
+ * @param[in] uuid UUID
+ *
+ * @return 0 in case of success, error code otherwise
+ */
+int ocf_composite_volume_set_uuid(ocf_composite_volume_t cvolume,
+		struct ocf_volume_uuid *uuid);
+
+/**
+ * @brief Get volume's id by UUID
+ *
+ * @param[in] volume Volume
+ * @param[in] uuid UUID
+ *
+ * @return id of the matching subvolume or error if the volume wasn't found
+ */
+int ocf_composite_volume_get_id_from_uuid(ocf_composite_volume_t cvolume,
+		ocf_uuid_t target_uuid);
 
 #endif /* __OCF_COMPOSITE_VOLUME_H__ */

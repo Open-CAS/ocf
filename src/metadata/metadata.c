@@ -605,6 +605,8 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 			&part_runtime_meta[i].runtime;
 	}
 	cache->free.runtime= &part_runtime_meta[PARTITION_FREELIST].runtime;
+	cache->free_detached.runtime =
+		&part_runtime_meta[PARTITION_FREE_DETACHED].runtime;
 
 	/* Set core metadata */
 	core_meta_config = METADATA_MEM_POOL(ctrl,

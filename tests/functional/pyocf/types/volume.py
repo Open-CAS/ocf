@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -15,6 +16,7 @@ from ctypes import (
     Structure,
     CFUNCTYPE,
     c_int,
+    c_uint8,
     c_uint,
     c_uint64,
     sizeof,
@@ -63,6 +65,9 @@ class VolumeOps(Structure):
     CLOSE = CFUNCTYPE(None, c_void_p)
     GET_MAX_IO_SIZE = CFUNCTYPE(c_uint, c_void_p)
     GET_LENGTH = CFUNCTYPE(c_uint64, c_void_p)
+    COMPOSITE_VOLUME_ADD = CFUNCTYPE(c_int, c_void_p, c_uint8, c_void_p, c_void_p)
+    COMPOSITE_VOLUME_ATTACH_MEMBER = CFUNCTYPE(c_int, c_void_p, c_void_p, c_uint8, c_void_p)
+    COMPOSITE_VOLUME_DETACH_MEMBER = CFUNCTYPE(c_int, c_void_p, c_uint8)
 
     _fields_ = [
         ("_submit_io", SUBMIT_IO),
@@ -82,6 +87,9 @@ class VolumeOps(Structure):
         ("_close", CLOSE),
         ("_get_length", GET_LENGTH),
         ("_get_max_io_size", GET_MAX_IO_SIZE),
+        ("_composite_volume_add", COMPOSITE_VOLUME_ADD),
+        ("_composite_volume_attach_member", COMPOSITE_VOLUME_ATTACH_MEMBER),
+        ("_composite_volume_detach_member", COMPOSITE_VOLUME_DETACH_MEMBER),
     ]
 
 
@@ -164,6 +172,18 @@ class Volume:
         def _get_length(ref):
             return Volume.get_instance(ref).get_length()
 
+        @VolumeOps.COMPOSITE_VOLUME_ADD
+        def _composite_volume_add(ref):
+            raise NotImplementedError
+
+        @VolumeOps.COMPOSITE_VOLUME_ATTACH_MEMBER
+        def _composite_volume_attach_member(ref):
+            raise NotImplementedError
+
+        @VolumeOps.COMPOSITE_VOLUME_DETACH_MEMBER
+        def _composite_volume_detach_member(ref):
+            raise NotImplementedError
+
         Volume._ops_[cls] = VolumeOps(
             _forward_io=_forward_io,
             _forward_flush=_forward_flush,
@@ -174,6 +194,9 @@ class Volume:
             _get_length=_get_length,
             _on_init=_on_init,
             _on_deinit=_on_deinit,
+            _composite_volume_add=_composite_volume_add,
+            _composite_volume_attach_member=_composite_volume_attach_member,
+            _composite_volume_detach_member=_composite_volume_detach_member,
         )
 
         return Volume._ops_[cls]

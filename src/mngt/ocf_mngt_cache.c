@@ -10,6 +10,7 @@
 #include "ocf_env_refcnt.h"
 #include "ocf_mngt_common.h"
 #include "ocf_mngt_core_priv.h"
+#include "ocf_mngt_flush_priv.h"
 #include "../ocf_priv.h"
 #include "../ocf_core_priv.h"
 #include "../ocf_part.h"
@@ -214,6 +215,7 @@ static void _init_parts_attached(ocf_pipeline_t pipeline, void *priv,
 		ocf_lru_init(cache, &cache->user_parts[part_id].part);
 
 	ocf_lru_init(cache, &cache->free);
+	ocf_lru_init(cache, &cache->free_detached);
 
 	ocf_pipeline_next(pipeline);
 }
@@ -269,6 +271,7 @@ static void __deinit_promotion_policy(ocf_cache_t cache)
 static void __init_free(ocf_cache_t cache)
 {
 	cache->free.id = PARTITION_FREELIST;
+	cache->free_detached.id = PARTITION_FREELIST;
 }
 
 static void __init_cores(ocf_cache_t cache)
@@ -3792,6 +3795,14 @@ static void ocf_mngt_cache_detach_stop_cache_io(ocf_pipeline_t pipeline,
 	ocf_mngt_continue_pipeline_on_zero_refcnt(refcnt, context->pipeline);
 }
 
+static void ocf_mngt_cache_detach_composite_invalidate_cmpl(ocf_cache_t cache,
+		void *priv, int error)
+{
+	struct ocf_mngt_cache_unplug_context *context = priv;
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, error);
+}
+
 static void ocf_mngt_cache_detach_stop_cleaner_io_finish(void *priv)
 {
 	ocf_pipeline_t pipeline = priv;
@@ -3926,4 +3937,286 @@ void ocf_mngt_cache_detach(ocf_cache_t cache,
 	env_refcnt_freeze(&cache->refcnt.dirty);
 
 	ocf_pipeline_next(pipeline);
+}
+
+struct ocf_mngt_composite_attach_context {
+	ocf_uuid_t uuid;
+	ocf_volume_type_t vol_type;
+	void *vol_params;
+	uint8_t tgt_id;
+
+	ocf_cache_t cache;
+	ocf_mngt_cache_detach_end_t cmpl;
+	ocf_pipeline_t pipeline;
+	void *priv;
+};
+
+static void ocf_mngt_cache_attach_finish(ocf_pipeline_t pipeline,
+		void *priv, int error)
+{
+	struct ocf_mngt_composite_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	if (error) {
+		ocf_cache_log(cache, log_err,
+				"Adding new device to composite volume failed\n");
+	} else {
+		ocf_cache_log(cache, log_info,
+				"Successfully added new device to composite volume\n");
+	}
+
+	context->cmpl(cache, context->priv, error);
+
+	ocf_pipeline_destroy(context->pipeline);
+}
+
+static void ocf_mngt_cache_composite_add(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_composite_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	int ret;
+
+	ret = ocf_composite_volume_attach_member(ocf_cache_get_volume(cache),
+		context->uuid, context->tgt_id, context->vol_type,
+		context->vol_params);
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, ret);
+}
+
+static void ocf_mngt_cache_composite_restore_cache_lines(
+		ocf_pipeline_t pipeline, void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_composite_attach_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	uint64_t begin_addr, end_addr;
+	ocf_cache_line_t begin_cline, end_cline;
+	int ret;
+
+	ret = ocf_composite_volume_get_subvolume_addr_range(
+			ocf_cache_get_volume(cache), context->tgt_id,
+			&begin_addr, &end_addr);
+	ENV_BUG_ON(ret);
+
+	if (cache->device->metadata_offset >= end_addr)
+		OCF_PL_NEXT_RET(pipeline);
+
+	if (cache->device->metadata_offset > begin_addr)
+		begin_addr = 0;
+	else
+		begin_addr -= cache->device->metadata_offset;
+
+	end_addr -= cache->device->metadata_offset;
+
+	begin_cline = begin_addr / ocf_cache_get_line_size(cache);
+	end_cline = OCF_DIV_ROUND_UP(end_addr, ocf_cache_get_line_size(cache));
+
+	if (end_cline > ocf_metadata_collision_table_entries(cache))
+		end_cline = ocf_metadata_collision_table_entries(cache);
+
+	ocf_mngt_cache_attach_cline_range(cache, begin_cline, end_cline);
+
+	ocf_pipeline_next(pipeline);
+}
+
+struct ocf_pipeline_properties ocf_mngt_attach_composite_pipeline_properties = {
+	.priv_size = sizeof(struct ocf_mngt_composite_attach_context),
+	.finish = ocf_mngt_cache_attach_finish,
+	.steps = {
+		OCF_PL_STEP(ocf_mngt_cache_composite_add),
+		OCF_PL_STEP(ocf_mngt_cache_composite_restore_cache_lines),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+void ocf_mngt_cache_attach_composite(ocf_cache_t cache, ocf_uuid_t vol_uuid,
+		uint8_t tgt_id, ocf_volume_type_t vol_type, void *vol_params,
+		ocf_mngt_cache_detach_end_t cmpl, void *priv)
+{
+	struct ocf_mngt_composite_attach_context *context;
+	ocf_pipeline_t pipeline;
+	int result;
+	ocf_volume_t cvol = ocf_cache_get_volume(cache);
+
+	OCF_CHECK_NULL(cache);
+	OCF_CHECK_NULL(vol_uuid);
+
+	if (!cache->metadata.is_volatile)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
+
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
+	if (!ocf_cache_is_device_attached(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
+	if (!ocf_volume_is_composite(cvol))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NOT_COMPOSITE_VOLUME);
+
+	result = ocf_pipeline_create(&pipeline, cache,
+			&ocf_mngt_attach_composite_pipeline_properties);
+	if (result)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
+
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->uuid = vol_uuid;
+	context->cmpl = cmpl;
+	context->priv = priv;
+	context->pipeline = pipeline;
+	context->cache = cache;
+	context->vol_type = vol_type;
+	context->vol_params = vol_params;
+	context->tgt_id = tgt_id;
+
+	ocf_pipeline_next(pipeline);
+}
+
+static void ocf_mngt_detach_composite_invalidate(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_unplug_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	uint64_t begin_addr, end_addr;
+	ocf_cache_line_t begin_cline, end_cline;
+	int result;
+
+	result = ocf_composite_volume_get_subvolume_addr_range(
+			ocf_cache_get_volume(cache), context->composite_vol_id,
+			&begin_addr, &end_addr);
+	if (result)
+		OCF_PL_FINISH_RET(pipeline, result);
+
+	if (cache->device->metadata_offset >= end_addr)
+		OCF_PL_NEXT_RET(pipeline);
+
+	if (cache->device->metadata_offset > begin_addr)
+		begin_addr = 0;
+	else
+		begin_addr -= cache->device->metadata_offset;
+
+	end_addr -= cache->device->metadata_offset;
+
+	begin_cline = begin_addr / ocf_cache_get_line_size(cache);
+	end_cline = OCF_DIV_ROUND_UP(end_addr, ocf_cache_get_line_size(cache));
+
+	if (end_cline > ocf_metadata_collision_table_entries(cache))
+		end_cline = ocf_metadata_collision_table_entries(cache);
+
+	ocf_mngt_cache_detach_cline_range(cache, begin_cline, end_cline,
+			ocf_mngt_cache_detach_composite_invalidate_cmpl,
+			context);
+}
+
+static void ocf_mngt_detach_composite_close_volume(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_unplug_context *context = priv;
+	ocf_cache_t cache = context->cache;
+	ocf_volume_t composite = ocf_cache_get_volume(cache);
+	int ret = 0;
+
+	ret = ocf_composite_volume_detach_member(composite,
+			context->composite_vol_id);
+
+	OCF_PL_NEXT_ON_SUCCESS_RET(pipeline, ret);
+}
+
+static void ocf_mngt_cache_detach_composite_finish(ocf_pipeline_t pipeline,
+		void *priv, int error)
+{
+	struct ocf_mngt_cache_unplug_context *context = priv;
+	ocf_cache_t cache = context->cache;
+
+	env_refcnt_unfreeze(&cache->refcnt.dirty);
+
+	if (!error) {
+		if (!context->cache_write_error) {
+			ocf_cache_log(cache, log_info,
+				"Device successfully detached\n");
+		} else {
+			ocf_cache_log(cache, log_warn,
+				"Device detached with errors\n");
+		}
+	} else {
+		ocf_cache_log(cache, log_err,
+				"Detaching device failed\n");
+	}
+
+	context->cmpl(cache, context->priv,
+			error ?: context->cache_write_error);
+
+	ocf_pipeline_destroy(context->pipeline);
+}
+
+struct ocf_pipeline_properties ocf_mngt_detach_composite_pipeline_properties = {
+	.priv_size = sizeof(struct ocf_mngt_cache_unplug_context),
+	.finish = ocf_mngt_cache_detach_composite_finish,
+	.steps = {
+		OCF_PL_STEP(ocf_mngt_detach_composite_invalidate),
+		OCF_PL_STEP(ocf_mngt_detach_composite_close_volume),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+static void _ocf_mngt_begin_detach_complete(void *priv)
+{
+	struct ocf_mngt_cache_unplug_context *context = priv;
+
+	ocf_pipeline_next(context->pipeline);
+}
+
+void ocf_mngt_cache_detach_composite(ocf_cache_t cache,
+		ocf_mngt_cache_detach_end_t cmpl, ocf_uuid_t target_uuid,
+		void *priv)
+{
+	struct ocf_mngt_cache_unplug_context *context;
+	ocf_pipeline_t pipeline;
+	int result;
+	int target_vol_id;
+	ocf_volume_t cvol = ocf_cache_get_volume(cache);
+
+	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
+
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
+	if (!ocf_cache_is_device_attached(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
+	if (!ocf_volume_is_composite(cvol))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NOT_COMPOSITE_VOLUME);
+
+	if (!cache->metadata.is_volatile)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
+	target_vol_id = ocf_composite_volume_get_id_from_uuid(
+			ocf_cache_get_volume(cache), target_uuid);
+	if (target_vol_id < 0)
+		OCF_CMPL_RET(cache, priv, target_vol_id);
+
+	result = ocf_pipeline_create(&pipeline, cache,
+			&ocf_mngt_detach_composite_pipeline_properties);
+	if (result)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
+
+	context = ocf_pipeline_get_priv(pipeline);
+
+	context->cmpl = cmpl;
+	context->priv = priv;
+	context->pipeline = pipeline;
+	context->cache = cache;
+	context->composite_vol_id = target_vol_id;
+
+	/* prevent dirty io */
+	env_refcnt_freeze(&cache->refcnt.dirty);
+
+	env_refcnt_register_zero_cb(&cache->refcnt.dirty,
+			_ocf_mngt_begin_detach_complete, context);
 }

@@ -202,16 +202,26 @@ static void remove_lru_list_nobalance(ocf_cache_t cache,
 	node->hot = false;
 }
 
-void ocf_lru_remove_locked(ocf_cache_t cache, struct ocf_lru_list *list,
+static void ocf_lru_remove_locked(ocf_cache_t cache, struct ocf_lru_list *list,
 		ocf_cache_line_t cline)
 {
 	remove_lru_list_nobalance(cache, list, cline);
 	balance_lru_list(cache, list);
 }
 
+void ocf_lru_detach(ocf_cache_t cache, struct ocf_part *part,
+		ocf_cache_line_t cline)
+{
+	ocf_lru_repart(cache, cline, part, &cache->free_detached);
+}
+
+void ocf_lru_restore(ocf_cache_t cache, ocf_cache_line_t cline)
+{
+	ocf_lru_repart(cache, cline, &cache->free_detached, &cache->free);
+}
+
 static void ocf_lru_set_hot(ocf_cache_t cache, struct ocf_lru_list *list,
 		ocf_cache_line_t cline)
-
 {
 	remove_lru_list_nobalance(cache, list, cline);
 	add_lru_head_nobalance(cache, list, cline);
@@ -464,6 +474,7 @@ static inline bool _lru_iter_eviction_lock(struct ocf_lru_iter *iter,
 
 /* Get next clean cacheline from tail of lru lists. Caller must not hold any
  * lru list lock.
+ * - the function doesn't return cache lines from freelist
  * - returned cacheline is write locked
  * - returned cacheline has the corresponding metadata hash bucket write locked
  * - cacheline is moved to the head of destination partition lru list before
@@ -483,8 +494,13 @@ static inline ocf_cache_line_t lru_req_next_cline(struct ocf_request *req,
 	ocf_cache_line_t ret = end_marker;
 	ocf_core_id_t t_core_id;
 	uint64_t t_core_line;
+	ocf_part_id_t tmp_part_id;
 
 	ocf_metadata_lru_lock(&cache->metadata.lock, curr_lru);
+
+	tmp_part_id = ocf_metadata_get_partition_id(cache, cline);
+	if (tmp_part_id == PARTITION_FREELIST)
+		goto lru_wr_unlock;
 
 	if (!ocf_cache_line_try_lock_wr(c, cline))
 		goto lru_wr_unlock;
@@ -501,16 +517,13 @@ static inline ocf_cache_line_t lru_req_next_cline(struct ocf_request *req,
 	if (metadata_test_dirty(cache, cline))
 		goto line_unlock_wr;
 
-	*src_part_id = ocf_metadata_get_partition_id(cache, cline);
-	if (*src_part_id != PARTITION_FREELIST) {
-		if (!_lru_trylock_hash(iter, t_core_id, t_core_line))
-			goto line_unlock_wr;
-		*core_id = t_core_id;
-		*core_line = t_core_line;
-		part = &cache->user_parts[*src_part_id].part;
-	} else {
-		part = &cache->free;
-	}
+	*src_part_id = tmp_part_id;
+
+	if (!_lru_trylock_hash(iter, t_core_id, t_core_line))
+		goto line_unlock_wr;
+	*core_id = t_core_id;
+	*core_line = t_core_line;
+	part = &cache->user_parts[*src_part_id].part;
 
 	if (dst_part->id != *src_part_id) {
 		ocf_lru_repart_locked(cache, cline, part, dst_part);

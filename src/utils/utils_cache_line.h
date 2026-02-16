@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -60,6 +61,33 @@ static inline uint64_t ocf_lines_2_bytes(struct ocf_cache *cache,
 void set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 		uint8_t end_bit, struct ocf_request *req, uint32_t map_idx);
 
+/**
+ * @brief Set cache line invalid and unavailable
+ *
+ * @note Collision page must be locked by the caller (either exclusive access
+ * to collision table page OR write lock on metadata hash bucket combined with
+ * shared access to the collision page)
+ *
+ * @param cache Cache instance
+ * @param start_bit Start bit of cache line for which state will be set
+ * @param end_bit End bit of cache line for which state will be set
+ * @param line Cache line to be set as unavailable
+ */
+void set_cache_line_unavailable(struct ocf_cache *cache, uint8_t start_bit,
+		uint8_t end_bit, ocf_cache_line_t line);
+
+
+/**
+ * @brief Set cache line available and move it to the freelist
+ *
+ * @note Collision page must be locked by the caller (either exclusive access
+ * to collision table page OR write lock on metadata hash bucket combined with
+ * shared access to the collision page)
+ *
+ * @param cache Cache instance
+ * @param line Cache line to be set as available
+ */
+void set_cache_line_available(struct ocf_cache *cache, ocf_cache_line_t line);
 
 /**
  * @brief Set cache line invalid without flush

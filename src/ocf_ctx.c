@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -36,7 +37,8 @@ int ocf_ctx_register_volume_type_internal(ocf_ctx_t ctx, uint8_t type_id,
 		goto err;
 	}
 
-	ocf_volume_type_init(&ctx->volume_type[type_id], properties, extended);
+	ocf_volume_type_init(&ctx->volume_type[type_id], ctx, properties,
+			extended);
 	if (!ctx->volume_type[type_id])
 		result = -OCF_ERR_INVAL;
 
