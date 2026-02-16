@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -13,6 +14,7 @@ from .cleaner import CleanerOps, Cleaner
 from .shared import OcfError
 from ..ocf import OcfLib
 from .queue import Queue
+from .volume import Volume
 
 
 class OcfCtxOps(Structure):
@@ -114,10 +116,12 @@ class OcfCtx:
 
     def stop_caches(self):
         for cache in self.caches[:]:
-            try:
-                cache.get_volume().disarm()
-            except AttributeError:
-                pass
+            c_vol = cache.get_c_volume()
+            if c_vol and c_vol in Volume._instances_:
+                try:
+                    Volume._instances_[c_vol].disarm()
+                except AttributeError:
+                    pass
             cache.stop()
 
     def exit(self):
