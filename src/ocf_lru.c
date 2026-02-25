@@ -255,20 +255,11 @@ static inline struct ocf_lru_list *lru_get_cline_list(ocf_cache_t cache,
 			!metadata_test_dirty(cache, cline));
 }
 
-static void ocf_lru_add_locked(ocf_cache_t cache, ocf_cache_line_t cline)
+void ocf_lru_add(ocf_cache_t cache, ocf_cache_line_t cline)
 {
 	struct ocf_lru_list *list = lru_get_cline_list(cache, cline);
 
 	add_lru_head(cache, list, cline);
-}
-
-void ocf_lru_add(ocf_cache_t cache, ocf_cache_line_t cline)
-{
-	uint32_t lru_list = OCF_LRU_GET_LIST_INDEX(cline);
-
-	OCF_METADATA_LRU_LOCK(lru_list);
-	ocf_lru_add_locked(cache, cline);
-	OCF_METADATA_LRU_UNLOCK(lru_list);
 }
 
 static inline void ocf_lru_move(ocf_cache_t cache, ocf_cache_line_t cline,
@@ -998,9 +989,8 @@ static int ocf_lru_populate_handle(ocf_parallelize_t parallelize,
 	struct ocf_generator_bisect_state generator;
 	struct ocf_lru_list *list;
 	unsigned step = 0;
-	uint32_t stripe_size = OCF_LRU_CHUNK_SIZE * shards_cnt;
-	uint32_t num_full_chunks = entries / stripe_size;
-	uint32_t remainder = entries % stripe_size;
+	uint32_t num_full_chunks = entries / OCF_LRU_STRIPE_SIZE;
+	uint32_t remainder = entries % OCF_LRU_STRIPE_SIZE;
 	uint32_t partial_chunk_lines = 0;
 	uint32_t num_chunks, chunk_idx, chunk_lines;
 	uint32_t ci, j;
