@@ -33,7 +33,7 @@ int ocf_uuid_set_str(ocf_uuid_t uuid, char *str)
  * Volume type
  */
 
-int ocf_volume_type_init(struct ocf_volume_type **type,
+int ocf_volume_type_init(struct ocf_volume_type **type, ocf_ctx_t ctx,
 		const struct ocf_volume_properties *properties,
 		const struct ocf_volume_extended *extended)
 {
@@ -65,6 +65,7 @@ int ocf_volume_type_init(struct ocf_volume_type **type,
 		goto err;
 
 	new_type->properties = properties;
+	new_type->owner = ctx;
 
 	*type = new_type;
 
@@ -120,7 +121,7 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 	env_refcnt_freeze(&volume->refcnt);
 
 	if (!uuid)
-		return 0;
+		goto on_init;
 
 	volume->uuid_copy = uuid_copy;
 
@@ -144,6 +145,7 @@ int ocf_volume_init(ocf_volume_t volume, ocf_volume_type_t type,
 
 	volume->uuid.size = uuid->size;
 
+on_init:
 	if (volume->type->properties->ops.on_init) {
 		ret = volume->type->properties->ops.on_init(volume);
 		if (ret)
@@ -261,15 +263,46 @@ const struct ocf_volume_uuid *ocf_volume_get_uuid(ocf_volume_t volume)
 	return &volume->uuid;
 }
 
-void ocf_volume_set_uuid(ocf_volume_t volume, const struct ocf_volume_uuid *uuid)
+int ocf_volume_set_uuid(ocf_volume_t volume,
+		const struct ocf_volume_uuid *uuid, bool uuid_copy)
 {
+	void *data;
+	int ret;
+
 	OCF_CHECK_NULL(volume);
 
 	if (volume->uuid_copy && volume->uuid.data)
 		env_vfree(volume->uuid.data);
 
-	volume->uuid.data = uuid->data;
+	volume->uuid_copy = uuid_copy;
+
+	if (uuid_copy) {
+		data = env_vmalloc(uuid->size);
+		if (!data)
+			return -OCF_ERR_NO_MEM;
+
+		volume->uuid.data = data;
+
+		ret = env_memcpy(data, uuid->size, uuid->data, uuid->size);
+		if (ret) {
+			ret = -OCF_ERR_INVAL;
+			goto err;
+		}
+	} else {
+		volume->uuid.data = uuid->data;
+	}
+
 	volume->uuid.size = uuid->size;
+
+	return 0;
+
+err:
+	if (volume->uuid_copy && volume->uuid.data)
+		env_vfree(volume->uuid.data);
+	volume->uuid.data = NULL;
+	volume->uuid.size = 0;
+
+	return ret;
 }
 
 void *ocf_volume_get_priv(ocf_volume_t volume)
@@ -287,6 +320,11 @@ ocf_cache_t ocf_volume_get_cache(ocf_volume_t volume)
 int ocf_volume_is_atomic(ocf_volume_t volume)
 {
 	return volume->type->properties->caps.atomic_writes;
+}
+
+bool ocf_volume_is_composite(ocf_volume_t volume)
+{
+	return volume->type->properties->caps.composite_volume;
 }
 
 ocf_io_t ocf_volume_new_io(ocf_volume_t volume, ocf_queue_t queue,
@@ -498,6 +536,47 @@ unsigned int ocf_volume_get_max_io_size(ocf_volume_t volume)
 		return 0;
 
 	return volume->type->properties->ops.get_max_io_size(volume);
+}
+
+int ocf_composite_volume_add(ocf_volume_t volume, ocf_volume_type_t type,
+		struct ocf_volume_uuid *uuid, void *volume_params)
+{
+	if (!ocf_volume_is_composite(volume))
+		return -OCF_ERR_NOT_COMPOSITE_VOLUME;
+
+	ENV_BUG_ON(!volume->type->properties->ops.composite_volume_add);
+
+	if (volume->opened)
+		return -OCF_ERR_NOT_OPEN_EXC;
+
+	return volume->type->properties->ops.composite_volume_add(volume, type,
+			uuid, volume_params);
+}
+
+int ocf_composite_volume_attach_member(ocf_volume_t volume, ocf_uuid_t uuid,
+		uint8_t tgt_id, ocf_volume_type_t vol_type, void *vol_params)
+{
+	if (!ocf_volume_is_composite(volume))
+		return -OCF_ERR_NOT_COMPOSITE_VOLUME;
+
+	ENV_BUG_ON(!volume->type->properties->ops.
+			composite_volume_attach_member);
+
+	return volume->type->properties->ops.composite_volume_attach_member(
+			volume, uuid, tgt_id, vol_type, vol_params);
+}
+
+int ocf_composite_volume_detach_member(ocf_volume_t volume,
+		uint8_t subvolume_id)
+{
+	if (!ocf_volume_is_composite(volume))
+		return -OCF_ERR_NOT_COMPOSITE_VOLUME;
+
+	ENV_BUG_ON(!volume->type->properties->ops.
+			composite_volume_detach_member);
+
+	return volume->type->properties->ops.composite_volume_detach_member(
+			volume, subvolume_id);
 }
 
 uint64_t ocf_volume_get_length(ocf_volume_t volume)

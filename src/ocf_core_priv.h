@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -75,6 +76,11 @@ struct ocf_core_meta_runtime {
 		 */
 		env_atomic dirty_clines;
 	} part_counters[OCF_USER_IO_CLASS_MAX];
+};
+
+struct ocf_core_volume_uuid {
+	char cache_name[OCF_CACHE_NAME_SIZE];
+	char core_name[OCF_CORE_NAME_SIZE];
 };
 
 struct ocf_core {

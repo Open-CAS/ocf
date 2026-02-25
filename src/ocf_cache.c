@@ -121,6 +121,7 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	uint64_t core_dirty_since;
 	uint32_t dirty_blocks_inactive = 0;
 	uint32_t cache_occupancy_inactive = 0;
+	uint32_t detached_size = 0;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
 
@@ -136,10 +137,13 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	info->attached = ocf_cache_is_device_attached(cache);
 	info->standby_detached = ocf_cache_is_standby(cache) &&
 		env_refcnt_frozen(&cache->refcnt.metadata);
+
+	detached_size = env_atomic_read(
+			&cache->free_detached.runtime->curr_size);
 	if (info->attached && !info->standby_detached) {
 		info->volume_type = ocf_ctx_get_volume_type_id(cache->owner,
 				cache->device->volume.type);
-		info->size = ocf_cache_get_line_count(cache);
+		info->size = ocf_cache_get_line_count(cache) - detached_size;
 	}
 	info->state = cache->cache_state;
 	info->cache_line_size = ocf_line_size(cache);
@@ -439,6 +443,7 @@ const struct ocf_volume_properties ocf_cache_volume_properties = {
 	.volume_priv_size = sizeof(struct ocf_cache_volume),
 	.caps = {
 		.atomic_writes = 0,
+		.composite_volume = 0,
 	},
 	.ops = {
 		.submit_io = ocf_cache_volume_submit_io,
