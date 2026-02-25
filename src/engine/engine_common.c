@@ -134,12 +134,12 @@ void ocf_engine_patch_req_info(struct ocf_cache *cache,
 static void ocf_engine_update_req_info(struct ocf_cache *cache,
 		struct ocf_request *req, uint32_t idx)
 {
-	uint8_t start_sector = 0;
-	uint8_t end_sector = ocf_line_end_sector(cache);
+	uint8_t start_block = 0;
+	uint8_t end_block = ocf_line_end_block(cache);
 	struct ocf_map_info *entry = &(req->map[idx]);
 
-	start_sector = ocf_map_line_start_sector(req, idx);
-	end_sector = ocf_map_line_end_sector(req, idx);
+	start_block = ocf_map_line_start_block(req, idx);
+	end_block = ocf_map_line_end_block(req, idx);
 
 	ENV_BUG_ON(entry->status != LOOKUP_HIT &&
 			entry->status != LOOKUP_MISS &&
@@ -149,7 +149,7 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 	/* Handle return value */
 	if (entry->status == LOOKUP_HIT) {
 		if (metadata_test_valid_sec(cache, entry->coll_idx,
-				start_sector, end_sector)) {
+				start_block, end_block)) {
 			req->info.hit_no++;
 		} else {
 			req->info.invalid_no++;
@@ -162,7 +162,7 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 
 			/* Check if cache line is fully dirty */
 			if (metadata_test_dirty_all_sec(cache, entry->coll_idx,
-				start_sector, end_sector))
+				start_block, end_block))
 				req->info.dirty_all++;
 		}
 	}
@@ -359,7 +359,7 @@ static void ocf_engine_map_hndl_error(struct ocf_cache *cache,
 					entry->coll_idx);
 
 			set_cache_line_invalid_no_flush(cache, 0,
-					ocf_line_end_sector(cache),
+					ocf_line_end_block(cache),
 					entry->coll_idx);
 
 			ocf_metadata_end_collision_shared_access(cache,

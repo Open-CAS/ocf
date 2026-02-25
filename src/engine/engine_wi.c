@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -32,8 +33,8 @@ static int _ocf_write_wi_next_pass(struct ocf_request *req)
 	   only if concurrent I/O had inserted target LBAs to cache after
 	   this request did traversation. These LBAs might have been
 	   written by this request behind the concurrent I/O's back,
-	   resulting in making these sectors effectively invalid.
-	   In this case we must update these sectors metadata to
+	   resulting in making these blocks effectively invalid.
+	   In this case we must update these blocks metadata to
 	   reflect this. However we won't know about this after we
 	   traverse the request again - hence calling ocf_write_wi
 	   again with req->wi_second_pass set to indicate that this

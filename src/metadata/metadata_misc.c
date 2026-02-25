@@ -26,7 +26,7 @@ void ocf_metadata_sparse_cache_line(struct ocf_cache *cache,
 {
 	ocf_metadata_start_collision_shared_access(cache, cache_line);
 
-	set_cache_line_invalid_no_flush(cache, 0, ocf_line_end_sector(cache),
+	set_cache_line_invalid_no_flush(cache, 0, ocf_line_end_block(cache),
 			cache_line);
 
 	/*
@@ -65,7 +65,7 @@ int ocf_metadata_detach_cline_range(ocf_cache_t cache, ocf_cache_line_t begin,
 
 		ocf_metadata_start_collision_shared_access(cache, cline);
 
-		set_cache_line_unavailable(cache, 0, ocf_line_end_sector(cache),
+		set_cache_line_unavailable(cache, 0, ocf_line_end_block(cache),
 				cline);
 
 		/*

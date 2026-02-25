@@ -53,7 +53,7 @@ enum {
 static inline size_t ocf_metadata_status_sizeof(ocf_cache_line_size_t line_size)
 {
 	/* Number of bytes required to mark cache line status */
-	size_t size = BYTES_TO_SECTORS(line_size) / 8;
+	size_t size = OCF_DIV_ROUND_UP(BYTES_TO_BLOCKS(line_size), 8);
 
 	/* Number of types of status (valid, dirty, etc...) */
 	size *= ocf_metadata_status_type_max;
@@ -1385,8 +1385,8 @@ static int ocf_metadata_load_atomic_metadata_drain(void *priv,
 	for (i = 0; i < sector_no; i++) {
 		ctx_data_rd_check(cache->owner, &meta, data, sizeof(meta));
 
-		line = (sector_addr + i) / ocf_line_sectors(cache);
-		pos = (sector_addr + i) % ocf_line_sectors(cache);
+		line = (sector_addr + i) / ocf_line_blocks(cache);
+		pos = (sector_addr + i) % ocf_line_blocks(cache);
 		core_seq_no = meta.core_seq_no;
 		core_line = meta.core_line;
 

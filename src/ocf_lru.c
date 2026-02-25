@@ -754,7 +754,7 @@ static void ocf_lru_invalidate(ocf_cache_t cache, ocf_cache_line_t cline,
 	ocf_metadata_start_collision_shared_access(
 			cache, cline);
 	metadata_clear_valid_sec(cache, cline, 0,
-			ocf_line_end_sector(cache));
+			ocf_line_end_block(cache));
 	ocf_metadata_remove_from_collision(cache, cline, part_id);
 	ocf_metadata_end_collision_shared_access(
 			cache, cline);

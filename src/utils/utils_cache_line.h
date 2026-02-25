@@ -216,21 +216,22 @@ static inline void ocf_purge_map_info(struct ocf_request *req)
 			continue;
 
 		start_bit = 0;
-		end_bit = ocf_line_end_sector(cache);
+		end_bit = ocf_line_end_block(cache);
 
 		if (map_idx == 0) {
 			/* First */
 
-			start_bit = (BYTES_TO_SECTORS(req->addr)
-					% ocf_line_sectors(cache));
+			start_bit = BYTES_TO_BLOCKS_ROUND_DOWN(req->addr)
+					% ocf_line_blocks(cache);
+
 		}
 
 		if (map_idx == (count - 1)) {
 			/* Last */
 
-			end_bit = (BYTES_TO_SECTORS(req->addr +
+			end_bit = BYTES_TO_BLOCKS_ROUND_DOWN(req->addr +
 					req->bytes - 1) %
-					ocf_line_sectors(cache));
+					ocf_line_blocks(cache);
 		}
 
 		ocf_metadata_start_collision_shared_access(cache, map[map_idx].
@@ -243,25 +244,26 @@ static inline void ocf_purge_map_info(struct ocf_request *req)
 }
 
 static inline
-uint8_t ocf_map_line_start_sector(struct ocf_request *req, uint32_t line)
+uint8_t ocf_map_line_start_block(struct ocf_request *req, uint32_t line)
 {
 	if (line == 0) {
-		return (BYTES_TO_SECTORS(req->addr)
-				% ocf_line_sectors(req->cache));
+		return BYTES_TO_BLOCKS_ROUND_DOWN(req->addr)
+					% ocf_line_blocks(req->cache);
 	}
 
 	return 0;
 }
 
 static inline
-uint8_t ocf_map_line_end_sector(struct ocf_request *req, uint32_t line)
+uint8_t ocf_map_line_end_block(struct ocf_request *req, uint32_t line)
 {
 	if (line == req->core_line_count - 1) {
-		return (BYTES_TO_SECTORS(req->addr + req->bytes - 1) %
-				ocf_line_sectors(req->cache));
+		return BYTES_TO_BLOCKS_ROUND_DOWN(req->addr +
+					req->bytes - 1) %
+					ocf_line_blocks(req->cache);
 	}
 
-	return ocf_line_end_sector(req->cache);
+	return ocf_line_end_block(req->cache);
 }
 
 static inline void ocf_set_valid_map_info(struct ocf_request *req)
@@ -273,7 +275,7 @@ static inline void ocf_set_valid_map_info(struct ocf_request *req)
 	uint32_t count = req->core_line_count;
 	struct ocf_map_info *map = req->map;
 
-	/* Set valid bits for sectors on the basis of map info
+	/* Set valid bits for blocks on the basis of map info
 	 *
 	 * | 01234567 | 01234567 | ... | 01234567 | 01234567 |
 	 * | -----+++ | ++++++++ | +++ | ++++++++ | +++++--- |
@@ -282,8 +284,8 @@ static inline void ocf_set_valid_map_info(struct ocf_request *req)
 	for (map_idx = 0; map_idx < count; map_idx++) {
 		ENV_BUG_ON(map[map_idx].status == LOOKUP_MISS);
 
-		start_bit = ocf_map_line_start_sector(req, map_idx);
-		end_bit = ocf_map_line_end_sector(req, map_idx);
+		start_bit = ocf_map_line_start_block(req, map_idx);
+		end_bit = ocf_map_line_end_block(req, map_idx);
 
 		ocf_metadata_start_collision_shared_access(cache, map[map_idx].
 				coll_idx);
@@ -302,7 +304,7 @@ static inline void ocf_set_dirty_map_info(struct ocf_request *req)
 	uint32_t count = req->core_line_count;
 	struct ocf_map_info *map = req->map;
 
-	/* Set valid bits for sectors on the basis of map info
+	/* Set valid bits for blocks on the basis of map info
 	 *
 	 * | 01234567 | 01234567 | ... | 01234567 | 01234567 |
 	 * | -----+++ | ++++++++ | +++ | ++++++++ | +++++--- |
@@ -310,8 +312,8 @@ static inline void ocf_set_dirty_map_info(struct ocf_request *req)
 	 */
 
 	for (map_idx = 0; map_idx < count; map_idx++) {
-		start_bit = ocf_map_line_start_sector(req, map_idx);
-		end_bit = ocf_map_line_end_sector(req, map_idx);
+		start_bit = ocf_map_line_start_block(req, map_idx);
+		end_bit = ocf_map_line_end_block(req, map_idx);
 
 		ocf_metadata_start_collision_shared_access(cache, map[map_idx].
 				coll_idx);
@@ -330,7 +332,7 @@ static inline void ocf_set_clean_map_info(struct ocf_request *req)
 	uint32_t count = req->core_line_count;
 	struct ocf_map_info *map = req->map;
 
-	/* Set valid bits for sectors on the basis of map info
+	/* Set valid bits for blocks on the basis of map info
 	 *
 	 * | 01234567 | 01234567 | ... | 01234567 | 01234567 |
 	 * | -----+++ | ++++++++ | +++ | ++++++++ | +++++--- |
@@ -338,8 +340,8 @@ static inline void ocf_set_clean_map_info(struct ocf_request *req)
 	 */
 
 	for (map_idx = 0; map_idx < count; map_idx++) {
-		start_bit = ocf_map_line_start_sector(req, map_idx);
-		end_bit = ocf_map_line_end_sector(req, map_idx);
+		start_bit = ocf_map_line_start_block(req, map_idx);
+		end_bit = ocf_map_line_end_block(req, map_idx);
 
 		ocf_metadata_start_collision_shared_access(cache, map[map_idx].
 				coll_idx);

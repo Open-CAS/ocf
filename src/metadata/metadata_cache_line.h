@@ -18,14 +18,14 @@ static inline ocf_cache_line_t ocf_line_count(struct ocf_cache *cache)
 	return cache->conf_meta->cachelines;
 }
 
-static inline uint64_t ocf_line_sectors(struct ocf_cache *cache)
+static inline uint64_t ocf_line_blocks(struct ocf_cache *cache)
 {
-	return BYTES_TO_SECTORS(cache->metadata.line_size);
+	return BYTES_TO_BLOCKS_ROUND_DOWN(cache->metadata.line_size);
 }
 
-static inline uint64_t ocf_line_end_sector(struct ocf_cache *cache)
+static inline uint64_t ocf_line_end_block(struct ocf_cache *cache)
 {
-	return ocf_line_sectors(cache) - 1;
+	return ocf_line_blocks(cache) - 1;
 }
 
 #endif /* __METADATA_CACHE_LINE_H__ */

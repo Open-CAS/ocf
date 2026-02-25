@@ -11,11 +11,19 @@
 #include "ocf/ocf.h"
 #include "ocf_env.h"
 
-#define BYTES_TO_SECTORS(x) ((x) >> ENV_SECTOR_SHIFT)
-#define SECTORS_TO_BYTES(x) ((x) << ENV_SECTOR_SHIFT)
+#define SECTOR_SHIFT 9
+#define SECTOR_SIZE (1 << SECTOR_SHIFT)
 
 #define BYTES_TO_PAGES(x)	((((uint64_t)x) + (PAGE_SIZE - 1)) / PAGE_SIZE)
 #define PAGES_TO_BYTES(x)	(((uint64_t)x) * PAGE_SIZE)
+
+#define OCF_BLOCK_SHIFT SECTOR_SHIFT
+
+#define OCF_BLOCK_SIZE (1 << OCF_BLOCK_SHIFT)
+#define BYTES_TO_BLOCKS(x) \
+		(((uint64_t)(x) + (OCF_BLOCK_SIZE - 1)) >> OCF_BLOCK_SHIFT)
+#define BLOCKS_TO_BYTES(x) ((uint64_t)(x) << OCF_BLOCK_SHIFT)
+#define BYTES_TO_BLOCKS_ROUND_DOWN(x) ((x) >> OCF_BLOCK_SHIFT)
 
 #define OCF_DIV_ROUND_UP_STATIC(n, d) \
 	(((n) + (d) - 1) / (d))

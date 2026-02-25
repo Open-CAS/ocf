@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -90,9 +91,9 @@ static void _raw_atomic_flush_do_asynch_sec(struct ocf_cache *cache,
 	start_addr *= ocf_line_size(cache);
 	start_addr += cache->device->metadata_offset;
 
-	start_addr += SECTORS_TO_BYTES(map->start_flush);
-	len = SECTORS_TO_BYTES(map->stop_flush - map->start_flush);
-	len += SECTORS_TO_BYTES(1);
+	start_addr += BLOCKS_TO_BYTES(map->start_flush);
+	len = BLOCKS_TO_BYTES(map->stop_flush - map->start_flush);
+	len += BLOCKS_TO_BYTES(1);
 
 	_raw_atomic_io_discard_do(req, start_addr, len);
 }
@@ -157,7 +158,7 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 			}
 		} else if (i == (line_no - 1)) {
 			/* Last */
-			if (map->stop_flush != ocf_line_end_sector(cache)) {
+			if (map->stop_flush != ocf_line_end_block(cache)) {
 				_raw_atomic_flush_do_asynch_sec(cache, req, i);
 			} else {
 				_raw_atomic_add_page(cache, clines_tab,

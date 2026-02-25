@@ -1,5 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -93,7 +95,7 @@ void ocf_metadata_probe(ocf_ctx_t ctx, ocf_volume_t volume,
 		ocf_metadata_probe_end_t cmpl, void *priv);
 
 /**
- * @brief Check if sectors in cache line before given address are invalid
+ * @brief Check if blocks in cache line before given address are invalid
  *
  * It might be used by volume which supports
  * atomic writes - (write of data and metadata in one buffer)
@@ -101,13 +103,13 @@ void ocf_metadata_probe(ocf_ctx_t ctx, ocf_volume_t volume,
  * @param[in] cache OCF cache instance
  * @param[in] addr Sector address in bytes
  *
- * @retval 0 Not all sectors before given address are invalid
- * @retval Non-zero Number of sectors before given address
+ * @retval 0 Not all blocks before given address are invalid
+ * @retval Non-zero Number of blocks before given address
  */
 int ocf_metadata_check_invalid_before(ocf_cache_t cache, uint64_t addr);
 
 /**
- * @brief Check if sectors in cache line after given end address are invalid
+ * @brief Check if blocks in cache line after given end address are invalid
  *
  * It might be used by volume which supports
  * atomic writes - (write of data and metadata in one buffer)
@@ -116,8 +118,8 @@ int ocf_metadata_check_invalid_before(ocf_cache_t cache, uint64_t addr);
  * @param[in] addr Sector address in bytes
  * @param[in] bytes IO size in bytes
  *
- * @retval 0 Not all sectors after given end address are invalid
- * @retval Non-zero Number of sectors after given end address
+ * @retval 0 Not all blocks after given end address are invalid
+ * @retval Non-zero Number of blocks after given end address
  */
 int ocf_metadata_check_invalid_after(ocf_cache_t cache, uint64_t addr,
 		uint32_t bytes);

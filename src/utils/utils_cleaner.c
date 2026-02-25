@@ -252,11 +252,11 @@ static void _ocf_cleaner_cache_line_unlock(struct ocf_request *req)
 	}
 }
 
-static bool _ocf_cleaner_sector_is_dirty(struct ocf_cache *cache,
-		ocf_cache_line_t line, uint8_t sector)
+static bool _ocf_cleaner_block_is_dirty(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t block)
 {
-	bool dirty = metadata_test_dirty_one(cache, line, sector);
-	bool valid = metadata_test_valid_one(cache, line, sector);
+	bool dirty = metadata_test_dirty_one(cache, line, block);
+	bool valid = metadata_test_valid_one(cache, line, block);
 
 	if (!valid && dirty) {
 		/* not valid but dirty - IMPROPER STATE!!! */
@@ -346,7 +346,7 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 			ocf_metadata_start_collision_shared_access(cache,
 					cache_line);
 			set_cache_line_clean(cache, 0,
-					ocf_line_end_sector(cache), req, i);
+					ocf_line_end_block(cache), req, i);
 			ocf_metadata_end_collision_shared_access(cache,
 					cache_line);
 		}
@@ -432,19 +432,19 @@ static void _ocf_cleaner_core_io_for_dirty_range(struct ocf_request *req,
 			iter->coll_idx);
 
 	addr = (ocf_line_size(cache) * iter->core_line)
-			+ SECTORS_TO_BYTES(begin);
+			+ BLOCKS_TO_BYTES(begin);
 	offset = (ocf_line_size(cache) * iter->hash)
-			+ SECTORS_TO_BYTES(begin);
+			+ BLOCKS_TO_BYTES(begin);
 
 	ocf_core_stats_core_block_update(req->core, part_id, OCF_WRITE,
-			SECTORS_TO_BYTES(end - begin));
+			BLOCKS_TO_BYTES(end - begin));
 
 	OCF_DEBUG_PARAM(req->cache, "Core write, line = %llu, "
-			"sector = %llu, count = %llu", iter->core_line, begin,
+			"block = %llu, count = %llu", iter->core_line, begin,
 			end - begin);
 
 	ocf_req_forward_core_io(req, OCF_WRITE, addr,
-			SECTORS_TO_BYTES(end - begin), offset);
+			BLOCKS_TO_BYTES(end - begin), offset);
 }
 
 static void _ocf_cleaner_core_submit_io(struct ocf_request *req,
@@ -459,14 +459,14 @@ static void _ocf_cleaner_core_submit_io(struct ocf_request *req,
 		&& metadata_test_dirty(cache, iter->coll_idx)) {
 
 		_ocf_cleaner_core_io_for_dirty_range(req, iter, 0,
-				ocf_line_sectors(cache));
+				ocf_line_blocks(cache));
 
 		return;
 	}
 
 	/* Sector cleaning, a little effort is required to this */
-	for (i = 0; i < ocf_line_sectors(cache); i++) {
-		if (!_ocf_cleaner_sector_is_dirty(cache, iter->coll_idx, i)) {
+	for (i = 0; i < ocf_line_blocks(cache); i++) {
+		if (!_ocf_cleaner_block_is_dirty(cache, iter->coll_idx, i)) {
 			if (counting_dirty) {
 				counting_dirty = false;
 				_ocf_cleaner_core_io_for_dirty_range(req, iter,

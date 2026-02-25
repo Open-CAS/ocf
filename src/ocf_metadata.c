@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2023 Huawei Technologies
  * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -18,8 +19,8 @@ static inline uint8_t ocf_atomic_addr2pos(struct ocf_cache *cache,
 		uint64_t addr)
 {
 	addr -= cache->device->metadata_offset;
-	addr = BYTES_TO_SECTORS(addr);
-	addr %= ocf_line_sectors(cache);
+	addr = BYTES_TO_BLOCKS_ROUND_DOWN(addr);
+	addr %= ocf_line_blocks(cache);
 
 	return addr;
 }
@@ -99,7 +100,7 @@ int ocf_metadata_check_invalid_after(ocf_cache_t cache, uint64_t addr,
 	if (!pos || addr < cache->device->metadata_offset)
 		return 0;
 
-	for (i = pos; i < ocf_line_sectors(cache); i++) {
+	for (i = pos; i < ocf_line_blocks(cache); i++) {
 		if (metadata_test_valid_one(cache, line, i))
 			return 0;
 
