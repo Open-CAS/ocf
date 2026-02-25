@@ -582,21 +582,27 @@ static int ocf_mngt_rebuild_metadata_handle(ocf_parallelize_t parallelize,
 {
 	struct ocf_mngt_rebuild_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	ocf_cache_line_t begin, increment, cline, free_lines;
+	ocf_cache_line_t begin, cline, free_lines;
 	ocf_core_t core;
 	ocf_core_id_t core_id;
 	uint64_t core_line;
 	unsigned char step = 0;
 	const uint64_t entries = ocf_metadata_collision_table_entries(cache);
 
-	begin = shard_id;
-	increment = shards_cnt;
+	begin = shard_id * OCF_LRU_CHUNK_SIZE;
 
 	free_lines = 0;
-	for (cline = begin; cline < entries; cline += increment) {
+	for (cline = begin; cline < entries; cline++) {
 		bool any_valid = true;
 
 		OCF_COND_RESCHED(step, 128);
+
+		if (OCF_LRU_GET_LIST_INDEX(cline) != shard_id) {
+			/* Skip until beginning of the next chunk */
+			cline += OCF_LRU_STRIPE_SIZE - OCF_LRU_CHUNK_SIZE - 1;
+			continue;
+		}
+
 		ocf_metadata_get_core_info(cache, cline, &core_id, &core_line);
 
 		if (!ocf_metadata_check(cache, cline) ||
