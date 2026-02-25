@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -55,11 +56,13 @@ struct ocf_stats_usage {
  * ║ Request statistics   │ Count │   %   │ Units    ║
  * ╠══════════════════════╪═══════╪═══════╪══════════╣
  * ║ Read hits            │    10 │   4.5 │ Requests ║
+ * ║ Read deferred        │     0 │   0.0 │ Requests ║
  * ║ Read partial misses  │     1 │   0.5 │ Requests ║
  * ║ Read full misses     │   211 │  95.0 │ Requests ║
  * ║ Read total           │   222 │ 100.0 │ Requests ║
  * ╟──────────────────────┼───────┼───────┼──────────╢
  * ║ Write hits           │     0 │   0.0 │ Requests ║
+ * ║ Write deferred       │     0 │   0.0 │ Requests ║
  * ║ Write partial misses │     0 │   0.0 │ Requests ║
  * ║ Write full misses    │     0 │   0.0 │ Requests ║
  * ║ Write total          │     0 │   0.0 │ Requests ║
@@ -74,10 +77,12 @@ struct ocf_stats_usage {
  */
 struct ocf_stats_requests {
 	struct ocf_stat rd_hits;
+	struct ocf_stat rd_deferred;
 	struct ocf_stat rd_partial_misses;
 	struct ocf_stat rd_full_misses;
 	struct ocf_stat rd_total;
 	struct ocf_stat wr_hits;
+	struct ocf_stat wr_deferred;
 	struct ocf_stat wr_partial_misses;
 	struct ocf_stat wr_full_misses;
 	struct ocf_stat wr_total;

@@ -23,16 +23,18 @@ static void _fill_req(struct ocf_stats_requests *req, struct ocf_stats_core *s)
 
 	/* Reads Section */
 	hit = s->read_reqs.total - (s->read_reqs.full_miss +
-			s->read_reqs.partial_miss);
+			s->read_reqs.partial_miss + s->read_reqs.deferred);
 	_set(&req->rd_hits, hit, total);
+	_set(&req->rd_deferred, s->read_reqs.deferred, total);
 	_set(&req->rd_partial_misses, s->read_reqs.partial_miss, total);
 	_set(&req->rd_full_misses, s->read_reqs.full_miss, total);
 	_set(&req->rd_total, s->read_reqs.total, total);
 
 	/* Write Section */
 	hit = s->write_reqs.total - (s->write_reqs.full_miss +
-					s->write_reqs.partial_miss);
+			s->write_reqs.partial_miss + s->write_reqs.deferred);
 	_set(&req->wr_hits, hit, total);
+	_set(&req->wr_deferred, s->write_reqs.deferred, total);
 	_set(&req->wr_partial_misses, s->write_reqs.partial_miss, total);
 	_set(&req->wr_full_misses, s->write_reqs.full_miss, total);
 	_set(&req->wr_total, s->write_reqs.total, total);
@@ -56,16 +58,18 @@ static void _fill_req_part(struct ocf_stats_requests *req,
 
 	/* Reads Section */
 	hit = s->read_reqs.total - (s->read_reqs.full_miss +
-			s->read_reqs.partial_miss);
+			s->read_reqs.partial_miss + s->read_reqs.deferred);
 	_set(&req->rd_hits, hit, total);
+	_set(&req->rd_deferred, s->read_reqs.deferred, total);
 	_set(&req->rd_partial_misses, s->read_reqs.partial_miss, total);
 	_set(&req->rd_full_misses, s->read_reqs.full_miss, total);
 	_set(&req->rd_total, s->read_reqs.total, total);
 
 	/* Write Section */
 	hit = s->write_reqs.total - (s->write_reqs.full_miss +
-					s->write_reqs.partial_miss);
+			s->write_reqs.partial_miss + s->write_reqs.deferred);
 	_set(&req->wr_hits, hit, total);
+	_set(&req->wr_deferred, s->write_reqs.deferred, total);
 	_set(&req->wr_partial_misses, s->write_reqs.partial_miss, total);
 	_set(&req->wr_full_misses, s->write_reqs.full_miss, total);
 	_set(&req->wr_total, s->write_reqs.total, total);
@@ -191,6 +195,7 @@ static void _accumulate_reqs(struct ocf_stats_req *to,
 		const struct ocf_stats_req *from)
 {
 	to->full_miss += from->full_miss;
+	to->deferred += from->deferred;
 	to->partial_miss += from->partial_miss;
 	to->total += from->total;
 	to->pass_through += from->pass_through;

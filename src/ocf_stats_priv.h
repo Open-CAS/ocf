@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -18,6 +19,7 @@ struct ocf_counters_error {
 };
 
 struct ocf_counters_req {
+	env_atomic64 deferred;
 	env_atomic64 partial_miss;
 	env_atomic64 full_miss;
 	env_atomic64 total;
@@ -28,9 +30,12 @@ struct ocf_counters_req {
  * @brief OCF requests statistics like hit, miss, etc...
  *
  * @note To calculate number of hits request do:
- * total - (partial_miss + full_miss)
+ * total - (deferred + partial_miss + full_miss)
  */
 struct ocf_stats_req {
+	/** Number of deferred hits */
+	uint64_t deferred;
+
 	/** Number of partial misses */
 	uint64_t partial_miss;
 
@@ -201,7 +206,8 @@ void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
 		int dir, uint64_t bytes);
 
 void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
-		uint8_t dir, uint64_t hit_no, uint64_t core_line_count);
+		uint8_t dir, uint64_t hit_no, uint64_t core_line_count,
+		uint8_t deferred);
 void ocf_core_stats_request_pt_update(ocf_core_t core, ocf_part_id_t part_id,
 		uint8_t dir, uint64_t hit_no, uint64_t core_line_count);
 
