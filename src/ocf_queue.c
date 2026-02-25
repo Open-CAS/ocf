@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -288,7 +289,6 @@ void ocf_queue_push_req(struct ocf_request *req, uint flags)
 void ocf_queue_push_req_cb(struct ocf_request *req,
 		ocf_req_cb req_cb, uint flags)
 {
-	req->error = 0; /* Please explain why!!! */
 	req->engine_handler = req_cb;
 	ocf_queue_push_req(req, flags);
 }
