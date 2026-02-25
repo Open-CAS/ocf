@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2021 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -49,10 +50,12 @@ class UsageStats(Structure):
 class RequestsStats(Structure):
     _fields_ = [
         ("rd_hits", _Stat),
+        ("rd_deferred", _Stat),
         ("rd_partial_misses", _Stat),
         ("rd_full_misses", _Stat),
         ("rd_total", _Stat),
         ("wr_hits", _Stat),
+        ("wr_deferred", _Stat),
         ("wr_partial_misses", _Stat),
         ("wr_full_misses", _Stat),
         ("wr_total", _Stat),

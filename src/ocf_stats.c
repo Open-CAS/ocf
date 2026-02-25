@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -31,6 +32,7 @@ static void ocf_stats_debug_init(struct ocf_counters_debug *stats)
 static void ocf_stats_req_init(struct ocf_counters_req *stats)
 {
 	env_atomic64_set(&stats->full_miss, 0);
+	env_atomic64_set(&stats->deferred, 0);
 	env_atomic64_set(&stats->partial_miss, 0);
 	env_atomic64_set(&stats->total, 0);
 	env_atomic64_set(&stats->pass_through, 0);
@@ -111,7 +113,8 @@ void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
 }
 
 void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
-		uint8_t dir, uint64_t hit_no, uint64_t core_line_count)
+		uint8_t dir, uint64_t hit_no, uint64_t core_line_count,
+		uint8_t deferred)
 {
 	struct ocf_counters_req *counters;
 
@@ -132,6 +135,8 @@ void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
 		env_atomic64_inc(&counters->full_miss);
 	else if (hit_no < core_line_count)
 		env_atomic64_inc(&counters->partial_miss);
+	else if (deferred)
+		env_atomic64_inc(&counters->deferred);
 }
 
 void ocf_core_stats_request_pt_update(ocf_core_t core, ocf_part_id_t part_id,
@@ -234,6 +239,7 @@ int ocf_core_stats_initialize_all(ocf_cache_t cache)
 static void copy_req_stats(struct ocf_stats_req *dest,
 		const struct ocf_counters_req *from)
 {
+	dest->deferred = env_atomic64_read(&from->deferred);
 	dest->partial_miss = env_atomic64_read(&from->partial_miss);
 	dest->full_miss = env_atomic64_read(&from->full_miss);
 	dest->total = env_atomic64_read(&from->total);
@@ -243,6 +249,7 @@ static void copy_req_stats(struct ocf_stats_req *dest,
 static void accum_req_stats(struct ocf_stats_req *dest,
 		const struct ocf_counters_req *from)
 {
+	dest->deferred += env_atomic64_read(&from->deferred);
 	dest->partial_miss += env_atomic64_read(&from->partial_miss);
 	dest->full_miss += env_atomic64_read(&from->full_miss);
 	dest->total += env_atomic64_read(&from->total);
