@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "metadata.h"
@@ -230,7 +231,7 @@ static void metadata_io_req_finalize(struct metadata_io_request *m_req)
 	struct metadata_io_request_asynch *a_req = m_req->asynch;
 
 	if (env_atomic_dec_return(&a_req->req_active) == 0)
-		env_mpool_del(m_req->cache->owner->resources.mio, a_req,
+		env_mpool_del(m_req->cache->owner->resources.mio.mpool, a_req,
 				a_req->alloc_req_count);
 }
 
@@ -388,7 +389,7 @@ static int metadata_io_i_asynch(ocf_cache_t cache, ocf_queue_t queue, int dir,
 	uint32_t io_count = OCF_DIV_ROUND_UP(count, max_count);
 	uint32_t req_count = OCF_MIN(io_count, METADATA_IO_REQS_LIMIT);
 	int i;
-	struct env_mpool *mio_allocator = cache->owner->resources.mio;
+	struct env_mpool *mio_allocator = cache->owner->resources.mio.mpool;
 
 	if (count == 0)
 		return 0;
@@ -483,7 +484,7 @@ int metadata_io_read_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 					       not exceed one page (4096B).
 					       Change if apropriate. */
 
-int ocf_metadata_io_ctx_init(struct ocf_ctx *ocf_ctx)
+int ocf_metadata_io_open(struct ocf_ctx *ocf_ctx)
 {
 	uint32_t limits[] = {
 		[0 ... MIO_RPOOL_THRESHOLD - 1] = -1,
@@ -491,21 +492,41 @@ int ocf_metadata_io_ctx_init(struct ocf_ctx *ocf_ctx)
 		[ocf_mio_size_max ... env_mpool_max] = -1,
 	};
 
-	ocf_ctx->resources.mio = env_mpool_create(
+	if (ocf_ctx->resources.mio.ref_count > 0)
+		goto out;
+
+	ocf_ctx->resources.mio.mpool = env_mpool_create(
 			sizeof(struct metadata_io_request_asynch),
 			sizeof(struct metadata_io_request),
 			ENV_MEM_NOIO, ocf_mio_size_max - 1, true,
 			limits,
 			"ocf_mio",
 			true);
-	if (ocf_ctx->resources.mio == NULL)
-		return -1;
+	if (ocf_ctx->resources.mio.mpool == NULL)
+		return -OCF_ERR_NO_MEM;
+
+out:
+	ocf_ctx->resources.mio.ref_count++;
+	return 0;
+}
+
+void ocf_metadata_io_close(struct ocf_ctx *ocf_ctx)
+{
+	if (--ocf_ctx->resources.mio.ref_count == 0) {
+		env_mpool_destroy(ocf_ctx->resources.mio.mpool);
+		ocf_ctx->resources.mio.mpool = NULL;
+	}
+}
+
+int ocf_metadata_io_ctx_init(struct ocf_ctx *ocf_ctx)
+{
+	ocf_ctx->resources.mio.mpool = NULL;
+	ocf_ctx->resources.mio.ref_count = 0;
 
 	return 0;
 }
 
 void ocf_metadata_io_ctx_deinit(struct ocf_ctx *ocf_ctx)
 {
-	env_mpool_destroy(ocf_ctx->resources.mio);
-	ocf_ctx->resources.mio = NULL;
+	ENV_BUG_ON(ocf_ctx->resources.mio.ref_count != 0);
 }

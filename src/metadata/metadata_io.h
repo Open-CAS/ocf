@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -8,6 +9,7 @@
 #define __METADATA_IO_H__
 
 #include "../concurrency/ocf_mio_concurrency.h"
+#include "metadata_io_resource.h"
 
 /**
  * @file metadata_io.h
@@ -146,14 +148,4 @@ int metadata_io_read_i_asynch(ocf_cache_t cache, ocf_queue_t queue,
 		ocf_metadata_io_event_t drain_hndl,
 		ocf_metadata_io_end_t compl_hndl);
 
-/**
- * Initialize ocf_ctx related structures of metadata_io (mpool).
- */
-int ocf_metadata_io_ctx_init(struct ocf_ctx *ocf_ctx);
-
-/**
- * Deinitialize ocf_ctx related structures of metadata_io
- */
-void ocf_metadata_io_ctx_deinit(struct ocf_ctx *ocf_ctx);
-
-#endif /* METADATA_IO_UTILS_H_ */
+#endif /* __METADATA_IO_H__ */

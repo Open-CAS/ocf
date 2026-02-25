@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -11,6 +12,7 @@
 #include "ocf/ocf_composite_volume.h"
 #include "ocf_logger_priv.h"
 #include "ocf_volume_priv.h"
+#include "metadata/metadata_io_resource.h"
 
 #define OCF_VOLUME_TYPE_CNT_USER 8
 #define OCF_VOLUME_TYPE_CNT_PRIV 3
@@ -38,7 +40,7 @@ struct ocf_ctx {
 	const struct ocf_ctx_ops *ops;
 	struct {
 		struct env_mpool *req;
-		struct env_mpool *mio;
+		struct ocf_metadata_io_resource mio;
 	} resources;
 	struct list_head caches;
 	struct {
