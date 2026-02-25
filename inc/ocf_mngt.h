@@ -610,7 +610,6 @@ void ocf_mngt_cache_standby_load(ocf_cache_t cache,
 /**
  * @brief Completion callback of cache standby detach operation
  *
- * @param[in] cache Cache handle
  * @param[in] priv Callback context
  * @param[in] error Error code (zero on success)
  */
