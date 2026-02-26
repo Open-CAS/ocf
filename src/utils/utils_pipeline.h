@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -182,6 +183,9 @@ void ocf_pipeline_next(ocf_pipeline_t pipeline);
 void ocf_pipeline_rollback(ocf_pipeline_t pipeline, int error);
 
 void ocf_pipeline_finish(ocf_pipeline_t pipeline, int error);
+
+void ocf_pipeline_continue_on_zero_refcnt(ocf_pipeline_t pipeline,
+		struct env_refcnt *refcnt);
 
 #define OCF_PL_NEXT_RET(pipeline) ({ \
 	ocf_pipeline_next(pipeline); \

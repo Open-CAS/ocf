@@ -2005,7 +2005,7 @@ static void _ocf_mngt_attach_switch_to_pt(ocf_pipeline_t pipeline,
 	env_refcnt_unfreeze(&cache->refcnt.metadata);
 	env_refcnt_freeze(&cache->refcnt.d2c);
 
-	ocf_mngt_continue_pipeline_on_zero_refcnt(&cache->refcnt.d2c, pipeline);
+	ocf_pipeline_continue_on_zero_refcnt(pipeline, &cache->refcnt.d2c);
 }
 
 static void _ocf_mngt_attach_handle_error(
@@ -2154,7 +2154,7 @@ static void ocf_mngt_cache_stop_wait_metadata_io(ocf_pipeline_t pipeline,
 	struct env_refcnt *refcnt = &context->cache->refcnt.metadata;
 
 	env_refcnt_freeze(refcnt);
-	ocf_mngt_continue_pipeline_on_zero_refcnt(refcnt, context->pipeline);
+	ocf_pipeline_continue_on_zero_refcnt(context->pipeline, refcnt);
 }
 
 static void ocf_mngt_cache_stop_check_dirty(ocf_pipeline_t pipeline,
@@ -2605,7 +2605,7 @@ static void _ocf_mngt_standby_detach_wait_metadata_io(ocf_pipeline_t pipeline,
 	struct env_refcnt *refcnt = &context->cache->refcnt.metadata;
 
 	env_refcnt_freeze(refcnt);
-	ocf_mngt_continue_pipeline_on_zero_refcnt(refcnt, context->pipeline);
+	ocf_pipeline_continue_on_zero_refcnt(context->pipeline, refcnt);
 }
 
 static void _ocf_mngt_activate_set_cache_device(ocf_pipeline_t pipeline,
@@ -3802,7 +3802,7 @@ static void ocf_mngt_cache_detach_stop_cache_io(ocf_pipeline_t pipeline,
 	struct env_refcnt *refcnt = &context->cache->refcnt.metadata;
 
 	env_refcnt_freeze(refcnt);
-	ocf_mngt_continue_pipeline_on_zero_refcnt(refcnt, context->pipeline);
+	ocf_pipeline_continue_on_zero_refcnt(context->pipeline, refcnt);
 }
 
 static void ocf_mngt_cache_detach_composite_invalidate_cmpl(ocf_cache_t cache,

@@ -1,10 +1,12 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
  * Copyright(c) 2023-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
+#include "ocf_env_refcnt.h"
 #include "../engine/cache_engine.h"
 #include "../engine/engine_common.h"
 #include "../ocf_request.h"
@@ -160,4 +162,16 @@ void ocf_pipeline_finish(ocf_pipeline_t pipeline, int error)
 	if (!pipeline->rollback)
 		pipeline->error = error;
 	ocf_queue_push_req(pipeline->req, OCF_QUEUE_PRIO_HIGH);
+}
+
+static void _ocf_pipeline_continue_on_zero_refcnt_cb(void *priv)
+{
+	ocf_pipeline_next((ocf_pipeline_t)priv);
+}
+
+void ocf_pipeline_continue_on_zero_refcnt(ocf_pipeline_t pipeline,
+		struct env_refcnt *refcnt)
+{
+	env_refcnt_register_zero_cb(refcnt,
+			_ocf_pipeline_continue_on_zero_refcnt_cb, pipeline);
 }
