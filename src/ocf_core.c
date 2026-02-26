@@ -17,6 +17,7 @@
 #include "ocf_request.h"
 #include "ocf_seq_detect.h"
 #include "ocf_seq_cutoff.h"
+#include "prefetch/ocf_prefetch_priv.h"
 
 struct ocf_core_volume {
 	ocf_core_t core;
@@ -300,17 +301,15 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 
 	ocf_core_update_stats(core, io);
 
-	/* In case of fastpath prevent completing the requets before updating
-	 * sequential cutoff info */
+	/* Prevent race condition with prefetch */
 	ocf_req_get(req);
 
 	fastpath = ocf_core_submit_io_fast(req, cache);
 
 	ocf_core_seq_detect_update(core, req);
-	ocf_req_put(req);
 
 	if (fastpath == OCF_FAST_PATH_YES)
-		return;
+		goto prefetch;
 
 	ocf_req_clear_map(req);
 
@@ -319,6 +318,11 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 		dec_counter_if_req_was_dirty(req);
 		goto err;
 	}
+
+prefetch:
+	ocf_prefetch(req);
+
+	ocf_req_put(req);
 
 	return;
 

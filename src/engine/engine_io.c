@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -131,7 +132,7 @@ void ocf_engine_forward_core_io_req(struct ocf_request *req,
 		ocf_req_end_t callback)
 {
 	ocf_core_stats_core_block_update(req->core, req->part_id, req->rw,
-			req->bytes);
+			req->bytes, req->io.pf_id);
 
 	ocf_req_forward_core_init(req, callback);
 
@@ -143,7 +144,7 @@ void ocf_engine_forward_core_flush_req(struct ocf_request *req,
 		ocf_req_end_t callback)
 {
 	ocf_core_stats_core_block_update(req->core, req->part_id, req->rw,
-			req->bytes);
+			req->bytes, req->io.pf_id);
 
 	ocf_req_forward_core_init(req, callback);
 
@@ -154,7 +155,7 @@ void ocf_engine_forward_core_discard_req(struct ocf_request *req,
 		ocf_req_end_t callback)
 {
 	ocf_core_stats_core_block_update(req->core, req->part_id, req->rw,
-			req->bytes);
+			req->bytes, req->io.pf_id);
 
 	ocf_req_forward_core_init(req, callback);
 

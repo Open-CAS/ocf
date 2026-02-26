@@ -9,6 +9,7 @@
 #include "ocf_priv.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
+#include "prefetch/ocf_prefetch_priv.h"
 #include "utils/utils_user_part.h"
 #include "utils/utils_cache_line.h"
 
@@ -46,8 +47,13 @@ static void ocf_stats_block_init(struct ocf_counters_block *stats)
 
 static void ocf_stats_part_init(struct ocf_counters_part *stats)
 {
+	ocf_pf_id_t pf_id;
 	ocf_stats_req_init(&stats->read_reqs);
 	ocf_stats_req_init(&stats->write_reqs);
+	for_each_pf(pf_id) {
+		ocf_stats_req_init(&stats->prefetch_reqs[pf_id]);
+		ocf_stats_block_init(&stats->prefetch_blocks[pf_id]);
+	}
 
 	ocf_stats_block_init(&stats->blocks);
 	ocf_stats_block_init(&stats->core_blocks);
@@ -95,12 +101,17 @@ void ocf_core_stats_cache_block_update(ocf_core_t core, ocf_part_id_t part_id,
 }
 
 void ocf_core_stats_core_block_update(ocf_core_t core, ocf_part_id_t part_id,
-		int dir, uint64_t bytes)
+		int dir, uint64_t bytes, ocf_pf_id_t pf_id)
 {
 	struct ocf_counters_block *counters =
 		&core->counters->part_counters[part_id].core_blocks;
 
 	_ocf_stats_block_update(counters, dir, bytes);
+	if (OCF_PF_ID_VALID(pf_id)) {
+		counters = &core->counters->
+				part_counters[part_id].prefetch_blocks[pf_id];
+		_ocf_stats_block_update(counters, dir, bytes);
+	}
 }
 
 void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
@@ -114,13 +125,17 @@ void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
 
 void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
 		uint8_t dir, uint64_t hit_no, uint64_t core_line_count,
-		uint8_t deferred)
+		ocf_pf_id_t pf_id, uint8_t deferred)
 {
 	struct ocf_counters_req *counters;
 
 	switch (dir) {
 		case OCF_READ:
 			counters = &core->counters->part_counters[part_id].read_reqs;
+			if (OCF_PF_ID_VALID(pf_id))
+				counters = &core->counters->
+						part_counters[part_id].
+						prefetch_reqs[pf_id];
 			break;
 		case OCF_WRITE:
 			counters = &core->counters->part_counters[part_id].write_reqs;
@@ -300,6 +315,7 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 {
 	ocf_cache_t cache;
 	struct ocf_counters_part *part_stat;
+	ocf_pf_id_t pf_id;
 
 	OCF_CHECK_NULL(core);
 	OCF_CHECK_NULL(stats);
@@ -326,6 +342,13 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 
 	copy_req_stats(&stats->read_reqs, &part_stat->read_reqs);
 	copy_req_stats(&stats->write_reqs, &part_stat->write_reqs);
+
+	for_each_pf(pf_id) {
+		copy_req_stats(&stats->prefetch_reqs[pf_id],
+			       &part_stat->prefetch_reqs[pf_id]);
+		copy_block_stats(&stats->prefetch_blocks[pf_id],
+				 &part_stat->prefetch_blocks[pf_id]);
+	}
 
 	copy_block_stats(&stats->blocks, &part_stat->blocks);
 	copy_block_stats(&stats->cache_blocks, &part_stat->cache_blocks);
@@ -366,12 +389,20 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 #endif
 
 	for (i = 0; i != OCF_USER_IO_CLASS_MAX; i++) {
+		ocf_pf_id_t pf_id;
 		curr = &core_stats->part_counters[i];
 
 		accum_req_stats(&stats->read_reqs,
 				&curr->read_reqs);
 		accum_req_stats(&stats->write_reqs,
 				&curr->write_reqs);
+
+		for_each_pf(pf_id) {
+			accum_req_stats(&stats->prefetch_reqs[pf_id],
+					&curr->prefetch_reqs[pf_id]);
+			accum_block_stats(&stats->prefetch_blocks[pf_id],
+					  &curr->prefetch_blocks[pf_id]);
+		}
 
 		accum_block_stats(&stats->core, &curr->blocks);
 		accum_block_stats(&stats->core_volume, &curr->core_blocks);

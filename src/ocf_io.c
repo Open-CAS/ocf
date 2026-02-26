@@ -11,6 +11,7 @@
 #include "ocf_volume_priv.h"
 #include "ocf_core_priv.h"
 #include "utils/utils_io_allocator.h"
+#include "prefetch/ocf_prefetch_priv.h"
 #include "ocf_env_refcnt.h"
 #ifdef OCF_DEBUG_STATS
 #include "ocf_stats_priv.h"
@@ -96,6 +97,8 @@ ocf_io_t ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 	req->io.volume = volume;
 	req->io.io_class = io_class;
 	req->flags = flags;
+
+	req->io.pf_id = ocf_pf_none;
 
 	return req;
 }

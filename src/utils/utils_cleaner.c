@@ -437,7 +437,7 @@ static void _ocf_cleaner_core_io_for_dirty_range(struct ocf_request *req,
 			+ BLOCKS_TO_BYTES(begin);
 
 	ocf_core_stats_core_block_update(req->core, part_id, OCF_WRITE,
-			BLOCKS_TO_BYTES(end - begin));
+			BLOCKS_TO_BYTES(end - begin), ocf_pf_none);
 
 	OCF_DEBUG_PARAM(req->cache, "Core write, line = %llu, "
 			"block = %llu, count = %llu", iter->core_line, begin,

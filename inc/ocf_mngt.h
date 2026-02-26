@@ -10,6 +10,7 @@
 
 #include "ocf_cache.h"
 #include "ocf_core.h"
+#include "ocf_prefetch.h"
 
 /**
  * @file
@@ -1004,6 +1005,31 @@ int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, ocf_promotion_t type,
  */
 int ocf_mngt_cache_promotion_get_param(ocf_cache_t cache, ocf_promotion_t type,
 		uint8_t param_id, uint32_t *param_value);
+
+/**
+ * @brief Set prefetch policy in given cache
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
+ * @param[in] cache Cache handle
+ * @param[in] mask Bitmask of prefetch policies to enable
+ *
+ * @retval 0 Policy has been set successfully
+ * @retval Non-zero Error occurred and policy has not been set
+ */
+int ocf_mngt_cache_prefetch_set_policy(ocf_cache_t cache, ocf_pf_mask_t mask);
+
+/**
+ * @brief Get prefetch policy in given cache
+ *
+ * @param[in] cache Cache handle
+ * @param[out] mask Bitmask of enabled prefetch policies
+ *
+ * @retval 0 success
+ * @retval Non-zero Error occurred and policy could not be retrieved
+ */
+int ocf_mngt_cache_prefetch_get_policy(ocf_cache_t cache, ocf_pf_mask_t *mask);
 
 /**
  * @brief IO class configuration

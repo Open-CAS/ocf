@@ -15,6 +15,8 @@
 #ifndef __OCF_STATS_H__
 #define __OCF_STATS_H__
 
+#include "ocf_prefetch.h"
+
 /**
  * Entire row of statistcs
  */
@@ -71,7 +73,11 @@ struct ocf_stats_usage {
  * ║ Pass-Through writes  │     0 │   0.0 │ Requests ║
  * ║ Serviced requests    │   222 │ 100.0 │ Requests ║
  * ╟──────────────────────┼───────┼───────┼──────────╢
- * ║ Total requests       │   222 │ 100.0 │ Requests ║
+ * ║ Prefetch: readahead  │     2 │   0.0 │ Requests ║
+ * ║ Prefetch total       │     2 │   0.0 │ Requests ║
+ * ╟──────────────────────┼───────┼───────┼──────────╢
+ * ║ User requests        │   222 │ 100.0 │ Requests ║
+ * ║ Total requests       │   224 │ 100.0 │ Requests ║
  * ╚══════════════════════╧═══════╧═══════╧══════════╝
  * </pre>
  */
@@ -89,6 +95,8 @@ struct ocf_stats_requests {
 	struct ocf_stat rd_pt;
 	struct ocf_stat wr_pt;
 	struct ocf_stat serviced;
+	struct ocf_stat prefetch[ocf_pf_num];
+	struct ocf_stat user;
 	struct ocf_stat total;
 };
 
@@ -127,6 +135,8 @@ struct ocf_stats_blocks {
 	struct ocf_stat pass_through_rd;
 	struct ocf_stat pass_through_wr;
 	struct ocf_stat pass_through_total;
+	struct ocf_stat prefetch_core_rd[ocf_pf_num];
+	struct ocf_stat prefetch_cache_wr[ocf_pf_num];
 };
 
 /**

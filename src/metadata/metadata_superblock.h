@@ -11,6 +11,7 @@
 #include <ocf/ocf_def.h>
 #include "metadata_segment.h"
 #include "../promotion/promotion.h"
+#include "ocf/ocf_prefetch.h"
 
 #define CACHE_MAGIC_NUMBER	0x187E1CA6
 
@@ -53,6 +54,8 @@ struct ocf_superblock_config {
 
 	ocf_promotion_t promotion_policy_type;
 	struct promotion_policy_config promotion[PROMOTION_POLICY_TYPE_MAX];
+
+	ocf_pf_mask_t prefetch_mask;
 
 	/*
 	 * Checksum for each metadata region.

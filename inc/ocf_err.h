@@ -28,6 +28,9 @@ typedef enum {
 	/** Operation interrupted */
 	OCF_ERR_INTR,
 
+	/** Busy */
+	OCF_ERR_BUSY,
+
 	/** Operation not supported */
 	OCF_ERR_NOT_SUPP,
 

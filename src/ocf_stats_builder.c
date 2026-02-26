@@ -10,6 +10,7 @@
 #include "ocf_env.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
+#include "prefetch/ocf_prefetch_priv.h"
 #include "utils/utils_user_part.h"
 #include "utils/utils_cache_line.h"
 #include "utils/utils_stats.h"
@@ -20,6 +21,8 @@ static void _fill_req(struct ocf_stats_requests *req, struct ocf_stats_core *s)
 	uint64_t total = serviced + s->read_reqs.pass_through +
 			s->write_reqs.pass_through;
 	uint64_t hit;
+	uint64_t prefetch_total = 0;
+	ocf_pf_id_t pf_id;
 
 	/* Reads Section */
 	hit = s->read_reqs.total - (s->read_reqs.full_miss +
@@ -42,10 +45,19 @@ static void _fill_req(struct ocf_stats_requests *req, struct ocf_stats_core *s)
 	/* Pass-Through section */
 	_set(&req->rd_pt, s->read_reqs.pass_through, total);
 	_set(&req->wr_pt, s->write_reqs.pass_through, total);
+	_set(&req->serviced, serviced, total);
+
+	/* Prefetch Section */
+	for_each_pf(pf_id)
+		prefetch_total += s->prefetch_reqs[pf_id].total;
+	for_each_pf(pf_id) {
+		_set(&req->prefetch[pf_id], s->prefetch_reqs[pf_id].total,
+				prefetch_total);
+	}
 
 	/* Summary */
-	_set(&req->serviced, serviced, total);
-	_set(&req->total, total, total);
+	_set(&req->user, total, total);
+	_set(&req->total, total + prefetch_total, total + prefetch_total);
 }
 
 static void _fill_req_part(struct ocf_stats_requests *req,
@@ -55,6 +67,8 @@ static void _fill_req_part(struct ocf_stats_requests *req,
 	uint64_t total = serviced + s->read_reqs.pass_through +
 			s->write_reqs.pass_through;
 	uint64_t hit;
+	uint64_t prefetch_total = 0;
+	ocf_pf_id_t pf_id;
 
 	/* Reads Section */
 	hit = s->read_reqs.total - (s->read_reqs.full_miss +
@@ -77,21 +91,36 @@ static void _fill_req_part(struct ocf_stats_requests *req,
 	/* Pass-Through section */
 	_set(&req->rd_pt, s->read_reqs.pass_through, total);
 	_set(&req->wr_pt, s->write_reqs.pass_through, total);
+	_set(&req->serviced, serviced, total);
+
+	/* Prefetch Section */
+	for_each_pf(pf_id)
+		prefetch_total += s->prefetch_reqs[pf_id].total;
+	for_each_pf(pf_id) {
+		_set(&req->prefetch[pf_id], s->prefetch_reqs[pf_id].total,
+				prefetch_total);
+	}
 
 	/* Summary */
-	_set(&req->serviced, serviced, total);
 	_set(&req->total, total, total);
+	_set(&req->total, total + prefetch_total, total + prefetch_total);
 }
 
 static void _fill_blocks(struct ocf_stats_blocks *blocks,
-		struct ocf_stats_core *s)
+		const struct ocf_stats_core *s)
 {
 	uint64_t rd, wr, total;
+	uint64_t pf_rd, pf_wr;
+	ocf_pf_id_t pf_id;
 
 	/* Core volume */
 	rd = _bytes4k(s->core_volume.read);
 	wr = _bytes4k(s->core_volume.write);
 	total = rd + wr;
+
+	for_each_pf(pf_id)
+		total += _bytes4k(s->prefetch_blocks[pf_id].read);
+
 	_set(&blocks->core_volume_rd, rd, total);
 	_set(&blocks->core_volume_wr, wr, total);
 	_set(&blocks->core_volume_total, total, total);
@@ -100,6 +129,10 @@ static void _fill_blocks(struct ocf_stats_blocks *blocks,
 	rd = _bytes4k(s->cache_volume.read);
 	wr = _bytes4k(s->cache_volume.write);
 	total = rd + wr;
+
+	for_each_pf(pf_id)
+		total += _bytes4k(s->prefetch_blocks[pf_id].write);
+
 	_set(&blocks->cache_volume_rd, rd, total);
 	_set(&blocks->cache_volume_wr, wr, total);
 	_set(&blocks->cache_volume_total, total, total);
@@ -119,17 +152,33 @@ static void _fill_blocks(struct ocf_stats_blocks *blocks,
 	_set(&blocks->pass_through_rd, rd, total);
 	_set(&blocks->pass_through_wr, wr, total);
 	_set(&blocks->pass_through_total, total, total);
+
+	/* Prefetch */
+	for_each_pf(pf_id) {
+		pf_rd = _bytes4k(s->prefetch_blocks[pf_id].read);
+		_set(&blocks->prefetch_core_rd[pf_id], pf_rd, total);
+	}
+	for_each_pf(pf_id) {
+		pf_wr = _bytes4k(s->prefetch_blocks[pf_id].write);
+		_set(&blocks->prefetch_cache_wr[pf_id], pf_wr, total);
+	}
 }
 
 static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
-		struct ocf_stats_io_class *s)
+		const struct ocf_stats_io_class *s)
 {
 	uint64_t rd, wr, total;
+	uint64_t pf_rd, pf_wr;
+	ocf_pf_id_t pf_id;
 
 	/* Core volume */
 	rd = _bytes4k(s->core_blocks.read);
 	wr = _bytes4k(s->core_blocks.write);
 	total = rd + wr;
+
+	for_each_pf(pf_id)
+		total += _bytes4k(s->prefetch_blocks[pf_id].read);
+
 	_set(&blocks->core_volume_rd, rd, total);
 	_set(&blocks->core_volume_wr, wr, total);
 	_set(&blocks->core_volume_total, total, total);
@@ -138,6 +187,10 @@ static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
 	rd = _bytes4k(s->cache_blocks.read);
 	wr = _bytes4k(s->cache_blocks.write);
 	total = rd + wr;
+
+	for_each_pf(pf_id)
+		total += _bytes4k(s->prefetch_blocks[pf_id].write);
+
 	_set(&blocks->cache_volume_rd, rd, total);
 	_set(&blocks->cache_volume_wr, wr, total);
 	_set(&blocks->cache_volume_total, total, total);
@@ -157,6 +210,16 @@ static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
 	_set(&blocks->pass_through_rd, rd, total);
 	_set(&blocks->pass_through_wr, wr, total);
 	_set(&blocks->pass_through_total, total, total);
+
+	/* Prefetch */
+	for_each_pf(pf_id) {
+		pf_rd = _bytes4k(s->prefetch_blocks[pf_id].read);
+		_set(&blocks->prefetch_core_rd[pf_id], pf_rd, total);
+	}
+	for_each_pf(pf_id) {
+		pf_wr = _bytes4k(s->prefetch_blocks[pf_id].write);
+		_set(&blocks->prefetch_cache_wr[pf_id], pf_wr, total);
+	}
 }
 
 static void _fill_errors(struct ocf_stats_errors *errors,
@@ -220,6 +283,7 @@ static int _accumulate_io_class_stats(ocf_core_t core, void *cntx)
 	struct ocf_stats_io_class *total =
 		((struct io_class_stats_context*)cntx)->stats;
 	ocf_part_id_t part_id = ((struct io_class_stats_context*)cntx)->part_id;
+	ocf_pf_id_t pf_id;
 
 	result = ocf_core_io_class_get_stats(core, part_id, &stats);
 	if (result)
@@ -236,6 +300,14 @@ static int _accumulate_io_class_stats(ocf_core_t core, void *cntx)
 
 	_accumulate_reqs(&total->read_reqs, &stats.read_reqs);
 	_accumulate_reqs(&total->write_reqs, &stats.write_reqs);
+
+	/* Prefetch section */
+	for_each_pf(pf_id) {
+		_accumulate_reqs(&total->prefetch_reqs[pf_id],
+				&stats.prefetch_reqs[pf_id]);
+		_accumulate_block(&total->prefetch_blocks[pf_id],
+				&stats.prefetch_blocks[pf_id]);
+	}
 
 	return 0;
 }
@@ -411,6 +483,7 @@ static int _accumulate_stats(ocf_core_t core, void *cntx)
 {
 	struct ocf_stats_core stats, *total = cntx;
 	int result;
+	ocf_pf_id_t pf_id;
 
 	result = ocf_core_get_stats(core, &stats);
 	if (result)
@@ -426,6 +499,13 @@ static int _accumulate_stats(ocf_core_t core, void *cntx)
 
 	_accumulate_errors(&total->cache_errors, &stats.cache_errors);
 	_accumulate_errors(&total->core_errors, &stats.core_errors);
+
+	for_each_pf(pf_id) {
+		_accumulate_reqs(&total->prefetch_reqs[pf_id],
+				&stats.prefetch_reqs[pf_id]);
+		_accumulate_block(&total->prefetch_blocks[pf_id],
+				&stats.prefetch_blocks[pf_id]);
+	}
 
 	return 0;
 }

@@ -186,17 +186,26 @@ static void __init_partitions(ocf_cache_t cache)
 {
 	ocf_part_id_t i_part;
 
-	/* Init default Partition */
+	/* Init default partitions */
 	ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache, PARTITION_DEFAULT,
 			"unclassified", 0, PARTITION_SIZE_MAX,
+			OCF_IO_CLASS_PRIO_LOWEST, true));
+
+	ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache, PARTITION_PREFETCH,
+			"prefetch", 0, PARTITION_SIZE_MAX,
 			OCF_IO_CLASS_PRIO_LOWEST, true));
 
 	/* Add other partition to the cache and make it as dummy */
 	for (i_part = 0; i_part < OCF_USER_IO_CLASS_MAX; i_part++) {
 		env_refcnt_freeze(&cache->user_parts[i_part].cleaning.counter);
 
-		if (i_part == PARTITION_DEFAULT)
+		switch (i_part) {
+		case PARTITION_DEFAULT:
+		case PARTITION_PREFETCH:
 			continue;
+		default:
+			break;
+		}
 
 		/* Init default Partition */
 		ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache, i_part,
@@ -1572,6 +1581,7 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	 */
 	cache->conf_meta->cache_mode = params->metadata.cache_mode;
 	cache->conf_meta->promotion_policy_type = params->metadata.promotion_policy;
+	cache->conf_meta->prefetch_mask = OCF_PF_MASK_DEFAULT;
 	__set_cleaning_policy(cache, ocf_cleaning_default);
 
 	/* Init Partitions */
@@ -3732,6 +3742,41 @@ int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, ocf_promotion_t type,
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 
 	return result;
+}
+
+int ocf_mngt_cache_prefetch_set_policy(ocf_cache_t cache, ocf_pf_mask_t mask)
+{
+	ocf_pf_mask_t valid_mask = (1 << ocf_pf_num) - 1;
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
+	if (mask & ~valid_mask)
+		return -OCF_ERR_INVAL;
+
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+
+	cache->conf_meta->prefetch_mask = mask;
+
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+
+	return 0;
+}
+
+int ocf_mngt_cache_prefetch_get_policy(ocf_cache_t cache, ocf_pf_mask_t *mask)
+{
+	OCF_CHECK_NULL(mask);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
+	ocf_metadata_start_shared_access(&cache->metadata.lock, 0);
+
+	*mask = cache->conf_meta->prefetch_mask;
+
+	ocf_metadata_end_shared_access(&cache->metadata.lock, 0);
+
+	return 0;
 }
 
 int ocf_mngt_cache_reset_fallback_pt_error_counter(ocf_cache_t cache)

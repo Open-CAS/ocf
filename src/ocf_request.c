@@ -12,6 +12,7 @@
 #include "engine/engine_common.h"
 #include "utils/utils_cache_line.h"
 #include "ocf_env_refcnt.h"
+#include "ocf/ocf_prefetch.h"
 
 #define OCF_UTILS_RQ_DEBUG 0
 
@@ -97,6 +98,7 @@ static inline void ocf_req_init(struct ocf_request *req, ocf_cache_t cache,
 	req->addr = addr;
 	req->bytes = bytes;
 	req->rw = rw;
+	req->io.pf_id = ocf_pf_none;
 }
 
 struct ocf_request *ocf_req_new_mngt(ocf_cache_t cache, ocf_queue_t queue)

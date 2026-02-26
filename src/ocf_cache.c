@@ -229,6 +229,7 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 
 	info->cleaning_policy = cache->cleaner.policy;
 	info->promotion_policy = cache->conf_meta->promotion_policy_type;
+	info->prefetch_mask = cache->conf_meta->prefetch_mask;
 	info->cache_line_size = ocf_line_size(cache);
 
 	return 0;
