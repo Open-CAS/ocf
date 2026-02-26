@@ -872,25 +872,29 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params,
 		goto alloc_err;
 	}
 
-	result = env_refcnt_init(&cache->refcnt.cache, "cache", sizeof("cache"));
+	result = env_refcnt_init(&cache->refcnt.cache,
+			"cache", sizeof("cache"));
 	if (result)
 		goto lock_init_err;
 
-	result = env_refcnt_init(&cache->refcnt.dirty, "dirty", sizeof("dirty"));
+	result = env_refcnt_init(&cache->refcnt.dirty,
+			"dirty", sizeof("dirty"));
 	if (result)
 		goto dirty_refcnt_err;
 
-	result = env_refcnt_init(&cache->refcnt.metadata, "metadata", sizeof("metadata"));
+	result = env_refcnt_init(&cache->refcnt.metadata,
+			"metadata", sizeof("metadata"));
 	if (result)
 		goto metadata_refcnt_err;
 
-	result = env_refcnt_init(&cache->refcnt.d2c, "d2c", sizeof("d2c"));
+	result = env_refcnt_init(&cache->refcnt.d2c,
+			"d2c", sizeof("d2c"));
 	if (result)
 		goto d2c_refcnt_err;
 
-        for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		result = env_refcnt_init(&cache->user_parts[i].cleaning.counter,
-			    "cleaning", sizeof("cleaning"));
+				"cleaning", sizeof("cleaning"));
 		if (result)
 			goto cleaning_refcnt_err;
 		env_atomic_set(&cache->user_parts[i].cleaning.cleaner_running, 0);
@@ -3114,7 +3118,7 @@ static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 	if (!ocf_cache_line_size_is_valid(cfg->cache_line_size))
 		return -OCF_ERR_INVALID_CACHE_LINE_SIZE;
 
-	if (cfg->backfill.queue_unblock_size > cfg->backfill.max_queue_size )
+	if (cfg->backfill.queue_unblock_size > cfg->backfill.max_queue_size)
 		return -OCF_ERR_INVAL;
 
 	return 0;
