@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2020-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -547,6 +548,14 @@ void ocf_metadata_flush_superblock(ocf_cache_t cache,
 	OCF_DEBUG_TRACE(cache);
 
 	ENV_BUG_ON(!ocf_cache_is_device_attached(cache));
+
+	if (cache->metadata.is_volatile) {
+		/*
+		 * metadata ia volatile, no need to flush anything.
+		 */
+		cmpl(priv, 0);
+		return;
+	}
 
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_flush_sb_pipeline_props);
