@@ -4172,13 +4172,6 @@ struct ocf_pipeline_properties ocf_mngt_detach_composite_pipeline_properties = {
 	},
 };
 
-static void _ocf_mngt_begin_detach_complete(void *priv)
-{
-	struct ocf_mngt_cache_unplug_context *context = priv;
-
-	ocf_pipeline_next(context->pipeline);
-}
-
 void ocf_mngt_cache_detach_composite(ocf_cache_t cache,
 		ocf_mngt_cache_detach_end_t cmpl, ocf_uuid_t target_uuid,
 		void *priv)
@@ -4227,6 +4220,6 @@ void ocf_mngt_cache_detach_composite(ocf_cache_t cache,
 	/* prevent dirty io */
 	env_refcnt_freeze(&cache->refcnt.dirty);
 
-	env_refcnt_register_zero_cb(&cache->refcnt.dirty,
-			_ocf_mngt_begin_detach_complete, context);
+	ocf_pipeline_continue_on_zero_refcnt(context->pipeline,
+			&cache->refcnt.dirty);
 }
