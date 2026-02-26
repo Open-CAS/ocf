@@ -363,7 +363,7 @@ static inline void lru_iter_eviction_init(struct ocf_lru_iter *iter,
 			req);
 }
 
-static inline uint32_t _lru_next_lru_list(struct ocf_lru_iter *iter)
+static inline void _lru_iter_advance_list(struct ocf_lru_iter *iter)
 {
 	unsigned increment;
 
@@ -371,8 +371,6 @@ static inline uint32_t _lru_next_lru_list(struct ocf_lru_iter *iter)
 	iter->next_avail_lru = ocf_rotate_right(iter->next_avail_lru,
 			increment, OCF_NUM_LRU_LISTS);
 	iter->lru_idx = (iter->lru_idx + increment) % OCF_NUM_LRU_LISTS;
-
-	return iter->lru_idx;
 }
 
 static inline bool _lru_lru_is_empty(struct ocf_lru_iter *iter)
@@ -380,12 +378,12 @@ static inline bool _lru_lru_is_empty(struct ocf_lru_iter *iter)
 	return !(iter->next_avail_lru & (1ULL << (OCF_NUM_LRU_LISTS - 1)));
 }
 
-static inline uint32_t _lru_next_lru(struct ocf_lru_iter *iter)
+static inline uint32_t lru_iter_advance(struct ocf_lru_iter *iter)
 {
 	iter->lru_element_idx++;
 	if ((iter->lru_element_idx >= OCF_LRU_MAX_LRU_ELEMENT_IDX)
 			|| _lru_lru_is_empty(iter)) {
-		_lru_next_lru_list(iter);
+		_lru_iter_advance_list(iter);
 		iter->lru_element_idx = 0;
 	}
 	return iter->lru_idx;
@@ -523,7 +521,7 @@ static inline ocf_cache_line_t lru_req_next_cline(struct ocf_request *req,
 			lru_get_cline_list(cache, cline), cline);
 	}
 
-	_lru_next_lru(iter);
+	lru_iter_advance(iter);
 	ret = cline;
 
 line_unlock_wr:
@@ -554,7 +552,8 @@ static inline ocf_cache_line_t lru_iter_eviction_next(struct ocf_lru_iter *iter,
 	struct ocf_lru_list *list;
 
 	do {
-		curr_lru = _lru_next_lru(iter);
+		lru_iter_advance(iter);
+		curr_lru = iter->lru_idx;
 
 		ocf_metadata_lru_lock(&cache->metadata.lock, curr_lru);
 
@@ -606,7 +605,8 @@ static inline ocf_cache_line_t lru_iter_free_next(struct ocf_lru_iter *iter,
 	ENV_BUG_ON(dst_part == free);
 
 	do {
-		curr_lru = _lru_next_lru(iter);
+		lru_iter_advance(iter);
+		curr_lru = iter->lru_idx;
 
 		ocf_metadata_lru_lock(&cache->metadata.lock, curr_lru);
 
@@ -642,7 +642,8 @@ static inline ocf_cache_line_t lru_iter_cleaning_next(struct ocf_lru_iter *iter)
 	ocf_cache_line_t  cline;
 
 	do {
-		curr_lru = _lru_next_lru(iter);
+		lru_iter_advance(iter);
+		curr_lru = iter->lru_idx;
 		cline = iter->curr_cline[curr_lru];
 
 		while (cline != end_marker && ! ocf_cache_line_try_lock_rd(

@@ -872,25 +872,29 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params,
 		goto alloc_err;
 	}
 
-	result = env_refcnt_init(&cache->refcnt.cache, "cache", sizeof("cache"));
+	result = env_refcnt_init(&cache->refcnt.cache,
+			"cache", sizeof("cache"));
 	if (result)
 		goto lock_init_err;
 
-	result = env_refcnt_init(&cache->refcnt.dirty, "dirty", sizeof("dirty"));
+	result = env_refcnt_init(&cache->refcnt.dirty,
+			"dirty", sizeof("dirty"));
 	if (result)
 		goto dirty_refcnt_err;
 
-	result = env_refcnt_init(&cache->refcnt.metadata, "metadata", sizeof("metadata"));
+	result = env_refcnt_init(&cache->refcnt.metadata,
+			"metadata", sizeof("metadata"));
 	if (result)
 		goto metadata_refcnt_err;
 
-	result = env_refcnt_init(&cache->refcnt.d2c, "d2c", sizeof("d2c"));
+	result = env_refcnt_init(&cache->refcnt.d2c,
+			"d2c", sizeof("d2c"));
 	if (result)
 		goto d2c_refcnt_err;
 
-        for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
 		result = env_refcnt_init(&cache->user_parts[i].cleaning.counter,
-			    "cleaning", sizeof("cleaning"));
+				"cleaning", sizeof("cleaning"));
 		if (result)
 			goto cleaning_refcnt_err;
 		env_atomic_set(&cache->user_parts[i].cleaning.cleaner_running, 0);
@@ -2001,7 +2005,7 @@ static void _ocf_mngt_attach_switch_to_pt(ocf_pipeline_t pipeline,
 	env_refcnt_unfreeze(&cache->refcnt.metadata);
 	env_refcnt_freeze(&cache->refcnt.d2c);
 
-	ocf_mngt_continue_pipeline_on_zero_refcnt(&cache->refcnt.d2c, pipeline);
+	ocf_pipeline_continue_on_zero_refcnt(pipeline, &cache->refcnt.d2c);
 }
 
 static void _ocf_mngt_attach_handle_error(
@@ -2150,7 +2154,7 @@ static void ocf_mngt_cache_stop_wait_metadata_io(ocf_pipeline_t pipeline,
 	struct env_refcnt *refcnt = &context->cache->refcnt.metadata;
 
 	env_refcnt_freeze(refcnt);
-	ocf_mngt_continue_pipeline_on_zero_refcnt(refcnt, context->pipeline);
+	ocf_pipeline_continue_on_zero_refcnt(context->pipeline, refcnt);
 }
 
 static void ocf_mngt_cache_stop_check_dirty(ocf_pipeline_t pipeline,
@@ -2601,7 +2605,7 @@ static void _ocf_mngt_standby_detach_wait_metadata_io(ocf_pipeline_t pipeline,
 	struct env_refcnt *refcnt = &context->cache->refcnt.metadata;
 
 	env_refcnt_freeze(refcnt);
-	ocf_mngt_continue_pipeline_on_zero_refcnt(refcnt, context->pipeline);
+	ocf_pipeline_continue_on_zero_refcnt(context->pipeline, refcnt);
 }
 
 static void _ocf_mngt_activate_set_cache_device(ocf_pipeline_t pipeline,
@@ -3114,7 +3118,7 @@ static int _ocf_mngt_cache_validate_cfg(struct ocf_mngt_cache_config *cfg)
 	if (!ocf_cache_line_size_is_valid(cfg->cache_line_size))
 		return -OCF_ERR_INVALID_CACHE_LINE_SIZE;
 
-	if (cfg->backfill.queue_unblock_size > cfg->backfill.max_queue_size )
+	if (cfg->backfill.queue_unblock_size > cfg->backfill.max_queue_size)
 		return -OCF_ERR_INVAL;
 
 	return 0;
@@ -3798,7 +3802,7 @@ static void ocf_mngt_cache_detach_stop_cache_io(ocf_pipeline_t pipeline,
 	struct env_refcnt *refcnt = &context->cache->refcnt.metadata;
 
 	env_refcnt_freeze(refcnt);
-	ocf_mngt_continue_pipeline_on_zero_refcnt(refcnt, context->pipeline);
+	ocf_pipeline_continue_on_zero_refcnt(context->pipeline, refcnt);
 }
 
 static void ocf_mngt_cache_detach_composite_invalidate_cmpl(ocf_cache_t cache,
@@ -4168,13 +4172,6 @@ struct ocf_pipeline_properties ocf_mngt_detach_composite_pipeline_properties = {
 	},
 };
 
-static void _ocf_mngt_begin_detach_complete(void *priv)
-{
-	struct ocf_mngt_cache_unplug_context *context = priv;
-
-	ocf_pipeline_next(context->pipeline);
-}
-
 void ocf_mngt_cache_detach_composite(ocf_cache_t cache,
 		ocf_mngt_cache_detach_end_t cmpl, ocf_uuid_t target_uuid,
 		void *priv)
@@ -4223,6 +4220,6 @@ void ocf_mngt_cache_detach_composite(ocf_cache_t cache,
 	/* prevent dirty io */
 	env_refcnt_freeze(&cache->refcnt.dirty);
 
-	env_refcnt_register_zero_cb(&cache->refcnt.dirty,
-			_ocf_mngt_begin_detach_complete, context);
+	ocf_pipeline_continue_on_zero_refcnt(context->pipeline,
+			&cache->refcnt.dirty);
 }

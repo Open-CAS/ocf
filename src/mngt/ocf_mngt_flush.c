@@ -9,6 +9,7 @@
 #include "ocf_env_refcnt.h"
 #include "ocf_mngt_flush_priv.h"
 #include "ocf_mngt_common.h"
+#include "ocf_mngt_flush_priv.h"
 #include "../ocf_priv.h"
 #include "../metadata/metadata.h"
 #include "../cleaning/cleaning.h"
@@ -106,8 +107,8 @@ static void _ocf_mngt_begin_flush(ocf_pipeline_t pipeline, void *priv,
 	env_refcnt_freeze(&cache->refcnt.dirty);
 	context->flags.dirty_freeze = true;
 
-	ocf_mngt_continue_pipeline_on_zero_refcnt(&cache->refcnt.dirty,
-			context->pipeline);
+	ocf_pipeline_continue_on_zero_refcnt(context->pipeline,
+			&cache->refcnt.dirty);
 }
 
 static void _ocf_mngt_begin_cache_lines_invalidate(ocf_pipeline_t pipeline,
@@ -118,7 +119,7 @@ static void _ocf_mngt_begin_cache_lines_invalidate(ocf_pipeline_t pipeline,
 
 	env_refcnt_freeze(refcnt);
 	context->flags.metadata_freeze = true;
-	ocf_mngt_continue_pipeline_on_zero_refcnt(refcnt, context->pipeline);
+	ocf_pipeline_continue_on_zero_refcnt(context->pipeline, refcnt);
 }
 
 bool ocf_mngt_core_is_dirty(ocf_core_t core)

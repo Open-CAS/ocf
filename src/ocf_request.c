@@ -240,7 +240,7 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 
 	OCF_DEBUG_TRACE(cache);
 
-	ocf_req_init(req, cache, queue, NULL, addr, bytes, rw);
+	ocf_req_init(req, cache, queue, core, addr, bytes, rw);
 
 	req->core_line_first = core_line_first;
 	req->core_line_last = core_line_last;

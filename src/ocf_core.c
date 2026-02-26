@@ -487,15 +487,8 @@ static void *ocf_core_io_allocator_new(ocf_io_allocator_t allocator,
 		uint64_t addr, uint32_t bytes, uint32_t dir)
 {
 	ocf_core_t core = ocf_volume_to_core(volume);
-	struct ocf_request *req;
 
-	req = ocf_req_new(queue, core, addr, bytes, dir);
-	if (!req)
-		return NULL;
-
-	req->core = ocf_volume_to_core(volume);
-
-	return req;
+	return ocf_req_new(queue, core, addr, bytes, dir);
 }
 
 static void ocf_core_io_allocator_del(ocf_io_allocator_t allocator, void *obj)

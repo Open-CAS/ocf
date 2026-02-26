@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -514,17 +515,4 @@ int ocf_mngt_cache_visit_reverse(ocf_ctx_t ocf_ctx,
 	env_vfree(list);
 
 	return result;
-}
-
-static void _ocf_mngt_continue_pipeline_on_zero_refcnt_cb(void *priv)
-{
-	ocf_pipeline_next((ocf_pipeline_t)priv);
-}
-
-void ocf_mngt_continue_pipeline_on_zero_refcnt(struct env_refcnt *refcnt,
-		ocf_pipeline_t pipeline)
-{
-	env_refcnt_register_zero_cb(refcnt,
-			_ocf_mngt_continue_pipeline_on_zero_refcnt_cb,
-			pipeline);
 }
