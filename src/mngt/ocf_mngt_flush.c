@@ -9,6 +9,7 @@
 #include "ocf_env_refcnt.h"
 #include "ocf_mngt_flush_priv.h"
 #include "ocf_mngt_common.h"
+#include "ocf_mngt_flush_priv.h"
 #include "../ocf_priv.h"
 #include "../metadata/metadata.h"
 #include "../cleaning/cleaning.h"
