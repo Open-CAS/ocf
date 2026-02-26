@@ -132,7 +132,7 @@ static void _ocf_discard_on_resume(struct ocf_request *req)
 
 static int _ocf_discard_step(struct ocf_request *req)
 {
-	int lock;
+	int lock, result;
 	struct ocf_cache *cache = req->cache;
 
 	OCF_DEBUG_TRACE(req->cache);
@@ -147,8 +147,12 @@ static int _ocf_discard_step(struct ocf_request *req)
 	req->core_line_count = req->core_line_last - req->core_line_first + 1;
 	req->engine_handler = _ocf_discard_step_do;
 
-	ENV_BUG_ON(env_memset(req->map, sizeof(*req->map) * req->core_line_count,
-			0));
+	result = env_memset(req->map,
+			sizeof(*req->map) * req->core_line_count, 0);
+	if (result) {
+		_ocf_discard_complete_req(req, result);
+		return 0;
+	}
 
 	ocf_req_hash(req);
 	ocf_hb_req_prot_lock_rd(req);
@@ -239,8 +243,7 @@ int ocf_engine_discard(struct ocf_request *req)
 	OCF_DEBUG_TRACE(req->cache);
 
 	if (req->rw == OCF_READ) {
-		req->complete(req, -OCF_ERR_INVAL);
-		ocf_req_put(req);
+		_ocf_discard_complete_req(req, -OCF_ERR_INVAL);
 		return 0;
 	}
 
