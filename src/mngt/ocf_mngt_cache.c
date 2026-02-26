@@ -1631,6 +1631,14 @@ static int _ocf_mngt_cache_start(ocf_ctx_t ctx, ocf_cache_t *cache,
 		goto _cache_mngt_init_instance_ERROR;
 	}
 
+	if (!cfg->metadata_volatile) {
+		result = ocf_metadata_io_open(ctx);
+		if (result) {
+			env_rmutex_unlock(&ctx->lock);
+			goto _cache_mngt_init_instance_ERROR;
+		}
+	}
+
 	list_add_tail(&tmp_cache->list, &ctx->caches);
 	env_rmutex_unlock(&ctx->lock);
 
@@ -2334,6 +2342,9 @@ static void _ocf_mngt_cache_dealloc(void *priv)
 
 	ctx = cache->owner;
 	ocf_metadata_deinit(cache);
+
+	if (!cache->metadata.is_volatile)
+		ocf_metadata_io_close(ctx);
 
 	env_refcnt_deinit(&cache->refcnt.cache);
 	env_refcnt_deinit(&cache->refcnt.dirty);

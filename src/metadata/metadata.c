@@ -1119,6 +1119,14 @@ void ocf_metadata_flush_all(ocf_cache_t cache,
 
 	OCF_DEBUG_TRACE(cache);
 
+	if (cache->metadata.is_volatile) {
+		/*
+		 * metadata ia volatile, no need to flush anything.
+		 */
+		cmpl(priv, 0);
+		return;
+	}
+
 	result = ocf_pipeline_create(&pipeline, cache,
 			&ocf_metadata_flush_all_pipeline_props);
 	if (result)
