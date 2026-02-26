@@ -246,8 +246,8 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	req->core_line_last = core_line_last;
 	req->core_line_count = core_line_count;
 
-	req->discard.sector = BYTES_TO_SECTORS(addr);
-	req->discard.nr_sects = BYTES_TO_SECTORS(bytes);
+	req->discard.addr = addr;
+	req->discard.bytes = bytes;
 	req->discard.handled = 0;
 
 	req->part_id = PARTITION_DEFAULT;

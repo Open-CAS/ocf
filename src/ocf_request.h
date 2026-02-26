@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -106,14 +107,14 @@ struct ocf_map_info {
  * @brief OCF discard request info
  */
 struct ocf_req_discard_info {
-	sector_t sector;
-		/*!< The start sector for discard request */
+	uint64_t addr;
+		/*!< The start address for discard request */
 
-	sector_t nr_sects;
-		/*!< Number of sectors to be discarded */
+	uint64_t bytes;
+		/*!< Number of bytes to be discarded */
 
-	sector_t handled;
-		/*!< Number of processed sector during discard operation */
+	uint64_t handled;
+		/*!< Number of bytes processed during discard operation */
 };
 
 /**
