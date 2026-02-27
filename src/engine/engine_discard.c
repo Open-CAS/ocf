@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -26,26 +27,12 @@ static void _ocf_discard_complete_req(struct ocf_request *req, int error)
 	ocf_req_put(req);
 }
 
-static int _ocf_discard_core(struct ocf_request *req)
-{
-	req->addr = SECTORS_TO_BYTES(req->discard.sector);
-	req->bytes = SECTORS_TO_BYTES(req->discard.nr_sects);
-
-	ocf_engine_forward_core_discard_req(req, _ocf_discard_complete_req);
-
-	return 0;
-}
-
 static void _ocf_discard_cache_flush_complete(struct ocf_request *req, int error)
 {
-	if (error) {
+	if (error)
 		ocf_metadata_error(req->cache);
-		_ocf_discard_complete_req(req, error);
-		return;
-	}
 
-	req->engine_handler = _ocf_discard_core;
-	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
+	_ocf_discard_complete_req(req, error);
 }
 
 static int _ocf_discard_flush_cache(struct ocf_request *req)
@@ -60,16 +47,17 @@ static int _ocf_discard_step(struct ocf_request *req);
 
 static void _ocf_discard_finish_step(struct ocf_request *req)
 {
-	req->discard.handled += BYTES_TO_SECTORS(req->bytes);
+	req->discard.handled += req->bytes;
 
-	if (req->discard.handled < req->discard.nr_sects)
-		req->engine_handler = _ocf_discard_step;
-	else if (!req->cache->metadata.is_volatile)
-		req->engine_handler = _ocf_discard_flush_cache;
-	else
-		req->engine_handler = _ocf_discard_core;
-
-	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
+	if (req->discard.handled < req->discard.bytes) {
+		ocf_queue_push_req_cb(req, _ocf_discard_step,
+				OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
+	} else if (!req->cache->metadata.is_volatile) {
+		ocf_queue_push_req_cb(req, _ocf_discard_flush_cache,
+				OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
+	} else {
+		_ocf_discard_complete_req(req, 0);
+	}
 }
 
 static void _ocf_discard_step_complete(struct ocf_request *req, int error)
@@ -144,23 +132,27 @@ static void _ocf_discard_on_resume(struct ocf_request *req)
 
 static int _ocf_discard_step(struct ocf_request *req)
 {
-	int lock;
+	int lock, result;
 	struct ocf_cache *cache = req->cache;
 
 	OCF_DEBUG_TRACE(req->cache);
 
-	req->addr = SECTORS_TO_BYTES(req->discard.sector +
-			req->discard.handled);
-	req->bytes = OCF_MIN(SECTORS_TO_BYTES(req->discard.nr_sects -
-			req->discard.handled), MAX_TRIM_RQ_SIZE);
+	req->addr = req->discard.addr + req->discard.handled;
+	req->bytes = OCF_MIN(req->discard.bytes - req->discard.handled,
+			MAX_TRIM_RQ_SIZE);
+
 	req->core_line_first = ocf_bytes_2_lines(cache, req->addr);
 	req->core_line_last =
 		ocf_bytes_2_lines(cache, req->addr + req->bytes - 1);
 	req->core_line_count = req->core_line_last - req->core_line_first + 1;
 	req->engine_handler = _ocf_discard_step_do;
 
-	ENV_BUG_ON(env_memset(req->map, sizeof(*req->map) * req->core_line_count,
-			0));
+	result = env_memset(req->map,
+			sizeof(*req->map) * req->core_line_count, 0);
+	if (result) {
+		_ocf_discard_complete_req(req, result);
+		return 0;
+	}
 
 	ocf_req_hash(req);
 	ocf_hb_req_prot_lock_rd(req);
@@ -197,21 +189,68 @@ static int _ocf_discard_step(struct ocf_request *req)
 	return 0;
 }
 
+static void _ocf_discard_core_complete(struct ocf_request *req, int error)
+{
+	ocf_cache_t cache = req->cache;
+	uint64_t remainder;
+
+	if (error) {
+		_ocf_discard_complete_req(req, error);
+		return;
+	}
+
+	if (req->discard.bytes < ocf_line_size(cache)) {
+		/* No full line to discard - just complete */
+		_ocf_discard_complete_req(req, 0);
+		return;
+	}
+
+	remainder = req->discard.addr % ocf_line_size(cache);
+	if (remainder) {
+		/* Skip the partial line at the beginning */
+		req->discard.addr += ocf_line_size(cache) - remainder;
+		req->discard.bytes -= ocf_line_size(cache) - remainder;
+	}
+
+	remainder = req->discard.bytes % ocf_line_size(cache);
+	if (remainder) {
+		/* Skip the partial line at the end */
+		req->discard.bytes -= remainder;
+	}
+
+	if (req->discard.bytes == 0) {
+		/* Nothing to discard - just complete */
+		_ocf_discard_complete_req(req, 0);
+		return;
+	}
+
+	ocf_queue_push_req_cb(req, _ocf_discard_step,
+			OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
+}
+
+static int _ocf_discard_core(struct ocf_request *req)
+{
+	req->addr = req->discard.addr;
+	req->bytes = req->discard.bytes;
+
+	ocf_engine_forward_core_discard_req(req, _ocf_discard_core_complete);
+
+	return 0;
+}
+
 int ocf_engine_discard(struct ocf_request *req)
 {
 	OCF_DEBUG_TRACE(req->cache);
 
-
 	if (req->rw == OCF_READ) {
-		req->complete(req, -OCF_ERR_INVAL);
-		ocf_req_put(req);
+		_ocf_discard_complete_req(req, -OCF_ERR_INVAL);
 		return 0;
 	}
 
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
-	_ocf_discard_step(req);
+	_ocf_discard_core(req);
 
 	/* Put OCF request - decrease reference counter */
 	ocf_req_put(req);
