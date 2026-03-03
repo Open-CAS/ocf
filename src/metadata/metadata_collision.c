@@ -166,7 +166,7 @@ void ocf_metadata_remove_from_collision(struct ocf_cache *cache,
 			line_entries, line_entries);
 
 	ocf_metadata_set_core_info(cache, line,
-			OCF_CORE_MAX, ULLONG_MAX);
+			OCF_CORE_NUM, ULLONG_MAX);
 }
 
 /* must be called under global metadata read(shared) lock */

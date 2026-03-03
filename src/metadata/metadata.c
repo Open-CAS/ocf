@@ -99,13 +99,13 @@ static ocf_cache_line_t ocf_metadata_get_entries(
 		return OCF_NUM_PARTITIONS;
 
 	case metadata_segment_core_config:
-		return OCF_CORE_MAX;
+		return OCF_CORE_NUM;
 
 	case metadata_segment_core_runtime:
-		return OCF_CORE_MAX;
+		return OCF_CORE_NUM;
 
 	case metadata_segment_core_uuid:
-		return OCF_CORE_MAX;
+		return OCF_CORE_NUM;
 
 	default:
 		break;
@@ -828,7 +828,7 @@ static inline void _ocf_init_collision_entry(struct ocf_cache *cache,
 
 	ocf_metadata_set_collision_info(cache, idx, invalid_idx, invalid_idx);
 	ocf_metadata_set_core_info(cache, idx,
-			OCF_CORE_MAX, ULONG_MAX);
+			OCF_CORE_NUM, ULONG_MAX);
 	metadata_init_status_bits(cache, idx);
 }
 

@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2020-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -62,7 +63,7 @@ ocf_core_id_t ocf_metadata_get_core_id(struct ocf_cache *cache,
 		return collision->core_id;
 
 	ocf_metadata_error(cache);
-	return OCF_CORE_MAX;
+	return OCF_CORE_NUM;
 }
 
 struct ocf_metadata_uuid *ocf_metadata_get_core_uuid(

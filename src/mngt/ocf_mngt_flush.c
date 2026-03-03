@@ -258,7 +258,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	if (core_count == 0)
 		goto unlock;
 
-	core_revmap = env_vzalloc(sizeof(*core_revmap) * OCF_CORE_MAX);
+	core_revmap = env_vzalloc(sizeof(*core_revmap) * OCF_CORE_NUM);
 	if (!core_revmap) {
 		ret = -OCF_ERR_NO_MEM;
 		goto unlock;
@@ -632,7 +632,7 @@ static void _ocf_mngt_flush_all_cores_complete(
 
 	env_atomic_set(&cache->flush_in_progress, 0);
 
-	for (i = 0, j = 0; i < OCF_CORE_MAX; i++) {
+	for (i = 0, j = 0; i < OCF_CORE_NUM; i++) {
 		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 			continue;
 

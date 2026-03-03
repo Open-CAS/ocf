@@ -534,12 +534,12 @@ struct ocf_mngt_rebuild_metadata_context {
 
 	struct {
 		env_atomic lines;
-	} core[OCF_CORE_MAX];
+	} core[OCF_CORE_NUM];
 
 	struct {
 		struct {
 			uint32_t lines;
-		} core[OCF_CORE_MAX];
+		} core[OCF_CORE_NUM];
 	} shard[OCF_MNGT_REBUILD_METADATA_SHARDS_CNT];
 
 	env_atomic free_lines;
@@ -551,7 +551,7 @@ struct ocf_mngt_rebuild_metadata_context {
 static void ocf_mngt_cline_reset_metadata(ocf_cache_t cache,
 		ocf_cache_line_t cline, uint32_t lru_list)
 {
-	ocf_metadata_set_core_info(cache, cline, OCF_CORE_MAX, ULLONG_MAX);
+	ocf_metadata_set_core_info(cache, cline, OCF_CORE_NUM, ULLONG_MAX);
 	metadata_init_status_bits(cache, cline);
 
 	ocf_metadata_set_partition_id(cache, cline, PARTITION_FREELIST);
@@ -609,7 +609,7 @@ static int ocf_mngt_rebuild_metadata_handle(ocf_parallelize_t parallelize,
 		ocf_metadata_get_core_info(cache, cline, &core_id, &core_line);
 
 		if (!ocf_metadata_check(cache, cline) ||
-				core_id > OCF_CORE_MAX) {
+				core_id > OCF_CORE_NUM) {
 			ocf_cache_log(cache, log_err, "Inconsistent mapping "
 					"detected in on-disk metadata - "
 					"refusing to recover cache.\n");
@@ -617,7 +617,7 @@ static int ocf_mngt_rebuild_metadata_handle(ocf_parallelize_t parallelize,
 		}
 
 		any_valid = metadata_clear_valid_if_clean(cache, cline);
-		if (!any_valid || core_id == OCF_CORE_MAX) {
+		if (!any_valid || core_id == OCF_CORE_NUM) {
 			/* Reset metadata for not mapped or clean cache line */
 			ocf_mngt_cline_reset_metadata(cache, cline, shard_id);
 			free_lines++;

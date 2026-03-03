@@ -182,23 +182,23 @@ static unsigned long _ffz(unsigned long word)
 static unsigned long _ocf_mngt_find_first_free_core(const unsigned long *bitmap)
 {
 	unsigned long i;
-	unsigned long ret = OCF_CORE_MAX;
+	unsigned long ret = OCF_CORE_NUM;
 
 	/* check core 0 availability */
 	bool zero_core_free = !(*bitmap & 0x1UL);
 
 	/* check if any core id is free except 0 */
-	for (i = 0; i * sizeof(unsigned long) * 8 < OCF_CORE_MAX; i++) {
+	for (i = 0; i * sizeof(unsigned long) * 8 < OCF_CORE_NUM; i++) {
 		unsigned long long ignore_mask = (i == 0) ? 1UL : 0UL;
 		if (~(bitmap[i] | ignore_mask)) {
-			ret = OCF_MIN(OCF_CORE_MAX, i * sizeof(unsigned long) *
+			ret = OCF_MIN(OCF_CORE_NUM, i * sizeof(unsigned long) *
 					8 + _ffz(bitmap[i] | ignore_mask));
 			break;
 		}
 	}
 
 	/* return 0 only if no other core is free */
-	if (ret == OCF_CORE_MAX && zero_core_free)
+	if (ret == OCF_CORE_NUM && zero_core_free)
 		return 0;
 
 	return ret;

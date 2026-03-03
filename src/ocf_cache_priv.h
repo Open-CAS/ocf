@@ -98,7 +98,7 @@ struct ocf_cache {
 		struct ocf_alock *concurrency;
 	} standby;
 
-	struct ocf_core core[OCF_CORE_MAX];
+	struct ocf_core core[OCF_CORE_NUM];
 
 	ocf_pipeline_t stop_pipeline;
 
@@ -148,14 +148,14 @@ struct ocf_cache {
 static inline ocf_core_t ocf_cache_get_core(ocf_cache_t cache,
 		ocf_core_id_t core_id)
 {
-	if (core_id >= OCF_CORE_MAX)
+	if (core_id >= OCF_CORE_NUM)
 		return NULL;
 
 	return &cache->core[core_id];
 }
 
 #define for_each_core_all(_cache, _core, _id) \
-	for (_id = 0; _core = &_cache->core[_id], _id < OCF_CORE_MAX; _id++)
+	for (_id = 0; _core = &_cache->core[_id], _id < OCF_CORE_NUM; _id++)
 
 #define for_each_core(_cache, _core, _id) \
 	for_each_core_all(_cache, _core, _id) \

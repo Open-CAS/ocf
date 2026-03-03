@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf_priv.h"
@@ -38,7 +39,7 @@ int ocf_metadata_get_atomic_entry(ocf_cache_t cache,
 	} else {
 		ocf_cache_line_t line = ocf_atomic_addr2line(cache, addr);
 		uint8_t pos = ocf_atomic_addr2pos(cache, addr);
-		ocf_core_id_t core_id = OCF_CORE_MAX;
+		ocf_core_id_t core_id = OCF_CORE_NUM;
 		ocf_core_t core;
 		uint64_t core_line = 0;
 

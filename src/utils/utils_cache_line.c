@@ -15,7 +15,7 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 	ocf_core_t core;
 	bool line_remains_valid, line_became_invalid;
 
-	ENV_BUG_ON(core_id >= OCF_CORE_MAX);
+	ENV_BUG_ON(core_id >= OCF_CORE_NUM);
 	core = ocf_cache_get_core(cache, core_id);
 
 	line_became_invalid = metadata_clear_valid_sec_changed(cache, line,
@@ -51,15 +51,15 @@ static void __detach_cache_line(struct ocf_cache *cache, uint8_t start_bit,
 	bool is_valid = true;
 	struct ocf_part *part;
 
-	ENV_BUG_ON(part_id == PARTITION_FREELIST && core_id != OCF_CORE_MAX);
-	ENV_BUG_ON(part_id != PARTITION_FREELIST && core_id == OCF_CORE_MAX);
+	ENV_BUG_ON(part_id == PARTITION_FREELIST && core_id != OCF_CORE_NUM);
+	ENV_BUG_ON(part_id != PARTITION_FREELIST && core_id == OCF_CORE_NUM);
 
 	if (part_id != PARTITION_FREELIST)
 		part = &cache->user_parts[part_id].part;
 	else
 		part = &cache->free;
 
-	if (core_id == OCF_CORE_MAX)
+	if (core_id == OCF_CORE_NUM)
 		goto delete_invalid;
 
 	if (metadata_clear_valid_sec_changed(cache, line, start_bit, end_bit,

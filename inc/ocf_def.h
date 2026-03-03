@@ -61,7 +61,7 @@
 /**
  * Maximum numbers of cores per cache instance
  */
-#define OCF_CORE_MAX OCF_CONFIG_MAX_CORES
+#define OCF_CORE_NUM OCF_CONFIG_MAX_CORES
 /**
  * Minimum value of a valid core ID
  */
@@ -69,11 +69,11 @@
 /**
  * Maximum value of a valid core ID
  */
-#define OCF_CORE_ID_MAX (OCF_CORE_MAX - 1)
+#define OCF_CORE_ID_MAX (OCF_CORE_NUM - 1)
 /**
  * Invalid value of core id
  */
-#define OCF_CORE_ID_INVALID OCF_CORE_MAX
+#define OCF_CORE_ID_INVALID OCF_CORE_NUM
 /**
  * Size of core name
  */

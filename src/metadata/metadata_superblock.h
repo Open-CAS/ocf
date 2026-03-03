@@ -44,7 +44,7 @@ struct ocf_superblock_config {
 	ocf_cache_line_size_t line_size;
 	uint32_t core_count;
 
-	unsigned long valid_core_bitmap[OCF_DIV_ROUND_UP_STATIC(OCF_CORE_MAX,
+	unsigned long valid_core_bitmap[OCF_DIV_ROUND_UP_STATIC(OCF_CORE_NUM,
 			sizeof(unsigned long) * 8)];
 
 	bool cleaner_disabled;
