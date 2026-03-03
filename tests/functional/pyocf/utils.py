@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -167,18 +168,22 @@ class Size:
 
     def __str__(self):
         if self.bytes < self._KiB:
-            return "{} B".format(self.B)
+            return "{}B".format(self.B)
         elif self.bytes < self._MiB:
-            return "{} KiB".format(self.KiB)
+            return "{}KiB".format(self.KiB)
         elif self.bytes < self._GiB:
-            return "{} MiB".format(self.MiB)
+            return "{}MiB".format(self.MiB)
         elif self.bytes < self._TiB:
-            return "{} GiB".format(self.GiB)
+            return "{}GiB".format(self.GiB)
         else:
-            return "{} TiB".format(self.TiB)
+            return "{}TiB".format(self.TiB)
 
     def __repr__(self):
         return f"Size({self.bytes})"
+
+    @property
+    def __name__(self):
+        return str(self)
 
     def __eq__(self, other):
         return self.bytes == other.bytes
