@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -669,7 +670,7 @@ static uint32_t ocf_cleaner_populate_req(struct ocf_request *req, uint32_t curr,
 	uint32_t count = attribs->count;
 	uint32_t map_max = req->core_line_count, map_curr;
 	ocf_cache_line_t cache_line;
-	uint64_t core_sector;
+	uint64_t core_line;
 	ocf_core_id_t core_id, last_core_id = OCF_CORE_ID_INVALID;
 
 	for (map_curr = 0; map_curr < map_max && curr < count; curr++) {
@@ -680,7 +681,7 @@ static uint32_t ocf_cleaner_populate_req(struct ocf_request *req, uint32_t curr,
 
 		/* Get mapping info */
 		ocf_metadata_get_core_info(req->cache, cache_line,
-				&core_id, &core_sector);
+				&core_id, &core_line);
 
 		if (last_core_id == OCF_CORE_ID_INVALID) {
 			last_core_id = core_id;
@@ -691,7 +692,7 @@ static uint32_t ocf_cleaner_populate_req(struct ocf_request *req, uint32_t curr,
 			break;
 
 		req->map[map_curr].core_id = core_id;
-		req->map[map_curr].core_line = core_sector;
+		req->map[map_curr].core_line = core_line;
 		req->map[map_curr].coll_idx = cache_line;
 		req->map[map_curr].status = LOOKUP_HIT;
 		req->map[map_curr].hash = map_curr;

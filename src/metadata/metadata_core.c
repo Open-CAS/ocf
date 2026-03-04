@@ -13,7 +13,7 @@
 
 void ocf_metadata_get_core_info(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_core_id_t *core_id,
-		uint64_t *core_sector)
+		uint64_t *core_line)
 {
 	const struct ocf_metadata_map *collision;
 	struct ocf_metadata_ctrl *ctrl =
@@ -26,13 +26,13 @@ void ocf_metadata_get_core_info(struct ocf_cache *cache,
 
 	if (core_id)
 		*core_id = collision->core_id;
-	if (core_sector)
-		*core_sector = collision->core_line;
+	if (core_line)
+		*core_line = collision->core_line;
 }
 
 void ocf_metadata_set_core_info(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_core_id_t core_id,
-		uint64_t core_sector)
+		uint64_t core_line)
 {
 	struct ocf_metadata_map *collision;
 	struct ocf_metadata_ctrl *ctrl =
@@ -43,7 +43,7 @@ void ocf_metadata_set_core_info(struct ocf_cache *cache,
 
 	if (collision) {
 		collision->core_id = core_id;
-		collision->core_line = core_sector;
+		collision->core_line = core_line;
 	} else {
 		ocf_metadata_error(cache);
 	}
