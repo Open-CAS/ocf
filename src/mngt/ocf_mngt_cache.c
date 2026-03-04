@@ -1053,7 +1053,13 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 
 	param->flags.cache_locked = true;
 
+#ifdef OCF_BLOCK_SIZE_4K
+	/* In 4k mode OCF can't handle unaligned I/O, so PT is enforced */
+	cache->pt_unaligned_io = true;
+#else
 	cache->pt_unaligned_io = cfg->pt_unaligned_io;
+#endif
+
 	cache->use_submit_io_fast = cfg->use_submit_io_fast;
 
 	cache->metadata.is_volatile = cfg->metadata_volatile;

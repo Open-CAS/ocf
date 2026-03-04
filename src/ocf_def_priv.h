@@ -17,7 +17,11 @@
 #define BYTES_TO_PAGES(x)	((((uint64_t)x) + (PAGE_SIZE - 1)) / PAGE_SIZE)
 #define PAGES_TO_BYTES(x)	(((uint64_t)x) * PAGE_SIZE)
 
+#ifdef OCF_BLOCK_SIZE_4K
+#define OCF_BLOCK_SHIFT 12
+#else
 #define OCF_BLOCK_SHIFT SECTOR_SHIFT
+#endif
 
 #define OCF_BLOCK_SIZE (1 << OCF_BLOCK_SHIFT)
 #define BYTES_TO_BLOCKS(x) \
