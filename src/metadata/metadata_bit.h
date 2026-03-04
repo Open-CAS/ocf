@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -219,7 +220,7 @@ static bool _ocf_metadata_test_and_clear_##what##_##type( \
 \
 	map[line].what &= ~mask; \
 	return test; \
-} \
+}
 
 #define ocf_metadata_bit_func_basic(type) \
 static bool _ocf_metadata_clear_valid_if_clean_##type(struct ocf_cache *cache, \
@@ -279,13 +280,13 @@ static bool _ocf_metadata_check_##type(struct ocf_cache *cache, \
 	_raw_bug_on(raw, line); \
 \
 	return (map[line].dirty & (~map[line].valid)) == 0; \
-} \
+}
 
 #define ocf_metadata_bit_funcs(type) \
 ocf_metadata_bit_struct(type); \
 ocf_metadata_bit_func(dirty, type); \
 ocf_metadata_bit_func(valid, type); \
-ocf_metadata_bit_func_basic(type); \
+ocf_metadata_bit_func_basic(type)
 
 ocf_metadata_bit_funcs(u8);
 ocf_metadata_bit_funcs(u16);
