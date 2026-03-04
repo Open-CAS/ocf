@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2022 Intel Corporation
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 #
@@ -39,3 +40,7 @@ def get_metadata_segment_is_flapped(cache, segment):
 def get_composite_volume_type_id():
     lib = OcfLib.getInstance()
     return int(lib.ocf_get_composite_volume_type_id_helper())
+
+def is_block_size_4k():
+    lib = OcfLib.getInstance()
+    return bool(lib.ocf_is_block_size_4k())

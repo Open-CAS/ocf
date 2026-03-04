@@ -71,8 +71,10 @@ class Size:
         "TiB": _TiB,
     }
 
-    def __init__(self, b: int, sector_aligned: bool = False):
-        if sector_aligned:
+    def __init__(self, b: int, sector_aligned: bool = False, page_aligned: bool = False):
+        if page_aligned:
+            self.bytes = int(((b + self._PAGE_SIZE - 1) // self._PAGE_SIZE) * self._PAGE_SIZE)
+        elif sector_aligned:
             self.bytes = int(((b + self._SECTOR_SIZE - 1) // self._SECTOR_SIZE) * self._SECTOR_SIZE)
         else:
             self.bytes = int(b)

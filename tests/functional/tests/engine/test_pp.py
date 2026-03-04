@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -18,6 +19,7 @@ from pyocf.types.io import IoDir
 from pyocf.utils import Size
 from pyocf.types.shared import OcfCompletion
 from pyocf.rio import Rio, ReadWrite
+from pyocf.helpers import is_block_size_4k
 
 
 @pytest.mark.parametrize("promotion_policy", PromotionPolicy)
@@ -120,7 +122,7 @@ def fill_cache(cache, fill_ratio):
         .target(vol)
         .readwrite(ReadWrite.RANDWRITE)
         .size(bytes_to_fill)
-        .bs(Size(512))
+        .bs(Size(4096))
         .qd(10)
         .run([queue])
     )
@@ -211,6 +213,9 @@ def test_partial_hit_promotion(pyocf_ctx):
     4. Issue a request containing partially valid cache line and next cache line
         * occupancy should rise - partially hit request should bypass nhit criteria
     """
+
+    if is_block_size_4k():
+        pytest.skip("Sub-4K I/O not supported in 4K block mode")
 
     # Step 1
     cache_device = RamVolume(Size.from_MiB(50))

@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2020-2022 Intel Corporation
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -16,6 +17,7 @@ from pyocf.types.data import Data
 from pyocf.types.io import IoDir
 from pyocf.utils import Size
 from pyocf.types.shared import OcfCompletion, SeqCutOffPolicy
+from pyocf.helpers import is_block_size_4k
 
 
 class Stream:
@@ -72,6 +74,12 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
         handled by cache. It should no longer be tracked by OCF, because of request in step 3. which
         overflowed the OCF handling structure)
     """
+
+    if is_block_size_4k():
+        smallest_io_size = Size.from_page(1)
+    else:
+        smallest_io_size = Size.from_sector(1)
+
     MAX_STREAMS = 128
     TEST_STREAMS = MAX_STREAMS + 1  # Number of streams used by test - one more than OCF can track
     core_size = Size.from_MiB(200)
@@ -79,7 +87,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
 
     streams = [
         Stream(
-            last=Size((stream_no * int(core_size) // TEST_STREAMS), sector_aligned=True),
+            last=Size((stream_no * int(core_size) // TEST_STREAMS), page_aligned=True),
             length=Size(0),
             direction=choice(list(IoDir)),
         )
@@ -104,7 +112,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     # STEP 1
     vol.open()
     shuffle(streams)
-    io_size = threshold - Size.from_sector(1)
+    io_size = threshold - smallest_io_size
     io_to_streams(vol, queue, streams, io_size)
 
     stats = cache.get_stats()
@@ -119,7 +127,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     streams.remove(lru_stream)
 
     shuffle(streams)
-    io_to_streams(vol, queue, streams, Size.from_sector(1))
+    io_to_streams(vol, queue, streams, smallest_io_size)
 
     stats = cache.get_stats()
     assert (
@@ -130,7 +138,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     ), "All streams should be handled in PT - cutoff engaged for all streams"
 
     # STEP 3
-    io_to_streams(vol, queue, [non_active_stream], Size.from_sector(1))
+    io_to_streams(vol, queue, [non_active_stream], smallest_io_size)
 
     stats = cache.get_stats()
     assert (
@@ -138,7 +146,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     ), "This request should be serviced by cache - no cutoff for inactive stream"
 
     # STEP 4
-    io_to_streams(vol, queue, [lru_stream], Size.from_sector(1))
+    io_to_streams(vol, queue, [lru_stream], smallest_io_size)
 
     vol.close()
     stats = cache.get_stats()

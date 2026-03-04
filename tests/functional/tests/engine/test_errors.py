@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -12,6 +13,7 @@ from pyocf.types.volume_core import CoreVolume
 from pyocf.types.shared import CacheLineSize
 from pyocf.utils import Size
 from pyocf.rio import Rio, ReadWrite
+from pyocf.helpers import is_block_size_4k
 
 BLOCK_SIZES = [Size(512), Size.from_KiB(1), Size.from_KiB(4), Size.from_KiB(64), Size.from_KiB(256)]
 
@@ -20,6 +22,8 @@ BLOCK_SIZES = [Size(512), Size.from_KiB(1), Size.from_KiB(4), Size.from_KiB(64),
 @pytest.mark.parametrize("cache_mode", [c for c in CacheMode if not c.lazy_write()])
 @pytest.mark.parametrize("rio_bs", BLOCK_SIZES)
 def test_strict_engine_errors(pyocf_ctx, cache_mode: CacheMode, cls: CacheLineSize, rio_bs: Size):
+    if is_block_size_4k() and rio_bs < Size.from_KiB(4):
+        pytest.skip("Sub-4K I/O not supported in 4K block mode")
     cache_vol_size = Size.from_MiB(50)
     ram_cache_volume = RamVolume(cache_vol_size)
     error_sectors = set(x for x in range(0, cache_vol_size, 512))
@@ -88,6 +92,8 @@ def test_strict_engine_errors(pyocf_ctx, cache_mode: CacheMode, cls: CacheLineSi
 @pytest.mark.parametrize("cache_mode", [c for c in CacheMode if c.lazy_write()])
 @pytest.mark.parametrize("rio_bs", BLOCK_SIZES)
 def test_lazy_engine_errors(pyocf_ctx, cache_mode: CacheMode, cls: CacheLineSize, rio_bs: Size):
+    if is_block_size_4k() and rio_bs < Size.from_KiB(4):
+        pytest.skip("Sub-4K I/O not supported in 4K block mode")
     cache_vol_size = Size.from_MiB(50)
     ram_cache_volume = RamVolume(cache_vol_size)
     error_sectors = set(x for x in range(0, cache_vol_size, 512))

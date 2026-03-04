@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2021-2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -39,8 +40,8 @@ mngmt_op_surprise_shutdown_test_io_offset = S.from_MiB(4).B
 
 def ocf_write(vol, queue, val, offset):
     vol.open()
-    data = Data.from_bytes(bytes([val] * 512))
-    io = vol.new_io(queue, offset, 512, IoDir.WRITE, 0, 0)
+    data = Data.from_bytes(bytes([val] * 4096))
+    io = vol.new_io(queue, offset, 4096, IoDir.WRITE, 0, 0)
     io.set_data(data)
     Sync(io).submit()
     vol.close()
@@ -48,8 +49,8 @@ def ocf_write(vol, queue, val, offset):
 
 def ocf_read(vol, queue, offset):
     vol.open()
-    data = Data(byte_count=512)
-    io = vol.new_io(queue, offset, 512, IoDir.READ, 0, 0)
+    data = Data(byte_count=4096)
+    io = vol.new_io(queue, offset, 4096, IoDir.READ, 0, 0)
     io.set_data(data)
     Sync(io).submit()
     vol.close()
