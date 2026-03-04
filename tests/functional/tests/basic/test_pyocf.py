@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -35,7 +36,14 @@ def test_simple_wt_write(pyocf_ctx):
     cache_device.reset_stats()
     core_device.reset_stats()
 
-    r = Rio().target(vol).readwrite(ReadWrite.WRITE).size(S.from_sector(1)).run([queue])
+    r = (
+        Rio()
+        .target(vol)
+        .readwrite(ReadWrite.WRITE)
+        .size(S.from_page(1))
+        .bs(S.from_page(1))
+        .run([queue])
+    )
     assert cache_device.get_stats()[IoDir.WRITE] == 1
     cache.settle()
     stats = cache.get_stats()

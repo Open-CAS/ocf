@@ -167,6 +167,9 @@ class CacheLineSize(IntEnum):
     LINE_64KiB = S.from_KiB(64)
     DEFAULT = LINE_4KiB
 
+    def __str__(self):
+        return f"{self.value // 1024}KiB"
+
 
 class SeqCutOffPolicy(IntEnum):
     ALWAYS = 0

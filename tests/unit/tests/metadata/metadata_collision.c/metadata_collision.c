@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -35,7 +36,7 @@ static void metadata_hash_func_test01(void **state)
 	ocf_cache_line_t i;
 	ocf_cache_line_t hash_cur, hash_next;
 	unsigned c;
-	ocf_core_id_t core_ids[] = {0, 1, 2, 100, OCF_CORE_MAX};
+	ocf_core_id_t core_ids[] = {0, 1, 2, 100, OCF_CORE_NUM};
 	ocf_core_id_t core_id;
 
 	print_test_description("Verify that hash function increments by 1 and generates"

@@ -133,7 +133,7 @@ void ocf_metadata_remove_from_collision(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_part_id_t part_id)
 {
 	ocf_core_id_t core_id;
-	uint64_t core_sector;
+	uint64_t core_line;
 	ocf_cache_line_t hash_father;
 	ocf_cache_line_t prev_line, next_line;
 	ocf_cache_line_t line_entries = cache->device->collision_table_entries;
@@ -151,12 +151,12 @@ void ocf_metadata_remove_from_collision(struct ocf_cache *cache,
 	if (next_line != line_entries)
 		ocf_metadata_set_collision_prev(cache, next_line, prev_line);
 
-	ocf_metadata_get_core_info(cache, line, &core_id, &core_sector);
+	ocf_metadata_get_core_info(cache, line, &core_id, &core_line);
 
 	/* Update hash table, because if it was pointing to the given node it
 	 * must now point to the given's node next
 	 */
-	hash_father = ocf_metadata_hash_func(cache, core_sector, core_id);
+	hash_father = ocf_metadata_hash_func(cache, core_line, core_id);
 	ENV_BUG_ON(!(hash_father < hash_entries));
 
 	if (ocf_metadata_get_hash(cache, hash_father) == line)
@@ -166,7 +166,7 @@ void ocf_metadata_remove_from_collision(struct ocf_cache *cache,
 			line_entries, line_entries);
 
 	ocf_metadata_set_core_info(cache, line,
-			OCF_CORE_MAX, ULLONG_MAX);
+			OCF_CORE_NUM, ULLONG_MAX);
 }
 
 /* must be called under global metadata read(shared) lock */

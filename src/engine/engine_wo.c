@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -68,8 +69,8 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 
 	for (line = 0; line < req->core_line_count; ++line) {
 		entry = &req->map[line];
-		s = ocf_map_line_start_sector(req, line);
-		e = ocf_map_line_end_sector(req, line);
+		s = ocf_map_line_start_block(req, line);
+		e = ocf_map_line_end_block(req, line);
 
 		ocf_hb_cline_prot_lock_rd(&cache->metadata.lock,
 				req->lock_idx, entry->core_id,
@@ -85,20 +86,20 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 			io = false;
 		}
 
-		/* try to seek directly to the last sector */
+		/* try to seek directly to the last block */
 		if (entry->status == LOOKUP_MISS) {
-			/* all sectors invalid */
+			/* all blocks invalid */
 			i = e + 1;
-			increment = SECTORS_TO_BYTES(e - s + 1);
+			increment = BLOCKS_TO_BYTES(e - s + 1);
 			valid = false;
 		}
 		else if (ocf_engine_map_all_sec_valid(req, line)) {
-			/* all sectors valid */
+			/* all blocks valid */
 			i = e + 1;
-			increment = SECTORS_TO_BYTES(e - s + 1);
+			increment = BLOCKS_TO_BYTES(e - s + 1);
 			valid = true;
 		} else {
-			/* need to iterate through CL sector by sector */
+			/* need to iterate through CL block by block */
 			i = s;
 		}
 
@@ -109,7 +110,7 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 				 increment = 0;
 				 do {
 					++i;
-					increment += SECTORS_TO_BYTES(1);
+					increment += BLOCKS_TO_BYTES(1);
 				 } while (i <= e && metadata_test_valid_one(
 						cache, entry->coll_idx, i)
 						== valid);

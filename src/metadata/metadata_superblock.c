@@ -165,7 +165,7 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 		return -OCF_ERR_INVAL;
 	}
 
-	if (superblock->core_count > OCF_CORE_MAX) {
+	if (superblock->core_count > OCF_CORE_NUM) {
 		ocf_log_invalid_superblock("core count");
 		return -OCF_ERR_INVAL;
 	}
@@ -227,7 +227,7 @@ static void _ocf_metadata_validate_core_config(ocf_pipeline_t pipeline,
 	superblock = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 	core_config = METADATA_MEM_POOL(ctrl, metadata_segment_core_config);
 
-	for (core_id = 0; core_id < OCF_CORE_MAX; core_id++) {
+	for (core_id = 0; core_id < OCF_CORE_NUM; core_id++) {
 		valid_in_bitmap = env_bit_test(core_id,
 				superblock->valid_core_bitmap);
 

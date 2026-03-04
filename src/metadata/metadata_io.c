@@ -131,7 +131,7 @@ int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue, void *priv,
 {
 	struct metadata_io_read_i_atomic_context *context;
 	uint64_t io_sectors_count = cache->device->collision_table_entries *
-					ocf_line_sectors(cache);
+					ocf_line_blocks(cache);
 	struct ocf_request *req;
 
 	OCF_DEBUG_TRACE(cache);

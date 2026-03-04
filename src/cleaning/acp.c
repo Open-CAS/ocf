@@ -109,10 +109,10 @@ struct acp_context {
 	env_rwsem chunks_lock;
 
 	/* number of chunks per core */
-	uint64_t num_chunks[OCF_CORE_MAX];
+	uint64_t num_chunks[OCF_CORE_NUM];
 
 	/* per core array of all chunks */
-	struct acp_chunk_info *chunk_info[OCF_CORE_MAX];
+	struct acp_chunk_info *chunk_info[OCF_CORE_NUM];
 
 	struct acp_bucket bucket_info[ACP_MAX_BUCKETS];
 
@@ -302,7 +302,7 @@ struct ocf_acp_populate_context {
 	ocf_cache_t cache;
 
 	struct {
-		uint16_t *chunk[OCF_CORE_MAX];
+		uint16_t *chunk[OCF_CORE_NUM];
 		struct {
 			struct list_head chunk_list;
 		} bucket[ACP_MAX_BUCKETS];
@@ -334,7 +334,7 @@ static int ocf_acp_populate_handle(ocf_parallelize_t parallelize,
 
 		OCF_COND_RESCHED_DEFAULT(step);
 
-		if (core_id == OCF_CORE_MAX)
+		if (core_id == OCF_CORE_NUM)
 			continue;
 
 		if (!metadata_test_dirty(cache, cline)) {

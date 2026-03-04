@@ -8,6 +8,8 @@
 #ifndef __METADATA_COLLISION_H__
 #define __METADATA_COLLISION_H__
 
+#include "../ocf_def_priv.h"
+
 /**
  * @brief Metadata map structure
  */
@@ -27,8 +29,16 @@ struct ocf_metadata_map {
 	uint64_t core_line;
 		/*!<  Core line addres on cache mapped by this strcture */
 
-	uint16_t core_id;
+	uint16_t core_id : OCF_CORE_ID_BITS;
 		/*!<  ID of core where is assigned this cache line*/
+
+#ifdef OCF_BLOCK_SIZE_4K
+	uint16_t _valid : 1;
+		/*!<  valid bit for 4K cache line */
+
+	uint16_t _dirty : 1;
+		/*!<  dirty bit for 4K cache line */
+#endif
 
 	uint8_t status[];
 		/*!<  Entry status structure e.g. valid, dirty...*/

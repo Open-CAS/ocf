@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -78,9 +79,8 @@ ocf_io_t ocf_io_new(ocf_volume_t volume, ocf_queue_t queue,
 		uint32_t io_class, uint64_t flags)
 {
 	struct ocf_request *req;
-	uint32_t sector_size = SECTORS_TO_BYTES(1);
 
-	if ((addr % sector_size) || (bytes % sector_size))
+	if ((addr % SECTOR_SIZE) || (bytes % SECTOR_SIZE))
 		return NULL;
 
 	if (!env_refcnt_inc(&volume->refcnt))

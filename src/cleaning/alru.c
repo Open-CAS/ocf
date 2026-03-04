@@ -480,7 +480,7 @@ static int ocf_alru_populate_handle(ocf_parallelize_t parallelize,
 
 		OCF_COND_RESCHED_DEFAULT(step);
 
-		if (core_id == OCF_CORE_MAX)
+		if (core_id == OCF_CORE_NUM)
 			continue;
 
 		if (!metadata_test_dirty(cache, cline)) {

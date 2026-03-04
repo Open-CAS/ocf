@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -150,8 +151,8 @@ static inline uint32_t ocf_engine_io_count(struct ocf_request *req)
 static inline
 bool ocf_engine_map_all_sec_dirty(struct ocf_request *req, uint32_t line)
 {
-	uint8_t start = ocf_map_line_start_sector(req, line);
-	uint8_t end = ocf_map_line_end_sector(req, line);
+	uint8_t start = ocf_map_line_start_block(req, line);
+	uint8_t end = ocf_map_line_end_block(req, line);
 
 	if (req->map[line].status != LOOKUP_HIT)
 		return false;
@@ -163,8 +164,8 @@ bool ocf_engine_map_all_sec_dirty(struct ocf_request *req, uint32_t line)
 static inline
 bool ocf_engine_map_all_sec_clean(struct ocf_request *req, uint32_t line)
 {
-	uint8_t start = ocf_map_line_start_sector(req, line);
-	uint8_t end = ocf_map_line_end_sector(req, line);
+	uint8_t start = ocf_map_line_start_block(req, line);
+	uint8_t end = ocf_map_line_end_block(req, line);
 
 	if (req->map[line].status != LOOKUP_HIT)
 		return false;
@@ -181,8 +182,8 @@ bool ocf_engine_map_all_sec_clean(struct ocf_request *req, uint32_t line)
 static inline
 bool ocf_engine_map_all_sec_valid(struct ocf_request *req, uint32_t line)
 {
-	uint8_t start = ocf_map_line_start_sector(req, line);
-	uint8_t end = ocf_map_line_end_sector(req, line);
+	uint8_t start = ocf_map_line_start_block(req, line);
+	uint8_t end = ocf_map_line_end_block(req, line);
 
 	if (req->map[line].status != LOOKUP_HIT)
 		return false;

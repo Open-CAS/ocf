@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -315,7 +316,7 @@ void perform_workload(ocf_core_t core)
 	}
 	strcpy(data1->ptr, "This is some test data");
 	/* Prepare and submit write IO to the core */
-	submit_io(core, data1, 0, 512, OCF_WRITE, complete_write);
+	submit_io(core, data1, 0, 4096, OCF_WRITE, complete_write);
 	/* After write completes, complete_write() callback will be called. */
 
 	/*
@@ -330,7 +331,7 @@ void perform_workload(ocf_core_t core)
 		return;
 	}
 	/* Prepare and submit read IO to the core */
-	submit_io(core, data2, 0, 512, OCF_READ, complete_read);
+	submit_io(core, data2, 0, 4096, OCF_READ, complete_read);
 	/* After read completes, complete_read() callback will be called,
 	 * where we print our example data to stdout.
 	 */

@@ -9,6 +9,7 @@
 #ifndef __OCF_DEF_H__
 #define __OCF_DEF_H__
 
+#include "ocf_env.h"
 #include "ocf_cfg.h"
 /**
  * @file
@@ -59,9 +60,16 @@
  * @name OCF cores definitions
  */
 /**
- * Maximum numbers of cores per cache instance
+ * Number of core id bits
  */
-#define OCF_CORE_MAX OCF_CONFIG_MAX_CORES
+#define OCF_CORE_ID_BITS 14
+/**
+ * Maximum numbers of cores per cache instance
+ * Must be smaller than (1 << OCF_CORE_ID_BITS) to leave space
+ * for invalid OCF_CORE_ID_INVALID.
+ */
+#define OCF_CORE_NUM OCF_CONFIG_MAX_CORES
+_Static_assert(OCF_CORE_NUM < (1 << OCF_CORE_ID_BITS));
 /**
  * Minimum value of a valid core ID
  */
@@ -69,11 +77,11 @@
 /**
  * Maximum value of a valid core ID
  */
-#define OCF_CORE_ID_MAX (OCF_CORE_MAX - 1)
+#define OCF_CORE_ID_MAX (OCF_CORE_NUM - 1)
 /**
  * Invalid value of core id
  */
-#define OCF_CORE_ID_INVALID OCF_CORE_MAX
+#define OCF_CORE_ID_INVALID OCF_CORE_NUM
 /**
  * Size of core name
  */

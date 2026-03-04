@@ -175,16 +175,25 @@ class CacheMode(IntEnum):
     def read_insert(self):
         return self.value not in [CacheMode.PT, CacheMode.WO]
 
+    def __str__(self):
+        return self.name
+
 
 class PromotionPolicy(IntEnum):
     ALWAYS = 0
     NHIT = 1
     DEFAULT = ALWAYS
 
+    def __str__(self):
+        return self.name
+
 
 class NhitParams(IntEnum):
     INSERTION_THRESHOLD = 0
     TRIGGER_THRESHOLD = 1
+
+    def __str__(self):
+        return self.name
 
 
 class CleaningPolicy(IntEnum):
@@ -193,6 +202,9 @@ class CleaningPolicy(IntEnum):
     ACP = 2
     DEFAULT = ALRU
 
+    def __str__(self):
+        return self.name
+
 
 class AlruParams(IntEnum):
     WAKE_UP_TIME = 0
@@ -200,16 +212,25 @@ class AlruParams(IntEnum):
     FLUSH_MAX_BUFFERS = 2
     ACTIVITY_THRESHOLD = 3
 
+    def __str__(self):
+        return self.name
+
 
 class AcpParams(IntEnum):
     WAKE_UP_TIME = 0
     FLUSH_MAX_BUFFERS = 1
+
+    def __str__(self):
+        return self.name
 
 
 class MetadataLayout(IntEnum):
     STRIPING = 0
     SEQUENTIAL = 1
     DEFAULT = STRIPING
+
+    def __str__(self):
+        return self.name
 
 
 class Cache:

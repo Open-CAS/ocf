@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -10,11 +11,11 @@
 
 void ocf_metadata_get_core_info(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_core_id_t *core_id,
-		uint64_t *core_sector);
+		uint64_t *core_line);
 
 void ocf_metadata_set_core_info(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_core_id_t core_id,
-		uint64_t core_sector);
+		uint64_t core_line);
 
 ocf_core_id_t ocf_metadata_get_core_id(
 		struct ocf_cache *cache, ocf_cache_line_t line);

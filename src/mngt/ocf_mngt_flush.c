@@ -154,13 +154,13 @@ bool ocf_mngt_cache_is_dirty(ocf_cache_t cache)
 /************************FLUSH CORE CODE**************************************/
 /* Returns:
  * 0 if OK and tbl & num is filled:
- * * tbl - table with sectors&cacheline
+ * * tbl - table with blocks&cacheline
  * * num - number of items in this table.
  * other value means error.
  * NOTE:
  * Table is not sorted.
  */
-static int _ocf_mngt_get_sectors(ocf_cache_t cache, ocf_core_id_t core_id,
+static int _ocf_mngt_get_blocks(ocf_cache_t cache, ocf_core_id_t core_id,
 		struct flush_data **tbl, uint32_t *num)
 {
 	ocf_core_t core = ocf_cache_get_core(cache, core_id);
@@ -258,7 +258,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	if (core_count == 0)
 		goto unlock;
 
-	core_revmap = env_vzalloc(sizeof(*core_revmap) * OCF_CORE_MAX);
+	core_revmap = env_vzalloc(sizeof(*core_revmap) * OCF_CORE_NUM);
 	if (!core_revmap) {
 		ret = -OCF_ERR_NO_MEM;
 		goto unlock;
@@ -536,7 +536,7 @@ static void _ocf_mngt_flush_containers(
 		return;
 	}
 
-	/* Sort data. Smallest sectors first (0...n). */
+	/* Sort data. Smallest blocks first (0...n). */
 	ocf_cleaner_sort_flush_containers(fctbl, fcnum);
 
 	env_atomic_set(&context->fcs.error, 0);
@@ -573,7 +573,7 @@ static void _ocf_mngt_flush_core(
 		return;
 	}
 
-	ret = _ocf_mngt_get_sectors(cache, core_id,
+	ret = _ocf_mngt_get_blocks(cache, core_id,
 			&fc->flush_data, &fc->count);
 	if (ret) {
 		ocf_core_log(core, log_err, "Flushing operation aborted, "
@@ -611,7 +611,7 @@ static void _ocf_mngt_flush_all_cores(
 
 	env_atomic_set(&cache->flush_in_progress, 1);
 
-	/* Get all 'dirty' sectors for all cores */
+	/* Get all 'dirty' blocks for all cores */
 	ret = _ocf_mngt_get_flush_containers(cache, &fctbl, &fcnum,
 			context->begin, context->end);
 	if (ret) {
@@ -632,7 +632,7 @@ static void _ocf_mngt_flush_all_cores_complete(
 
 	env_atomic_set(&cache->flush_in_progress, 0);
 
-	for (i = 0, j = 0; i < OCF_CORE_MAX; i++) {
+	for (i = 0, j = 0; i < OCF_CORE_NUM; i++) {
 		if (!env_bit_test(i, cache->conf_meta->valid_core_bitmap))
 			continue;
 

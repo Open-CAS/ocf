@@ -226,7 +226,7 @@ int ocf_core_stats_initialize_all(ocf_cache_t cache)
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
 
-	for (id = 0; id < OCF_CORE_MAX; id++) {
+	for (id = 0; id < OCF_CORE_NUM; id++) {
 		if (!env_bit_test(id, cache->conf_meta->valid_core_bitmap))
 			continue;
 

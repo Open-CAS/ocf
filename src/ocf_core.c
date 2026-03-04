@@ -130,7 +130,7 @@ int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
 	if (!visitor)
 		return -OCF_ERR_INVAL;
 
-	for (id = 0; id < OCF_CORE_MAX; id++) {
+	for (id = 0; id < OCF_CORE_NUM; id++) {
 		if (!env_bit_test(id, cache->conf_meta->valid_core_bitmap))
 			continue;
 

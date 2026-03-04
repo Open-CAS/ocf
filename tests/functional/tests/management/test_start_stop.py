@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024-2025 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -45,6 +46,7 @@ from pyocf.types.shared import (
 from pyocf.types.volume import Volume, RamVolume
 from pyocf.types.volume_core import CoreVolume
 from pyocf.utils import Size
+from pyocf.helpers import is_block_size_4k
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +79,11 @@ def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: Cache
     After start check proper cache mode behaviour, starting with write operation.
     """
 
+    if is_block_size_4k():
+        smallest_io_size = Size.from_page(1)
+    else:
+        smallest_io_size = Size.from_sector(1)
+
     cache_device = RamVolume(Size.from_MiB(50))
     core_device = RamVolume(Size.from_MiB(10))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
@@ -90,21 +97,21 @@ def test_start_write_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: Cache
     cache_device.reset_stats()
     core_device.reset_stats()
 
-    test_data = Data.from_string("This is test data")
-    io_to_core(vol, queue, test_data, Size.from_sector(1).B)
+    test_data = Data.from_bytes(b"A"*smallest_io_size.B)
+    io_to_core(vol, queue, test_data, smallest_io_size.B)
     check_stats_write_empty(core, mode, cls)
 
     logger.info("[STAGE] Read from exported object after initial write")
-    io_from_exported_object(vol, queue, test_data.size, Size.from_sector(1).B)
+    io_from_exported_object(vol, queue, test_data.size, smallest_io_size.B)
     check_stats_read_after_write(core, mode, cls, True)
 
     logger.info("[STAGE] Write to exported object after read")
     cache_device.reset_stats()
     core_device.reset_stats()
 
-    test_data = Data.from_string("Changed test data")
+    test_data = Data.from_bytes(b"B"*smallest_io_size.B)
 
-    io_to_core(vol, queue, test_data, Size.from_sector(1).B)
+    io_to_core(vol, queue, test_data, smallest_io_size.B)
     check_stats_write_after_read(core, mode, cls)
 
     check_md5_sums(vol, mode)
@@ -117,6 +124,11 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
     After start check proper cache mode behaviour, starting with read operation.
     """
 
+    if is_block_size_4k():
+        smallest_io_size = Size.from_page(1)
+    else:
+        smallest_io_size = Size.from_sector(1)
+
     cache_device = RamVolume(Size.from_MiB(50))
     core_device = RamVolume(Size.from_MiB(5))
     cache = Cache.start_on_device(cache_device, cache_mode=mode, cache_line_size=cls)
@@ -128,28 +140,28 @@ def test_start_read_first_and_check_mode(pyocf_ctx, mode: CacheMode, cls: CacheL
     queue = cache.get_default_queue()
 
     logger.info("[STAGE] Initial write to core device")
-    test_data = Data.from_string("This is test data")
-    io_to_core(bottom_vol, queue, test_data, Size.from_sector(1).B)
+    test_data = Data.from_bytes(b"A"*smallest_io_size.B)
+    io_to_core(bottom_vol, queue, test_data, smallest_io_size.B)
 
     cache_device.reset_stats()
     core_device.reset_stats()
 
     logger.info("[STAGE] Initial read from exported object")
-    io_from_exported_object(front_vol, queue, test_data.size, Size.from_sector(1).B)
+    io_from_exported_object(front_vol, queue, test_data.size, smallest_io_size.B)
     check_stats_read_empty(core, mode, cls)
 
     logger.info("[STAGE] Write to exported object after initial read")
     cache_device.reset_stats()
     core_device.reset_stats()
 
-    test_data = Data.from_string("Changed test data")
+    test_data = Data.from_bytes(b"B"*smallest_io_size.B)
 
-    io_to_core(front_vol, queue, test_data, Size.from_sector(1).B)
+    io_to_core(front_vol, queue, test_data, smallest_io_size.B)
 
     check_stats_write_after_read(core, mode, cls, True)
 
     logger.info("[STAGE] Read from exported object after write")
-    io_from_exported_object(front_vol, queue, test_data.size, Size.from_sector(1).B)
+    io_from_exported_object(front_vol, queue, test_data.size, smallest_io_size.B)
     check_stats_read_after_write(core, mode, cls)
 
     check_md5_sums(front_vol, mode)

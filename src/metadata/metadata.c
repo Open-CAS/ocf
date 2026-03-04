@@ -52,8 +52,28 @@ enum {
 
 static inline size_t ocf_metadata_status_sizeof(ocf_cache_line_size_t line_size)
 {
-	/* Number of bytes required to mark cache line status */
-	size_t size = BYTES_TO_SECTORS(line_size) / 8;
+	size_t size;
+
+	switch (line_size) {
+	case ocf_cache_line_size_4:
+#ifdef OCF_BLOCK_SIZE_4K
+		/*
+		 * We only need one valid and one dirty per line.
+		 * Use bitfields from struct ocf_metadata_map.
+		 */
+		size = 0;
+		break;
+#endif
+	case ocf_cache_line_size_8:
+	case ocf_cache_line_size_16:
+	case ocf_cache_line_size_32:
+	case ocf_cache_line_size_64:
+		/* Number of bytes required to mark cache line status */
+		size = OCF_DIV_ROUND_UP(BYTES_TO_BLOCKS(line_size), 8);
+		break;
+	default:
+		ENV_BUG();
+	}
 
 	/* Number of types of status (valid, dirty, etc...) */
 	size *= ocf_metadata_status_type_max;
@@ -99,13 +119,13 @@ static ocf_cache_line_t ocf_metadata_get_entries(
 		return OCF_NUM_PARTITIONS;
 
 	case metadata_segment_core_config:
-		return OCF_CORE_MAX;
+		return OCF_CORE_NUM;
 
 	case metadata_segment_core_runtime:
-		return OCF_CORE_MAX;
+		return OCF_CORE_NUM;
 
 	case metadata_segment_core_uuid:
-		return OCF_CORE_MAX;
+		return OCF_CORE_NUM;
 
 	default:
 		break;
@@ -459,7 +479,7 @@ static inline void ocf_metadata_config_init(ocf_cache_t cache, size_t size)
 
 	OCF_DEBUG_PARAM(cache, "Cache line size = %lu, bits count = %llu, "
 			"status size = %lu",
-			size, ocf_line_sectors(cache),
+			size, ocf_line_blocks(cache),
 			ocf_metadata_status_sizeof(size));
 }
 
@@ -828,7 +848,7 @@ static inline void _ocf_init_collision_entry(struct ocf_cache *cache,
 
 	ocf_metadata_set_collision_info(cache, idx, invalid_idx, invalid_idx);
 	ocf_metadata_set_core_info(cache, idx,
-			OCF_CORE_MAX, ULONG_MAX);
+			OCF_CORE_NUM, ULONG_MAX);
 	metadata_init_status_bits(cache, idx);
 }
 
@@ -1178,7 +1198,7 @@ void ocf_metadata_flush_mark(struct ocf_cache *cache,
 	 * line persistent in case of recovery
 	 */
 
-	/* Collision table to get mapping cache line to HDD sector*/
+	/* Collision table to get mapping cache line to HDD block */
 	ocf_metadata_raw_flush_mark(cache,
 			&(ctrl->raw_desc[metadata_segment_collision]),
 			req, map_idx, to_state, start, stop);
@@ -1385,8 +1405,8 @@ static int ocf_metadata_load_atomic_metadata_drain(void *priv,
 	for (i = 0; i < sector_no; i++) {
 		ctx_data_rd_check(cache->owner, &meta, data, sizeof(meta));
 
-		line = (sector_addr + i) / ocf_line_sectors(cache);
-		pos = (sector_addr + i) % ocf_line_sectors(cache);
+		line = (sector_addr + i) / ocf_line_blocks(cache);
+		pos = (sector_addr + i) % ocf_line_blocks(cache);
 		core_seq_no = meta.core_seq_no;
 		core_line = meta.core_line;
 
@@ -1562,50 +1582,100 @@ void ocf_metadata_set_hash(struct ocf_cache *cache, ocf_cache_line_t index,
 
 #include "metadata_bit.h"
 
+#ifdef OCF_BLOCK_SIZE_4K
 #define _ocf_metadata_funcs_5arg(what) \
 bool ocf_metadata_##what(struct ocf_cache *cache, \
 	 ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all) \
 { \
 	switch (cache->metadata.line_size) { \
-		case ocf_cache_line_size_4: \
-			return _ocf_metadata_##what##_u8(cache, line, start, stop, all); \
-		case ocf_cache_line_size_8: \
-			return _ocf_metadata_##what##_u16(cache, line, start, stop, all); \
-		case ocf_cache_line_size_16: \
-			return _ocf_metadata_##what##_u32(cache, line, start, stop, all); \
-		case ocf_cache_line_size_32: \
-			return _ocf_metadata_##what##_u64(cache, line, start, stop, all); \
-		case ocf_cache_line_size_64: \
-			return _ocf_metadata_##what##_u128(cache, line, start, stop, all); \
-		case ocf_cache_line_size_none: \
-		default: \
-			ENV_BUG_ON(1); \
-			return false; \
+	case ocf_cache_line_size_4: \
+		return _ocf_metadata_##what(cache, line, start, stop, all); \
+	case ocf_cache_line_size_8: \
+	case ocf_cache_line_size_16: \
+	case ocf_cache_line_size_32: \
+		return _ocf_metadata_##what##_u8(cache, line, \
+				start, stop, all); \
+	case ocf_cache_line_size_64: \
+		return _ocf_metadata_##what##_u16(cache, line, \
+				start, stop, all); \
+	case ocf_cache_line_size_none: \
+	default: \
+		ENV_BUG_ON(1); \
+		return false; \
 	} \
-} \
-
-
-#define _ocf_metadata_funcs_4arg(what) \
+}
+#else
+#define _ocf_metadata_funcs_5arg(what) \
 bool ocf_metadata_##what(struct ocf_cache *cache, \
-	 ocf_cache_line_t line, uint8_t start, uint8_t stop) \
+		ocf_cache_line_t line, uint8_t start, uint8_t stop, bool all) \
 { \
 	switch (cache->metadata.line_size) { \
-		case ocf_cache_line_size_4: \
-			return _ocf_metadata_##what##_u8(cache, line, start, stop); \
-		case ocf_cache_line_size_8: \
-			return _ocf_metadata_##what##_u16(cache, line, start, stop); \
-		case ocf_cache_line_size_16: \
-			return _ocf_metadata_##what##_u32(cache, line, start, stop); \
-		case ocf_cache_line_size_32: \
-			return _ocf_metadata_##what##_u64(cache, line, start, stop); \
-		case ocf_cache_line_size_64: \
-			return _ocf_metadata_##what##_u128(cache, line, start, stop); \
-		case ocf_cache_line_size_none: \
-		default: \
-			ENV_BUG_ON(1); \
-			return false; \
+	case ocf_cache_line_size_4: \
+		return _ocf_metadata_##what##_u8(cache, line, \
+				start, stop, all); \
+	case ocf_cache_line_size_8: \
+		return _ocf_metadata_##what##_u16(cache, line, \
+				start, stop, all); \
+	case ocf_cache_line_size_16: \
+		return _ocf_metadata_##what##_u32(cache, line, \
+				start, stop, all); \
+	case ocf_cache_line_size_32: \
+		return _ocf_metadata_##what##_u64(cache, line, \
+				start, stop, all); \
+	case ocf_cache_line_size_64: \
+		return _ocf_metadata_##what##_u128(cache, line, \
+				start, stop, all); \
+	case ocf_cache_line_size_none: \
+	default: \
+		ENV_BUG_ON(1); \
+		return false; \
 	} \
-} \
+}
+#endif
+
+#ifdef OCF_BLOCK_SIZE_4K
+#define _ocf_metadata_funcs_4arg(what) \
+bool ocf_metadata_##what(struct ocf_cache *cache, \
+		ocf_cache_line_t line, uint8_t start, uint8_t stop) \
+{ \
+	switch (cache->metadata.line_size) { \
+	case ocf_cache_line_size_4: \
+		return _ocf_metadata_##what(cache, line, start, stop); \
+	case ocf_cache_line_size_8: \
+	case ocf_cache_line_size_16: \
+	case ocf_cache_line_size_32: \
+		return _ocf_metadata_##what##_u8(cache, line, start, stop); \
+	case ocf_cache_line_size_64: \
+		return _ocf_metadata_##what##_u16(cache, line, start, stop); \
+	case ocf_cache_line_size_none: \
+	default: \
+		ENV_BUG_ON(1); \
+		return false; \
+	} \
+}
+#else
+#define _ocf_metadata_funcs_4arg(what) \
+bool ocf_metadata_##what(struct ocf_cache *cache, \
+		ocf_cache_line_t line, uint8_t start, uint8_t stop) \
+{ \
+	switch (cache->metadata.line_size) { \
+	case ocf_cache_line_size_4: \
+		return _ocf_metadata_##what##_u8(cache, line, start, stop); \
+	case ocf_cache_line_size_8: \
+		return _ocf_metadata_##what##_u16(cache, line, start, stop); \
+	case ocf_cache_line_size_16: \
+		return _ocf_metadata_##what##_u32(cache, line, start, stop); \
+	case ocf_cache_line_size_32: \
+		return _ocf_metadata_##what##_u64(cache, line, start, stop); \
+	case ocf_cache_line_size_64: \
+		return _ocf_metadata_##what##_u128(cache, line, start, stop); \
+	case ocf_cache_line_size_none: \
+	default: \
+		ENV_BUG_ON(1); \
+		return false; \
+	} \
+}
+#endif
 
 #define _ocf_metadata_funcs(what) \
 	_ocf_metadata_funcs_5arg(test_##what) \
@@ -1618,76 +1688,143 @@ bool ocf_metadata_##what(struct ocf_cache *cache, \
 _ocf_metadata_funcs(dirty)
 _ocf_metadata_funcs(valid)
 
+#ifdef OCF_BLOCK_SIZE_4K
 bool ocf_metadata_clear_valid_if_clean(struct ocf_cache *cache,
-	 ocf_cache_line_t line, uint8_t start, uint8_t stop)
+		ocf_cache_line_t line, uint8_t start, uint8_t stop)
 {
 	switch (cache->metadata.line_size) {
-		case ocf_cache_line_size_4:
-			return _ocf_metadata_clear_valid_if_clean_u8(cache,
-					line, start, stop);
-		case ocf_cache_line_size_8:
-			return _ocf_metadata_clear_valid_if_clean_u16(cache,
-					line, start, stop);
-		case ocf_cache_line_size_16:
-			return _ocf_metadata_clear_valid_if_clean_u32(cache,
-					line, start, stop);
-		case ocf_cache_line_size_32:
-			return _ocf_metadata_clear_valid_if_clean_u64(cache,
-					line, start, stop);
-		case ocf_cache_line_size_64:
-			return _ocf_metadata_clear_valid_if_clean_u128(cache,
-					line, start, stop);
-		case ocf_cache_line_size_none:
-		default:
-			ENV_BUG_ON(1);
-			return false;
+	case ocf_cache_line_size_4:
+		return _ocf_metadata_clear_valid_if_clean(cache,
+				line, start, stop);
+	case ocf_cache_line_size_8:
+	case ocf_cache_line_size_16:
+	case ocf_cache_line_size_32:
+		return _ocf_metadata_clear_valid_if_clean_u8(cache,
+				line, start, stop);
+	case ocf_cache_line_size_64:
+		return _ocf_metadata_clear_valid_if_clean_u16(cache,
+				line, start, stop);
+	case ocf_cache_line_size_none:
+	default:
+		ENV_BUG_ON(1);
+		return false;
 	}
 }
+#else
+bool ocf_metadata_clear_valid_if_clean(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop)
+{
+	switch (cache->metadata.line_size) {
+	case ocf_cache_line_size_4:
+		return _ocf_metadata_clear_valid_if_clean_u8(cache,
+				line, start, stop);
+	case ocf_cache_line_size_8:
+		return _ocf_metadata_clear_valid_if_clean_u16(cache,
+				line, start, stop);
+	case ocf_cache_line_size_16:
+		return _ocf_metadata_clear_valid_if_clean_u32(cache,
+				line, start, stop);
+	case ocf_cache_line_size_32:
+		return _ocf_metadata_clear_valid_if_clean_u64(cache,
+				line, start, stop);
+	case ocf_cache_line_size_64:
+		return _ocf_metadata_clear_valid_if_clean_u128(cache,
+				line, start, stop);
+	case ocf_cache_line_size_none:
+	default:
+		ENV_BUG_ON(1);
+		return false;
+	}
+}
+#endif
 
+#ifdef OCF_BLOCK_SIZE_4K
 void ocf_metadata_clear_dirty_if_invalid(struct ocf_cache *cache,
-	 ocf_cache_line_t line, uint8_t start, uint8_t stop)
+		ocf_cache_line_t line, uint8_t start, uint8_t stop)
 {
 	switch (cache->metadata.line_size) {
-		case ocf_cache_line_size_4:
-			return _ocf_metadata_clear_dirty_if_invalid_u8(cache,
-					line, start, stop);
-		case ocf_cache_line_size_8:
-			return _ocf_metadata_clear_dirty_if_invalid_u16(cache,
-					line, start, stop);
-		case ocf_cache_line_size_16:
-			return _ocf_metadata_clear_dirty_if_invalid_u32(cache,
-					line, start, stop);
-		case ocf_cache_line_size_32:
-			return _ocf_metadata_clear_dirty_if_invalid_u64(cache,
-					line, start, stop);
-		case ocf_cache_line_size_64:
-			return _ocf_metadata_clear_dirty_if_invalid_u128(cache,
-					line, start, stop);
-		case ocf_cache_line_size_none:
-		default:
-			ENV_BUG();
+	case ocf_cache_line_size_4:
+		return _ocf_metadata_clear_dirty_if_invalid(cache,
+				line, start, stop);
+	case ocf_cache_line_size_8:
+	case ocf_cache_line_size_16:
+	case ocf_cache_line_size_32:
+		return _ocf_metadata_clear_dirty_if_invalid_u8(cache,
+				line, start, stop);
+	case ocf_cache_line_size_64:
+		return _ocf_metadata_clear_dirty_if_invalid_u16(cache,
+				line, start, stop);
+	case ocf_cache_line_size_none:
+	default:
+		ENV_BUG();
 	}
 }
+#else
+void ocf_metadata_clear_dirty_if_invalid(struct ocf_cache *cache,
+		ocf_cache_line_t line, uint8_t start, uint8_t stop)
+{
+	switch (cache->metadata.line_size) {
+	case ocf_cache_line_size_4:
+		return _ocf_metadata_clear_dirty_if_invalid_u8(cache,
+				line, start, stop);
+	case ocf_cache_line_size_8:
+		return _ocf_metadata_clear_dirty_if_invalid_u16(cache,
+				line, start, stop);
+	case ocf_cache_line_size_16:
+		return _ocf_metadata_clear_dirty_if_invalid_u32(cache,
+				line, start, stop);
+	case ocf_cache_line_size_32:
+		return _ocf_metadata_clear_dirty_if_invalid_u64(cache,
+				line, start, stop);
+	case ocf_cache_line_size_64:
+		return _ocf_metadata_clear_dirty_if_invalid_u128(cache,
+				line, start, stop);
+	case ocf_cache_line_size_none:
+	default:
+		ENV_BUG();
+	}
+}
+#endif
 
+#ifdef OCF_BLOCK_SIZE_4K
 bool ocf_metadata_check(struct ocf_cache *cache, ocf_cache_line_t line)
 {
 	switch (cache->metadata.line_size) {
-		case ocf_cache_line_size_4:
-			return _ocf_metadata_check_u8(cache, line);
-		case ocf_cache_line_size_8:
-			return _ocf_metadata_check_u16(cache, line);
-		case ocf_cache_line_size_16:
-			return _ocf_metadata_check_u32(cache, line);
-		case ocf_cache_line_size_32:
-			return _ocf_metadata_check_u64(cache, line);
-		case ocf_cache_line_size_64:
-			return _ocf_metadata_check_u128(cache, line);
-		case ocf_cache_line_size_none:
-		default:
-			ENV_BUG_ON(1);
-			return false;
+	case ocf_cache_line_size_4:
+		return _ocf_metadata_check(cache, line);
+	case ocf_cache_line_size_8:
+	case ocf_cache_line_size_16:
+	case ocf_cache_line_size_32:
+		return _ocf_metadata_check_u8(cache, line);
+	case ocf_cache_line_size_64:
+		return _ocf_metadata_check_u16(cache, line);
+	case ocf_cache_line_size_none:
+	default:
+		ENV_BUG_ON(1);
+		return false;
 	}
 }
+#else
+bool ocf_metadata_check(struct ocf_cache *cache, ocf_cache_line_t line)
+{
+	switch (cache->metadata.line_size) {
+	case ocf_cache_line_size_4:
+		return _ocf_metadata_check_u8(cache, line);
+	case ocf_cache_line_size_8:
+		return _ocf_metadata_check_u16(cache, line);
+	case ocf_cache_line_size_16:
+		return _ocf_metadata_check_u32(cache, line);
+	case ocf_cache_line_size_32:
+		return _ocf_metadata_check_u64(cache, line);
+	case ocf_cache_line_size_64:
+		return _ocf_metadata_check_u128(cache, line);
+	case ocf_cache_line_size_none:
+	default:
+		ENV_BUG_ON(1);
+		return false;
+	}
+}
+#endif
 
 int ocf_metadata_init(struct ocf_cache *cache,
 		ocf_cache_line_size_t cache_line_size)
