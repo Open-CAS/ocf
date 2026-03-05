@@ -15,28 +15,45 @@
  */
 
 struct ocf_metadata_list_info {
-	ocf_cache_line_t prev_col;
-		/*!<  Previous cache line in collision list */
-	ocf_cache_line_t next_col;
-		/*!<  Next cache line in collision list*/
+	/* Previous cache line in collision list */
+	ocf_cache_line_t prev_col : OCF_CACHE_LINE_BITS;
+	ocf_cache_line_t unused : 3;
+	/* Next cache line in collision list*/
+	ocf_cache_line_t next_col : OCF_CACHE_LINE_BITS;
+	ocf_cache_line_t unused2 : 3;
 } __attribute__((packed));
+
+/* Keep the struct ocf_metadata_list_info size of 8 bytes */
+_Static_assert(sizeof(struct ocf_metadata_list_info) == sizeof(uint64_t));
+
+struct ocf_hash_entry {
+	union {
+		struct {
+			uint32_t line : OCF_CACHE_LINE_BITS;
+			/* Hash lock bits */
+			uint32_t rd : 2;
+			uint32_t wr : 1;
+		};
+		uint32_t raw;
+	};
+};
 
 /**
  * @brief Metadata map structure
  */
 
 struct ocf_metadata_map {
-	uint64_t core_line;
+	uint64_t core_line : OCF_CORE_LINE_BITS;
 		/*!<  Core line addres on cache mapped by this strcture */
 
-	uint16_t core_id : OCF_CORE_ID_BITS;
+	uint64_t core_id : OCF_CORE_ID_BITS;
 		/*!<  ID of core where is assigned this cache line*/
 
 #ifdef OCF_BLOCK_SIZE_4K
-	uint16_t _valid : 1;
+	uint64_t _valid : 1;
 		/*!<  valid bit for 4K cache line */
 
-	uint16_t _dirty : 1;
+	uint64_t _dirty : 1;
 		/*!<  dirty bit for 4K cache line */
 #endif
 

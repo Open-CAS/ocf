@@ -8,6 +8,7 @@
 #include "ocf_metadata_concurrency.h"
 #include "../metadata/metadata_misc.h"
 #include "../ocf_queue_priv.h"
+#include "../metadata/metadata.h"
 
 int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock)
 {
@@ -66,6 +67,67 @@ void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock)
 		env_rwsem_destroy(&metadata_lock->global[i].sem);
 }
 
+static inline int hash_lock_lock(struct ocf_cache *cache,
+		int index, int try, int rw)
+{
+	struct ocf_hash_entry *entry = ocf_metadata_get_hash_ptr(cache, index);
+	env_atomic *entry_raw = (env_atomic *)&entry->raw;
+	struct ocf_hash_entry curline, newline;
+	uint32_t step = 0;
+
+	while (1) {
+		newline.raw = curline.raw = entry->raw;
+
+		if (curline.wr)
+			goto next;
+
+		if (rw == OCF_METADATA_RD) {
+			if (++newline.rd == 0)
+				goto next;
+		} else {
+			if (curline.rd)
+				goto next;
+			newline.wr = 1;
+		}
+
+		if (env_atomic_cmpxchg(entry_raw, curline.raw, newline.raw) ==
+				curline.raw) {
+			return 0;
+		}
+
+next:
+		if (try)
+			return 1;
+
+		OCF_COND_RESCHED_DEFAULT(step);
+	}
+}
+
+static inline void hash_lock_unlock(struct ocf_cache *cache, int index, int rw)
+{
+	struct ocf_hash_entry *entry = ocf_metadata_get_hash_ptr(cache, index);
+	env_atomic *entry_raw = (env_atomic *)&entry->raw;
+	struct ocf_hash_entry curline, newline;
+	uint32_t step = 0;
+
+	while (1) {
+		newline.raw = curline.raw = entry->raw;
+
+		if (curline.wr) {
+			newline.wr = 0;
+			env_atomic_set(entry_raw, newline.raw);
+			break;
+		}
+
+		newline.rd--;
+		if (env_atomic_cmpxchg(entry_raw, curline.raw, newline.raw) ==
+				curline.raw)
+			break;
+
+		OCF_COND_RESCHED_DEFAULT(step);
+	}
+}
+
 int ocf_metadata_concurrency_attached_init(
 		struct ocf_metadata_lock *metadata_lock, ocf_cache_t cache,
 		uint32_t hash_table_entries, uint32_t colision_table_pages)
@@ -76,24 +138,6 @@ int ocf_metadata_concurrency_attached_init(
 	metadata_lock->cache = cache;
 	metadata_lock->num_hash_entries = hash_table_entries;
 
-	metadata_lock->hash = env_vzalloc(sizeof(env_rwsem) *
-			hash_table_entries);
-	if (!metadata_lock->hash)
-		return -OCF_ERR_NO_MEM;
-
-	for (i = 0; i < hash_table_entries; i++) {
-		err = env_rwsem_init(&metadata_lock->hash[i]);
-		if (err)
-			 break;
-	}
-	if (err) {
-		while (i--)
-			env_rwsem_destroy(&metadata_lock->hash[i]);
-		env_vfree(metadata_lock->hash);
-		metadata_lock->hash = NULL;
-		return err;
-	}
-
 	if (cache->metadata.is_volatile || colision_table_pages == 0) {
 		metadata_lock->collision_pages = NULL;
 		metadata_lock->num_collision_pages = 0;
@@ -102,10 +146,8 @@ int ocf_metadata_concurrency_attached_init(
 
 	metadata_lock->collision_pages = env_vzalloc(sizeof(env_rwsem) *
 			colision_table_pages);
-	if (!metadata_lock->collision_pages) {
-		ocf_metadata_concurrency_attached_deinit(metadata_lock);
+	if (!metadata_lock->collision_pages)
 		return -OCF_ERR_NO_MEM;
-	}
 
 	for (i = 0; i < colision_table_pages; i++) {
 		err = env_rwsem_init(&metadata_lock->collision_pages[i]);
@@ -117,7 +159,6 @@ int ocf_metadata_concurrency_attached_init(
 			env_rwsem_destroy(&metadata_lock->collision_pages[i]);
 		env_vfree(metadata_lock->collision_pages);
 		metadata_lock->collision_pages = NULL;
-		ocf_metadata_concurrency_attached_deinit(metadata_lock);
 		return err;
 	}
 
@@ -130,14 +171,6 @@ void ocf_metadata_concurrency_attached_deinit(
 		struct ocf_metadata_lock *metadata_lock)
 {
 	uint32_t i;
-
-	if (metadata_lock->hash) {
-		for (i = 0; i < metadata_lock->num_hash_entries; i++)
-			env_rwsem_destroy(&metadata_lock->hash[i]);
-		env_vfree(metadata_lock->hash);
-		metadata_lock->hash = NULL;
-		metadata_lock->num_hash_entries = 0;
-	}
 
 	if (metadata_lock->collision_pages) {
 		for (i = 0; i < metadata_lock->num_collision_pages; i++)
@@ -228,12 +261,7 @@ static inline void ocf_hb_id_naked_lock(
 {
 	ENV_BUG_ON(hash >= metadata_lock->num_hash_entries);
 
-	if (rw == OCF_METADATA_WR)
-		env_rwsem_down_write(&metadata_lock->hash[hash]);
-	else if (rw == OCF_METADATA_RD)
-		env_rwsem_down_read(&metadata_lock->hash[hash]);
-	else
-		ENV_BUG();
+	hash_lock_lock(metadata_lock->cache, hash, 0, rw);
 }
 
 static inline void ocf_hb_id_naked_unlock(
@@ -242,33 +270,15 @@ static inline void ocf_hb_id_naked_unlock(
 {
 	ENV_BUG_ON(hash >= metadata_lock->num_hash_entries);
 
-	if (rw == OCF_METADATA_WR)
-		env_rwsem_up_write(&metadata_lock->hash[hash]);
-	else if (rw == OCF_METADATA_RD)
-		env_rwsem_up_read(&metadata_lock->hash[hash]);
-	else
-		ENV_BUG();
+	hash_lock_unlock(metadata_lock->cache, hash, rw);
 }
 
 static int ocf_hb_id_naked_trylock(struct ocf_metadata_lock *metadata_lock,
 		ocf_cache_line_t hash, int rw)
 {
-	int result = -1;
-
 	ENV_BUG_ON(hash >= metadata_lock->num_hash_entries);
 
-	if (rw == OCF_METADATA_WR) {
-		result = env_rwsem_down_write_trylock(
-				&metadata_lock->hash[hash]);
-	} else if (rw == OCF_METADATA_RD) {
-		result = env_rwsem_down_read_trylock(
-				&metadata_lock->hash[hash]);
-	} else {
-		ENV_BUG();
-	}
-
-
-	return result;
+	return hash_lock_lock(metadata_lock->cache, hash, 1, rw);
 }
 
 bool ocf_hb_cline_naked_trylock_wr(struct ocf_metadata_lock *metadata_lock,

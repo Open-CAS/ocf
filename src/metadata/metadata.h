@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -204,8 +205,11 @@ uint64_t ocf_metadata_get_reserved_lba(ocf_cache_t cache);
  * temporary defined in this file.
  */
 
-ocf_cache_line_t
-ocf_metadata_get_hash(struct ocf_cache *cache, ocf_cache_line_t index);
+struct ocf_hash_entry *ocf_metadata_get_hash_ptr(struct ocf_cache *cache,
+		ocf_cache_line_t index);
+
+ocf_cache_line_t ocf_metadata_get_hash(struct ocf_cache *cache,
+		ocf_cache_line_t index);
 
 void ocf_metadata_set_hash(struct ocf_cache *cache,
 		ocf_cache_line_t index, ocf_cache_line_t line);

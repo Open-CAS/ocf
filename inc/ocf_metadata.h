@@ -22,7 +22,7 @@
  */
 struct ocf_atomic_metadata {
 	/** Core line of core (in cache line size unit) which are cached */
-	uint64_t core_line : 46;
+	uint64_t core_line : OCF_CORE_LINE_BITS;
 
 	/** Core sequence number to which this line belongs to*/
 	uint32_t core_seq_no : 16;

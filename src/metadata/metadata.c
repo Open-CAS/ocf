@@ -185,7 +185,7 @@ static int64_t ocf_metadata_get_element_size(
 		break;
 
 	case metadata_segment_hash:
-		size = sizeof(ocf_cache_line_t);
+		size = sizeof(struct ocf_hash_entry);
 		break;
 
 	case metadata_segment_core_config:
@@ -680,7 +680,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	ctrl = cache->metadata.priv;
 
 	device_lines = device_size / line_size;
-	if (device_lines >= (ocf_cache_line_t)(-1)){
+	if (device_lines > OCF_CACHE_LINE_MAX) {
 		/* TODO: This is just a rough check. Most optimal one would be
 		 * located in calculate_metadata_size. */
 		ocf_cache_log(cache, log_err, "Device exceeds maximum suported size "
@@ -1553,14 +1553,22 @@ void ocf_metadata_get_core_and_part_id(struct ocf_cache *cache,
 /*
  * Hash Table - Get
  */
-ocf_cache_line_t ocf_metadata_get_hash(struct ocf_cache *cache,
+struct ocf_hash_entry *ocf_metadata_get_hash_ptr(struct ocf_cache *cache,
 		ocf_cache_line_t index)
 {
 	struct ocf_metadata_ctrl *ctrl
 		= (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
-	return *(ocf_cache_line_t *)ocf_metadata_raw_rd_access(cache,
+	return (struct ocf_hash_entry *)ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_hash]), index);
+}
+
+ocf_cache_line_t ocf_metadata_get_hash(struct ocf_cache *cache,
+		ocf_cache_line_t index)
+{
+	struct ocf_hash_entry *entry = ocf_metadata_get_hash_ptr(cache, index);
+
+	return entry->line;
 }
 
 /*
@@ -1569,11 +1577,11 @@ ocf_cache_line_t ocf_metadata_get_hash(struct ocf_cache *cache,
 void ocf_metadata_set_hash(struct ocf_cache *cache, ocf_cache_line_t index,
 		ocf_cache_line_t line)
 {
-	struct ocf_metadata_ctrl *ctrl
-		= (struct ocf_metadata_ctrl *) cache->metadata.priv;
+	struct ocf_hash_entry *entry = ocf_metadata_get_hash_ptr(cache, index);
 
-	*(ocf_cache_line_t *)ocf_metadata_raw_wr_access(cache,
-			&(ctrl->raw_desc[metadata_segment_hash]), index) = line;
+	ENV_BUG_ON(line > cache->device->collision_table_entries);
+
+	entry->line = line;
 }
 
 /*******************************************************************************

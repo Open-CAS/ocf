@@ -11,6 +11,12 @@
 
 #include "ocf_env.h"
 #include "ocf_cfg.h"
+
+#define OCF_BITWIDTH(T) (sizeof(T) * __CHAR_BIT__)
+
+#define OCF_MAX_T(T, N) \
+	((T)((N) >= OCF_BITWIDTH(T) ? ~(T)0 : (((T)1u << (N)) - (T)1u)))
+
 /**
  * @file
  * @brief OCF definitions
@@ -35,6 +41,19 @@
  * Minimum cache size in bytes
  */
 #define OCF_CACHE_SIZE_MIN	(40 * MiB)
+/**
+ * Number of cache line bits
+ */
+#define OCF_CACHE_LINE_BITS 29
+/**
+ * Max number of cache lines
+ * The (1 << OCF_CACHE_LINE_BITS) left for invalid value.
+ */
+#define OCF_CACHE_LINE_MAX (OCF_MAX_T(uint32_t, OCF_CACHE_LINE_BITS) - 1)
+/**
+ * Invalid value of cache line number
+ */
+#define OCF_CACHE_LINE_INVALID OCF_MAX_T(uint32_t, OCF_CACHE_LINE_BITS)
 /**
  * Size of cache name
  */
@@ -69,7 +88,7 @@
  * for invalid OCF_CORE_ID_INVALID.
  */
 #define OCF_CORE_NUM OCF_CONFIG_MAX_CORES
-_Static_assert(OCF_CORE_NUM < (1 << OCF_CORE_ID_BITS));
+_Static_assert(OCF_CORE_NUM < OCF_MAX_T(uint32_t, OCF_CORE_ID_BITS));
 /**
  * Minimum value of a valid core ID
  */
@@ -82,6 +101,14 @@ _Static_assert(OCF_CORE_NUM < (1 << OCF_CORE_ID_BITS));
  * Invalid value of core id
  */
 #define OCF_CORE_ID_INVALID OCF_CORE_NUM
+/**
+ * Number of core line bits
+ */
+#define OCF_CORE_LINE_BITS 46
+/**
+ * Max number of core lines
+ */
+#define OCF_CORE_LINE_MAX OCF_MAX_T(uint64_t, OCF_CORE_LINE_BITS)
 /**
  * Size of core name
  */

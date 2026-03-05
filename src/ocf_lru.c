@@ -22,7 +22,7 @@
 
 #define OCF_LRU_MAX_LRU_ELEMENT_IDX 256
 
-static const ocf_cache_line_t end_marker = (ocf_cache_line_t)-1;
+static const ocf_cache_line_t end_marker = OCF_CACHE_LINE_INVALID;
 
 /* update list last_hot index. returns pivot element (the one for which hot
  * status effectively changes during balancing). */
