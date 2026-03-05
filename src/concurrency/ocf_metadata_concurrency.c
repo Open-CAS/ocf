@@ -73,18 +73,13 @@ int ocf_metadata_concurrency_attached_init(
 	uint32_t i;
 	int err = 0;
 
+	metadata_lock->cache = cache;
+	metadata_lock->num_hash_entries = hash_table_entries;
+
 	metadata_lock->hash = env_vzalloc(sizeof(env_rwsem) *
 			hash_table_entries);
-	metadata_lock->collision_pages = env_vzalloc(sizeof(env_rwsem) *
-			colision_table_pages);
-	if (!metadata_lock->hash ||
-			!metadata_lock->collision_pages) {
-		env_vfree(metadata_lock->hash);
-		env_vfree(metadata_lock->collision_pages);
-		metadata_lock->hash = NULL;
-		metadata_lock->collision_pages = NULL;
+	if (!metadata_lock->hash)
 		return -OCF_ERR_NO_MEM;
-	}
 
 	for (i = 0; i < hash_table_entries; i++) {
 		err = env_rwsem_init(&metadata_lock->hash[i]);
@@ -96,10 +91,21 @@ int ocf_metadata_concurrency_attached_init(
 			env_rwsem_destroy(&metadata_lock->hash[i]);
 		env_vfree(metadata_lock->hash);
 		metadata_lock->hash = NULL;
-		ocf_metadata_concurrency_attached_deinit(metadata_lock);
 		return err;
 	}
 
+	if (cache->metadata.is_volatile || colision_table_pages == 0) {
+		metadata_lock->collision_pages = NULL;
+		metadata_lock->num_collision_pages = 0;
+		return 0;
+	}
+
+	metadata_lock->collision_pages = env_vzalloc(sizeof(env_rwsem) *
+			colision_table_pages);
+	if (!metadata_lock->collision_pages) {
+		ocf_metadata_concurrency_attached_deinit(metadata_lock);
+		return -OCF_ERR_NO_MEM;
+	}
 
 	for (i = 0; i < colision_table_pages; i++) {
 		err = env_rwsem_init(&metadata_lock->collision_pages[i]);
@@ -115,8 +121,6 @@ int ocf_metadata_concurrency_attached_init(
 		return err;
 	}
 
-	metadata_lock->cache = cache;
-	metadata_lock->num_hash_entries = hash_table_entries;
 	metadata_lock->num_collision_pages = colision_table_pages;
 
 	return 0;
@@ -540,23 +544,27 @@ void ocf_hb_req_prot_unlock_wr(struct ocf_request *req)
 void ocf_collision_start_shared_access(struct ocf_metadata_lock *metadata_lock,
 		uint32_t page)
 {
-	env_rwsem_down_read(&metadata_lock->collision_pages[page]);
+	if (metadata_lock->collision_pages)
+		env_rwsem_down_read(&metadata_lock->collision_pages[page]);
 }
 
 void ocf_collision_end_shared_access(struct ocf_metadata_lock *metadata_lock,
 		uint32_t page)
 {
-	env_rwsem_up_read(&metadata_lock->collision_pages[page]);
+	if (metadata_lock->collision_pages)
+		env_rwsem_up_read(&metadata_lock->collision_pages[page]);
 }
 
 void ocf_collision_start_exclusive_access(struct ocf_metadata_lock *metadata_lock,
 		uint32_t page)
 {
-	env_rwsem_down_write(&metadata_lock->collision_pages[page]);
+	if (metadata_lock->collision_pages)
+		env_rwsem_down_write(&metadata_lock->collision_pages[page]);
 }
 
 void ocf_collision_end_exclusive_access(struct ocf_metadata_lock *metadata_lock,
 		uint32_t page)
 {
-	env_rwsem_up_write(&metadata_lock->collision_pages[page]);
+	if (metadata_lock->collision_pages)
+		env_rwsem_up_write(&metadata_lock->collision_pages[page]);
 }
