@@ -26,6 +26,12 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 		return;
 	}
 
+	if (line_became_invalid) {
+		env_atomic_dec(&core->runtime_meta->cached_clines);
+		env_atomic_dec(&core->runtime_meta->
+				part_counters[part_id].cached_clines);
+	}
+
 	/* If there are any waiters, don't transfer the line to the freelist.
 	 * The new owner will take care about the repart anyways
 	 */
@@ -34,13 +40,6 @@ static void __set_cache_line_invalid(struct ocf_cache *cache, uint8_t start_bit,
 
 	ocf_lru_rm_cline(cache, line);
 	ocf_metadata_remove_cache_line(cache, line);
-
-	if (!line_became_invalid)
-		return;
-
-	env_atomic_dec(&core->runtime_meta->cached_clines);
-	env_atomic_dec(&core->runtime_meta->
-			part_counters[part_id].cached_clines);
 }
 
 static void __detach_cache_line(struct ocf_cache *cache, uint8_t start_bit,
