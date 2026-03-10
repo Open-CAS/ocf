@@ -10,7 +10,6 @@
 #define __OCF_DEF_H__
 
 #include "ocf_env.h"
-#include "ocf_cfg.h"
 
 #define OCF_BITWIDTH(T) (sizeof(T) * __CHAR_BIT__)
 
@@ -21,6 +20,13 @@
  * @file
  * @brief OCF definitions
  */
+
+/**
+ * Enabling debug statistics
+ */
+#ifndef OCF_CONFIG_DEBUG_STATS
+#define OCF_CONFIG_DEBUG_STATS 0
+#endif
 
 /**
  * @name OCF cache definitions
@@ -87,7 +93,7 @@
  * Must be smaller than (1 << OCF_CORE_ID_BITS) to leave space
  * for invalid OCF_CORE_ID_INVALID.
  */
-#define OCF_CORE_NUM OCF_CONFIG_MAX_CORES
+#define OCF_CORE_NUM 4096
 _Static_assert(OCF_CORE_NUM < OCF_MAX_T(uint32_t, OCF_CORE_ID_BITS));
 /**
  * Minimum value of a valid core ID
@@ -340,7 +346,7 @@ typedef enum {
 /**
  * Maximum numbers of IO classes per cache instance
  */
-#define OCF_USER_IO_CLASS_MAX OCF_CONFIG_MAX_IO_CLASSES
+#define OCF_USER_IO_CLASS_MAX 33
 /**
  * Minimum value of a valid IO class ID
  */
