@@ -464,6 +464,7 @@ class ErrorDevice(Volume):
         vol,
         error_sectors: set = None,
         error_seq_no: dict = None,
+        error_max_count: int = -1,
         data_only=False,
         armed=True,
         uuid=None,
@@ -472,9 +473,11 @@ class ErrorDevice(Volume):
         super().__init__(uuid)
         self.error_sectors = error_sectors or set()
         self.error_seq_no = error_seq_no or {IoDir.WRITE: -1, IoDir.READ: -1}
+        self.error_max_count = error_max_count
         self.data_only = data_only
         self.armed = armed
         self.io_seq_no = {IoDir.WRITE: 0, IoDir.READ: 0}
+        self.error_count = 0
         self.error = False
 
     def set_mapping(self, error_sectors: set):
@@ -493,6 +496,8 @@ class ErrorDevice(Volume):
     def should_forward_io(self, rw, addr):
         if not self.armed:
             return True
+        if self.error_max_count >= 0 and self.error_count >= self.error_max_count:
+            return True
         direction = IoDir(rw)
         seq_no_match = (
             self.error_seq_no[direction] >= 0
@@ -506,6 +511,7 @@ class ErrorDevice(Volume):
 
     def complete_forward_with_error(self, token, rw=IoDir.WRITE):
         self.error = True
+        self.error_count += 1
         direction = IoDir(rw)
         self.stats["errors"][direction] += 1
         Io.forward_end(token, -OcfErrorCode.OCF_ERR_IO)
@@ -541,6 +547,7 @@ class ErrorDevice(Volume):
         self.vol.reset_stats()
         super().reset_stats()
         self.stats["errors"] = {IoDir.WRITE: 0, IoDir.READ: 0}
+        self.error_count = 0
 
     def get_length(self):
         return self.vol.get_length()
