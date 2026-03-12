@@ -967,6 +967,8 @@ void ocf_mngt_cache_purge(ocf_cache_t cache,
 	context->priv = priv;
 	context->cache = cache;
 	context->op = purge_cache;
+	context->begin = 0;
+	context->end = ocf_metadata_collision_table_entries(cache);
 	context->purge.core_id = OCF_CORE_ID_INVALID;
 	context->purge.end_byte = ~0ULL;
 
