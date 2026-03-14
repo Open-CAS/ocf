@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2023 Intel Corporation
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -8,6 +9,11 @@ import string
 import enum
 from functools import reduce
 from ctypes import c_uint64, c_uint32, c_uint16, c_uint8, c_int, c_uint
+
+
+def get_random_seed():
+    with open("config/random.cfg") as f:
+        return int(f.read())
 
 
 class Range:
@@ -30,8 +36,7 @@ class DefaultRanges(Range, enum.Enum):
 
 class RandomGenerator:
     def __init__(self, base_range=DefaultRanges.INT, count=1000):
-        with open("config/random.cfg") as f:
-            self.random = random.Random(int(f.read()))
+        self.random = random.Random(get_random_seed())
         self.exclude = []
         self.range = base_range
         self.count = count
@@ -60,8 +65,7 @@ class RandomGenerator:
 
 class RandomStringGenerator:
     def __init__(self, len_range=Range(0, 20), count=700, extra_chars=[]):
-        with open("config/random.cfg") as f:
-            self.random = random.Random(int(f.read()))
+        self.random = random.Random(get_random_seed())
         self.generator = self.__string_generator(len_range, extra_chars)
         self.count = count
         self.n = 0
