@@ -382,6 +382,140 @@ def test_evict_overflown_pinned(pyocf_ctx, cls: CacheLineSize):
     ), "Overflown part has not been evicted"
 
 
+@pytest.mark.parametrize(
+    "cls", [CacheLineSize.LINE_4KiB, CacheLineSize.LINE_16KiB, CacheLineSize.LINE_64KiB]
+)
+def test_eviction_retry_stale_cline_count(pyocf_ctx, cls: CacheLineSize):
+    """Regression test: eviction retry must account for lines already remapped.
+
+    The eviction retry loop in ocf_evict_user_partitions() calls
+    ocf_evict_user_partitions_once() up to EVICT_RETRY(2) times. A bug
+    caused the retry to pass the original (stale) evict_cline_no instead
+    of subtracting the lines already remapped in the first iteration.
+    This led to ocf_lru_req_clines() being called with cline_no >
+    ocf_engine_unmapped_count(req), triggering an assertion failure.
+
+    The scenario requires:
+    - Two low-priority partitions: one with a small positive eviction
+      counter residual (part_a), one with counter=0 (part_b).
+    - part_b gets counter=0 by being populated via repartitioning
+      (not eviction), so it never participates in counter updates.
+    - A single multi-cacheline write triggers eviction where:
+      1st pass: part_b skipped (counter=0), part_a fully evicted
+        (counter→<=0). Partial eviction. no_more_counters=true.
+      2nd pass (retry): counter update replenishes part_b. With the
+        bug, stale evict_cline_no causes to_evict > unmapped_count.
+    """
+    cache_device = RamVolume(Size.from_MiB(50))
+    core_device = RamVolume(Size.from_MiB(200))
+    cache = Cache.start_on_device(
+        cache_device, cache_mode=CacheMode.WT, cache_line_size=cls,
+    )
+    core = Core.using_device(core_device)
+    cache.add_core(core)
+    vol = CoreVolume(core)
+    cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)
+
+    target_ioclass = 1
+    part_a_ioclass = 2
+    part_b_ioclass = 3
+
+    cache.configure_partition(
+        part_id=target_ioclass, name="target", max_size=100, priority=1,
+    )
+    cache.configure_partition(
+        part_id=part_a_ioclass, name="part_a", max_size=100, priority=2,
+    )
+    cache.configure_partition(
+        part_id=part_b_ioclass, name="part_b", max_size=100, priority=3,
+    )
+
+    cl_4k = Size(cls).blocks_4k
+    cache_lines = cache.get_stats()["conf"]["size"].blocks_4k // cl_4k
+    cl_bytes = int(Size(cls))
+
+    def get_occupancy(ioclass_id):
+        return (
+            cache.get_ioclass_stats(ioclass_id)["usage"]["occupancy"]["value"]
+            // cl_4k
+        )
+
+    # Phase 1: Fill cache entirely with part_a data.
+    data = Data(cl_bytes)
+    for i in range(cache_lines):
+        send_io(vol, data, i * cl_bytes, part_a_ioclass)
+
+    cache.settle()
+    assert get_occupancy(part_a_ioclass) == cache_lines
+
+    # Phase 2: Write to target partition to trigger first eviction cycle
+    # and establish counter state.
+    #
+    # During the first eviction cycle the eviction counters are
+    # initialized (counter_a = min(cache_lines, 256)). We evict
+    # (counter - 6) lines to leave a small positive residual
+    # counter_a = 6. counter_b stays at 0 since part_b is empty.
+    counter_initial = min(cache_lines, 256)
+    first_evict = counter_initial - 6
+
+    evict_data = Data(first_evict * cl_bytes)
+    evict_addr = cache_lines * cl_bytes
+    send_io(vol, evict_data, evict_addr, target_ioclass)
+
+    cache.settle()
+    assert get_occupancy(target_ioclass) == first_evict
+    a_remaining = get_occupancy(part_a_ioclass)
+
+    # Phase 3: Repartition data from part_a to part_b.
+    #
+    # Reading cached part_a data with part_b's ioclass causes
+    # cache-hit repartitioning (A → B) without touching eviction
+    # counters. After this, part_b has data but counter_b is
+    # still 0.
+    #
+    # Read from the high end of the address range (most recently
+    # used, guaranteed to still be cached). Use individual
+    # cache-line reads so that any evicted addresses simply go
+    # pass-through without disturbing the test.
+    a_keep = min(a_remaining, counter_initial - 2)
+    repart_count = a_remaining - a_keep
+    for i in range(repart_count):
+        addr = (cache_lines - 1 - i) * cl_bytes
+        send_io(vol, data, addr, part_b_ioclass, IoDir.READ)
+
+    cache.settle()
+    actual_a = get_occupancy(part_a_ioclass)
+    actual_b = get_occupancy(part_b_ioclass)
+
+    # Phase 4: Trigger the bug.
+    #
+    # Issue a single multi-cacheline write to target. The request
+    # needs trigger_count unmapped cache lines. In eviction:
+    #
+    #   1st pass of ocf_evict_user_partitions_once():
+    #     - part_b (prio 3): counter=0 → SKIPPED
+    #     - part_a (prio 2): counter≈6, evicts all ~a_keep lines,
+    #       counter→<=0
+    #     - partial eviction, no_more_counters=true
+    #
+    #   Counter update: replenishes part_b counter.
+    #
+    #   2nd pass (retry):
+    #     - BUG: to_evict=trigger_count > unmapped (trigger_count - a_keep)
+    #     - FIX: to_evict=trigger_count - a_keep == unmapped → OK
+    #
+    # trigger_count must be > actual_a (so part_a can't satisfy it
+    # alone) and <= actual_b (so part_b can in the retry).
+    trigger_count = actual_a + actual_b
+    trigger_data = Data(trigger_count * cl_bytes)
+    trigger_addr = (cache_lines + first_evict) * cl_bytes
+    send_io(vol, trigger_data, trigger_addr, target_ioclass)
+
+    # If we get here without an assertion failure, the fix works.
+    cache.settle()
+    assert get_occupancy(target_ioclass) == first_evict + trigger_count
+
+
 def send_io(
     vol: CoreVolume, data: Data, addr: int = 0, target_ioclass: int = 0, io_dir: IoDir = IoDir.WRITE
 ):
