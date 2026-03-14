@@ -115,6 +115,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     io_size = threshold - smallest_io_size
     io_to_streams(vol, queue, streams, io_size)
 
+    queue.settle()
     stats = cache.get_stats()
     assert (
         stats["req"]["serviced"]["value"] == stats["req"]["total"]["value"] == len(streams)
@@ -129,6 +130,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     shuffle(streams)
     io_to_streams(vol, queue, streams, smallest_io_size)
 
+    queue.settle()
     stats = cache.get_stats()
     assert (
         stats["req"]["serviced"]["value"] == old_serviced
@@ -140,6 +142,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     # STEP 3
     io_to_streams(vol, queue, [non_active_stream], smallest_io_size)
 
+    queue.settle()
     stats = cache.get_stats()
     assert (
         stats["req"]["serviced"]["value"] == old_serviced + 1
@@ -149,6 +152,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     io_to_streams(vol, queue, [lru_stream], smallest_io_size)
 
     vol.close()
+    queue.settle()
     stats = cache.get_stats()
 
     assert (
