@@ -183,9 +183,9 @@ static inline uint32_t ocf_evict_user_partitions(ocf_cache_t cache,
 
 	/* prepare to try evict twice in case all counters are 0 */
 	for (i = 0; i < EVICT_RETRY; i++) {
-		evicted = ocf_evict_user_partitions_once(cache, req,
-				evict_cline_no, overflown_only, max_priority,
-				&no_more_counters);
+		evicted += ocf_evict_user_partitions_once(cache, req,
+				evict_cline_no - evicted, overflown_only,
+				max_priority, &no_more_counters);
 		if (evicted >= evict_cline_no)
 			break;
 		if (overflown_only)
