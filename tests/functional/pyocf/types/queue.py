@@ -1,11 +1,12 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
 from ctypes import c_void_p, CFUNCTYPE, Structure, byref
-from threading import Thread, Condition, Event, Semaphore
+from threading import Thread, Condition, Event, Semaphore, current_thread
 import weakref
 
 from ..ocf import OcfLib
@@ -113,7 +114,8 @@ class Queue:
             self.stop_event.set()
             self.kick_condition.notify_all()
 
-        self.thread.join()
+        if current_thread() is not self.thread:
+            self.thread.join()
 
     # settle - wait for OCF to finish execution within this queue context
     #
