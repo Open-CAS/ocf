@@ -9,7 +9,8 @@ import pytest
 import random
 import time
 from ctypes import POINTER, c_int, cast, c_void_p
-from datetime import datetime, timedelta
+from datetime import timedelta
+from tests.utils.random import get_random_seed
 from threading import Event
 from collections import namedtuple
 
@@ -623,8 +624,7 @@ def test_io_propagation_entire_dev(pyocf_ctx):
     cvol.destroy()
 
 
-@pytest.mark.parametrize("rand_seed", [datetime.now().timestamp()])
-def test_io_propagation_multiple_subvolumes(pyocf_ctx, rand_seed):
+def test_io_propagation_multiple_subvolumes(pyocf_ctx):
     """
     title: Perform multi-subvolume operations.
     description: |
@@ -646,7 +646,7 @@ def test_io_propagation_multiple_subvolumes(pyocf_ctx, rand_seed):
     requirements:
       - composite_volume::io_request_passing
     """
-    random.seed(rand_seed)
+    random.seed(get_random_seed())
     pyocf_ctx.register_volume_type(TraceDevice)
 
     vol_size = S.from_MiB(1)
@@ -731,8 +731,7 @@ def test_io_propagation_multiple_subvolumes(pyocf_ctx, rand_seed):
     cvol.destroy()
 
 
-@pytest.mark.parametrize("rand_seed", [datetime.now().timestamp()])
-def test_io_completion(pyocf_ctx, rand_seed):
+def test_io_completion(pyocf_ctx):
     """
     title: Composite volume completion order.
     description: |
@@ -754,7 +753,7 @@ def test_io_completion(pyocf_ctx, rand_seed):
     requirements:
       - composite_volume::io_request_completion
     """
-    random.seed(rand_seed)
+    random.seed(get_random_seed())
 
     class PendingIoVolume(RamVolume):
         def __init__(self, *args, **kwargs):
@@ -852,8 +851,7 @@ def test_io_completion(pyocf_ctx, rand_seed):
     cvol.destroy()
 
 
-@pytest.mark.parametrize("rand_seed", [datetime.now().timestamp()])
-def test_io_error(pyocf_ctx, rand_seed):
+def test_io_error(pyocf_ctx):
     """
     title: Composite volume error propagation.
     description: |
@@ -876,7 +874,7 @@ def test_io_error(pyocf_ctx, rand_seed):
     requirements:
       - composite_volume::io_error_handling
     """
-    random.seed(rand_seed)
+    random.seed(get_random_seed())
     pyocf_ctx.register_volume_type(TraceDevice)
 
     vol_size = S.from_MiB(1)
