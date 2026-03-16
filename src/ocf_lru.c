@@ -491,6 +491,9 @@ static inline ocf_cache_line_t lru_req_next_cline(struct ocf_request *req,
 	if (tmp_part_id == PARTITION_FREELIST)
 		goto lru_wr_unlock;
 
+	if (!cache->user_parts[tmp_part_id].config->flags.eviction)
+		goto lru_wr_unlock;
+
 	if (!ocf_cache_line_try_lock_wr(c, cline))
 		goto lru_wr_unlock;
 
