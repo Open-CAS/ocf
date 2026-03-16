@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -11,7 +12,7 @@ from itertools import repeat
 import pytest
 import random
 from hashlib import md5
-from datetime import datetime
+from tests.utils.random import get_random_seed
 
 from pyocf.types.cache import Cache, CacheMode
 from pyocf.types.core import Core
@@ -185,8 +186,7 @@ def print_test_case(
 
 @pytest.mark.parametrize("cacheline_size", CacheLineSize)
 @pytest.mark.parametrize("cache_mode", CacheMode)
-@pytest.mark.parametrize("rand_seed", [datetime.now().timestamp()])
-def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed):
+def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode):
     CACHELINE_COUNT = 9
     SECTOR_SIZE = Size.from_sector(1).B
     CLS = cacheline_size // SECTOR_SIZE
@@ -195,7 +195,7 @@ def test_read_data_consistency(pyocf_ctx, cacheline_size, cache_mode, rand_seed)
     SECTOR_COUNT = int(WORKSET_SIZE / SECTOR_SIZE)
     ITRATION_COUNT = 50
 
-    random.seed(rand_seed)
+    random.seed(get_random_seed())
 
     # start sector for each region (positions of '*' on the above diagram)
     region_start = (
