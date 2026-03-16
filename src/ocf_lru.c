@@ -19,6 +19,7 @@
 #include "ocf_cache_priv.h"
 #include "ocf_request.h"
 #include "engine/engine_common.h"
+#include "utils/utils_user_part.h"
 
 #define OCF_LRU_MAX_LRU_ELEMENT_IDX 256
 
@@ -791,9 +792,13 @@ uint32_t ocf_lru_req_clines(struct ocf_request *req,
 	unsigned req_idx = 0;
 	struct ocf_part *dst_part;
 	ocf_part_id_t actual_src_part_id;
+	uint32_t dst_max_size;
 
 	if (cline_no == 0)
 		return 0;
+
+	dst_max_size = ocf_user_part_get_max_size(cache,
+			&cache->user_parts[req->part_id]);
 
 	if (unlikely(ocf_engine_unmapped_count(req) < cline_no)) {
 		ocf_cache_log(req->cache, log_err, "Not enough space in"
@@ -868,6 +873,21 @@ got_cline:
 
 		++req_idx;
 		++i;
+
+		/*
+		 * When allocating from freelist or another partition (not
+		 * self-eviction), curr_size was incremented. Stop if the
+		 * destination partition has reached its occupancy limit.
+		 * This bounds the TOCTOU race in ocf_user_part_has_space()
+		 * to at most OCF_NUM_LRU_LISTS cache lines of overshoot.
+		 */
+		if (actual_src_part_id != dst_part->id &&
+				(uint32_t)env_atomic_read(
+				&dst_part->runtime->curr_size) >=
+				dst_max_size) {
+			break;
+		}
+
 		/* Number of cachelines to evict have to match space in the
 		 * request */
 		ENV_BUG_ON(req_idx == req->core_line_count && i != cline_no);
