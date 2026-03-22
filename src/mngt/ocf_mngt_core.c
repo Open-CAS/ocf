@@ -16,6 +16,7 @@
 #include "../ocf_stats_priv.h"
 #include "../ocf_def_priv.h"
 #include "../cleaning/cleaning_ops.h"
+#include "../ocf_seq_cutoff.h"
 
 ocf_seq_no_t ocf_mngt_get_core_seq_no(ocf_cache_t cache)
 {
@@ -123,7 +124,6 @@ struct ocf_cache_add_core_context {
 		bool volume_opened : 1;
 		bool clean_pol_added : 1;
 		bool counters_allocated : 1;
-		bool cutoff_initialized: 1;
 	} flags;
 };
 
@@ -156,8 +156,8 @@ static void _ocf_mngt_cache_add_core_handle_error(
 	if (context->flags.clean_pol_added)
 		ocf_cleaning_remove_core(cache, core_id);
 
-	if (context->flags.cutoff_initialized)
-		ocf_core_seq_cutoff_deinit(core);
+	ocf_core_seq_cutoff_deinit(core);
+	ocf_core_seq_detect_deinit(core);
 
 	if (context->flags.volume_opened)
 		ocf_volume_close(volume);
@@ -466,10 +466,26 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 		context->flags.clean_pol_added = true;
 	}
 
-	result = ocf_core_seq_cutoff_init(core);
+	result = ocf_core_seq_detect_init(core);
 	if (result)
 		OCF_PL_FINISH_RET(pipeline, result);
-	context->flags.cutoff_initialized = true;
+
+	/*
+	 * Set default cache parameters for sequential - must be done
+	 * before consumer registration to ensure correct policy state
+	 * in case of rollback
+	 */
+	env_atomic_set(&core->conf_meta->seq_cutoff_policy,
+			ocf_seq_cutoff_policy_default);
+	env_atomic_set(&core->conf_meta->seq_cutoff_threshold,
+			cfg->seq_cutoff_threshold);
+	env_atomic_set(&core->conf_meta->seq_detect_promotion_count,
+			cfg->seq_detect_promotion_count);
+	env_atomic_set(&core->conf_meta->seq_detect_promotion_threshold,
+			cfg->seq_detect_promotion_threshold);
+
+	/* Register seq detect consumers for default config */
+	ocf_core_seq_cutoff_init(core);
 
 	/* When adding new core to cache, allocate stat counters */
 	core->counters =
@@ -499,16 +515,6 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	core->conf_meta->valid = true;
 	core->added = true;
 	core->opened = true;
-
-	/* Set default cache parameters for sequential */
-	env_atomic_set(&core->conf_meta->seq_cutoff_policy,
-			ocf_seq_cutoff_policy_default);
-	env_atomic_set(&core->conf_meta->seq_cutoff_threshold,
-			cfg->seq_cutoff_threshold);
-	env_atomic_set(&core->conf_meta->seq_cutoff_promo_count,
-			cfg->seq_cutoff_promotion_count);
-	env_atomic_set(&core->conf_meta->seq_cutoff_promote_on_threshold,
-			cfg->seq_cutoff_promote_on_threshold);
 
 	/* Add core sequence number for atomic metadata matching */
 	if (ocf_cache_is_device_attached(cache) &&
@@ -1116,7 +1122,7 @@ static int _cache_mngt_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
 		return -OCF_ERR_INVAL;
 	}
 
-	env_atomic_set(&core->conf_meta->seq_cutoff_policy, policy);
+	ocf_seq_cutoff_set_policy(core, policy);
 
 	ocf_core_log(core, log_info,
 			"Changing sequential cutoff policy from %s to %s\n",
@@ -1174,37 +1180,36 @@ int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
 	return 0;
 }
 
-static int _cache_mngt_set_core_seq_cutoff_promo_count(ocf_core_t core,
+static int _cache_mngt_set_core_seq_detect_promo_count(ocf_core_t core,
 		void *cntx)
 {
 	uint32_t count = *(uint32_t*) cntx;
-	uint32_t count_old = ocf_core_get_seq_cutoff_promotion_count(core);
+	uint32_t count_old = ocf_core_get_seq_detect_promotion_count(core);
 
-	if (count < OCF_SEQ_CUTOFF_MIN_PROMOTION_COUNT ||
-			count > OCF_SEQ_CUTOFF_MAX_PROMOTION_COUNT) {
+	if (count < OCF_SEQ_DETECT_MIN_PROMOTION_COUNT ||
+			count > OCF_SEQ_DETECT_MAX_PROMOTION_COUNT) {
 		ocf_core_log(core, log_info,
-				"Invalid sequential cutoff promotion count!\n");
+				"Invalid sequence detector promotion count!\n");
 		return -OCF_ERR_INVAL;
 	}
 
-
 	if (count_old == count) {
 		ocf_core_log(core, log_info,
-				"Sequential cutoff promotion count %u "
+				"Sequence detector promotion count %u "
 				"is already set\n", count);
 		return 0;
 	}
 
-	env_atomic_set(&core->conf_meta->seq_cutoff_promo_count, count);
+	env_atomic_set(&core->conf_meta->seq_detect_promotion_count, count);
 
-	ocf_core_log(core, log_info, "Changing sequential cutoff promotion "
+	ocf_core_log(core, log_info, "Changing sequence detector promotion "
 			"count from %u to %u successful\n",
 			count_old, count);
 
 	return 0;
 }
 
-int ocf_mngt_core_set_seq_cutoff_promotion_count(ocf_core_t core,
+int ocf_mngt_core_set_seq_detect_promotion_count(ocf_core_t core,
 		uint32_t count)
 {
 	ocf_cache_t cache;
@@ -1218,10 +1223,10 @@ int ocf_mngt_core_set_seq_cutoff_promotion_count(ocf_core_t core,
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	return _cache_mngt_set_core_seq_cutoff_promo_count(core, &count);
+	return _cache_mngt_set_core_seq_detect_promo_count(core, &count);
 }
 
-int ocf_mngt_core_set_seq_cutoff_promotion_count_all(ocf_cache_t cache,
+int ocf_mngt_core_set_seq_detect_promotion_count_all(ocf_cache_t cache,
 		uint32_t count)
 {
 	OCF_CHECK_NULL(cache);
@@ -1232,11 +1237,12 @@ int ocf_mngt_core_set_seq_cutoff_promotion_count_all(ocf_cache_t cache,
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	return ocf_core_visit(cache, _cache_mngt_set_core_seq_cutoff_promo_count,
-						  &count, true);
+	return ocf_core_visit(cache,
+			_cache_mngt_set_core_seq_detect_promo_count,
+			&count, true);
 }
 
-int ocf_mngt_core_get_seq_cutoff_promotion_count(ocf_core_t core,
+int ocf_mngt_core_get_seq_detect_promotion_count(ocf_core_t core,
 		uint32_t *count)
 {
 	ocf_cache_t cache;
@@ -1248,36 +1254,44 @@ int ocf_mngt_core_get_seq_cutoff_promotion_count(ocf_core_t core,
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
 
-	*count = ocf_core_get_seq_cutoff_promotion_count(core);
+	*count = ocf_core_get_seq_detect_promotion_count(core);
 
 	return 0;
 }
 
-static int _cache_mngt_set_core_seq_cutoff_promote_on_threshold(
+static int _cache_mngt_set_core_seq_detect_promo_threshold(
 		ocf_core_t core, void *cntx)
 {
-	bool promote = *(bool*) cntx;
-	bool promote_old = ocf_core_get_seq_cutoff_promote_on_threshold(core);
+	uint32_t threshold = *(uint32_t *) cntx;
+	uint32_t threshold_old =
+			ocf_core_get_seq_detect_promotion_threshold(core);
 
-	if (promote_old == promote) {
+	if (threshold > OCF_SEQ_DETECT_MAX_PROMOTION_THRESHOLD) {
 		ocf_core_log(core, log_info,
-				"Sequential cutoff promote on threshold "
-				"is already set to %s\n", promote ? "true" : "false");
+				"Invalid sequence detector promotion "
+				"threshold!\n");
+		return -OCF_ERR_INVAL;
+	}
+
+	if (threshold_old == threshold) {
+		ocf_core_log(core, log_info,
+				"Sequence detector promotion threshold %u "
+				"is already set\n", threshold);
 		return 0;
 	}
 
-	env_atomic_set(&core->conf_meta->seq_cutoff_promote_on_threshold,
-			promote);
+	env_atomic_set(&core->conf_meta->seq_detect_promotion_threshold,
+			threshold);
 
-	ocf_core_log(core, log_info, "Changing sequential cutoff promote "
-			"on threshold from %s to %s successful\n",
-			promote_old ? "true" : "false", promote ? "true" : "false");
+	ocf_core_log(core, log_info, "Changing sequence detector promotion "
+			"threshold from %u to %u successful\n",
+			threshold_old, threshold);
 
 	return 0;
 }
 
-int ocf_mngt_core_set_seq_cutoff_promote_on_threshold(ocf_core_t core,
-		bool promote)
+int ocf_mngt_core_set_seq_detect_promotion_threshold(ocf_core_t core,
+		uint32_t threshold)
 {
 	ocf_cache_t cache;
 
@@ -1290,11 +1304,12 @@ int ocf_mngt_core_set_seq_cutoff_promote_on_threshold(ocf_core_t core,
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	return _cache_mngt_set_core_seq_cutoff_promote_on_threshold(core, &promote);
+	return _cache_mngt_set_core_seq_detect_promo_threshold(core,
+			&threshold);
 }
 
-int ocf_mngt_core_set_seq_cutoff_promote_on_threshold_all(ocf_cache_t cache,
-		bool promote)
+int ocf_mngt_core_set_seq_detect_promotion_threshold_all(ocf_cache_t cache,
+		uint32_t threshold)
 {
 	OCF_CHECK_NULL(cache);
 
@@ -1305,23 +1320,23 @@ int ocf_mngt_core_set_seq_cutoff_promote_on_threshold_all(ocf_cache_t cache,
 		return -OCF_ERR_CACHE_DETACHED;
 
 	return ocf_core_visit(cache,
-			_cache_mngt_set_core_seq_cutoff_promote_on_threshold,
-			&promote, true);
+			_cache_mngt_set_core_seq_detect_promo_threshold,
+			&threshold, true);
 }
 
-int ocf_mngt_core_get_seq_cutoff_promote_on_threshold(ocf_core_t core,
-		bool *promote)
+int ocf_mngt_core_get_seq_detect_promotion_threshold(ocf_core_t core,
+		uint32_t *threshold)
 {
 	ocf_cache_t cache;
 
 	OCF_CHECK_NULL(core);
-	OCF_CHECK_NULL(promote);
+	OCF_CHECK_NULL(threshold);
 
 	cache = ocf_core_get_cache(core);
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
 
-	*promote = ocf_core_get_seq_cutoff_promote_on_threshold(core);
+	*threshold = ocf_core_get_seq_detect_promotion_threshold(core);
 
 	return 0;
 }

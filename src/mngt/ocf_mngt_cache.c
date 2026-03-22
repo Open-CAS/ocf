@@ -33,6 +33,7 @@
 #include "../cleaning/cleaning.h"
 #include "../promotion/ops.h"
 #include "../concurrency/ocf_pio_concurrency.h"
+#include "../ocf_seq_cutoff.h"
 
 #define OCF_ASSERT_PLUGGED(cache) ENV_BUG_ON(!(cache)->device)
 
@@ -392,8 +393,8 @@ static void _ocf_mngt_deinit_added_cores(
 			ocf_volume_deinit(&core->front_volume);
 		}
 
-		if (core->seq_cutoff)
-			ocf_core_seq_cutoff_deinit(core);
+		ocf_core_seq_cutoff_deinit(core);
+		ocf_core_seq_detect_deinit(core);
 
 		env_free(core->counters);
 		core->counters = NULL;
@@ -479,10 +480,11 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 		if (!core->counters)
 			goto err;
 
-		ret = ocf_core_seq_cutoff_init(core);
+		ret = ocf_core_seq_detect_init(core);
 		if (ret < 0)
 			goto err;
 
+		ocf_core_seq_cutoff_init(core);
 		if (!core->opened) {
 			env_bit_set(ocf_cache_state_incomplete,
 					&cache->cache_state);

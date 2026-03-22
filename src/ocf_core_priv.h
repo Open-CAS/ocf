@@ -12,7 +12,7 @@
 #include "ocf_env.h"
 #include "ocf_ctx_priv.h"
 #include "ocf_volume_priv.h"
-#include "ocf_seq_cutoff.h"
+#include "ocf_seq_detect.h"
 
 #define ocf_core_log_prefix(core, lvl, prefix, fmt, ...) \
 	ocf_cache_log_prefix(ocf_core_get_cache(core), lvl, ".%s" prefix, \
@@ -46,11 +46,11 @@ struct ocf_core_meta_config {
 	/* Sequential cutoff policy */
 	env_atomic seq_cutoff_policy;
 
-	/* Sequential cutoff stream promotion request count */
-	env_atomic seq_cutoff_promo_count;
+	/* Sequence detector stream promotion request count */
+	env_atomic seq_detect_promotion_count;
 
-	/* Sequential cutoff stream promote on threshold */
-	env_atomic seq_cutoff_promote_on_threshold;
+	/* Sequence detector stream promotion threshold (in bytes) */
+	env_atomic seq_detect_promotion_threshold;
 
 	/* core object size in bytes */
 	uint64_t length;
@@ -90,7 +90,9 @@ struct ocf_core {
 	struct ocf_core_meta_config *conf_meta;
 	struct ocf_core_meta_runtime *runtime_meta;
 
-	struct ocf_seq_cutoff *seq_cutoff;
+	struct ocf_seq_detect *seq_detect;
+
+	bool seq_cutoff_active;
 
 	env_atomic flushed;
 

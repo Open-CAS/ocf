@@ -15,6 +15,8 @@
 #include "engine/engine_d2c.h"
 #include "utils/utils_user_part.h"
 #include "ocf_request.h"
+#include "ocf_seq_detect.h"
+#include "ocf_seq_cutoff.h"
 
 struct ocf_core_volume {
 	ocf_core_t core;
@@ -106,14 +108,15 @@ ocf_seq_cutoff_policy ocf_core_get_seq_cutoff_policy(ocf_core_t core)
 	return env_atomic_read(&core->conf_meta->seq_cutoff_policy);
 }
 
-uint32_t ocf_core_get_seq_cutoff_promotion_count(ocf_core_t core)
+uint32_t ocf_core_get_seq_detect_promotion_count(ocf_core_t core)
 {
-	return env_atomic_read(&core->conf_meta->seq_cutoff_promo_count);
+	return env_atomic_read(&core->conf_meta->seq_detect_promotion_count);
 }
 
-bool ocf_core_get_seq_cutoff_promote_on_threshold(ocf_core_t core)
+uint32_t ocf_core_get_seq_detect_promotion_threshold(ocf_core_t core)
 {
-	return env_atomic_read(&core->conf_meta->seq_cutoff_promote_on_threshold);
+	return env_atomic_read(
+			&core->conf_meta->seq_detect_promotion_threshold);
 }
 
 int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
@@ -303,7 +306,7 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 
 	fastpath = ocf_core_submit_io_fast(req, cache);
 
-	ocf_core_seq_cutoff_update(core, req);
+	ocf_core_seq_detect_update(core, req);
 	ocf_req_put(req);
 
 	if (fastpath == OCF_FAST_PATH_YES)
