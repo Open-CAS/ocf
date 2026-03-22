@@ -50,11 +50,11 @@ struct ocf_mngt_core_config {
 	uint32_t seq_cutoff_threshold;
 		/*!< Sequential cutoff threshold (in bytes) */
 
-	uint32_t seq_cutoff_promotion_count;
-		/*!< Sequential cutoff promotion request count */
+	uint32_t seq_detect_promotion_count;
+		/*!< Sequence detector stream promotion request count */
 
-	bool seq_cutoff_promote_on_threshold;
-		/*!< Sequential cutoff promote on threshold */
+	uint32_t seq_detect_promotion_threshold;
+		/*!< Sequence detector stream promotion threshold (in bytes) */
 
 	struct {
 		void *data;
@@ -75,8 +75,8 @@ static inline void ocf_mngt_core_config_set_default(
 {
 	cfg->try_add = false;
 	cfg->seq_cutoff_threshold = 1024;
-	cfg->seq_cutoff_promotion_count = 8;
-	cfg->seq_cutoff_promote_on_threshold = false;
+	cfg->seq_detect_promotion_count = 8;
+	cfg->seq_detect_promotion_threshold = 0;
 	cfg->user_metadata.data = NULL;
 	cfg->user_metadata.size = 0;
 }
@@ -1178,7 +1178,7 @@ int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
 		ocf_seq_cutoff_policy *policy);
 
 /**
- * @brief Set core sequential cutoff promotion request count
+ * @brief Set core sequence detector promotion request count
  *
  * @attention This changes only runtime state. To make changes persistent
  *            use function ocf_mngt_cache_save().
@@ -1186,14 +1186,14 @@ int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
  * @param[in] core Core handle
  * @param[in] count promotion request count
  *
- * @retval 0 Sequential cutoff promotion requets count has been set successfully
+ * @retval 0 Promotion request count has been set successfully
  * @retval Non-zero Error occured and request count hasn't been updated
  */
-int ocf_mngt_core_set_seq_cutoff_promotion_count(ocf_core_t core,
+int ocf_mngt_core_set_seq_detect_promotion_count(ocf_core_t core,
 		uint32_t count);
 
 /**
- * @brief Set sequential cutoff promotion request count for all cores in cache
+ * @brief Set sequence detector promotion request count for all cores in cache
  *
  * @attention This changes only runtime state. To make changes persistent
  *            use function ocf_mngt_cache_save().
@@ -1201,67 +1201,65 @@ int ocf_mngt_core_set_seq_cutoff_promotion_count(ocf_core_t core,
  * @param[in] cache Cache handle
  * @param[in] count promotion request count
  *
- * @retval 0 Sequential cutoff promotion request count has been set successfully
+ * @retval 0 Promotion request count has been set successfully
  * @retval Non-zero Error occured and request count hasn't been updated
  */
-int ocf_mngt_core_set_seq_cutoff_promotion_count_all(ocf_cache_t cache,
+int ocf_mngt_core_set_seq_detect_promotion_count_all(ocf_cache_t cache,
 		uint32_t count);
 
 /**
- * @brief Get core sequential cutoff promotion threshold
+ * @brief Get sequence detector promotion request count
  *
  * @param[in] core Core handle
  * @param[out] count promotion request count
  *
- * @retval 0 Sequential cutoff promotion request count has been get successfully
+ * @retval 0 Promotion request count has been retrieved successfully
  * @retval Non-zero Error occured
  */
-int ocf_mngt_core_get_seq_cutoff_promotion_count(ocf_core_t core,
+int ocf_mngt_core_get_seq_detect_promotion_count(ocf_core_t core,
 		uint32_t *count);
 
 /**
- * @brief Set whether to promote core sequential cutoff stream
- * to global structures when threshold is reached
+ * @brief Set sequence detector stream promotion threshold
  *
  * @attention This changes only runtime state. To make changes persistent
  *            use function ocf_mngt_cache_save().
  *
  * @param[in] core Core handle
- * @param[in] promote Whether to promote or not
+ * @param[in] threshold Promotion threshold (in bytes)
  *
- * @retval 0 Sequential cutoff promote on threshold has been set successfully
- * @retval Non-zero Error occured and promote on threshold hasn't been updated
+ * @retval 0 Promotion threshold has been set successfully
+ * @retval Non-zero Error occurred and threshold hasn't been updated
  */
-int ocf_mngt_core_set_seq_cutoff_promote_on_threshold(ocf_core_t core,
-		bool promote);
+int ocf_mngt_core_set_seq_detect_promotion_threshold(ocf_core_t core,
+		uint32_t threshold);
 
 /**
- * @brief Set whether to promote sequential cutoff stream
- * to global structures when threshold is reached for all cores in cache
+ * @brief Set sequence detector stream promotion threshold for all cores
  *
  * @attention This changes only runtime state. To make changes persistent
  *            use function ocf_mngt_cache_save().
  *
  * @param[in] cache Cache handle
- * @param[in] promote Whether to promote or not
+ * @param[in] threshold Promotion threshold (in bytes)
  *
- * @retval 0 Sequential cutoff promote on threshold has been set successfully
- * @retval Non-zero Error occured and promote on threshold hasn't been updated
+ * @retval 0 Promotion threshold has been set successfully
+ * @retval Non-zero Error occurred and threshold hasn't been updated
  */
-int ocf_mngt_core_set_seq_cutoff_promote_on_threshold_all(ocf_cache_t cache,
-		bool promote);
+int ocf_mngt_core_set_seq_detect_promotion_threshold_all(ocf_cache_t cache,
+		uint32_t threshold);
 
 /**
- * @brief Get core sequential cutoff promote on threshold switch value
+ * @brief Get sequence detector stream promotion threshold
  *
  * @param[in] core Core handle
- * @param[out] promote Promote on threshold
+ * @param[out] threshold Promotion threshold (in bytes)
  *
- * @retval 0 Sequential cutoff promote on threshold retrieved successfully
+ * @retval 0 Promotion threshold retrieved successfully
  * @retval Non-zero Error occured and value could not be retrieved
  */
-int ocf_mngt_core_get_seq_cutoff_promote_on_threshold(ocf_core_t core,
-		bool *promote);
+int ocf_mngt_core_get_seq_detect_promotion_threshold(ocf_core_t core,
+		uint32_t *threshold);
 
 /**
  * @brief Set cache fallback Pass Through error threshold

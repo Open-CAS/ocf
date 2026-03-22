@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -111,23 +112,22 @@ uint32_t ocf_core_get_seq_cutoff_threshold(ocf_core_t core);
 ocf_seq_cutoff_policy ocf_core_get_seq_cutoff_policy(ocf_core_t core);
 
 /**
- * @brief Get sequential cutoff stream promotion req count of given core object
+ * @brief Get sequence detector stream promotion request count
  *
  * @param[in] core Core object
  *
- * @retval Sequential cutoff stream promotion request count
+ * @retval Sequence detector stream promotion request count
  */
-uint32_t ocf_core_get_seq_cutoff_promotion_count(ocf_core_t core);
+uint32_t ocf_core_get_seq_detect_promotion_count(ocf_core_t core);
 
 /**
- * @brief Whether to promote sequential cutoff stream
- * to global structures when threshold is reached
+ * @brief Get sequence detector stream promotion threshold (in bytes)
  *
  * @param[in] core Core object
  *
- * @retval Sequential cutoff stream promote_on_threshold switch value
+ * @retval Sequence detector stream promotion threshold [B]
  */
-bool ocf_core_get_seq_cutoff_promote_on_threshold(ocf_core_t core);
+uint32_t ocf_core_get_seq_detect_promotion_threshold(ocf_core_t core);
 
 /**
  * @brief Get name of given core object

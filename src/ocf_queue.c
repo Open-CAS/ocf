@@ -14,6 +14,7 @@
 #include "mngt/ocf_mngt_common.h"
 #include "engine/cache_engine.h"
 #include "ocf_def_priv.h"
+#include "ocf_seq_detect.h"
 
 static int _ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 		const struct ocf_queue_ops *ops)
@@ -63,7 +64,7 @@ int ocf_queue_create(ocf_cache_t cache, ocf_queue_t *queue,
 		return result;
 	}
 
-	result = ocf_queue_seq_cutoff_init(tmp_queue);
+	result = ocf_queue_seq_detect_init(tmp_queue);
 	if (result) {
 		ocf_mngt_cache_put(cache);
 		env_free(tmp_queue);
@@ -154,7 +155,7 @@ void ocf_queue_put(ocf_queue_t queue)
 		env_spinlock_lock_irqsave(&cache->io_queues_lock, flags);
 		list_del(&queue->list);
 		env_spinlock_unlock_irqrestore(&cache->io_queues_lock, flags);
-		ocf_queue_seq_cutoff_deinit(queue);
+		ocf_queue_seq_detect_deinit(queue);
 	}
 	ocf_mngt_cache_put(queue->cache);
 	env_spinlock_destroy(&queue->io_list_lock);

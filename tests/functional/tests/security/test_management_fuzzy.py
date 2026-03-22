@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -164,12 +165,12 @@ def test_neg_cache_set_seq_cut_off_promotion(pyocf_ctx, cm, cls):
 
     # Change cache seq cut off promotion count to invalid one and check if failed
     for i in RandomGenerator(DefaultRanges.UINT32):
-        if i in ConfValidValues.seq_cutoff_promotion_range:
+        if i in ConfValidValues.seq_detect_promotion_count_range:
             continue
         with pytest.raises(
-            OcfError, match="Error setting cache seq cut off policy promotion count"
+            OcfError, match="Error setting seq detect promotion count"
         ):
-            cache.set_seq_cut_off_promotion(i)
+            cache.set_seq_detect_promotion_count(i)
             print(f"\n{i}")
 
 
@@ -197,10 +198,10 @@ def test_neg_core_set_seq_cut_off_promotion(pyocf_ctx, cm, cls):
 
     # Change core seq cut off promotion count to invalid one and check if failed
     for i in RandomGenerator(DefaultRanges.UINT32):
-        if i in ConfValidValues.seq_cutoff_promotion_range:
+        if i in ConfValidValues.seq_detect_promotion_count_range:
             continue
-        with pytest.raises(OcfError, match="Error setting core seq cut off policy promotion count"):
-            core1.set_seq_cut_off_promotion(i)
+        with pytest.raises(OcfError, match="Error setting seq detect promotion count"):
+            core1.set_seq_detect_promotion_count(i)
             print(f"\n{i}")
 
 

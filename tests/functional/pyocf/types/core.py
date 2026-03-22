@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024-2025 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -48,7 +49,8 @@ class CoreConfig(Structure):
         ("_volume_params", c_void_p),
         ("_try_add", c_bool),
         ("_seq_cutoff_threshold", c_uint32),
-        ("_seq_cutoff_promotion_count", c_uint32),
+        ("_seq_detect_promotion_count", c_uint32),
+        ("_seq_detect_promotion_threshold", c_uint32),
         ("_user_metadata", UserMetadata),
     ]
 
@@ -56,20 +58,23 @@ class CoreConfig(Structure):
 class Core:
     DEFAULT_ID = 4096
     DEFAULT_SEQ_CUTOFF_THRESHOLD = 1024 * 1024
-    DEFAULT_SEQ_CUTOFF_PROMOTION_COUNT = 8
+    DEFAULT_SEQ_DETECT_PROMOTION_COUNT = 8
+    DEFAULT_SEQ_DETECT_PROMOTION_THRESHOLD = 0
 
     def __init__(
         self,
         device: Volume,
         name: str = "core",
         seq_cutoff_threshold: int = DEFAULT_SEQ_CUTOFF_THRESHOLD,
-        seq_cutoff_promotion_count: int = DEFAULT_SEQ_CUTOFF_PROMOTION_COUNT,
+        seq_detect_promotion_count: int = DEFAULT_SEQ_DETECT_PROMOTION_COUNT,
+        seq_detect_promotion_threshold: int = DEFAULT_SEQ_DETECT_PROMOTION_THRESHOLD,
     ):
         self.cache = None
         self.device = device
         self.name = name
         self.seq_cutoff_threshold = seq_cutoff_threshold
-        self.seq_cutoff_promotion_count = seq_cutoff_promotion_count
+        self.seq_detect_promotion_count = seq_detect_promotion_count
+        self.seq_detect_promotion_threshold = seq_detect_promotion_threshold
 
         self.handle = c_void_p()
 
@@ -89,7 +94,8 @@ class Core:
             _volume_type=self.device.type_id,
             _try_add=False,
             _seq_cutoff_threshold=self.seq_cutoff_threshold,
-            _seq_cutoff_promotion_count=self.seq_cutoff_promotion_count,
+            _seq_detect_promotion_count=self.seq_detect_promotion_count,
+            _seq_detect_promotion_threshold=self.seq_detect_promotion_threshold,
             _user_metadata=UserMetadata(_data=None, _size=0),
         )
 
@@ -161,15 +167,15 @@ class Core:
         if status:
             raise OcfError("Error setting core seq cut off policy threshold", status)
 
-    def set_seq_cut_off_promotion(self, count):
+    def set_seq_detect_promotion_count(self, count):
         self.cache.write_lock()
 
-        status = self.cache.owner.lib.ocf_mngt_core_set_seq_cutoff_promotion_count(
+        status = self.cache.owner.lib.ocf_mngt_core_set_seq_detect_promotion_count(
             self.handle, count
         )
         self.cache.write_unlock()
         if status:
-            raise OcfError("Error setting core seq cut off policy promotion count", status)
+            raise OcfError("Error setting seq detect promotion count", status)
 
     def flush(self):
         self.cache.write_lock()
@@ -208,8 +214,8 @@ lib.ocf_mngt_core_set_seq_cutoff_policy.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_policy.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_threshold.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_threshold.restype = c_int
-lib.ocf_mngt_core_set_seq_cutoff_promotion_count.argtypes = [c_void_p, c_uint32]
-lib.ocf_mngt_core_set_seq_cutoff_promotion_count.restype = c_int
+lib.ocf_mngt_core_set_seq_detect_promotion_count.argtypes = [c_void_p, c_uint32]
+lib.ocf_mngt_core_set_seq_detect_promotion_count.restype = c_int
 lib.ocf_stats_collect_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c_void_p]
 lib.ocf_stats_collect_core.restype = c_int
 lib.ocf_core_get_info.argtypes = [c_void_p, c_void_p]

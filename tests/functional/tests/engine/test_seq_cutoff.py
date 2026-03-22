@@ -100,7 +100,7 @@ def test_seq_cutoff_max_streams(pyocf_ctx):
     streams.remove(non_active_stream)
 
     cache = Cache.start_on_device(RamVolume(Size.from_MiB(200)), cache_mode=CacheMode.WT)
-    core = Core.using_device(RamVolume(core_size), seq_cutoff_promotion_count=1)
+    core = Core.using_device(RamVolume(core_size), seq_detect_promotion_count=1)
 
     cache.add_core(core)
     vol = CoreVolume(core)

@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -28,7 +29,7 @@ struct ocf_queue {
 	/* per-queue free running lru list index */
 	unsigned lru_idx;
 
-	struct ocf_seq_cutoff *seq_cutoff;
+	struct ocf_seq_detect *seq_detect;
 
 	struct list_head list;
 
