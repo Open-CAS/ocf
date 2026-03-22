@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -35,4 +36,5 @@ class CacheInfo(Structure):
         ("core_count", c_uint32),
         ("metadata_footprint", c_uint64),
         ("metadata_end_offset", c_uint32),
+        ("standby_detached", c_bool),
     ]
