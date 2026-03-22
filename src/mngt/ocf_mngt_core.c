@@ -17,6 +17,7 @@
 #include "../ocf_def_priv.h"
 #include "../cleaning/cleaning_ops.h"
 #include "../ocf_seq_cutoff.h"
+#include "../prefetch/ocf_prefetch_priv.h"
 
 ocf_seq_no_t ocf_mngt_get_core_seq_no(ocf_cache_t cache)
 {
@@ -156,6 +157,7 @@ static void _ocf_mngt_cache_add_core_handle_error(
 	if (context->flags.clean_pol_added)
 		ocf_cleaning_remove_core(cache, core_id);
 
+	ocf_prefetch_deinit(cache, core);
 	ocf_core_seq_cutoff_deinit(core);
 	ocf_core_seq_detect_deinit(core);
 
@@ -486,6 +488,7 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 
 	/* Register seq detect consumers for default config */
 	ocf_core_seq_cutoff_init(core);
+	ocf_prefetch_init(cache, core);
 
 	/* When adding new core to cache, allocate stat counters */
 	core->counters =

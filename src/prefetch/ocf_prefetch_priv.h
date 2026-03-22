@@ -30,5 +30,9 @@ struct ocf_pf_range {
 };
 
 void ocf_prefetch(struct ocf_request *req);
+void ocf_prefetch_init(ocf_cache_t cache, ocf_core_t core);
+void ocf_prefetch_deinit(ocf_cache_t cache, ocf_core_t core);
+void ocf_prefetch_init_one(ocf_core_t core, ocf_pf_id_t pf_id);
+void ocf_prefetch_deinit_one(ocf_core_t core, ocf_pf_id_t pf_id);
 
 #endif /* __OCF_PREFETCH_PRIV_H__ */

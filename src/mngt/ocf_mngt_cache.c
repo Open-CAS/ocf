@@ -34,6 +34,7 @@
 #include "../promotion/ops.h"
 #include "../concurrency/ocf_pio_concurrency.h"
 #include "../ocf_seq_cutoff.h"
+#include "../prefetch/ocf_prefetch_priv.h"
 
 #define OCF_ASSERT_PLUGGED(cache) ENV_BUG_ON(!(cache)->device)
 
@@ -402,6 +403,7 @@ static void _ocf_mngt_deinit_added_cores(
 			ocf_volume_deinit(&core->front_volume);
 		}
 
+		ocf_prefetch_deinit(cache, core);
 		ocf_core_seq_cutoff_deinit(core);
 		ocf_core_seq_detect_deinit(core);
 
@@ -494,6 +496,8 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 			goto err;
 
 		ocf_core_seq_cutoff_init(core);
+		ocf_prefetch_init(cache, core);
+
 		if (!core->opened) {
 			env_bit_set(ocf_cache_state_incomplete,
 					&cache->cache_state);
@@ -3747,6 +3751,10 @@ int ocf_mngt_cache_promotion_set_param(ocf_cache_t cache, ocf_promotion_t type,
 int ocf_mngt_cache_prefetch_set_policy(ocf_cache_t cache, ocf_pf_mask_t mask)
 {
 	ocf_pf_mask_t valid_mask = (1 << ocf_pf_num) - 1;
+	ocf_pf_mask_t old_mask;
+	ocf_pf_mask_t enabled, disabled;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 
 	if (ocf_cache_is_standby(cache))
 		return -OCF_ERR_CACHE_STANDBY;
@@ -3756,7 +3764,24 @@ int ocf_mngt_cache_prefetch_set_policy(ocf_cache_t cache, ocf_pf_mask_t mask)
 
 	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
 
+	old_mask = cache->conf_meta->prefetch_mask;
 	cache->conf_meta->prefetch_mask = mask;
+
+	/* Newly enabled prefetchers need initialization */
+	enabled = mask & ~old_mask;
+	/* Newly disabled prefetchers need deinitialization */
+	disabled = old_mask & ~mask;
+
+	if (enabled || disabled) {
+		for_each_core(cache, core, core_id) {
+			ocf_pf_id_t pf_id;
+
+			for_each_pf_mask(pf_id, enabled)
+				ocf_prefetch_init_one(core, pf_id);
+			for_each_pf_mask(pf_id, disabled)
+				ocf_prefetch_deinit_one(core, pf_id);
+		}
+	}
 
 	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
 

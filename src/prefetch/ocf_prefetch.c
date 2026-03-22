@@ -15,6 +15,8 @@
 #include "ocf_prefetch_readahead.h"
 
 struct ocf_pf_ops {
+	int (*init)(ocf_core_t core);
+	void (*deinit)(ocf_core_t core);
 	void (*get_range)(struct ocf_request *req, struct ocf_pf_range *range);
 };
 
@@ -111,6 +113,40 @@ static void ocf_prefetch_range(struct ocf_request *req, ocf_pf_id_t pf_id,
 			break;
 
 		curmax_cl = OCF_MIN(curmax_cl, max_total_cl - total_cl);
+	}
+}
+
+void ocf_prefetch_init(ocf_cache_t cache, ocf_core_t core)
+{
+	ocf_pf_mask_t pf_mask = cache->conf_meta->prefetch_mask;
+	ocf_pf_id_t pf_id;
+
+	for_each_pf_mask(pf_id, pf_mask) {
+		if (ocf_pf_ops[pf_id].init)
+			ocf_pf_ops[pf_id].init(core);
+	}
+}
+
+void ocf_prefetch_init_one(ocf_core_t core, ocf_pf_id_t pf_id)
+{
+	if (ocf_pf_ops[pf_id].init)
+		ocf_pf_ops[pf_id].init(core);
+}
+
+void ocf_prefetch_deinit_one(ocf_core_t core, ocf_pf_id_t pf_id)
+{
+	if (ocf_pf_ops[pf_id].deinit)
+		ocf_pf_ops[pf_id].deinit(core);
+}
+
+void ocf_prefetch_deinit(ocf_cache_t cache, ocf_core_t core)
+{
+	ocf_pf_mask_t pf_mask = cache->conf_meta->prefetch_mask;
+	ocf_pf_id_t pf_id;
+
+	for_each_pf_mask(pf_id, pf_mask) {
+		if (ocf_pf_ops[pf_id].deinit)
+			ocf_pf_ops[pf_id].deinit(core);
 	}
 }
 
