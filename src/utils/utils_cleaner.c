@@ -580,7 +580,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 		part_id = ocf_metadata_get_partition_id(cache, iter->coll_idx);
 
 		ocf_core_stats_cache_block_update(req->core, part_id, OCF_READ,
-				ocf_line_size(cache));
+				ocf_line_size(cache), ocf_pf_none);
 
 		req->addr = iter->core_line * ocf_line_size(cache);
 

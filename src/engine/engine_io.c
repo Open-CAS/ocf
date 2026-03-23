@@ -28,7 +28,7 @@ void ocf_engine_forward_cache_io(struct ocf_request *req, int dir,
 	addr += (offset + seek) % ocf_line_size(cache);
 
 	ocf_core_stats_cache_block_update(req->core, req->part_id,
-			dir, req->bytes);
+			dir, req->bytes, req->io.pf_id);
 
 	ocf_req_forward_cache_io(req, dir, addr, size,
 			req->offset + offset);
@@ -49,7 +49,7 @@ void ocf_engine_forward_cache_io_req(struct ocf_request *req, int dir,
 		addr += req->addr % ocf_line_size(cache);
 
 		ocf_core_stats_cache_block_update(req->core, req->part_id,
-				dir, req->bytes);
+				dir, req->bytes, req->io.pf_id);
 
 		ocf_req_forward_cache_io(req, dir, addr, req->bytes,
 				req->offset);
@@ -98,7 +98,7 @@ void ocf_engine_forward_cache_io_req(struct ocf_request *req, int dir,
 		ENV_BUG_ON(bytes == 0);
 
 		ocf_core_stats_cache_block_update(req->core, req->part_id,
-				dir, bytes);
+				dir, bytes, req->io.pf_id);
 
 		ocf_req_forward_cache_io(req, dir, addr, bytes,
 				req->offset + total_bytes);

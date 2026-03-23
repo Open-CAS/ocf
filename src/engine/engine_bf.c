@@ -107,7 +107,7 @@ static int _ocf_backfill_do(struct ocf_request *req)
 		addr += req->addr % line_size;
 
 		ocf_core_stats_cache_block_update(req->core, req->part_id,
-				OCF_WRITE, req->bytes);
+				OCF_WRITE, req->bytes, req->io.pf_id);
 		ocf_req_forward_cache_io(req, OCF_WRITE, addr, req->bytes,
 				req->offset);
 		return 0;
@@ -158,7 +158,7 @@ static int _ocf_backfill_do(struct ocf_request *req)
 		bytes = OCF_MIN(bytes, req->bytes - total_bytes);
 
 		ocf_core_stats_cache_block_update(req->core, req->part_id,
-				OCF_WRITE, bytes);
+				OCF_WRITE, bytes, req->io.pf_id);
 		ocf_req_forward_cache_io(req, OCF_WRITE, addr, bytes,
 				req->offset + total_bytes);
 

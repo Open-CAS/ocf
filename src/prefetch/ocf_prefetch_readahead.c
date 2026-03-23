@@ -21,6 +21,6 @@ void ocf_pf_readahead_get_range(struct ocf_request *req,
 		struct ocf_pf_range *range)
 {
 	range->core_line_first = req->core_line_first + req->core_line_count;
-	range->core_line_count = OCF_MIN(req->core_line_count,
+	range->core_line_count = OCF_MAX(req->core_line_count,
 			ocf_bytes_2_lines(req->cache, OCF_PF_READAHEAD_MIN));
 }
