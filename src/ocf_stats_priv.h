@@ -8,6 +8,8 @@
 #ifndef __OCF_STATS_PRIV_H__
 #define __OCF_STATS_PRIV_H__
 
+#include "ocf/ocf_prefetch.h"
+
 struct ocf_counters_block {
 	env_atomic64 read_bytes;
 	env_atomic64 write_bytes;
@@ -90,6 +92,12 @@ struct ocf_stats_io_class {
 	/** Writes requests statistics */
 	struct ocf_stats_req write_reqs;
 
+	/** Prefetch requests per perfetcher */
+	struct ocf_stats_req prefetch_reqs[ocf_pf_num];
+
+	/** Prefetch block per prefetcher */
+	struct ocf_stats_block prefetch_blocks[ocf_pf_num];
+
 	/** Block requests for ocf volume statistics */
 	struct ocf_stats_block blocks;
 
@@ -139,6 +147,9 @@ struct ocf_stats_core {
 	/** Write requests statistics */
 	struct ocf_stats_req write_reqs;
 
+	/** Prefetch requests per Prefetch Algorithm */
+	struct ocf_stats_req prefetch_reqs[ocf_pf_num];
+
 	/** Block requests for cache volume statistics */
 	struct ocf_stats_block cache_volume;
 
@@ -147,6 +158,9 @@ struct ocf_stats_core {
 
 	/** Block requests submitted by user to this core */
 	struct ocf_stats_block core;
+
+	/** Block requests submitted by Prefetcher to this core */
+	struct ocf_stats_block prefetch_blocks[ocf_pf_num];
 
 	/** Pass Through block requests statistics */
 	struct ocf_stats_block pass_through_blocks;
@@ -167,8 +181,10 @@ struct ocf_stats_core {
 struct ocf_counters_part {
 	struct ocf_counters_req read_reqs;
 	struct ocf_counters_req write_reqs;
+	struct ocf_counters_req prefetch_reqs[ocf_pf_num];
 
 	struct ocf_counters_block blocks;
+	struct ocf_counters_block prefetch_blocks[ocf_pf_num];
 
 	struct ocf_counters_block core_blocks;
 	struct ocf_counters_block cache_blocks;
@@ -197,7 +213,7 @@ struct ocf_counters_core {
 };
 
 void ocf_core_stats_core_block_update(ocf_core_t core, ocf_part_id_t part_id,
-		int dir, uint64_t bytes);
+		int dir, uint64_t bytes, ocf_pf_id_t pf_id);
 void ocf_core_stats_cache_block_update(ocf_core_t core, ocf_part_id_t part_id,
 		int dir, uint64_t bytes);
 void ocf_core_stats_vol_block_update(ocf_core_t core, ocf_part_id_t part_id,
@@ -207,7 +223,7 @@ void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
 
 void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
 		uint8_t dir, uint64_t hit_no, uint64_t core_line_count,
-		uint8_t deferred);
+		ocf_pf_id_t pf_id, uint8_t deferred);
 void ocf_core_stats_request_pt_update(ocf_core_t core, ocf_part_id_t part_id,
 		uint8_t dir, uint64_t hit_no, uint64_t core_line_count);
 

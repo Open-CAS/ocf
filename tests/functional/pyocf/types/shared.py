@@ -18,6 +18,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_INVAL = 1000000
     OCF_ERR_AGAIN = auto()
     OCF_ERR_INTR = auto()
+    OCF_ERR_BUSY = auto()
     OCF_ERR_NOT_SUPP = auto()
     OCF_ERR_NO_MEM = auto()
     OCF_ERR_NO_LOCK = auto()

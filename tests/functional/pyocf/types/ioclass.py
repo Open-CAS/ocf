@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2019-2021 Intel Corporation
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -30,5 +31,5 @@ class IoClassConfig(Structure):
 
 
 class IoClassesInfo(Structure):
-    MAX_IO_CLASSES = 33
+    MAX_IO_CLASSES = 34
     _fields_ = [("_config", IoClassConfig * MAX_IO_CLASSES)]

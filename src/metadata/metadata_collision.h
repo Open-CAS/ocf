@@ -15,13 +15,18 @@
  */
 
 struct ocf_metadata_list_info {
-	/* Previous cache line in collision list */
-	ocf_cache_line_t prev_col : OCF_CACHE_LINE_BITS;
-	ocf_cache_line_t unused : 3;
-	/* Next cache line in collision list*/
-	ocf_cache_line_t next_col : OCF_CACHE_LINE_BITS;
-	ocf_cache_line_t unused2 : 3;
-} __attribute__((packed));
+	union {
+		struct {
+			/* Previous cache line in collision list */
+			ocf_cache_line_t prev_col : OCF_CACHE_LINE_BITS;
+			ocf_cache_line_t unused : 3;
+			/* Next cache line in collision list*/
+			ocf_cache_line_t next_col : OCF_CACHE_LINE_BITS;
+			ocf_cache_line_t unused2 : 3;
+		} __attribute__((packed));
+		uint64_t entry;
+	};
+};
 
 /* Keep the struct ocf_metadata_list_info size of 8 bytes */
 _Static_assert(sizeof(struct ocf_metadata_list_info) == sizeof(uint64_t));

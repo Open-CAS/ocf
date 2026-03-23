@@ -224,6 +224,13 @@ struct ocf_engine_callbacks
 };
 
 /**
+ * @brief Prepare cache lines for miss request
+ *
+ * @param req OCF request
+ */
+void ocf_prepare_clines_miss(struct ocf_request *req);
+
+/**
  * @brief Map and lock cachelines
  *
  * @param req OCF request

@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -133,8 +134,8 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 	if (!name[0])
 		return -OCF_ERR_INVAL;
 
-	if (part_id == PARTITION_DEFAULT) {
-		/* Special behavior for default partition */
+	if (part_id == PARTITION_DEFAULT || part_id == PARTITION_PREFETCH) {
+		/* Special behavior for default partitions */
 
 		if (env_strncmp(name, OCF_IO_CLASS_NAME_MAX,
 				dest_part->config->name, OCF_IO_CLASS_NAME_MAX)) {
@@ -155,7 +156,7 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 		dest_part->config->cache_mode = cache_mode;
 
 		ocf_cache_log(cache, log_info,
-				"Updating unclassified IO class, id: %u, name :'%s',"
+				"Updating default IO class, id: %u, name :'%s',"
 				"max size: %u%% [ OK ]\n",
 				part_id, dest_part->config->name, max);
 		return 0;

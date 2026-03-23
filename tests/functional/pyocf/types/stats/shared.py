@@ -7,6 +7,7 @@
 
 from ctypes import c_uint64, c_uint32, Structure
 
+PF_ID_NUM = 1
 
 class _Stat(Structure):
     _fields_ = [("value", c_uint64), ("fraction", c_uint64)]
@@ -62,6 +63,8 @@ class RequestsStats(Structure):
         ("rd_pt", _Stat),
         ("wr_pt", _Stat),
         ("serviced", _Stat),
+        ("prefetch", _Stat * PF_ID_NUM),
+        ("user", _Stat),
         ("total", _Stat),
     ]
 
@@ -80,6 +83,8 @@ class BlocksStats(Structure):
         ("pt_rd", _Stat),
         ("pt_wr", _Stat),
         ("pt_total", _Stat),
+        ("prefetch_core_rd", _Stat * PF_ID_NUM),
+        ("prefetch_cache_wr", _Stat * PF_ID_NUM),
     ]
 
 

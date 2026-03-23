@@ -10,6 +10,37 @@
 #include "metadata_internal.h"
 #include "../utils/utils_cache_line.h"
 
+static inline void ocf_metadata_list_info_set(
+		struct ocf_metadata_list_info *info,
+		ocf_cache_line_t next, ocf_cache_line_t prev)
+{
+	struct ocf_metadata_list_info t = { };
+
+	t.next_col = next;
+	t.prev_col = prev;
+	info->entry = t.entry;
+}
+
+static inline void ocf_metadata_list_info_set_next(
+		struct ocf_metadata_list_info *info,
+		ocf_cache_line_t next)
+{
+	struct ocf_metadata_list_info t = { .entry = info->entry };
+
+	t.next_col = next;
+	info->entry = t.entry;
+}
+
+static inline void ocf_metadata_list_info_set_prev(
+		struct ocf_metadata_list_info *info,
+		ocf_cache_line_t prev)
+{
+	struct ocf_metadata_list_info t = { .entry = info->entry };
+
+	t.prev_col = prev;
+	info->entry = t.entry;
+}
+
 void ocf_metadata_set_collision_info(struct ocf_cache *cache,
 		ocf_cache_line_t line, ocf_cache_line_t next,
 		ocf_cache_line_t prev)
@@ -21,12 +52,10 @@ void ocf_metadata_set_collision_info(struct ocf_cache *cache,
 	info = ocf_metadata_raw_wr_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
 
-	if (info) {
-		info->next_col = next;
-		info->prev_col = prev;
-	} else {
+	if (info)
+		ocf_metadata_list_info_set(info, next, prev);
+	else
 		ocf_metadata_error(cache);
-	}
 }
 
 void ocf_metadata_set_collision_next(struct ocf_cache *cache,
@@ -40,7 +69,7 @@ void ocf_metadata_set_collision_next(struct ocf_cache *cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
 
 	if (info)
-		info->next_col = next;
+		ocf_metadata_list_info_set_next(info, next);
 	else
 		ocf_metadata_error(cache);
 }
@@ -56,7 +85,7 @@ void ocf_metadata_set_collision_prev(struct ocf_cache *cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
 
 	if (info)
-		info->prev_col = prev;
+		ocf_metadata_list_info_set_prev(info, prev);
 	else
 		ocf_metadata_error(cache);
 }
@@ -74,10 +103,12 @@ void ocf_metadata_get_collision_info(struct ocf_cache *cache,
 	info = ocf_metadata_raw_rd_access(cache,
 			&(ctrl->raw_desc[metadata_segment_list_info]), line);
 	if (info) {
+		/* Atomic read of the entry (aarch64/amd64) */
+		struct ocf_metadata_list_info t = { .entry = info->entry };
 		if (next)
-			*next = info->next_col;
+			*next = t.next_col;
 		if (prev)
-			*prev = info->prev_col;
+			*prev = t.prev_col;
 	} else {
 		ocf_metadata_error(cache);
 

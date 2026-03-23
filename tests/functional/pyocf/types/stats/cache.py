@@ -31,6 +31,7 @@ class CacheInfo(Structure):
         ("fallback_pt", _FallbackPt),
         ("cleaning_policy", c_uint32),
         ("promotion_policy", c_uint32),
+        ("prefetch_mask", c_uint8),
         ("cache_line_size", c_uint64),
         ("flushed", c_uint32),
         ("core_count", c_uint32),

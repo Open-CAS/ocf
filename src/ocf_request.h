@@ -131,6 +131,11 @@ struct ocf_request_io {
 	uint8_t io_class;
 
 	/**
+	 * @brief Prefetcher id (ocf_pf_none for non-prefetch requests)
+	 */
+	ocf_pf_id_t pf_id;
+
+	/**
 	 * @brief Front volume handle
 	 */
 	ocf_volume_t volume;

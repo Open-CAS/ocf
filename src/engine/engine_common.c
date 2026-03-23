@@ -442,7 +442,7 @@ static int lock_clines(struct ocf_request *req)
  * Caller must assure that request map info is up to date (request
  * is traversed).
  */
-static inline void ocf_prepare_clines_miss(struct ocf_request *req)
+void ocf_prepare_clines_miss(struct ocf_request *req)
 {
 	bool part_has_space;
 
@@ -599,7 +599,7 @@ void ocf_engine_update_request_stats(struct ocf_request *req)
 {
 	ocf_core_stats_request_update(req->core, req->part_id, req->rw,
 			req->info.hit_no, req->core_line_count,
-			req->is_deferred);
+			req->io.pf_id, req->is_deferred);
 }
 
 void inc_fallback_pt_error_counter(ocf_cache_t cache)

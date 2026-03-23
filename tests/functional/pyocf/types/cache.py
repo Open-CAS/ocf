@@ -224,6 +224,13 @@ class AcpParams(IntEnum):
         return self.name
 
 
+class Prefetcher(IntEnum):
+    READAHEAD = 0
+
+    def __str__(self):
+        return self.name
+
+
 class MetadataLayout(IntEnum):
     STRIPING = 0
     SEQUENTIAL = 1
@@ -437,6 +444,32 @@ class Cache:
         self.write_unlock()
         if status:
             raise OcfError("Error setting promotion policy parameter", status)
+
+    def set_prefetch_policy(self, mask):
+        self.write_lock()
+
+        status = self.owner.lib.ocf_mngt_cache_prefetch_set_policy(
+            self.cache_handle, mask
+        )
+
+        self.write_unlock()
+        if status:
+            raise OcfError("Error setting prefetch policy", status)
+
+    def get_prefetch_policy(self):
+        self.read_lock()
+
+        mask = c_uint8()
+
+        status = self.owner.lib.ocf_mngt_cache_prefetch_get_policy(
+            self.cache_handle, byref(mask)
+        )
+
+        self.read_unlock()
+        if status:
+            raise OcfError("Error getting prefetch policy", status)
+
+        return mask.value
 
     def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
         self.write_lock()
@@ -980,6 +1013,11 @@ class Cache:
         line_size = CacheLineSize(cache_info.cache_line_size)
         cache_name = self.owner.lib.ocf_cache_get_name(self).decode("ascii")
 
+        prefetch = []
+        for pf_id in Prefetcher:
+            if cache_info.prefetch_mask & (1 << pf_id):
+                prefetch += [pf_id]
+
         return {
             "attached": cache_info.attached,
             "volume_type": self.owner.volume_types[cache_info.volume_type],
@@ -1001,6 +1039,7 @@ class Cache:
             "state": cache_info.state,
             "cleaning_policy": CleaningPolicy(cache_info.cleaning_policy),
             "promotion_policy": PromotionPolicy(cache_info.promotion_policy),
+            "prefetch": prefetch,
             "cache_line_size": line_size,
             "flushed": CacheLines(cache_info.flushed, line_size),
             "core_count": cache_info.core_count,
@@ -1200,6 +1239,10 @@ lib.ocf_mngt_cache_cleaning_set_param.argtypes = [
     c_uint32,
 ]
 lib.ocf_mngt_cache_cleaning_set_param.restype = c_int
+lib.ocf_mngt_cache_prefetch_set_policy.argtypes = [c_void_p, c_uint8]
+lib.ocf_mngt_cache_prefetch_set_policy.restype = c_int
+lib.ocf_mngt_cache_prefetch_get_policy.argtypes = [c_void_p, POINTER(c_uint8)]
+lib.ocf_mngt_cache_prefetch_get_policy.restype = c_int
 lib.ocf_cache_io_class_get_info.restype = c_int
 lib.ocf_cache_io_class_get_info.argtypes = [c_void_p, c_uint32, c_void_p]
 lib.ocf_mngt_add_partition_to_cache.restype = c_int

@@ -80,6 +80,9 @@ struct ocf_cache_info {
 	ocf_promotion_t promotion_policy;
 		/*!< Promotion policy selected */
 
+	ocf_pf_mask_t prefetch_mask;
+		/*!< Prefetchers selected (bitmask) */
+
 	ocf_cache_line_size_t cache_line_size;
 		/*!< Cache line size in KiB */
 
