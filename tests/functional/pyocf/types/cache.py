@@ -203,6 +203,13 @@ class PrefetchPolicy(IntEnum):
         return self.name
 
 
+class ReadaheadParams(IntEnum):
+    THRESHOLD = 0
+
+    def __str__(self):
+        return self.name
+
+
 class CleaningPolicy(IntEnum):
     NOP = 0
     ALRU = 1

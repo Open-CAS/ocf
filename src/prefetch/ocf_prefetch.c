@@ -12,7 +12,7 @@
 #include "../engine/engine_prefetch.h"
 #include "ocf_env.h"
 #include "ocf_prefetch_priv.h"
-#include "ocf_prefetch_readahead.h"
+#include "ocf_prefetch_readahead_priv.h"
 
 struct ocf_pf_ops {
 	void (*setup)(ocf_cache_t cache);
@@ -27,7 +27,12 @@ struct ocf_pf_ops {
 
 static struct ocf_pf_ops ocf_pf_ops[ocf_pf_num] = {
 	[ocf_pf_readahead] = {
+		.setup = ocf_pf_readahead_setup,
+		.init = ocf_pf_readahead_init,
+		.deinit = ocf_pf_readahead_deinit,
 		.get_range = ocf_pf_readahead_get_range,
+		.set_param = ocf_pf_readahead_set_param,
+		.get_param = ocf_pf_readahead_get_param,
 	},
 };
 
