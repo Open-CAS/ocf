@@ -215,7 +215,7 @@ struct ocf_counters_core {
 void ocf_core_stats_core_block_update(ocf_core_t core, ocf_part_id_t part_id,
 		int dir, uint64_t bytes, ocf_pf_id_t pf_id);
 void ocf_core_stats_cache_block_update(ocf_core_t core, ocf_part_id_t part_id,
-		int dir, uint64_t bytes);
+		int dir, uint64_t bytes, ocf_pf_id_t pf_id);
 void ocf_core_stats_vol_block_update(ocf_core_t core, ocf_part_id_t part_id,
 		int dir, uint64_t bytes);
 void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,

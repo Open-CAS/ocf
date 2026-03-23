@@ -92,10 +92,17 @@ void ocf_core_stats_vol_block_update(ocf_core_t core, ocf_part_id_t part_id,
 }
 
 void ocf_core_stats_cache_block_update(ocf_core_t core, ocf_part_id_t part_id,
-		int dir, uint64_t bytes)
+		int dir, uint64_t bytes, ocf_pf_id_t pf_id)
 {
-	struct ocf_counters_block *counters =
-		&core->counters->part_counters[part_id].cache_blocks;
+	struct ocf_counters_block *counters;
+
+	if (OCF_PF_ID_VALID(pf_id)) {
+		counters = &core->counters->
+				part_counters[part_id].prefetch_blocks[pf_id];
+	} else {
+		counters = &core->counters->
+				part_counters[part_id].cache_blocks;
+	}
 
 	_ocf_stats_block_update(counters, dir, bytes);
 }
@@ -103,15 +110,17 @@ void ocf_core_stats_cache_block_update(ocf_core_t core, ocf_part_id_t part_id,
 void ocf_core_stats_core_block_update(ocf_core_t core, ocf_part_id_t part_id,
 		int dir, uint64_t bytes, ocf_pf_id_t pf_id)
 {
-	struct ocf_counters_block *counters =
-		&core->counters->part_counters[part_id].core_blocks;
+	struct ocf_counters_block *counters;
 
-	_ocf_stats_block_update(counters, dir, bytes);
 	if (OCF_PF_ID_VALID(pf_id)) {
 		counters = &core->counters->
 				part_counters[part_id].prefetch_blocks[pf_id];
-		_ocf_stats_block_update(counters, dir, bytes);
+	} else {
+		counters = &core->counters->
+				part_counters[part_id].core_blocks;
 	}
+
+	_ocf_stats_block_update(counters, dir, bytes);
 }
 
 void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
