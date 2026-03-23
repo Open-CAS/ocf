@@ -68,7 +68,7 @@ static bool ocf_pf_next_sub_range_miss(struct ocf_request *req,
 	return true;
 }
 
-void ocf_prefetch_range(struct ocf_request *req, ocf_pf_id_t pf_id,
+static void ocf_prefetch_range(struct ocf_request *req, ocf_pf_id_t pf_id,
 		struct ocf_pf_range *range)
 {
 	struct ocf_request *prefetch_req = NULL;
