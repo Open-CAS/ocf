@@ -76,7 +76,7 @@ static inline int hash_lock_lock(struct ocf_cache *cache,
 	uint32_t step = 0;
 
 	while (1) {
-		newline.raw = curline.raw = entry->raw;
+		newline.raw = curline.raw = env_atomic_read(entry_raw);
 
 		if (curline.wr)
 			goto next;
@@ -111,7 +111,7 @@ static inline void hash_lock_unlock(struct ocf_cache *cache, int index, int rw)
 	uint32_t step = 0;
 
 	while (1) {
-		newline.raw = curline.raw = entry->raw;
+		newline.raw = curline.raw = env_atomic_read(entry_raw);
 
 		if (curline.wr) {
 			newline.wr = 0;
