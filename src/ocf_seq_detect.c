@@ -240,15 +240,13 @@ void ocf_core_seq_detect_update(ocf_core_t core, struct ocf_request *req)
 	ocf_seq_detect_sync_config(queue_sd, core);
 	ocf_seq_detect_sync_config(core_sd, core);
 
-	if (req->seq_cutoff_core) {
-		env_rwlock_write_lock(&core_sd->lock);
-		stream = ocf_seq_detect_update(core_sd,
-				req->addr, req->bytes, req->rw, false);
-		env_rwlock_write_unlock(&core_sd->lock);
+	env_rwlock_write_lock(&core_sd->lock);
+	stream = ocf_seq_detect_update(core_sd,
+			req->addr, req->bytes, req->rw, false);
+	env_rwlock_write_unlock(&core_sd->lock);
 
-		if (stream)
-			return;
-	}
+	if (stream)
+		return;
 
 	env_rwlock_write_lock(&queue_sd->lock);
 	stream = ocf_seq_detect_update(queue_sd,
