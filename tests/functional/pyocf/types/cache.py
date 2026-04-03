@@ -196,6 +196,13 @@ class NhitParams(IntEnum):
         return self.name
 
 
+class PrefetchPolicy(IntEnum):
+    READAHEAD = 0
+
+    def __str__(self):
+        return self.name
+
+
 class CleaningPolicy(IntEnum):
     NOP = 0
     ALRU = 1
