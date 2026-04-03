@@ -14,6 +14,13 @@
 
 #define OCF_PF_MAX_TOTAL (8 * MiB)
 
+#define PREFETCH_POLICY_CONFIG_BYTES 256
+#define PREFETCH_POLICY_TYPE_MAX ((int)ocf_pf_num)
+
+struct prefetch_policy_config {
+	uint8_t data[PREFETCH_POLICY_CONFIG_BYTES];
+};
+
 #define OCF_PF_ID_VALID(pf_id) ((pf_id) != ocf_pf_none && (pf_id) < ocf_pf_num)
 #define OCF_PF_ID_ENABLED(pf_id, enabled_mask) ((1 << ((pf_id))) & enabled_mask)
 
@@ -30,9 +37,14 @@ struct ocf_pf_range {
 };
 
 void ocf_prefetch(struct ocf_request *req);
+void ocf_prefetch_setup(ocf_cache_t cache);
 void ocf_prefetch_init(ocf_cache_t cache, ocf_core_t core);
 void ocf_prefetch_deinit(ocf_cache_t cache, ocf_core_t core);
 void ocf_prefetch_init_one(ocf_core_t core, ocf_pf_id_t pf_id);
 void ocf_prefetch_deinit_one(ocf_core_t core, ocf_pf_id_t pf_id);
+int ocf_prefetch_set_param(ocf_cache_t cache, ocf_pf_id_t pf_id,
+		uint32_t param_id, uint32_t param_value);
+int ocf_prefetch_get_param(ocf_cache_t cache, ocf_pf_id_t pf_id,
+		uint32_t param_id, uint32_t *param_value);
 
 #endif /* __OCF_PREFETCH_PRIV_H__ */

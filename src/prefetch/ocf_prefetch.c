@@ -15,9 +15,14 @@
 #include "ocf_prefetch_readahead.h"
 
 struct ocf_pf_ops {
+	void (*setup)(ocf_cache_t cache);
 	int (*init)(ocf_core_t core);
 	void (*deinit)(ocf_core_t core);
 	void (*get_range)(struct ocf_request *req, struct ocf_pf_range *range);
+	int (*set_param)(ocf_cache_t cache, uint32_t param_id,
+			uint32_t param_value);
+	int (*get_param)(ocf_cache_t cache, uint32_t param_id,
+			uint32_t *param_value);
 };
 
 static struct ocf_pf_ops ocf_pf_ops[ocf_pf_num] = {
@@ -114,6 +119,38 @@ static void ocf_prefetch_range(struct ocf_request *req, ocf_pf_id_t pf_id,
 
 		curmax_cl = OCF_MIN(curmax_cl, max_total_cl - total_cl);
 	}
+}
+
+void ocf_prefetch_setup(ocf_cache_t cache)
+{
+	ocf_pf_id_t pf_id;
+
+	for_each_pf(pf_id) {
+		if (ocf_pf_ops[pf_id].setup)
+			ocf_pf_ops[pf_id].setup(cache);
+	}
+}
+
+int ocf_prefetch_set_param(ocf_cache_t cache, ocf_pf_id_t pf_id,
+		uint32_t param_id, uint32_t param_value)
+{
+	ENV_BUG_ON(!OCF_PF_ID_VALID(pf_id));
+
+	if (!ocf_pf_ops[pf_id].set_param)
+		return -OCF_ERR_INVAL;
+
+	return ocf_pf_ops[pf_id].set_param(cache, param_id, param_value);
+}
+
+int ocf_prefetch_get_param(ocf_cache_t cache, ocf_pf_id_t pf_id,
+		uint32_t param_id, uint32_t *param_value)
+{
+	ENV_BUG_ON(!OCF_PF_ID_VALID(pf_id));
+
+	if (!ocf_pf_ops[pf_id].get_param)
+		return -OCF_ERR_INVAL;
+
+	return ocf_pf_ops[pf_id].get_param(cache, param_id, param_value);
 }
 
 void ocf_prefetch_init(ocf_cache_t cache, ocf_core_t core)

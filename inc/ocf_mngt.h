@@ -1032,6 +1032,37 @@ int ocf_mngt_cache_prefetch_set_policy(ocf_cache_t cache, ocf_pf_mask_t mask);
 int ocf_mngt_cache_prefetch_get_policy(ocf_cache_t cache, ocf_pf_mask_t *mask);
 
 /**
+ * @brief Set prefetch policy parameter in given cache
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
+ * @param[in] cache Cache handle
+ * @param[in] pf_id Prefetch policy id
+ * @param[in] param_id Prefetch policy parameter id
+ * @param[in] param_value Prefetch policy parameter value
+ *
+ * @retval 0 Parameter has been set successfully
+ * @retval Non-zero Error occurred and parameter has not been set
+ */
+int ocf_mngt_cache_prefetch_set_param(ocf_cache_t cache, ocf_pf_id_t pf_id,
+		uint32_t param_id, uint32_t param_value);
+
+/**
+ * @brief Get prefetch policy parameter from given cache
+ *
+ * @param[in] cache Cache handle
+ * @param[in] pf_id Prefetch policy id
+ * @param[in] param_id Prefetch policy parameter id
+ * @param[out] param_value Variable to store parameter value
+ *
+ * @retval 0 Parameter has been get successfully
+ * @retval Non-zero Error occurred and parameter has not been get
+ */
+int ocf_mngt_cache_prefetch_get_param(ocf_cache_t cache, ocf_pf_id_t pf_id,
+		uint32_t param_id, uint32_t *param_value);
+
+/**
  * @brief IO class configuration
  */
 struct ocf_mngt_io_class_config {

@@ -1586,6 +1586,7 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	cache->conf_meta->cache_mode = params->metadata.cache_mode;
 	cache->conf_meta->promotion_policy_type = params->metadata.promotion_policy;
 	cache->conf_meta->prefetch_mask = OCF_PF_MASK_DEFAULT;
+	ocf_prefetch_setup(cache);
 	__set_cleaning_policy(cache, ocf_cleaning_default);
 
 	/* Init Partitions */
@@ -3802,6 +3803,46 @@ int ocf_mngt_cache_prefetch_get_policy(ocf_cache_t cache, ocf_pf_mask_t *mask)
 	ocf_metadata_end_shared_access(&cache->metadata.lock, 0);
 
 	return 0;
+}
+
+int ocf_mngt_cache_prefetch_set_param(ocf_cache_t cache, ocf_pf_id_t pf_id,
+		uint32_t param_id, uint32_t param_value)
+{
+	int ret;
+
+	OCF_CHECK_NULL(cache);
+
+	if (!OCF_PF_ID_VALID(pf_id))
+		return -OCF_ERR_INVAL;
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
+	if (!ocf_cache_is_device_attached(cache))
+		return -OCF_ERR_CACHE_DETACHED;
+
+	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+
+	ret = ocf_prefetch_set_param(cache, pf_id, param_id, param_value);
+
+	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+
+	return ret;
+}
+
+int ocf_mngt_cache_prefetch_get_param(ocf_cache_t cache, ocf_pf_id_t pf_id,
+		uint32_t param_id, uint32_t *param_value)
+{
+	OCF_CHECK_NULL(cache);
+	OCF_CHECK_NULL(param_value);
+
+	if (!OCF_PF_ID_VALID(pf_id))
+		return -OCF_ERR_INVAL;
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
+	return ocf_prefetch_get_param(cache, pf_id, param_id, param_value);
 }
 
 int ocf_mngt_cache_reset_fallback_pt_error_counter(ocf_cache_t cache)
