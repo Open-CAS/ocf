@@ -306,8 +306,6 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 
 	fastpath = ocf_core_submit_io_fast(req, cache);
 
-	ocf_core_seq_detect_update(core, req);
-
 	if (fastpath == OCF_FAST_PATH_YES)
 		goto prefetch;
 
@@ -321,6 +319,8 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 
 prefetch:
 	ocf_prefetch(req);
+
+	ocf_core_seq_detect_update(core, req);
 
 	ocf_req_put(req);
 
