@@ -123,6 +123,14 @@ void ocf_prefetch(struct ocf_request *req)
 	if (req->rw != OCF_READ)
 		return;
 
+	switch (req->cache_mode) {
+	case ocf_req_cache_mode_pt:
+	case ocf_req_cache_mode_wo:
+		return;
+	default:
+		break;
+	}
+
 	for_each_pf_mask(pf_id, pf_mask)
 		ocf_pf_ops[pf_id].get_range(req, &ranges[pf_id]);
 
