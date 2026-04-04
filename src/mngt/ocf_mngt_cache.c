@@ -188,12 +188,16 @@ static void __init_partitions(ocf_cache_t cache)
 	ocf_part_id_t i_part;
 
 	/* Init default partitions */
-	ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache, PARTITION_DEFAULT,
-			"unclassified", 0, PARTITION_SIZE_MAX,
+	ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache,
+			OCF_IO_CLASS_UNCLASSIFIED,
+			OCF_IO_CLASS_UNCLASSIFIED_NAME, 0,
+			PARTITION_SIZE_MAX,
 			OCF_IO_CLASS_PRIO_LOWEST, true));
 
-	ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache, PARTITION_PREFETCH,
-			"prefetch", 0, PARTITION_SIZE_MAX,
+	ENV_BUG_ON(ocf_mngt_add_partition_to_cache(cache,
+			OCF_IO_CLASS_PREFETCH,
+			OCF_IO_CLASS_PREFETCH_NAME, 0,
+			PARTITION_SIZE_MAX,
 			OCF_IO_CLASS_PRIO_LOWEST, true));
 
 	/* Add other partition to the cache and make it as dummy */
@@ -201,8 +205,8 @@ static void __init_partitions(ocf_cache_t cache)
 		env_refcnt_freeze(&cache->user_parts[i_part].cleaning.counter);
 
 		switch (i_part) {
-		case PARTITION_DEFAULT:
-		case PARTITION_PREFETCH:
+		case OCF_IO_CLASS_UNCLASSIFIED:
+		case OCF_IO_CLASS_PREFETCH:
 			continue;
 		default:
 			break;
@@ -578,7 +582,7 @@ static void ocf_mngt_cline_rebuild_metadata(ocf_cache_t cache,
 		ocf_core_id_t core_id, uint64_t core_line,
 		ocf_cache_line_t cline)
 {
-	ocf_part_id_t part_id = PARTITION_DEFAULT;
+	ocf_part_id_t part_id = OCF_IO_CLASS_UNCLASSIFIED;
 	ocf_cache_line_t hash_index;
 
 	ocf_metadata_set_partition_id(cache, cline, part_id);
@@ -668,7 +672,7 @@ static void ocf_mngt_rebuild_metadata_finish(ocf_parallelize_t parallelize,
 {
 	struct ocf_mngt_rebuild_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	ocf_part_id_t part_id = PARTITION_DEFAULT;
+	ocf_part_id_t part_id = OCF_IO_CLASS_UNCLASSIFIED;
 	struct ocf_part_runtime *part;
 	ocf_core_t core;
 	ocf_core_id_t core_id;

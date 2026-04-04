@@ -111,7 +111,7 @@ static void ocf_prefetch_range(struct ocf_request *req, ocf_pf_id_t pf_id,
 		if (unlikely(!prefetch_req))
 			break;
 
-		prefetch_req->io.io_class = PARTITION_PREFETCH;
+		prefetch_req->io.io_class = OCF_IO_CLASS_PREFETCH;
 		prefetch_req->io.pf_id = pf_id;
 
 		prefetch_req->complete = _ocf_prefetch_complete;

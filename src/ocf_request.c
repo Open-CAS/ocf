@@ -252,7 +252,7 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	req->discard.bytes = bytes;
 	req->discard.handled = 0;
 
-	req->part_id = PARTITION_DEFAULT;
+	req->part_id = OCF_IO_CLASS_UNCLASSIFIED;
 
 	req->lock_idx = ocf_metadata_concurrency_next_idx(queue);
 
