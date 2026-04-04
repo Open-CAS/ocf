@@ -13,6 +13,7 @@
 #include "ocf_ctx_priv.h"
 #include "ocf_volume_priv.h"
 #include "ocf_seq_detect.h"
+#include "ocf/ocf_prefetch.h"
 
 #define ocf_core_log_prefix(core, lvl, prefix, fmt, ...) \
 	ocf_cache_log_prefix(ocf_core_get_cache(core), lvl, ".%s" prefix, \
@@ -92,6 +93,7 @@ struct ocf_core {
 
 	struct ocf_seq_detect *seq_detect;
 
+	void *pf_priv[ocf_pf_num];
 	bool seq_cutoff_active;
 
 	env_atomic flushed;

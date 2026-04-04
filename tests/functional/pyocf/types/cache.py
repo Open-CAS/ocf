@@ -196,6 +196,20 @@ class NhitParams(IntEnum):
         return self.name
 
 
+class PrefetchPolicy(IntEnum):
+    READAHEAD = 0
+
+    def __str__(self):
+        return self.name
+
+
+class ReadaheadParams(IntEnum):
+    THRESHOLD = 0
+
+    def __str__(self):
+        return self.name
+
+
 class CleaningPolicy(IntEnum):
     NOP = 0
     ALRU = 1
@@ -470,6 +484,32 @@ class Cache:
             raise OcfError("Error getting prefetch policy", status)
 
         return mask.value
+
+    def set_prefetch_param(self, pf_id, param_id, param_value):
+        self.write_lock()
+
+        status = self.owner.lib.ocf_mngt_cache_prefetch_set_param(
+            self.cache_handle, pf_id, param_id, param_value
+        )
+
+        self.write_unlock()
+        if status:
+            raise OcfError("Error setting prefetch parameter", status)
+
+    def get_prefetch_param(self, pf_id, param_id):
+        self.read_lock()
+
+        param_value = c_uint32()
+
+        status = self.owner.lib.ocf_mngt_cache_prefetch_get_param(
+            self.cache_handle, pf_id, param_id, byref(param_value)
+        )
+
+        self.read_unlock()
+        if status:
+            raise OcfError("Error getting prefetch parameter", status)
+
+        return param_value.value
 
     def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
         self.write_lock()
@@ -1243,6 +1283,10 @@ lib.ocf_mngt_cache_prefetch_set_policy.argtypes = [c_void_p, c_uint8]
 lib.ocf_mngt_cache_prefetch_set_policy.restype = c_int
 lib.ocf_mngt_cache_prefetch_get_policy.argtypes = [c_void_p, POINTER(c_uint8)]
 lib.ocf_mngt_cache_prefetch_get_policy.restype = c_int
+lib.ocf_mngt_cache_prefetch_set_param.argtypes = [c_void_p, c_uint32, c_uint32, c_uint32]
+lib.ocf_mngt_cache_prefetch_set_param.restype = c_int
+lib.ocf_mngt_cache_prefetch_get_param.argtypes = [c_void_p, c_uint32, c_uint32, POINTER(c_uint32)]
+lib.ocf_mngt_cache_prefetch_get_param.restype = c_int
 lib.ocf_cache_io_class_get_info.restype = c_int
 lib.ocf_cache_io_class_get_info.argtypes = [c_void_p, c_uint32, c_void_p]
 lib.ocf_mngt_add_partition_to_cache.restype = c_int

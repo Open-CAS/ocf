@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -26,6 +27,7 @@
 #include "cleaning/alru.h"
 #include "cleaning/acp.h"
 #include "promotion/nhit.h"
+#include "prefetch/readahead.h"
 #include "ocf_metadata.h"
 #include "ocf_io_class.h"
 #include "ocf_stats.h"

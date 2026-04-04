@@ -19,6 +19,7 @@
 #include "../ocf_queue_priv.h"
 #include "../engine/engine_common.h"
 #include "../ocf_seq_cutoff.h"
+#include "../prefetch/ocf_prefetch_priv.h"
 
 /* Close if opened */
 void cache_mngt_core_deinit(ocf_core_t core)
@@ -132,6 +133,7 @@ void cache_mngt_core_remove_from_cache(ocf_core_t core)
 {
 	ocf_cache_t cache = ocf_core_get_cache(core);
 
+	ocf_prefetch_deinit(cache, core);
 	ocf_core_seq_cutoff_deinit(core);
 	ocf_core_seq_detect_deinit(core);
 	env_free(core->counters);

@@ -12,15 +12,27 @@
 #include "../engine/engine_prefetch.h"
 #include "ocf_env.h"
 #include "ocf_prefetch_priv.h"
-#include "ocf_prefetch_readahead.h"
+#include "ocf_prefetch_readahead_priv.h"
 
 struct ocf_pf_ops {
+	void (*setup)(ocf_cache_t cache);
+	int (*init)(ocf_core_t core);
+	void (*deinit)(ocf_core_t core);
 	void (*get_range)(struct ocf_request *req, struct ocf_pf_range *range);
+	int (*set_param)(ocf_cache_t cache, uint32_t param_id,
+			uint32_t param_value);
+	int (*get_param)(ocf_cache_t cache, uint32_t param_id,
+			uint32_t *param_value);
 };
 
 static struct ocf_pf_ops ocf_pf_ops[ocf_pf_num] = {
 	[ocf_pf_readahead] = {
+		.setup = ocf_pf_readahead_setup,
+		.init = ocf_pf_readahead_init,
+		.deinit = ocf_pf_readahead_deinit,
 		.get_range = ocf_pf_readahead_get_range,
+		.set_param = ocf_pf_readahead_set_param,
+		.get_param = ocf_pf_readahead_get_param,
 	},
 };
 
@@ -114,6 +126,72 @@ static void ocf_prefetch_range(struct ocf_request *req, ocf_pf_id_t pf_id,
 	}
 }
 
+void ocf_prefetch_setup(ocf_cache_t cache)
+{
+	ocf_pf_id_t pf_id;
+
+	for_each_pf(pf_id) {
+		if (ocf_pf_ops[pf_id].setup)
+			ocf_pf_ops[pf_id].setup(cache);
+	}
+}
+
+int ocf_prefetch_set_param(ocf_cache_t cache, ocf_pf_id_t pf_id,
+		uint32_t param_id, uint32_t param_value)
+{
+	ENV_BUG_ON(!OCF_PF_ID_VALID(pf_id));
+
+	if (!ocf_pf_ops[pf_id].set_param)
+		return -OCF_ERR_INVAL;
+
+	return ocf_pf_ops[pf_id].set_param(cache, param_id, param_value);
+}
+
+int ocf_prefetch_get_param(ocf_cache_t cache, ocf_pf_id_t pf_id,
+		uint32_t param_id, uint32_t *param_value)
+{
+	ENV_BUG_ON(!OCF_PF_ID_VALID(pf_id));
+
+	if (!ocf_pf_ops[pf_id].get_param)
+		return -OCF_ERR_INVAL;
+
+	return ocf_pf_ops[pf_id].get_param(cache, param_id, param_value);
+}
+
+void ocf_prefetch_init(ocf_cache_t cache, ocf_core_t core)
+{
+	ocf_pf_mask_t pf_mask = cache->conf_meta->prefetch_mask;
+	ocf_pf_id_t pf_id;
+
+	for_each_pf_mask(pf_id, pf_mask) {
+		if (ocf_pf_ops[pf_id].init)
+			ocf_pf_ops[pf_id].init(core);
+	}
+}
+
+void ocf_prefetch_init_one(ocf_core_t core, ocf_pf_id_t pf_id)
+{
+	if (ocf_pf_ops[pf_id].init)
+		ocf_pf_ops[pf_id].init(core);
+}
+
+void ocf_prefetch_deinit_one(ocf_core_t core, ocf_pf_id_t pf_id)
+{
+	if (ocf_pf_ops[pf_id].deinit)
+		ocf_pf_ops[pf_id].deinit(core);
+}
+
+void ocf_prefetch_deinit(ocf_cache_t cache, ocf_core_t core)
+{
+	ocf_pf_mask_t pf_mask = cache->conf_meta->prefetch_mask;
+	ocf_pf_id_t pf_id;
+
+	for_each_pf_mask(pf_id, pf_mask) {
+		if (ocf_pf_ops[pf_id].deinit)
+			ocf_pf_ops[pf_id].deinit(core);
+	}
+}
+
 void ocf_prefetch(struct ocf_request *req)
 {
 	ocf_pf_mask_t pf_mask = req->cache->conf_meta->prefetch_mask;
@@ -122,6 +200,14 @@ void ocf_prefetch(struct ocf_request *req)
 
 	if (req->rw != OCF_READ)
 		return;
+
+	switch (req->cache_mode) {
+	case ocf_req_cache_mode_pt:
+	case ocf_req_cache_mode_wo:
+		return;
+	default:
+		break;
+	}
 
 	for_each_pf_mask(pf_id, pf_mask)
 		ocf_pf_ops[pf_id].get_range(req, &ranges[pf_id]);
