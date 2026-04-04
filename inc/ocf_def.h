@@ -360,6 +360,15 @@ typedef enum {
  */
 #define OCF_IO_CLASS_INVALID OCF_USER_IO_CLASS_MAX
 
+/** Unclassified IO class ID */
+#define OCF_IO_CLASS_UNCLASSIFIED 0
+/** Unclassified IO class name */
+#define OCF_IO_CLASS_UNCLASSIFIED_NAME "unclassified"
+/** Prefetch IO class ID */
+#define OCF_IO_CLASS_PREFETCH 33
+/** Prefetch IO class name */
+#define OCF_IO_CLASS_PREFETCH_NAME "prefetch"
+
 /** Maximum size of the IO class name */
 #define OCF_IO_CLASS_NAME_MAX 1024
 

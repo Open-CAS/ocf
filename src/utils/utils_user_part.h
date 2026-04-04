@@ -50,7 +50,7 @@ static inline ocf_part_id_t ocf_user_part_class2id(ocf_cache_t cache, uint64_t c
 		if (cache->user_parts[class].config->flags.valid)
 			return class;
 
-	return PARTITION_DEFAULT;
+	return OCF_IO_CLASS_UNCLASSIFIED;
 }
 
 static inline uint32_t ocf_part_get_occupancy(struct ocf_part *part)

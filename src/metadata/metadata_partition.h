@@ -10,8 +10,6 @@
 
 #include "../ocf_cache_priv.h"
 
-#define PARTITION_DEFAULT		0
-#define PARTITION_PREFETCH		33
 #define PARTITION_UNSPECIFIED		((ocf_part_id_t)-1)
 #define PARTITION_FREELIST		(OCF_USER_IO_CLASS_MAX + 1)
 #define PARTITION_FREE_DETACHED		(OCF_USER_IO_CLASS_MAX + 2)

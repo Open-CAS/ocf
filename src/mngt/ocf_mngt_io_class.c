@@ -134,7 +134,8 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 	if (!name[0])
 		return -OCF_ERR_INVAL;
 
-	if (part_id == PARTITION_DEFAULT || part_id == PARTITION_PREFETCH) {
+	if (part_id == OCF_IO_CLASS_UNCLASSIFIED ||
+			part_id == OCF_IO_CLASS_PREFETCH) {
 		/* Special behavior for default partitions */
 
 		if (env_strncmp(name, OCF_IO_CLASS_NAME_MAX,
@@ -207,7 +208,7 @@ static void _ocf_mngt_io_class_remove(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache->device);
 
-	if (part_id == PARTITION_DEFAULT) {
+	if (part_id == OCF_IO_CLASS_UNCLASSIFIED) {
 		ocf_cache_log(cache, log_info,
 				"Cannot remove unclassified IO class, "
 				"id: %u [ ERROR ]\n", part_id);
