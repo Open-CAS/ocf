@@ -436,8 +436,8 @@ static void _ocf_cleaner_core_io_for_dirty_range(struct ocf_request *req,
 	offset = (ocf_line_size(cache) * iter->hash)
 			+ BLOCKS_TO_BYTES(begin);
 
-	ocf_core_stats_core_block_update(req->core, part_id, OCF_WRITE,
-			BLOCKS_TO_BYTES(end - begin), ocf_pf_none);
+	ocf_core_stats_core_block_update_cleaner(req->core, part_id, OCF_WRITE,
+			BLOCKS_TO_BYTES(end - begin));
 
 	OCF_DEBUG_PARAM(req->cache, "Core write, line = %llu, "
 			"block = %llu, count = %llu", iter->core_line, begin,
@@ -579,8 +579,9 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 
 		part_id = ocf_metadata_get_partition_id(cache, iter->coll_idx);
 
-		ocf_core_stats_cache_block_update(req->core, part_id, OCF_READ,
-				ocf_line_size(cache), ocf_pf_none);
+		ocf_core_stats_cache_block_update_cleaner(req->core, part_id,
+				OCF_READ, ocf_line_size(cache));
+		ocf_core_stats_request_update_cleaner(req->core, part_id);
 
 		req->addr = iter->core_line * ocf_line_size(cache);
 

@@ -96,6 +96,7 @@ struct ocf_stats_requests {
 	struct ocf_stat wr_pt;
 	struct ocf_stat serviced;
 	struct ocf_stat prefetch[ocf_pf_num];
+	struct ocf_stat cleaner;
 	struct ocf_stat user;
 	struct ocf_stat total;
 };
@@ -137,6 +138,8 @@ struct ocf_stats_blocks {
 	struct ocf_stat pass_through_total;
 	struct ocf_stat prefetch_core_rd[ocf_pf_num];
 	struct ocf_stat prefetch_cache_wr[ocf_pf_num];
+	struct ocf_stat cleaner_cache_rd;
+	struct ocf_stat cleaner_core_wr;
 };
 
 /**

@@ -64,6 +64,7 @@ class RequestsStats(Structure):
         ("wr_pt", _Stat),
         ("serviced", _Stat),
         ("prefetch", _Stat * PF_ID_NUM),
+        ("cleaner", _Stat),
         ("user", _Stat),
         ("total", _Stat),
     ]
@@ -85,6 +86,8 @@ class BlocksStats(Structure):
         ("pt_total", _Stat),
         ("prefetch_core_rd", _Stat * PF_ID_NUM),
         ("prefetch_cache_wr", _Stat * PF_ID_NUM),
+        ("cleaner_cache_rd", _Stat),
+        ("cleaner_core_wr", _Stat),
     ]
 
 

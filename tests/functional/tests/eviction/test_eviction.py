@@ -106,10 +106,13 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
     assert pt_writes_first["value"] == 0
     assert pt_writes_second["value"] == 1
     assert second_block_sts["cache_volume_wr"]["value"] == valid_io_size.blocks_4k
-    assert (
-        second_block_sts["core_volume_wr"]["value"]
-        == valid_io_size.blocks_4k + io_size_bigger_than_cache.blocks_4k
-    )
+    if mode.lazy_write():
+        assert second_block_sts["core_volume_wr"]["value"] == io_size_bigger_than_cache.blocks_4k
+        assert second_block_sts["cleaner_core_wr"]["value"] == valid_io_size.blocks_4k
+    else:
+        assert second_block_sts["core_volume_wr"]["value"] == (
+            valid_io_size.blocks_4k + io_size_bigger_than_cache.blocks_4k
+        )
 
 
 @pytest.mark.parametrize("io_dir", IoDir)

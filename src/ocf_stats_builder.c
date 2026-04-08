@@ -22,6 +22,8 @@ static void _fill_req(struct ocf_stats_requests *req, struct ocf_stats_core *s)
 			s->write_reqs.pass_through;
 	uint64_t hit;
 	uint64_t prefetch_total = 0;
+	uint64_t cleaner_total;
+	uint64_t internal_total;
 	ocf_pf_id_t pf_id;
 
 	/* Reads Section */
@@ -55,9 +57,14 @@ static void _fill_req(struct ocf_stats_requests *req, struct ocf_stats_core *s)
 				prefetch_total);
 	}
 
+	/* Cleaner Section */
+	cleaner_total = s->cleaner_reqs.total;
+	_set(&req->cleaner, cleaner_total, cleaner_total);
+
 	/* Summary */
+	internal_total = prefetch_total + cleaner_total;
 	_set(&req->user, total, total);
-	_set(&req->total, total + prefetch_total, total + prefetch_total);
+	_set(&req->total, total + internal_total, total + internal_total);
 }
 
 static void _fill_req_part(struct ocf_stats_requests *req,
@@ -68,6 +75,8 @@ static void _fill_req_part(struct ocf_stats_requests *req,
 			s->write_reqs.pass_through;
 	uint64_t hit;
 	uint64_t prefetch_total = 0;
+	uint64_t cleaner_total;
+	uint64_t internal_total;
 	ocf_pf_id_t pf_id;
 
 	/* Reads Section */
@@ -101,9 +110,14 @@ static void _fill_req_part(struct ocf_stats_requests *req,
 				prefetch_total);
 	}
 
+	/* Cleaner Section */
+	cleaner_total = s->cleaner_reqs.total;
+	_set(&req->cleaner, cleaner_total, cleaner_total);
+
 	/* Summary */
+	internal_total = prefetch_total + cleaner_total;
 	_set(&req->total, total, total);
-	_set(&req->total, total + prefetch_total, total + prefetch_total);
+	_set(&req->total, total + internal_total, total + internal_total);
 }
 
 static void _fill_blocks(struct ocf_stats_blocks *blocks,
@@ -111,6 +125,7 @@ static void _fill_blocks(struct ocf_stats_blocks *blocks,
 {
 	uint64_t rd, wr, total;
 	uint64_t pf_rd, pf_wr;
+	uint64_t cl_rd, cl_wr;
 	ocf_pf_id_t pf_id;
 
 	/* Core volume */
@@ -120,6 +135,7 @@ static void _fill_blocks(struct ocf_stats_blocks *blocks,
 
 	for_each_pf(pf_id)
 		total += _bytes4k(s->prefetch_blocks[pf_id].read);
+	total += _bytes4k(s->cleaner_blocks.write);
 
 	_set(&blocks->core_volume_rd, rd, total);
 	_set(&blocks->core_volume_wr, wr, total);
@@ -132,6 +148,7 @@ static void _fill_blocks(struct ocf_stats_blocks *blocks,
 
 	for_each_pf(pf_id)
 		total += _bytes4k(s->prefetch_blocks[pf_id].write);
+	total += _bytes4k(s->cleaner_blocks.read);
 
 	_set(&blocks->cache_volume_rd, rd, total);
 	_set(&blocks->cache_volume_wr, wr, total);
@@ -162,6 +179,12 @@ static void _fill_blocks(struct ocf_stats_blocks *blocks,
 		pf_wr = _bytes4k(s->prefetch_blocks[pf_id].write);
 		_set(&blocks->prefetch_cache_wr[pf_id], pf_wr, total);
 	}
+
+	/* Cleaner */
+	cl_rd = _bytes4k(s->cleaner_blocks.read);
+	_set(&blocks->cleaner_cache_rd, cl_rd, total);
+	cl_wr = _bytes4k(s->cleaner_blocks.write);
+	_set(&blocks->cleaner_core_wr, cl_wr, total);
 }
 
 static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
@@ -169,6 +192,7 @@ static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
 {
 	uint64_t rd, wr, total;
 	uint64_t pf_rd, pf_wr;
+	uint64_t cl_rd, cl_wr;
 	ocf_pf_id_t pf_id;
 
 	/* Core volume */
@@ -178,6 +202,7 @@ static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
 
 	for_each_pf(pf_id)
 		total += _bytes4k(s->prefetch_blocks[pf_id].read);
+	total += _bytes4k(s->cleaner_blocks.write);
 
 	_set(&blocks->core_volume_rd, rd, total);
 	_set(&blocks->core_volume_wr, wr, total);
@@ -190,6 +215,7 @@ static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
 
 	for_each_pf(pf_id)
 		total += _bytes4k(s->prefetch_blocks[pf_id].write);
+	total += _bytes4k(s->cleaner_blocks.read);
 
 	_set(&blocks->cache_volume_rd, rd, total);
 	_set(&blocks->cache_volume_wr, wr, total);
@@ -220,6 +246,12 @@ static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
 		pf_wr = _bytes4k(s->prefetch_blocks[pf_id].write);
 		_set(&blocks->prefetch_cache_wr[pf_id], pf_wr, total);
 	}
+
+	/* Cleaner */
+	cl_rd = _bytes4k(s->cleaner_blocks.read);
+	_set(&blocks->cleaner_cache_rd, cl_rd, total);
+	cl_wr = _bytes4k(s->cleaner_blocks.write);
+	_set(&blocks->cleaner_core_wr, cl_wr, total);
 }
 
 static void _fill_errors(struct ocf_stats_errors *errors,
@@ -308,6 +340,10 @@ static int _accumulate_io_class_stats(ocf_core_t core, void *cntx)
 		_accumulate_block(&total->prefetch_blocks[pf_id],
 				&stats.prefetch_blocks[pf_id]);
 	}
+
+	/* Cleaner section */
+	_accumulate_reqs(&total->cleaner_reqs, &stats.cleaner_reqs);
+	_accumulate_block(&total->cleaner_blocks, &stats.cleaner_blocks);
 
 	return 0;
 }
@@ -506,6 +542,9 @@ static int _accumulate_stats(ocf_core_t core, void *cntx)
 		_accumulate_block(&total->prefetch_blocks[pf_id],
 				&stats.prefetch_blocks[pf_id]);
 	}
+
+	_accumulate_reqs(&total->cleaner_reqs, &stats.cleaner_reqs);
+	_accumulate_block(&total->cleaner_blocks, &stats.cleaner_blocks);
 
 	return 0;
 }
