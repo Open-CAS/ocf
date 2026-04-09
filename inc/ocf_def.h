@@ -94,7 +94,9 @@
  * for invalid OCF_CORE_ID_INVALID.
  */
 #define OCF_CORE_NUM 4096
-_Static_assert(OCF_CORE_NUM < OCF_MAX_T(uint32_t, OCF_CORE_ID_BITS));
+_Static_assert(OCF_MAX_T(uint32_t, OCF_CORE_ID_BITS) > OCF_CORE_NUM,
+	       "Not enough core ID bits (OCF_CORE_ID_BITS) to "
+	       "store maximum number of cores (OCF_CORE_NUM)");
 /**
  * Minimum value of a valid core ID
  */
