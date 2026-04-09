@@ -98,6 +98,12 @@ struct ocf_stats_io_class {
 	/** Prefetch block per prefetcher */
 	struct ocf_stats_block prefetch_blocks[ocf_pf_num];
 
+	/** Cleaner requests statistics */
+	struct ocf_stats_req cleaner_reqs;
+
+	/** Cleaner block statistics */
+	struct ocf_stats_block cleaner_blocks;
+
 	/** Block requests for ocf volume statistics */
 	struct ocf_stats_block blocks;
 
@@ -162,6 +168,12 @@ struct ocf_stats_core {
 	/** Block requests submitted by Prefetcher to this core */
 	struct ocf_stats_block prefetch_blocks[ocf_pf_num];
 
+	/** Cleaner requests statistics */
+	struct ocf_stats_req cleaner_reqs;
+
+	/** Cleaner block statistics */
+	struct ocf_stats_block cleaner_blocks;
+
 	/** Pass Through block requests statistics */
 	struct ocf_stats_block pass_through_blocks;
 
@@ -182,9 +194,11 @@ struct ocf_counters_part {
 	struct ocf_counters_req read_reqs;
 	struct ocf_counters_req write_reqs;
 	struct ocf_counters_req prefetch_reqs[ocf_pf_num];
+	struct ocf_counters_req cleaner_reqs;
 
 	struct ocf_counters_block blocks;
 	struct ocf_counters_block prefetch_blocks[ocf_pf_num];
+	struct ocf_counters_block cleaner_blocks;
 
 	struct ocf_counters_block core_blocks;
 	struct ocf_counters_block cache_blocks;
@@ -221,11 +235,18 @@ void ocf_core_stats_vol_block_update(ocf_core_t core, ocf_part_id_t part_id,
 void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
 		int dir, uint64_t bytes);
 
+void ocf_core_stats_cache_block_update_cleaner(ocf_core_t core,
+		ocf_part_id_t part_id, int dir, uint64_t bytes);
+void ocf_core_stats_core_block_update_cleaner(ocf_core_t core,
+		ocf_part_id_t part_id, int dir, uint64_t bytes);
+
 void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
 		uint8_t dir, uint64_t hit_no, uint64_t core_line_count,
 		ocf_pf_id_t pf_id, uint8_t deferred);
 void ocf_core_stats_request_pt_update(ocf_core_t core, ocf_part_id_t part_id,
 		uint8_t dir, uint64_t hit_no, uint64_t core_line_count);
+void ocf_core_stats_request_update_cleaner(ocf_core_t core,
+		ocf_part_id_t part_id);
 
 void ocf_core_stats_core_error_update(ocf_core_t core, uint8_t dir);
 void ocf_core_stats_cache_error_update(ocf_core_t core, uint8_t dir);

@@ -54,6 +54,8 @@ static void ocf_stats_part_init(struct ocf_counters_part *stats)
 		ocf_stats_req_init(&stats->prefetch_reqs[pf_id]);
 		ocf_stats_block_init(&stats->prefetch_blocks[pf_id]);
 	}
+	ocf_stats_req_init(&stats->cleaner_reqs);
+	ocf_stats_block_init(&stats->cleaner_blocks);
 
 	ocf_stats_block_init(&stats->blocks);
 	ocf_stats_block_init(&stats->core_blocks);
@@ -130,6 +132,33 @@ void ocf_core_stats_pt_block_update(ocf_core_t core, ocf_part_id_t part_id,
 		&core->counters->part_counters[part_id].pass_through_blocks;
 
 	_ocf_stats_block_update(counters, dir, bytes);
+}
+
+void ocf_core_stats_cache_block_update_cleaner(ocf_core_t core,
+		ocf_part_id_t part_id, int dir, uint64_t bytes)
+{
+	struct ocf_counters_block *counters =
+		&core->counters->part_counters[part_id].cleaner_blocks;
+
+	_ocf_stats_block_update(counters, dir, bytes);
+}
+
+void ocf_core_stats_core_block_update_cleaner(ocf_core_t core,
+		ocf_part_id_t part_id, int dir, uint64_t bytes)
+{
+	struct ocf_counters_block *counters =
+		&core->counters->part_counters[part_id].cleaner_blocks;
+
+	_ocf_stats_block_update(counters, dir, bytes);
+}
+
+void ocf_core_stats_request_update_cleaner(ocf_core_t core,
+		ocf_part_id_t part_id)
+{
+	struct ocf_counters_req *counters =
+		&core->counters->part_counters[part_id].cleaner_reqs;
+
+	env_atomic64_inc(&counters->total);
 }
 
 void ocf_core_stats_request_update(ocf_core_t core, ocf_part_id_t part_id,
@@ -359,6 +388,9 @@ int ocf_core_io_class_get_stats(ocf_core_t core, ocf_part_id_t part_id,
 				 &part_stat->prefetch_blocks[pf_id]);
 	}
 
+	copy_req_stats(&stats->cleaner_reqs, &part_stat->cleaner_reqs);
+	copy_block_stats(&stats->cleaner_blocks, &part_stat->cleaner_blocks);
+
 	copy_block_stats(&stats->blocks, &part_stat->blocks);
 	copy_block_stats(&stats->cache_blocks, &part_stat->cache_blocks);
 	copy_block_stats(&stats->core_blocks, &part_stat->core_blocks);
@@ -412,6 +444,11 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats)
 			accum_block_stats(&stats->prefetch_blocks[pf_id],
 					  &curr->prefetch_blocks[pf_id]);
 		}
+
+		accum_req_stats(&stats->cleaner_reqs,
+				&curr->cleaner_reqs);
+		accum_block_stats(&stats->cleaner_blocks,
+				  &curr->cleaner_blocks);
 
 		accum_block_stats(&stats->core, &curr->blocks);
 		accum_block_stats(&stats->core_volume, &curr->core_blocks);
