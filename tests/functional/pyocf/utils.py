@@ -200,9 +200,13 @@ class Size:
         return Size(self.bytes * int(other))
 
     def __truediv__(self, other):
+        if isinstance(other, Size):
+            return self.bytes / other.bytes
         return Size(self.bytes / int(other))
 
     def __floordiv__(self, other):
+        if isinstance(other, Size):
+            return self.bytes // other.bytes
         return Size(self.bytes // int(other))
 
     def __rmul__(self, other):

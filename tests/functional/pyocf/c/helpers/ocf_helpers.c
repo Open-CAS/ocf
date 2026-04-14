@@ -7,6 +7,8 @@
 #include "ocf/ocf.h"
 #include "../src/ocf/ocf_def_priv.h"
 
+uint64_t ocf_env_tick_count_offset = 0;
+
 bool ocf_is_block_size_4k(void)
 {
 #ifdef OCF_BLOCK_SIZE_4K

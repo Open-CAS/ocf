@@ -19,6 +19,7 @@ from pyocf.types.cvolume import CVolume
 from pyocf.types.ctx import OcfCtx
 from pyocf.helpers import get_composite_volume_type_id
 from pyocf.types.volume import Volume
+from pyocf.time import reset_time
 import warnings
 
 default_registered_volumes = [RamVolume, ErrorDevice, CacheVolume, CoreVolume, ReplicatedVolume]
@@ -44,6 +45,7 @@ def pyocf_ctx(request):
     c.register_internal_volume_type_id(CVolume, get_composite_volume_type_id())
     yield c
     c.exit()
+    reset_time()
     gc.collect()
     if getattr(request.node, "test_failed", False):
         return

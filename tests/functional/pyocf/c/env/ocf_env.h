@@ -3,16 +3,15 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+/*
+ * Custom ocf_env.h for pyocf test environment.
+ *
+ * Replaces OCF_ENV_POSIX_TIME with a custom implementation that supports
+ * controllable time offset for testing.
+ */
+
 #ifndef __OCF_ENV_H__
 #define __OCF_ENV_H__
-
-/*
- * Default posix environment configuration.
- *
- * Each section in ocf_env_default.h is guarded by an OCF_ENV_POSIX_*
- * define. To replace a section with a custom implementation, remove the
- * corresponding define below and provide your own definitions.
- */
 
 #define OCF_ENV_POSIX_DEBUG
 #define OCF_ENV_POSIX_STRING
@@ -26,11 +25,13 @@
 #define OCF_ENV_POSIX_RWLOCK
 #define OCF_ENV_POSIX_BIT
 #define OCF_ENV_POSIX_SCHEDULING
-#define OCF_ENV_POSIX_TIME
+/* OCF_ENV_POSIX_TIME intentionally not defined - using custom impl */
 #define OCF_ENV_POSIX_SORTING
 #define OCF_ENV_POSIX_CRC
 #define OCF_ENV_POSIX_EXECUTION_CONTEXT
 
 #include "ocf_env_default.h"
+
+#include "ocf_env_time.h"
 
 #endif /* __OCF_ENV_H__ */
