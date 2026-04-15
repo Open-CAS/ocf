@@ -7,6 +7,7 @@
 
 #include "ocf/ocf.h"
 #include "ocf_priv.h"
+#include "ocf_cache_priv.h"
 #include "ocf_env.h"
 #include "metadata/metadata.h"
 #include "engine/cache_engine.h"
@@ -303,18 +304,11 @@ static void _accumulate_errors(struct ocf_stats_error *to,
 	to->write += from->write;
 }
 
-struct io_class_stats_context {
-	struct ocf_stats_io_class *stats;
-	ocf_part_id_t part_id;
-};
-
-static int _accumulate_io_class_stats(ocf_core_t core, void *cntx)
+static int _accumulate_io_class_stats(ocf_core_t core, ocf_part_id_t part_id,
+		struct ocf_stats_io_class *total)
 {
 	int result;
 	struct ocf_stats_io_class stats;
-	struct ocf_stats_io_class *total =
-		((struct io_class_stats_context*)cntx)->stats;
-	ocf_part_id_t part_id = ((struct io_class_stats_context*)cntx)->part_id;
 	ocf_pf_id_t pf_id;
 
 	result = ocf_core_io_class_get_stats(core, part_id, &stats);
@@ -418,8 +412,9 @@ int ocf_stats_collect_part_cache(ocf_cache_t cache, ocf_part_id_t part_id,
 		struct ocf_stats_usage *usage, struct ocf_stats_requests *req,
 		struct ocf_stats_blocks *blocks)
 {
-	struct io_class_stats_context ctx;
 	struct ocf_stats_io_class s = {};
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 	int result = 0;
 
 	OCF_CHECK_NULL(cache);
@@ -434,12 +429,13 @@ int ocf_stats_collect_part_cache(ocf_cache_t cache, ocf_part_id_t part_id,
 	_ocf_stats_zero(req);
 	_ocf_stats_zero(blocks);
 
-	ctx.part_id = part_id;
-	ctx.stats = &s;
-
-	result = ocf_core_visit(cache, _accumulate_io_class_stats, &ctx, true);
-	if (result)
-		return result;
+	for_each_core(cache, core, core_id) {
+		if (!core->opened)
+			continue;
+		result = _accumulate_io_class_stats(core, part_id, &s);
+		if (result)
+			return result;
+	}
 
 	_ocf_stats_part_fill(cache, part_id, &s, usage, req, blocks);
 
@@ -515,9 +511,9 @@ mem_free:
 	return result;
 }
 
-static int _accumulate_stats(ocf_core_t core, void *cntx)
+static int _accumulate_stats(ocf_core_t core, struct ocf_stats_core *total)
 {
-	struct ocf_stats_core stats, *total = cntx;
+	struct ocf_stats_core stats;
 	int result;
 	ocf_pf_id_t pf_id;
 
@@ -558,6 +554,8 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
 	uint64_t cache_line_size;
 	struct ocf_cache_info info;
 	struct ocf_stats_core *s;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 	int result;
 
 	OCF_CHECK_NULL(cache);
@@ -582,9 +580,13 @@ int ocf_stats_collect_cache(ocf_cache_t cache,
 	_ocf_stats_zero(blocks);
 	_ocf_stats_zero(errors);
 
-	result = ocf_core_visit(cache, _accumulate_stats, s, true);
-	if (result)
-		goto mem_free;
+	for_each_core(cache, core, core_id) {
+		if (!core->opened)
+			continue;
+		result = _accumulate_stats(core, s);
+		if (result)
+			goto mem_free;
+	}
 
 	if (usage) {
 		_set(&usage->occupancy,
