@@ -120,33 +120,35 @@ uint32_t ocf_core_get_seq_detect_promotion_threshold(ocf_core_t core)
 			&core->conf_meta->seq_detect_promotion_threshold);
 }
 
-int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
+static ocf_core_t _ocf_core_get_next_from(ocf_cache_t cache, ocf_core_id_t id,
 		bool only_opened)
 {
-	ocf_core_id_t id;
-	int result = 0;
-
-	OCF_CHECK_NULL(cache);
-
-	if (ocf_cache_is_standby(cache))
-		return -OCF_ERR_CACHE_STANDBY;
-
-	if (!visitor)
-		return -OCF_ERR_INVAL;
-
-	for (id = 0; id < OCF_CORE_NUM; id++) {
+	for (; id < OCF_CORE_NUM; id++) {
 		if (!env_bit_test(id, cache->conf_meta->valid_core_bitmap))
 			continue;
 
 		if (only_opened && !cache->core[id].opened)
 			continue;
 
-		result = visitor(&cache->core[id], cntx);
-		if (result)
-			break;
+		return &cache->core[id];
 	}
 
-	return result;
+	return NULL;
+}
+
+ocf_core_t ocf_core_get_first(ocf_cache_t cache, bool only_opened)
+{
+	OCF_CHECK_NULL(cache);
+
+	return _ocf_core_get_next_from(cache, 0, only_opened);
+}
+
+ocf_core_t ocf_core_get_next(ocf_core_t core, bool only_opened)
+{
+	OCF_CHECK_NULL(core);
+
+	return _ocf_core_get_next_from(ocf_core_get_cache(core),
+			ocf_core_get_id(core) + 1, only_opened);
 }
 
 /* *** HELPER FUNCTIONS *** */

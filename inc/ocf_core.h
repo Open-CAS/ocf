@@ -178,30 +178,35 @@ static inline void ocf_core_submit_discard(ocf_io_t io)
 }
 
 /**
- * @brief Core visitor function type which is called back when iterating over
- * cores.
- *
- * @param[in] core Core which is currently iterated (visited)
- * @param[in] cntx Visitor context
- *
- * @retval 0 continue visiting cores
- * @retval Non-zero stop iterating and return result
- */
-typedef int (*ocf_core_visitor_t)(ocf_core_t core, void *cntx);
-
-/**
- * @brief Run visitor function for each core of given cache
+ * @brief Get first core of given cache
  *
  * @param[in] cache OCF cache instance
- * @param[in] visitor Visitor function
- * @param[in] cntx Visitor context
- * @param[in] only_opened Visit only opened cores
+ * @param[in] only_opened Get only opened core
  *
- * @retval 0 Success
- * @retval Non-zero Fail
+ * @retval First core of the cache, or NULL if there are no matching cores
  */
-int ocf_core_visit(ocf_cache_t cache, ocf_core_visitor_t visitor, void *cntx,
-		bool only_opened);
+ocf_core_t ocf_core_get_first(ocf_cache_t cache, bool only_opened);
+
+/**
+ * @brief Get next core of given cache
+ *
+ * @param[in] core Current core
+ * @param[in] only_opened Get only opened core
+ *
+ * @retval Next core of the cache, or NULL if there are no more matching cores
+ */
+ocf_core_t ocf_core_get_next(ocf_core_t core, bool only_opened);
+
+/**
+ * @brief Iterate over all cores of given cache
+ *
+ * @param[out] _core Loop cursor of type ocf_core_t
+ * @param[in] _cache OCF cache instance
+ * @param[in] _only_opened Iterate over opened cores only
+ */
+#define ocf_core_for_each(_core, _cache, _only_opened) \
+	for (_core = ocf_core_get_first(_cache, _only_opened); _core; \
+			_core = ocf_core_get_next(_core, _only_opened))
 
 /**
  * @brief Get info of given core object

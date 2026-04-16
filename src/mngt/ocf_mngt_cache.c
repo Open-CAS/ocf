@@ -3270,21 +3270,13 @@ void ocf_mngt_cache_attach(ocf_cache_t cache,
 	_ocf_mngt_cache_attach(cache, cfg, _ocf_mngt_cache_attach_complete, cmpl, priv);
 }
 
-static int _ocf_mngt_cache_load_core_log(ocf_core_t core, void *cntx)
-{
-	if (ocf_core_state_active == ocf_core_get_state(core))
-		ocf_core_log(core, log_info, "Successfully added\n");
-	else
-		ocf_core_log(core, log_warn, "Failed to initialize\n");
-
-	return 0;
-}
-
 static void _ocf_mngt_cache_load_log(ocf_cache_t cache)
 {
 	ocf_cache_mode_t cache_mode = ocf_cache_get_mode(cache);
 	ocf_cleaning_t cleaning_type = cache->cleaner.policy;
 	ocf_promotion_t promotion_type = cache->conf_meta->promotion_policy_type;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
 
 	ocf_cache_log(cache, log_info, "Successfully loaded\n");
 	ocf_cache_log(cache, log_info, "Cache mode : %s\n",
@@ -3293,8 +3285,13 @@ static void _ocf_mngt_cache_load_log(ocf_cache_t cache)
 			ocf_cleaning_get_name(cleaning_type));
 	ocf_cache_log(cache, log_info, "Promotion policy : %s\n",
 			ocf_promotion_policies[promotion_type].name);
-	ocf_core_visit(cache, _ocf_mngt_cache_load_core_log,
-			cache, false);
+
+	for_each_core(cache, core, core_id) {
+		if (ocf_core_state_active == ocf_core_get_state(core))
+			ocf_core_log(core, log_info, "Successfully added\n");
+		else
+			ocf_core_log(core, log_warn, "Failed to initialize\n");
+	}
 }
 
 static void _ocf_mngt_cache_load_complete(ocf_cache_t cache, void *priv1,

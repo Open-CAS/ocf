@@ -1017,9 +1017,9 @@ int ocf_mngt_core_get_user_metadata(ocf_core_t core, void *data, size_t size)
 			OCF_CORE_USER_DATA_SIZE);
 }
 
-static int _cache_mngt_set_core_seq_cutoff_threshold(ocf_core_t core, void *cntx)
+static int _cache_mngt_set_core_seq_cutoff_threshold(ocf_core_t core,
+		uint32_t threshold)
 {
-	uint32_t threshold = *(uint32_t*) cntx;
 	uint32_t threshold_old = ocf_core_get_seq_cutoff_threshold(core);
 
 	if (threshold < OCF_SEQ_CUTOFF_MIN_THRESHOLD ||
@@ -1058,12 +1058,16 @@ int ocf_mngt_core_set_seq_cutoff_threshold(ocf_core_t core, uint32_t thresh)
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	return _cache_mngt_set_core_seq_cutoff_threshold(core, &thresh);
+	return _cache_mngt_set_core_seq_cutoff_threshold(core, thresh);
 }
 
 int ocf_mngt_core_set_seq_cutoff_threshold_all(ocf_cache_t cache,
 		uint32_t thresh)
 {
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	int result;
+
 	OCF_CHECK_NULL(cache);
 
 	if (ocf_cache_is_standby(cache))
@@ -1072,8 +1076,16 @@ int ocf_mngt_core_set_seq_cutoff_threshold_all(ocf_cache_t cache,
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	return ocf_core_visit(cache, _cache_mngt_set_core_seq_cutoff_threshold,
-			&thresh, true);
+	for_each_core(cache, core, core_id) {
+		if (!core->opened)
+			continue;
+		result = _cache_mngt_set_core_seq_cutoff_threshold(core,
+				thresh);
+		if (result)
+			return result;
+	}
+
+	return 0;
 }
 
 int ocf_mngt_core_get_seq_cutoff_threshold(ocf_core_t core, uint32_t *thresh)
@@ -1107,9 +1119,9 @@ static const char *_cache_mngt_seq_cutoff_policy_get_name(
 	return _ocf_seq_cutoff_policy_names[policy];
 }
 
-static int _cache_mngt_set_core_seq_cutoff_policy(ocf_core_t core, void *cntx)
+static int _cache_mngt_set_core_seq_cutoff_policy(ocf_core_t core,
+		ocf_seq_cutoff_policy policy)
 {
-	ocf_seq_cutoff_policy policy = *(ocf_seq_cutoff_policy*) cntx;
 	uint32_t policy_old = ocf_core_get_seq_cutoff_policy(core);
 
 	if (policy_old == policy) {
@@ -1149,11 +1161,16 @@ int ocf_mngt_core_set_seq_cutoff_policy(ocf_core_t core,
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	return _cache_mngt_set_core_seq_cutoff_policy(core, &policy);
+	return _cache_mngt_set_core_seq_cutoff_policy(core, policy);
 }
+
 int ocf_mngt_core_set_seq_cutoff_policy_all(ocf_cache_t cache,
 		ocf_seq_cutoff_policy policy)
 {
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	int result;
+
 	OCF_CHECK_NULL(cache);
 
 	if (ocf_cache_is_standby(cache))
@@ -1162,8 +1179,15 @@ int ocf_mngt_core_set_seq_cutoff_policy_all(ocf_cache_t cache,
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	return ocf_core_visit(cache, _cache_mngt_set_core_seq_cutoff_policy,
-						  &policy, true);
+	for_each_core(cache, core, core_id) {
+		if (!core->opened)
+			continue;
+		result = _cache_mngt_set_core_seq_cutoff_policy(core, policy);
+		if (result)
+			return result;
+	}
+
+	return 0;
 }
 
 int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
@@ -1184,9 +1208,8 @@ int ocf_mngt_core_get_seq_cutoff_policy(ocf_core_t core,
 }
 
 static int _cache_mngt_set_core_seq_detect_promo_count(ocf_core_t core,
-		void *cntx)
+		uint32_t count)
 {
-	uint32_t count = *(uint32_t*) cntx;
 	uint32_t count_old = ocf_core_get_seq_detect_promotion_count(core);
 
 	if (count < OCF_SEQ_DETECT_MIN_PROMOTION_COUNT ||
@@ -1226,12 +1249,16 @@ int ocf_mngt_core_set_seq_detect_promotion_count(ocf_core_t core,
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	return _cache_mngt_set_core_seq_detect_promo_count(core, &count);
+	return _cache_mngt_set_core_seq_detect_promo_count(core, count);
 }
 
 int ocf_mngt_core_set_seq_detect_promotion_count_all(ocf_cache_t cache,
 		uint32_t count)
 {
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	int result;
+
 	OCF_CHECK_NULL(cache);
 
 	if (ocf_cache_is_standby(cache))
@@ -1240,9 +1267,16 @@ int ocf_mngt_core_set_seq_detect_promotion_count_all(ocf_cache_t cache,
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	return ocf_core_visit(cache,
-			_cache_mngt_set_core_seq_detect_promo_count,
-			&count, true);
+	for_each_core(cache, core, core_id) {
+		if (!core->opened)
+			continue;
+		result = _cache_mngt_set_core_seq_detect_promo_count(core,
+				count);
+		if (result)
+			return result;
+	}
+
+	return 0;
 }
 
 int ocf_mngt_core_get_seq_detect_promotion_count(ocf_core_t core,
@@ -1263,9 +1297,8 @@ int ocf_mngt_core_get_seq_detect_promotion_count(ocf_core_t core,
 }
 
 static int _cache_mngt_set_core_seq_detect_promo_threshold(
-		ocf_core_t core, void *cntx)
+		ocf_core_t core, uint32_t threshold)
 {
-	uint32_t threshold = *(uint32_t *) cntx;
 	uint32_t threshold_old =
 			ocf_core_get_seq_detect_promotion_threshold(core);
 
@@ -1307,13 +1340,16 @@ int ocf_mngt_core_set_seq_detect_promotion_threshold(ocf_core_t core,
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	return _cache_mngt_set_core_seq_detect_promo_threshold(core,
-			&threshold);
+	return _cache_mngt_set_core_seq_detect_promo_threshold(core, threshold);
 }
 
 int ocf_mngt_core_set_seq_detect_promotion_threshold_all(ocf_cache_t cache,
 		uint32_t threshold)
 {
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	int result;
+
 	OCF_CHECK_NULL(cache);
 
 	if (ocf_cache_is_standby(cache))
@@ -1322,9 +1358,16 @@ int ocf_mngt_core_set_seq_detect_promotion_threshold_all(ocf_cache_t cache,
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	return ocf_core_visit(cache,
-			_cache_mngt_set_core_seq_detect_promo_threshold,
-			&threshold, true);
+	for_each_core(cache, core, core_id) {
+		if (!core->opened)
+			continue;
+		result = _cache_mngt_set_core_seq_detect_promo_threshold(core,
+				threshold);
+		if (result)
+			return result;
+	}
+
+	return 0;
 }
 
 int ocf_mngt_core_get_seq_detect_promotion_threshold(ocf_core_t core,
