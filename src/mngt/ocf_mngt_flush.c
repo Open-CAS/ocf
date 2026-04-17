@@ -151,6 +151,21 @@ bool ocf_mngt_cache_is_dirty(ocf_cache_t cache)
 	return false;
 }
 
+void ocf_mngt_cache_set_no_dirty(ocf_cache_t cache, bool no_dirty)
+{
+	OCF_CHECK_NULL(cache);
+
+	if (no_dirty == cache->no_dirty)
+		return;
+
+	cache->no_dirty = no_dirty;
+
+	if (no_dirty)
+		env_refcnt_freeze(&cache->refcnt.dirty);
+	else
+		env_refcnt_unfreeze(&cache->refcnt.dirty);
+}
+
 /************************FLUSH CORE CODE**************************************/
 /* Returns:
  * 0 if OK and tbl & num is filled:
