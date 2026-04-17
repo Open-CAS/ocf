@@ -772,6 +772,18 @@ bool ocf_mngt_core_is_dirty(ocf_core_t core);
 bool ocf_mngt_cache_is_dirty(ocf_cache_t cache);
 
 /**
+ * @brief Enable or disable new dirty data in cache
+ *
+ * When disabled, all new write requests are handled as if cache were in
+ * pass-through mode with respect to dirty data - no new dirty cachelines
+ * are introduced. Existing dirty data is not affected.
+ *
+ * @param[in] cache Cache handle
+ * @param[in] no_dirty true to prevent new dirty data, false to allow it
+ */
+void ocf_mngt_cache_set_no_dirty(ocf_cache_t cache, bool no_dirty);
+
+/**
  * @brief Completion callback of core flush operation
  *
  * @param[in] core Core handle

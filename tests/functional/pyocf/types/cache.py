@@ -371,6 +371,9 @@ class Cache:
             self.device = None
             raise OcfError("Failed to activate standby cache", c.results["error"])
 
+    def set_no_dirty(self, no_dirty: bool):
+        self.owner.lib.ocf_mngt_cache_set_no_dirty(self.cache_handle, no_dirty)
+
     def change_cache_mode(self, cache_mode: CacheMode):
         self.write_lock()
         status = self.owner.lib.ocf_mngt_cache_set_mode(self.cache_handle, cache_mode)

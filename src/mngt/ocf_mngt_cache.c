@@ -2414,6 +2414,11 @@ static void ocf_mngt_cache_stop_finish(ocf_pipeline_t pipeline,
 	ocf_mngt_cache_stop_end_t pipeline_cmpl;
 	void *completion_priv;
 
+	if (cache->no_dirty) {
+		env_refcnt_unfreeze(&cache->refcnt.dirty);
+		cache->no_dirty = false;
+	}
+
 	if (!error) {
 		ocf_mngt_cache_remove(context->ctx, cache);
 	} else {
