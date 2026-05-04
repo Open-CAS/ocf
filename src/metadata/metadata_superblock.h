@@ -18,20 +18,29 @@
 
 /**
  * @brief OCF cache metadata configuration superblock
+ *
+ * The first 12 bytes of superblock do not change between verions.
+ * These fields are used by metadata probe to recognize OCF metadata
+ * and identify metadata version and status.
+ * The layout is following:
+ * 0:7   | clean shutdown status
+ * 8:15  | dirty metadata present
+ * 16:31 | padding; kept for historic reasons; zeroed
+ * 32:63 | OCF magic number; must be 0x187E1CA6
+ * 64:95 | OCF metadata version
+ *
+ * The remaining fields can should be accessed only after confirming
+ * correct magic and metadata version.
  */
 struct ocf_superblock_config {
-	/** WARNING: Metadata probe disregards metadata version when
-	 * checking if the cache is dirty - position of next two fields
-	 * shouldn't change!! */
-	uint8_t clean_shutdown;
-	uint8_t dirty_flushed;
-
-	/* Current core sequence number */
-	ocf_core_id_t curr_core_seq_no;
-
-	uint32_t magic_number;
-
-	uint32_t metadata_version;
+	/* Superblock header */
+	struct {
+		uint8_t clean_shutdown;
+		uint8_t dirty_flushed;
+		uint16_t _padding;
+		uint32_t magic_number;
+		uint32_t metadata_version;
+	};
 
 	unsigned flapping_idx;
 
@@ -45,6 +54,9 @@ struct ocf_superblock_config {
 
 	ocf_cache_line_size_t line_size;
 	uint32_t core_count;
+
+	/* Current core sequence number */
+	ocf_core_id_t curr_core_seq_no;
 
 	unsigned long valid_core_bitmap[OCF_DIV_ROUND_UP_STATIC(OCF_CORE_NUM,
 			sizeof(unsigned long) * 8)];
