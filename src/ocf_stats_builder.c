@@ -117,7 +117,7 @@ static void _fill_req_part(struct ocf_stats_requests *req,
 
 	/* Summary */
 	internal_total = prefetch_total + cleaner_total;
-	_set(&req->total, total, total);
+	_set(&req->user, total, total);
 	_set(&req->total, total + internal_total, total + internal_total);
 }
 
