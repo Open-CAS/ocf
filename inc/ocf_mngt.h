@@ -824,6 +824,31 @@ void ocf_mngt_cache_purge(ocf_cache_t cache,
 		ocf_mngt_cache_purge_end_t cmpl, void *priv);
 
 /**
+ * @brief Completion callback of cache drain operation
+ *
+ * @param[in] cache Cache handle
+ * @param[in] priv Callback context
+ * @param[in] error Error code (zero on success)
+ */
+typedef void (*ocf_mngt_cache_drain_end_t)(ocf_cache_t cache,
+		void *priv, int error);
+
+/**
+ * @brief Wait for all in-flight cache requests to finish.
+ *
+ * On completion no cache request that touched the cache before this
+ * call returned will still be in flight. Useful for callers that need
+ * to ensure no new cache lines can be inserted before they perform a
+ * subsequent invalidation.
+ *
+ * @param[in] cache Cache handle
+ * @param[in] cmpl Completion callback
+ * @param[in] priv Completion callback context
+ */
+void ocf_mngt_cache_drain(ocf_cache_t cache,
+		ocf_mngt_cache_drain_end_t cmpl, void *priv);
+
+/**
  * @brief Completion callback of core purge operation
  *
  * @param[in] core Core handle

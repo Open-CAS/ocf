@@ -4359,3 +4359,71 @@ void ocf_mngt_cache_detach_composite(ocf_cache_t cache,
 	ocf_pipeline_continue_on_zero_refcnt(context->pipeline,
 			&cache->refcnt.dirty);
 }
+
+struct ocf_mngt_cache_drain_context {
+	ocf_pipeline_t pipeline;
+	ocf_cache_t cache;
+	ocf_mngt_cache_drain_end_t cmpl;
+	void *priv;
+	bool meta_freeze;
+};
+
+static void _ocf_mngt_drain_freeze_meta(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_drain_context *context = priv;
+	struct env_refcnt *refcnt = &context->cache->refcnt.metadata;
+
+	env_refcnt_freeze(refcnt);
+	ocf_pipeline_continue_on_zero_refcnt(context->pipeline, refcnt);
+}
+
+static void _ocf_mngt_drain_finish(ocf_pipeline_t pipeline, void *priv,
+		int error)
+{
+	struct ocf_mngt_cache_drain_context *context = priv;
+
+	env_refcnt_unfreeze(&context->cache->refcnt.metadata);
+
+	context->cmpl(context->cache, context->priv, error);
+	ocf_pipeline_destroy(pipeline);
+}
+
+static struct ocf_pipeline_properties _ocf_mngt_cache_drain_pipeline_props = {
+	.priv_size = sizeof(struct ocf_mngt_cache_drain_context),
+	.finish = _ocf_mngt_drain_finish,
+	.steps = {
+		OCF_PL_STEP(_ocf_mngt_drain_freeze_meta),
+		OCF_PL_STEP_TERMINATOR(),
+	},
+};
+
+void ocf_mngt_cache_drain(ocf_cache_t cache,
+		ocf_mngt_cache_drain_end_t cmpl, void *priv)
+{
+	ocf_pipeline_t pipeline;
+	struct ocf_mngt_cache_drain_context *context;
+	int result;
+
+	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_CACHE_STANDBY);
+
+	if (!cache->mngt_queue)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
+
+	result = ocf_pipeline_create(&pipeline, cache,
+			&_ocf_mngt_cache_drain_pipeline_props);
+	if (result)
+		OCF_CMPL_RET(cache, priv, -OCF_ERR_NO_MEM);
+
+	context = ocf_pipeline_get_priv(pipeline);
+	context->pipeline = pipeline;
+	context->cache = cache;
+	context->cmpl = cmpl;
+	context->priv = priv;
+	context->meta_freeze = false;
+
+	ocf_pipeline_next(pipeline);
+}
