@@ -265,6 +265,17 @@ const struct ocf_volume_uuid *ocf_cache_get_uuid(ocf_cache_t cache);
 ocf_ctx_t ocf_cache_get_ctx(ocf_cache_t cache);
 
 /**
+ * @brief Get OCF cleaner of given cache object
+ *
+ * @param[in] cache Cache object
+ *
+ * @retval OCF cleaner, NULL if cache is in standby mode,
+ * cache device is not attached (cleaner not initialized)
+ * or cleaner is disabled
+ */
+ocf_cleaner_t ocf_cache_get_cleaner(ocf_cache_t cache);
+
+/**
  * @brief Get volume type id of given cache object
  *
  * @param[in] cache Cache object

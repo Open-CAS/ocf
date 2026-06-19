@@ -288,6 +288,22 @@ ocf_ctx_t ocf_cache_get_ctx(ocf_cache_t cache)
 	return cache->owner;
 }
 
+ocf_cleaner_t ocf_cache_get_cleaner(ocf_cache_t cache)
+{
+	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		return NULL;
+
+	if (!ocf_cache_is_device_attached(cache))
+		return NULL;
+
+	if (cache->conf_meta->cleaner_disabled)
+		return NULL;
+
+	return &cache->cleaner;
+}
+
 void ocf_cache_set_priv(ocf_cache_t cache, void *priv)
 {
 	OCF_CHECK_NULL(cache);
