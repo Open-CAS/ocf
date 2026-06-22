@@ -19,7 +19,7 @@
 
 struct prefetch_policy_config {
 	uint8_t data[PREFETCH_POLICY_CONFIG_BYTES];
-};
+} __attribute__((aligned(4)));
 
 #define OCF_PF_ID_VALID(pf_id) ((pf_id) != ocf_pf_none && (pf_id) < ocf_pf_num)
 #define OCF_PF_ID_ENABLED(pf_id, enabled_mask) ((1 << ((pf_id))) & enabled_mask)

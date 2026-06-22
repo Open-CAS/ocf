@@ -15,7 +15,7 @@
 
 struct promotion_policy_config {
 	uint8_t data[PROMOTION_POLICY_CONFIG_BYTES];
-};
+} __attribute__((aligned(4)));
 
 typedef struct ocf_promotion_policy *ocf_promotion_policy_t;
 
