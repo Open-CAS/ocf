@@ -21,7 +21,9 @@ typedef enum {
 typedef uint8_t ocf_pf_mask_t;
 
 /* The bitmask must fit all the values of ocf_pf_id_t */
-_Static_assert(OCF_BITWIDTH(ocf_pf_mask_t) >= ocf_pf_num);
+_Static_assert(OCF_BITWIDTH(ocf_pf_mask_t) >= ocf_pf_num,
+	       "Not enough bits in ocf_pf_mask_t to store "
+	       "all the values of ocf_pf_id_t enum");
 
 #define OCF_PF_MASK_DEFAULT 0
 
