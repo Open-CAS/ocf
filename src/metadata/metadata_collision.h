@@ -29,7 +29,8 @@ struct ocf_metadata_list_info {
 };
 
 /* Keep the struct ocf_metadata_list_info size of 8 bytes */
-_Static_assert(sizeof(struct ocf_metadata_list_info) == sizeof(uint64_t));
+_Static_assert(sizeof(struct ocf_metadata_list_info) == sizeof(uint64_t),
+	       "Size of struct ocf_metadata_list_info is not equal to 8 bytes");
 
 struct ocf_hash_entry {
 	union {
