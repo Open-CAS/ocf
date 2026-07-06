@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2022 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -13,7 +14,7 @@ struct ocf_generator_bisect_state {
 	uint32_t limit;
 };
 
-void ocf_generator_bisect_init(
+int ocf_generator_bisect_init(
 		struct ocf_generator_bisect_state *generator,
 		uint32_t limit, uint32_t offset);
 
