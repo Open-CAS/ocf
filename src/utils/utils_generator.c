@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2022 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -29,20 +30,32 @@ static inline uint32_t bitreverse32(register uint32_t x)
  *            returned by the generator is limit - 1)
  * @param[in] offset Offset at which generator should start
  *
- * @return Reversed value
+ * @return Zero when success, otherwise an error
  */
-void ocf_generator_bisect_init(
+int ocf_generator_bisect_init(
 		struct ocf_generator_bisect_state *generator,
 		uint32_t limit, uint32_t offset)
 {
 	unsigned clz;
 	uint32_t maplen;
 
-	clz = __builtin_clz(limit - 1);
-	maplen = 1 << (32 - clz);
+	if (limit == 0)
+		return -OCF_ERR_INVAL;
+
+	if (offset >= limit)
+		return -OCF_ERR_INVAL;
+
+	if (limit > 1) {
+		clz = __builtin_clz(limit - 1);
+		maplen = 1 << (32 - clz);
+	} else {
+		maplen = 1;
+	}
 
 	generator->curr = (uint64_t)offset * maplen / limit;
 	generator->limit = limit;
+
+	return 0;
 }
 
 /**
@@ -179,6 +192,9 @@ uint32_t ocf_generator_bisect_next(
 	unsigned clz;
 	uint32_t maplen;
 	uint32_t value;
+
+	if (generator->limit == 1)
+		return 0;
 
 	clz = __builtin_clz(generator->limit - 1);
 	maplen = 1 << (32 - clz);

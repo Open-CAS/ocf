@@ -1031,6 +1031,7 @@ static int ocf_lru_populate_handle(ocf_parallelize_t parallelize,
 	uint32_t partial_chunk_lines = 0;
 	uint32_t num_chunks, chunk_idx, chunk_lines;
 	uint32_t ci, j;
+	int result;
 
 	/* Check if this shard has a partial last chunk */
 	if (remainder > (uint32_t)shard_id * OCF_LRU_CHUNK_SIZE) {
@@ -1044,7 +1045,9 @@ static int ocf_lru_populate_handle(ocf_parallelize_t parallelize,
 	if (num_chunks == 0)
 		return 0;
 
-	ocf_generator_bisect_init(&generator, num_chunks, 0);
+	result = ocf_generator_bisect_init(&generator, num_chunks, 0);
+	if (result)
+		return result;
 
 	list = ocf_lru_get_list(&cache->free, shard_id, true);
 

@@ -22,7 +22,7 @@ struct ocf_request;
 
 struct cleaning_policy_config {
 	uint8_t data[CLEANING_POLICY_CONFIG_BYTES];
-};
+} __attribute__((aligned(4)));
 
 struct cleaning_policy {
 	union {
