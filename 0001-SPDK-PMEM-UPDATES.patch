@@ -1,0 +1,93 @@
+From adc794790c8b4610707b39bd559e981ec35b3245 Mon Sep 17 00:00:00 2001
+From: Tristan Campbell <tristan.campbell@intel.com>
+Date: Sat, 2 Jul 2022 02:33:41 -0400
+Subject: [PATCH] OCF Updates for PMEM IFace Add libmemkind specific allocate
+ and free function Swap instances of raw_type_ram iface
+
+---
+ lib/env_ocf/ocf_env.h | 28 ++++++++++++++++++++++++++++
+ mk/spdk.common.mk     |  1 +
+ ocf                   |  2 +-
+ 3 files changed, 30 insertions(+), 1 deletion(-)
+
+diff --git a/lib/env_ocf/ocf_env.h b/lib/env_ocf/ocf_env.h
+index 356a0ad7e..9cfbffd9e 100644
+--- a/lib/env_ocf/ocf_env.h
++++ b/lib/env_ocf/ocf_env.h
+@@ -16,6 +16,7 @@
+ 
+ #include <linux/limits.h>
+ #include <linux/stddef.h>
++#include <memkind.h>
+ 
+ #include "spdk/stdinc.h"
+ #include "spdk/likely.h"
+@@ -89,6 +90,11 @@ typedef uint64_t sector_t;
+ #define ENV_BUILD_BUG_ON(cond)		_Static_assert(!(cond), "static "\
+ 					"assertion failure")
+ 
++#define PMEM_MAX_SIZE (1024 * 1024 * 1024 * 64)
++//#define PMEM_MAX_SIZE 0 // used for a variable heap size
++#define PMEM_DIR "/pmem0"
++
++
+ #define container_of(ptr, type, member) SPDK_CONTAINEROF(ptr, type, member)
+ 
+ static inline void *
+@@ -140,12 +146,34 @@ env_secure_alloc(size_t size)
+ 			    SPDK_MALLOC_DMA);
+ }
+ 
++static inline void *env_secure_alloc_pmem(size_t size)
++{
++	struct memkind *pmem_kind = NULL;
++	int err = 0;
++
++	err = memkind_create_pmem(PMEM_DIR, PMEM_MAX_SIZE, &pmem_kind);
++	/* if (err)
++	{
++		memkind_fatal(err);
++	} */
++	void *ptr = memkind_malloc(pmem_kind, size);
++
++	return ptr;
++}
++
+ static inline void
+ env_secure_free(const void *ptr, size_t size)
+ {
+ 	return spdk_free((void *)ptr);
+ }
+ 
++static inline void env_secure_free_pmem(void *ptr_pmem, size_t size)
++{
++	if (ptr_pmem) {
++		memkind_free(NULL, ptr_pmem);
++	}
++}
++
+ static inline void
+ env_vfree(const void *ptr)
+ {
+diff --git a/mk/spdk.common.mk b/mk/spdk.common.mk
+index cc02de1e5..184cd3fea 100644
+--- a/mk/spdk.common.mk
++++ b/mk/spdk.common.mk
+@@ -304,6 +304,7 @@ SYS_LIBS += -luuid
+ SYS_LIBS += -lssl
+ SYS_LIBS += -lcrypto
+ SYS_LIBS += -lm
++SYS_LIBS += -lmemkind
+ 
+ PKGCONF ?= pkg-config
+ ifneq ($(strip $(CONFIG_OPENSSL_PATH)),)
+diff --git a/ocf b/ocf
+index 4477cb55a..72f37b00e 160000
+--- a/ocf
++++ b/ocf
+@@ -1 +1 @@
+-Subproject commit 4477cb55a0bcd313a5ebcfdf877ca76a31695df7
++Subproject commit 72f37b00ed25435f5b26a306e5e7b2b8ac1adfd0
+-- 
+2.25.1
+
