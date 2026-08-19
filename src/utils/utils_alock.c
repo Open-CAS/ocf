@@ -33,9 +33,10 @@
 #define OCF_DEBUG_CACHE(cache, format, ...)
 #endif
 
-#define OCF_CACHE_LINE_ACCESS_WR	((unsigned char)(-1))
 #define OCF_CACHE_LINE_ACCESS_IDLE	0
 #define OCF_CACHE_LINE_ACCESS_ONE_RD	1
+#define OCF_CACHE_LINE_ACCESS_MAX_RD	254
+#define OCF_CACHE_LINE_ACCESS_WR	255
 
 #define _WAITERS_LIST_SIZE	(16UL * MiB)
 #define _WAITERS_LIST_ENTRIES \
@@ -291,12 +292,28 @@ bool ocf_alock_trylock_entry_rd_idle(struct ocf_alock *alock,
 	return (prev == OCF_CACHE_LINE_ACCESS_IDLE);
 }
 
+/*
+ * The access counter is 8 bit wide and its top value is reserved for the
+ * write lock, so no more than OCF_CACHE_LINE_ACCESS_MAX_RD readers can hold
+ * the entry at the same time. Incrementing the counter beyond that limit
+ * would make the entry indistinguishable from a write locked one, so the
+ * excess readers have to be put on the waiters list instead.
+ */
 static inline bool ocf_alock_trylock_entry_rd(struct ocf_alock *alock,
 		ocf_cache_line_t entry)
 {
 	env_atomic8 *access = &alock->access[entry];
+	uint8_t old, v = env_atomic8_read(access);
 
-	return !!env_atomic8_add_unless(access, 1, OCF_CACHE_LINE_ACCESS_WR);
+	while (v != OCF_CACHE_LINE_ACCESS_WR &&
+			v != OCF_CACHE_LINE_ACCESS_MAX_RD) {
+		old = env_atomic8_cmpxchg(access, v, v + 1);
+		if (likely(old == v))
+			return true;
+		v = old;
+	}
+
+	return false;
 }
 
 static inline void ocf_alock_unlock_entry_wr(struct ocf_alock *alock,
