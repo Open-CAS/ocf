@@ -73,6 +73,7 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_CLEANER_DISABLED = auto()
     OCF_ERR_ADAPTER_MISMATCH = auto()
     OCF_ERR_ADAPTER_VER = auto()
+    OCF_ERR_BLOCK_MODE_MISMATCH = auto()
 
 
 class OcfCompletion:

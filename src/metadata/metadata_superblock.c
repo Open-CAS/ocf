@@ -163,6 +163,15 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 		return -OCF_ERR_ADAPTER_VER;
 	}
 
+	if (superblock->metadata_4k_mode != METADATA_4K_MODE()) {
+		ocf_log(ctx, log_err, "Loading %s: metadata was created in %s "
+				"block mode, but OCF is running in %s block "
+				"mode!\n", segment_name,
+				superblock->metadata_4k_mode ? "4KiB" : "512B",
+				METADATA_4K_MODE() ? "4KiB" : "512B");
+		return -OCF_ERR_BLOCK_MODE_MISMATCH;
+	}
+
 	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
 		ocf_log_invalid_superblock("shutdown status");
 		return -OCF_ERR_INVAL;

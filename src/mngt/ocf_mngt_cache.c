@@ -301,6 +301,7 @@ static void __init_superblock_header(ocf_cache_t cache)
 {
 	cache->conf_meta->metadata_version = METADATA_VERSION();
 	cache->conf_meta->adapter_version = ADAPTER_VERSION();
+	cache->conf_meta->metadata_4k_mode = METADATA_4K_MODE();
 
 	/*
 	 * Zero the whole field first - the name is covered by the superblock

@@ -46,6 +46,8 @@ struct ocf_superblock_config {
 	char adapter_name[OCF_ADAPTER_NAME_SIZE];
 	uint32_t adapter_version;
 
+	bool metadata_4k_mode;
+
 	unsigned flapping_idx;
 
 	/* Currently set cache mode */
