@@ -1954,8 +1954,23 @@ static void ocf_metadata_probe_cmpl(struct ocf_metadata_read_sb_ctx *context)
 	if (METADATA_VERSION() != superblock->metadata_version)
 		OCF_CMPL_RET(priv, -OCF_ERR_METADATA_VER, &status);
 
+	/*
+	 * Following fields presence and offset is dependent on metadata
+	 * version, so they can be safely accessed only after positive
+	 * metadata version verification.
+	 */
+
+	if (env_strncmp(superblock->adapter_name, OCF_ADAPTER_NAME_SIZE,
+			ENV_ADAPTER_NAME, OCF_ADAPTER_NAME_SIZE)) {
+		OCF_CMPL_RET(priv, -OCF_ERR_ADAPTER_MISMATCH, &status);
+	}
+
+	if (superblock->adapter_version != ADAPTER_VERSION())
+		OCF_CMPL_RET(priv, -OCF_ERR_ADAPTER_VER, &status);
+
 	env_strncpy(status.cache_name, OCF_CACHE_NAME_SIZE, superblock->name,
 			OCF_CACHE_NAME_SIZE);
+
 	status.cache_mode = superblock->cache_mode;
 	status.cache_line_size = superblock->line_size;
 

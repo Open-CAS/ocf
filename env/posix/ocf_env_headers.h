@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -15,8 +16,9 @@
 #define OCF_PREFIX_SHORT "[" OCF_LOGO "] "
 #define OCF_PREFIX_LONG "Open CAS Framework"
 
-#define OCF_VERSION_MAIN 20
-#define OCF_VERSION_MAJOR 3
-#define OCF_VERSION_MINOR 0
+#define ENV_ADAPTER_NAME "OCF Posix"
+#define ENV_ADAPTER_VERSION_MAIN 20
+#define ENV_ADAPTER_VERSION_MAJOR 3
+#define ENV_ADAPTER_VERSION_MINOR 0
 
 #endif /* __OCF_ENV_HEADERS_H__ */

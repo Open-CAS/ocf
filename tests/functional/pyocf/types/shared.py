@@ -71,6 +71,8 @@ class OcfErrorCode(IntEnum):
     OCF_ERR_CORE_NOT_REMOVED = auto()
     OCF_ERR_CACHE_NOT_STANDBY = auto()
     OCF_ERR_CLEANER_DISABLED = auto()
+    OCF_ERR_ADAPTER_MISMATCH = auto()
+    OCF_ERR_ADAPTER_VER = auto()
 
 
 class OcfCompletion:

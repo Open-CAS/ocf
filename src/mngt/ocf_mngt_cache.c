@@ -297,9 +297,20 @@ static void __init_cores(ocf_cache_t cache)
 			sizeof(cache->conf_meta->valid_core_bitmap), 0));
 }
 
-static void __init_metadata_version(ocf_cache_t cache)
+static void __init_superblock_header(ocf_cache_t cache)
 {
 	cache->conf_meta->metadata_version = METADATA_VERSION();
+	cache->conf_meta->adapter_version = ADAPTER_VERSION();
+
+	/*
+	 * Zero the whole field first - the name is covered by the superblock
+	 * checksum, so the bytes past the terminator have to be deterministic.
+	 */
+	ENV_BUG_ON(env_memset(cache->conf_meta->adapter_name,
+			OCF_ADAPTER_NAME_SIZE, 0));
+	ENV_BUG_ON(env_strncpy(cache->conf_meta->adapter_name,
+			OCF_ADAPTER_NAME_SIZE, ENV_ADAPTER_NAME,
+			OCF_ADAPTER_NAME_SIZE - 1));
 }
 
 static void _reset_stats(ocf_pipeline_t pipeline, void *priv,
@@ -327,13 +338,13 @@ static void _reset_stats(ocf_pipeline_t pipeline, void *priv,
 	ocf_pipeline_next(pipeline);
 }
 
-static void _init_metadata_version(ocf_pipeline_t pipeline, void *priv,
+static void _init_superblock_header(ocf_pipeline_t pipeline, void *priv,
 		ocf_pipeline_arg_t arg)
 {
 	struct ocf_init_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
 
-	__init_metadata_version(cache);
+	__init_superblock_header(cache);
 
 	ocf_pipeline_next(pipeline);
 }
@@ -356,7 +367,7 @@ struct ocf_pipeline_properties ocf_init_attached_recovery_props = {
 		OCF_PL_STEP(ocf_metadata_init_collision),
 		OCF_PL_STEP(_init_parts_attached),
 		OCF_PL_STEP(_reset_stats),
-		OCF_PL_STEP(_init_metadata_version),
+		OCF_PL_STEP(_init_superblock_header),
 		OCF_PL_STEP_TERMINATOR(),
 	},
 };
@@ -1598,7 +1609,7 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	__init_free(cache);
 
 	__init_cores(cache);
-	__init_metadata_version(cache);
+	__init_superblock_header(cache);
 	__init_partitions(cache);
 }
 

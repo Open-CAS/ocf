@@ -187,7 +187,13 @@ typedef enum {
 	/** Operation not allowed when cleaner is disabled **/
 	OCF_ERR_CLEANER_DISABLED,
 
-	OCF_ERR_MAX = OCF_ERR_CLEANER_DISABLED,
+	/** Metadata was created by a different adapter */
+	OCF_ERR_ADAPTER_MISMATCH,
+
+	/** Adapter version mismatch */
+	OCF_ERR_ADAPTER_VER,
+
+	OCF_ERR_MAX = OCF_ERR_ADAPTER_VER,
 
 } ocf_error_t;
 
