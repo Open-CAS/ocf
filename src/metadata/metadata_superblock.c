@@ -116,7 +116,15 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 	}
 
 	if (METADATA_VERSION() != superblock->metadata_version) {
-		ocf_log(ctx, log_err, "Metadata version mismatch!\n");
+		ocf_log(ctx, log_err, "Loading %s: metadata version mismatch! "
+				"Metadata was created by OCF %u.%u.%u, but "
+				"current version is %u.%u.%u\n", segment_name,
+				(superblock->metadata_version >> 16) & 0xff,
+				(superblock->metadata_version >> 8) & 0xff,
+				superblock->adapter_version & 0xff,
+				OCF_VERSION_MAIN,
+				OCF_VERSION_MAJOR,
+				OCF_VERSION_MINOR);
 		return -OCF_ERR_METADATA_VER;
 	}
 
