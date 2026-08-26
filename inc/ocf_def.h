@@ -21,6 +21,10 @@
  * @brief OCF definitions
  */
 
+#define OCF_VERSION_MAIN 26
+#define OCF_VERSION_MAJOR 9
+#define OCF_VERSION_MINOR 0
+
 /**
  * Enabling debug statistics
  */
@@ -64,6 +68,10 @@
  * Size of cache name
  */
 #define OCF_CACHE_NAME_SIZE 32
+/**
+ * Size of adapter name
+ */
+#define OCF_ADAPTER_NAME_SIZE 32
 /**
  * Value to turn off fallback pass through
  */

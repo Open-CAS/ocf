@@ -56,6 +56,15 @@
 #define METADATA_VERSION() ((OCF_VERSION_MAIN << 16) + \
 		(OCF_VERSION_MAJOR << 8) + OCF_VERSION_MINOR)
 
+#define ADAPTER_VERSION() ((ENV_ADAPTER_VERSION_MAIN << 16) + \
+		(ENV_ADAPTER_VERSION_MAJOR << 8) + ENV_ADAPTER_VERSION_MINOR)
+
+#ifdef OCF_BLOCK_SIZE_4K
+#define METADATA_4K_MODE() true
+#else
+#define METADATA_4K_MODE() false
+#endif
+
 /* call conditional reschedule every 'iterations' calls */
 #define OCF_COND_RESCHED(cnt, iterations) \
 	if (unlikely(++(cnt) == (iterations))) { \

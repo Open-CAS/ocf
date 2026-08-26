@@ -116,7 +116,15 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 	}
 
 	if (METADATA_VERSION() != superblock->metadata_version) {
-		ocf_log(ctx, log_err, "Metadata version mismatch!\n");
+		ocf_log(ctx, log_err, "Loading %s: metadata version mismatch! "
+				"Metadata was created by OCF %u.%u.%u, but "
+				"current version is %u.%u.%u\n", segment_name,
+				(superblock->metadata_version >> 16) & 0xff,
+				(superblock->metadata_version >> 8) & 0xff,
+				superblock->adapter_version & 0xff,
+				OCF_VERSION_MAIN,
+				OCF_VERSION_MAJOR,
+				OCF_VERSION_MINOR);
 		return -OCF_ERR_METADATA_VER;
 	}
 
@@ -126,6 +134,42 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 	if (crc != superblock->checksum[metadata_segment_sb_config]) {
 		ocf_log_invalid_superblock("checksum");
 		return -OCF_ERR_CRC_MISMATCH;
+	}
+
+	if (env_strncmp(superblock->adapter_name, OCF_ADAPTER_NAME_SIZE,
+			ENV_ADAPTER_NAME, OCF_ADAPTER_NAME_SIZE)) {
+		/* Field comes off disk and need not be terminated - bound
+		 * the print to its size instead of running past it.
+		 */
+		ocf_log(ctx, log_err, "Loading %s: metadata was created by "
+				"adapter '%.*s', but OCF is running as '%s'!\n",
+				segment_name, OCF_ADAPTER_NAME_SIZE,
+				superblock->adapter_name, ENV_ADAPTER_NAME);
+		return -OCF_ERR_ADAPTER_MISMATCH;
+	}
+
+	if (superblock->adapter_version != ADAPTER_VERSION()) {
+		ocf_log(ctx, log_err, "Loading %s: adapter version mismatch! "
+				"Metadata was created by %s %u.%u.%u, but OCF "
+				"is running under %s %u.%u.%u\n", segment_name,
+				ENV_ADAPTER_NAME,
+				(superblock->adapter_version >> 16) & 0xff,
+				(superblock->adapter_version >> 8) & 0xff,
+				superblock->adapter_version & 0xff,
+				ENV_ADAPTER_NAME,
+				ENV_ADAPTER_VERSION_MAIN,
+				ENV_ADAPTER_VERSION_MAJOR,
+				ENV_ADAPTER_VERSION_MINOR);
+		return -OCF_ERR_ADAPTER_VER;
+	}
+
+	if (superblock->metadata_4k_mode != METADATA_4K_MODE()) {
+		ocf_log(ctx, log_err, "Loading %s: metadata was created in %s "
+				"block mode, but OCF is running in %s block "
+				"mode!\n", segment_name,
+				superblock->metadata_4k_mode ? "4KiB" : "512B",
+				METADATA_4K_MODE() ? "4KiB" : "512B");
+		return -OCF_ERR_BLOCK_MODE_MISMATCH;
 	}
 
 	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
