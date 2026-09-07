@@ -208,9 +208,10 @@ static void _ocf_mngt_io_class_remove(ocf_cache_t cache,
 
 	OCF_CHECK_NULL(cache->device);
 
-	if (part_id == OCF_IO_CLASS_UNCLASSIFIED) {
+	if (part_id == OCF_IO_CLASS_UNCLASSIFIED ||
+			part_id == OCF_IO_CLASS_PREFETCH) {
 		ocf_cache_log(cache, log_info,
-				"Cannot remove unclassified IO class, "
+				"Cannot remove default IO class, "
 				"id: %u [ ERROR ]\n", part_id);
 		return;
 	}
