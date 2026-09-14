@@ -5,12 +5,18 @@
 [![Coverity status](https://scan.coverity.com/projects/19083/badge.svg)](https://scan.coverity.com/projects/open-cas-ocf)
 [![codecov](https://codecov.io/gh/Open-CAS/ocf/branch/master/graph/badge.svg)](https://codecov.io/gh/Open-CAS/ocf)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+[![Maintained by Unvertical](https://img.shields.io/badge/maintained%20by-Unvertical-0b5fff)](https://unvertical.com/)
 
 Open CAS Framework (OCF) is high performance block storage caching meta-library
 written in C. It's entirely platform and system independent, accessing system API
 through user provided environment wrappers layer. OCF tightly integrates with the
 rest of software stack, providing flawless, high performance, low latency caching
 utility.
+
+# Support
+
+Open CAS Framework is developed and maintained by **[Unvertical](https://unvertical.com/)**, founded by the project's core maintainers.  
+For professional support, consulting and custom development, please [contact us](https://unvertical.com/#contact).
 
 # In this readme:
 
@@ -110,10 +116,13 @@ pytest
 
 ## Contributing
 
-Feel like making OCF better? Don't hesitate to submit a pull request!  
-You can find more information about our contribution process
-[here](https://open-cas.github.io/contributing.html).  
+All the development activities of this project take place on this GitHub repository. For more information about contributing, please refer to our [documentation](https://open-cas.github.io/contributing.html).
 
 ## Maintainers
 
-The maintainer of this project is [Robert Baldyga](https://github.com/robertbaldyga) [\<robert.baldyga@open-cas.com\>](mailto:robert.baldyga@open-cas.com).
+Open CAS is maintained by [Unvertical](https://unvertical.com/).
+
+The lead maintainer is [Robert Baldyga](https://github.com/robertbaldyga).
+
+You can get in touch with the maintainers by submitting a [GitHub issue](https://github.com/Open-CAS/ocf/issues).  
+Alternatively you can write at [robert.baldyga@open-cas.com](mailto:robert.baldyga@open-cas.com).
