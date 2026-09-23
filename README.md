@@ -32,8 +32,7 @@ For professional support, consulting and custom development, please [contact us]
 
 ## Documentation
 
-OCF documentation is available on [GitHub Pages](https://open-cas.github.io/getting_started_ocf.html).
-Doxygen API documentation is available [here](http://open-cas.github.io/doxygen/ocf).  
+OCF documentation is available on [open-cas.com](https://open-cas.com/ocf/quick-start/).
 
 ## Source Code
 
@@ -116,7 +115,7 @@ pytest
 
 ## Contributing
 
-All the development activities of this project take place on this GitHub repository. For more information about contributing, please refer to our [documentation](https://open-cas.github.io/contributing.html).
+All the development activities of this project take place on this GitHub repository. For more information about contributing, please refer to our [documentation](https://open-cas.com/contributing/).
 
 ## Maintainers
 
@@ -126,3 +125,8 @@ The lead maintainer is [Robert Baldyga](https://github.com/robertbaldyga).
 
 You can get in touch with the maintainers by submitting a [GitHub issue](https://github.com/Open-CAS/ocf/issues).  
 Alternatively you can write at [robert.baldyga@open-cas.com](mailto:robert.baldyga@open-cas.com).
+
+## Security
+
+To report a potential security vulnerability please follow the instructions
+[here](https://unvertical.com/security/)
