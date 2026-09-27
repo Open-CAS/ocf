@@ -315,7 +315,7 @@ int ocf_req_alloc_map(struct ocf_request *req)
 	if (req->map)
 		return 0;
 
-	req->map = env_zalloc(ocf_req_sizeof_map(lines) +
+	req->map = env_kvzalloc(ocf_req_sizeof_map(lines) +
 			ocf_req_sizeof_alock_status(req->core_line_count),
 			ENV_MEM_NOIO);
 	if (!req->map) {
@@ -402,7 +402,7 @@ void ocf_req_put(struct ocf_request *req)
 		env_free(req);
 	} else {
 		if (req->map != req->__map)
-			env_free(req->map);
+			env_kvfree(req->map);
 		env_mpool_del(req->cache->owner->resources.req, req,
 				req->alloc_core_line_count);
 	}

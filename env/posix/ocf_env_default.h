@@ -140,6 +140,16 @@ static inline void env_free(const void *ptr)
 	free((void *)ptr);
 }
 
+static inline void *env_kvzalloc(size_t size, int flags)
+{
+	return env_zalloc(size, 0);
+}
+
+static inline void env_kvfree(const void *ptr)
+{
+	free((void *)ptr);
+}
+
 static inline void *env_vmalloc_flags(size_t size, int flags)
 {
 	return malloc(size);
