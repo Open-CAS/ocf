@@ -14,6 +14,7 @@
 #include "ocf_volume_priv.h"
 #include "ocf_seq_detect.h"
 #include "ocf/ocf_prefetch.h"
+#include "metadata/metadata_core.h"
 
 #define ocf_core_log_prefix(core, lvl, prefix, fmt, ...) \
 	ocf_cache_log_prefix(ocf_core_get_cache(core), lvl, ".%s" prefix, \
@@ -21,61 +22,6 @@
 
 #define ocf_core_log(core, lvl, fmt, ...) \
 	ocf_core_log_prefix(core, lvl, ": ", fmt, ##__VA_ARGS__)
-
-struct ocf_metadata_uuid {
-	uint32_t size;
-	uint8_t data[OCF_VOLUME_UUID_MAX_SIZE];
-} __packed;
-
-struct ocf_core_meta_config {
-	char name[OCF_CORE_NAME_SIZE];
-
-	uint8_t type;
-
-	/* This bit means that object was saved in cache metadata */
-	uint32_t valid : 1;
-
-	/* Core sequence number used to correlate cache lines with cores
-	 * when recovering from atomic device */
-	ocf_seq_no_t seq_no;
-
-	/* Sequential cutoff threshold (in bytes) */
-	env_atomic seq_cutoff_threshold;
-
-	/* Sequential cutoff policy */
-	env_atomic seq_cutoff_policy;
-
-	/* Sequence detector stream promotion request count */
-	env_atomic seq_detect_promotion_count;
-
-	/* Sequence detector stream promotion threshold (in bytes) */
-	env_atomic seq_detect_promotion_threshold;
-
-	/* core object size in bytes */
-	uint64_t length;
-
-	uint8_t user_data[OCF_CORE_USER_DATA_SIZE];
-};
-
-struct ocf_core_meta_runtime {
-	/* Number of blocks from that objects that currently are cached
-	 * on the caching device.
-	 */
-	env_atomic cached_clines;
-	env_atomic dirty_clines;
-	env_atomic initial_dirty_clines;
-
-	env_atomic64 dirty_since;
-
-	struct {
-		/* clines within lru list (?) */
-		env_atomic cached_clines;
-		/* dirty clines assigned to this specific partition within
-		 * cache device
-		 */
-		env_atomic dirty_clines;
-	} part_counters[OCF_USER_IO_CLASS_MAX];
-};
 
 struct ocf_core_volume_uuid {
 	char cache_name[OCF_CACHE_NAME_SIZE];
