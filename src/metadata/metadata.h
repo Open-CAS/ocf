@@ -12,7 +12,7 @@
 #include "../ocf_cache_priv.h"
 #include "../ocf_ctx_priv.h"
 #include "metadata_cleaning_policy.h"
-#include "metadata_eviction_policy.h"
+#include "metadata_lru.h"
 #include "metadata_partition.h"
 #include "metadata_segment_id.h"
 #include "metadata_superblock.h"

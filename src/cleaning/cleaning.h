@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2023-2025 Huawei Technologies Co., Ltd.
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -10,6 +11,7 @@
 #include "alru_structs.h"
 #include "nop_structs.h"
 #include "acp_structs.h"
+#include "../metadata/metadata_cleaning_policy.h"
 #include "ocf_env_refcnt.h"
 #include "ocf/ocf_cleaner.h"
 
@@ -23,13 +25,6 @@ struct ocf_request;
 struct cleaning_policy_config {
 	uint8_t data[CLEANING_POLICY_CONFIG_BYTES];
 } __attribute__((aligned(4)));
-
-struct cleaning_policy {
-	union {
-		struct nop_cleaning_policy nop;
-		struct alru_cleaning_policy alru;
-	} policy;
-};
 
 /* Cleaning policy metadata per cache line */
 struct cleaning_policy_meta {

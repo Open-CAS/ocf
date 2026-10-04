@@ -4,9 +4,13 @@
  * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef __EVICTION_LRU_STRUCTS_H__
 
-#define __EVICTION_LRU_STRUCTS_H__
+#ifndef __METADATA_LRU_H__
+#define __METADATA_LRU_H__
+
+#include "ocf/ocf.h"
+
+#define OCF_NUM_LRU_LISTS 32
 
 struct ocf_lru_meta {
 	uint64_t prev : OCF_CACHE_LINE_BITS;
@@ -31,6 +35,8 @@ struct ocf_lru_part_meta {
 	struct ocf_lru_list dirty;
 };
 
-#define OCF_LRU_HOT_RATIO 2
+struct ocf_lru_meta *
+ocf_metadata_get_lru(
+		struct ocf_cache *cache, ocf_cache_line_t line);
 
-#endif
+#endif /* __METADATA_LRU_H__ */
