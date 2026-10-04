@@ -130,6 +130,10 @@ _Static_assert(OCF_MAX_T(uint32_t, OCF_CORE_ID_BITS) > OCF_CORE_NUM,
  */
 #define OCF_CORE_NAME_SIZE 32
 /**
+ * Size of persistent core user metadata
+ */
+#define OCF_CORE_USER_DATA_SIZE 64
+/**
  * Minimum value of valid core sequence number
  */
 #define OCF_SEQ_NO_MIN 1

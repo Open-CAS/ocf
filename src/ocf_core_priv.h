@@ -27,8 +27,6 @@ struct ocf_metadata_uuid {
 	uint8_t data[OCF_VOLUME_UUID_MAX_SIZE];
 } __packed;
 
-#define OCF_CORE_USER_DATA_SIZE 64
-
 struct ocf_core_meta_config {
 	char name[OCF_CORE_NAME_SIZE];
 
