@@ -12,20 +12,13 @@
 #include "../ocf_space.h"
 #include "../cleaning/cleaning.h"
 #include "../ocf_request.h"
+#include "metadata_superblock.h"
 
 
 /**
  * @file metadata_priv.h
  * @brief Metadata private structures
  */
-
-/**
- * @brief Metadata shutdown status
- */
-enum ocf_metadata_shutdown_status {
-	ocf_metadata_dirty_shutdown = 0, /*!< Dirty OCF shutdown*/
-	ocf_metadata_clean_shutdown = 1, /*!< OCF shutdown graceful*/
-};
 
 /**
  * @brief Query cores completion callback

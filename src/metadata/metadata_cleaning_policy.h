@@ -9,6 +9,29 @@
 
 #include "ocf/ocf.h"
 
+/* Cleaning policy configuration (stored in superblock) */
+
+#define CLEANING_POLICY_CONFIG_BYTES 256
+#define CLEANING_POLICY_TYPE_MAX 4
+
+struct cleaning_policy_config {
+	uint8_t data[CLEANING_POLICY_CONFIG_BYTES];
+} __attribute__((aligned(4)));
+
+struct alru_cleaning_policy_config {
+	uint32_t thread_wakeup_time;		/* in seconds */
+	uint32_t stale_buffer_time;			/* in seconds */
+	uint32_t flush_max_buffers;			/* in lines */
+	uint32_t activity_threshold;		/* in milliseconds */
+	uint32_t dirty_ratio_threshold;		/* percent */
+	uint32_t dirty_ratio_inertia;		/* bytes */
+};
+
+struct acp_cleaning_policy_config {
+	uint32_t thread_wakeup_time;	/* in milliseconds*/
+	uint32_t flush_max_buffers;	/* in lines */
+};
+
 /* Cleaning policy metadata per partition */
 
 struct nop_cleaning_policy {

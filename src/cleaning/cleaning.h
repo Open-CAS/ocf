@@ -15,16 +15,9 @@
 #include "ocf_env_refcnt.h"
 #include "ocf/ocf_cleaner.h"
 
-#define CLEANING_POLICY_CONFIG_BYTES 256
-#define CLEANING_POLICY_TYPE_MAX 4
-
 #define SLEEP_TIME_MS (1000)
 
 struct ocf_request;
-
-struct cleaning_policy_config {
-	uint8_t data[CLEANING_POLICY_CONFIG_BYTES];
-} __attribute__((aligned(4)));
 
 struct ocf_cleaner {
 	struct env_refcnt refcnt;

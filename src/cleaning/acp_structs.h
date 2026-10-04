@@ -7,13 +7,8 @@
 #ifndef __CLEANING_AGGRESSIVE_STRUCTS_H__
 #define __CLEANING_AGGRESSIVE_STRUCTS_H__
 
-#include "ocf_env_headers.h"
+#include "../metadata/metadata_cleaning_policy.h"
 
-/* cleaning policy per partition metadata */
-struct acp_cleaning_policy_config {
-	uint32_t thread_wakeup_time;	/* in milliseconds*/
-	uint32_t flush_max_buffers;	/* in lines */
-};
 
 #endif
 
