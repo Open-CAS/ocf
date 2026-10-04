@@ -26,15 +26,6 @@ struct cleaning_policy_config {
 	uint8_t data[CLEANING_POLICY_CONFIG_BYTES];
 } __attribute__((aligned(4)));
 
-/* Cleaning policy metadata per cache line */
-struct cleaning_policy_meta {
-	union {
-		struct nop_cleaning_policy_meta nop;
-		struct alru_cleaning_policy_meta alru;
-		struct acp_cleaning_policy_meta acp;
-	} meta;
-};
-
 struct ocf_cleaner {
 	struct env_refcnt refcnt;
 	ocf_cleaning_t policy;

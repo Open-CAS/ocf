@@ -11,13 +11,6 @@
 #include "ocf/ocf.h"
 #include "ocf_env.h"
 
-struct alru_cleaning_policy_meta {
-	/* Lru pointers 2*4=8 bytes */
-	uint32_t timestamp;
-	uint32_t lru_prev;
-	uint32_t lru_next;
-} __attribute__((packed));
-
 struct alru_cleaning_policy_config {
 	uint32_t thread_wakeup_time;		/* in seconds */
 	uint32_t stale_buffer_time;			/* in seconds */

@@ -30,6 +30,32 @@ struct cleaning_policy {
 		struct acp_cleaning_policy acp;
 	} policy;
 };
+
+/* Cleaning policy metadata per cache line */
+
+struct nop_cleaning_policy_meta {
+} __attribute__((packed));
+
+struct alru_cleaning_policy_meta {
+	/* Lru pointers 2*4=8 bytes */
+	uint32_t timestamp;
+	uint32_t lru_prev;
+	uint32_t lru_next;
+} __attribute__((packed));
+
+/* TODO: remove acp metadata */
+struct acp_cleaning_policy_meta {
+	uint8_t dirty : 1;
+};
+
+struct cleaning_policy_meta {
+	union {
+		struct nop_cleaning_policy_meta nop;
+		struct alru_cleaning_policy_meta alru;
+		struct acp_cleaning_policy_meta acp;
+	} meta;
+};
+
 struct cleaning_policy_meta *
 ocf_metadata_get_cleaning_policy(struct ocf_cache *cache,
 		ocf_cache_line_t line);
