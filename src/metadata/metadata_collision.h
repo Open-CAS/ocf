@@ -79,6 +79,20 @@ void ocf_metadata_set_collision_prev(
 		struct ocf_cache *cache, ocf_cache_line_t line,
 		ocf_cache_line_t prev);
 
+struct ocf_metadata_map *ocf_metadata_get_collision(
+		struct ocf_cache *cache, ocf_cache_line_t line);
+
+void ocf_metadata_get_core_info(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_core_id_t *core_id,
+		uint64_t *core_line);
+
+void ocf_metadata_set_core_info(struct ocf_cache *cache,
+		ocf_cache_line_t line, ocf_core_id_t core_id,
+		uint64_t core_line);
+
+ocf_core_id_t ocf_metadata_get_core_id(
+		struct ocf_cache *cache, ocf_cache_line_t line);
+
 void ocf_metadata_get_collision_info(
 		struct ocf_cache *cache, ocf_cache_line_t line,
 		ocf_cache_line_t *next, ocf_cache_line_t *prev);

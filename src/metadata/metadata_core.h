@@ -64,17 +64,6 @@ struct ocf_core_meta_runtime {
 	} part_counters[OCF_USER_IO_CLASS_MAX];
 };
 
-void ocf_metadata_get_core_info(struct ocf_cache *cache,
-		ocf_cache_line_t line, ocf_core_id_t *core_id,
-		uint64_t *core_line);
-
-void ocf_metadata_set_core_info(struct ocf_cache *cache,
-		ocf_cache_line_t line, ocf_core_id_t core_id,
-		uint64_t core_line);
-
-ocf_core_id_t ocf_metadata_get_core_id(
-		struct ocf_cache *cache, ocf_cache_line_t line);
-
 struct ocf_metadata_uuid *ocf_metadata_get_core_uuid(
 		struct ocf_cache *cache, ocf_core_id_t core_id);
 
