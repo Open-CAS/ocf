@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -8,6 +9,7 @@
 #include "metadata_segment_id.h"
 #include "metadata_raw.h"
 #include "metadata_raw_dynamic.h"
+#include "metadata_layout.h"
 #include "metadata_io.h"
 #include "../engine/cache_engine.h"
 #include "../engine/engine_common.h"
@@ -38,20 +40,13 @@
  * Check if page is valid for specified RAW descriptor
  */
 
-static uint32_t raw_dynamic_segment_size_on_ssd(struct ocf_metadata_raw *raw)
-{
-	const size_t alignment = 128 * KiB / PAGE_SIZE;
-
-	return OCF_DIV_ROUND_UP(raw->ssd_pages, alignment) * alignment;
-}
-
 static bool _raw_ssd_page_is_valid(struct ocf_metadata_raw *raw, uint32_t page)
 {
-	uint32_t size = raw_dynamic_segment_size_on_ssd(raw) *
-			(raw->flapping ? 2 : 1);
+	uint32_t offset = ocf_metadata_segment_layout_offset(raw->layout, 0);
+	uint32_t size = ocf_metadata_segment_layout_pages(raw->layout);
 
-	ENV_BUG_ON(page < raw->ssd_pages_offset);
-	ENV_BUG_ON(page >= (raw->ssd_pages_offset + size));
+	ENV_BUG_ON(page < offset);
+	ENV_BUG_ON(page >= (offset + size));
 
 	return true;
 }
@@ -61,10 +56,11 @@ static bool _raw_ssd_page_is_valid(struct ocf_metadata_raw *raw, uint32_t page)
  ******************************************************************************/
 
 #define _RAW_DYNAMIC_PAGE(raw, line) \
-		((line) / raw->entries_in_page)
+		((line) / raw->layout->entries_in_page)
 
 #define _RAW_DYNAMIC_PAGE_OFFSET(raw, line) \
-		((line % raw->entries_in_page) * raw->entry_size)
+		((line % raw->layout->entries_in_page) * \
+		raw->layout->entry_size)
 
 /*
  * RAW DYNAMIC control structure
@@ -140,7 +136,7 @@ int raw_dynamic_deinit(ocf_cache_t cache,
 
 	ocf_mio_concurrency_deinit(&raw->mio_conc);
 
-	for (i = 0; i < raw->ssd_pages; i++)
+	for (i = 0; i < raw->layout->pages; i++)
 		env_secure_free(ctrl->pages[i], PAGE_SIZE);
 
 	env_mutex_destroy(&ctrl->lock);
@@ -160,18 +156,19 @@ int raw_dynamic_init(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
 	struct _raw_ctrl *ctrl;
-	size_t size = sizeof(*ctrl) + (sizeof(ctrl->pages[0]) * raw->ssd_pages);
+	size_t size = sizeof(*ctrl) +
+			(sizeof(ctrl->pages[0]) * raw->layout->pages);
 	int ret;
 
 	OCF_DEBUG_TRACE(cache);
 
-	if (raw->entry_size > PAGE_SIZE)
+	if (raw->layout->entry_size > PAGE_SIZE)
 		return -1;
 
 	/* TODO: caller should specify explicitly whether to init mio conc? */
 	if (lock_page_pfn) {
 		ret = ocf_mio_concurrency_init(&raw->mio_conc,
-			raw->ssd_pages_offset, raw->ssd_pages, cache);
+			raw->layout->offset, raw->layout->pages, cache);
 		if (ret)
 			return ret;
 	}
@@ -211,7 +208,7 @@ size_t raw_dynamic_size_of(ocf_cache_t cache,
 	size *= PAGE_SIZE;
 
 	/* Size of control structure */
-	size += sizeof(*ctrl) + (sizeof(ctrl->pages[0]) * raw->ssd_pages);
+	size += sizeof(*ctrl) + (sizeof(ctrl->pages[0]) * raw->layout->pages);
 
 	OCF_DEBUG_PARAM(cache, "Count = %d, Size = %lu",
 			env_atomic_read(&ctrl->count), size);
@@ -224,9 +221,7 @@ size_t raw_dynamic_size_of(ocf_cache_t cache,
  */
 uint32_t raw_dynamic_size_on_ssd(struct ocf_metadata_raw *raw)
 {
-	size_t flapping_factor = raw->flapping ? 2 : 1;
-
-	return raw_dynamic_segment_size_on_ssd(raw) * flapping_factor;
+	return ocf_metadata_segment_layout_pages(raw->layout);
 }
 
 /*
@@ -240,7 +235,7 @@ uint32_t raw_dynamic_checksum(ocf_cache_t cache,
 	uint32_t step = 0;
 	uint32_t crc = 0;
 
-	for (i = 0; i < raw->ssd_pages; i++) {
+	for (i = 0; i < raw->layout->pages; i++) {
 		if (ctrl->pages[i])
 			crc = env_crc32(crc, ctrl->pages[i], PAGE_SIZE);
 		OCF_COND_RESCHED(step, 10000);
@@ -254,7 +249,7 @@ uint32_t raw_dynamic_checksum(ocf_cache_t cache,
  */
 uint32_t raw_dynamic_page(struct ocf_metadata_raw *raw, uint32_t entry)
 {
-	ENV_BUG_ON(entry >= raw->entries);
+	ENV_BUG_ON(entry >= raw->layout->entries);
 
 	return _RAW_DYNAMIC_PAGE(raw, entry);
 }
@@ -396,11 +391,10 @@ static int raw_dynamic_load_all_read(struct ocf_request *req)
 	uint64_t ssd_pages_offset;
 	uint64_t count;
 
-	ssd_pages_offset = raw->ssd_pages_offset +
-			raw_dynamic_segment_size_on_ssd(raw) *
-					context->flapping_idx;
+	ssd_pages_offset = ocf_metadata_segment_layout_offset(raw->layout,
+			context->flapping_idx);
 
-	count = metadata_io_size(context->i_page, raw->ssd_pages);
+	count = metadata_io_size(context->i_page, raw->layout->pages);
 
 	ocf_req_forward_cache_init(req, raw_dynamic_load_all_read_end);
 
@@ -416,7 +410,7 @@ static int raw_dynamic_load_all_update(struct ocf_request *req)
 	struct raw_dynamic_load_all_context *context = req->priv;
 	struct ocf_metadata_raw *raw = context->raw;
 	ocf_cache_t cache = context->cache;
-	uint64_t count = metadata_io_size(context->i_page, raw->ssd_pages);
+	uint64_t count = metadata_io_size(context->i_page, raw->layout->pages);
 	int result = 0;
 
 	/* Reset head of data buffer */
@@ -428,7 +422,7 @@ static int raw_dynamic_load_all_update(struct ocf_request *req)
 
 	context->i_page += count;
 
-	if (result || context->i_page >= raw->ssd_pages) {
+	if (result || context->i_page >= raw->layout->pages) {
 		raw_dynamic_load_all_complete(context, result);
 		return 0;
 	}
@@ -447,7 +441,8 @@ void raw_dynamic_load_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	struct ocf_request *req;
 	int result;
 
-	ENV_BUG_ON(raw->flapping ? flapping_idx > 1 : flapping_idx != 0);
+	ENV_BUG_ON(raw->layout->flapping ?
+			flapping_idx > 1 : flapping_idx != 0);
 	OCF_DEBUG_TRACE(cache);
 
 	context = env_vzalloc(sizeof(*context));
@@ -555,7 +550,8 @@ void raw_dynamic_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	struct raw_dynamic_flush_all_context *context;
 	int result;
 
-	ENV_BUG_ON(raw->flapping ? flapping_idx > 1 : flapping_idx != 0);
+	ENV_BUG_ON(raw->layout->flapping ?
+			flapping_idx > 1 : flapping_idx != 0);
 	OCF_DEBUG_TRACE(cache);
 
 	context = env_vmalloc(sizeof(*context));
@@ -565,11 +561,11 @@ void raw_dynamic_flush_all(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 	context->raw = raw;
 	context->cmpl = cmpl;
 	context->priv = priv;
-	context->ssd_pages_offset = raw->ssd_pages_offset +
-			raw_dynamic_segment_size_on_ssd(raw) * flapping_idx;
+	context->ssd_pages_offset = ocf_metadata_segment_layout_offset(
+			raw->layout, flapping_idx);
 
 	result = metadata_io_write_i_asynch(cache, cache->mngt_queue, context,
-			context->ssd_pages_offset, raw->ssd_pages, 0,
+			context->ssd_pages_offset, raw->layout->pages, 0,
 			raw_dynamic_flush_all_fill,
 			raw_dynamic_flush_all_complete,
 			raw->mio_conc);

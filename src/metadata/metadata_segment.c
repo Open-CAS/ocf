@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2020-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "metadata_internal.h"
@@ -118,7 +119,8 @@ void ocf_metadata_flush_segment(ocf_pipeline_t pipeline,
 			ocf_metadata_superblock_get_next_flapping_idx(
 					segment->superblock);
 
-	next_flapping_idx = segment->raw->flapping ? next_flapping_idx : 0;
+	next_flapping_idx = segment->raw->layout->flapping ?
+			next_flapping_idx : 0;
 
 	ocf_metadata_raw_flush_all(cache, segment->raw,
 			ocf_metadata_generic_complete, context,
@@ -135,7 +137,7 @@ void ocf_metadata_load_segment(ocf_pipeline_t pipeline,
 	unsigned flapping_idx = ocf_metadata_superblock_get_flapping_idx(
 			segment->superblock);
 
-	flapping_idx = segment->raw->flapping ? flapping_idx : 0;
+	flapping_idx = segment->raw->layout->flapping ? flapping_idx : 0;
 
 	ocf_metadata_raw_load_all(cache, segment->raw,
 			ocf_metadata_generic_complete, context, flapping_idx);

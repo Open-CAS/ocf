@@ -12,6 +12,7 @@
 #include "metadata_collision.h"
 #include "metadata_segment_id.h"
 #include "metadata_internal.h"
+#include "metadata_layout.h"
 #include "metadata_io.h"
 #include "metadata_raw.h"
 #include "metadata_segment.h"
@@ -37,297 +38,37 @@
 #define OCF_DEBUG_PARAM(cache, format, ...)
 #endif
 
-#define OCF_METADATA_HASH_DIFF_MAX 1000
-
 /*
- * get entries for specified metadata hash type
+ * Calculate amount of cache lines taking into account required space for
+ * metadata and set up variable size RAW containers accordingly
  */
-static ocf_cache_line_t ocf_metadata_get_entries(
-		enum ocf_metadata_segment_id type,
-		ocf_cache_line_t cache_lines)
-{
-	ENV_BUG_ON(type >= metadata_segment_variable_size_start && cache_lines == 0);
-
-	switch (type) {
-	case metadata_segment_collision:
-	case metadata_segment_cleaning:
-	case metadata_segment_lru:
-	case metadata_segment_list_info:
-		return cache_lines;
-
-	case metadata_segment_hash:
-		return OCF_DIV_ROUND_UP(cache_lines, 4);
-
-	case metadata_segment_sb_config:
-		return OCF_DIV_ROUND_UP(sizeof(struct ocf_superblock_config),
-				PAGE_SIZE);
-
-	case metadata_segment_sb_runtime:
-		return OCF_DIV_ROUND_UP(sizeof(struct ocf_superblock_runtime),
-				PAGE_SIZE);
-
-	case metadata_segment_reserved:
-		return 32;
-
-	case metadata_segment_part_config:
-		return OCF_USER_IO_CLASS_MAX + 1;
-
-	case metadata_segment_part_runtime:
-		return OCF_NUM_PARTITIONS;
-
-	case metadata_segment_core_config:
-		return OCF_CORE_NUM;
-
-	case metadata_segment_core_runtime:
-		return OCF_CORE_NUM;
-
-	case metadata_segment_core_uuid:
-		return OCF_CORE_NUM;
-
-	default:
-		break;
-	}
-
-	ENV_BUG();
-	return 0;
-}
-
-/*
- * Get size of particular hash metadata type element
- */
-static int64_t ocf_metadata_get_element_size(
-		enum ocf_metadata_segment_id type,
-		ocf_cache_line_size_t line_size)
-{
-	int64_t size = 0;
-
-	ENV_BUG_ON(type >= metadata_segment_variable_size_start && !line_size);
-
-	switch (type) {
-	case metadata_segment_lru:
-		size = sizeof(struct ocf_lru_meta);
-		break;
-
-	case metadata_segment_cleaning:
-		size = sizeof(struct cleaning_policy_meta);
-		break;
-
-	case metadata_segment_collision:
-		size = sizeof(struct ocf_metadata_map)
-			+ ocf_metadata_status_sizeof(line_size);
-		break;
-
-	case metadata_segment_list_info:
-		size = sizeof(struct ocf_metadata_list_info);
-		break;
-
-	case metadata_segment_sb_config:
-		size = PAGE_SIZE;
-		break;
-
-	case metadata_segment_sb_runtime:
-		size = PAGE_SIZE;
-		break;
-
-	case metadata_segment_reserved:
-		size = PAGE_SIZE;
-		break;
-
-	case metadata_segment_part_config:
-		size = sizeof(struct ocf_user_part_config);
-		break;
-
-	case metadata_segment_part_runtime:
-		size = sizeof(struct ocf_part_runtime);
-		break;
-
-	case metadata_segment_hash:
-		size = sizeof(struct ocf_hash_entry);
-		break;
-
-	case metadata_segment_core_config:
-		size = sizeof(struct ocf_core_meta_config);
-		break;
-
-	case metadata_segment_core_runtime:
-		size = sizeof(struct ocf_core_meta_runtime);
-		break;
-
-	case metadata_segment_core_uuid:
-		size = sizeof(struct ocf_metadata_uuid);
-		break;
-
-	default:
-		break;
-
-	}
-
-	ENV_BUG_ON(size > PAGE_SIZE);
-
-	return size;
-}
-
-/*
- * Check if particular metadata type supports flapping
- */
-static bool ocf_metadata_is_flapped(
-		enum ocf_metadata_segment_id type)
-{
-	switch (type) {
-	case metadata_segment_part_config:
-	case metadata_segment_core_config:
-	case metadata_segment_core_uuid:
-		return true;
-
-	case metadata_segment_sb_config:
-	case metadata_segment_sb_runtime:
-	case metadata_segment_reserved:
-	case metadata_segment_part_runtime:
-	case metadata_segment_core_runtime:
-	case metadata_segment_cleaning:
-	case metadata_segment_lru:
-	case metadata_segment_collision:
-	case metadata_segment_list_info:
-	case metadata_segment_hash:
-	default:
-		return false;
-
-	}
-}
-
-/*
- * Metadata calculation exception handling.
- *
- * @param unused_lines - Unused pages
- * @param device_lines - SSD Cache device pages amount
- *
- * @return true - Accept unused sapce
- * @return false - unused space is not acceptable
- */
-static bool ocf_metadata_calculate_exception_hndl(ocf_cache_t cache,
-		int64_t unused_lines, int64_t device_lines)
+static int ocf_metadata_calculate_variable_layout(struct ocf_cache *cache,
+		struct ocf_metadata_ctrl *ctrl, ocf_cache_line_size_t line_size,
+		bool cleaner_disabled)
 {
 	static bool warn;
-	int64_t utilization = 0;
+	bool inexact;
+	int result;
 
-	if (!warn) {
+	result = ocf_metadata_layout_fit(&ctrl->metadata_layout, line_size,
+			ctrl->device_lines, cleaner_disabled, &inexact);
+
+	if (inexact && !warn) {
 		ocf_cache_log(cache, log_warn,
 				"Metadata size calculation problem\n");
 		warn = true;
 	}
 
-	if (unused_lines < 0)
-		return false;
+	if (result == -OCF_ERR_INVAL) {
+		ocf_cache_log(cache, log_err,
+				"Metadata size calculation ERROR\n");
+	}
 
-	/*
-	 * Accepted disk utilization is 90 % off SSD space
-	 */
-	utilization = (device_lines - unused_lines) * 100 / device_lines;
+	if (result)
+		return result;
 
-	if (utilization < 90)
-		return false;
-
-	return true;
-}
-
-/*
- * Algorithm to calculate amount of cache lines taking into account required
- * space for metadata
- */
-static int ocf_metadata_calculate_metadata_size(
-		struct ocf_cache *cache,
-		struct ocf_metadata_ctrl *ctrl,
-		ocf_cache_line_size_t line_size)
-{
-	int64_t i_diff = 0, diff_lines = 0, cache_lines = ctrl->device_lines;
-	int64_t lowest_diff;
-	ocf_cache_line_t count_pages;
-	uint32_t i;
-
-	OCF_DEBUG_PARAM(cache, "Cache lines = %lld", cache_lines);
-
-	lowest_diff = cache_lines;
-
-	do {
-		count_pages = 0;
-		for (i = metadata_segment_variable_size_start;
-				i < metadata_segment_max; i++) {
-			struct ocf_metadata_raw *raw = &ctrl->raw_desc[i];
-
-			if (raw->disabled)
-				continue;
-
-			/* Setup number of entries */
-			raw->entries
-				= ocf_metadata_get_entries(i, cache_lines);
-
-			/*
-			 * Setup SSD location and size
-			 */
-			raw->ssd_pages_offset = ctrl->count_pages_fixed + count_pages;
-			raw->ssd_pages = OCF_DIV_ROUND_UP(raw->entries,
-					raw->entries_in_page);
-
-			/* Update offset for next container */
-			count_pages += ocf_metadata_raw_size_on_ssd(raw);
-		}
-
-		/*
-		 * Check if max allowed iteration exceeded
-		 */
-		if (i_diff >= OCF_METADATA_HASH_DIFF_MAX) {
-			/*
-			 * Never should be here but try handle this exception
-			 */
-			if (ocf_metadata_calculate_exception_hndl(cache,
-					diff_lines, ctrl->device_lines)) {
-				break;
-			}
-
-			if (i_diff > (2 * OCF_METADATA_HASH_DIFF_MAX)) {
-				/*
-				 * We tried, but we fallen, have to return error
-				 */
-				ocf_cache_log(cache, log_err,
-					"Metadata size calculation ERROR\n");
-				return -1;
-			}
-		}
-
-		/* Calculate diff of cache lines */
-
-		/* Cache size in bytes */
-		diff_lines = ctrl->device_lines * line_size;
-		/* Sub metadata size which is in 4 kiB unit */
-		diff_lines -= (int64_t)(ctrl->count_pages_fixed + count_pages) * PAGE_SIZE;
-		/* Convert back to cache lines */
-		diff_lines /= line_size;
-		/* Calculate difference */
-		diff_lines -= cache_lines;
-
-		if (diff_lines > 0) {
-			if (diff_lines < lowest_diff)
-				lowest_diff = diff_lines;
-			else if (diff_lines == lowest_diff)
-				break;
-		}
-
-		/* Update new value of cache lines */
-		cache_lines += diff_lines;
-
-		OCF_DEBUG_PARAM(cache, "Diff pages = %lld", diff_lines);
-		OCF_DEBUG_PARAM(cache, "Cache lines = %lld", cache_lines);
-
-		i_diff++;
-
-	} while (diff_lines);
-
-	ctrl->count_pages_variable = count_pages;
-	ctrl->cachelines = cache_lines;
-	OCF_DEBUG_PARAM(cache, "Cache lines = %u", ctrl->cachelines);
-
-	if (ctrl->device_lines < ctrl->cachelines)
-		return -1;
+	OCF_DEBUG_PARAM(cache, "Cache lines = %u",
+			ctrl->metadata_layout.cachelines);
 
 	return 0;
 }
@@ -368,15 +109,15 @@ static void ocf_metadata_raw_info(struct ocf_cache *cache,
 		OCF_DEBUG_PARAM(cache, "    : raw type        = %u",
 				raw->raw_type);
 		OCF_DEBUG_PARAM(cache, "    : entry size      = %u",
-				raw->entry_size);
+				raw->layout->entry_size);
 		OCF_DEBUG_PARAM(cache, "    : entries         = %llu",
-				raw->entries);
+				raw->layout->entries);
 		OCF_DEBUG_PARAM(cache, "    : entries in page = %u",
-				raw->entries_in_page);
+				raw->layout->entries_in_page);
 		OCF_DEBUG_PARAM(cache, "    : page offset     = %llu",
-				raw->ssd_pages_offset);
+				raw->layout->offset);
 		OCF_DEBUG_PARAM(cache, "    : pages           = %llu",
-				raw->ssd_pages);
+				raw->layout->pages);
 	}
 
 	/* Provide capacity info */
@@ -425,7 +166,7 @@ void ocf_metadata_deinit_variable_size(struct ocf_cache *cache)
 			i < metadata_segment_max; i++) {
 		ocf_metadata_segment_destroy(cache, ctrl->segment[i]);
 	}
-	ctrl->count_pages_variable = 0;
+	ctrl->metadata_layout.pages_variable = 0;
 }
 
 static inline void ocf_metadata_config_init(ocf_cache_t cache, size_t size)
@@ -465,7 +206,6 @@ static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(
 		bool metadata_volatile)
 {
 	struct ocf_metadata_ctrl *ctrl = NULL;
-	uint32_t page = 0;
 	uint32_t i = 0;
 
 	ctrl = env_vzalloc(sizeof(*ctrl));
@@ -486,30 +226,14 @@ static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(
 		} else if (i == metadata_segment_core_uuid) {
 			raw->raw_type = metadata_raw_type_dynamic;
 		}
-
-		/* Entry size configuration */
-		raw->entry_size
-			= ocf_metadata_get_element_size(i, 0);
-		raw->entries_in_page = PAGE_SIZE / raw->entry_size;
-
-		/* Setup flapping support */
-		raw->flapping = ocf_metadata_is_flapped(i);
-
-		/* Setup number of entries */
-		raw->entries = ocf_metadata_get_entries(i, 0);
-
-		/*
-		 * Setup SSD location and size
-		 */
-		raw->ssd_pages_offset = page;
-		raw->ssd_pages = OCF_DIV_ROUND_UP(raw->entries,
-				raw->entries_in_page);
-
-		/* Update offset for next container */
-		page += ocf_metadata_raw_size_on_ssd(raw);
 	}
 
-	ctrl->count_pages_fixed = page;
+	for (i = 0; i < metadata_segment_max; i++)
+		ctrl->raw_desc[i].layout = &ctrl->metadata_layout.segment[i];
+
+	/* Setup layout of fixed size segments */
+	ocf_metadata_layout_init_fixed_size(&ctrl->metadata_layout,
+			!metadata_volatile);
 
 	return ctrl;
 }
@@ -667,32 +391,22 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 				ocf_volume_is_atomic(&cache->device->volume)) {
 			raw->raw_type = metadata_raw_type_atomic;
 		}
-
-		if (i == metadata_segment_cleaning && cleaner_disabled) {
-			raw->disabled = true;
-			continue;
-		}
-
-		/* Entry size configuration */
-		raw->entry_size
-			= ocf_metadata_get_element_size(i, line_size);
-		raw->entries_in_page = PAGE_SIZE / raw->entry_size;
-
-		/* Setup flapping support */
-		raw->flapping = ocf_metadata_is_flapped(i);
 	}
 
-	if (0 != ocf_metadata_calculate_metadata_size(cache, ctrl, line_size)) {
+	if (0 != ocf_metadata_calculate_variable_layout(cache, ctrl, line_size,
+			cleaner_disabled)) {
 		ocf_cache_log(cache, log_err, "Couldn't fit metadata structure "
 				"on device. Please try bigger cache device.\n");
 		return -OCF_ERR_INVAL_CACHE_DEV;
 	}
 
 	OCF_DEBUG_PARAM(cache, "Metadata begin pages = %u", ctrl->start_page);
-	OCF_DEBUG_PARAM(cache, "Metadata count pages fixed = %u", ctrl->count_pages_fixed);
-	OCF_DEBUG_PARAM(cache, "Metadata count pages variable = %u", ctrl->count_pages_variable);
+	OCF_DEBUG_PARAM(cache, "Metadata count pages fixed = %u",
+			ctrl->metadata_layout.pages_fixed);
+	OCF_DEBUG_PARAM(cache, "Metadata count pages variable = %u",
+			ctrl->metadata_layout.pages_variable);
 	OCF_DEBUG_PARAM(cache, "Metadata end pages = %u", ctrl->start_page
-			+ ocf_metadata_get_pages_count(cache));
+			+ ocf_metadata_layout_pages(&ctrl->metadata_layout));
 
 	superblock = ctrl->segment[metadata_segment_sb_config];
 
@@ -703,7 +417,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 			i < metadata_segment_max; i++) {
 		struct ocf_metadata_raw *raw = &ctrl->raw_desc[i];
 
-		if (raw->disabled)
+		if (raw->layout->disabled)
 			continue;
 
 		if (i == metadata_segment_collision) {
@@ -729,7 +443,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	for (i = 0; i < metadata_segment_max; i++) {
 		ocf_cache_log(cache, log_info, "%s offset : %llu kiB\n",
 				ocf_metadata_segment_names[i],
-				ctrl->raw_desc[i].ssd_pages_offset
+				ctrl->raw_desc[i].layout->offset
 				* PAGE_SIZE / KiB);
 		if (i == metadata_segment_sb_config) {
 			ocf_cache_log(cache, log_info, "%s size : %lu B\n",
@@ -744,7 +458,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		} else {
 			ocf_cache_log(cache, log_info, "%s size : %llu kiB\n",
 					ocf_metadata_segment_names[i],
-					ctrl->raw_desc[i].ssd_pages
+					ctrl->raw_desc[i].layout->pages
 					* PAGE_SIZE / KiB);
 		}
 	}
@@ -761,15 +475,17 @@ finalize:
 	cache->device->runtime_meta = METADATA_MEM_POOL(ctrl,
 			metadata_segment_sb_runtime);
 
-	cache->device->collision_table_entries = ctrl->cachelines;
+	cache->device->collision_table_entries =
+			ctrl->metadata_layout.cachelines;
 
 	cache->device->hash_table_entries =
-			ctrl->raw_desc[metadata_segment_hash].entries;
+			ctrl->raw_desc[metadata_segment_hash].layout->entries;
 
 	cache->device->metadata_offset =
-			ocf_metadata_get_pages_count(cache) * PAGE_SIZE;
+			ocf_metadata_layout_pages(&ctrl->metadata_layout) *
+			PAGE_SIZE;
 
-	cache->conf_meta->cachelines = ctrl->cachelines;
+	cache->conf_meta->cachelines = ctrl->metadata_layout.cachelines;
 	cache->conf_meta->line_size = line_size;
 	cache->conf_meta->cleaner_disabled = cleaner_disabled;
 
@@ -782,9 +498,10 @@ finalize:
 			cache->device->metadata_offset / KiB);
 
 	result = ocf_metadata_concurrency_attached_init(&cache->metadata.lock,
-			cache, ctrl->raw_desc[metadata_segment_hash].entries,
+			cache, ctrl->raw_desc[metadata_segment_hash].
+			layout->entries,
 			(uint32_t)ctrl->raw_desc[metadata_segment_collision].
-			ssd_pages);
+			layout->pages);
 	if (result) {
 		ocf_cache_log(cache, log_err, "Failed to initialize attached "
 				"metadata concurrency\n");
@@ -924,20 +641,6 @@ void ocf_metadata_init_hash_table(ocf_pipeline_t pipeline, void *priv,
 }
 
 /*
- * Get count of pages that is dedicated for metadata
- */
-uint32_t ocf_metadata_get_pages_count(struct ocf_cache *cache)
-{
-	struct ocf_metadata_ctrl *ctrl = NULL;
-
-	OCF_DEBUG_TRACE(cache);
-
-	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
-
-	return ctrl->count_pages_fixed + ctrl->count_pages_variable;
-}
-
-/*
  * Get amount of cache lines
  */
 ocf_cache_line_t ocf_metadata_get_cachelines_count(
@@ -949,7 +652,7 @@ ocf_cache_line_t ocf_metadata_get_cachelines_count(
 
 	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
 
-	return ctrl->cachelines;
+	return ctrl->metadata_layout.cachelines;
 }
 
 size_t ocf_metadata_size_of(struct ocf_cache *cache)
@@ -989,7 +692,7 @@ uint64_t ocf_metadata_get_reserved_lba(
 	OCF_DEBUG_TRACE(cache);
 
 	ctrl = (struct ocf_metadata_ctrl *) cache->metadata.priv;
-	return ctrl->raw_desc[metadata_segment_reserved].ssd_pages_offset *
+	return ctrl->raw_desc[metadata_segment_reserved].layout->offset *
 			PAGE_SIZE;
 }
 

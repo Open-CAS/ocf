@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2021-2022 Intel Corporation
  * Copyright(c) 2022-2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -225,10 +226,11 @@ int ocf_pio_concurrency_init(struct ocf_alock **self, ocf_cache_t cache)
 		struct ocf_metadata_raw *raw = &(ctrl->raw_desc[update_segments[i]]);
 		pio_ctx->segments[i].first_entry = pages_to_alloc;
 		pio_ctx->segments[i].id = update_segments[i];
-		pio_ctx->segments[i].begin = raw->ssd_pages_offset;
-		pio_ctx->segments[i].end = raw->ssd_pages_offset + raw->ssd_pages;
+		pio_ctx->segments[i].begin = raw->layout->offset;
+		pio_ctx->segments[i].end = raw->layout->offset +
+				raw->layout->pages;
 
-		pages_to_alloc += raw->ssd_pages;
+		pages_to_alloc += raw->layout->pages;
 	}
 
 	ret = ocf_alock_init_inplace(alock, pages_to_alloc, name, &ocf_pio_conc_cbs, cache);

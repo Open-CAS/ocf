@@ -122,14 +122,6 @@ ocf_cache_line_t
 ocf_metadata_get_cachelines_count(struct ocf_cache *cache);
 
 /**
- * @brief Get amount of pages required for metadata
- *
- * @param cache - Cache instance
- * @return Pages required for store metadata on cache device
- */
-uint32_t ocf_metadata_get_pages_count(struct ocf_cache *cache);
-
-/**
  * @brief Flush metadata
  *
  * @param cache - Cache instance
