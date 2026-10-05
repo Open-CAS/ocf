@@ -43,15 +43,15 @@
  * metadata and set up variable size RAW containers accordingly
  */
 static int ocf_metadata_calculate_variable_layout(struct ocf_cache *cache,
-		struct ocf_metadata_ctrl *ctrl, ocf_cache_line_size_t line_size,
-		bool cleaner_disabled)
+		struct ocf_metadata_ctrl *ctrl, uint64_t device_lines,
+		ocf_cache_line_size_t line_size, bool cleaner_disabled)
 {
 	static bool warn;
 	bool inexact;
 	int result;
 
 	result = ocf_metadata_layout_fit(&ctrl->metadata_layout, line_size,
-			ctrl->device_lines, cleaner_disabled, &inexact);
+			device_lines, cleaner_disabled, &inexact);
 
 	if (inexact && !warn) {
 		ocf_cache_log(cache, log_warn,
@@ -366,14 +366,9 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		return -OCF_ERR_INVAL_CACHE_DEV;
 	}
 
-	ctrl->device_lines = device_lines;
-
 	if (cache->metadata.line_size != line_size)
 		/* Re-initialize metadata with different cache line size */
 		ocf_metadata_config_init(cache, line_size);
-
-	ctrl->mapping_size = ocf_metadata_status_sizeof(line_size)
-		+ sizeof(struct ocf_metadata_map);
 
 	/* Initial setup of dynamic size RAW containers */
 	for (i = metadata_segment_variable_size_start;
@@ -393,20 +388,19 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		}
 	}
 
-	if (0 != ocf_metadata_calculate_variable_layout(cache, ctrl, line_size,
-			cleaner_disabled)) {
+	if (0 != ocf_metadata_calculate_variable_layout(cache, ctrl,
+			device_lines, line_size, cleaner_disabled)) {
 		ocf_cache_log(cache, log_err, "Couldn't fit metadata structure "
 				"on device. Please try bigger cache device.\n");
 		return -OCF_ERR_INVAL_CACHE_DEV;
 	}
 
-	OCF_DEBUG_PARAM(cache, "Metadata begin pages = %u", ctrl->start_page);
 	OCF_DEBUG_PARAM(cache, "Metadata count pages fixed = %u",
 			ctrl->metadata_layout.pages_fixed);
 	OCF_DEBUG_PARAM(cache, "Metadata count pages variable = %u",
 			ctrl->metadata_layout.pages_variable);
-	OCF_DEBUG_PARAM(cache, "Metadata end pages = %u", ctrl->start_page
-			+ ocf_metadata_layout_pages(&ctrl->metadata_layout));
+	OCF_DEBUG_PARAM(cache, "Metadata end pages = %u",
+			ocf_metadata_layout_pages(&ctrl->metadata_layout));
 
 	superblock = ctrl->segment[metadata_segment_sb_config];
 

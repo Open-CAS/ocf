@@ -21,9 +21,6 @@
  * Metadata control structure
  */
 struct ocf_metadata_ctrl {
-	ocf_cache_line_t start_page;
-	uint32_t device_lines;
-	size_t mapping_size;
 	struct ocf_metadata_raw raw_desc[metadata_segment_max];
 	struct ocf_metadata_segment *segment[metadata_segment_max];
 	struct ocf_metadata_layout metadata_layout;
