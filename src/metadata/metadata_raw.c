@@ -157,19 +157,18 @@ static uint32_t _raw_ram_size_on_ssd(struct ocf_metadata_raw *raw)
 /*
  * RAM Implementation - Checksum
  */
+static const void *_raw_ram_checksum_get_page(void *opaque, unsigned idx)
+{
+	struct ocf_metadata_raw *raw = opaque;
+
+	return (uint8_t *)raw->mem_pool + (uint64_t)idx * PAGE_SIZE;
+}
+
 static uint32_t _raw_ram_checksum(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
-	uint64_t i;
-	uint32_t step = 0;
-	uint32_t crc = 0;
-
-	for (i = 0; i < raw->layout->pages; i++) {
-		crc = env_crc32(crc, raw->mem_pool + PAGE_SIZE * i, PAGE_SIZE);
-		OCF_COND_RESCHED(step, 10000);
-	}
-
-	return crc;
+	return ocf_metadata_segment_layout_checksum_segment(raw->layout,
+			_raw_ram_checksum_get_page, raw);
 }
 
 /*
@@ -191,6 +190,12 @@ static void *_raw_ram_access(ocf_cache_t cache,
 	ENV_BUG_ON(!_raw_is_valid(raw, entry));
 
 	return _RAW_RAM_ADDR(raw, entry);
+}
+
+static const void *_raw_ram_rd_access(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, uint32_t entry)
+{
+	return _raw_ram_access(cache, raw, entry);
 }
 
 static int _raw_ram_drain_page(ocf_cache_t cache,
@@ -640,7 +645,8 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_on_ssd		= _raw_ram_size_on_ssd,
 		.checksum		= _raw_ram_checksum,
 		.page			= _raw_ram_page,
-		.access			= _raw_ram_access,
+		.wr_access		= _raw_ram_access,
+		.rd_access		= _raw_ram_rd_access,
 		.update			= _raw_ram_update,
 		.zero			= raw_ram_zero,
 		.load_all		= _raw_ram_load_all,
@@ -655,7 +661,8 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_on_ssd		= raw_dynamic_size_on_ssd,
 		.checksum		= raw_dynamic_checksum,
 		.page			= raw_dynamic_page,
-		.access			= raw_dynamic_access,
+		.wr_access		= raw_dynamic_wr_access,
+		.rd_access		= raw_dynamic_rd_access,
 		.update			= raw_dynamic_update,
 		.zero			= raw_ram_zero,
 		.load_all		= raw_dynamic_load_all,
@@ -670,7 +677,8 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_on_ssd		= raw_volatile_size_on_ssd,
 		.checksum		= raw_volatile_checksum,
 		.page			= _raw_ram_page,
-		.access			= _raw_ram_access,
+		.wr_access		= _raw_ram_access,
+		.rd_access		= _raw_ram_rd_access,
 		.update			= raw_volatile_update,
 		.zero			= raw_volatile_zero,
 		.load_all		= raw_volatile_load_all,
@@ -685,7 +693,8 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.size_on_ssd		= _raw_ram_size_on_ssd,
 		.checksum		= _raw_ram_checksum,
 		.page			= _raw_ram_page,
-		.access			= _raw_ram_access,
+		.wr_access		= _raw_ram_access,
+		.rd_access		= _raw_ram_rd_access,
 		.update			= _raw_ram_update,
 		.zero			= raw_ram_zero,
 		.load_all		= _raw_ram_load_all,

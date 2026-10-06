@@ -8,27 +8,22 @@
 #ifndef __METADATA_MISC_H__
 #define __METADATA_MISC_H__
 
-/* Hash function intentionally returns consecutive (modulo @hash_table_entries)
- * values for consecutive @core_line_num. This way it is trivial to sort all
- * core lines within a single request in ascending hash value order. This kind
- * of sorting is required to assure that (future) hash bucket metadata locks are
- * always acquired in fixed order, eliminating the risk of dead locks.
- */
+#include "metadata_collision.h"
+
+/* See ocf_metadata_collision_hash() */
 static inline ocf_cache_line_t ocf_metadata_hash_func(ocf_cache_t cache,
 		uint64_t core_line_num, ocf_core_id_t core_id)
 {
-	const unsigned int entries = cache->device->hash_table_entries;
-
-	return (ocf_cache_line_t) ((core_line_num  + (core_id * (entries / 32)))
-			% entries);
+	return ocf_metadata_collision_hash(cache->device->hash_table_entries,
+			core_line_num, core_id);
 }
 
 /* Return the hash based on the hash of the prev core line */
 static inline ocf_cache_line_t ocf_metadata_hash_next(ocf_cache_t cache,
 		ocf_cache_line_t hash)
 {
-	hash++;
-	return likely(hash < cache->device->hash_table_entries) ? hash : 0;
+	return ocf_metadata_collision_hash_next(
+			cache->device->hash_table_entries, hash);
 }
 
 void ocf_metadata_remove_cache_line(struct ocf_cache *cache,
