@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef OCF_CLEANER_H_
-#define OCF_CLEANER_H_
+#ifndef __OCF_CLEANER_H__
+#define __OCF_CLEANER_H__
 
 /**
  * @file
@@ -64,4 +64,4 @@ void *ocf_cleaner_get_priv(ocf_cleaner_t c);
  */
 ocf_cache_t ocf_cleaner_get_cache(ocf_cleaner_t c);
 
-#endif
+#endif /* __OCF_CLEANER_H__ */

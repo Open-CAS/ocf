@@ -37,4 +37,4 @@ struct ocf_metadata_context {
 
 extern const char * const ocf_metadata_segment_names[];
 
-#endif
+#endif /* __METADATA_INTERNAL_H__ */

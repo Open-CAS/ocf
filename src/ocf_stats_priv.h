@@ -292,4 +292,4 @@ int ocf_core_get_stats(ocf_core_t core, struct ocf_stats_core *stats);
  */
 void ocf_core_update_stats(ocf_core_t core, ocf_io_t io);
 
-#endif
+#endif /* __OCF_STATS_PRIV_H__ */

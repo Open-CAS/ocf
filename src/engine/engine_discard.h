@@ -9,4 +9,4 @@
 
 int ocf_engine_discard(struct ocf_request *req);
 
-#endif
+#endif /* __ENGINE_DISCARD_H__ */

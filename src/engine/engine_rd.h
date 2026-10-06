@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef ENGINE_RD_H_
-#define ENGINE_RD_H_
+#ifndef __ENGINE_RD_H__
+#define __ENGINE_RD_H__
 
 int ocf_read_generic(struct ocf_request *req);
 
 void ocf_read_generic_submit_hit(struct ocf_request *req);
 
-#endif /* ENGINE_RD_H_ */
+#endif /* __ENGINE_RD_H__ */

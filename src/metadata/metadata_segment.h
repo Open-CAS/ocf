@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __METADATA_SEGMENT_OPS_H__
-#define __METADATA_SEGMENT_OPS_H__
+#ifndef __METADATA_SEGMENT_H__
+#define __METADATA_SEGMENT_H__
 
 #include "../utils/utils_pipeline.h"
 #include "metadata_raw.h"
@@ -48,4 +48,4 @@ void ocf_metadata_flush_segment(ocf_pipeline_t pipeline,
 void ocf_metadata_load_segment(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg);
 
-#endif
+#endif /* __METADATA_SEGMENT_H__ */

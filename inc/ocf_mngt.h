@@ -1446,4 +1446,4 @@ int ocf_mngt_core_pool_visit(ocf_ctx_t ctx,
  */
 void ocf_mngt_core_pool_remove(ocf_ctx_t ctx, ocf_volume_t volume);
 
-#endif /* __OCF_CACHE_H__ */
+#endif /* __OCF_MNGT_H__ */

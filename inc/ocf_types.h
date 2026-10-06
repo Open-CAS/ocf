@@ -8,8 +8,8 @@
  * @file
  * @brief OCF types
  */
-#ifndef __OCF_TYPES_H_
-#define __OCF_TYPES_H_
+#ifndef __OCF_TYPES_H__
+#define __OCF_TYPES_H__
 
 #include "ocf_env_headers.h"
 
@@ -110,4 +110,4 @@ typedef struct ocf_metadata_updater *ocf_metadata_updater_t;
  */
 typedef struct ocf_logger *ocf_logger_t;
 
-#endif
+#endif /* __OCF_TYPES_H__ */

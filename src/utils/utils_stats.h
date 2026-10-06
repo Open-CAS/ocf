@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef UTILS_STATS_H_
-#define UTILS_STATS_H_
+#ifndef __UTILS_STATS_H__
+#define __UTILS_STATS_H__
 
 #define _ocf_stats_zero(stats) \
     do { \
@@ -47,4 +47,4 @@ static inline void _set(struct ocf_stat *stat, uint64_t value,
     stat->fraction = _fraction(value, denominator);
 }
 
-#endif
+#endif /* __UTILS_STATS_H__ */

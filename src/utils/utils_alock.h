@@ -3,8 +3,8 @@
  * Copyright(c) 2024 Huawei Technologies
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef OCF_UTILS_ALOCK_H_
-#define OCF_UTILS_ALOCK_H_
+#ifndef __UTILS_ALOCK_H__
+#define __UTILS_ALOCK_H__
 
 /**
  * @brief Lock result - Lock acquired successfully
@@ -109,4 +109,4 @@ void ocf_alock_waitlist_remove_entry(struct ocf_alock *alock,
 bool ocf_alock_trylock_entry_rd_idle(struct ocf_alock *alock,
 		ocf_cache_line_t entry);
 
-#endif
+#endif /* __UTILS_ALOCK_H__ */

@@ -4,8 +4,8 @@
  * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef __EVICTION_LRU_H__
-#define __EVICTION_LRU_H__
+#ifndef __OCF_LRU_H__
+#define __OCF_LRU_H__
 
 #include "ocf_space.h"
 #include "metadata/metadata_lru.h"
@@ -47,4 +47,4 @@ typedef void (*ocf_lru_populate_end_t)(void *priv, int error);
 void ocf_lru_populate(ocf_cache_t cache,
 		ocf_lru_populate_end_t cmpl, void *priv);
 
-#endif
+#endif /* __OCF_LRU_H__ */

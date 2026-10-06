@@ -5,6 +5,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#ifndef __CLEANING_OPS_H__
+#define __CLEANING_OPS_H__
+
 #include "alru.h"
 #include "nop.h"
 #include "acp.h"
@@ -337,3 +340,5 @@ static inline const char *ocf_cleaning_get_name(ocf_cleaning_t policy)
 
 	return cleaning_policy_ops[policy].name;
 }
+
+#endif /* __CLEANING_OPS_H__ */

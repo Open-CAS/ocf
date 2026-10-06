@@ -11,4 +11,4 @@ struct volume_data {
 	int offset;
 };
 
-#endif
+#endif /* __DATA_H__ */

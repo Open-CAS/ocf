@@ -20,4 +20,4 @@ struct myvolume {
 int volume_init(ocf_ctx_t ocf_ctx);
 void volume_cleanup(ocf_ctx_t ocf_ctx);
 
-#endif
+#endif /* __VOLUME_H__ */

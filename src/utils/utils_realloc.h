@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef UTILS_REALLOC_H_
-#define UTILS_REALLOC_H_
+#ifndef __UTILS_REALLOC_H__
+#define __UTILS_REALLOC_H__
 
 /**
  * @file utils_realloc.h
@@ -66,4 +66,4 @@ int ocf_realloc_cp(void **mem, size_t size, size_t count, size_t *limit);
 #define OCF_REALLOC_CP(mem, size, count, limit) \
 		ocf_realloc_cp((void **)mem, size, count, limit)
 
-#endif /* UTILS_REALLOC_H_ */
+#endif /* __UTILS_REALLOC_H__ */

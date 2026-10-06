@@ -162,4 +162,4 @@ void ocf_metadata_start_collision_shared_access(
 void ocf_metadata_end_collision_shared_access(
 		struct ocf_cache *cache, ocf_cache_line_t line);
 
-#endif /* METADATA_COLLISION_H_ */
+#endif /* __METADATA_COLLISION_H__ */

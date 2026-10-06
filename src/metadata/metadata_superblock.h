@@ -165,10 +165,7 @@ struct ocf_metadata_read_sb_ctx {
 int ocf_metadata_read_sb(ocf_ctx_t ctx, ocf_volume_t volume,
 		ocf_metadata_read_sb_end_t cmpl, void *priv1, void *priv2);
 
-void ocf_metadata_sb_crc_recovery(ocf_cache_t cache,
-		ocf_metadata_end_t cmpl, void *priv);
-
 void ocf_metadata_sb_zero(struct ocf_metadata_segment *self,
 		ocf_metadata_end_t cmpl, void *priv);
 
-#endif /* METADATA_SUPERBLOCK_H_ */
+#endif /* __METADATA_SUPERBLOCK_H__ */

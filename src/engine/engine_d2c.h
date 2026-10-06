@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef ENGINE_2DC_H_
-#define ENGINE_2DC_H_
+#ifndef __ENGINE_D2C_H__
+#define __ENGINE_D2C_H__
 
 int ocf_d2c_io_fast(struct ocf_request *req);
 
@@ -13,4 +13,4 @@ int ocf_d2c_flush_fast(struct ocf_request *req);
 
 int ocf_d2c_discard_fast(struct ocf_request *req);
 
-#endif /* ENGINE_2DC_H_ */
+#endif /* __ENGINE_D2C_H__ */

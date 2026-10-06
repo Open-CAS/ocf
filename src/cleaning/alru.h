@@ -4,12 +4,11 @@
  * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef __LAYER_CLEANING_POLICY_ALRU_H__
+#ifndef __CLEANING_ALRU_H__
 
-#define __LAYER_CLEANING_POLICY_ALRU_H__
+#define __CLEANING_ALRU_H__
 
 #include "cleaning.h"
-#include "alru_structs.h"
 
 void cleaning_policy_alru_setup(ocf_cache_t cache);
 int cleaning_policy_alru_initialize(ocf_cache_t cache);
@@ -34,5 +33,5 @@ int cleaning_policy_alru_get_cleaning_param(ocf_cache_t cache,
 		uint32_t param_id, uint32_t *param_value);
 void cleaning_alru_perform_cleaning(ocf_cache_t cache, ocf_cleaner_end_t cmpl);
 
-#endif
+#endif /* __CLEANING_ALRU_H__ */
 

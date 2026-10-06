@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef ENGINE_IO_H_
-#define ENGINE_IO_H_
+#ifndef __ENGINE_IO_H__
+#define __ENGINE_IO_H__
 
 #include "../ocf_request.h"
 
@@ -29,4 +29,4 @@ void ocf_engine_forward_core_flush_req(struct ocf_request *req,
 void ocf_engine_forward_core_discard_req(struct ocf_request *req,
 		ocf_req_end_t callback);
 
-#endif /* ENGINE_IO_H_ */
+#endif /* __ENGINE_IO_H__ */

@@ -342,4 +342,4 @@ static inline bool metadata_clear_valid_sec_changed(
 	return line_was_valid && !_line_remains_valid;
 }
 
-#endif /* METADATA_STATUS_H_ */
+#endif /* __METADATA_STATUS_H__ */

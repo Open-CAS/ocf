@@ -71,4 +71,4 @@ void ocf_metadata_get_core_and_part_id(
 		struct ocf_cache *cache, ocf_cache_line_t line,
 		ocf_core_id_t *core_id, ocf_part_id_t *part_id);
 
-#endif /* METADATA_CORE_H_ */
+#endif /* __METADATA_CORE_H__ */

@@ -4,9 +4,9 @@
  * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef __LAYER_CLEANING_POLICY_AGGRESSIVE_H__
+#ifndef __CLEANING_ACP_H__
 
-#define __LAYER_CLEANING_POLICY_AGGRESSIVE_H__
+#define __CLEANING_ACP_H__
 
 #include "cleaning.h"
 
@@ -50,5 +50,5 @@ int cleaning_policy_acp_add_core(ocf_cache_t cache, ocf_core_id_t core_id);
 void cleaning_policy_acp_remove_core(ocf_cache_t cache,
 		ocf_core_id_t core_id);
 
-#endif
+#endif /* __CLEANING_ACP_H__ */
 

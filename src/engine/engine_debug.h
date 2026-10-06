@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef ENGINE_DEBUG_H_
-#define ENGINE_DEBUG_H_
+#ifndef __ENGINE_DEBUG_H__
+#define __ENGINE_DEBUG_H__
 
 #ifndef OCF_ENGINE_DEBUG
 #define OCF_ENGINE_DEBUG 0
@@ -46,4 +46,4 @@
 #define OCF_DEBUG_RQ(req, format, ...)
 #endif
 
-#endif /* ENGINE_DEBUG_H_ */
+#endif /* __ENGINE_DEBUG_H__ */

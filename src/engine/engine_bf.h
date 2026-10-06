@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef ENGINE_BF_H_
-#define ENGINE_BF_H_
+#ifndef __ENGINE_BF_H__
+#define __ENGINE_BF_H__
 
 void ocf_engine_backfill(struct ocf_request *req);
 
-#endif /* ENGINE_BF_H_ */
+#endif /* __ENGINE_BF_H__ */

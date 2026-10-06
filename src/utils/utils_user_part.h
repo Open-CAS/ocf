@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __UTILS_PARTITION_H__
-#define __UTILS_PARTITION_H__
+#ifndef __UTILS_USER_PART_H__
+#define __UTILS_USER_PART_H__
 
 #include "../ocf_request.h"
 #include "../engine/cache_engine.h"
@@ -180,4 +180,4 @@ static inline bool ocf_user_part_is_name_valid(const char *name)
 	return true;
 }
 
-#endif /* __UTILS_PARTITION_H__ */
+#endif /* __UTILS_USER_PART_H__ */

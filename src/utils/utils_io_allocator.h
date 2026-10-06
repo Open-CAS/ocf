@@ -58,4 +58,4 @@ static inline void ocf_io_allocator_deinit(ocf_io_allocator_t allocator)
 
 ocf_io_allocator_type_t ocf_io_allocator_get_type_default(void);
 
-#endif /* __UTILS_IO_ALLOCATOR__ */
+#endif /* __UTILS_IO_ALLOCATOR_H__ */

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __OCF_METADATA_PASSIVE_IO_H__
-#define __OCF_METADATA_PASSIVE_IO_H__
+#ifndef __METADATA_PASSIVE_UPDATE_H__
+#define __METADATA_PASSIVE_UPDATE_H__
 
 int ocf_metadata_passive_update(struct ocf_request *master);
 
@@ -13,4 +13,4 @@ int ocf_metadata_passive_io_ctx_init(ocf_cache_t cache);
 
 void ocf_metadata_passive_io_ctx_deinit(ocf_cache_t cache);
 
-#endif
+#endif /* __METADATA_PASSIVE_UPDATE_H__ */

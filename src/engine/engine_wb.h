@@ -3,11 +3,11 @@
  * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef ENGINE_WB_H_
-#define ENGINE_WB_H_
+#ifndef __ENGINE_WB_H__
+#define __ENGINE_WB_H__
 
 int ocf_write_wb(struct ocf_request *req);
 
 int ocf_write_wb_do(struct ocf_request *req);
 
-#endif /* ENGINE_WB_H_ */
+#endif /* __ENGINE_WB_H__ */

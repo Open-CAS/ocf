@@ -51,4 +51,4 @@ bool env_refcnt_zeroed(struct env_refcnt *rc);
 void env_refcnt_register_zero_cb(struct env_refcnt *rc, env_refcnt_cb_t cb,
 		void *priv);
 
-#endif // __OCF_ENV_REFCNT_H__
+#endif /* __OCF_ENV_REFCNT_H__ */

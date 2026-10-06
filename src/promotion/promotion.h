@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef PROMOTION_H_
-#define PROMOTION_H_
+#ifndef __PROMOTION_H__
+#define __PROMOTION_H__
 
 #include "ocf/ocf.h"
 #include "../ocf_request.h"
@@ -102,4 +102,4 @@ void ocf_promotion_req_purge(ocf_promotion_policy_t policy,
 bool ocf_promotion_req_should_promote(ocf_promotion_policy_t policy,
 		struct ocf_request *req);
 
-#endif /* PROMOTION_H_ */
+#endif /* __PROMOTION_H__ */

@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#ifndef __CLEANING_PRIV_H__
+#define __CLEANING_PRIV_H__
+
 static inline void cleaning_policy_param_error(ocf_cache_t cache,
 		const char *param_name, uint32_t min, uint32_t max)
 {
@@ -17,3 +20,5 @@ static inline void cleaning_policy_param_error(ocf_cache_t cache,
 		return -OCF_ERR_INVAL; \
 	} \
 })
+
+#endif /* __CLEANING_PRIV_H__ */

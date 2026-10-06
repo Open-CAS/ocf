@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef OCF_QUEUE_PRIV_H_
-#define OCF_QUEUE_PRIV_H_
+#ifndef __OCF_QUEUE_PRIV_H__
+#define __OCF_QUEUE_PRIV_H__
 
 #include "ocf_env.h"
 #include "ocf_request.h"
@@ -72,4 +72,4 @@ void ocf_queue_push_req(struct ocf_request *req, uint flags);
 void ocf_queue_push_req_cb(struct ocf_request *req,
 		ocf_req_cb req_cb, uint flags);
 
-#endif
+#endif /* __OCF_QUEUE_PRIV_H__ */

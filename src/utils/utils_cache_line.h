@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef UTILS_CACHE_LINE_H_
-#define UTILS_CACHE_LINE_H_
+#ifndef __UTILS_CACHE_LINE_H__
+#define __UTILS_CACHE_LINE_H__
 
 #include "../metadata/metadata.h"
 #include "../concurrency/ocf_cache_line_concurrency.h"
@@ -373,4 +373,4 @@ static inline bool ocf_cache_line_size_is_valid(uint64_t size)
 	}
 }
 
-#endif /* UTILS_CACHE_LINE_H_ */
+#endif /* __UTILS_CACHE_LINE_H__ */

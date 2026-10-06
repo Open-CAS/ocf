@@ -84,4 +84,4 @@ ocf_metadata_get_cleaning_policy(struct ocf_cache *cache,
 		ocf_cache_line_t line);
 
 
-#endif /* METADATA_CLEANING_POLICY_H_ */
+#endif /* __METADATA_CLEANING_POLICY_H__ */
