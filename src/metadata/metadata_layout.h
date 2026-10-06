@@ -29,6 +29,9 @@
 #define OCF_METADATA_SEGMENT_ALIGNMENT (128 * KiB)
 
 struct ocf_metadata_segment_layout {
+	enum ocf_metadata_segment_id id;
+		/*!< Segment id */
+
 	uint32_t entry_size;
 		/*!< Size of single entry */
 
@@ -121,6 +124,42 @@ static inline uint64_t ocf_metadata_segment_layout_offset(
 		_ocf_metadata_layout_aligned_pages(segment->pages) *
 		flapping_idx;
 }
+
+/**
+ * @brief Checksum of superblock config
+ *
+ * Checksum covers struct ocf_superblock_config up to the checksum array.
+ *
+ * @param data - Superblock config (struct ocf_superblock_config)
+ */
+uint32_t ocf_metadata_segment_layout_checksum_superblock(const void *data);
+
+/**
+ * @brief Update segment checksum with single page of segment data
+ *
+ * @param segment - Segment layout (other than superblock config)
+ * @param crc - Checksum of preceding pages (0 for first page)
+ * @param page - Page of segment data
+ */
+uint32_t ocf_metadata_segment_layout_checksum_page(
+		const struct ocf_metadata_segment_layout *segment, uint32_t crc,
+		const void *page);
+
+/**
+ * @brief Checksum of segment data
+ *
+ * Checksum covers all pages of segment data as kept in memory, i.e. entries
+ * packed densely one after another (without unused remainder of each page
+ * on disk), followed by zeros up to the number of pages of the segment.
+ *
+ * @param segment - Segment layout (other than superblock config)
+ * @param get_page - Callback returning page of segment data of given index
+ * @param opaque - Private data passed to @get_page
+ */
+uint32_t ocf_metadata_segment_layout_checksum_segment(
+		const struct ocf_metadata_segment_layout *segment,
+		const void *(*get_page)(void *opaque, unsigned idx),
+		void *opaque);
 
 /**
  * @brief Initialize layout of fixed size segments

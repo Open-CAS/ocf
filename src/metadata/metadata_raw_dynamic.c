@@ -234,21 +234,17 @@ uint32_t raw_dynamic_size_on_ssd(struct ocf_metadata_raw *raw)
 /*
  * RAM DYNAMIC Implementation - Checksum
  */
+static const void *_raw_dynamic_checksum_get_page(void *opaque,
+		unsigned idx)
+{
+	return _raw_dynamic_page_rd(opaque, idx);
+}
+
 uint32_t raw_dynamic_checksum(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
-	struct _raw_ctrl *ctrl = (struct _raw_ctrl *)raw->priv;
-	uint64_t i;
-	uint32_t step = 0;
-	uint32_t crc = 0;
-
-	for (i = 0; i < raw->layout->pages; i++) {
-		if (ctrl->pages[i])
-			crc = env_crc32(crc, ctrl->pages[i], PAGE_SIZE);
-		OCF_COND_RESCHED(step, 10000);
-	}
-
-	return crc;
+	return ocf_metadata_segment_layout_checksum_segment(raw->layout,
+			_raw_dynamic_checksum_get_page, raw);
 }
 
 /*

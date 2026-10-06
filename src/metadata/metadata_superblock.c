@@ -128,8 +128,7 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 		return -OCF_ERR_METADATA_VER;
 	}
 
-	crc = env_crc32(0, (void *)superblock,
-			offsetof(struct ocf_superblock_config, checksum));
+	crc = ocf_metadata_segment_layout_checksum_superblock(superblock);
 
 	if (crc != superblock->checksum[metadata_segment_sb_config]) {
 		ocf_log_invalid_superblock("checksum");
@@ -504,9 +503,9 @@ static void ocf_metadata_calculate_crc_sb_config(ocf_pipeline_t pipeline,
 	ctrl = context->ctrl;
 	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
 
-	sb_config->checksum[metadata_segment_sb_config] = env_crc32(0,
-			(void *)sb_config,
-			offsetof(struct ocf_superblock_config, checksum));
+	sb_config->checksum[metadata_segment_sb_config] =
+			ocf_metadata_segment_layout_checksum_superblock(
+					sb_config);
 
 	ocf_pipeline_next(pipeline);
 }

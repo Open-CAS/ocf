@@ -164,6 +164,39 @@ bool ocf_metadata_segment_layout_is_flapped(
 	}
 }
 
+uint32_t ocf_metadata_segment_layout_checksum_superblock(const void *data)
+{
+	return env_crc32(0, data,
+			offsetof(struct ocf_superblock_config, checksum));
+}
+
+uint32_t ocf_metadata_segment_layout_checksum_page(
+		const struct ocf_metadata_segment_layout *segment,
+		uint32_t crc, const void *page)
+{
+	ENV_BUG_ON(segment->id == metadata_segment_sb_config);
+
+	return env_crc32(crc, page, PAGE_SIZE);
+}
+
+uint32_t ocf_metadata_segment_layout_checksum_segment(
+		const struct ocf_metadata_segment_layout *segment,
+		const void *(*get_page)(void *opaque, unsigned idx),
+		void *opaque)
+{
+	uint32_t step = 0;
+	uint32_t crc = 0;
+	unsigned i;
+
+	for (i = 0; i < segment->pages; i++) {
+		crc = ocf_metadata_segment_layout_checksum_page(segment,
+				crc, get_page(opaque, i));
+		OCF_COND_RESCHED(step, 10000);
+	}
+
+	return crc;
+}
+
 /*
  * Set up segment with given number of entries at given offset
  *
@@ -203,6 +236,9 @@ void ocf_metadata_layout_init_fixed_size(
 
 	layout->on_disk = on_disk;
 
+	for (i = 0; i < metadata_segment_max; i++)
+		layout->segment[i].id = i;
+
 	for (i = 0; i < metadata_segment_fixed_size_max; i++) {
 		page += ocf_metadata_layout_setup_segment(layout, i, 0,
 				ocf_metadata_segment_layout_entries(i, 0),
@@ -227,6 +263,7 @@ void ocf_metadata_layout_set_cachelines(struct ocf_metadata_layout *layout,
 		if (i == metadata_segment_cleaning && cleaner_disabled) {
 			ENV_BUG_ON(env_memset(&layout->segment[i],
 					sizeof(layout->segment[i]), 0));
+			layout->segment[i].id = i;
 			layout->segment[i].disabled = true;
 			continue;
 		}

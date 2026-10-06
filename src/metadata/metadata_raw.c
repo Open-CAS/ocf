@@ -157,19 +157,18 @@ static uint32_t _raw_ram_size_on_ssd(struct ocf_metadata_raw *raw)
 /*
  * RAM Implementation - Checksum
  */
+static const void *_raw_ram_checksum_get_page(void *opaque, unsigned idx)
+{
+	struct ocf_metadata_raw *raw = opaque;
+
+	return (uint8_t *)raw->mem_pool + (uint64_t)idx * PAGE_SIZE;
+}
+
 static uint32_t _raw_ram_checksum(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw)
 {
-	uint64_t i;
-	uint32_t step = 0;
-	uint32_t crc = 0;
-
-	for (i = 0; i < raw->layout->pages; i++) {
-		crc = env_crc32(crc, raw->mem_pool + PAGE_SIZE * i, PAGE_SIZE);
-		OCF_COND_RESCHED(step, 10000);
-	}
-
-	return crc;
+	return ocf_metadata_segment_layout_checksum_segment(raw->layout,
+			_raw_ram_checksum_get_page, raw);
 }
 
 /*
