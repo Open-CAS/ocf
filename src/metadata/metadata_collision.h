@@ -45,6 +45,40 @@ struct ocf_hash_entry {
 };
 
 /**
+ * @brief Hash bucket of core line
+ *
+ * Hash function intentionally returns consecutive (modulo @hash_entries)
+ * values for consecutive @core_line. This way it is trivial to sort all
+ * core lines within a single request in ascending hash value order. This kind
+ * of sorting is required to assure that (future) hash bucket metadata locks are
+ * always acquired in fixed order, eliminating the risk of dead locks.
+ *
+ * @param hash_entries - Number of entries in hash segment
+ * @param core_line - Core line number
+ * @param core_id - Core id
+ */
+static inline ocf_cache_line_t ocf_metadata_collision_hash(
+		ocf_cache_line_t hash_entries, uint64_t core_line,
+		ocf_core_id_t core_id)
+{
+	return (ocf_cache_line_t) ((core_line + (core_id * (hash_entries / 32)))
+			% hash_entries);
+}
+
+/**
+ * @brief Hash bucket following given one
+ *
+ * @param hash_entries - Number of entries in hash segment
+ * @param hash - Hash bucket
+ */
+static inline ocf_cache_line_t ocf_metadata_collision_hash_next(
+		ocf_cache_line_t hash_entries, ocf_cache_line_t hash)
+{
+	hash++;
+	return likely(hash < hash_entries) ? hash : 0;
+}
+
+/**
  * @brief Metadata map structure
  */
 
