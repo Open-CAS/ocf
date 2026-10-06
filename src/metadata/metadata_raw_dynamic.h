@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -50,7 +51,13 @@ uint32_t raw_dynamic_page(struct ocf_metadata_raw *raw, uint32_t entry);
 /*
  * RAW DYNAMIC - Write access for specified entry
  */
-void *raw_dynamic_access(ocf_cache_t cache,
+void *raw_dynamic_wr_access(ocf_cache_t cache,
+		struct ocf_metadata_raw *raw, uint32_t entry);
+
+/*
+ * RAW DYNAMIC - Read access for specified entry
+ */
+const void *raw_dynamic_rd_access(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, uint32_t entry);
 
 /*

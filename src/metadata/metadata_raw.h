@@ -117,8 +117,11 @@ struct raw_iface {
 
 	uint32_t (*page)(struct ocf_metadata_raw *raw, uint32_t entry);
 
-	void* (*access)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
+	void* (*wr_access)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 			uint32_t entry);
+
+	const void* (*rd_access)(ocf_cache_t cache,
+			struct ocf_metadata_raw *raw, uint32_t entry);
 
 	int (*update)(ocf_cache_t cache, struct ocf_metadata_raw *raw,
 			ctx_data_t *data, uint64_t page, uint64_t count);
@@ -228,7 +231,7 @@ static inline uint32_t ocf_metadata_raw_page(struct ocf_metadata_raw* raw,
 static inline void *ocf_metadata_raw_wr_access(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, uint32_t entry)
 {
-	return raw->iface->access(cache, raw, entry);
+	return raw->iface->wr_access(cache, raw, entry);
 }
 
 /**
@@ -242,7 +245,7 @@ static inline void *ocf_metadata_raw_wr_access(ocf_cache_t cache,
 static inline const void *ocf_metadata_raw_rd_access( ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, uint32_t entry)
 {
-	return raw->iface->access(cache, raw, entry);
+	return raw->iface->rd_access(cache, raw, entry);
 }
 
 /**
