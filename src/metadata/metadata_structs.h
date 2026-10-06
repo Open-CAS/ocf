@@ -20,16 +20,6 @@
  * @brief Metadata private structures
  */
 
-/**
- * @brief Query cores completion callback
- *
- * @param priv - Caller private data
- * @param error - Operation error status
- * @param num_cores - Number of cores in metadata
- */
-typedef void (*ocf_metadata_query_cores_end_t)(void *priv, int error,
-		unsigned int num_cores);
-
 #define OCF_METADATA_GLOBAL_LOCK_IDX_BITS 2
 #define OCF_NUM_GLOBAL_META_LOCKS (1 << (OCF_METADATA_GLOBAL_LOCK_IDX_BITS))
 

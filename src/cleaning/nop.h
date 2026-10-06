@@ -7,7 +7,6 @@
 #define __LAYER_CLEANING_POLICY_NOP_H__
 
 #include "cleaning.h"
-#include "nop_structs.h"
 
 void cleaning_nop_perform_cleaning(ocf_cache_t cache, ocf_cleaner_end_t cmpl);
 

@@ -9,7 +9,6 @@
 #define __LAYER_CLEANING_POLICY_ALRU_H__
 
 #include "cleaning.h"
-#include "alru_structs.h"
 
 void cleaning_policy_alru_setup(ocf_cache_t cache);
 int cleaning_policy_alru_initialize(ocf_cache_t cache);

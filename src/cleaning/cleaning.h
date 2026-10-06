@@ -8,9 +8,6 @@
 #ifndef __LAYER_CLEANING_POLICY_H__
 #define __LAYER_CLEANING_POLICY_H__
 
-#include "alru_structs.h"
-#include "nop_structs.h"
-#include "acp_structs.h"
 #include "../metadata/metadata_cleaning_policy.h"
 #include "ocf_env_refcnt.h"
 #include "ocf/ocf_cleaner.h"

@@ -61,13 +61,6 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		bool cleaner_disabled);
 
 /**
- * @brief Initialize collision table
- *
- * @param cache - Cache instance
- */
-void ocf_metadata_init_freelist_partition(struct ocf_cache *cache);
-
-/**
  * @brief Initialize hash table
  *
  * @param cache - Cache instance

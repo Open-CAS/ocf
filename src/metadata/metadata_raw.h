@@ -7,6 +7,7 @@
 #ifndef __METADATA_RAW_H__
 #define __METADATA_RAW_H__
 
+#include "metadata_common.h"
 #include "metadata_segment_id.h"
 #include "metadata_layout.h"
 #include "../concurrency/ocf_mio_concurrency.h"
@@ -341,11 +342,6 @@ static inline bool _raw_is_valid(struct ocf_metadata_raw *raw, uint32_t entry)
 		return false;
 
 	return true;
-}
-
-static inline void _raw_bug_on(struct ocf_metadata_raw *raw, uint32_t entry)
-{
-	ENV_BUG_ON(!_raw_is_valid(raw, entry));
 }
 
 #define MAX_STACK_TAB_SIZE 32
