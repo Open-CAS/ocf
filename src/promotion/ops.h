@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef PROMOTION_OPS_H_
-#define PROMOTION_OPS_H_
+#ifndef __PROMOTION_OPS_H__
+#define __PROMOTION_OPS_H__
 
 #include "../metadata/metadata.h"
 #include "promotion.h"
@@ -53,5 +53,5 @@ struct promotion_policy_ops {
 
 extern struct promotion_policy_ops ocf_promotion_policies[ocf_promotion_max];
 
-#endif /* PROMOTION_OPS_H_ */
+#endif /* __PROMOTION_OPS_H__ */
 

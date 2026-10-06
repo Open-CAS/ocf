@@ -10,4 +10,4 @@
 
 int ocf_composite_volume_type_init(ocf_ctx_t ctx);
 
-#endif /* __OCF_COMPOSITE_VOLUME_H__ */
+#endif /* __OCF_COMPOSITE_VOLUME_PRIV_H__ */

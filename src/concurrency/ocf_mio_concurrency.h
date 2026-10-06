@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef OCF_MIO_CONCURRENCY_H_
-#define OCF_MIO_CONCURRENCY_H_
+#ifndef __OCF_MIO_CONCURRENCY_H__
+#define __OCF_MIO_CONCURRENCY_H__
 
 #include "../utils/utils_alock.h"
 
@@ -23,4 +23,4 @@ int ocf_mio_concurrency_init(struct ocf_alock **self,
 
 void ocf_mio_concurrency_deinit(struct ocf_alock **self);
 
-#endif
+#endif /* __OCF_MIO_CONCURRENCY_H__ */

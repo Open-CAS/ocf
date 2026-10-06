@@ -236,4 +236,4 @@ bool ocf_metadata_check(struct ocf_cache *cache, ocf_cache_line_t line);
 bool ocf_metadata_is_hit_no_lock(ocf_cache_t cache, ocf_core_id_t core_id,
 		uint64_t core_line);
 
-#endif /* METADATA_H_ */
+#endif /* __METADATA_H__ */

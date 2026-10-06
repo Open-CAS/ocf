@@ -353,4 +353,4 @@ static inline void *ocf_metadata_raw_get_mem(struct ocf_metadata_raw *raw)
 	return raw->mem_pool;
 }
 
-#endif /* METADATA_RAW_H_ */
+#endif /* __METADATA_RAW_H__ */

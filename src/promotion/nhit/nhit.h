@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef NHIT_PROMOTION_POLICY_H_
-#define NHIT_PROMOTION_POLICY_H_
+#ifndef __NHIT_H__
+#define __NHIT_H__
 
 #include "ocf/ocf.h"
 #include "../../ocf_request.h"
@@ -29,4 +29,4 @@ void nhit_req_purge(ocf_promotion_policy_t policy,
 bool nhit_req_should_promote(ocf_promotion_policy_t policy,
 		struct ocf_request *req);
 
-#endif /* NHIT_PROMOTION_POLICY_H_ */
+#endif /* __NHIT_H__ */

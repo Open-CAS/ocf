@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef ENGINE_INV_H_
-#define ENGINE_INV_H_
+#ifndef __ENGINE_INV_H__
+#define __ENGINE_INV_H__
 
 void ocf_engine_invalidate(struct ocf_request *req);
 
-#endif /* ENGINE_INV_H_ */
+#endif /* __ENGINE_INV_H__ */

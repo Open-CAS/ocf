@@ -4,12 +4,12 @@
  * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
+#ifndef __OCF_METADATA_CONCURRENCY_H__
+#define __OCF_METADATA_CONCURRENCY_H__
+
 #include "../ocf_cache_priv.h"
 #include "../ocf_space.h"
 #include "../ocf_queue_priv.h"
-
-#ifndef __OCF_METADATA_CONCURRENCY_H__
-#define __OCF_METADATA_CONCURRENCY_H__
 
 #define OCF_METADATA_RD 0
 #define OCF_METADATA_WR 1
@@ -163,4 +163,4 @@ void ocf_collision_start_exclusive_access(struct ocf_metadata_lock *metadata_loc
 		uint32_t page);
 void ocf_collision_end_exclusive_access(struct ocf_metadata_lock *metadata_lock,
 		uint32_t page);
-#endif
+#endif /* __OCF_METADATA_CONCURRENCY_H__ */

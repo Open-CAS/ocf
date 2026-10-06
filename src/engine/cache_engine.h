@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __CACHE_ENGINE_H_
-#define __CACHE_ENGINE_H_
+#ifndef __CACHE_ENGINE_H__
+#define __CACHE_ENGINE_H__
 
 #include "../ocf_request.h"
 
@@ -49,4 +49,4 @@ void ocf_engine_hndl_flush_req(struct ocf_request *req);
 
 void ocf_engine_hndl_discard_req(struct ocf_request *req);
 
-#endif
+#endif /* __CACHE_ENGINE_H__ */

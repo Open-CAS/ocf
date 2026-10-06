@@ -86,4 +86,4 @@ struct ocf_request;
 
 typedef void (*ocf_req_end_t)(struct ocf_request *req, int error);
 
-#endif
+#endif /* __OCF_DEF_PRIV_H__ */

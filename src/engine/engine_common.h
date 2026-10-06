@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef ENGINE_COMMON_H_
-#define ENGINE_COMMON_H_
+#ifndef __ENGINE_COMMON_H__
+#define __ENGINE_COMMON_H__
 
 #include "../ocf_request.h"
 #include "../utils/utils_cache_line.h"
@@ -304,4 +304,4 @@ void ocf_engine_on_resume(struct ocf_request *req);
 
 void ocf_engine_set_hot(struct ocf_request *req);
 
-#endif /* ENGINE_COMMON_H_ */
+#endif /* __ENGINE_COMMON_H__ */

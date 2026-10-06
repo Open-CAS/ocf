@@ -3,9 +3,9 @@
  * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#ifndef __PROMOTION_NHIT_STRUCTS_H_
-#define __PROMOTION_NHIT_STRUCTS_H_
+#ifndef __NHIT_STRUCTS_H__
+#define __NHIT_STRUCTS_H__
 
 #include "../../metadata/metadata_promotion_policy.h"
 
-#endif
+#endif /* __NHIT_STRUCTS_H__ */

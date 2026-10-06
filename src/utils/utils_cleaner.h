@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef UTILS_CLEANER_H_
-#define UTILS_CLEANER_H_
+#ifndef __UTILS_CLEANER_H__
+#define __UTILS_CLEANER_H__
 
 #include "../ocf_request.h"
 
@@ -156,4 +156,4 @@ void ocf_cleaner_refcnt_register_zero_cb(ocf_cache_t cache,
 		struct ocf_cleaner_wait_context *ctx,
 		ocf_cleaner_refcnt_zero_cb_t cb, void *priv);
 
-#endif /* UTILS_CLEANER_H_ */
+#endif /* __UTILS_CLEANER_H__ */

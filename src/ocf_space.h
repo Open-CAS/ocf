@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __LAYER_EVICTION_POLICY_H__
-#define __LAYER_EVICTION_POLICY_H__
+#ifndef __OCF_SPACE_H__
+#define __OCF_SPACE_H__
 
 #include "ocf/ocf.h"
 #include "ocf_lru.h"
@@ -40,4 +40,4 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 		ocf_part_id_t part_id, ocf_core_id_t core_id,
 		uint64_t start_byte, uint64_t end_byte,
 		ocf_metadata_actor_t actor);
-#endif
+#endif /* __OCF_SPACE_H__ */

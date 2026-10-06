@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef ENGINE_WT_H_
-#define ENGINE_WT_H_
+#ifndef __ENGINE_WT_H__
+#define __ENGINE_WT_H__
 
 int ocf_write_wt(struct ocf_request *req);
 
-#endif /* ENGINE_WT_H_ */
+#endif /* __ENGINE_WT_H__ */

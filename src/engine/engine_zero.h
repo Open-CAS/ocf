@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef ENGINE_ZERO_H_
-#define ENGINE_ZERO_H_
+#ifndef __ENGINE_ZERO_H__
+#define __ENGINE_ZERO_H__
 
 void ocf_engine_zero_line(struct ocf_request *req);
 
-#endif /* ENGINE_ZERO_H_ */
+#endif /* __ENGINE_ZERO_H__ */

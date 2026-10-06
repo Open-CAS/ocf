@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef UTILS_IO_H_
-#define UTILS_IO_H_
+#ifndef __UTILS_IO_H__
+#define __UTILS_IO_H__
 
 #include "../ocf_request.h"
 
@@ -40,4 +40,4 @@ static inline ocf_io_t ocf_new_core_io(ocf_core_t core,
 			addr, bytes, dir, io_class, flags);
 }
 
-#endif /* UTILS_IO_H_ */
+#endif /* __UTILS_IO_H__ */

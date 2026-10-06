@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __LAYER_CLEANING_POLICY_H__
-#define __LAYER_CLEANING_POLICY_H__
+#ifndef __CLEANING_H__
+#define __CLEANING_H__
 
 #include "../metadata/metadata_cleaning_policy.h"
 #include "ocf_env_refcnt.h"
@@ -33,4 +33,4 @@ void ocf_stop_cleaner(ocf_cache_t cache);
 
 typedef void (*ocf_cleaning_op_end_t)(void *priv, int error);
 
-#endif
+#endif /* __CLEANING_H__ */

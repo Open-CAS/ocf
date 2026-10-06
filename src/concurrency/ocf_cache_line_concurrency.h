@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef OCF_CACHE_CONCURRENCY_H_
-#define OCF_CACHE_CONCURRENCY_H_
+#ifndef __OCF_CACHE_LINE_CONCURRENCY_H__
+#define __OCF_CACHE_LINE_CONCURRENCY_H__
 
 #include "../utils/utils_alock.h"
 
@@ -189,4 +189,4 @@ ocf_cache_line_concurrency(ocf_cache_t cache)
 	return cache->device->concurrency.cache_line;
 }
 
-#endif /* OCF_CONCURRENCY_H_ */
+#endif /* __OCF_CACHE_LINE_CONCURRENCY_H__ */

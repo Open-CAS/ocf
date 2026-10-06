@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __METADATA_PARTITION_STRUCTS_H__
-#define __METADATA_PARTITION_STRUCTS_H__
+#ifndef __OCF_PART_H__
+#define __OCF_PART_H__
 
 #include "utils/utils_list.h"
 #include "utils/utils_cleaner.h"
@@ -73,4 +73,4 @@ struct ocf_user_part {
 };
 
 
-#endif /* __METADATA_PARTITION_STRUCTS_H__ */
+#endif /* __OCF_PART_H__ */

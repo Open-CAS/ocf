@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef ENGINE_OFF_H_
-#define ENGINE_OFF_H_
+#ifndef __ENGINE_PT_H__
+#define __ENGINE_PT_H__
 
 int ocf_read_pt(struct ocf_request *req);
 
@@ -13,4 +13,4 @@ int ocf_read_pt_do(struct ocf_request *req);
 
 void ocf_queue_push_req_pt(struct ocf_request *req);
 
-#endif /* ENGINE_OFF_H_ */
+#endif /* __ENGINE_PT_H__ */

@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef ENGINE_WO_H_
-#define ENGINE_WO_H_
+#ifndef __ENGINE_WO_H__
+#define __ENGINE_WO_H__
 
 #include "engine_common.h"
 
 int ocf_read_wo(struct ocf_request *req);
 
-#endif /* ENGINE_WO_H_ */
+#endif /* __ENGINE_WO_H__ */

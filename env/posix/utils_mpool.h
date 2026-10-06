@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef UTILS_MPOOL_H_
-#define UTILS_MPOOL_H_
+#ifndef __UTILS_MPOOL_H__
+#define __UTILS_MPOOL_H__
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -88,4 +88,4 @@ void *env_mpool_new_f(struct env_mpool *mpool, uint32_t count, int flags);
  */
 bool env_mpool_del(struct env_mpool *mpool, void *items, uint32_t count);
 
-#endif /* UTILS_MPOOL_H_ */
+#endif /* __UTILS_MPOOL_H__ */

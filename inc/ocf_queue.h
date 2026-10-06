@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef OCF_QUEUE_H_
-#define OCF_QUEUE_H_
+#ifndef __OCF_QUEUE_H__
+#define __OCF_QUEUE_H__
 
 /**
  * @file
@@ -161,4 +161,4 @@ uint32_t ocf_queue_pending_io(ocf_queue_t q);
  */
 bool ocf_queue_is_mngt(ocf_queue_t queue);
 
-#endif
+#endif /* __OCF_QUEUE_H__ */

@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef OCF_CONCURRENCY_H_
-#define OCF_CONCURRENCY_H_
+#ifndef __OCF_CONCURRENCY_H__
+#define __OCF_CONCURRENCY_H__
 
 #include "../ocf_cache_priv.h"
 
@@ -30,4 +30,4 @@ void ocf_concurrency_deinit(struct ocf_cache *cache);
 
 #include "ocf_cache_line_concurrency.h"
 
-#endif /* OCF_CONCURRENCY_H_ */
+#endif /* __OCF_CONCURRENCY_H__ */

@@ -88,4 +88,4 @@ static inline void ocf_volume_submit_write_zeroes(ocf_io_t io)
 	volume->type->properties->ops.submit_write_zeroes(io);
 }
 
-#endif  /*__OCF_VOLUME_PRIV_H__ */
+#endif /* __OCF_VOLUME_PRIV_H__ */

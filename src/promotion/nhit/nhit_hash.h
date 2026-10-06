@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef NHIT_HASH_H_
-#define NHIT_HASH_H_
+#ifndef __NHIT_HASH_H__
+#define __NHIT_HASH_H__
 
 #include "ocf/ocf.h"
 
@@ -23,4 +23,4 @@ bool nhit_hash_query(nhit_hash_t ctx, ocf_core_id_t core_id, uint64_t core_lba,
 
 void nhit_hash_set_occurences(nhit_hash_t ctx, ocf_core_id_t core_id,
 		uint64_t core_lba, int32_t occurences);
-#endif /* NHIT_HASH_H_ */
+#endif /* __NHIT_HASH_H__ */
