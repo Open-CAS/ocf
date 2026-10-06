@@ -11,10 +11,6 @@
 #include "ocf/ocf_types.h"
 #include "ocf_env.h"
 
-struct readahead_prefetch_policy_config {
-	uint32_t threshold;	/* in bytes */
-};
-
 void ocf_pf_readahead_setup(ocf_cache_t cache);
 int ocf_pf_readahead_init(ocf_core_t core);
 void ocf_pf_readahead_deinit(ocf_core_t core);

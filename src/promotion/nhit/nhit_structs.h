@@ -1,16 +1,11 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef __PROMOTION_NHIT_STRUCTS_H_
 #define __PROMOTION_NHIT_STRUCTS_H_
 
-struct nhit_promotion_policy_config {
-	uint32_t insertion_threshold;
-	/*!< Number of hits */
-
-	uint32_t trigger_threshold;
-	/*!< Cache occupancy (percentage value) */
-};
+#include "../../metadata/metadata_promotion_policy.h"
 
 #endif

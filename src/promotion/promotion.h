@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -8,14 +9,7 @@
 
 #include "ocf/ocf.h"
 #include "../ocf_request.h"
-
-#define PROMOTION_POLICY_CONFIG_BYTES 256
-#define PROMOTION_POLICY_TYPE_MAX 2
-
-
-struct promotion_policy_config {
-	uint8_t data[PROMOTION_POLICY_CONFIG_BYTES];
-} __attribute__((aligned(4)));
+#include "../metadata/metadata_promotion_policy.h"
 
 typedef struct ocf_promotion_policy *ocf_promotion_policy_t;
 

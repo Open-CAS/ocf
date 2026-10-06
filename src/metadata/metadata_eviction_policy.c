@@ -1,11 +1,12 @@
 /*
  * Copyright(c) 2020-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "ocf/ocf.h"
 #include "metadata.h"
-#include "metadata_eviction_policy.h"
+#include "metadata_lru.h"
 #include "metadata_internal.h"
 
 /*

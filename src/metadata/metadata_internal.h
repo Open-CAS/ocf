@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2020-2021 Intel Corporation
  * Copyright(c) 2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -12,6 +13,7 @@
 #include "metadata_segment.h"
 #include "metadata_segment_id.h"
 #include "metadata_raw.h"
+#include "metadata_layout.h"
 
 #define METADATA_MEM_POOL(ctrl, section) ctrl->raw_desc[section].mem_pool
 
@@ -19,14 +21,9 @@
  * Metadata control structure
  */
 struct ocf_metadata_ctrl {
-	ocf_cache_line_t cachelines;
-	ocf_cache_line_t start_page;
-	uint32_t count_pages_fixed;
-	uint32_t count_pages_variable;
-	uint32_t device_lines;
-	size_t mapping_size;
 	struct ocf_metadata_raw raw_desc[metadata_segment_max];
 	struct ocf_metadata_segment *segment[metadata_segment_max];
+	struct ocf_metadata_layout metadata_layout;
 };
 
 struct ocf_metadata_context {

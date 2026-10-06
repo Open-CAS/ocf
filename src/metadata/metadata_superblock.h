@@ -8,13 +8,23 @@
 #ifndef __METADATA_SUPERBLOCK_H__
 #define __METADATA_SUPERBLOCK_H__
 
-#include <ocf/ocf_def.h>
-#include "metadata_segment.h"
-#include "../promotion/promotion.h"
-#include "ocf/ocf_prefetch.h"
-#include "../prefetch/ocf_prefetch_priv.h"
+#include "ocf/ocf.h"
+#include "../ocf_def_priv.h"
+#include "metadata_common.h"
+#include "metadata_segment_id.h"
+#include "metadata_cleaning_policy.h"
+#include "metadata_promotion_policy.h"
+#include "metadata_prefetch_policy.h"
 
 #define CACHE_MAGIC_NUMBER	0x187E1CA6
+
+/**
+ * @brief Metadata shutdown status
+ */
+enum ocf_metadata_shutdown_status {
+	ocf_metadata_dirty_shutdown = 0, /*!< Dirty OCF shutdown*/
+	ocf_metadata_clean_shutdown = 1, /*!< OCF shutdown graceful*/
+};
 
 /**
  * @brief OCF cache metadata configuration superblock
@@ -92,6 +102,8 @@ struct ocf_superblock_runtime {
 };
 
 struct ocf_metadata_ctrl;
+struct ocf_metadata_segment;
+struct ocf_metadata_raw;
 
 void ocf_metadata_set_shutdown_status(ocf_cache_t cache,
 		enum ocf_metadata_shutdown_status shutdown_status,

@@ -12,7 +12,7 @@
 #include "../ocf_cache_priv.h"
 #include "../ocf_ctx_priv.h"
 #include "metadata_cleaning_policy.h"
-#include "metadata_eviction_policy.h"
+#include "metadata_lru.h"
 #include "metadata_partition.h"
 #include "metadata_segment_id.h"
 #include "metadata_superblock.h"
@@ -120,14 +120,6 @@ void ocf_metadata_error(struct ocf_cache *cache);
  */
 ocf_cache_line_t
 ocf_metadata_get_cachelines_count(struct ocf_cache *cache);
-
-/**
- * @brief Get amount of pages required for metadata
- *
- * @param cache - Cache instance
- * @return Pages required for store metadata on cache device
- */
-uint32_t ocf_metadata_get_pages_count(struct ocf_cache *cache);
 
 /**
  * @brief Flush metadata

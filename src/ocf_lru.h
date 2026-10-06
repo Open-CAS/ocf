@@ -8,7 +8,9 @@
 #define __EVICTION_LRU_H__
 
 #include "ocf_space.h"
-#include "ocf_lru_structs.h"
+#include "metadata/metadata_lru.h"
+
+#define OCF_LRU_HOT_RATIO 2
 
 struct ocf_part;
 struct ocf_user_part;

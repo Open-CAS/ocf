@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2022 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -15,7 +16,7 @@ uint64_t ocf_get_metadata_segment_start_page(ocf_cache_t cache, int segment)
 	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
 	struct ocf_metadata_raw *raw = &ctrl->raw_desc[segment];
 
-	return raw->ssd_pages_offset;
+	return raw->layout->offset;
 }
 
 uint64_t ocf_get_metadata_segment_page_count(ocf_cache_t cache, int segment)
@@ -23,7 +24,7 @@ uint64_t ocf_get_metadata_segment_page_count(ocf_cache_t cache, int segment)
 	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
 	struct ocf_metadata_raw *raw = &ctrl->raw_desc[segment];
 
-	return raw->ssd_pages;
+	return raw->layout->pages;
 }
 
 uint64_t ocf_get_metadata_segment_elems_count(ocf_cache_t cache, int segment)
@@ -31,7 +32,7 @@ uint64_t ocf_get_metadata_segment_elems_count(ocf_cache_t cache, int segment)
 	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
 	struct ocf_metadata_raw *raw = &ctrl->raw_desc[segment];
 
-	return raw->entries;
+	return raw->layout->entries;
 }
 
 uint64_t ocf_get_metadata_segment_elems_per_page(ocf_cache_t cache, int segment)
@@ -39,7 +40,7 @@ uint64_t ocf_get_metadata_segment_elems_per_page(ocf_cache_t cache, int segment)
 	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
 	struct ocf_metadata_raw *raw = &ctrl->raw_desc[segment];
 
-	return raw->entries_in_page;
+	return raw->layout->entries_in_page;
 }
 
 uint64_t ocf_get_metadata_segment_elem_size(ocf_cache_t cache, int segment)
@@ -50,7 +51,7 @@ uint64_t ocf_get_metadata_segment_elem_size(ocf_cache_t cache, int segment)
 	if (segment == metadata_segment_sb_config)
 		return offsetof(struct ocf_superblock_config, checksum);
 
-	return raw->entry_size;
+	return raw->layout->entry_size;
 }
 
 bool ocf_get_metadata_segment_is_flapped(ocf_cache_t cache, int segment)
@@ -58,5 +59,5 @@ bool ocf_get_metadata_segment_is_flapped(ocf_cache_t cache, int segment)
 	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
 	struct ocf_metadata_raw *raw = &ctrl->raw_desc[segment];
 
-	return raw->flapping;
+	return raw->layout->flapping;
 }

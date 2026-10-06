@@ -13,30 +13,7 @@
 #include "cleaning/cleaning.h"
 #include "ocf_space.h"
 #include "ocf_env_refcnt.h"
-
-#define OCF_NUM_PARTITIONS (OCF_USER_IO_CLASS_MAX + 3)
-
-struct ocf_user_part_config {
-	char name[OCF_IO_CLASS_NAME_MAX];
-	uint32_t min_size;
-	uint32_t max_size;
-	struct {
-		uint8_t valid : 1;
-		uint8_t added : 1;
-		uint8_t eviction : 1;
-			/*!< This bits is setting during partition sorting,
-			* and means that can evict from this partition
-			*/
-	} flags;
-	int16_t priority;
-	ocf_cache_mode_t cache_mode;
-};
-
-struct ocf_part_runtime {
-	env_atomic curr_size;
-	env_atomic evict_counter;
-	struct ocf_lru_part_meta lru[OCF_NUM_LRU_LISTS];
-};
+#include "metadata/metadata_partition.h"
 
 typedef bool ( *_lru_hash_locked_pfn)(struct ocf_request *req,
 		ocf_core_id_t core_id, uint64_t core_line);

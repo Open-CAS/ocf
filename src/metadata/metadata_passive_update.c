@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024-2025 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -42,8 +43,8 @@ static int passive_io_resume(struct ocf_request *req)
 	for (i = 0; i < ARRAY_SIZE(update_segments); i++) {
 		enum ocf_metadata_segment_id seg = update_segments[i];
 		struct ocf_metadata_raw *raw = &(ctrl->raw_desc[seg]);
-		uint64_t raw_start_page = raw->ssd_pages_offset;
-		uint64_t raw_end_page = raw_start_page + raw->ssd_pages - 1;
+		uint64_t raw_start_page = raw->layout->offset;
+		uint64_t raw_end_page = raw_start_page + raw->layout->pages - 1;
 		uint64_t overlap_start = OCF_MAX(io_start_page, raw_start_page);
 		uint64_t overlap_end = OCF_MIN(io_end_page, raw_end_page);
 		uint64_t overlap_start_data = overlap_start - io_start_page;
@@ -76,6 +77,7 @@ static void passive_io_page_lock_acquired(struct ocf_request *req)
 int ocf_metadata_passive_update(struct ocf_request *master)
 {
 	ocf_cache_t cache = master->cache;
+	struct ocf_metadata_ctrl *ctrl = cache->metadata.priv;
 	uint64_t io_start_page = BYTES_TO_PAGES(master->addr);
 	uint64_t io_end_page = io_start_page + BYTES_TO_PAGES(master->bytes);
 	struct ocf_request *req;
@@ -86,7 +88,8 @@ int ocf_metadata_passive_update(struct ocf_request *master)
 		return 0;
 	}
 
-	if (io_start_page >= ocf_metadata_get_pages_count(cache)) {
+	if (io_start_page >=
+			ocf_metadata_layout_pages(&ctrl->metadata_layout)) {
 		master->complete(master, 0);
 		return 0;
 	}

@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -7,6 +8,7 @@
 #define __METADATA_RAW_H__
 
 #include "metadata_segment_id.h"
+#include "metadata_layout.h"
 #include "../concurrency/ocf_mio_concurrency.h"
 
 /**
@@ -63,21 +65,11 @@ struct ocf_metadata_raw {
 	enum ocf_metadata_segment_id metadata_segment; /*!< Metadata segment */
 	enum ocf_metadata_raw_type raw_type; /*!< RAW implementation type */
 
-	bool disabled; /*!< True if this raw container is disabled */
-
 	/**
-	 * @name Metdata elements description
+	 * @name Metadata elements description and location on cache device
 	 */
-	uint32_t entry_size; /*!< Size of particular entry */
-	uint32_t entries_in_page; /*!< Numbers of entries in one page*/
-	uint64_t entries; /*!< Numbers of entries */
-	bool flapping; /* !< Supports flapping */
-
-	/**
-	 * @name Location on cache device description
-	 */
-	uint64_t ssd_pages_offset; /*!< SSD (Cache device) Page offset */
-	uint64_t ssd_pages; /*!< Numbers of pages that are required */
+	const struct ocf_metadata_segment_layout *layout;
+		/*!< Segment layout */
 
 	const struct raw_iface *iface; /*!< RAW container interface*/
 
@@ -342,7 +334,7 @@ static inline bool _raw_is_valid(struct ocf_metadata_raw *raw, uint32_t entry)
 	if (unlikely(!raw))
 		return false;
 
-	if (unlikely(entry >= raw->entries))
+	if (unlikely(entry >= raw->layout->entries))
 		return false;
 
 	return true;

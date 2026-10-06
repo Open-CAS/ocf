@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -11,7 +12,6 @@
  * @brief Metadata Service - Hash Implementation
  */
 
-#include "../ocf_request.h"
 /**
  * @brief Metada hash elements type
  */
