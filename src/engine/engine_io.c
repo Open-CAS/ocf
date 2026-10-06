@@ -23,7 +23,7 @@ void ocf_engine_forward_cache_io(struct ocf_request *req, int dir,
 
 	ocf_req_forward_cache_init(req, callback);
 
-	addr = cache->device->metadata_offset;
+	addr = ocf_metadata_data_offset(&cache->metadata);
 	addr += req->map[first_cl].coll_idx * ocf_line_size(cache);
 	addr += (offset + seek) % ocf_line_size(cache);
 
@@ -44,7 +44,7 @@ void ocf_engine_forward_cache_io_req(struct ocf_request *req, int dir,
 	ocf_req_forward_cache_init(req, callback);
 
 	if (ocf_engine_is_sequential(req)) {
-		addr = cache->device->metadata_offset;
+		addr = ocf_metadata_data_offset(&cache->metadata);
 		addr += req->map[0].coll_idx * ocf_line_size(cache);
 		addr += req->addr % ocf_line_size(cache);
 
@@ -63,7 +63,7 @@ void ocf_engine_forward_cache_io_req(struct ocf_request *req, int dir,
 		} else {
 			addr  = req->map[i].coll_idx;
 			addr *= ocf_line_size(cache);
-			addr += cache->device->metadata_offset;
+			addr += ocf_metadata_data_offset(&cache->metadata);
 		}
 		bytes = ocf_line_size(cache);
 
@@ -78,7 +78,7 @@ void ocf_engine_forward_cache_io_req(struct ocf_request *req, int dir,
 		for (; i < (req->core_line_count - 1); i++) {
 			addr_next = req->map[i + 1].coll_idx;
 			addr_next *= ocf_line_size(cache);
-			addr_next += cache->device->metadata_offset;
+			addr_next += ocf_metadata_data_offset(&cache->metadata);
 
 			if (addr_next != (addr + bytes))
 				break;

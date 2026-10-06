@@ -50,13 +50,13 @@ void ocf_engine_lookup_map_entry(struct ocf_cache *cache,
 	 */
 	entry->hash = hash;
 	entry->status = LOOKUP_MISS;
-	entry->coll_idx = cache->device->collision_table_entries;
+	entry->coll_idx = ocf_metadata_terminator_line(&cache->metadata);
 	entry->core_line = core_line;
 	entry->core_id = core_id;
 
 	line = ocf_metadata_get_hash(cache, hash);
 
-	while (line != cache->device->collision_table_entries) {
+	while (line != ocf_metadata_terminator_line(&cache->metadata)) {
 		ocf_core_id_t curr_core_id;
 		uint64_t curr_core_line;
 
@@ -82,7 +82,8 @@ static inline int _ocf_engine_check_map_entry(struct ocf_cache *cache,
 	if (entry->status == LOOKUP_MISS)
 		return 0;
 
-	ENV_BUG_ON(entry->coll_idx >= cache->device->collision_table_entries);
+	ENV_BUG_ON(entry->coll_idx >=
+			ocf_metadata_line_count(&cache->metadata));
 
 	ocf_metadata_get_core_info(cache, entry->coll_idx, &_core_id,
 			&_core_line);

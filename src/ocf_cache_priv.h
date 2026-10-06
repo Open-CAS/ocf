@@ -31,20 +31,10 @@ struct ocf_cache_device {
 	struct ocf_volume front_volume;
 	struct ocf_volume volume;
 
-	/* Hash Table contains contains pointer to the entry in
-	 * Collision Table so it actually contains collision Table
-	 * indexes.
-	 * Invalid entry is collision_table_entries.
-	 */
-	unsigned int hash_table_entries;
-	unsigned int collision_table_entries;
-
 	int metadata_error;
 		/*!< This field indicates that an error during metadata IO
 		 * occurred
 	 */
-
-	uint64_t metadata_offset;
 
 	struct {
 		struct ocf_alock *cache_line;

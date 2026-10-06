@@ -56,17 +56,19 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 	ocf_core_id_t core_id = ocf_core_get_id(core);
 	ocf_core_id_t iter_core_id;
 	ocf_cache_line_t curr_cline, prev_cline;
-	uint32_t hash, num_hash = cache->device->hash_table_entries;
+	uint32_t hash, num_hash = ocf_metadata_hash_entries(&cache->metadata);
+	ocf_cache_line_t terminator =
+			ocf_metadata_terminator_line(&cache->metadata);
 	unsigned lock_idx;
 
 	for (hash = 0; hash < num_hash;) {
-		prev_cline = cache->device->collision_table_entries;
+		prev_cline = terminator;
 
 		lock_idx = ocf_metadata_concurrency_next_idx(cache->mngt_queue);
 		ocf_hb_id_prot_lock_wr(&cache->metadata.lock, lock_idx, hash);
 
 		curr_cline = ocf_metadata_get_hash(cache, hash);
-		while (curr_cline != cache->device->collision_table_entries) {
+		while (curr_cline != terminator) {
 			ocf_metadata_get_core_info(cache, curr_cline, &iter_core_id,
 					NULL);
 
@@ -92,7 +94,7 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 					ocf_cache_line_concurrency(cache),
 					curr_cline);
 
-			if (prev_cline != cache->device->collision_table_entries)
+			if (prev_cline != terminator)
 				curr_cline = ocf_metadata_get_collision_next(cache, prev_cline);
 			else
 				curr_cline = ocf_metadata_get_hash(cache, hash);
@@ -100,7 +102,7 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 		ocf_hb_id_prot_unlock_wr(&cache->metadata.lock, lock_idx, hash);
 
 		/* Check whether all the cachelines from the hash bucket were sparsed */
-		if (curr_cline == cache->device->collision_table_entries)
+		if (curr_cline == terminator)
 			hash++;
 		else
 			env_msleep(100);

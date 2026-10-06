@@ -201,7 +201,7 @@ static int _ocf_mngt_get_blocks(ocf_cache_t cache, ocf_core_id_t core_id,
 	}
 
 	for (line = 0, elem = *tbl;
-			line < cache->device->collision_table_entries;
+			line < ocf_metadata_line_count(&cache->metadata);
 			line++) {
 		ocf_metadata_get_core_info(cache, line, &i_core_id,
 				&core_line);
@@ -257,7 +257,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 	uint32_t dirty_found = 0, dirty_total = 0, dirty_cores = 0;
 	int ret = 0;
 
-	end = OCF_MIN(ocf_metadata_collision_table_entries(cache), end);
+	end = OCF_MIN(ocf_metadata_line_count(&cache->metadata), end);
 
 	if (begin > end)
 		return -OCF_ERR_INVAL;
@@ -770,7 +770,7 @@ void ocf_mngt_cache_flush(ocf_cache_t cache,
 	context->cache = cache;
 	context->op = flush_cache;
 	context->begin = 0;
-	context->end = ocf_metadata_collision_table_entries(cache);
+	context->end = ocf_metadata_line_count(&cache->metadata);
 
 	ocf_pipeline_next(context->pipeline);
 }
@@ -983,7 +983,7 @@ void ocf_mngt_cache_purge(ocf_cache_t cache,
 	context->cache = cache;
 	context->op = purge_cache;
 	context->begin = 0;
-	context->end = ocf_metadata_collision_table_entries(cache);
+	context->end = ocf_metadata_line_count(&cache->metadata);
 	context->purge.core_id = OCF_CORE_ID_INVALID;
 	context->purge.end_byte = ~0ULL;
 
@@ -1016,7 +1016,7 @@ void ocf_mngt_cache_detach_cline_range(ocf_cache_t cache,
 	if (begin > end)
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
-	if (end > ocf_metadata_collision_table_entries(cache))
+	if (end > ocf_metadata_line_count(&cache->metadata))
 		OCF_CMPL_RET(cache, priv, -OCF_ERR_INVAL);
 
 	result = ocf_pipeline_create(&pipeline, cache,

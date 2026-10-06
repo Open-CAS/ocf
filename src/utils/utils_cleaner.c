@@ -573,7 +573,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 
 		addr = iter->coll_idx;
 		addr *= ocf_line_size(cache);
-		addr += cache->device->metadata_offset;
+		addr += ocf_metadata_data_offset(&cache->metadata);
 
 		offset = ocf_line_size(cache) * iter->hash;
 
@@ -778,7 +778,8 @@ static int _ocf_cleaner_do_flush_data_getter(struct ocf_cache *cache,
 {
 	struct flush_data *flush = context;
 
-	if (flush[item].cache_line < cache->device->collision_table_entries) {
+	if (flush[item].cache_line <
+			ocf_metadata_line_count(&cache->metadata)) {
 		(*line) = flush[item].cache_line;
 		return 0;
 	} else {

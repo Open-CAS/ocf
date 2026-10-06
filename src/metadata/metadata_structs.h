@@ -52,7 +52,52 @@ struct ocf_metadata {
 	bool is_volatile;
 		/*!< true if metadata used in volatile mode (RAM only) */
 
+	ocf_cache_line_t line_count;
+		/*!< Number of collision table entries */
+
+	uint32_t hash_entries;
+		/*!< Number of hash table entries */
+
+	uint64_t data_offset;
+		/*!< Start of cache data area on cache device (in bytes) */
+
 	struct ocf_metadata_lock lock;
 };
+
+/**
+ * @brief Get number of cache lines (collision table entries)
+ */
+static inline ocf_cache_line_t ocf_metadata_line_count(
+		const struct ocf_metadata *metadata)
+{
+	return metadata->line_count;
+}
+
+/**
+ * @brief Get cache line index used as list terminator / unmapped marker
+ */
+static inline ocf_cache_line_t ocf_metadata_terminator_line(
+		const struct ocf_metadata *metadata)
+{
+	return metadata->line_count;
+}
+
+/**
+ * @brief Get number of hash table entries
+ */
+static inline uint32_t ocf_metadata_hash_entries(
+		const struct ocf_metadata *metadata)
+{
+	return metadata->hash_entries;
+}
+
+/**
+ * @brief Get offset of cache data area on cache device (in bytes)
+ */
+static inline uint64_t ocf_metadata_data_offset(
+		const struct ocf_metadata *metadata)
+{
+	return metadata->data_offset;
+}
 
 #endif /* __METADATA_STRUCTS_H__ */

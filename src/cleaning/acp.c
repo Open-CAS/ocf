@@ -317,7 +317,7 @@ static int ocf_acp_populate_handle(ocf_parallelize_t parallelize,
 {
 	struct ocf_acp_populate_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	ocf_cache_line_t entries = cache->device->collision_table_entries;
+	ocf_cache_line_t entries = ocf_metadata_line_count(&cache->metadata);
 	ocf_cache_line_t cline, portion;
 	uint64_t begin, end;
 	struct acp_cleaning_policy_meta *acp_meta;
@@ -479,7 +479,7 @@ err:
 void cleaning_policy_acp_prepopulate(ocf_cache_t cache,
 		ocf_cleaning_op_end_t cmpl, void *priv)
 {
-	ocf_cache_line_t entries = cache->device->collision_table_entries;
+	ocf_cache_line_t entries = ocf_metadata_line_count(&cache->metadata);
 	ocf_cache_line_t cline;
 	uint32_t step = 0;
 
@@ -503,8 +503,9 @@ static int ocf_acp_update_handle(ocf_parallelize_t parallelize,
 {
 	struct ocf_acp_update_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	ocf_cache_line_t entries = cache->device->hash_table_entries;
-	ocf_cache_line_t terminator = cache->device->collision_table_entries;
+	ocf_cache_line_t entries = ocf_metadata_hash_entries(&cache->metadata);
+	ocf_cache_line_t terminator =
+			ocf_metadata_terminator_line(&cache->metadata);
 	ocf_cache_line_t hash, cline, portion;
 	uint64_t begin, end;
 	unsigned lock_idx = shard_id % OCF_NUM_GLOBAL_META_LOCKS;
@@ -653,7 +654,8 @@ static ocf_cache_line_t _acp_trylock_dirty(struct ocf_cache *cache,
 	ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock, lock_idx, core_id,
 			core_line);
 
-	return locked ? info.coll_idx : cache->device->collision_table_entries;
+	return locked ? info.coll_idx :
+			ocf_metadata_terminator_line(&cache->metadata);
 }
 
 static void _acp_handle_flush_error(struct ocf_cache *cache,
@@ -774,7 +776,8 @@ static bool _acp_prepare_flush_data(struct acp_context *acp,
 		ocf_cache_line_t cache_line;
 
 		cache_line = _acp_trylock_dirty(cache, chunk->core_id, core_line);
-		if (cache_line == cache->device->collision_table_entries)
+		if (cache_line ==
+				ocf_metadata_terminator_line(&cache->metadata))
 			continue;
 
 		ACP_DEBUG_BEGIN(acp, cache_line);

@@ -167,6 +167,10 @@ void ocf_metadata_deinit_variable_size(struct ocf_cache *cache)
 		ocf_metadata_segment_destroy(cache, ctrl->segment[i]);
 	}
 	ctrl->metadata_layout.pages_variable = 0;
+
+	cache->metadata.line_count = 0;
+	cache->metadata.hash_entries = 0;
+	cache->metadata.data_offset = 0;
 }
 
 static inline void ocf_metadata_config_init(ocf_cache_t cache, size_t size)
@@ -469,13 +473,12 @@ finalize:
 	cache->device->runtime_meta = METADATA_MEM_POOL(ctrl,
 			metadata_segment_sb_runtime);
 
-	cache->device->collision_table_entries =
-			ctrl->metadata_layout.cachelines;
+	cache->metadata.line_count = ctrl->metadata_layout.cachelines;
 
-	cache->device->hash_table_entries =
+	cache->metadata.hash_entries =
 			ctrl->raw_desc[metadata_segment_hash].layout->entries;
 
-	cache->device->metadata_offset =
+	cache->metadata.data_offset =
 			ocf_metadata_layout_pages(&ctrl->metadata_layout) *
 			PAGE_SIZE;
 
@@ -489,7 +492,7 @@ finalize:
 			line_size / KiB);
 
 	ocf_cache_log(cache, log_info, "Metadata size on device: %llu kiB\n",
-			cache->device->metadata_offset / KiB);
+			ocf_metadata_data_offset(&cache->metadata) / KiB);
 
 	result = ocf_metadata_concurrency_attached_init(&cache->metadata.lock,
 			cache, ctrl->raw_desc[metadata_segment_hash].
@@ -509,7 +512,8 @@ finalize:
 static inline void _ocf_init_collision_entry(struct ocf_cache *cache,
 		ocf_cache_line_t idx)
 {
-	ocf_cache_line_t invalid_idx = cache->device->collision_table_entries;
+	ocf_cache_line_t invalid_idx =
+			ocf_metadata_terminator_line(&cache->metadata);
 
 	ocf_metadata_set_collision_info(cache, idx, invalid_idx, invalid_idx);
 	ocf_metadata_set_core_info(cache, idx,
@@ -526,7 +530,8 @@ static int ocf_metadata_init_collision_handle(ocf_parallelize_t parallelize,
 {
 	struct ocf_init_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	ocf_cache_line_t collision_table_entries = cache->device->collision_table_entries;
+	ocf_cache_line_t collision_table_entries =
+			ocf_metadata_line_count(&cache->metadata);
 	uint32_t entry, portion, begin, end, step=0;
 
 	portion = OCF_DIV_ROUND_UP((uint64_t)collision_table_entries, shards_cnt);
@@ -590,8 +595,10 @@ static int ocf_metadata_init_hash_table_handle(ocf_parallelize_t parallelize,
 {
 	struct ocf_init_metadata_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	uint32_t hash_table_entries = cache->device->hash_table_entries;
-	ocf_cache_line_t invalid_idx = cache->device->collision_table_entries;
+	uint32_t hash_table_entries =
+			ocf_metadata_hash_entries(&cache->metadata);
+	ocf_cache_line_t invalid_idx =
+			ocf_metadata_terminator_line(&cache->metadata);
 	uint32_t entry, portion, begin, end, step=0;
 
 	portion = OCF_DIV_ROUND_UP((uint64_t)hash_table_entries, shards_cnt);
@@ -1225,7 +1232,7 @@ void ocf_metadata_set_hash(struct ocf_cache *cache, ocf_cache_line_t index,
 {
 	struct ocf_hash_entry *entry = ocf_metadata_get_hash_ptr(cache, index);
 
-	ENV_BUG_ON(line > cache->device->collision_table_entries);
+	ENV_BUG_ON(line > ocf_metadata_line_count(&cache->metadata));
 
 	entry->line = line;
 }
@@ -1444,7 +1451,7 @@ bool ocf_metadata_is_hit_no_lock(ocf_cache_t cache, ocf_core_id_t core_id,
 			core_line, core_id);
 	ocf_cache_line_t line = ocf_metadata_get_hash(cache, hash);
 
-	while (line != cache->device->collision_table_entries) {
+	while (line != ocf_metadata_terminator_line(&cache->metadata)) {
 		ocf_core_id_t curr_core_id;
 		uint64_t curr_core_line;
 

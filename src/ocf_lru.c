@@ -1022,7 +1022,7 @@ static int ocf_lru_populate_handle(ocf_parallelize_t parallelize,
 	struct ocf_lru_populate_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_cache_line_t cnt, cline;
-	ocf_cache_line_t entries = ocf_metadata_collision_table_entries(cache);
+	ocf_cache_line_t entries = ocf_metadata_line_count(&cache->metadata);
 	struct ocf_generator_bisect_state generator;
 	struct ocf_lru_list *list;
 	unsigned step = 0;
@@ -1166,13 +1166,13 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 	struct ocf_part *part;
 	unsigned i, cline;
 	struct ocf_lru_meta *node;
+	ocf_cache_line_t line_count = ocf_metadata_line_count(&cache->metadata);
 
 	start_line = ocf_bytes_2_lines(cache, start_byte);
 	end_line = ocf_bytes_2_lines(cache, end_byte);
 
 	if (part_id == PARTITION_UNSPECIFIED) {
-		for (cline = 0; cline < cache->device->collision_table_entries;
-				++cline) {
+		for (cline = 0; cline < line_count; ++cline) {
 			if (_is_cache_line_acting(cache, cline, core_id,
 					start_line, end_line)) {
 				if (ocf_cache_line_is_used(c, cline))

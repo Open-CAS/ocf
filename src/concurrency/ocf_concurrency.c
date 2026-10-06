@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -12,7 +13,7 @@ int ocf_concurrency_init(struct ocf_cache *cache)
 
 	result = ocf_cache_line_concurrency_init(
 			&cache->device->concurrency.cache_line,
-			ocf_metadata_collision_table_entries(cache),
+			ocf_metadata_line_count(&cache->metadata),
 			cache);
 
 	if (result)

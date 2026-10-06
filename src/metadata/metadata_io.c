@@ -115,7 +115,7 @@ static int metadata_io_read_i_atomic_step(struct ocf_request *req)
 	ocf_req_forward_cache_init(req, metadata_io_read_i_atomic_step_end);
 
 	ocf_req_forward_cache_metadata(req, OCF_READ,
-			cache->device->metadata_offset +
+			ocf_metadata_data_offset(&cache->metadata) +
 			PAGES_TO_BYTES(context->curr_offset),
 			PAGES_TO_BYTES(context->curr_count), 0);
 
@@ -130,7 +130,7 @@ int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue, void *priv,
 		ocf_metadata_io_end_t compl_hndl)
 {
 	struct metadata_io_read_i_atomic_context *context;
-	uint64_t io_sectors_count = cache->device->collision_table_entries *
+	uint64_t io_sectors_count = ocf_metadata_line_count(&cache->metadata) *
 					ocf_line_blocks(cache);
 	struct ocf_request *req;
 

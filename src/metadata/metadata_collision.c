@@ -172,9 +172,9 @@ void ocf_metadata_get_collision_info(struct ocf_cache *cache,
 		ocf_metadata_error(cache);
 
 		if (next)
-			*next = cache->device->collision_table_entries;
+			*next = ocf_metadata_terminator_line(&cache->metadata);
 		if (prev)
-			*prev = cache->device->collision_table_entries;
+			*prev = ocf_metadata_terminator_line(&cache->metadata);
 	}
 }
 
@@ -187,8 +187,10 @@ void ocf_metadata_add_to_collision(struct ocf_cache *cache,
 		ocf_cache_line_t hash, ocf_cache_line_t cache_line)
 {
 	ocf_cache_line_t prev_cache_line = ocf_metadata_get_hash(cache, hash);
-	ocf_cache_line_t line_entries = cache->device->collision_table_entries;
-	ocf_cache_line_t hash_entries = cache->device->hash_table_entries;
+	ocf_cache_line_t line_entries =
+			ocf_metadata_line_count(&cache->metadata);
+	ocf_cache_line_t hash_entries =
+			ocf_metadata_hash_entries(&cache->metadata);
 
 	ENV_BUG_ON(!(hash < hash_entries));
 	ENV_BUG_ON(!(cache_line < line_entries));
@@ -226,8 +228,10 @@ void ocf_metadata_remove_from_collision(struct ocf_cache *cache,
 	uint64_t core_line;
 	ocf_cache_line_t hash_father;
 	ocf_cache_line_t prev_line, next_line;
-	ocf_cache_line_t line_entries = cache->device->collision_table_entries;
-	ocf_cache_line_t hash_entries = cache->device->hash_table_entries;
+	ocf_cache_line_t line_entries =
+			ocf_metadata_line_count(&cache->metadata);
+	ocf_cache_line_t hash_entries =
+			ocf_metadata_hash_entries(&cache->metadata);
 
 	ENV_BUG_ON(!(line < line_entries));
 

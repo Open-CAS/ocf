@@ -57,7 +57,7 @@ int ocf_metadata_detach_cline_range(ocf_cache_t cache, ocf_cache_line_t begin,
 	if (begin > end)
 		return -OCF_ERR_INVAL;
 
-	if (end > cache->device->collision_table_entries)
+	if (end > ocf_metadata_line_count(&cache->metadata))
 		return -OCF_ERR_INVAL;
 
 	for (cline = begin; cline < end; ++cline) {
@@ -90,7 +90,7 @@ int ocf_metadata_restore_cline_range(ocf_cache_t cache, ocf_cache_line_t begin,
 	if (begin > end)
 		return -OCF_ERR_INVAL;
 
-	if (end > cache->device->collision_table_entries)
+	if (end > ocf_metadata_line_count(&cache->metadata))
 		return -OCF_ERR_INVAL;
 
 	for (cline = begin; cline < end; ++cline) {

@@ -621,7 +621,7 @@ static int ocf_mngt_rebuild_metadata_handle(ocf_parallelize_t parallelize,
 	ocf_core_id_t core_id;
 	uint64_t core_line;
 	unsigned char step = 0;
-	const uint64_t entries = ocf_metadata_collision_table_entries(cache);
+	const uint64_t entries = ocf_metadata_line_count(&cache->metadata);
 
 	begin = shard_id * OCF_LRU_CHUNK_SIZE;
 
@@ -1961,7 +1961,7 @@ static void _ocf_mngt_attach_discard(ocf_pipeline_t pipeline,
 {
 	struct ocf_cache_attach_context *context = priv;
 	ocf_cache_t cache = context->cache;
-	uint64_t addr = cache->device->metadata_offset;
+	uint64_t addr = ocf_metadata_data_offset(&cache->metadata);
 	uint64_t length = ocf_volume_get_length(&cache->device->volume) - addr;
 	bool discard = cache->device->volume.features.discard_zeroes;
 
@@ -4156,21 +4156,21 @@ static void ocf_mngt_cache_composite_restore_cache_lines(
 			&begin_addr, &end_addr);
 	ENV_BUG_ON(ret);
 
-	if (cache->device->metadata_offset >= end_addr)
+	if (ocf_metadata_data_offset(&cache->metadata) >= end_addr)
 		OCF_PL_NEXT_RET(pipeline);
 
-	if (cache->device->metadata_offset > begin_addr)
+	if (ocf_metadata_data_offset(&cache->metadata) > begin_addr)
 		begin_addr = 0;
 	else
-		begin_addr -= cache->device->metadata_offset;
+		begin_addr -= ocf_metadata_data_offset(&cache->metadata);
 
-	end_addr -= cache->device->metadata_offset;
+	end_addr -= ocf_metadata_data_offset(&cache->metadata);
 
 	begin_cline = begin_addr / ocf_cache_get_line_size(cache);
 	end_cline = OCF_DIV_ROUND_UP(end_addr, ocf_cache_get_line_size(cache));
 
-	if (end_cline > ocf_metadata_collision_table_entries(cache))
-		end_cline = ocf_metadata_collision_table_entries(cache);
+	if (end_cline > ocf_metadata_line_count(&cache->metadata))
+		end_cline = ocf_metadata_line_count(&cache->metadata);
 
 	ocf_mngt_cache_attach_cline_range(cache, begin_cline, end_cline);
 
@@ -4248,21 +4248,21 @@ static void ocf_mngt_detach_composite_invalidate(ocf_pipeline_t pipeline,
 	if (result)
 		OCF_PL_FINISH_RET(pipeline, result);
 
-	if (cache->device->metadata_offset >= end_addr)
+	if (ocf_metadata_data_offset(&cache->metadata) >= end_addr)
 		OCF_PL_NEXT_RET(pipeline);
 
-	if (cache->device->metadata_offset > begin_addr)
+	if (ocf_metadata_data_offset(&cache->metadata) > begin_addr)
 		begin_addr = 0;
 	else
-		begin_addr -= cache->device->metadata_offset;
+		begin_addr -= ocf_metadata_data_offset(&cache->metadata);
 
-	end_addr -= cache->device->metadata_offset;
+	end_addr -= ocf_metadata_data_offset(&cache->metadata);
 
 	begin_cline = begin_addr / ocf_cache_get_line_size(cache);
 	end_cline = OCF_DIV_ROUND_UP(end_addr, ocf_cache_get_line_size(cache));
 
-	if (end_cline > ocf_metadata_collision_table_entries(cache))
-		end_cline = ocf_metadata_collision_table_entries(cache);
+	if (end_cline > ocf_metadata_line_count(&cache->metadata))
+		end_cline = ocf_metadata_line_count(&cache->metadata);
 
 	ocf_mngt_cache_detach_cline_range(cache, begin_cline, end_cline,
 			ocf_mngt_cache_detach_composite_invalidate_cmpl,

@@ -89,7 +89,7 @@ static void _raw_atomic_flush_do_asynch_sec(struct ocf_cache *cache,
 
 	start_addr = map->coll_idx;
 	start_addr *= ocf_line_size(cache);
-	start_addr += cache->device->metadata_offset;
+	start_addr += ocf_metadata_data_offset(&cache->metadata);
 
 	start_addr += BLOCKS_TO_BYTES(map->start_flush);
 	len = BLOCKS_TO_BYTES(map->stop_flush - map->start_flush);
@@ -179,7 +179,7 @@ int raw_atomic_flush_do_asynch(struct ocf_cache *cache, struct ocf_request *req,
 	while (i < clines_to_flush) {
 		start_addr = clines_tab[i];
 		start_addr *= ocf_line_size(cache);
-		start_addr += cache->device->metadata_offset;
+		start_addr += ocf_metadata_data_offset(&cache->metadata);
 		len = ocf_line_size(cache);
 
 		while (true) {
