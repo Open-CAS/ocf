@@ -207,14 +207,14 @@ static int metadata_io_do(struct ocf_request *req)
 
 	ctx_data_seek(cache->owner, req->data, ctx_data_seek_begin, 0);
 
-	/* Fill with the latest metadata. */
-	if (m_req->req.rw == OCF_WRITE) {
-		ocf_metadata_start_shared_access(&cache->metadata.lock,
-				m_req->page % OCF_NUM_GLOBAL_META_LOCKS);
+	/*
+	 * Fill with the latest metadata. Collision segment pages, flushed
+	 * at runtime, are synchronized by the segment page lock. Other
+	 * segments are flushed only from management operations, during which
+	 * their content is not modified concurrently.
+	 */
+	if (m_req->req.rw == OCF_WRITE)
 		metadata_io_req_fill(m_req);
-		ocf_metadata_end_shared_access(&cache->metadata.lock,
-				 m_req->page % OCF_NUM_GLOBAL_META_LOCKS);
-	}
 
 	ctx_data_seek(cache->owner, req->data, ctx_data_seek_begin, 0);
 
