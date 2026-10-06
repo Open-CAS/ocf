@@ -22,7 +22,7 @@
  */
 
 #define OCF_VERSION_MAIN 26
-#define OCF_VERSION_MAJOR 9
+#define OCF_VERSION_MAJOR 12
 #define OCF_VERSION_MINOR 0
 
 /**
