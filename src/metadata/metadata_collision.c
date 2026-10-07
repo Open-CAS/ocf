@@ -8,7 +8,6 @@
 #include "ocf/ocf.h"
 #include "metadata.h"
 #include "metadata_internal.h"
-#include "../utils/utils_cache_line.h"
 
 static inline void ocf_metadata_list_info_set(
 		struct ocf_metadata_list_info *info,

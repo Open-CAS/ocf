@@ -10,7 +10,6 @@
 #include "metadata_segment_id.h"
 #include "metadata_raw.h"
 #include "metadata_raw_atomic.h"
-#include "../utils/utils_io.h"
 #include "../utils/utils_cache_line.h"
 #include "../ocf_def_priv.h"
 

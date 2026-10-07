@@ -9,7 +9,6 @@
 #define __METADATA_H__
 
 #include "metadata_common.h"
-#include "../ocf_ctx_priv.h"
 #include "metadata_cleaning_policy.h"
 #include "metadata_lru.h"
 #include "metadata_partition.h"
