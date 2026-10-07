@@ -17,7 +17,6 @@
 #include "metadata_raw.h"
 #include "metadata_segment.h"
 #include "../concurrency/ocf_concurrency.h"
-#include "../concurrency/ocf_metadata_concurrency.h"
 #include "../ocf_def_priv.h"
 #include "../ocf_priv.h"
 #include "../utils/utils_cache_line.h"
@@ -466,10 +465,6 @@ finalize:
 
 	ocf_cache_log(cache, log_info, "Metadata size on device: %llu kiB\n",
 			ocf_metadata_data_offset(&cache->metadata) / KiB);
-
-	ocf_metadata_concurrency_attached_init(&cache->metadata_lock,
-			cache, ctrl->raw_desc[metadata_segment_hash].
-			layout->entries);
 
 	return 0;
 }
@@ -1252,21 +1247,9 @@ bool ocf_metadata_check(struct ocf_cache *cache, ocf_cache_line_t line)
 int ocf_metadata_init(struct ocf_cache *cache,
 		ocf_cache_line_size_t cache_line_size)
 {
-	int ret;
-
 	OCF_DEBUG_TRACE(cache);
 
-	ret = ocf_metadata_init_fixed_size(cache, cache_line_size);
-	if (ret)
-		return ret;
-
-	ret = ocf_metadata_concurrency_init(&cache->metadata_lock);
-	if (ret) {
-		ocf_metadata_deinit_fixed_size(cache);
-		return ret;
-	}
-
-	return 0;
+	return ocf_metadata_init_fixed_size(cache, cache_line_size);
 }
 
 void ocf_metadata_deinit(struct ocf_cache *cache)
@@ -1274,7 +1257,6 @@ void ocf_metadata_deinit(struct ocf_cache *cache)
 	OCF_DEBUG_TRACE(cache);
 
 	ocf_metadata_deinit_fixed_size(cache);
-	ocf_metadata_concurrency_deinit(&cache->metadata_lock);
 }
 
 void ocf_metadata_error(struct ocf_cache *cache)

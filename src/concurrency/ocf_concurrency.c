@@ -5,11 +5,15 @@
  */
 
 #include "ocf_concurrency.h"
+#include "ocf_metadata_concurrency.h"
 #include "../metadata/metadata.h"
 
 int ocf_concurrency_init(struct ocf_cache *cache)
 {
 	int result = 0;
+
+	ocf_metadata_concurrency_attached_init(&cache->metadata_lock, cache,
+			ocf_metadata_hash_entries(&cache->metadata));
 
 	result = ocf_cache_line_concurrency_init(
 			&cache->device->concurrency.cache_line,

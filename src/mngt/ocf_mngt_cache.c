@@ -957,6 +957,14 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params,
 		goto mutex_err;
 	}
 
+	result = ocf_metadata_concurrency_init(&cache->metadata_lock);
+	if (result) {
+		ocf_log(params->ctx, log_err,
+				"Failed to allocate cache %s metadata lock\n",
+				new_cache_name);
+		goto metadata_lock_err;
+	}
+
 	result = !env_refcnt_inc(&cache->refcnt.cache);
 	if (result) {
 		ocf_log(params->ctx, log_crit,
@@ -979,6 +987,8 @@ static int _ocf_mngt_init_new_cache(struct ocf_cache_mngt_init_params *params,
 	return 0;
 
 cache_refcnt_inc_err:
+	ocf_metadata_concurrency_deinit(&cache->metadata_lock);
+metadata_lock_err:
 	env_spinlock_destroy(&cache->io_queues_lock);
 mutex_err:
 	env_mutex_destroy(&cache->flush_mutex);
@@ -1569,6 +1579,8 @@ static void _ocf_mngt_init_handle_error(ocf_ctx_t ctx,
 
 	if (!params->flags.cache_alloc)
 		return;
+
+	ocf_metadata_concurrency_deinit(&cache->metadata_lock);
 
 	env_spinlock_destroy(&cache->io_queues_lock);
 
@@ -2381,6 +2393,7 @@ static void _ocf_mngt_cache_dealloc(void *priv)
 
 	ctx = cache->owner;
 	ocf_metadata_deinit(cache);
+	ocf_metadata_concurrency_deinit(&cache->metadata_lock);
 
 	if (!cache->metadata.is_volatile)
 		ocf_metadata_io_close(ctx);
