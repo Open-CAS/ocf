@@ -81,6 +81,8 @@ struct ocf_metadata_raw {
 
 	void *priv; /*!< Private data - context */
 
+	bool flush_asynch; /*!< Asynchronous flush enabled */
+
 	env_rwsem *page_locks; /*!< Page locks (NULL if not used) */
 
 	struct ocf_alock *mio_conc;
@@ -145,8 +147,11 @@ struct raw_iface {
  * @brief Initialize RAW instance
  *
  * @param cache - Cache instance
- * @param flush_asynch - RAW is flushed asynchronously (flush_do_asynch),
- *		concurrently with modifications of its content
+ * @param flush_asynch - Enable asynchronous flush (flush_mark and
+ *		flush_do_asynch). RAW content is then modified at runtime,
+ *		concurrently with any kind of flush, including flush_all,
+ *		and RAW must assure consistency of flushed pages.
+ *		Not supported by all RAW types.
  * @param raw - RAW descriptor
  * @return 0 - Operation success, otherwise error
  */
@@ -369,6 +374,9 @@ static inline void ocf_metadata_raw_flush_mark(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, struct ocf_request *req,
 		uint32_t map_idx, int to_state, uint8_t start, uint8_t stop)
 {
+	if (!raw->flush_asynch)
+		return;
+
 	raw->iface->flush_mark(cache, req, map_idx, to_state, start, stop);
 }
 
@@ -376,6 +384,11 @@ static inline int ocf_metadata_raw_flush_do_asynch(ocf_cache_t cache,
 		struct ocf_request *req, struct ocf_metadata_raw *raw,
 		ocf_req_end_t complete)
 {
+	if (!raw->flush_asynch) {
+		complete(req, -OCF_ERR_NOT_SUPP);
+		return -OCF_ERR_NOT_SUPP;
+	}
+
 	return raw->iface->flush_do_asynch(cache, req, raw, complete);
 }
 

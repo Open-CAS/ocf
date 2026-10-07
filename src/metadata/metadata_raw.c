@@ -77,6 +77,49 @@ static bool _raw_ssd_page_is_valid(struct ocf_metadata_raw *raw, uint32_t page)
 
 
 
+static void _raw_page_locks_deinit(struct ocf_metadata_raw *raw)
+{
+	uint32_t i;
+
+	if (!raw->page_locks)
+		return;
+
+	for (i = 0; i < raw->layout->pages; i++)
+		env_rwsem_destroy(&raw->page_locks[i]);
+
+	env_vfree(raw->page_locks);
+	raw->page_locks = NULL;
+}
+
+static int _raw_page_locks_init(struct ocf_metadata_raw *raw)
+{
+	uint32_t i;
+	int result = 0;
+
+	if (!raw->layout->pages)
+		return 0;
+
+	raw->page_locks = env_vzalloc(sizeof(*raw->page_locks) *
+			raw->layout->pages);
+	if (!raw->page_locks)
+		return -OCF_ERR_NO_MEM;
+
+	for (i = 0; i < raw->layout->pages; i++) {
+		result = env_rwsem_init(&raw->page_locks[i]);
+		if (result)
+			break;
+	}
+
+	if (result) {
+		while (i--)
+			env_rwsem_destroy(&raw->page_locks[i]);
+		env_vfree(raw->page_locks);
+		raw->page_locks = NULL;
+	}
+
+	return result;
+}
+
 /*
  * RAM Implementation - De-Initialize
  */
@@ -90,27 +133,39 @@ static int _raw_ram_deinit(ocf_cache_t cache,
 		raw->mem_pool = NULL;
 	}
 
+	_raw_page_locks_deinit(raw);
 	ocf_mio_concurrency_deinit(&raw->mio_conc);
 
 	return 0;
 }
 
 /*
- * RAM Implementation - Initialize
+ * RAM Implementation - Initialize common part
+ *
+ * @param mio_conc - serialize metadata IOs to the same pages
+ * @param page_locks - synchronize page copying with content modifications
  */
-static int _raw_ram_init(ocf_cache_t cache, bool flush_asynch,
-	struct ocf_metadata_raw *raw)
+static int _raw_ram_init_common(ocf_cache_t cache,
+	struct ocf_metadata_raw *raw, bool mio_conc, bool page_locks)
 {
 	size_t mem_pool_size;
 	int ret;
 
 	OCF_DEBUG_TRACE(cache);
 
-	if (flush_asynch) {
+	if (mio_conc) {
 		ret = ocf_mio_concurrency_init(&raw->mio_conc,
 			raw->layout->offset, raw->layout->pages, cache);
 		if (ret)
 			return ret;
+	}
+
+	if (page_locks) {
+		ret = _raw_page_locks_init(raw);
+		if (ret) {
+			ocf_mio_concurrency_deinit(&raw->mio_conc);
+			return ret;
+		}
 	}
 
 	/* Allocate memory pool for entries */
@@ -119,12 +174,50 @@ static int _raw_ram_init(ocf_cache_t cache, bool flush_asynch,
 	raw->mem_pool_limit = mem_pool_size;
 	raw->mem_pool = env_secure_alloc(mem_pool_size);
 	if (!raw->mem_pool) {
+		_raw_page_locks_deinit(raw);
 		ocf_mio_concurrency_deinit(&raw->mio_conc);
 		return -OCF_ERR_NO_MEM;
 	}
 	ENV_BUG_ON(env_memset(raw->mem_pool, mem_pool_size, 0));
 
 	return 0;
+}
+
+/*
+ * RAM Implementation - Initialize
+ *
+ * Asynchronous flush writes pages copied from memory concurrently with
+ * content modifications and with other flushes, so it requires page locks
+ * and serialization of IOs to the same pages.
+ */
+static int _raw_ram_init(ocf_cache_t cache, bool flush_asynch,
+	struct ocf_metadata_raw *raw)
+{
+	return _raw_ram_init_common(cache, raw, flush_asynch, flush_asynch);
+}
+
+/*
+ * RAM VOLATILE Implementation - Initialize
+ *
+ * Volatile RAW is never written to the cache device.
+ */
+static int _raw_volatile_init(ocf_cache_t cache, bool flush_asynch,
+	struct ocf_metadata_raw *raw)
+{
+	return _raw_ram_init_common(cache, raw, false, false);
+}
+
+/*
+ * RAM ATOMIC Implementation - Initialize
+ *
+ * Asynchronous flush doesn't write metadata pages, so no IO serialization
+ * is needed, but flush_all still copies pages concurrently with content
+ * modifications, which requires page locks.
+ */
+static int _raw_atomic_init(ocf_cache_t cache, bool flush_asynch,
+	struct ocf_metadata_raw *raw)
+{
+	return _raw_ram_init_common(cache, raw, false, flush_asynch);
 }
 
 /*
@@ -661,7 +754,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.flush_do_asynch	= raw_dynamic_flush_do_asynch,
 	},
 	[metadata_raw_type_volatile] = {
-		.init			= _raw_ram_init,
+		.init			= _raw_volatile_init,
 		.deinit			= _raw_ram_deinit,
 		.size_of		= _raw_ram_size_of,
 		.size_on_ssd		= raw_volatile_size_on_ssd,
@@ -677,7 +770,7 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
 		.flush_do_asynch	= raw_volatile_flush_do_asynch,
 	},
 	[metadata_raw_type_atomic] = {
-		.init			= _raw_ram_init,
+		.init			= _raw_atomic_init,
 		.deinit			= _raw_ram_deinit,
 		.size_of		= _raw_ram_size_of,
 		.size_on_ssd		= _raw_ram_size_on_ssd,
@@ -698,72 +791,17 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
  * RAW Top interface implementation
  ******************************************************************************/
 
-static void _raw_page_locks_deinit(struct ocf_metadata_raw *raw)
-{
-	uint32_t i;
-
-	if (!raw->page_locks)
-		return;
-
-	for (i = 0; i < raw->layout->pages; i++)
-		env_rwsem_destroy(&raw->page_locks[i]);
-
-	env_vfree(raw->page_locks);
-	raw->page_locks = NULL;
-}
-
-static int _raw_page_locks_init(struct ocf_metadata_raw *raw)
-{
-	uint32_t i;
-	int result = 0;
-
-	raw->page_locks = env_vzalloc(sizeof(*raw->page_locks) *
-			raw->layout->pages);
-	if (!raw->page_locks)
-		return -OCF_ERR_NO_MEM;
-
-	for (i = 0; i < raw->layout->pages; i++) {
-		result = env_rwsem_init(&raw->page_locks[i]);
-		if (result)
-			break;
-	}
-
-	if (result) {
-		while (i--)
-			env_rwsem_destroy(&raw->page_locks[i]);
-		env_vfree(raw->page_locks);
-		raw->page_locks = NULL;
-	}
-
-	return result;
-}
-
 int ocf_metadata_raw_init(ocf_cache_t cache, bool flush_asynch,
 		struct ocf_metadata_raw *raw)
 {
-	int result;
-
 	ENV_BUG_ON(raw->raw_type < metadata_raw_type_min);
 	ENV_BUG_ON(raw->raw_type >= metadata_raw_type_max);
 
 	raw->iface = &(IRAW[raw->raw_type]);
+	raw->flush_asynch = flush_asynch;
 	raw->page_locks = NULL;
 
-	result = raw->iface->init(cache, flush_asynch, raw);
-	if (result)
-		return result;
-
-	/* Volatile RAW is never flushed, so it needs no page locks */
-	if (flush_asynch && raw->raw_type != metadata_raw_type_volatile &&
-			raw->layout->pages) {
-		result = _raw_page_locks_init(raw);
-		if (result) {
-			raw->iface->deinit(cache, raw);
-			raw->iface = NULL;
-		}
-	}
-
-	return result;
+	return raw->iface->init(cache, flush_asynch, raw);
 }
 
 int ocf_metadata_raw_deinit(ocf_cache_t cache,
@@ -773,8 +811,6 @@ int ocf_metadata_raw_deinit(ocf_cache_t cache,
 
 	if (!raw->iface)
 		return 0;
-
-	_raw_page_locks_deinit(raw);
 
 	result = raw->iface->deinit(cache, raw);
 	raw->iface = NULL;
