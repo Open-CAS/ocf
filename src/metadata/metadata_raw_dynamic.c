@@ -157,9 +157,7 @@ int raw_dynamic_deinit(ocf_cache_t cache,
 /*
  * RAM DYNAMIC Implementation - Initialize
  */
-int raw_dynamic_init(ocf_cache_t cache,
-		ocf_flush_page_synch_t lock_page_pfn,
-		ocf_flush_page_synch_t unlock_page_pfn,
+int raw_dynamic_init(ocf_cache_t cache, bool flush_asynch,
 		struct ocf_metadata_raw *raw)
 {
 	struct _raw_ctrl *ctrl;
@@ -172,8 +170,7 @@ int raw_dynamic_init(ocf_cache_t cache,
 	if (raw->layout->entry_size > PAGE_SIZE)
 		return -1;
 
-	/* TODO: caller should specify explicitly whether to init mio conc? */
-	if (lock_page_pfn) {
+	if (flush_asynch) {
 		ret = ocf_mio_concurrency_init(&raw->mio_conc,
 			raw->layout->offset, raw->layout->pages, cache);
 		if (ret)
@@ -194,9 +191,6 @@ int raw_dynamic_init(ocf_cache_t cache,
 	}
 
 	raw->priv = ctrl;
-
-	raw->lock_page = lock_page_pfn;
-	raw->unlock_page = unlock_page_pfn;
 
 	return 0;
 }
@@ -532,12 +526,10 @@ static int raw_dynamic_flush_all_fill(ocf_cache_t cache,
 	raw_page = page - context->ssd_pages_offset;
 
 	OCF_DEBUG_PARAM(cache, "Page = %u", raw_page);
-	if (raw->lock_page)
-		raw->lock_page(cache, raw, raw_page);
+	ocf_metadata_raw_page_lock_copy(raw, raw_page);
 	ctx_data_wr_check(cache->owner, data,
 			_raw_dynamic_page_rd(raw, raw_page), PAGE_SIZE);
-	if (raw->unlock_page)
-		raw->unlock_page(cache, raw, raw_page);
+	ocf_metadata_raw_page_unlock_copy(raw, raw_page);
 
 	return 0;
 }

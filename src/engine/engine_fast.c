@@ -14,6 +14,7 @@
 #include "../ocf_request.h"
 #include "../utils/utils_user_part.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 #include "../metadata/metadata.h"
 
 #define OCF_ENGINE_DEBUG 0

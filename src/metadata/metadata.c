@@ -17,6 +17,7 @@
 #include "metadata_raw.h"
 #include "metadata_segment.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 #include "../ocf_def_priv.h"
 #include "../ocf_priv.h"
 #include "../utils/utils_cache_line.h"
@@ -157,8 +158,6 @@ void ocf_metadata_deinit_variable_size(struct ocf_cache *cache)
 
 	OCF_DEBUG_TRACE(cache);
 
-	ocf_metadata_concurrency_attached_deinit(&cache->metadata.lock);
-
 	/*
 	 * De initialize RAW types
 	 */
@@ -285,7 +284,7 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 				&ctrl->segment[i],
 				cache,
 				&ctrl->raw_desc[i],
-				NULL, NULL,
+				false,
 				superblock);
 		if (result)
 			break;
@@ -324,23 +323,6 @@ static int ocf_metadata_init_fixed_size(struct ocf_cache *cache,
 	return 0;
 }
 
-static void ocf_metadata_flush_lock_collision_page(struct ocf_cache *cache,
-		struct ocf_metadata_raw *raw, uint32_t page)
-
-{
-	ocf_collision_start_exclusive_access(&cache->metadata.lock,
-			page);
-}
-
-static void ocf_metadata_flush_unlock_collision_page(
-		struct ocf_cache *cache, struct ocf_metadata_raw *raw,
-		uint32_t page)
-
-{
-	ocf_collision_end_exclusive_access(&cache->metadata.lock,
-			page);
-}
-
 /*
  * Initialize hash metadata interface
  */
@@ -351,7 +333,6 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 	int result = 0;
 	uint32_t i = 0;
 	struct ocf_metadata_ctrl *ctrl = NULL;
-	ocf_flush_page_synch_t lock_page, unlock_page;
 	uint64_t device_lines;
 	struct ocf_metadata_segment *superblock;
 
@@ -418,20 +399,12 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
 		if (raw->layout->disabled)
 			continue;
 
-		if (i == metadata_segment_collision) {
-			lock_page =
-				ocf_metadata_flush_lock_collision_page;
-			unlock_page =
-				ocf_metadata_flush_unlock_collision_page;
-		} else {
-			lock_page = unlock_page = NULL;
-		}
-
+		/* Collision segment is flushed asynchronously */
 		result |= ocf_metadata_segment_init(
 				&ctrl->segment[i],
 				cache,
 				raw,
-				lock_page, unlock_page,
+				i == metadata_segment_collision,
 				superblock);
 
 		if (result)
@@ -494,17 +467,9 @@ finalize:
 	ocf_cache_log(cache, log_info, "Metadata size on device: %llu kiB\n",
 			ocf_metadata_data_offset(&cache->metadata) / KiB);
 
-	result = ocf_metadata_concurrency_attached_init(&cache->metadata.lock,
+	ocf_metadata_concurrency_attached_init(&cache->metadata.lock,
 			cache, ctrl->raw_desc[metadata_segment_hash].
-			layout->entries,
-			(uint32_t)ctrl->raw_desc[metadata_segment_collision].
-			layout->pages);
-	if (result) {
-		ocf_cache_log(cache, log_err, "Failed to initialize attached "
-				"metadata concurrency\n");
-		ocf_metadata_deinit_variable_size(cache);
-		return  result;
-	}
+			layout->entries);
 
 	return 0;
 }

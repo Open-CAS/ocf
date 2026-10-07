@@ -21,6 +21,7 @@
 #include "../utils/utils_pipeline.h"
 #include "../ocf_request.h"
 #include "../ocf_def_priv.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 
 struct ocf_mngt_cache_flush_context;
 typedef void (*ocf_flush_complete_t)(struct ocf_mngt_cache_flush_context *, int);

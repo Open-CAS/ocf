@@ -98,9 +98,7 @@ static int _raw_ram_deinit(ocf_cache_t cache,
 /*
  * RAM Implementation - Initialize
  */
-static int _raw_ram_init(ocf_cache_t cache,
-	ocf_flush_page_synch_t lock_page_pfn,
-	ocf_flush_page_synch_t unlock_page_pfn,
+static int _raw_ram_init(ocf_cache_t cache, bool flush_asynch,
 	struct ocf_metadata_raw *raw)
 {
 	size_t mem_pool_size;
@@ -108,8 +106,7 @@ static int _raw_ram_init(ocf_cache_t cache,
 
 	OCF_DEBUG_TRACE(cache);
 
-	/* TODO: caller should specify explicitly whether to init mio conc? */
-	if (lock_page_pfn) {
+	if (flush_asynch) {
 		ret = ocf_mio_concurrency_init(&raw->mio_conc,
 			raw->layout->offset, raw->layout->pages, cache);
 		if (ret)
@@ -126,9 +123,6 @@ static int _raw_ram_init(ocf_cache_t cache,
 		return -OCF_ERR_NO_MEM;
 	}
 	ENV_BUG_ON(env_memset(raw->mem_pool, mem_pool_size, 0));
-
-	raw->lock_page = lock_page_pfn;
-	raw->unlock_page = unlock_page_pfn;
 
 	return 0;
 }
@@ -364,11 +358,9 @@ static int _raw_ram_flush_all_fill(ocf_cache_t cache,
 
 	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
 
-	if (raw->lock_page)
-		raw->lock_page(cache, raw, raw_page);
+	ocf_metadata_raw_page_lock_copy(raw, raw_page);
 	ctx_data_wr_check(cache->owner, data, _RAW_RAM_ADDR(raw, line), size);
-	if (raw->unlock_page)
-		raw->unlock_page(cache, raw, raw_page);
+	ocf_metadata_raw_page_unlock_copy(raw, raw_page);
 
 	ctx_data_zero_check(cache->owner, data, PAGE_SIZE - size);
 
@@ -484,11 +476,9 @@ static int _raw_ram_flush_do_asynch_fill(ocf_cache_t cache,
 
 	OCF_DEBUG_PARAM(cache, "Line = %u, Page = %u", line, raw_page);
 
-	if (raw->lock_page)
-		raw->lock_page(cache, raw, raw_page);
+	ocf_metadata_raw_page_lock_copy(raw, raw_page);
 	ctx_data_wr_check(cache->owner, data, _RAW_RAM_ADDR(raw, line), size);
-	if (raw->unlock_page)
-		raw->unlock_page(cache, raw, raw_page);
+	ocf_metadata_raw_page_unlock_copy(raw, raw_page);
 
 	ctx_data_zero_check(cache->owner, data, PAGE_SIZE - size);
 
@@ -708,16 +698,72 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
  * RAW Top interface implementation
  ******************************************************************************/
 
-int ocf_metadata_raw_init(ocf_cache_t cache,
-		ocf_flush_page_synch_t lock_page_pfn,
-		ocf_flush_page_synch_t unlock_page_pfn,
+static void _raw_page_locks_deinit(struct ocf_metadata_raw *raw)
+{
+	uint32_t i;
+
+	if (!raw->page_locks)
+		return;
+
+	for (i = 0; i < raw->layout->pages; i++)
+		env_rwsem_destroy(&raw->page_locks[i]);
+
+	env_vfree(raw->page_locks);
+	raw->page_locks = NULL;
+}
+
+static int _raw_page_locks_init(struct ocf_metadata_raw *raw)
+{
+	uint32_t i;
+	int result = 0;
+
+	raw->page_locks = env_vzalloc(sizeof(*raw->page_locks) *
+			raw->layout->pages);
+	if (!raw->page_locks)
+		return -OCF_ERR_NO_MEM;
+
+	for (i = 0; i < raw->layout->pages; i++) {
+		result = env_rwsem_init(&raw->page_locks[i]);
+		if (result)
+			break;
+	}
+
+	if (result) {
+		while (i--)
+			env_rwsem_destroy(&raw->page_locks[i]);
+		env_vfree(raw->page_locks);
+		raw->page_locks = NULL;
+	}
+
+	return result;
+}
+
+int ocf_metadata_raw_init(ocf_cache_t cache, bool flush_asynch,
 		struct ocf_metadata_raw *raw)
 {
+	int result;
+
 	ENV_BUG_ON(raw->raw_type < metadata_raw_type_min);
 	ENV_BUG_ON(raw->raw_type >= metadata_raw_type_max);
 
 	raw->iface = &(IRAW[raw->raw_type]);
-	return raw->iface->init(cache, lock_page_pfn, unlock_page_pfn, raw);
+	raw->page_locks = NULL;
+
+	result = raw->iface->init(cache, flush_asynch, raw);
+	if (result)
+		return result;
+
+	/* Volatile RAW is never flushed, so it needs no page locks */
+	if (flush_asynch && raw->raw_type != metadata_raw_type_volatile &&
+			raw->layout->pages) {
+		result = _raw_page_locks_init(raw);
+		if (result) {
+			raw->iface->deinit(cache, raw);
+			raw->iface = NULL;
+		}
+	}
+
+	return result;
 }
 
 int ocf_metadata_raw_deinit(ocf_cache_t cache,
@@ -727,6 +773,8 @@ int ocf_metadata_raw_deinit(ocf_cache_t cache,
 
 	if (!raw->iface)
 		return 0;
+
+	_raw_page_locks_deinit(raw);
 
 	result = raw->iface->deinit(cache, raw);
 	raw->iface = NULL;

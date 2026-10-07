@@ -273,7 +273,7 @@ void ocf_metadata_start_collision_shared_access(struct ocf_cache *cache,
 			&ctrl->raw_desc[metadata_segment_collision];
 	uint32_t page = ocf_metadata_raw_page(raw, line);
 
-	ocf_collision_start_shared_access(&cache->metadata.lock, page);
+	ocf_metadata_raw_page_lock_modify(raw, page);
 }
 
 /* must be called under  global metadata read(shared) lock */
@@ -286,7 +286,7 @@ void ocf_metadata_end_collision_shared_access(struct ocf_cache *cache,
 			&ctrl->raw_desc[metadata_segment_collision];
 	uint32_t page = ocf_metadata_raw_page(raw, line);
 
-	ocf_collision_end_shared_access(&cache->metadata.lock, page);
+	ocf_metadata_raw_page_unlock_modify(raw, page);
 }
 
 

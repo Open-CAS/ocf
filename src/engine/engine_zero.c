@@ -10,6 +10,7 @@
 #include "engine_zero.h"
 #include "engine_common.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 #include "../ocf_request.h"
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_io.h"

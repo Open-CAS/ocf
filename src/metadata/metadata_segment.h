@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2020-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -21,16 +22,14 @@ int ocf_metadata_segment_init_in_place(
 		struct ocf_metadata_segment *segment,
 		struct ocf_cache *cache,
 		struct ocf_metadata_raw *raw,
-		ocf_flush_page_synch_t lock_page_pfn,
-		ocf_flush_page_synch_t unlock_page_pfn,
+		bool flush_asynch,
 		struct ocf_metadata_segment *superblock);
 
 int ocf_metadata_segment_init(
 		struct ocf_metadata_segment **self,
 		struct ocf_cache *cache,
 		struct ocf_metadata_raw *raw,
-		ocf_flush_page_synch_t lock_page_pfn,
-		ocf_flush_page_synch_t unlock_page_pfn,
+		bool flush_asynch,
 		struct ocf_metadata_segment *superblock);
 
 void ocf_metadata_segment_destroy(struct ocf_cache *cache,

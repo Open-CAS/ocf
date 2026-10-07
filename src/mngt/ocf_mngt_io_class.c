@@ -11,6 +11,7 @@
 #include "../engine/cache_engine.h"
 #include "../utils/utils_user_part.h"
 #include "../ocf_lru.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 #include "ocf_env.h"
 
 static uint64_t _ocf_mngt_count_user_parts_min_size(struct ocf_cache *cache)

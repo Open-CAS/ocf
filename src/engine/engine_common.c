@@ -20,6 +20,7 @@
 #include "../ocf_space.h"
 #include "../promotion/promotion.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 
 void ocf_engine_error(struct ocf_request *req,
 		bool stop_cache, const char *msg)

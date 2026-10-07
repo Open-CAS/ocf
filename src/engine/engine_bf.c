@@ -15,6 +15,7 @@
 #include "cache_engine.h"
 #include "../ocf_request.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 #include "../utils/utils_io.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "bf"

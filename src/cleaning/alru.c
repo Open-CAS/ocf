@@ -16,6 +16,7 @@
 #include "../utils/utils_parallelize.h"
 #include "../utils/utils_realloc.h"
 #include "../concurrency/ocf_cache_line_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 #include "../ocf_def_priv.h"
 #include "cleaning_priv.h"
 

@@ -20,6 +20,7 @@
 #include "../engine/engine_common.h"
 #include "../ocf_seq_cutoff.h"
 #include "../prefetch/ocf_prefetch_priv.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 
 /* Close if opened */
 void cache_mngt_core_deinit(ocf_core_t core)

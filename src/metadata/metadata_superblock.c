@@ -638,7 +638,7 @@ int ocf_metadata_superblock_init(
 		return -OCF_ERR_NO_MEM;
 
 	result = ocf_metadata_segment_init_in_place(&sb->segment, cache,
-			raw, NULL, NULL, &sb->segment);
+			raw, false, &sb->segment);
 
 	if (result) {
 		env_vfree(sb);

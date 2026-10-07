@@ -11,13 +11,12 @@ int ocf_metadata_segment_init_in_place(
 		struct ocf_metadata_segment *segment,
 		struct ocf_cache *cache,
 		struct ocf_metadata_raw *raw,
-		ocf_flush_page_synch_t lock_page_pfn,
-		ocf_flush_page_synch_t unlock_page_pfn,
+		bool flush_asynch,
 		struct ocf_metadata_segment *superblock)
 {
 	int result;
 
-	result = ocf_metadata_raw_init(cache, lock_page_pfn, unlock_page_pfn, raw);
+	result = ocf_metadata_raw_init(cache, flush_asynch, raw);
 	if (result)
 		return result;
 
@@ -32,8 +31,7 @@ int ocf_metadata_segment_init(
 		struct ocf_metadata_segment **self,
 		struct ocf_cache *cache,
 		struct ocf_metadata_raw *raw,
-		ocf_flush_page_synch_t lock_page_pfn,
-		ocf_flush_page_synch_t unlock_page_pfn,
+		bool flush_asynch,
 		struct ocf_metadata_segment *superblock)
 {
 	struct ocf_metadata_segment *segment;
@@ -44,8 +42,7 @@ int ocf_metadata_segment_init(
 		return -OCF_ERR_NO_MEM;
 
 	result = ocf_metadata_segment_init_in_place(segment,
-			cache, raw, lock_page_pfn, unlock_page_pfn,
-			superblock);
+			cache, raw, flush_asynch, superblock);
 
 	if (result)
 		env_vfree(segment);

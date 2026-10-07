@@ -33,10 +33,8 @@ struct ocf_metadata_lock
 			/*!< global metadata lock (GML) */
 	env_spinlock lru[OCF_NUM_LRU_LISTS]; /*!< Fast locks for lru list */
 	env_spinlock partition[OCF_USER_IO_CLASS_MAX]; /* partition lock */
-	env_rwsem *collision_pages; /*!< Collision table page locks */
 	ocf_cache_t cache;  /*!< Parent cache object */
 	uint32_t num_hash_entries;  /*!< Hash bucket count */
-	uint32_t num_collision_pages; /*!< Collision table page count */
 };
 
 /**

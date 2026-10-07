@@ -14,6 +14,7 @@
 #include "utils/utils_generator.h"
 #include "utils/utils_parallelize.h"
 #include "concurrency/ocf_concurrency.h"
+#include "concurrency/ocf_metadata_concurrency.h"
 #include "mngt/ocf_mngt_common.h"
 #include "engine/engine_zero.h"
 #include "ocf_cache_priv.h"
