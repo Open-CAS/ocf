@@ -13,7 +13,7 @@
 #include "ocf_volume_priv.h"
 #include "ocf_core_priv.h"
 #include "ocf_part.h"
-#include "metadata/metadata_structs.h"
+#include "metadata/metadata_priv.h"
 #include "concurrency/ocf_metadata_lock.h"
 #include "utils/utils_list.h"
 #include "utils/utils_pipeline.h"

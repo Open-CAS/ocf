@@ -5,15 +5,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __METADATA_STRUCTS_H__
-#define __METADATA_STRUCTS_H__
+#ifndef __METADATA_PRIV_H__
+#define __METADATA_PRIV_H__
 
-#include "metadata_common.h"
-#include "../ocf_space.h"
-#include "../cleaning/cleaning.h"
-#include "../ocf_request.h"
-#include "metadata_superblock.h"
-
+#include "ocf/ocf.h"
+#include "ocf_env.h"
 
 /**
  * @file metadata_priv.h
@@ -79,4 +75,4 @@ static inline uint64_t ocf_metadata_data_offset(
 	return metadata->data_offset;
 }
 
-#endif /* __METADATA_STRUCTS_H__ */
+#endif /* __METADATA_PRIV_H__ */
