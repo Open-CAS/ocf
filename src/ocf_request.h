@@ -12,6 +12,7 @@
 #include "ocf_io_priv.h"
 #include "ocf_def_priv.h"
 #include "metadata/metadata_structs.h"
+#include "concurrency/ocf_metadata_lock.h"
 
 typedef enum {
 	/* modes inherited from user API */

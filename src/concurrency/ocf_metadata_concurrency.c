@@ -373,7 +373,7 @@ void ocf_hb_id_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 }
 
 /* number of hash entries */
-#define _NUM_HASH_ENTRIES req->cache->metadata.lock.num_hash_entries
+#define _NUM_HASH_ENTRIES req->cache->metadata_lock.num_hash_entries
 
 /* true if hashes are monotonic */
 #define _IS_MONOTONIC(req) (req->map[0].hash + req->core_line_count <= \
@@ -448,10 +448,10 @@ void ocf_hb_req_prot_lock_rd(struct ocf_request *req)
 {
 	ocf_cache_line_t hash;
 
-	ocf_metadata_start_shared_access(&req->cache->metadata.lock,
+	ocf_metadata_start_shared_access(&req->cache->metadata_lock,
 			req->lock_idx);
 	for_each_req_hash_asc(req, hash) {
-		ocf_hb_id_naked_lock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_lock(&req->cache->metadata_lock, hash,
 				OCF_METADATA_RD);
 	}
 }
@@ -461,10 +461,10 @@ void ocf_hb_req_prot_unlock_rd(struct ocf_request *req)
 	ocf_cache_line_t hash;
 
 	for_each_req_hash_asc(req, hash) {
-		ocf_hb_id_naked_unlock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_unlock(&req->cache->metadata_lock, hash,
 				OCF_METADATA_RD);
 	}
-	ocf_metadata_end_shared_access(&req->cache->metadata.lock,
+	ocf_metadata_end_shared_access(&req->cache->metadata_lock,
 			req->lock_idx);
 }
 
@@ -472,10 +472,10 @@ void ocf_hb_req_prot_lock_wr(struct ocf_request *req)
 {
 	ocf_cache_line_t hash;
 
-	ocf_metadata_start_shared_access(&req->cache->metadata.lock,
+	ocf_metadata_start_shared_access(&req->cache->metadata_lock,
 			req->lock_idx);
 	for_each_req_hash_asc(req, hash) {
-		ocf_hb_id_naked_lock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_lock(&req->cache->metadata_lock, hash,
 				OCF_METADATA_WR);
 	}
 }
@@ -485,11 +485,11 @@ void ocf_hb_req_prot_lock_upgrade(struct ocf_request *req)
 	ocf_cache_line_t hash;
 
 	for_each_req_hash_asc(req, hash) {
-		ocf_hb_id_naked_unlock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_unlock(&req->cache->metadata_lock, hash,
 				OCF_METADATA_RD);
 	}
 	for_each_req_hash_asc(req, hash) {
-		ocf_hb_id_naked_lock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_lock(&req->cache->metadata_lock, hash,
 				OCF_METADATA_WR);
 	}
 }
@@ -499,9 +499,9 @@ void ocf_hb_req_prot_unlock_wr(struct ocf_request *req)
 	ocf_cache_line_t hash;
 
 	for_each_req_hash_asc(req, hash) {
-		ocf_hb_id_naked_unlock(&req->cache->metadata.lock, hash,
+		ocf_hb_id_naked_unlock(&req->cache->metadata_lock, hash,
 				OCF_METADATA_WR);
 	}
-	ocf_metadata_end_shared_access(&req->cache->metadata.lock,
+	ocf_metadata_end_shared_access(&req->cache->metadata_lock,
 			req->lock_idx);
 }

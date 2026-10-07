@@ -43,11 +43,11 @@ void cache_mngt_core_remove_from_cleaning_pol(ocf_core_t core)
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	ocf_core_id_t core_id = ocf_core_get_id(core);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
 
 	ocf_cleaning_remove_core(cache, core_id);
 
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 }
 
 /* Deinitialize core metadata in attached metadata */
@@ -66,7 +66,7 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 		prev_cline = terminator;
 
 		lock_idx = ocf_metadata_concurrency_next_idx(cache->mngt_queue);
-		ocf_hb_id_prot_lock_wr(&cache->metadata.lock, lock_idx, hash);
+		ocf_hb_id_prot_lock_wr(&cache->metadata_lock, lock_idx, hash);
 
 		curr_cline = ocf_metadata_get_hash(cache, hash);
 		while (curr_cline != terminator) {
@@ -100,7 +100,7 @@ void cache_mngt_core_deinit_attached_meta(ocf_core_t core)
 			else
 				curr_cline = ocf_metadata_get_hash(cache, hash);
 		}
-		ocf_hb_id_prot_unlock_wr(&cache->metadata.lock, lock_idx, hash);
+		ocf_hb_id_prot_unlock_wr(&cache->metadata_lock, lock_idx, hash);
 
 		/* Check whether all the cachelines from the hash bucket were sparsed */
 		if (curr_cline == terminator)
@@ -116,7 +116,7 @@ void cache_mngt_core_remove_from_meta(ocf_core_t core)
 	ocf_cache_t cache = ocf_core_get_cache(core);
 	ocf_core_id_t core_id = ocf_core_get_id(core);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
 
 	/* In metadata mark data this core was removed from cache */
 	core->conf_meta->valid = false;
@@ -128,7 +128,7 @@ void cache_mngt_core_remove_from_meta(ocf_core_t core)
 	env_bit_clear(core_id, cache->conf_meta->valid_core_bitmap);
 	cache->conf_meta->core_count--;
 
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 }
 
 /* Deinit in-memory structures related to this core */

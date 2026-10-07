@@ -14,6 +14,7 @@
 #include "ocf_core_priv.h"
 #include "ocf_part.h"
 #include "metadata/metadata_structs.h"
+#include "concurrency/ocf_metadata_lock.h"
 #include "utils/utils_list.h"
 #include "utils/utils_pipeline.h"
 #include "utils/utils_async_lock.h"
@@ -67,6 +68,8 @@ struct ocf_cache {
 	ocf_queue_t mngt_queue;
 
 	struct ocf_metadata metadata;
+
+	struct ocf_metadata_lock metadata_lock;
 
 	struct {
 		/* cache get/put counter */

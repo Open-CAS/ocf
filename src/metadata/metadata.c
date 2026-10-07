@@ -467,7 +467,7 @@ finalize:
 	ocf_cache_log(cache, log_info, "Metadata size on device: %llu kiB\n",
 			ocf_metadata_data_offset(&cache->metadata) / KiB);
 
-	ocf_metadata_concurrency_attached_init(&cache->metadata.lock,
+	ocf_metadata_concurrency_attached_init(&cache->metadata_lock,
 			cache, ctrl->raw_desc[metadata_segment_hash].
 			layout->entries);
 
@@ -1260,7 +1260,7 @@ int ocf_metadata_init(struct ocf_cache *cache,
 	if (ret)
 		return ret;
 
-	ret = ocf_metadata_concurrency_init(&cache->metadata.lock);
+	ret = ocf_metadata_concurrency_init(&cache->metadata_lock);
 	if (ret) {
 		ocf_metadata_deinit_fixed_size(cache);
 		return ret;
@@ -1274,7 +1274,7 @@ void ocf_metadata_deinit(struct ocf_cache *cache)
 	OCF_DEBUG_TRACE(cache);
 
 	ocf_metadata_deinit_fixed_size(cache);
-	ocf_metadata_concurrency_deinit(&cache->metadata.lock);
+	ocf_metadata_concurrency_deinit(&cache->metadata_lock);
 }
 
 void ocf_metadata_error(struct ocf_cache *cache)

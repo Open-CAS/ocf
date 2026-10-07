@@ -515,11 +515,11 @@ static int ocf_acp_update_handle(ocf_parallelize_t parallelize,
 	begin = portion*shard_id;
 	end = OCF_MIN(portion*(shard_id + 1), entries);
 
-	ocf_metadata_start_shared_access(&cache->metadata.lock, lock_idx);
+	ocf_metadata_start_shared_access(&cache->metadata_lock, lock_idx);
 	for (hash = begin; hash < end; hash++) {
 		OCF_COND_RESCHED_DEFAULT(step);
 
-		ocf_hb_id_naked_lock_rd(&cache->metadata.lock, hash);
+		ocf_hb_id_naked_lock_rd(&cache->metadata_lock, hash);
 		cline = ocf_metadata_get_hash(cache, hash);
 
 		while (cline != terminator) {
@@ -530,9 +530,9 @@ static int ocf_acp_update_handle(ocf_parallelize_t parallelize,
 
 			cline = ocf_metadata_get_collision_next(cache, cline);
 		}
-		ocf_hb_id_naked_unlock_rd(&cache->metadata.lock, hash);
+		ocf_hb_id_naked_unlock_rd(&cache->metadata_lock, hash);
 	}
-	ocf_metadata_end_shared_access(&cache->metadata.lock, lock_idx);
+	ocf_metadata_end_shared_access(&cache->metadata_lock, lock_idx);
 
 	return 0;
 }
@@ -638,7 +638,7 @@ static ocf_cache_line_t _acp_trylock_dirty(struct ocf_cache *cache,
 	unsigned lock_idx = ocf_metadata_concurrency_next_idx(
 			cache->cleaner.io_queue);
 
-	ocf_hb_cline_prot_lock_rd(&cache->metadata.lock, lock_idx, core_id,
+	ocf_hb_cline_prot_lock_rd(&cache->metadata_lock, lock_idx, core_id,
 			core_line);
 
 	ocf_engine_lookup_map_entry(cache, &info, core_id,
@@ -651,7 +651,7 @@ static ocf_cache_line_t _acp_trylock_dirty(struct ocf_cache *cache,
 				info.coll_idx);
 	}
 
-	ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock, lock_idx, core_id,
+	ocf_hb_cline_prot_unlock_rd(&cache->metadata_lock, lock_idx, core_id,
 			core_line);
 
 	return locked ? info.coll_idx :

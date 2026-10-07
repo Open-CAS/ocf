@@ -186,7 +186,7 @@ static int _ocf_mngt_get_blocks(ocf_cache_t cache, ocf_core_id_t core_id,
 	uint32_t line, dirty_found = 0, dirty_total = 0;
 	unsigned ret = 0;
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
 
 	dirty_total = env_atomic_read(&core->runtime_meta->dirty_clines);
 	if (!dirty_total) {
@@ -224,10 +224,10 @@ static int _ocf_mngt_get_blocks(ocf_cache_t cache, ocf_core_id_t core_id,
 
 		if ((line + 1) % 131072 == 0) {
 			ocf_metadata_end_exclusive_access(
-					&cache->metadata.lock);
+					&cache->metadata_lock);
 			env_cond_resched();
 			ocf_metadata_start_exclusive_access(
-					&cache->metadata.lock);
+					&cache->metadata_lock);
 		}
 	}
 
@@ -238,7 +238,7 @@ static int _ocf_mngt_get_blocks(ocf_cache_t cache, ocf_core_id_t core_id,
 	*num = dirty_found;
 
 unlock:
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 
 	return ret;
 }
@@ -268,7 +268,7 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 		return 0;
 	}
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
 
 	core_count = cache->conf_meta->core_count;
 	if (core_count == 0)
@@ -343,10 +343,10 @@ static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
 
 		if ((line + 1) % 131072 == 0) {
 			ocf_metadata_end_exclusive_access(
-					&cache->metadata.lock);
+					&cache->metadata_lock);
 			env_cond_resched();
 			ocf_metadata_start_exclusive_access(
-					&cache->metadata.lock);
+					&cache->metadata_lock);
 		}
 	}
 
@@ -370,7 +370,7 @@ free_fc:
 free_core_revmap:
 	env_vfree(core_revmap);
 unlock:
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 	return ret;
 }
 
@@ -476,9 +476,9 @@ static int _ofc_flush_container_step(struct ocf_request *req)
 	struct flush_container *fc = req->priv;
 	ocf_cache_t cache = fc->cache;
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
 	_ocf_mngt_flush_portion(fc);
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 
 	return 0;
 }
@@ -876,10 +876,10 @@ static void _ocf_mngt_cache_invalidate(ocf_pipeline_t pipeline, void *priv,
 	ocf_cache_t cache = context->cache;
 	int result;
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
 	result = ocf_metadata_sparse_range(cache, context->purge.core_id, 0,
 			context->purge.end_byte);
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 
 	OCF_PL_NEXT_ON_SUCCESS_RET(context->pipeline, result);
 }
@@ -895,10 +895,10 @@ static void _ocf_mngt_cache_detach_cline_range(ocf_pipeline_t pipeline,
 	free_detached_before =
 		env_atomic_read(&cache->free_detached.runtime->curr_size);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
 	result = ocf_metadata_detach_cline_range(cache, context->begin,
 			context->end);
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 
 	free_detached_after =
 		env_atomic_read(&cache->free_detached.runtime->curr_size);
@@ -922,9 +922,9 @@ int ocf_mngt_cache_attach_cline_range(ocf_cache_t cache,
 	free_detached_before =
 		env_atomic_read(&cache->free_detached.runtime->curr_size);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
 	result = ocf_metadata_restore_cline_range(cache, begin, end);
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 
 	free_detached_after =
 		env_atomic_read(&cache->free_detached.runtime->curr_size);
@@ -1345,11 +1345,11 @@ int ocf_mngt_cache_cleaning_set_param(ocf_cache_t cache, ocf_cleaning_t type,
 	if (!ocf_cache_is_device_attached(cache))
 		return -OCF_ERR_CACHE_DETACHED;
 
-	ocf_metadata_start_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
 
 	ret = ocf_cleaning_set_param(cache, type, param_id, param_value);
 
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 
 	return ret;
 }

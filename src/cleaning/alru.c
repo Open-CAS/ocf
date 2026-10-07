@@ -657,11 +657,11 @@ static int ocf_alru_update_handle(ocf_parallelize_t parallelize,
 	begin = portion*shard_id;
 	end = OCF_MIN((uint64_t)portion*(shard_id + 1), entries);
 
-	ocf_metadata_start_shared_access(&cache->metadata.lock, lock_idx);
+	ocf_metadata_start_shared_access(&cache->metadata_lock, lock_idx);
 	for (hash = begin; hash < end; hash++) {
 		OCF_COND_RESCHED_DEFAULT(step);
 
-		ocf_hb_id_naked_lock_rd(&cache->metadata.lock, hash);
+		ocf_hb_id_naked_lock_rd(&cache->metadata_lock, hash);
 		cline = ocf_metadata_get_hash(cache, hash);
 
 		while (cline != terminator) {
@@ -672,9 +672,9 @@ static int ocf_alru_update_handle(ocf_parallelize_t parallelize,
 
 			cline = ocf_metadata_get_collision_next(cache, cline);
 		}
-		ocf_hb_id_naked_unlock_rd(&cache->metadata.lock, hash);
+		ocf_hb_id_naked_unlock_rd(&cache->metadata_lock, hash);
 	}
-	ocf_metadata_end_shared_access(&cache->metadata.lock, lock_idx);
+	ocf_metadata_end_shared_access(&cache->metadata_lock, lock_idx);
 
 	return 0;
 }
@@ -1079,7 +1079,7 @@ static void alru_clean(struct alru_context *ctx)
 		return;
 	}
 
-	if (ocf_metadata_try_start_exclusive_access(&cache->metadata.lock)) {
+	if (ocf_metadata_try_start_exclusive_access(&cache->metadata_lock)) {
 		alru_clean_complete(fctx, 0);
 		return;
 	}
@@ -1098,7 +1098,7 @@ static void alru_clean(struct alru_context *ctx)
 		ocf_cleaner_sort_flush_data(fctx->flush_data, to_clean);
 		ocf_cleaner_do_flush_data_async(cache, fctx->flush_data,
 				to_clean, &fctx->attribs);
-		ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+		ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 		return;
 	}
 
@@ -1107,7 +1107,7 @@ static void alru_clean(struct alru_context *ctx)
 		env_ticks_to_secs(env_get_tick_count());
 
 end:
-	ocf_metadata_end_exclusive_access(&cache->metadata.lock);
+	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 	alru_clean_complete(fctx, 0);
 }
 

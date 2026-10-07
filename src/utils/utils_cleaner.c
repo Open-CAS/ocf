@@ -336,7 +336,7 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 
 		cache_line = iter->coll_idx;
 
-		ocf_hb_cline_prot_lock_wr(&cache->metadata.lock,
+		ocf_hb_cline_prot_lock_wr(&cache->metadata_lock,
 				req->lock_idx, req->map[i].core_id,
 				req->map[i].core_line);
 
@@ -352,7 +352,7 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 					cache_line);
 		}
 
-		ocf_hb_cline_prot_unlock_wr(&cache->metadata.lock,
+		ocf_hb_cline_prot_unlock_wr(&cache->metadata_lock,
 				req->lock_idx, req->map[i].core_id,
 				req->map[i].core_line);
 	}
@@ -511,13 +511,13 @@ static int _ocf_cleaner_fire_core(struct ocf_request *req)
 		if (!iter->flush)
 			continue;
 
-		ocf_hb_cline_prot_lock_rd(&cache->metadata.lock,
+		ocf_hb_cline_prot_lock_rd(&cache->metadata_lock,
 				req->lock_idx, req->map[i].core_id,
 				req->map[i].core_line);
 
 		_ocf_cleaner_core_submit_io(req, iter);
 
-		ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock,
+		ocf_hb_cline_prot_unlock_rd(&cache->metadata_lock,
 				req->lock_idx, req->map[i].core_id,
 				req->map[i].core_line);
 	}

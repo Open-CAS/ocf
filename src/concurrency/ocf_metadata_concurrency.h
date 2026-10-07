@@ -58,18 +58,18 @@ static inline void ocf_metadata_lru_unlock_all(
 }
 
 #define OCF_METADATA_LRU_LOCK(ev_list) \
-		ocf_metadata_lru_lock(&cache->metadata.lock, \
+		ocf_metadata_lru_lock(&cache->metadata_lock, \
 				ev_list)
 
 #define OCF_METADATA_LRU_UNLOCK(ev_list) \
-		ocf_metadata_lru_unlock(&cache->metadata.lock, \
+		ocf_metadata_lru_unlock(&cache->metadata_lock, \
 				ev_list)
 
 #define OCF_METADATA_LRU_LOCK_ALL() \
-	ocf_metadata_lru_lock_all(&cache->metadata.lock)
+	ocf_metadata_lru_lock_all(&cache->metadata_lock)
 
 #define OCF_METADATA_LRU_UNLOCK_ALL() \
-	ocf_metadata_lru_unlock_all(&cache->metadata.lock)
+	ocf_metadata_lru_unlock_all(&cache->metadata_lock)
 
 static inline void ocf_metadata_partition_lock(
 		struct ocf_metadata_lock *metadata_lock,
