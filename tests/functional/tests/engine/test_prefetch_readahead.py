@@ -17,6 +17,7 @@ from pyocf.helpers import is_block_size_4k
 
 
 PF_READAHEAD_MASK = 1 << PrefetchPolicy.READAHEAD
+PF_IO_CLASS = 33
 PF_READAHEAD_MIN = Size.from_KiB(64)
 STATS_BLOCK_SIZE = Size.from_KiB(4)
 
@@ -211,3 +212,63 @@ def test_prefetch_readahead_no_read_insert(pyocf_ctx, cache_mode, cls):
 
     assert get_prefetch_count(cache) == 0, \
         f"No prefetch should trigger in {cache_mode.name} mode"
+
+
+@pytest.mark.parametrize("io_class", [0, 1, 17])
+@pytest.mark.parametrize("cls", [CacheLineSize.LINE_4KiB, CacheLineSize.LINE_64KiB])
+def test_prefetch_readahead_io_class(pyocf_ctx, io_class, cls):
+    """
+    Verify that prefetched data is assigned to the prefetch IO class,
+    regardless of the IO class of the request that triggered it, and that
+    the demand reads stay in their own IO class.
+    """
+    cache, core, vol, queue = setup_cache_core(pyocf_ctx, cache_line_size=cls)
+
+    if io_class != 0:
+        cache.configure_partition(part_id=io_class, name=f"class_{io_class}",
+                                  max_size=100, priority=1)
+
+    cache.set_prefetch_policy(PF_READAHEAD_MASK)
+    cache.set_prefetch_param(PrefetchPolicy.READAHEAD,
+                             ReadaheadParams.THRESHOLD, 0)
+
+    # The first read sets up the sequential stream, the second one triggers
+    # readahead of the range directly following it
+    vol.open()
+    vol.read_sync(queue, 0, cls, io_class=io_class)
+    vol.read_sync(queue, cls, cls, io_class=io_class)
+    vol.close()
+    cache.settle()
+
+    assert get_prefetch_count(cache) == 1, \
+        "Exactly one prefetch request should be generated"
+
+    demand_blocks = 2 * cls // int(STATS_BLOCK_SIZE)
+    prefetch_blocks = max(cls, int(PF_READAHEAD_MIN)) // int(STATS_BLOCK_SIZE)
+
+    occupancy = cache.get_stats()["usage"]["occupancy"]["value"]
+    assert occupancy == demand_blocks + prefetch_blocks, \
+        "Unexpected total cache occupancy"
+
+    for part_id in {0, io_class, PF_IO_CLASS}:
+        stats = cache.get_ioclass_stats(part_id)
+        occupancy = stats["usage"]["occupancy"]["value"]
+        pf_reqs = stats["req"]["prefetch"][0].value
+        pf_core_rd = stats["block"]["prefetch_core_rd"][0].value
+        pf_cache_wr = stats["block"]["prefetch_cache_wr"][0].value
+
+        if part_id == PF_IO_CLASS:
+            assert occupancy == prefetch_blocks, \
+                "Prefetched data should occupy the prefetch IO class"
+            assert pf_reqs == 1, \
+                "Prefetch request should be accounted to the prefetch IO class"
+            assert pf_core_rd == prefetch_blocks
+            assert pf_cache_wr == prefetch_blocks
+        else:
+            expected = demand_blocks if part_id == io_class else 0
+            assert occupancy == expected, \
+                f"Unexpected occupancy of IO class {part_id}"
+            assert pf_reqs == 0, \
+                f"No prefetch requests should be accounted to IO class {part_id}"
+            assert pf_core_rd == 0
+            assert pf_cache_wr == 0
