@@ -15,6 +15,7 @@
 #include "cache_engine.h"
 #include "../ocf_request.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 #include "../utils/utils_io.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "bf"
@@ -102,7 +103,7 @@ static int _ocf_backfill_do(struct ocf_request *req)
 	ocf_req_forward_cache_init(req, _ocf_backfill_complete);
 
 	if (ocf_engine_is_sequential(req)) {
-		addr = cache->device->metadata_offset;
+		addr = ocf_metadata_data_offset(&cache->metadata);
 		addr += req->map[0].coll_idx * line_size;
 		addr += req->addr % line_size;
 
@@ -120,7 +121,7 @@ static int _ocf_backfill_do(struct ocf_request *req)
 		} else {
 			addr  = req->map[i].coll_idx;
 			addr *= line_size;
-			addr += cache->device->metadata_offset;
+			addr += ocf_metadata_data_offset(&cache->metadata);
 		}
 		bytes = line_size;
 
@@ -142,7 +143,7 @@ static int _ocf_backfill_do(struct ocf_request *req)
 		for (; i < (req->core_line_count - 1); i++) {
 			addr_next = req->map[i + 1].coll_idx;
 			addr_next *= line_size;
-			addr_next += cache->device->metadata_offset;
+			addr_next += ocf_metadata_data_offset(&cache->metadata);
 
 			if (addr_next != (addr + bytes))
 				break;

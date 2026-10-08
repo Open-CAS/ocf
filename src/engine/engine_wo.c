@@ -17,6 +17,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../utils/utils_user_part.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "wo"
 #include "engine_debug.h"
@@ -72,7 +73,7 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 		s = ocf_map_line_start_block(req, line);
 		e = ocf_map_line_end_block(req, line);
 
-		ocf_hb_cline_prot_lock_rd(&cache->metadata.lock,
+		ocf_hb_cline_prot_lock_rd(&cache->metadata_lock,
 				req->lock_idx, entry->core_id,
 				entry->core_line);
 
@@ -116,7 +117,7 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 						== valid);
 			}
 
-			ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock,
+			ocf_hb_cline_prot_unlock_rd(&cache->metadata_lock,
 					req->lock_idx, entry->core_id,
 					entry->core_line);
 
@@ -136,7 +137,7 @@ static int ocf_read_wo_cache_do(struct ocf_request *req)
 			offset += increment;
 
 			if (i <= e) {
-				ocf_hb_cline_prot_lock_rd(&cache->metadata.lock,
+				ocf_hb_cline_prot_lock_rd(&cache->metadata_lock,
 					req->lock_idx, entry->core_id,
 					entry->core_line);
 			}

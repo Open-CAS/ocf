@@ -13,6 +13,7 @@
 #include "cache_engine.h"
 #include "../ocf_request.h"
 #include "../metadata/metadata.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "wa"
 #include "engine_debug.h"

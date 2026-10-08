@@ -13,7 +13,8 @@
 #include "ocf_volume_priv.h"
 #include "ocf_core_priv.h"
 #include "ocf_part.h"
-#include "metadata/metadata_structs.h"
+#include "metadata/metadata_priv.h"
+#include "concurrency/ocf_metadata_lock.h"
 #include "utils/utils_list.h"
 #include "utils/utils_pipeline.h"
 #include "utils/utils_async_lock.h"
@@ -31,20 +32,10 @@ struct ocf_cache_device {
 	struct ocf_volume front_volume;
 	struct ocf_volume volume;
 
-	/* Hash Table contains contains pointer to the entry in
-	 * Collision Table so it actually contains collision Table
-	 * indexes.
-	 * Invalid entry is collision_table_entries.
-	 */
-	unsigned int hash_table_entries;
-	unsigned int collision_table_entries;
-
 	int metadata_error;
 		/*!< This field indicates that an error during metadata IO
 		 * occurred
 	 */
-
-	uint64_t metadata_offset;
 
 	struct {
 		struct ocf_alock *cache_line;
@@ -77,6 +68,8 @@ struct ocf_cache {
 	ocf_queue_t mngt_queue;
 
 	struct ocf_metadata metadata;
+
+	struct ocf_metadata_lock metadata_lock;
 
 	struct {
 		/* cache get/put counter */

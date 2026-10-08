@@ -8,7 +8,7 @@
 #ifndef __METADATA_STATUS_H__
 #define __METADATA_STATUS_H__
 
-#include "../concurrency/ocf_metadata_concurrency.h"
+#include "../ocf_cache_priv.h"
 #include "metadata_cache_line.h"
 
 /*******************************************************************************

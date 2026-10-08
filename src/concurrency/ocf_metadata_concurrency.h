@@ -23,12 +23,9 @@ int ocf_metadata_concurrency_init(struct ocf_metadata_lock *metadata_lock);
 
 void ocf_metadata_concurrency_deinit(struct ocf_metadata_lock *metadata_lock);
 
-int ocf_metadata_concurrency_attached_init(
+void ocf_metadata_concurrency_attached_init(
 		struct ocf_metadata_lock *metadata_lock, ocf_cache_t cache,
-		uint32_t hash_table_entries, uint32_t colision_table_pages);
-
-void ocf_metadata_concurrency_attached_deinit(
-		struct ocf_metadata_lock *metadata_lock);
+		uint32_t hash_table_entries);
 
 static inline void ocf_metadata_lru_lock(
 		struct ocf_metadata_lock *metadata_lock, unsigned ev_list)
@@ -61,18 +58,18 @@ static inline void ocf_metadata_lru_unlock_all(
 }
 
 #define OCF_METADATA_LRU_LOCK(ev_list) \
-		ocf_metadata_lru_lock(&cache->metadata.lock, \
+		ocf_metadata_lru_lock(&cache->metadata_lock, \
 				ev_list)
 
 #define OCF_METADATA_LRU_UNLOCK(ev_list) \
-		ocf_metadata_lru_unlock(&cache->metadata.lock, \
+		ocf_metadata_lru_unlock(&cache->metadata_lock, \
 				ev_list)
 
 #define OCF_METADATA_LRU_LOCK_ALL() \
-	ocf_metadata_lru_lock_all(&cache->metadata.lock)
+	ocf_metadata_lru_lock_all(&cache->metadata_lock)
 
 #define OCF_METADATA_LRU_UNLOCK_ALL() \
-	ocf_metadata_lru_unlock_all(&cache->metadata.lock)
+	ocf_metadata_lru_unlock_all(&cache->metadata_lock)
 
 static inline void ocf_metadata_partition_lock(
 		struct ocf_metadata_lock *metadata_lock,
@@ -154,13 +151,5 @@ void ocf_hb_req_prot_lock_wr(struct ocf_request *req);
 void ocf_hb_req_prot_unlock_wr(struct ocf_request *req);
 void ocf_hb_req_prot_lock_upgrade(struct ocf_request *req);
 
-/* collision table page lock interface */
-void ocf_collision_start_shared_access(struct ocf_metadata_lock *metadata_lock,
-		uint32_t page);
-void ocf_collision_end_shared_access(struct ocf_metadata_lock *metadata_lock,
-		uint32_t page);
-void ocf_collision_start_exclusive_access(struct ocf_metadata_lock *metadata_lock,
-		uint32_t page);
-void ocf_collision_end_exclusive_access(struct ocf_metadata_lock *metadata_lock,
-		uint32_t page);
+
 #endif /* __OCF_METADATA_CONCURRENCY_H__ */

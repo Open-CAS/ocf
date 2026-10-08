@@ -5,7 +5,6 @@
  */
 
 #include "ocf/ocf.h"
-#include "../ocf_priv.h"
 #include "metadata.h"
 #include "metadata_core.h"
 #include "metadata_internal.h"

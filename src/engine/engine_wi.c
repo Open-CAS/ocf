@@ -11,6 +11,7 @@
 #include "engine_common.h"
 #include "engine_io.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 #include "../ocf_request.h"
 #include "../utils/utils_cache_line.h"
 #include "../metadata/metadata.h"

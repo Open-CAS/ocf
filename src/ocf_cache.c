@@ -148,7 +148,8 @@ int ocf_cache_get_info(ocf_cache_t cache, struct ocf_cache_info *info)
 	info->state = cache->cache_state;
 	info->cache_line_size = ocf_line_size(cache);
 	info->metadata_end_offset = ocf_cache_is_device_attached(cache) ?
-			cache->device->metadata_offset / PAGE_SIZE : 0;
+			ocf_metadata_data_offset(&cache->metadata) / PAGE_SIZE :
+			0;
 	info->metadata_footprint = ocf_cache_is_device_attached(cache) ?
 			ocf_metadata_size_of(cache) : 0;
 

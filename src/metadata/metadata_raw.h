@@ -53,8 +53,6 @@ struct ocf_metadata_raw;
 /**
  * @brief Container page lock/unlock callback
  */
-typedef void (*ocf_flush_page_synch_t)(ocf_cache_t cache,
-		struct ocf_metadata_raw *raw, uint32_t page);
 
 /**
  * @brief RAW instance descriptor
@@ -83,8 +81,9 @@ struct ocf_metadata_raw {
 
 	void *priv; /*!< Private data - context */
 
-	ocf_flush_page_synch_t lock_page; /*!< Page lock callback */
-	ocf_flush_page_synch_t unlock_page; /*!< Page unlock callback */
+	bool flush_asynch; /*!< Asynchronous flush enabled */
+
+	env_rwsem *page_locks; /*!< Page locks (NULL if not used) */
 
 	struct ocf_alock *mio_conc;
 };
@@ -93,9 +92,7 @@ struct ocf_metadata_raw {
  * RAW container interface
  */
 struct raw_iface {
-	int (*init)(ocf_cache_t cache,
-			ocf_flush_page_synch_t lock_page_pfn,
-			ocf_flush_page_synch_t unlock_page_pfn,
+	int (*init)(ocf_cache_t cache, bool flush_asynch,
 			struct ocf_metadata_raw *raw);
 
 	int (*deinit)(ocf_cache_t cache,
@@ -150,14 +147,15 @@ struct raw_iface {
  * @brief Initialize RAW instance
  *
  * @param cache - Cache instance
- * @param lock_page_pfn - Optional page lock callback
- * @param lock_page_pfn - Optional page unlock callback
+ * @param flush_asynch - Enable asynchronous flush (flush_mark and
+ *		flush_do_asynch). RAW content is then modified at runtime,
+ *		concurrently with any kind of flush, including flush_all,
+ *		and RAW must assure consistency of flushed pages.
+ *		Not supported by all RAW types.
  * @param raw - RAW descriptor
  * @return 0 - Operation success, otherwise error
  */
-int ocf_metadata_raw_init(ocf_cache_t cache,
-		ocf_flush_page_synch_t lock_page_pfn,
-		ocf_flush_page_synch_t unlock_page_pfn,
+int ocf_metadata_raw_init(ocf_cache_t cache, bool flush_asynch,
 		struct ocf_metadata_raw *raw);
 
 /**
@@ -218,6 +216,62 @@ static inline uint32_t ocf_metadata_raw_page(struct ocf_metadata_raw* raw,
 		uint32_t entry)
 {
 	return raw->iface->page(raw, entry);
+}
+
+/**
+ * @brief Lock RAW page for modification of its content
+ *
+ * Multiple entries within the same page can be modified concurrently,
+ * as modifications of the particular entries are synchronized by
+ * higher level locks.
+ *
+ * @param raw - RAW descriptor
+ * @param page - Page number
+ */
+static inline void ocf_metadata_raw_page_lock_modify(
+		struct ocf_metadata_raw *raw, uint32_t page)
+{
+	if (raw->page_locks)
+		env_rwsem_down_read(&raw->page_locks[page]);
+}
+
+/**
+ * @brief Unlock RAW page locked for modification of its content
+ *
+ * @param raw - RAW descriptor
+ * @param page - Page number
+ */
+static inline void ocf_metadata_raw_page_unlock_modify(
+		struct ocf_metadata_raw *raw, uint32_t page)
+{
+	if (raw->page_locks)
+		env_rwsem_up_read(&raw->page_locks[page]);
+}
+
+/**
+ * @brief Lock RAW page for copying consistent snapshot of its content
+ *
+ * @param raw - RAW descriptor
+ * @param page - Page number
+ */
+static inline void ocf_metadata_raw_page_lock_copy(
+		struct ocf_metadata_raw *raw, uint32_t page)
+{
+	if (raw->page_locks)
+		env_rwsem_down_write(&raw->page_locks[page]);
+}
+
+/**
+ * @brief Unlock RAW page locked for copying
+ *
+ * @param raw - RAW descriptor
+ * @param page - Page number
+ */
+static inline void ocf_metadata_raw_page_unlock_copy(
+		struct ocf_metadata_raw *raw, uint32_t page)
+{
+	if (raw->page_locks)
+		env_rwsem_up_write(&raw->page_locks[page]);
 }
 
 /**
@@ -320,6 +374,9 @@ static inline void ocf_metadata_raw_flush_mark(ocf_cache_t cache,
 		struct ocf_metadata_raw *raw, struct ocf_request *req,
 		uint32_t map_idx, int to_state, uint8_t start, uint8_t stop)
 {
+	if (!raw->flush_asynch)
+		return;
+
 	raw->iface->flush_mark(cache, req, map_idx, to_state, start, stop);
 }
 
@@ -327,6 +384,11 @@ static inline int ocf_metadata_raw_flush_do_asynch(ocf_cache_t cache,
 		struct ocf_request *req, struct ocf_metadata_raw *raw,
 		ocf_req_end_t complete)
 {
+	if (!raw->flush_asynch) {
+		complete(req, -OCF_ERR_NOT_SUPP);
+		return -OCF_ERR_NOT_SUPP;
+	}
+
 	return raw->iface->flush_do_asynch(cache, req, raw, complete);
 }
 

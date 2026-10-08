@@ -8,7 +8,6 @@
 #include "ocf/ocf.h"
 #include "metadata.h"
 #include "metadata_internal.h"
-#include "../utils/utils_user_part.h"
 
 ocf_part_id_t ocf_metadata_get_partition_id(struct ocf_cache *cache,
 		ocf_cache_line_t line)

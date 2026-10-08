@@ -11,14 +11,14 @@
 static inline ocf_cache_line_t ocf_atomic_addr2line(
 		struct ocf_cache *cache, uint64_t addr)
 {
-	addr -= cache->device->metadata_offset;
+	addr -= ocf_metadata_data_offset(&cache->metadata);
 	return ocf_bytes_2_lines(cache, addr);
 }
 
 static inline uint8_t ocf_atomic_addr2pos(struct ocf_cache *cache,
 		uint64_t addr)
 {
-	addr -= cache->device->metadata_offset;
+	addr -= ocf_metadata_data_offset(&cache->metadata);
 	addr = BYTES_TO_BLOCKS_ROUND_DOWN(addr);
 	addr %= ocf_line_blocks(cache);
 
@@ -34,7 +34,7 @@ int ocf_metadata_get_atomic_entry(ocf_cache_t cache,
 	if (addr > ocf_volume_get_length(&cache->device->volume))
 		return -OCF_ERR_INVAL;
 
-	if (addr < cache->device->metadata_offset) {
+	if (addr < ocf_metadata_data_offset(&cache->metadata)) {
 		/* Metadata IO of OCF */
 		ENV_BUG_ON(env_memset(entry, sizeof(*entry), 0));
 	} else {
@@ -71,7 +71,7 @@ int ocf_metadata_check_invalid_before(ocf_cache_t cache, uint64_t addr)
 	line = ocf_atomic_addr2line(cache, addr);
 	pos = ocf_atomic_addr2pos(cache, addr);
 
-	if (!pos || addr < cache->device->metadata_offset)
+	if (!pos || addr < ocf_metadata_data_offset(&cache->metadata))
 		return 0;
 
 	for (i = 0; i < pos; i++) {
@@ -97,7 +97,7 @@ int ocf_metadata_check_invalid_after(ocf_cache_t cache, uint64_t addr,
 	line = ocf_atomic_addr2line(cache, addr + bytes);
 	pos = ocf_atomic_addr2pos(cache, addr + bytes);
 
-	if (!pos || addr < cache->device->metadata_offset)
+	if (!pos || addr < ocf_metadata_data_offset(&cache->metadata))
 		return 0;
 
 	for (i = pos; i < ocf_line_blocks(cache); i++) {

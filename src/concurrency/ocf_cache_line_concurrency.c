@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2022-2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -273,5 +274,5 @@ void ocf_cache_line_concurrency_deinit(struct ocf_alock **self)
 
 size_t ocf_cache_line_concurrency_size_of(ocf_cache_t cache)
 {
-	return ocf_alock_size(cache->device->collision_table_entries);
+	return ocf_alock_size(ocf_metadata_line_count(&cache->metadata));
 }

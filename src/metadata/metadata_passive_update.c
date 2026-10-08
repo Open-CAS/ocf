@@ -15,14 +15,8 @@
 #include "metadata_io.h"
 #include "metadata_raw.h"
 #include "metadata_segment.h"
-#include "../concurrency/ocf_concurrency.h"
 #include "../ocf_def_priv.h"
-#include "../ocf_priv.h"
-#include "../utils/utils_cache_line.h"
-#include "../utils/utils_io.h"
-#include "../utils/utils_pipeline.h"
 #include "../concurrency/ocf_pio_concurrency.h"
-#include "../engine/engine_common.h"
 
 #define MAX_PASSIVE_IO_SIZE (32*MiB)
 

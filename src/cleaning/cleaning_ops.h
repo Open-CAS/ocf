@@ -12,7 +12,7 @@
 #include "nop.h"
 #include "acp.h"
 #include "../metadata/metadata_superblock.h"
-#include "../metadata/metadata_structs.h"
+#include "../metadata/metadata_priv.h"
 #include "../ocf_cache_priv.h"
 #include "ocf_env_refcnt.h"
 

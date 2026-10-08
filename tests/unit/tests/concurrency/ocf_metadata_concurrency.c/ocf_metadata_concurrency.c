@@ -1,5 +1,6 @@
 /*
  * Copyright(c) 2019-2022 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -116,7 +117,7 @@ static void ocf_hb_req_prot_lock_rd_test01(void **state)
 	const unsigned test_case_count = sizeof(test_cases) / sizeof(test_cases[0]);
 	unsigned i;
 
-	req->cache->metadata.lock.num_hash_entries = 5;
+	req->cache->metadata_lock.num_hash_entries = 5;
 
 	print_test_description("Verify hash locking order\n");
 

@@ -13,6 +13,7 @@
 #include "../utils/utils_cache_line.h"
 #include "../metadata/metadata.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 
 #define OCF_ENGINE_DEBUG_IO_NAME "inv"
 #include "engine_debug.h"

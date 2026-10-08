@@ -9,6 +9,7 @@
 #include "../engine/cache_engine.h"
 #include "../engine/engine_common.h"
 #include "../concurrency/ocf_concurrency.h"
+#include "../concurrency/ocf_metadata_concurrency.h"
 #include "../ocf_request.h"
 #include "utils_cleaner.h"
 #include "utils_user_part.h"
@@ -335,7 +336,7 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 
 		cache_line = iter->coll_idx;
 
-		ocf_hb_cline_prot_lock_wr(&cache->metadata.lock,
+		ocf_hb_cline_prot_lock_wr(&cache->metadata_lock,
 				req->lock_idx, req->map[i].core_id,
 				req->map[i].core_line);
 
@@ -351,7 +352,7 @@ static int _ocf_cleaner_update_metadata(struct ocf_request *req)
 					cache_line);
 		}
 
-		ocf_hb_cline_prot_unlock_wr(&cache->metadata.lock,
+		ocf_hb_cline_prot_unlock_wr(&cache->metadata_lock,
 				req->lock_idx, req->map[i].core_id,
 				req->map[i].core_line);
 	}
@@ -510,13 +511,13 @@ static int _ocf_cleaner_fire_core(struct ocf_request *req)
 		if (!iter->flush)
 			continue;
 
-		ocf_hb_cline_prot_lock_rd(&cache->metadata.lock,
+		ocf_hb_cline_prot_lock_rd(&cache->metadata_lock,
 				req->lock_idx, req->map[i].core_id,
 				req->map[i].core_line);
 
 		_ocf_cleaner_core_submit_io(req, iter);
 
-		ocf_hb_cline_prot_unlock_rd(&cache->metadata.lock,
+		ocf_hb_cline_prot_unlock_rd(&cache->metadata_lock,
 				req->lock_idx, req->map[i].core_id,
 				req->map[i].core_line);
 	}
@@ -573,7 +574,7 @@ static int _ocf_cleaner_fire_cache(struct ocf_request *req)
 
 		addr = iter->coll_idx;
 		addr *= ocf_line_size(cache);
-		addr += cache->device->metadata_offset;
+		addr += ocf_metadata_data_offset(&cache->metadata);
 
 		offset = ocf_line_size(cache) * iter->hash;
 
@@ -778,7 +779,8 @@ static int _ocf_cleaner_do_flush_data_getter(struct ocf_cache *cache,
 {
 	struct flush_data *flush = context;
 
-	if (flush[item].cache_line < cache->device->collision_table_entries) {
+	if (flush[item].cache_line <
+			ocf_metadata_line_count(&cache->metadata)) {
 		(*line) = flush[item].cache_line;
 		return 0;
 	} else {

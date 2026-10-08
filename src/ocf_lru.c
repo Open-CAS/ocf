@@ -14,6 +14,7 @@
 #include "utils/utils_generator.h"
 #include "utils/utils_parallelize.h"
 #include "concurrency/ocf_concurrency.h"
+#include "concurrency/ocf_metadata_concurrency.h"
 #include "mngt/ocf_mngt_common.h"
 #include "engine/engine_zero.h"
 #include "ocf_cache_priv.h"
@@ -410,7 +411,7 @@ static inline bool _lru_trylock_hash(struct ocf_lru_iter *iter,
 	}
 
 	return ocf_hb_cline_naked_trylock_wr(
-			&iter->cache->metadata.lock,
+			&iter->cache->metadata_lock,
 			core_id, core_line);
 }
 
@@ -423,7 +424,7 @@ static inline void _lru_unlock_hash(struct ocf_lru_iter *iter,
 	}
 
 	ocf_hb_cline_naked_unlock_wr(
-			&iter->cache->metadata.lock,
+			&iter->cache->metadata_lock,
 			core_id, core_line);
 }
 
@@ -486,7 +487,7 @@ static inline ocf_cache_line_t lru_req_next_cline(struct ocf_request *req,
 	uint64_t t_core_line;
 	ocf_part_id_t tmp_part_id;
 
-	ocf_metadata_lru_lock(&cache->metadata.lock, curr_lru);
+	ocf_metadata_lru_lock(&cache->metadata_lock, curr_lru);
 
 	tmp_part_id = ocf_metadata_get_partition_id(cache, cline);
 	if (tmp_part_id == PARTITION_FREELIST)
@@ -532,7 +533,7 @@ line_unlock_wr:
 	if (ret == end_marker)
 		ocf_cache_line_unlock_wr(c, cline);
 lru_wr_unlock:
-	ocf_metadata_lru_unlock(&cache->metadata.lock, curr_lru);
+	ocf_metadata_lru_unlock(&cache->metadata_lock, curr_lru);
 	return ret;
 }
 
@@ -559,7 +560,7 @@ static inline ocf_cache_line_t lru_iter_eviction_next(struct ocf_lru_iter *iter,
 		lru_iter_advance(iter);
 		curr_lru = iter->lru_idx;
 
-		ocf_metadata_lru_lock(&cache->metadata.lock, curr_lru);
+		ocf_metadata_lru_lock(&cache->metadata_lock, curr_lru);
 
 		list = ocf_lru_get_list(part, curr_lru, iter->clean);
 
@@ -578,7 +579,7 @@ static inline ocf_cache_line_t lru_iter_eviction_next(struct ocf_lru_iter *iter,
 			}
 		}
 
-		ocf_metadata_lru_unlock(&cache->metadata.lock, curr_lru);
+		ocf_metadata_lru_unlock(&cache->metadata_lock, curr_lru);
 
 		if (cline == end_marker && !_lru_lru_is_empty(iter)) {
 			/* mark list as empty */
@@ -612,7 +613,7 @@ static inline ocf_cache_line_t lru_iter_free_next(struct ocf_lru_iter *iter,
 		lru_iter_advance(iter);
 		curr_lru = iter->lru_idx;
 
-		ocf_metadata_lru_lock(&cache->metadata.lock, curr_lru);
+		ocf_metadata_lru_lock(&cache->metadata_lock, curr_lru);
 
 		list = ocf_lru_get_list(free, curr_lru, true);
 
@@ -626,7 +627,7 @@ static inline ocf_cache_line_t lru_iter_free_next(struct ocf_lru_iter *iter,
 			ocf_lru_repart_locked(cache, cline, free, dst_part);
 		}
 
-		ocf_metadata_lru_unlock(&cache->metadata.lock, curr_lru);
+		ocf_metadata_lru_unlock(&cache->metadata_lock, curr_lru);
 
 		if (cline == end_marker && !_lru_lru_is_empty(iter)) {
 			/* mark list as empty */
@@ -722,7 +723,7 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 	lru_idx = io_queue->lru_idx++ % OCF_NUM_LRU_LISTS;
 
 	lock_idx = ocf_metadata_concurrency_next_idx(io_queue);
-	ocf_metadata_start_shared_access(&cache->metadata.lock, lock_idx);
+	ocf_metadata_start_shared_access(&cache->metadata_lock, lock_idx);
 
 	OCF_METADATA_LRU_LOCK_ALL();
 
@@ -738,7 +739,7 @@ void ocf_lru_clean(ocf_cache_t cache, struct ocf_user_part *user_part,
 
 	OCF_METADATA_LRU_UNLOCK_ALL();
 
-	ocf_metadata_end_shared_access(&cache->metadata.lock, lock_idx);
+	ocf_metadata_end_shared_access(&cache->metadata_lock, lock_idx);
 
 	if (i == 0) {
 		env_atomic_set(&ctx->cleaner_running, 0);
@@ -1022,7 +1023,7 @@ static int ocf_lru_populate_handle(ocf_parallelize_t parallelize,
 	struct ocf_lru_populate_context *context = priv;
 	ocf_cache_t cache = context->cache;
 	ocf_cache_line_t cnt, cline;
-	ocf_cache_line_t entries = ocf_metadata_collision_table_entries(cache);
+	ocf_cache_line_t entries = ocf_metadata_line_count(&cache->metadata);
 	struct ocf_generator_bisect_state generator;
 	struct ocf_lru_list *list;
 	unsigned step = 0;
@@ -1166,13 +1167,13 @@ int ocf_metadata_actor(struct ocf_cache *cache,
 	struct ocf_part *part;
 	unsigned i, cline;
 	struct ocf_lru_meta *node;
+	ocf_cache_line_t line_count = ocf_metadata_line_count(&cache->metadata);
 
 	start_line = ocf_bytes_2_lines(cache, start_byte);
 	end_line = ocf_bytes_2_lines(cache, end_byte);
 
 	if (part_id == PARTITION_UNSPECIFIED) {
-		for (cline = 0; cline < cache->device->collision_table_entries;
-				++cline) {
+		for (cline = 0; cline < line_count; ++cline) {
 			if (_is_cache_line_acting(cache, cline, core_id,
 					start_line, end_line)) {
 				if (ocf_cache_line_is_used(c, cline))

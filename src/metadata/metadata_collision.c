@@ -8,7 +8,6 @@
 #include "ocf/ocf.h"
 #include "metadata.h"
 #include "metadata_internal.h"
-#include "../utils/utils_cache_line.h"
 
 static inline void ocf_metadata_list_info_set(
 		struct ocf_metadata_list_info *info,
@@ -172,9 +171,9 @@ void ocf_metadata_get_collision_info(struct ocf_cache *cache,
 		ocf_metadata_error(cache);
 
 		if (next)
-			*next = cache->device->collision_table_entries;
+			*next = ocf_metadata_terminator_line(&cache->metadata);
 		if (prev)
-			*prev = cache->device->collision_table_entries;
+			*prev = ocf_metadata_terminator_line(&cache->metadata);
 	}
 }
 
@@ -187,8 +186,10 @@ void ocf_metadata_add_to_collision(struct ocf_cache *cache,
 		ocf_cache_line_t hash, ocf_cache_line_t cache_line)
 {
 	ocf_cache_line_t prev_cache_line = ocf_metadata_get_hash(cache, hash);
-	ocf_cache_line_t line_entries = cache->device->collision_table_entries;
-	ocf_cache_line_t hash_entries = cache->device->hash_table_entries;
+	ocf_cache_line_t line_entries =
+			ocf_metadata_line_count(&cache->metadata);
+	ocf_cache_line_t hash_entries =
+			ocf_metadata_hash_entries(&cache->metadata);
 
 	ENV_BUG_ON(!(hash < hash_entries));
 	ENV_BUG_ON(!(cache_line < line_entries));
@@ -226,8 +227,10 @@ void ocf_metadata_remove_from_collision(struct ocf_cache *cache,
 	uint64_t core_line;
 	ocf_cache_line_t hash_father;
 	ocf_cache_line_t prev_line, next_line;
-	ocf_cache_line_t line_entries = cache->device->collision_table_entries;
-	ocf_cache_line_t hash_entries = cache->device->hash_table_entries;
+	ocf_cache_line_t line_entries =
+			ocf_metadata_line_count(&cache->metadata);
+	ocf_cache_line_t hash_entries =
+			ocf_metadata_hash_entries(&cache->metadata);
 
 	ENV_BUG_ON(!(line < line_entries));
 
@@ -269,7 +272,7 @@ void ocf_metadata_start_collision_shared_access(struct ocf_cache *cache,
 			&ctrl->raw_desc[metadata_segment_collision];
 	uint32_t page = ocf_metadata_raw_page(raw, line);
 
-	ocf_collision_start_shared_access(&cache->metadata.lock, page);
+	ocf_metadata_raw_page_lock_modify(raw, page);
 }
 
 /* must be called under  global metadata read(shared) lock */
@@ -282,7 +285,7 @@ void ocf_metadata_end_collision_shared_access(struct ocf_cache *cache,
 			&ctrl->raw_desc[metadata_segment_collision];
 	uint32_t page = ocf_metadata_raw_page(raw, line);
 
-	ocf_collision_end_shared_access(&cache->metadata.lock, page);
+	ocf_metadata_raw_page_unlock_modify(raw, page);
 }
 
 

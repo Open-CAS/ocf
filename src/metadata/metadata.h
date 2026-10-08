@@ -9,8 +9,6 @@
 #define __METADATA_H__
 
 #include "metadata_common.h"
-#include "../ocf_cache_priv.h"
-#include "../ocf_ctx_priv.h"
 #include "metadata_cleaning_policy.h"
 #include "metadata_lru.h"
 #include "metadata_partition.h"
@@ -213,12 +211,6 @@ typedef void (*ocf_metadata_load_properties_end_t)(void *priv, int error,
 
 void ocf_metadata_load_properties(ocf_volume_t volume,
 		ocf_metadata_load_properties_end_t cmpl, void *priv);
-
-static inline ocf_cache_line_t ocf_metadata_collision_table_entries(
-		struct ocf_cache *cache)
-{
-	return cache->device->collision_table_entries;
-}
 
 void ocf_metadata_zero_superblock(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *context);

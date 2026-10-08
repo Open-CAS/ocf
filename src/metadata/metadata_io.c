@@ -7,11 +7,6 @@
 #include "metadata.h"
 #include "metadata_io.h"
 #include "../ocf_priv.h"
-#include "../engine/cache_engine.h"
-#include "../engine/engine_common.h"
-#include "../engine/engine_bf.h"
-#include "../utils/utils_cache_line.h"
-#include "../utils/utils_io.h"
 #include "../ocf_request.h"
 #include "../ocf_def_priv.h"
 #include "../concurrency/ocf_mio_concurrency.h"
@@ -115,7 +110,7 @@ static int metadata_io_read_i_atomic_step(struct ocf_request *req)
 	ocf_req_forward_cache_init(req, metadata_io_read_i_atomic_step_end);
 
 	ocf_req_forward_cache_metadata(req, OCF_READ,
-			cache->device->metadata_offset +
+			ocf_metadata_data_offset(&cache->metadata) +
 			PAGES_TO_BYTES(context->curr_offset),
 			PAGES_TO_BYTES(context->curr_count), 0);
 
@@ -130,7 +125,7 @@ int metadata_io_read_i_atomic(ocf_cache_t cache, ocf_queue_t queue, void *priv,
 		ocf_metadata_io_end_t compl_hndl)
 {
 	struct metadata_io_read_i_atomic_context *context;
-	uint64_t io_sectors_count = cache->device->collision_table_entries *
+	uint64_t io_sectors_count = ocf_metadata_line_count(&cache->metadata) *
 					ocf_line_blocks(cache);
 	struct ocf_request *req;
 
@@ -207,14 +202,14 @@ static int metadata_io_do(struct ocf_request *req)
 
 	ctx_data_seek(cache->owner, req->data, ctx_data_seek_begin, 0);
 
-	/* Fill with the latest metadata. */
-	if (m_req->req.rw == OCF_WRITE) {
-		ocf_metadata_start_shared_access(&cache->metadata.lock,
-				m_req->page % OCF_NUM_GLOBAL_META_LOCKS);
+	/*
+	 * Fill with the latest metadata. Collision segment pages, flushed
+	 * at runtime, are synchronized by the segment page lock. Other
+	 * segments are flushed only from management operations, during which
+	 * their content is not modified concurrently.
+	 */
+	if (m_req->req.rw == OCF_WRITE)
 		metadata_io_req_fill(m_req);
-		ocf_metadata_end_shared_access(&cache->metadata.lock,
-				 m_req->page % OCF_NUM_GLOBAL_META_LOCKS);
-	}
 
 	ctx_data_seek(cache->owner, req->data, ctx_data_seek_begin, 0);
 
