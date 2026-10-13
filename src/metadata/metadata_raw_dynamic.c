@@ -6,10 +6,10 @@
  */
 
 #include "metadata.h"
-#include "metadata_segment_id.h"
+#include "layout/segment_id.h"
 #include "metadata_raw.h"
 #include "metadata_raw_dynamic.h"
-#include "metadata_layout.h"
+#include "layout/layout.h"
 #include "metadata_io.h"
 #include "../ocf_request.h"
 #include "../ocf_def_priv.h"

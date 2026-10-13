@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#include "metadata_layout.h"
-#include "metadata_bit.h"
-#include "metadata_cleaning_policy.h"
-#include "metadata_collision.h"
-#include "metadata_core.h"
-#include "metadata_lru.h"
-#include "metadata_partition.h"
-#include "metadata_superblock.h"
+#include "layout.h"
+#include "status.h"
+#include "cleaning_policy.h"
+#include "collision.h"
+#include "core.h"
+#include "lru.h"
+#include "partition.h"
+#include "superblock.h"
 
 #define OCF_METADATA_LAYOUT_ITER_MAX 1000
 

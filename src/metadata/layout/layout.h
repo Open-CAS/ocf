@@ -8,8 +8,8 @@
 #define __METADATA_LAYOUT_H__
 
 #include "ocf/ocf.h"
-#include "../ocf_def_priv.h"
-#include "metadata_segment_id.h"
+#include "../../ocf_def_priv.h"
+#include "segment_id.h"
 
 /*
  * On-disk metadata layout.

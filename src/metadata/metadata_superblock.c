@@ -9,7 +9,7 @@
 #include "metadata_core.h"
 #include "metadata_internal.h"
 #include "metadata_segment.h"
-#include "metadata_segment_id.h"
+#include "layout/segment_id.h"
 #include "metadata_superblock.h"
 #include "../ocf_priv.h"
 #include "../utils/utils_io.h"

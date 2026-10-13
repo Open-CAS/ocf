@@ -1,10 +1,11 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #include "metadata.h"
-#include "metadata_segment_id.h"
+#include "layout/segment_id.h"
 #include "metadata_raw.h"
 #include "metadata_io.h"
 #include "metadata_raw_volatile.h"

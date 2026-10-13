@@ -8,8 +8,8 @@
 #define __METADATA_RAW_H__
 
 #include "metadata_common.h"
-#include "metadata_segment_id.h"
-#include "metadata_layout.h"
+#include "layout/segment_id.h"
+#include "layout/layout.h"
 #include "../concurrency/ocf_mio_concurrency.h"
 
 /**
