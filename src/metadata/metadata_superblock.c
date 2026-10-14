@@ -353,6 +353,16 @@ struct ocf_pipeline_arg ocf_metadata_load_sb_load_segment_args[] = {
 	OCF_PL_ARG_TERMINATOR(),
 };
 
+static bool ocf_metadata_load_sb_segment_is_valid(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_metadata_context *context = priv;
+
+	return ocf_metadata_segment_layout_is_valid(
+			ocf_pipeline_arg_get_int(arg),
+			context->clean_shutdown);
+}
+
 struct ocf_pipeline_properties ocf_metadata_load_sb_pipeline_props = {
 	.priv_size = sizeof(struct ocf_metadata_context),
 	.finish = ocf_metadata_load_superblock_finish,
@@ -362,9 +372,11 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_pipeline_props = {
 		OCF_PL_STEP_ARG_INT(ocf_metadata_load_segment,
 				metadata_segment_sb_config),
 		OCF_PL_STEP(_ocf_metadata_validate_superblock),
-		OCF_PL_STEP_FOREACH(ocf_metadata_load_segment,
+		OCF_PL_STEP_FOREACH_COND(ocf_metadata_load_sb_segment_is_valid,
+				ocf_metadata_load_segment,
 				ocf_metadata_load_sb_load_segment_args),
-		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc,
+		OCF_PL_STEP_FOREACH_COND(ocf_metadata_load_sb_segment_is_valid,
+				ocf_metadata_check_crc,
 				ocf_metadata_load_sb_load_segment_args),
 		OCF_PL_STEP(_ocf_metadata_validate_core_config),
 		OCF_PL_STEP_TERMINATOR(),
@@ -374,8 +386,8 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_pipeline_props = {
 /*
  * Super Block - Load, This function has to prevent to pointers overwrite
  */
-void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
-		void *priv)
+static void _ocf_metadata_load_superblock(ocf_cache_t cache,
+		bool clean_shutdown, ocf_metadata_end_t cmpl, void *priv)
 {
 	struct ocf_metadata_context *context;
 	ocf_pipeline_t pipeline;
@@ -408,34 +420,16 @@ void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
 	context->pipeline = pipeline;
 	context->cache = cache;
 	context->ctrl = cache->metadata.priv;
+	context->clean_shutdown = clean_shutdown;
 
 	ocf_pipeline_next(pipeline);
 }
 
-struct ocf_pipeline_arg ocf_metadata_load_sb_recov_load_segment_args[] = {
-	OCF_PL_ARG_INT(metadata_segment_part_config),
-	OCF_PL_ARG_INT(metadata_segment_core_config),
-	OCF_PL_ARG_INT(metadata_segment_core_uuid),
-	OCF_PL_ARG_TERMINATOR(),
-};
-
-struct ocf_pipeline_properties ocf_metadata_load_sb_recov_pipeline_props = {
-	.priv_size = sizeof(struct ocf_metadata_context),
-	.finish = ocf_metadata_load_superblock_finish,
-	.steps = {
-		OCF_PL_STEP_FOREACH(ocf_metadata_store_segment,
-				ocf_metadata_load_sb_store_segment_args),
-		OCF_PL_STEP_ARG_INT(ocf_metadata_load_segment,
-				metadata_segment_sb_config),
-		OCF_PL_STEP(_ocf_metadata_validate_superblock),
-		OCF_PL_STEP_FOREACH(ocf_metadata_load_segment,
-				ocf_metadata_load_sb_recov_load_segment_args),
-		OCF_PL_STEP_FOREACH(ocf_metadata_check_crc,
-				ocf_metadata_load_sb_recov_load_segment_args),
-		OCF_PL_STEP(_ocf_metadata_validate_core_config),
-		OCF_PL_STEP_TERMINATOR(),
-	},
-};
+void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
+		void *priv)
+{
+	_ocf_metadata_load_superblock(cache, true, cmpl, priv);
+}
 
 /*
  * Super Block - Recovery load
@@ -443,39 +437,7 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_recov_pipeline_props = {
 void ocf_metadata_load_superblock_recovery(ocf_cache_t cache,
 		ocf_metadata_end_t cmpl, void *priv)
 {
-	struct ocf_metadata_context *context;
-	ocf_pipeline_t pipeline;
-	struct ocf_metadata_ctrl *ctrl;
-	struct ocf_superblock_config *sb_config;
-	struct ocf_superblock_runtime *sb_runtime;
-	int result;
-
-	OCF_DEBUG_TRACE(cache);
-
-	/* TODO: get ctrl from args rather than from cache */
-	ctrl = cache->metadata.priv;
-	ENV_BUG_ON(!ctrl);
-
-	sb_config = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
-	ENV_BUG_ON(!sb_config);
-
-	sb_runtime = METADATA_MEM_POOL(ctrl, metadata_segment_sb_runtime);
-	ENV_BUG_ON(!sb_runtime);
-
-	result = ocf_pipeline_create(&pipeline, cache,
-			&ocf_metadata_load_sb_recov_pipeline_props);
-	if (result)
-		OCF_CMPL_RET(priv, result);
-
-	context = ocf_pipeline_get_priv(pipeline);
-
-	context->cmpl = cmpl;
-	context->priv = priv;
-	context->pipeline = pipeline;
-	context->cache = cache;
-	context->ctrl = cache->metadata.priv;
-
-	ocf_pipeline_next(pipeline);
+	_ocf_metadata_load_superblock(cache, false, cmpl, priv);
 }
 
 static void ocf_metadata_flush_superblock_flap(ocf_pipeline_t pipeline,
