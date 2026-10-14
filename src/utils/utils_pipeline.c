@@ -73,6 +73,22 @@ static int _ocf_pipeline_run_step(struct ocf_request *req)
 			step->hndl(pipeline, pipeline->priv, arg);
 			pipeline->arg++;
 			return 0;
+		case ocf_pipeline_step_foreach_conditional:
+			if (!pipeline->arg)
+				pipeline->arg = &step->args[0];
+			arg = pipeline->arg;
+			if (arg->type == ocf_pipeline_arg_terminator) {
+				pipeline->arg = NULL;
+				pipeline->step++;
+				continue;
+			}
+			if (step->pred(pipeline, pipeline->priv, arg)) {
+				step->hndl(pipeline, pipeline->priv, arg);
+				pipeline->arg++;
+				return 0;
+			}
+			pipeline->arg++;
+			continue;
 		case ocf_pipeline_step_terminator:
 			pipeline->properties->finish(pipeline, pipeline->priv,
 					pipeline->error);

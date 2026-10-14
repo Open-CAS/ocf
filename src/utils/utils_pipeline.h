@@ -14,6 +14,7 @@ enum ocf_pipeline_step_type {
 	ocf_pipeline_step_single,
 	ocf_pipeline_step_foreach,
 	ocf_pipeline_step_conditional,
+	ocf_pipeline_step_foreach_conditional,
 	ocf_pipeline_step_terminator,
 };
 
@@ -160,6 +161,15 @@ typedef struct ocf_pipeline_step *ocf_pipeline_step_t;
 			.type = ocf_pipeline_arg_ptr, \
 			.val.p = _ptr, \
 		} \
+	}
+
+#define OCF_PL_STEP_FOREACH_COND(_pred, _hndl, _args) \
+	{ \
+		.name = xstr(_hndl), \
+		.pred = _pred, \
+		.type = ocf_pipeline_step_foreach_conditional, \
+		.hndl = _hndl, \
+		.args = _args, \
 	}
 
 struct ocf_pipeline_properties {
