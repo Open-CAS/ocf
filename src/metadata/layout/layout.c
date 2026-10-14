@@ -139,6 +139,54 @@ uint32_t ocf_metadata_segment_layout_entry_size(
 	return size;
 }
 
+enum ocf_metadata_segment_persistence ocf_metadata_segment_layout_persistence(
+		enum ocf_metadata_segment_id segment)
+{
+	switch (segment) {
+	case metadata_segment_reserved:
+		return ocf_metadata_segment_persistence_none;
+
+	case metadata_segment_sb_config:
+	case metadata_segment_part_config:
+	case metadata_segment_core_config:
+	case metadata_segment_core_uuid:
+		return ocf_metadata_segment_persistence_config;
+
+	case metadata_segment_sb_runtime:
+	case metadata_segment_part_runtime:
+	case metadata_segment_core_runtime:
+	case metadata_segment_cleaning:
+	case metadata_segment_lru:
+	case metadata_segment_list_info:
+	case metadata_segment_hash:
+		return ocf_metadata_segment_persistence_shutdown;
+
+	case metadata_segment_collision:
+		return ocf_metadata_segment_persistence_io;
+
+	default:
+		break;
+	}
+
+	ENV_BUG();
+	return ocf_metadata_segment_persistence_none;
+}
+
+bool ocf_metadata_segment_layout_is_valid(
+		enum ocf_metadata_segment_id segment, bool clean_shutdown)
+{
+	switch (ocf_metadata_segment_layout_persistence(segment)) {
+	case ocf_metadata_segment_persistence_config:
+	case ocf_metadata_segment_persistence_io:
+		return true;
+	case ocf_metadata_segment_persistence_shutdown:
+		return clean_shutdown;
+	case ocf_metadata_segment_persistence_none:
+	default:
+		return false;
+	}
+}
+
 bool ocf_metadata_segment_layout_is_flapped(
 		enum ocf_metadata_segment_id segment)
 {

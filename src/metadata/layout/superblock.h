@@ -25,6 +25,12 @@ enum ocf_metadata_shutdown_status {
 	ocf_metadata_clean_shutdown = 1, /*!< OCF shutdown graceful*/
 };
 
+/*
+ * Values of dirty_flushed field of superblock config
+ */
+#define DIRTY_NOT_FLUSHED 0
+#define DIRTY_FLUSHED 1
+
 /**
  * @brief OCF cache metadata configuration superblock
  *

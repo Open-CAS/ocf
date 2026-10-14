@@ -24,9 +24,6 @@
 #include "ocf_queue_priv.h"
 #include "promotion/promotion.h"
 
-#define DIRTY_FLUSHED 1
-#define DIRTY_NOT_FLUSHED 0
-
 /* Cache device */
 struct ocf_cache_device {
 	struct ocf_volume front_volume;
