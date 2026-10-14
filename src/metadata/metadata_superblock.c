@@ -255,6 +255,22 @@ static void _ocf_metadata_validate_superblock(ocf_pipeline_t pipeline,
 	ocf_pipeline_next(pipeline);
 }
 
+static void _ocf_metadata_get_shutdown_status(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_metadata_context *context = priv;
+	struct ocf_metadata_ctrl *ctrl;
+	struct ocf_superblock_config *superblock;
+
+	ctrl = (struct ocf_metadata_ctrl *)context->ctrl;
+	superblock = METADATA_MEM_POOL(ctrl, metadata_segment_sb_config);
+
+	context->clean_shutdown = (superblock->clean_shutdown ==
+			ocf_metadata_clean_shutdown);
+
+	ocf_pipeline_next(pipeline);
+}
+
 static void _ocf_metadata_validate_core_config(ocf_pipeline_t pipeline,
 		void *priv, ocf_pipeline_arg_t arg)
 {
@@ -372,6 +388,7 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_pipeline_props = {
 		OCF_PL_STEP_ARG_INT(ocf_metadata_load_segment,
 				metadata_segment_sb_config),
 		OCF_PL_STEP(_ocf_metadata_validate_superblock),
+		OCF_PL_STEP(_ocf_metadata_get_shutdown_status),
 		OCF_PL_STEP_FOREACH_COND(ocf_metadata_load_sb_segment_is_valid,
 				ocf_metadata_load_segment,
 				ocf_metadata_load_sb_load_segment_args),
@@ -386,8 +403,8 @@ struct ocf_pipeline_properties ocf_metadata_load_sb_pipeline_props = {
 /*
  * Super Block - Load, This function has to prevent to pointers overwrite
  */
-static void _ocf_metadata_load_superblock(ocf_cache_t cache,
-		bool clean_shutdown, ocf_metadata_end_t cmpl, void *priv)
+void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
+		void *priv)
 {
 	struct ocf_metadata_context *context;
 	ocf_pipeline_t pipeline;
@@ -420,24 +437,8 @@ static void _ocf_metadata_load_superblock(ocf_cache_t cache,
 	context->pipeline = pipeline;
 	context->cache = cache;
 	context->ctrl = cache->metadata.priv;
-	context->clean_shutdown = clean_shutdown;
 
 	ocf_pipeline_next(pipeline);
-}
-
-void ocf_metadata_load_superblock(ocf_cache_t cache, ocf_metadata_end_t cmpl,
-		void *priv)
-{
-	_ocf_metadata_load_superblock(cache, true, cmpl, priv);
-}
-
-/*
- * Super Block - Recovery load
- */
-void ocf_metadata_load_superblock_recovery(ocf_cache_t cache,
-		ocf_metadata_end_t cmpl, void *priv)
-{
-	_ocf_metadata_load_superblock(cache, false, cmpl, priv);
 }
 
 static void ocf_metadata_flush_superblock_flap(ocf_pipeline_t pipeline,
