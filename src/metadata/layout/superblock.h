@@ -106,4 +106,43 @@ struct ocf_superblock_runtime {
 	uint32_t cleaning_thread_access;
 };
 
+/**
+ * @brief Validity of superblock config fields
+ *
+ * Each field tells whether the superblock config field of the same name
+ * holds a valid value. Fields are listed in the order of checking.
+ * Fields following magic_number and metadata_version are meaningful
+ * only if both of these are valid - otherwise they are left false.
+ */
+struct ocf_superblock_config_validity {
+	bool magic_number;
+	bool metadata_version;
+	bool checksum;
+	bool adapter_name;
+	bool adapter_version;
+	bool metadata_4k_mode;
+	bool clean_shutdown;
+	bool dirty_flushed;
+	bool flapping_idx;
+	bool cache_mode;
+	bool name;
+	bool valid_parts_no;
+	bool line_size;
+	bool core_count;
+	bool cleaning_policy_type;
+	bool cleaner_disabled;
+		/*!< Cleaner can be disabled only with nop cleaning policy */
+	bool promotion_policy_type;
+};
+
+/**
+ * @brief Validate superblock config
+ *
+ * @param superblock - Superblock config
+ * @param valid - Validity of superblock config fields
+ */
+void ocf_superblock_config_validate(
+		const struct ocf_superblock_config *superblock,
+		struct ocf_superblock_config_validity *valid);
+
 #endif /* __METADATA_LAYOUT_SUPERBLOCK_H__ */

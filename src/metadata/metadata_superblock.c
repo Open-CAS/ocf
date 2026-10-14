@@ -105,17 +105,19 @@ static void ocf_metadata_store_segment(ocf_pipeline_t pipeline,
 int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 		struct ocf_superblock_config *superblock)
 {
+	struct ocf_superblock_config_validity valid;
 	const char *segment_name;
-	uint32_t crc;
 
 	segment_name = ocf_metadata_segment_names[metadata_segment_sb_config];
 
-	if (superblock->magic_number != CACHE_MAGIC_NUMBER) {
+	ocf_superblock_config_validate(superblock, &valid);
+
+	if (!valid.magic_number) {
 		ocf_log(ctx, log_info, "Cannot detect pre-existing metadata\n");
 		return -OCF_ERR_NO_METADATA;
 	}
 
-	if (METADATA_VERSION() != superblock->metadata_version) {
+	if (!valid.metadata_version) {
 		ocf_log(ctx, log_err, "Loading %s: metadata version mismatch! "
 				"Metadata was created by OCF %u.%u.%u, but "
 				"current version is %u.%u.%u\n", segment_name,
@@ -128,15 +130,12 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 		return -OCF_ERR_METADATA_VER;
 	}
 
-	crc = ocf_metadata_segment_layout_checksum_superblock(superblock);
-
-	if (crc != superblock->checksum[metadata_segment_sb_config]) {
+	if (!valid.checksum) {
 		ocf_log_invalid_superblock("checksum");
 		return -OCF_ERR_CRC_MISMATCH;
 	}
 
-	if (env_strncmp(superblock->adapter_name, OCF_ADAPTER_NAME_SIZE,
-			ENV_ADAPTER_NAME, OCF_ADAPTER_NAME_SIZE)) {
+	if (!valid.adapter_name) {
 		/* Field comes off disk and need not be terminated - bound
 		 * the print to its size instead of running past it.
 		 */
@@ -147,7 +146,7 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 		return -OCF_ERR_ADAPTER_MISMATCH;
 	}
 
-	if (superblock->adapter_version != ADAPTER_VERSION()) {
+	if (!valid.adapter_version) {
 		ocf_log(ctx, log_err, "Loading %s: adapter version mismatch! "
 				"Metadata was created by %s %u.%u.%u, but OCF "
 				"is running under %s %u.%u.%u\n", segment_name,
@@ -162,7 +161,7 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 		return -OCF_ERR_ADAPTER_VER;
 	}
 
-	if (superblock->metadata_4k_mode != METADATA_4K_MODE()) {
+	if (!valid.metadata_4k_mode) {
 		ocf_log(ctx, log_err, "Loading %s: metadata was created in %s "
 				"block mode, but OCF is running in %s block "
 				"mode!\n", segment_name,
@@ -171,65 +170,59 @@ int ocf_metadata_validate_superblock(ocf_ctx_t ctx,
 		return -OCF_ERR_BLOCK_MODE_MISMATCH;
 	}
 
-	if (superblock->clean_shutdown > ocf_metadata_clean_shutdown) {
+	if (!valid.clean_shutdown) {
 		ocf_log_invalid_superblock("shutdown status");
 		return -OCF_ERR_INVAL;
 	}
 
-	if (superblock->dirty_flushed > DIRTY_FLUSHED) {
+	if (!valid.dirty_flushed) {
 		ocf_log_invalid_superblock("flush status");
 		return -OCF_ERR_INVAL;
 	}
 
-	if (superblock->flapping_idx > 1) {
+	if (!valid.flapping_idx) {
 		ocf_log_invalid_superblock("flapping index");
 		return -OCF_ERR_INVAL;
 	}
 
-	if (superblock->cache_mode < 0 ||
-			superblock->cache_mode >= ocf_cache_mode_max) {
+	if (!valid.cache_mode) {
 		ocf_log_invalid_superblock("cache mode");
 		return -OCF_ERR_INVAL;
 	}
 
-	if (env_strnlen(superblock->name, sizeof(superblock->name)) >=
-			OCF_CACHE_NAME_SIZE) {
+	if (!valid.name) {
 		ocf_log_invalid_superblock("name");
 		return -OCF_ERR_INVAL;
 	}
 
-	if (superblock->valid_parts_no > OCF_USER_IO_CLASS_MAX) {
+	if (!valid.valid_parts_no) {
 		ocf_log_invalid_superblock("partition count");
 		return -OCF_ERR_INVAL;
 	}
 
-	if (!ocf_cache_line_size_is_valid(superblock->line_size)) {
+	if (!valid.line_size) {
 		ocf_log_invalid_superblock("cache line size");
 		return -OCF_ERR_INVAL;
 	}
 
-	if (superblock->core_count > OCF_CORE_NUM) {
+	if (!valid.core_count) {
 		ocf_log_invalid_superblock("core count");
 		return -OCF_ERR_INVAL;
 	}
 
-	if (superblock->cleaning_policy_type < 0 ||
-			superblock->cleaning_policy_type >= ocf_cleaning_max) {
+	if (!valid.cleaning_policy_type) {
 		ocf_log_invalid_superblock("cleaning policy");
 		return -OCF_ERR_INVAL;
 	}
 
-	if (superblock->cleaner_disabled &&
-			superblock->cleaning_policy_type != ocf_cleaning_nop) {
+	if (!valid.cleaner_disabled) {
 		ocf_log(ctx, log_err, "Loading %s: cleaner is disabled, but "
 				"cleaning policy is not set to nop!\n",
 				segment_name);
 		return -OCF_ERR_INVAL;
 	}
 
-	if (superblock->promotion_policy_type < 0 ||
-			superblock->promotion_policy_type >=
-					ocf_promotion_max) {
+	if (!valid.promotion_policy_type) {
 		ocf_log_invalid_superblock("promotion policy");
 		return -OCF_ERR_INVAL;
 	}
