@@ -8,8 +8,8 @@
 #define __METADATA_LAYOUT_H__
 
 #include "ocf/ocf.h"
-#include "../ocf_def_priv.h"
-#include "metadata_segment_id.h"
+#include "../../ocf_def_priv.h"
+#include "segment_id.h"
 
 /*
  * On-disk metadata layout.
@@ -86,6 +86,53 @@ ocf_cache_line_t ocf_metadata_segment_layout_entries(
 uint32_t ocf_metadata_segment_layout_entry_size(
 		enum ocf_metadata_segment_id segment,
 		ocf_cache_line_size_t line_size);
+
+/**
+ * @brief When content of metadata segment is written to disk
+ *
+ * Superblock config holds checksums of all other segments. Checksum of
+ * segment is meaningful only if segment content on disk is valid in current
+ * state of metadata.
+ */
+enum ocf_metadata_segment_persistence {
+	ocf_metadata_segment_persistence_none,
+		/*!< Content on disk has no meaning */
+
+	ocf_metadata_segment_persistence_config,
+		/*!< Written on every superblock flush, together with
+		 * superblock config. Content and checksum are valid regardless
+		 * of shutdown status.
+		 */
+
+	ocf_metadata_segment_persistence_shutdown,
+		/*!< Written on clean shutdown. Content and checksum are
+		 * valid only if superblock indicates clean shutdown.
+		 */
+
+	ocf_metadata_segment_persistence_io,
+		/*!< Updated on disk during cache operation and written on
+		 * clean shutdown. Content is valid regardless of shutdown
+		 * status, checksum is valid only if superblock indicates
+		 * clean shutdown. On atomic cache device the content is kept
+		 * up to date in per-sector metadata (struct
+		 * ocf_atomic_metadata) instead of the segment itself.
+		 */
+};
+
+/**
+ * @brief Persistence of metadata segment
+ */
+enum ocf_metadata_segment_persistence ocf_metadata_segment_layout_persistence(
+		enum ocf_metadata_segment_id segment);
+
+/**
+ * @brief Check if content of metadata segment on disk is valid
+ *
+ * @param segment - Segment id
+ * @param clean_shutdown - Superblock config indicates clean shutdown
+ */
+bool ocf_metadata_segment_layout_is_valid(
+		enum ocf_metadata_segment_id segment, bool clean_shutdown);
 
 /**
  * @brief Check if metadata segment is stored in two copies

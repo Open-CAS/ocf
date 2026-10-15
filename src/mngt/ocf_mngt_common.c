@@ -118,9 +118,6 @@ void cache_mngt_core_remove_from_meta(ocf_core_t core)
 
 	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
 
-	/* In metadata mark data this core was removed from cache */
-	core->conf_meta->valid = false;
-
 	/* Clear UUID of core */
 	ocf_mngt_core_clear_uuid_metadata(core);
 	core->conf_meta->seq_no = OCF_SEQ_NO_INVALID;

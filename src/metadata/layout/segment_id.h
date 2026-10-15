@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __METADATA_SEGMENT_ID_H__
-#define __METADATA_SEGMENT_ID_H__
+#ifndef __METADATA_LAYOUT_SEGMENT_ID_H__
+#define __METADATA_LAYOUT_SEGMENT_ID_H__
 
 /**
  * @file metadata_.h
@@ -41,4 +41,4 @@ enum ocf_metadata_segment_id {
 	metadata_segment_max,		/*!< MAX */
 };
 
-#endif /* __METADATA_SEGMENT_ID_H__ */
+#endif /* __METADATA_LAYOUT_SEGMENT_ID_H__ */

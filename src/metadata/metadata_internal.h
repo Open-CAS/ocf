@@ -11,9 +11,9 @@
 #include <ocf/ocf_def.h>
 #include "../ocf_cache_priv.h"
 #include "metadata_segment.h"
-#include "metadata_segment_id.h"
+#include "layout/segment_id.h"
 #include "metadata_raw.h"
-#include "metadata_layout.h"
+#include "layout/layout.h"
 
 #define METADATA_MEM_POOL(ctrl, section) ctrl->raw_desc[section].mem_pool
 
@@ -32,6 +32,7 @@ struct ocf_metadata_context {
 	ocf_pipeline_t pipeline;
 	ocf_cache_t cache;
 	struct ocf_metadata_ctrl *ctrl;
+	bool clean_shutdown;
 	struct ocf_metadata_raw segment_copy[metadata_segment_fixed_size_max];
 };
 

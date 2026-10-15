@@ -5,10 +5,10 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef __METADATA_BIT_H__
-#define __METADATA_BIT_H__
+#ifndef __METADATA_LAYOUT_STATUS_H__
+#define __METADATA_LAYOUT_STATUS_H__
 
-#include "metadata_collision.h"
+#include "collision.h"
 
 /*
  * Cache line status bits (valid, dirty) stored in collision segment.
@@ -549,4 +549,4 @@ static inline bool ocf_metadata_bit_check(
 	return false;
 }
 
-#endif /* __METADATA_BIT_H__ */
+#endif /* __METADATA_LAYOUT_STATUS_H__ */
