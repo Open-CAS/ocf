@@ -32,6 +32,45 @@ struct acp_cleaning_policy_config {
 	uint32_t flush_max_buffers;	/* in lines */
 };
 
+/**
+ * @brief Validity of ALRU cleaning policy config fields
+ */
+struct alru_cleaning_policy_config_validity {
+	bool thread_wakeup_time;
+	bool stale_buffer_time;
+	bool flush_max_buffers;
+	bool activity_threshold;
+	bool dirty_ratio_threshold;
+};
+
+/**
+ * @brief Validate ALRU cleaning policy config
+ *
+ * @param config - ALRU cleaning policy config
+ * @param valid - Validity of ALRU cleaning policy config fields
+ */
+void ocf_alru_cleaning_policy_config_validate(
+		const struct alru_cleaning_policy_config *config,
+		struct alru_cleaning_policy_config_validity *valid);
+
+/**
+ * @brief Validity of ACP cleaning policy config fields
+ */
+struct acp_cleaning_policy_config_validity {
+	bool thread_wakeup_time;
+	bool flush_max_buffers;
+};
+
+/**
+ * @brief Validate ACP cleaning policy config
+ *
+ * @param config - ACP cleaning policy config
+ * @param valid - Validity of ACP cleaning policy config fields
+ */
+void ocf_acp_cleaning_policy_config_validate(
+		const struct acp_cleaning_policy_config *config,
+		struct acp_cleaning_policy_config_validity *valid);
+
 /* Cleaning policy metadata per partition */
 
 struct nop_cleaning_policy {

@@ -11,6 +11,7 @@
 #include "ocf/ocf.h"
 #include "lru.h"
 #include "cleaning_policy.h"
+#include "superblock.h"
 
 #define PARTITION_UNSPECIFIED		((ocf_part_id_t)-1)
 #define PARTITION_FREELIST		(OCF_USER_IO_CLASS_MAX + 1)
@@ -42,5 +43,54 @@ struct ocf_part_runtime {
 	struct ocf_lru_part_meta lru[OCF_NUM_LRU_LISTS];
 	struct cleaning_policy clean_pol;
 };
+
+/**
+ * @brief Validity of user partition config fields
+ *
+ * Each field tells whether the partition config field of the same name
+ * holds a valid value. Fields are listed in the order of checking.
+ */
+struct ocf_user_part_config_validity {
+	bool name;
+	bool min_size;
+		/*!< Min size does not exceed max size */
+	bool max_size;
+	bool priority;
+	bool cache_mode;
+};
+
+/**
+ * @brief Validate user partition config
+ *
+ * @param part_config - Partition config
+ * @param valid - Validity of partition config fields
+ */
+void ocf_user_part_config_validate(
+		const struct ocf_user_part_config *part_config,
+		struct ocf_user_part_config_validity *valid);
+
+/**
+ * @brief Validity of user partition configs as a whole
+ */
+struct ocf_user_parts_validity {
+	bool valid_parts_no;
+		/*!< Number of valid partitions matches superblock */
+	bool min_size;
+		/*!< Sum of min sizes of valid partitions does not exceed
+		 * PARTITION_SIZE_MAX
+		 */
+};
+
+/**
+ * @brief Validate user partition configs as a whole
+ *
+ * @param superblock - Superblock config
+ * @param part_config - Configs of all user partitions
+ * @param valid - Validity of user partition configs as a whole
+ */
+void ocf_user_parts_validate(
+		const struct ocf_superblock_config *superblock,
+		const struct ocf_user_part_config *part_config,
+		struct ocf_user_parts_validity *valid);
 
 #endif /* __METADATA_LAYOUT_PARTITION_H__ */

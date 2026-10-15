@@ -26,4 +26,22 @@ struct nhit_promotion_policy_config {
 	/*!< Cache occupancy (percentage value) */
 };
 
+/**
+ * @brief Validity of NHIT promotion policy config fields
+ */
+struct nhit_promotion_policy_config_validity {
+	bool insertion_threshold;
+	bool trigger_threshold;
+};
+
+/**
+ * @brief Validate NHIT promotion policy config
+ *
+ * @param config - NHIT promotion policy config
+ * @param valid - Validity of NHIT promotion policy config fields
+ */
+void ocf_nhit_promotion_policy_config_validate(
+		const struct nhit_promotion_policy_config *config,
+		struct nhit_promotion_policy_config_validity *valid);
+
 #endif /* __METADATA_LAYOUT_PROMOTION_POLICY_H__ */

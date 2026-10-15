@@ -21,6 +21,36 @@ static bool ocf_superblock_config_line_size_is_valid(uint64_t size)
 	}
 }
 
+static bool ocf_superblock_config_core_count_is_valid(
+		const struct ocf_superblock_config *superblock)
+{
+	uint32_t core_count = 0;
+	ocf_core_id_t core_id;
+
+	for (core_id = 0; core_id < OCF_CORE_NUM; core_id++) {
+		if (env_bit_test(core_id, superblock->valid_core_bitmap))
+			core_count++;
+	}
+
+	return superblock->core_count == core_count;
+}
+
+static bool ocf_superblock_config_valid_core_bitmap_is_valid(
+		const struct ocf_superblock_config *superblock)
+{
+	uint32_t bit;
+
+	/* Bits beyond the last core id must not be set */
+	for (bit = OCF_CORE_NUM;
+			bit < sizeof(superblock->valid_core_bitmap) * 8;
+			bit++) {
+		if (env_bit_test(bit, superblock->valid_core_bitmap))
+			return false;
+	}
+
+	return true;
+}
+
 void ocf_superblock_config_validate(
 		const struct ocf_superblock_config *superblock,
 		struct ocf_superblock_config_validity *valid)
@@ -65,8 +95,13 @@ void ocf_superblock_config_validate(
 		superblock->cache_mode < ocf_cache_mode_max;
 
 	valid->name =
+		superblock->name[0] != '\0' &&
 		env_strnlen(superblock->name, sizeof(superblock->name)) <
 		OCF_CACHE_NAME_SIZE;
+
+	valid->cachelines =
+		superblock->cachelines > 0 &&
+		superblock->cachelines <= OCF_CACHE_LINE_MAX;
 
 	valid->valid_parts_no =
 		superblock->valid_parts_no <= OCF_USER_IO_CLASS_MAX;
@@ -75,7 +110,10 @@ void ocf_superblock_config_validate(
 		ocf_superblock_config_line_size_is_valid(superblock->line_size);
 
 	valid->core_count =
-		superblock->core_count <= OCF_CORE_NUM;
+		ocf_superblock_config_core_count_is_valid(superblock);
+
+	valid->valid_core_bitmap =
+		ocf_superblock_config_valid_core_bitmap_is_valid(superblock);
 
 	valid->cleaning_policy_type =
 		superblock->cleaning_policy_type >= 0 &&
@@ -85,7 +123,22 @@ void ocf_superblock_config_validate(
 		!superblock->cleaner_disabled ||
 		superblock->cleaning_policy_type == ocf_cleaning_nop;
 
+	ocf_alru_cleaning_policy_config_validate(
+		(const void *)superblock->cleaning[ocf_cleaning_alru].data,
+		&valid->cleaning.alru);
+
+	ocf_acp_cleaning_policy_config_validate(
+		(const void *)superblock->cleaning[ocf_cleaning_acp].data,
+		&valid->cleaning.acp);
+
 	valid->promotion_policy_type =
 		superblock->promotion_policy_type >= 0 &&
 		superblock->promotion_policy_type < ocf_promotion_max;
+
+	ocf_nhit_promotion_policy_config_validate(
+		(const void *)superblock->promotion[ocf_promotion_nhit].data,
+		&valid->promotion.nhit);
+
+	valid->prefetch_mask =
+		!(superblock->prefetch_mask & ~((1 << ocf_pf_num) - 1));
 }

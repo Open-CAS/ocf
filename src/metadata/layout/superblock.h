@@ -126,13 +126,24 @@ struct ocf_superblock_config_validity {
 	bool flapping_idx;
 	bool cache_mode;
 	bool name;
+	bool cachelines;
 	bool valid_parts_no;
 	bool line_size;
 	bool core_count;
+		/*!< Core count matches number of cores in valid core bitmap */
+	bool valid_core_bitmap;
 	bool cleaning_policy_type;
 	bool cleaner_disabled;
 		/*!< Cleaner can be disabled only with nop cleaning policy */
+	struct {
+		struct alru_cleaning_policy_config_validity alru;
+		struct acp_cleaning_policy_config_validity acp;
+	} cleaning;
 	bool promotion_policy_type;
+	struct {
+		struct nhit_promotion_policy_config_validity nhit;
+	} promotion;
+	bool prefetch_mask;
 };
 
 /**
