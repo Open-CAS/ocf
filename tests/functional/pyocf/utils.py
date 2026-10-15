@@ -55,6 +55,10 @@ def print_buffer(
         print_fcn("<'0x{:02X}' until end>".format(ignore))
 
 
+def range_inclusive(start, stop):
+    return range(start, stop + 1)
+
+
 class Size:
     _KiB = 1024
     _MiB = _KiB * 1024

@@ -35,7 +35,7 @@ from .shared import (
     OcfCompletion,
     SeqCutOffPolicy,
 )
-from ..utils import Size, struct_to_dict
+from ..utils import Size, struct_to_dict, range_inclusive
 from .core import Core
 from .queue import Queue
 from .stats.cache import CacheInfo
@@ -134,24 +134,26 @@ class CacheStandbyActivateConfig(Structure):
 
 
 class ConfValidValues:
-    promotion_nhit_insertion_threshold_range = range(2, 1000)
-    promotion_nhit_trigger_threshold_range = range(0, 100)
+    promotion_nhit_insertion_threshold_range = range_inclusive(2, 1000)
+    promotion_nhit_trigger_threshold_range = range_inclusive(0, 100)
 
-    cleaning_alru_wake_up_time_range = range(0, 3600)
-    cleaning_alru_staleness_time_range = range(1, 3600)
-    cleaning_alru_flush_max_buffers_range = range(1, 10000)
-    cleaning_alru_activity_threshold_range = range(0, 1000000)
+    cleaning_alru_wake_up_time_range = range_inclusive(0, 3600)
+    cleaning_alru_staleness_time_range = range_inclusive(1, 3600)
+    cleaning_alru_flush_max_buffers_range = range_inclusive(1, 10000)
+    cleaning_alru_activity_threshold_range = range_inclusive(0, 1000000)
+    cleaning_alru_dirty_ratio_threshold_range = range_inclusive(0, 100)
+    cleaning_alru_dirty_ratio_inertia_range = range_inclusive(0, 2**32 - 1)
 
-    cleaning_acp_wake_up_time_range = range(0, 10000)
-    cleaning_acp_flush_max_buffers_range = range(1, 10000)
+    cleaning_acp_wake_up_time_range = range_inclusive(0, 10000)
+    cleaning_acp_flush_max_buffers_range = range_inclusive(1, 10000)
 
-    seq_cutoff_threshold_rage = range(1, 4294841344)
-    seq_detect_promotion_count_range = range(1, 65535)
+    seq_cutoff_threshold_rage = range_inclusive(1, 4294841344)
+    seq_detect_promotion_count_range = range_inclusive(1, 65535)
 
-    ioclass_id_range = range(0, 32)
-    ioclass_priority_range = range(-1, 255)
-    ioclass_min_size_range = range(0, 100)
-    ioclass_max_size_range = range(0, 100)
+    ioclass_id_range = range_inclusive(0, 33)
+    ioclass_priority_range = range_inclusive(-1, 255)
+    ioclass_min_size_range = range_inclusive(0, 100)
+    ioclass_max_size_range = range_inclusive(0, 100)
 
 
 CACHE_MODE_NONE = -1
@@ -225,6 +227,8 @@ class AlruParams(IntEnum):
     STALE_BUFFER_TIME = 1
     FLUSH_MAX_BUFFERS = 2
     ACTIVITY_THRESHOLD = 3
+    DIRTY_RATIO_THRESHOLD = 4
+    DIRTY_RATIO_INERTIA = 5
 
     def __str__(self):
         return self.name
@@ -424,6 +428,21 @@ class Cache:
 
         if status:
             raise OcfError("Error setting cleaning policy param", status)
+
+    def get_cleaning_policy_param(self, cleaning_policy: CleaningPolicy, param_id):
+        self.read_lock()
+
+        param_value = c_uint32()
+
+        status = self.owner.lib.ocf_mngt_cache_cleaning_get_param(
+            self.cache_handle, cleaning_policy, param_id, byref(param_value)
+        )
+
+        self.read_unlock()
+        if status:
+            raise OcfError("Error getting cleaning policy param", status)
+
+        return param_value.value
 
     def set_promotion_policy(self, promotion_policy: PromotionPolicy):
         self.write_lock()
@@ -1282,6 +1301,13 @@ lib.ocf_mngt_cache_cleaning_set_param.argtypes = [
     c_uint32,
 ]
 lib.ocf_mngt_cache_cleaning_set_param.restype = c_int
+lib.ocf_mngt_cache_cleaning_get_param.argtypes = [
+    c_void_p,
+    c_uint32,
+    c_uint32,
+    POINTER(c_uint32),
+]
+lib.ocf_mngt_cache_cleaning_get_param.restype = c_int
 lib.ocf_mngt_cache_prefetch_set_policy.argtypes = [c_void_p, c_uint8]
 lib.ocf_mngt_cache_prefetch_set_policy.restype = c_int
 lib.ocf_mngt_cache_prefetch_get_policy.argtypes = [c_void_p, POINTER(c_uint8)]

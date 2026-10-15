@@ -238,7 +238,6 @@ static void _init_parts_attached(ocf_pipeline_t pipeline, void *priv,
 static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
 {
 	int result;
-	int i;
 
 	OCF_ASSERT_PLUGGED(cache);
 
@@ -246,9 +245,6 @@ static ocf_error_t __init_cleaning_policy(ocf_cache_t cache)
 			sizeof("cleaner"));
 	if (result)
 		return result;
-
-	for (i = 0; i < ocf_cleaning_max; i++)
-		ocf_cleaning_setup(cache, i);
 
 	result = ocf_cleaning_initialize(cache, cache->cleaner.policy);
 	if (result)
@@ -261,6 +257,14 @@ static void __deinit_cleaning_policy(ocf_cache_t cache)
 {
 	ocf_cleaning_deinitialize(cache);
 	env_refcnt_deinit(&cache->cleaner.refcnt);
+}
+
+static void __setup_cleaning_policy(ocf_cache_t cache)
+{
+	int i;
+
+	for (i = 0; i < ocf_cleaning_max; i++)
+		ocf_cleaning_setup(cache, i);
 }
 
 static void __setup_promotion_policy(ocf_cache_t cache)
@@ -1512,8 +1516,6 @@ static void _ocf_mngt_attach_init_services(ocf_pipeline_t pipeline,
 	ocf_cache_t cache = context->cache;
 	ocf_error_t result;
 
-	__setup_promotion_policy(cache);
-
 	if (context->metadata.cleaner_disabled)
 		__set_cleaning_policy(cache, ocf_cleaning_nop);
 
@@ -1615,6 +1617,8 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	cache->conf_meta->promotion_policy_type = params->metadata.promotion_policy;
 	cache->conf_meta->prefetch_mask = OCF_PF_MASK_DEFAULT;
 	ocf_prefetch_setup(cache);
+	__setup_cleaning_policy(cache);
+	__setup_promotion_policy(cache);
 	__set_cleaning_policy(cache, ocf_cleaning_default);
 
 	/* Init Partitions */
