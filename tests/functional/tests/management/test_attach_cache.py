@@ -28,6 +28,7 @@ from pyocf.types.shared import (
     CacheLineSize,
     SeqCutOffPolicy,
     OcfError,
+    OcfErrorCode,
 )
 from pyocf.types.volume import RamVolume
 from pyocf.types.volume_core import CoreVolume
@@ -132,6 +133,34 @@ def test_detach_cache_zero_superblock(pyocf_ctx):
     cache.attach_device(cache_device, force=False)
     cache.detach_device()
 
+    cache.stop()
+
+
+def test_attach_cache_incompatible_metadata_version(pyocf_ctx):
+    """Check if attaching a device holding metadata of a different version
+    without --force option reports that metadata was found.
+    """
+    cache_device = RamVolume(Size.from_MiB(50))
+    cache = Cache.start_on_device(cache_device)
+    cache.stop()
+
+    # metadata_version follows clean_shutdown, dirty_flushed, padding and magic
+    version_offset = 8
+    version = int.from_bytes(
+        cache_device.data[version_offset : version_offset + 4], "little"
+    )
+    cache_device.data[version_offset : version_offset + 4] = (version ^ 0x0100).to_bytes(
+        4, "little"
+    )
+
+    cache = Cache(owner=pyocf_ctx)
+    cache.start_cache()
+
+    with pytest.raises(OcfError) as ex:
+        cache.attach_device(cache_device, force=False)
+    assert ex.value.error_code == OcfErrorCode.OCF_ERR_METADATA_FOUND
+
+    cache.attach_device(cache_device, force=True)
     cache.stop()
 
 
