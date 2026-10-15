@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024-2025 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -12,6 +13,12 @@ from pyocf.types.cache import (
     Cache,
     CacheMode,
     CleaningPolicy,
+    AlruParams,
+    AcpParams,
+    PromotionPolicy,
+    NhitParams,
+    Prefetcher,
+    ReadaheadParams,
 )
 from pyocf.types.core import Core
 from pyocf.types.data import Data
@@ -124,6 +131,58 @@ def test_detach_cache_zero_superblock(pyocf_ctx):
 
     cache.attach_device(cache_device, force=False)
     cache.detach_device()
+
+    cache.stop()
+
+
+def test_reattach_preserves_policy_params(pyocf_ctx):
+    """Check if cleaning, promotion and prefetch policy parameters set before
+    detach are preserved after the cache device is attached again.
+    """
+    cache_device = RamVolume(Size.from_MiB(50))
+    cache = Cache.start_on_device(cache_device)
+
+    # Non-default values of all the parameters
+    alru_params = {
+        AlruParams.WAKE_UP_TIME: 30,
+        AlruParams.STALE_BUFFER_TIME: 60,
+        AlruParams.FLUSH_MAX_BUFFERS: 50,
+        AlruParams.ACTIVITY_THRESHOLD: 5000,
+        AlruParams.DIRTY_RATIO_THRESHOLD: 50,
+        AlruParams.DIRTY_RATIO_INERTIA: 1024,
+    }
+    acp_params = {
+        AcpParams.WAKE_UP_TIME: 100,
+        AcpParams.FLUSH_MAX_BUFFERS: 64,
+    }
+    nhit_params = {
+        NhitParams.INSERTION_THRESHOLD: 5,
+        NhitParams.TRIGGER_THRESHOLD: 50,
+    }
+    readahead_params = {
+        ReadaheadParams.THRESHOLD: 128 * 1024,
+    }
+
+    for param_id, value in alru_params.items():
+        cache.set_cleaning_policy_param(CleaningPolicy.ALRU, param_id, value)
+    for param_id, value in acp_params.items():
+        cache.set_cleaning_policy_param(CleaningPolicy.ACP, param_id, value)
+    for param_id, value in nhit_params.items():
+        cache.set_promotion_policy_param(PromotionPolicy.NHIT, param_id, value)
+    for param_id, value in readahead_params.items():
+        cache.set_prefetch_param(Prefetcher.READAHEAD, param_id, value)
+
+    cache.detach_device()
+    cache.attach_device(cache_device, force=False)
+
+    for param_id, value in alru_params.items():
+        assert cache.get_cleaning_policy_param(CleaningPolicy.ALRU, param_id) == value
+    for param_id, value in acp_params.items():
+        assert cache.get_cleaning_policy_param(CleaningPolicy.ACP, param_id) == value
+    for param_id, value in nhit_params.items():
+        assert cache.get_promotion_policy_param(PromotionPolicy.NHIT, param_id).value == value
+    for param_id, value in readahead_params.items():
+        assert cache.get_prefetch_param(Prefetcher.READAHEAD, param_id) == value
 
     cache.stop()
 
