@@ -141,6 +141,8 @@ class ConfValidValues:
     cleaning_alru_staleness_time_range = range_inclusive(1, 3600)
     cleaning_alru_flush_max_buffers_range = range_inclusive(1, 10000)
     cleaning_alru_activity_threshold_range = range_inclusive(0, 1000000)
+    cleaning_alru_dirty_ratio_threshold_range = range_inclusive(0, 100)
+    cleaning_alru_dirty_ratio_inertia_range = range_inclusive(0, 2**32 - 1)
 
     cleaning_acp_wake_up_time_range = range_inclusive(0, 10000)
     cleaning_acp_flush_max_buffers_range = range_inclusive(1, 10000)
@@ -225,6 +227,8 @@ class AlruParams(IntEnum):
     STALE_BUFFER_TIME = 1
     FLUSH_MAX_BUFFERS = 2
     ACTIVITY_THRESHOLD = 3
+    DIRTY_RATIO_THRESHOLD = 4
+    DIRTY_RATIO_INERTIA = 5
 
     def __str__(self):
         return self.name

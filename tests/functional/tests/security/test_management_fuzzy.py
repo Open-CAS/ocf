@@ -334,6 +334,10 @@ def get_alru_param_valid_rage(param_id):
         return ConfValidValues.cleaning_alru_flush_max_buffers_range
     elif param_id == AlruParams.ACTIVITY_THRESHOLD:
         return ConfValidValues.cleaning_alru_activity_threshold_range
+    elif param_id == AlruParams.DIRTY_RATIO_THRESHOLD:
+        return ConfValidValues.cleaning_alru_dirty_ratio_threshold_range
+    elif param_id == AlruParams.DIRTY_RATIO_INERTIA:
+        return ConfValidValues.cleaning_alru_dirty_ratio_inertia_range
 
 
 @pytest.mark.parametrize("cm", CacheMode)

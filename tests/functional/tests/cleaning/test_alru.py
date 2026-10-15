@@ -39,6 +39,10 @@ def cleaner_core_wr(stats):
     return stats["block"]["cleaner_core_wr"]["value"]
 
 
+def cache_lines(stats):
+    return int(stats["conf"]["size"])
+
+
 # -- cache setup helpers --
 
 def setup_cache(pyocf_ctx, cls=CacheLineSize.DEFAULT):
@@ -257,3 +261,88 @@ def test_alru_activity_threshold(pyocf_ctx, manual_cleaner, activity_threshold):
     manual_cleaner.run_until_idle(cache)
 
     assert dirty_blocks(cache.get_stats()) == 0
+
+
+def setup_dirty_ratio(cache, threshold, inertia, flush_max):
+    """Configure ALRU so that only the dirty ratio can trigger cleaning:
+    data never gets stale and I/O activity is always recent, as the test
+    does not advance time."""
+    cache.set_cleaning_policy_param(
+        CleaningPolicy.ALRU, AlruParams.WAKE_UP_TIME, 1
+    )
+    cache.set_cleaning_policy_param(
+        CleaningPolicy.ALRU, AlruParams.STALE_BUFFER_TIME, 3600
+    )
+    cache.set_cleaning_policy_param(
+        CleaningPolicy.ALRU, AlruParams.ACTIVITY_THRESHOLD, 1000000
+    )
+    cache.set_cleaning_policy_param(
+        CleaningPolicy.ALRU, AlruParams.FLUSH_MAX_BUFFERS, flush_max
+    )
+    cache.set_cleaning_policy_param(
+        CleaningPolicy.ALRU, AlruParams.DIRTY_RATIO_THRESHOLD, threshold
+    )
+    cache.set_cleaning_policy_param(
+        CleaningPolicy.ALRU, AlruParams.DIRTY_RATIO_INERTIA, inertia
+    )
+    cache.set_cleaning_policy(CleaningPolicy.ALRU)
+
+
+@pytest.mark.parametrize("threshold", [10, 30, 50])
+def test_alru_dirty_ratio_threshold(pyocf_ctx, manual_cleaner, threshold):
+    """Verify cleaning is triggered by exceeding the dirty ratio threshold
+    regardless of staleness and I/O activity, and that it stops as soon as
+    the dirty ratio drops below the threshold."""
+    cache, core, vol, queue = setup_cache(pyocf_ctx)
+
+    flush_max = 100
+    setup_dirty_ratio(cache, threshold, 0, flush_max)
+
+    # Default cache line size is 4 KiB, so 4 KiB blocks == cache lines
+    threshold_cl = cache_lines(cache.get_stats()) // 100 * threshold
+
+    # Stay below the threshold - nothing should be cleaned
+    below = threshold_cl - flush_max
+    fill_dirty(vol, queue, Size(0), STATS_BLOCK_SIZE * below)
+
+    manual_cleaner.run(cache)
+    assert dirty_blocks(cache.get_stats()) == below, \
+        "No data should be flushed below dirty ratio threshold"
+
+    # Exceed the threshold
+    above = threshold_cl + 5 * flush_max
+    fill_dirty(vol, queue, STATS_BLOCK_SIZE * below,
+               STATS_BLOCK_SIZE * (above - below))
+    assert dirty_blocks(cache.get_stats()) == above
+
+    manual_cleaner.run_until_idle(cache)
+
+    dirty = dirty_blocks(cache.get_stats())
+    assert threshold_cl - flush_max <= dirty < threshold_cl, \
+        f"Cleaning should stop right below threshold {threshold_cl}, " \
+        f"dirty: {dirty}"
+
+
+@pytest.mark.parametrize("inertia", [Size.from_MiB(1), Size.from_MiB(4)])
+def test_alru_dirty_ratio_inertia(pyocf_ctx, manual_cleaner, inertia):
+    """Verify cleaning triggered by dirty ratio continues until the dirty
+    ratio drops below (threshold - inertia)."""
+    cache, core, vol, queue = setup_cache(pyocf_ctx)
+
+    flush_max = 100
+    threshold = 30
+    setup_dirty_ratio(cache, threshold, int(inertia), flush_max)
+
+    threshold_cl = cache_lines(cache.get_stats()) // 100 * threshold
+    inertia_cl = inertia // STATS_BLOCK_SIZE
+    stop_cl = threshold_cl - inertia_cl
+
+    above = threshold_cl + flush_max
+    fill_dirty(vol, queue, Size(0), STATS_BLOCK_SIZE * above)
+
+    manual_cleaner.run_until_idle(cache)
+
+    dirty = dirty_blocks(cache.get_stats())
+    assert stop_cl - flush_max <= dirty < stop_cl, \
+        f"Cleaning should stop right below {stop_cl} " \
+        f"(threshold {threshold_cl} - inertia {inertia_cl}), dirty: {dirty}"
