@@ -1319,19 +1319,24 @@ static void _ocf_mngt_attach_read_properties_end(void *priv, int error,
 {
 	struct ocf_cache_attach_context *context = priv;
 
-	if (error != -OCF_ERR_NO_METADATA) {
-		if (!error) {
-			/*
-			 * To prevent silent metadata overriding, return error if old
-			 * metadata was detected when attempting to attach cache.
-			 */
-			OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_METADATA_FOUND);
-		}
+	switch (error) {
+	case -OCF_ERR_NO_METADATA:
+		/* No metadata exists on the device */
+		OCF_PL_NEXT_RET(context->pipeline);
+	case 0:
+	case -OCF_ERR_METADATA_VER:
+	case -OCF_ERR_ADAPTER_MISMATCH:
+	case -OCF_ERR_ADAPTER_VER:
+	case -OCF_ERR_BLOCK_MODE_MISMATCH:
+		/*
+		 * To prevent silent metadata overriding, return error if old
+		 * metadata was detected when attempting to attach cache - also
+		 * if it was created by incompatible OCF or adapter version.
+		 */
+		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_METADATA_FOUND);
+	default:
 		OCF_PL_FINISH_RET(context->pipeline, error);
 	}
-
-	/* No metadata exists on the device */
-	OCF_PL_NEXT_RET(context->pipeline);
 }
 
 static void _ocf_mngt_load_read_properties_end(void *priv, int error,
