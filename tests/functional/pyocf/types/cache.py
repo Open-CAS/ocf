@@ -35,7 +35,7 @@ from .shared import (
     OcfCompletion,
     SeqCutOffPolicy,
 )
-from ..utils import Size, struct_to_dict
+from ..utils import Size, struct_to_dict, range_inclusive
 from .core import Core
 from .queue import Queue
 from .stats.cache import CacheInfo
@@ -134,24 +134,24 @@ class CacheStandbyActivateConfig(Structure):
 
 
 class ConfValidValues:
-    promotion_nhit_insertion_threshold_range = range(2, 1000)
-    promotion_nhit_trigger_threshold_range = range(0, 100)
+    promotion_nhit_insertion_threshold_range = range_inclusive(2, 1000)
+    promotion_nhit_trigger_threshold_range = range_inclusive(0, 100)
 
-    cleaning_alru_wake_up_time_range = range(0, 3600)
-    cleaning_alru_staleness_time_range = range(1, 3600)
-    cleaning_alru_flush_max_buffers_range = range(1, 10000)
-    cleaning_alru_activity_threshold_range = range(0, 1000000)
+    cleaning_alru_wake_up_time_range = range_inclusive(0, 3600)
+    cleaning_alru_staleness_time_range = range_inclusive(1, 3600)
+    cleaning_alru_flush_max_buffers_range = range_inclusive(1, 10000)
+    cleaning_alru_activity_threshold_range = range_inclusive(0, 1000000)
 
-    cleaning_acp_wake_up_time_range = range(0, 10000)
-    cleaning_acp_flush_max_buffers_range = range(1, 10000)
+    cleaning_acp_wake_up_time_range = range_inclusive(0, 10000)
+    cleaning_acp_flush_max_buffers_range = range_inclusive(1, 10000)
 
-    seq_cutoff_threshold_rage = range(1, 4294841344)
-    seq_detect_promotion_count_range = range(1, 65535)
+    seq_cutoff_threshold_rage = range_inclusive(1, 4294841344)
+    seq_detect_promotion_count_range = range_inclusive(1, 65535)
 
-    ioclass_id_range = range(0, 32)
-    ioclass_priority_range = range(-1, 255)
-    ioclass_min_size_range = range(0, 100)
-    ioclass_max_size_range = range(0, 100)
+    ioclass_id_range = range_inclusive(0, 33)
+    ioclass_priority_range = range_inclusive(-1, 255)
+    ioclass_min_size_range = range_inclusive(0, 100)
+    ioclass_max_size_range = range_inclusive(0, 100)
 
 
 CACHE_MODE_NONE = -1
