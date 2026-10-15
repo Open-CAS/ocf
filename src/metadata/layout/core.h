@@ -19,9 +19,6 @@ struct ocf_core_meta_config {
 
 	uint8_t type;
 
-	/* This bit means that object was saved in cache metadata */
-	uint32_t valid : 1;
-
 	/* Core sequence number used to correlate cache lines with cores
 	 * when recovering from atomic device
 	 */

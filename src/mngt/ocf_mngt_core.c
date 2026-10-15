@@ -148,7 +148,6 @@ static void _ocf_mngt_cache_add_core_handle_error(
 		env_bit_clear(core_id,
 				cache->conf_meta->valid_core_bitmap);
 		cache->conf_meta->core_count--;
-		core->conf_meta->valid = false;
 		core->added = false;
 		core->opened = false;
 
@@ -517,7 +516,6 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	env_bit_set(core_id, cache->conf_meta->valid_core_bitmap);
 	context->cache->conf_meta->core_count++;
 
-	core->conf_meta->valid = true;
 	core->added = true;
 	core->opened = true;
 

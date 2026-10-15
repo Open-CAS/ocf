@@ -659,7 +659,8 @@ static int ocf_mngt_rebuild_metadata_handle(ocf_parallelize_t parallelize,
 			continue;
 		}
 
-		if (!cache->core[core_id].conf_meta->valid) {
+		if (!env_bit_test(core_id,
+				cache->conf_meta->valid_core_bitmap)) {
 			ocf_cache_log(cache, log_err, "Stale mapping in "
 					"on-disk metadata - refusing to "
 					"recover cache.\n");
