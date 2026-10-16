@@ -151,6 +151,26 @@ class Core:
             "errors": struct_to_dict(errors),
         }
 
+    def get_ioclass_stats(self, io_class_id):
+        usage = UsageStats()
+        req = RequestsStats()
+        blocks = BlocksStats()
+
+        self.cache.read_lock()
+        status = self.cache.owner.lib.ocf_stats_collect_part_core(
+            self.handle, io_class_id, byref(usage), byref(req), byref(blocks)
+        )
+        self.cache.read_unlock()
+
+        if status:
+            raise OcfError(f"Failed to retrieve core ioclass {io_class_id} stats", status)
+
+        return {
+            "usage": struct_to_dict(usage),
+            "req": struct_to_dict(req),
+            "blocks": struct_to_dict(blocks),
+        }
+
     def set_seq_cut_off_policy(self, policy: SeqCutOffPolicy):
         self.cache.write_lock()
 
@@ -218,6 +238,8 @@ lib.ocf_mngt_core_set_seq_detect_promotion_count.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_detect_promotion_count.restype = c_int
 lib.ocf_stats_collect_core.argtypes = [c_void_p, c_void_p, c_void_p, c_void_p, c_void_p]
 lib.ocf_stats_collect_core.restype = c_int
+lib.ocf_stats_collect_part_core.argtypes = [c_void_p, c_uint16, c_void_p, c_void_p, c_void_p]
+lib.ocf_stats_collect_part_core.restype = c_int
 lib.ocf_core_get_info.argtypes = [c_void_p, c_void_p]
 lib.ocf_core_get_info.restype = c_int
 lib.ocf_core_stats_initialize.argtypes = [c_void_p]
