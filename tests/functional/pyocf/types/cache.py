@@ -612,14 +612,7 @@ class Cache:
         if status:
             raise OcfError("Error adding partition to cache", status)
 
-    def configure_partition(
-        self,
-        part_id: int,
-        name: str,
-        max_size: int,
-        priority: int,
-        cache_mode=CACHE_MODE_NONE,
-    ):
+    def _get_ioclasses_config(self):
         ioclasses_info = IoClassesInfo()
 
         self.read_lock()
@@ -641,11 +634,9 @@ class Cache:
 
         self.read_unlock()
 
-        ioclasses_info._config[part_id]._name = name.encode("utf-8")
-        ioclasses_info._config[part_id]._cache_mode = int(cache_mode)
-        ioclasses_info._config[part_id]._priority = priority
-        ioclasses_info._config[part_id]._max_size = max_size
+        return ioclasses_info
 
+    def _set_ioclasses_config(self, ioclasses_info):
         self.write_lock()
 
         status = self.owner.lib.ocf_mngt_cache_io_classes_configure(
@@ -656,6 +647,33 @@ class Cache:
 
         if status:
             raise OcfError("Error adding partition to cache", status)
+
+    def configure_partition(
+        self,
+        part_id: int,
+        name: str,
+        max_size: int,
+        priority: int,
+        cache_mode=CACHE_MODE_NONE,
+        repart: bool = False,
+    ):
+        ioclasses_info = self._get_ioclasses_config()
+
+        ioclasses_info._config[part_id]._name = name.encode("utf-8")
+        ioclasses_info._config[part_id]._cache_mode = int(cache_mode)
+        ioclasses_info._config[part_id]._priority = priority
+        ioclasses_info._config[part_id]._max_size = max_size
+        ioclasses_info._config[part_id]._repart = repart
+
+        self._set_ioclasses_config(ioclasses_info)
+
+    def remove_partition(self, part_id: int, repart: bool = False):
+        ioclasses_info = self._get_ioclasses_config()
+
+        ioclasses_info._config[part_id]._name = None
+        ioclasses_info._config[part_id]._repart = repart
+
+        self._set_ioclasses_config(ioclasses_info)
 
     def alloc_device_config(self, device, perform_test=True):
         if not device.handle:
