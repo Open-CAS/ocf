@@ -94,6 +94,54 @@ void ocf_user_part_init(struct ocf_cache *cache)
 		cache->user_parts[i].part.id = i;
 }
 
+static void _ocf_user_part_move_line(struct ocf_cache *cache,
+		struct ocf_core *core, ocf_cache_line_t line,
+		ocf_part_id_t id_old, ocf_part_id_t id_new, bool cold)
+{
+	struct ocf_part *src_part = &cache->user_parts[id_old].part;
+	struct ocf_part *dst_part = &cache->user_parts[id_new].part;
+
+	if (metadata_test_dirty(cache, line)) {
+		/*
+		 * Remove cline from cleaning - this if for ioclass
+		 * oriented cleaning policy (e.g. ALRU).
+		 * TODO: Consider adding update_cache_line() ops
+		 * to cleaning policy to let policies handle this.
+		 */
+		ocf_cleaning_purge_cache_block(cache, line);
+	}
+
+	if (cold)
+		ocf_lru_repart_cold(cache, line, src_part, dst_part);
+	else
+		ocf_lru_repart(cache, line, src_part, dst_part);
+
+	/* Check if cache line is dirty. If yes then need to change
+	 * cleaning  policy and update partition dirty clines
+	 * statistics.
+	 */
+	if (metadata_test_dirty(cache, line)) {
+		/* Add cline back to cleaning policy */
+		ocf_cleaning_set_hot_cache_line(cache, line);
+
+		env_atomic_inc(&core->runtime_meta->
+				part_counters[id_new].dirty_clines);
+		env_atomic_dec(&core->runtime_meta->
+				part_counters[id_old].dirty_clines);
+	}
+
+	/* Only valid cache lines are accounted. A line that is mapped,
+	 * but not valid yet, gets accounted to its current partition
+	 * once it becomes valid.
+	 */
+	if (metadata_test_valid_any(cache, line)) {
+		env_atomic_inc(&core->runtime_meta->
+				part_counters[id_new].cached_clines);
+		env_atomic_dec(&core->runtime_meta->
+				part_counters[id_old].cached_clines);
+	}
+}
+
 void ocf_user_part_move(struct ocf_request *req)
 {
 	struct ocf_cache *cache = req->cache;
@@ -130,45 +178,47 @@ void ocf_user_part_move(struct ocf_request *req)
 			continue;
 		}
 
-		if (metadata_test_dirty(cache, line)) {
-			/*
-			 * Remove cline from cleaning - this if for ioclass
-			 * oriented cleaning policy (e.g. ALRU).
-			 * TODO: Consider adding update_cache_line() ops
-			 * to cleaning policy to let policies handle this.
-			 */
-			ocf_cleaning_purge_cache_block(cache, line);
+		_ocf_user_part_move_line(cache, req->core, line,
+				id_old, id_new, false);
+	}
+}
+
+/*
+ * Move all cache lines of user partition id_old to user partition id_new.
+ * Lines are inserted at the cold end of destination LRU lists, preserving
+ * their relative order. Cache line locks are not taken, so the caller must
+ * hold exclusive metadata access to keep out any concurrent metadata update.
+ */
+void ocf_user_part_move_all(struct ocf_cache *cache, ocf_part_id_t id_old,
+		ocf_part_id_t id_new)
+{
+	struct ocf_part *src_part = &cache->user_parts[id_old].part;
+	struct ocf_lru_list *list;
+	struct ocf_core *core;
+	ocf_cache_line_t line;
+	ocf_core_id_t core_id;
+	uint32_t lru_idx;
+	uint32_t step = 0;
+	int clean;
+
+	ENV_BUG_ON(id_old >= OCF_USER_IO_CLASS_MAX ||
+			id_new >= OCF_USER_IO_CLASS_MAX);
+
+	if (id_old == id_new)
+		return;
+
+	for (lru_idx = 0; lru_idx < OCF_NUM_LRU_LISTS; lru_idx++) {
+		for (clean = 0; clean <= 1; clean++) {
+			list = ocf_lru_get_list(src_part, lru_idx, clean);
+			while (list->num_nodes) {
+				line = list->head;
+				core_id = ocf_metadata_get_core_id(cache, line);
+				core = ocf_cache_get_core(cache, core_id);
+				_ocf_user_part_move_line(cache, core, line,
+						id_old, id_new, true);
+				OCF_COND_RESCHED_DEFAULT(step);
+			}
 		}
-
-		ocf_lru_repart(cache, line, &cache->user_parts[id_old].part,
-				&cache->user_parts[id_new].part);
-
-		/* Check if cache line is dirty. If yes then need to change
-		 * cleaning  policy and update partition dirty clines
-		 * statistics.
-		 */
-		if (metadata_test_dirty(cache, line)) {
-			/* Add cline back to cleaning policy */
-			ocf_cleaning_set_hot_cache_line(cache, line);
-
-			env_atomic_inc(&req->core->runtime_meta->
-					part_counters[id_new].dirty_clines);
-			env_atomic_dec(&req->core->runtime_meta->
-					part_counters[id_old].dirty_clines);
-		}
-
-		/* Only valid cache lines are accounted. A line that is mapped,
-		 * but not valid yet, gets accounted to its current partition
-		 * once it becomes valid.
-		 */
-		if (metadata_test_valid_any(cache, line)) {
-			env_atomic_inc(&req->core->runtime_meta->
-					part_counters[id_new].cached_clines);
-			env_atomic_dec(&req->core->runtime_meta->
-					part_counters[id_old].cached_clines);
-		}
-
-		/* DONE */
 	}
 }
 

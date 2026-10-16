@@ -88,6 +88,9 @@ static inline uint32_t ocf_user_part_get_max_size(ocf_cache_t cache,
 
 void ocf_user_part_move(struct ocf_request *req);
 
+void ocf_user_part_move_all(struct ocf_cache *cache, ocf_part_id_t id_old,
+		ocf_part_id_t id_new);
+
 #define for_each_user_part(cache, user_part, id) \
 	for_each_lst_entry(&cache->user_part_list, user_part, id, \
 		struct ocf_user_part, lst_valid)

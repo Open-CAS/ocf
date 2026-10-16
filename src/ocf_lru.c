@@ -141,6 +141,34 @@ static void add_lru_head(ocf_cache_t cache, struct ocf_lru_list *list,
 	balance_lru_list(cache, list);
 }
 
+/* Adds the given collision_index to the _tail_ of the LRU list as cold */
+static void add_lru_tail(ocf_cache_t cache, struct ocf_lru_list *list,
+		ocf_cache_line_t collision_index)
+{
+	struct ocf_lru_meta *node;
+
+	ENV_BUG_ON(collision_index == end_marker);
+
+	node = ocf_metadata_get_lru(cache, collision_index);
+	node->hot = false;
+	node->next = end_marker;
+
+	if (!list->num_nodes) {
+		list->head = collision_index;
+		node->prev = end_marker;
+	} else {
+		ENV_BUG_ON(list->tail == end_marker);
+
+		node->prev = list->tail;
+		ocf_metadata_get_lru(cache, list->tail)->next = collision_index;
+	}
+
+	list->tail = collision_index;
+	++list->num_nodes;
+
+	balance_lru_list(cache, list);
+}
+
 /* update list global pointers and node neighbours to reflect removal */
 static inline void remove_update_ptrs(ocf_cache_t cache,
 		struct ocf_lru_list *list, ocf_cache_line_t collision_index,
@@ -306,6 +334,25 @@ void ocf_lru_repart(ocf_cache_t cache, ocf_cache_line_t cline,
 	OCF_METADATA_LRU_LOCK(lru_list);
 	ocf_lru_repart_locked(cache, cline, src_part, dst_part);
 	OCF_METADATA_LRU_UNLOCK(lru_list);
+}
+
+/* the caller must hold exclusive metadata access */
+void ocf_lru_repart_cold(ocf_cache_t cache, ocf_cache_line_t cline,
+		struct ocf_part *src_part, struct ocf_part *dst_part)
+{
+	uint32_t lru_list = OCF_LRU_GET_LIST_INDEX(cline);
+	struct ocf_lru_list *src_list, *dst_list;
+	bool clean;
+
+	clean = !metadata_test_dirty(cache, cline);
+	src_list = ocf_lru_get_list(src_part, lru_list, clean);
+	dst_list = ocf_lru_get_list(dst_part, lru_list, clean);
+
+	ocf_lru_remove_locked(cache, src_list, cline);
+	add_lru_tail(cache, dst_list, cline);
+	ocf_metadata_set_partition_id(cache, cline, dst_part->id);
+	env_atomic_dec(&src_part->runtime->curr_size);
+	env_atomic_inc(&dst_part->runtime->curr_size);
 }
 
 /* the caller must hold the metadata lock */

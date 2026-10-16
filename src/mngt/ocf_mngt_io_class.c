@@ -283,6 +283,7 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 		const struct ocf_mngt_io_classes_config *cfg)
 {
 	struct ocf_user_part *old_config;
+	ocf_part_id_t part_id;
 	int result;
 	int i;
 
@@ -316,6 +317,28 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 					"Failed to set new io class config\n");
 			goto out_edit;
 		}
+	}
+
+	/* Repartitioning can't be rolled back, so do it only once the whole
+	 * configuration has been applied successfully.
+	 */
+	for (i = 0; i < OCF_USER_IO_CLASS_MAX; i++) {
+		part_id = cfg->config[i].class_id;
+
+		/* Classification rules of the default IO classes can't change,
+		 * so their cache lines can't become misclassified.
+		 */
+		if (!cfg->config[i].repart ||
+				part_id == OCF_IO_CLASS_UNCLASSIFIED ||
+				part_id == OCF_IO_CLASS_PREFETCH) {
+			continue;
+		}
+
+		ocf_user_part_move_all(cache, part_id,
+				OCF_IO_CLASS_UNCLASSIFIED);
+		ocf_cache_log(cache, log_info, "Moved cache lines of IO class, "
+				"id: %u to the unclassified IO class\n",
+				part_id);
 	}
 
 	ocf_user_part_sort(cache);

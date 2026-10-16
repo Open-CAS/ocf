@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
-from ctypes import c_uint8, c_uint32, c_int, c_int16, c_uint16, c_char, c_char_p, Structure
+from ctypes import c_bool, c_uint8, c_uint32, c_int, c_int16, c_uint16, c_char, c_char_p, Structure
 
 
 class IoClassInfo(Structure):
@@ -27,6 +27,7 @@ class IoClassConfig(Structure):
         ("_name", c_char_p),
         ("_cache_mode", c_int),
         ("_priority", c_uint16),
+        ("_repart", c_bool),
     ]
 
 

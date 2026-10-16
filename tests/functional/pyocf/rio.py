@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -72,6 +73,7 @@ class JobSpec:
     time_based: bool = False
     time: timedelta = None
     continue_on_error: bool = False
+    io_class: int = 0
 
     def merge(self, other):
         # TODO implement
@@ -155,7 +157,8 @@ class Rio:
 
                 data = Data(self.jobspec.bs)  # TODO pattern and verify
                 io = self.jobspec.target.new_io(
-                    self.queue, next(iogen), self.jobspec.bs, iodir, 0, 0,
+                    self.queue, next(iogen), self.jobspec.bs, iodir,
+                    self.jobspec.io_class, 0,
                 )
                 io.set_data(data)
                 io.callback = self.get_io_cb()
@@ -246,6 +249,10 @@ class Rio:
 
     def time(self, time: timedelta):
         self.global_jobspec.time = time
+        return self
+
+    def io_class(self, io_class: int):
+        self.global_jobspec.io_class = io_class
         return self
 
     def continue_on_error(self):
