@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -156,10 +157,16 @@ void ocf_user_part_move(struct ocf_request *req)
 					part_counters[id_old].dirty_clines);
 		}
 
-		env_atomic_inc(&req->core->runtime_meta->
-				part_counters[id_new].cached_clines);
-		env_atomic_dec(&req->core->runtime_meta->
-				part_counters[id_old].cached_clines);
+		/* Only valid cache lines are accounted. A line that is mapped,
+		 * but not valid yet, gets accounted to its current partition
+		 * once it becomes valid.
+		 */
+		if (metadata_test_valid_any(cache, line)) {
+			env_atomic_inc(&req->core->runtime_meta->
+					part_counters[id_new].cached_clines);
+			env_atomic_dec(&req->core->runtime_meta->
+					part_counters[id_old].cached_clines);
+		}
 
 		/* DONE */
 	}
