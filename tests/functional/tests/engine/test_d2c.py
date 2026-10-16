@@ -1,5 +1,6 @@
 #
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -68,6 +69,7 @@ def test_d2c_io(pyocf_ctx):
             c.results["error"],
         )
 
+    cache.settle()
     assert cache.get_stats()["req"]["wr_pt"]["value"] == 2
 
     read_io = vol.new_io(queue, 0, CORE_SIZE, IoDir.READ, 0, 0)
@@ -76,6 +78,7 @@ def test_d2c_io(pyocf_ctx):
 
     read_completion = Sync(read_io).submit()
     assert int(read_completion.results["err"]) == 0
+    cache.settle()
     assert cache.get_stats()["req"]["rd_full_misses"]["value"] == 1
 
     cache.stop()
