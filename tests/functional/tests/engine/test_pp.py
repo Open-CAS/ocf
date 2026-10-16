@@ -230,6 +230,7 @@ def test_partial_hit_promotion(pyocf_ctx):
     # Step 2
     r = Rio().readwrite(ReadWrite.READ).bs(Size(512)).size(Size(512)).target(vol).run([queue])
 
+    cache.settle()
     stats = cache.get_stats()
     cache_lines = stats["conf"]["size"]
     assert stats["usage"]["occupancy"]["value"] == 1

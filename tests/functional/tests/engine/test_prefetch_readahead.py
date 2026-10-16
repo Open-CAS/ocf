@@ -102,7 +102,7 @@ def test_prefetch_readahead_threshold(pyocf_ctx, threshold, req_size, cls):
     rio = (Rio().target(vol).bs(req_size).size(below_size)
            .readwrite(ReadWrite.READ))
     rio.run([queue])
-    queue.settle()
+    cache.settle()
 
     assert get_prefetch_count(cache) == 0, \
         "No prefetch should trigger below threshold"
@@ -113,7 +113,7 @@ def test_prefetch_readahead_threshold(pyocf_ctx, threshold, req_size, cls):
     rio = (Rio().target(vol).bs(req_size).size(req_size).offset(below_size)
            .readwrite(ReadWrite.READ))
     rio.run([queue])
-    queue.settle()
+    cache.settle()
 
     assert get_prefetch_count(cache) == 1, \
         "Exactly one prefetch request should be generated"
@@ -143,7 +143,7 @@ def test_prefetch_readahead_random(pyocf_ctx, cls):
     rio = (Rio().target(vol).bs(Size.from_KiB(4)).size(Size.from_MiB(20))
            .readwrite(ReadWrite.RANDREAD))
     rio.run([queue])
-    queue.settle()
+    cache.settle()
 
     assert get_prefetch_count(cache) == 0, \
         "No prefetch should trigger for random reads"
@@ -176,7 +176,7 @@ def test_prefetch_readahead_read_insert(pyocf_ctx, cache_mode, cls):
     rio = (Rio().target(vol).bs(Size.from_KiB(4)).size(Size.from_MiB(1))
            .readwrite(ReadWrite.READ))
     rio.run([queue])
-    queue.settle()
+    cache.settle()
 
     assert get_prefetch_count(cache) > 0, \
         f"Prefetch should trigger in {cache_mode.name} mode"
@@ -208,7 +208,7 @@ def test_prefetch_readahead_no_read_insert(pyocf_ctx, cache_mode, cls):
     rio = (Rio().target(vol).bs(Size.from_KiB(4)).size(Size.from_MiB(1))
            .readwrite(ReadWrite.READ))
     rio.run([queue])
-    queue.settle()
+    cache.settle()
 
     assert get_prefetch_count(cache) == 0, \
         f"No prefetch should trigger in {cache_mode.name} mode"

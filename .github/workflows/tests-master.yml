@@ -17,8 +17,8 @@ jobs:
     - name: Install dependencies
       run: |
           python -m pip install --upgrade pip
-          pip install pytest
+          pip install pytest pytest-xdist
     - name: 'Build OCF library'
       run: cd tests/functional; make -j
     - name: 'Execute tests'
-      run: cd tests/functional; python3 -m pytest
+      run: cd tests/functional; python3 -m pytest -n auto

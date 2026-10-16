@@ -74,6 +74,7 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
     test_data = Data(valid_io_size)
     send_io(vol, test_data)
 
+    cache.settle()
     stats = core.cache.get_stats()
     first_block_sts = stats["block"]
     first_usage_sts = stats["usage"]
@@ -94,6 +95,7 @@ def test_write_size_greater_than_cache(pyocf_ctx, mode: CacheMode, cls: CacheLin
     if mode is not CacheMode.WT:
         # Flush first write
         cache.flush()
+    cache.settle()
     stats = core.cache.get_stats()
     second_block_sts = stats["block"]
     second_usage_sts = stats["usage"]
@@ -146,6 +148,7 @@ def test_eviction_priority_1(pyocf_ctx, cls: CacheLineSize, cache_mode: CacheMod
     )
 
     def get_ioclass_occupancy(cache, ioclass_id):
+        cache.settle()
         return cache.get_ioclass_stats(ioclass_id)["usage"]["occupancy"]["value"]
 
     cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)
@@ -214,6 +217,7 @@ def test_eviction_priority_2(pyocf_ctx, cls: CacheLineSize, cache_mode: CacheMod
     )
 
     def get_ioclass_occupancy(cache, ioclass_id):
+        cache.settle()
         return cache.get_ioclass_stats(ioclass_id)["usage"]["occupancy"]["value"]
 
     cache.set_seq_cut_off_policy(SeqCutOffPolicy.NEVER)

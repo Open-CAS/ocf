@@ -1,6 +1,7 @@
 #
 # Copyright(c) 2019-2022 Intel Corporation
 # Copyright(c) 2024 Huawei Technologies
+# Copyright(c) 2026 Unvertical
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
@@ -114,6 +115,7 @@ def test_secure_erase_simple_io_read_misses(cache_mode):
     Sync(io).submit()
 
     vol.close()
+    cache.settle()
     stats = cache.get_stats()
 
     ctx.exit()
@@ -171,6 +173,7 @@ def test_secure_erase_simple_io_cleaning():
     Sync(io).submit()
 
     vol.close()
+    cache.settle()
     stats = cache.get_stats()
 
     ctx.exit()
