@@ -14,6 +14,15 @@
 #include "../concurrency/ocf_metadata_concurrency.h"
 #include "ocf_env.h"
 
+#define OCF_MNGT_IO_CLASS_DEBUG 0
+
+#if OCF_MNGT_IO_CLASS_DEBUG == 1
+#define OCF_DEBUG_LOG(cache, format, ...) \
+	ocf_cache_log(cache, log_info, format, ##__VA_ARGS__)
+#else
+#define OCF_DEBUG_LOG(cache, format, ...)
+#endif
+
 static uint64_t _ocf_mngt_count_user_parts_min_size(struct ocf_cache *cache)
 {
 	struct ocf_user_part *user_part;
@@ -157,9 +166,8 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 		ocf_user_part_set_prio(cache, dest_part, prio);
 		dest_part->config->cache_mode = cache_mode;
 
-		ocf_cache_log(cache, log_info,
-				"Updating default IO class, id: %u, name :'%s',"
-				"max size: %u%% [ OK ]\n",
+		OCF_DEBUG_LOG(cache, "Updating default IO class, id: %u, "
+				"name :'%s',max size: %u%% [ OK ]\n",
 				part_id, dest_part->config->name, max);
 		return 0;
 	}
@@ -181,16 +189,16 @@ static int _ocf_mngt_io_class_configure(ocf_cache_t cache,
 
 	if (ocf_user_part_is_valid(dest_part)) {
 		/* Updating existing */
-		ocf_cache_log(cache, log_info, "Updating existing IO "
-				"class, id: %u, name: '%s', max size %u%% [ OK ]\n",
+		OCF_DEBUG_LOG(cache, "Updating existing IO class, id: %u, "
+				"name: '%s', max size %u%% [ OK ]\n",
 				part_id, dest_part->config->name, max);
 	} else {
 		/* Adding new */
 		ocf_user_part_set_valid(cache, part_id, true);
 
-		ocf_cache_log(cache, log_info, "Adding new IO class, "
-				"id: %u, name: '%s', max size %u%% [ OK ]\n", part_id,
-				dest_part->config->name, max);
+		OCF_DEBUG_LOG(cache, "Adding new IO class, id: %u, "
+				"name: '%s', max size %u%% [ OK ]\n",
+				part_id, dest_part->config->name, max);
 	}
 
 	ocf_user_part_set_prio(cache, dest_part, prio);
@@ -225,8 +233,7 @@ static void _ocf_mngt_io_class_remove(ocf_cache_t cache,
 
 	ocf_user_part_set_valid(cache, part_id, false);
 
-	ocf_cache_log(cache, log_info,
-			"Removing IO class, id: %u [ OK ]\n", part_id);
+	OCF_DEBUG_LOG(cache, "Removing IO class, id: %u [ OK ]\n", part_id);
 }
 
 static int _ocf_mngt_io_class_edit(ocf_cache_t cache,
@@ -282,7 +289,8 @@ static int _ocf_mngt_io_class_validate_cfg(ocf_cache_t cache,
 int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 		const struct ocf_mngt_io_classes_config *cfg)
 {
-	struct ocf_user_part *old_config;
+	struct ocf_user_part *old_config, *user_part;
+	uint32_t configured = 0, repartitioned = 0;
 	ocf_part_id_t part_id;
 	int result;
 	int i;
@@ -336,12 +344,17 @@ int ocf_mngt_cache_io_classes_configure(ocf_cache_t cache,
 
 		ocf_user_part_move_all(cache, part_id,
 				OCF_IO_CLASS_UNCLASSIFIED);
-		ocf_cache_log(cache, log_info, "Moved cache lines of IO class, "
-				"id: %u to the unclassified IO class\n",
-				part_id);
+		OCF_DEBUG_LOG(cache, "Moved cache lines of IO class, id: %u "
+				"to the unclassified IO class\n", part_id);
+		repartitioned++;
 	}
 
 	ocf_user_part_sort(cache);
+
+	for_each_user_part(cache, user_part, part_id) {
+		if (ocf_user_part_is_valid(user_part))
+			configured++;
+	}
 
 out_edit:
 	if (result) {
@@ -352,6 +365,12 @@ out_edit:
 out_cpy:
 	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 	env_free(old_config);
+
+	if (!result) {
+		ocf_cache_log(cache, log_info, "IO class configuration loaded: "
+				"%u IO classes configured, %u repartitioned\n",
+				configured, repartitioned);
+	}
 
 	return result;
 }
