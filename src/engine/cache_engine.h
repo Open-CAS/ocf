@@ -23,8 +23,12 @@ static inline ocf_req_cache_mode_t ocf_cache_mode_to_req_cache_mode(
 	return (ocf_req_cache_mode_t)mode;
 }
 
+typedef bool (*ocf_req_fast_cb)(struct ocf_request *req);
+
 struct ocf_io_if {
 	ocf_req_cb cbs[2]; /* READ and WRITE */
+
+	ocf_req_fast_cb fast[2]; /* READ and WRITE */
 
 	const char *name;
 };
@@ -43,7 +47,7 @@ int ocf_engine_hndl_req(struct ocf_request *req);
 #define OCF_FAST_PATH_YES	7
 #define OCF_FAST_PATH_NO	13
 
-int ocf_engine_hndl_fast_req(struct ocf_request *req);
+bool ocf_engine_hndl_fast_req(struct ocf_request *req);
 
 void ocf_engine_hndl_flush_req(struct ocf_request *req);
 

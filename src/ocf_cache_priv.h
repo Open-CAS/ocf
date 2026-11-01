@@ -128,7 +128,7 @@ struct ocf_cache {
 
 	bool pt_unaligned_io;
 
-	bool use_submit_io_fast;
+	bool use_sync_fastpath;
 
 	struct {
 		struct ocf_async_lock lock;

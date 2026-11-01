@@ -180,7 +180,7 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     unblock_size = randrange(1, queue_size)
     volatile_metadata = randrange(2) == 1
     unaligned_io = randrange(2) == 1
-    submit_fast = randrange(2) == 1
+    sync_fastpath = randrange(2) == 1
     name = "test"
 
     logger.info("[STAGE] Start cache")
@@ -193,7 +193,7 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
         max_queue_size=queue_size,
         queue_unblock_size=unblock_size,
         pt_unaligned_io=unaligned_io,
-        use_submit_fast=submit_fast,
+        use_sync_fastpath=sync_fastpath,
     )
 
     stats = cache.get_stats()
@@ -201,7 +201,7 @@ def test_start_params(pyocf_ctx, mode: CacheMode, cls: CacheLineSize, layout: Me
     assert stats["conf"]["cache_line_size"] == cls, "Cache line size"
     assert cache.get_name() == name, "Cache name"
     # TODO: metadata_volatile, max_queue_size,
-    #  queue_unblock_size, pt_unaligned_io, use_submit_fast
+    #  queue_unblock_size, pt_unaligned_io, use_sync_fastpath
     # TODO: test in functional tests
 
 

@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2019-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -10,5 +11,7 @@
 #include "engine_common.h"
 
 int ocf_read_wo(struct ocf_request *req);
+
+bool ocf_read_wo_fast(struct ocf_request *req);
 
 #endif /* __ENGINE_WO_H__ */

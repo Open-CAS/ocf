@@ -285,9 +285,10 @@ struct ocf_mngt_cache_config {
 	bool pt_unaligned_io;
 
 	/**
-	 * @brief If set, try to submit all I/O in fast path.
+	 * @brief If set, try to handle I/O synchronously in fast path
+	 *	before falling back to the regular asynchronous path.
 	 */
-	bool use_submit_io_fast;
+	bool use_sync_fastpath;
 
 	/**
 	 * @brief Backfill configuration
@@ -317,7 +318,7 @@ static inline void ocf_mngt_cache_config_set_default(
 	cfg->backfill.queue_unblock_size = 60000;
 	cfg->locked = false;
 	cfg->pt_unaligned_io = false;
-	cfg->use_submit_io_fast = false;
+	cfg->use_sync_fastpath = true;
 }
 
 /**
