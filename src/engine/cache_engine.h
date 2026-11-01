@@ -44,9 +44,6 @@ bool ocf_fallback_pt_is_on(ocf_cache_t cache);
 
 int ocf_engine_hndl_req(struct ocf_request *req);
 
-#define OCF_FAST_PATH_YES	7
-#define OCF_FAST_PATH_NO	13
-
 bool ocf_engine_hndl_fast_req(struct ocf_request *req);
 
 void ocf_engine_hndl_flush_req(struct ocf_request *req);

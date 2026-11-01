@@ -19,7 +19,6 @@
 #include "engine_wa.h"
 #include "engine_wb.h"
 #include "engine_wo.h"
-#include "engine_fast.h"
 #include "engine_flush.h"
 #include "engine_discard.h"
 #include "../utils/utils_user_part.h"
@@ -38,7 +37,6 @@ enum ocf_io_if_type {
 	OCF_IO_MAX_IF,
 
 	/* Private OCF interfaces */
-	OCF_IO_FAST_IF,
 	OCF_IO_FLUSH_IF,
 	OCF_IO_DISCARD_IF,
 	OCF_IO_PRIV_MAX_IF,
@@ -111,13 +109,6 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 		},
 		.name = "Write Only",
 	},
-	[OCF_IO_FAST_IF] = {
-		.cbs = {
-			[OCF_READ] = ocf_read_fast,
-			[OCF_WRITE] = ocf_write_fast,
-		},
-		.name = "Fast",
-	},
 	[OCF_IO_FLUSH_IF] = {
 		.cbs = {
 			[OCF_READ] = ocf_engine_flush,
@@ -141,7 +132,6 @@ static const struct ocf_io_if *cache_mode_io_if_map[ocf_req_cache_mode_max] = {
 	[ocf_req_cache_mode_wi] = &IO_IFS[OCF_IO_WI_IF],
 	[ocf_req_cache_mode_wo] = &IO_IFS[OCF_IO_WO_IF],
 	[ocf_req_cache_mode_pt] = &IO_IFS[OCF_IO_PT_IF],
-	[ocf_req_cache_mode_fast] = &IO_IFS[OCF_IO_FAST_IF],
 };
 
 const char *ocf_get_io_iface_name(ocf_req_cache_mode_t cache_mode)

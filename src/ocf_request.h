@@ -24,8 +24,6 @@ typedef enum {
 	ocf_req_cache_mode_wo = ocf_cache_mode_wo,
 
 	/* internal modes */
-	ocf_req_cache_mode_fast,
-		/*!< Fast path */
 	ocf_req_cache_mode_d2c,
 		/*!< Direct to Core - pass through to core without
 				touching cacheline metadata */
