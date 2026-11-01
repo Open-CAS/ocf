@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -84,6 +85,30 @@ int ocf_req_async_lock_wr(struct ocf_alock *c,
  */
 int ocf_req_async_lock_rd(struct ocf_alock *c,
 		struct ocf_request *req, ocf_req_async_lock_cb cmpl);
+
+/**
+ * @brief Try to lock OCF request for read access without waiting
+ *
+ * @param c - cacheline concurrency private data
+ * @param req - OCF request
+ *
+ * @retval true - all the request's cache lines have been locked
+ * @retval false - lock not acquired, nothing is locked and the request was
+ *		not added to any waiting list
+ */
+bool ocf_req_trylock_rd(struct ocf_alock *c, struct ocf_request *req);
+
+/**
+ * @brief Try to lock OCF request for write access without waiting
+ *
+ * @param c - cacheline concurrency private data
+ * @param req - OCF request
+ *
+ * @retval true - all the request's cache lines have been locked
+ * @retval false - lock not acquired, nothing is locked and the request was
+ *		not added to any waiting list
+ */
+bool ocf_req_trylock_wr(struct ocf_alock *c, struct ocf_request *req);
 
 /**
  * @brief Unlock OCF request from write access

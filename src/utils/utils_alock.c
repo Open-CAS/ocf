@@ -804,6 +804,28 @@ int ocf_alock_lock_wr(struct ocf_alock *alock,
 	return lock;
 }
 
+static inline bool ocf_alock_trylock(struct ocf_alock *alock,
+		struct ocf_request *req, int rw)
+{
+	ENV_BUG_ON(env_atomic_read(&req->lock_remaining));
+	req->alock_rw = rw;
+	/* trylock never puts the request on a waitlist */
+	req->is_deferred = false;
+
+	return alock->cbs->lock_entries_fast(alock, req, rw) ==
+			OCF_LOCK_ACQUIRED;
+}
+
+bool ocf_alock_trylock_rd(struct ocf_alock *alock, struct ocf_request *req)
+{
+	return ocf_alock_trylock(alock, req, OCF_READ);
+}
+
+bool ocf_alock_trylock_wr(struct ocf_alock *alock, struct ocf_request *req)
+{
+	return ocf_alock_trylock(alock, req, OCF_WRITE);
+}
+
 bool ocf_cache_line_is_used(struct ocf_alock *alock,
 		ocf_cache_line_t entry)
 {
