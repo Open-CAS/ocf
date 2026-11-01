@@ -136,6 +136,7 @@ void cache_mngt_core_remove_from_cache(ocf_core_t core)
 	ocf_prefetch_deinit(cache, core);
 	ocf_core_seq_cutoff_deinit(core);
 	ocf_core_seq_detect_deinit(core);
+	env_refcnt_deinit(&core->refcnt);
 	env_free(core->counters);
 	core->counters = NULL;
 	core->added = false;

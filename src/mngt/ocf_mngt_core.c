@@ -151,6 +151,7 @@ static void _ocf_mngt_cache_add_core_handle_error(
 		core->added = false;
 		core->opened = false;
 
+		env_refcnt_deinit(&core->refcnt);
 		env_free(core->counters);
 		core->counters = NULL;
 	}
@@ -497,6 +498,13 @@ static void ocf_mngt_cache_add_core_insert(ocf_pipeline_t pipeline,
 	if (!core->counters)
 		OCF_PL_FINISH_RET(context->pipeline, -OCF_ERR_NO_MEM);
 
+	result = env_refcnt_init(&core->refcnt, "core", sizeof("core"));
+	if (result) {
+		env_free(core->counters);
+		core->counters = NULL;
+		OCF_PL_FINISH_RET(context->pipeline, result);
+	}
+
 	context->flags.counters_allocated = true;
 
 	/* When adding new core to cache, reset all core/cache statistics */
@@ -665,6 +673,7 @@ struct ocf_mngt_cache_remove_core_context {
 	ocf_core_t core;
 	const char *core_name;
 	struct ocf_cleaner_wait_context cleaner_wait;
+	bool core_frozen;
 };
 
 static void ocf_mngt_cache_remove_core_finish(ocf_pipeline_t pipeline,
@@ -680,6 +689,9 @@ static void ocf_mngt_cache_remove_core_finish(ocf_pipeline_t pipeline,
 		ocf_cache_log(cache, log_err, "Removing core %s failed\n",
 				context->core_name);
 	}
+
+	if (context->core_frozen)
+		env_refcnt_unfreeze(&context->core->refcnt);
 
 	if (ocf_cache_is_device_attached(cache)) {
 		ocf_cleaner_refcnt_unfreeze(cache);
@@ -741,6 +753,7 @@ static void _ocf_mngt_cache_remove_core(ocf_pipeline_t pipeline, void *priv,
 		cache_mngt_core_remove_from_cleaning_pol(core);
 
 	cache_mngt_core_remove_from_meta(core);
+	context->core_frozen = false;
 	cache_mngt_core_remove_from_cache(core);
 	cache_mngt_core_deinit(core);
 
@@ -750,6 +763,17 @@ static void _ocf_mngt_cache_remove_core(ocf_pipeline_t pipeline, void *priv,
 	ocf_metadata_flush_superblock(cache,
 			ocf_mngt_cache_remove_core_flush_superblock_complete,
 			context);
+}
+
+static void ocf_mngt_cache_remove_core_wait_requests(ocf_pipeline_t pipeline,
+		void *priv, ocf_pipeline_arg_t arg)
+{
+	struct ocf_mngt_cache_remove_core_context *context = priv;
+	ocf_core_t core = context->core;
+
+	env_refcnt_freeze(&core->refcnt);
+	context->core_frozen = true;
+	ocf_pipeline_continue_on_zero_refcnt(pipeline, &core->refcnt);
 }
 
 static void ocf_mngt_cache_remove_core_wait_cleaning_complete(void *priv)
@@ -778,6 +802,7 @@ struct ocf_pipeline_properties ocf_mngt_cache_remove_core_pipeline_props = {
 	.finish = ocf_mngt_cache_remove_core_finish,
 	.steps = {
 		OCF_PL_STEP(ocf_mngt_cache_remove_core_wait_cleaning),
+		OCF_PL_STEP(ocf_mngt_cache_remove_core_wait_requests),
 		OCF_PL_STEP(_ocf_mngt_cache_remove_core_mapping),
 		OCF_PL_STEP(_ocf_mngt_cache_remove_core),
 		OCF_PL_STEP_TERMINATOR(),
