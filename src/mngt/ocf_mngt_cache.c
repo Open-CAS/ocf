@@ -427,6 +427,8 @@ static void _ocf_mngt_deinit_added_cores(
 		ocf_core_seq_cutoff_deinit(core);
 		ocf_core_seq_detect_deinit(core);
 
+		if (core->counters)
+			env_refcnt_deinit(&core->refcnt);
 		env_free(core->counters);
 		core->counters = NULL;
 		core->added = false;
@@ -510,6 +512,13 @@ static void _ocf_mngt_load_add_cores(ocf_pipeline_t pipeline,
 			env_zalloc(sizeof(*core->counters), ENV_MEM_NORMAL);
 		if (!core->counters)
 			goto err;
+
+		ret = env_refcnt_init(&core->refcnt, "core", sizeof("core"));
+		if (ret) {
+			env_free(core->counters);
+			core->counters = NULL;
+			goto err;
+		}
 
 		ret = ocf_core_seq_detect_init(core);
 		if (ret < 0)

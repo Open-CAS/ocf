@@ -197,6 +197,9 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 
 	ENV_BUG_ON(ocf_queue_is_mngt(queue));
 
+	if (!env_refcnt_inc(&core->refcnt))
+		return NULL;
+
 	ocf_queue_get(queue);
 
 	if (!env_refcnt_inc(&cache->refcnt.metadata)) {
@@ -205,6 +208,7 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 		req = ocf_req_new_d2c(queue, core, addr, bytes, rw);
 		if (unlikely(!req)) {
 			ocf_queue_put(queue);
+			env_refcnt_dec(&core->refcnt);
 			return NULL;
 		}
 		return req;
@@ -229,6 +233,7 @@ struct ocf_request *ocf_req_new(ocf_queue_t queue, ocf_core_t core,
 	if (unlikely(!req)) {
 		env_refcnt_dec(&cache->refcnt.metadata);
 		ocf_queue_put(queue);
+		env_refcnt_dec(&core->refcnt);
 		return NULL;
 	}
 
@@ -304,6 +309,7 @@ struct ocf_request *ocf_req_new_cache(ocf_cache_t cache, ocf_queue_t queue,
 	ocf_req_init(req, cache, queue, NULL, addr, bytes, rw);
 
 	req->lock_idx = ocf_metadata_concurrency_next_idx(queue);
+	req->is_cache = true;
 
 	return req;
 }
@@ -397,6 +403,9 @@ void ocf_req_put(struct ocf_request *req)
 		env_refcnt_dec(&req->cache->refcnt.d2c);
 	else if (!req->is_mngt || req->cleaner)
 		env_refcnt_dec(&req->cache->refcnt.metadata);
+
+	if (!req->is_mngt && !req->cleaner && !req->is_cache)
+		env_refcnt_dec(&req->core->refcnt);
 
 	if (unlikely(req->is_mngt)) {
 		env_free(req);

@@ -51,6 +51,8 @@ struct ocf_core {
 
 	struct ocf_counters_core *counters;
 
+	struct env_refcnt refcnt;
+
 	void *priv;
 };
 

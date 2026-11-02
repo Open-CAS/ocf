@@ -303,6 +303,9 @@ struct ocf_request {
 	uint8_t is_mngt : 1;
 	/* !< It's a management path request */
 
+	uint8_t is_cache : 1;
+	/* !< It's a cache volume request */
+
 	ocf_req_cache_mode_t cache_mode;
 
 	ocf_queue_t io_queue;
