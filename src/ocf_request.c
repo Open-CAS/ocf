@@ -630,6 +630,16 @@ uint64_t ocf_forward_get_flags(ocf_forward_token_t token)
 	return (token & 1) ? 0 : req->flags;
 }
 
+bool ocf_forward_is_core(ocf_forward_token_t token)
+{
+	return !(token & 1);
+}
+
+bool ocf_forward_is_cache(ocf_forward_token_t token)
+{
+	return !!(token & 1);
+}
+
 static inline void _ocf_forward_get(ocf_forward_token_t token)
 {
 	struct ocf_request *req = (struct ocf_request *)(token & ~1);
