@@ -78,7 +78,7 @@ static void ocf_metadata_store_segment(ocf_pipeline_t pipeline,
 	ctrl = (struct ocf_metadata_ctrl *)cache->metadata.priv;
 
 	context->segment_copy[segment].mem_pool =
-		env_malloc(ctrl->raw_desc[segment].mem_pool_limit, ENV_MEM_NORMAL);
+		env_vmalloc(ctrl->raw_desc[segment].mem_pool_limit);
 	if (!context->segment_copy[segment].mem_pool)
 		OCF_PL_FINISH_RET(pipeline, -OCF_ERR_NO_MEM);
 
@@ -86,7 +86,7 @@ static void ocf_metadata_store_segment(ocf_pipeline_t pipeline,
 			ctrl->raw_desc[segment].mem_pool_limit, METADATA_MEM_POOL(ctrl, segment),
 			ctrl->raw_desc[segment].mem_pool_limit);
 	if (error) {
-		env_free(context->segment_copy[segment].mem_pool);
+		env_vfree(context->segment_copy[segment].mem_pool);
 		context->segment_copy[segment].mem_pool = NULL;
 		OCF_PL_FINISH_RET(pipeline, error);
 	}
@@ -544,7 +544,7 @@ static void ocf_metadata_load_superblock_finish(ocf_pipeline_t pipeline,
 	for (segment = metadata_segment_sb_config;
 			segment < metadata_segment_fixed_size_max; segment++) {
 		if (context->segment_copy[segment].mem_pool)
-			env_free(context->segment_copy[segment].mem_pool);
+			env_vfree(context->segment_copy[segment].mem_pool);
 	}
 
 	context->cmpl(context->priv, error);
