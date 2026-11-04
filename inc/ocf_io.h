@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -152,6 +153,24 @@ uint8_t ocf_forward_get_io_class(ocf_forward_token_t token);
  * @param[in] token Forward token
  */
 uint64_t ocf_forward_get_flags(ocf_forward_token_t token);
+
+/**
+ * @brief Check if forwarded io goes to the core volume
+ *
+ * @param[in] token Forward token
+ *
+ * @retval true io forwarded to the core volume, otherwise false
+ */
+bool ocf_forward_is_core(ocf_forward_token_t token);
+
+/**
+ * @brief Check if forwarded io goes to the cache volume
+ *
+ * @param[in] token Forward token
+ *
+ * @retval true io forwarded to the cache volume, otherwise false
+ */
+bool ocf_forward_is_cache(ocf_forward_token_t token);
 
 /**
  * @brief Forward io to another subvolume
