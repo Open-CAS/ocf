@@ -1,0 +1,231 @@
+From 72f37b00ed25435f5b26a306e5e7b2b8ac1adfd0 Mon Sep 17 00:00:00 2001
+From: Tristan Campbell <tristan.campbell@intel.com>
+Date: Sat, 2 Jul 2022 02:35:12 -0400
+Subject: [PATCH 14/14] Introduce new PMEM Iface for metadata
+
+---
+ src/metadata/metadata.c          |  4 +-
+ src/metadata/metadata_raw.c      | 27 ++++++++++
+ src/metadata/metadata_raw.h      |  2 +
+ src/metadata/metadata_raw_pmem.c | 86 ++++++++++++++++++++++++++++++++
+ src/metadata/metadata_raw_pmem.h | 21 ++++++++
+ 5 files changed, 138 insertions(+), 2 deletions(-)
+ create mode 100644 src/metadata/metadata_raw_pmem.c
+ create mode 100644 src/metadata/metadata_raw_pmem.h
+
+diff --git a/src/metadata/metadata.c b/src/metadata/metadata.c
+index ff6452e..6dba7fb 100644
+--- a/src/metadata/metadata.c
++++ b/src/metadata/metadata.c
+@@ -477,7 +477,7 @@ static struct ocf_metadata_ctrl *ocf_metadata_ctrl_init(
+ 		raw->metadata_segment = i;
+ 
+ 		/* Default type for metadata RAW container */
+-		raw->raw_type = metadata_raw_type_ram;
++		raw->raw_type = metadata_raw_type_ram_pmem;
+ 
+ 		if (metadata_volatile) {
+ 			raw->raw_type = metadata_raw_type_volatile;
+@@ -672,7 +672,7 @@ int ocf_metadata_init_variable_size(struct ocf_cache *cache,
+ 		raw->metadata_segment = i;
+ 
+ 		/* Default type for metadata RAW container */
+-		raw->raw_type = metadata_raw_type_ram;
++		raw->raw_type = metadata_raw_type_ram_pmem;
+ 
+ 		if (cache->metadata.is_volatile) {
+ 			raw->raw_type = metadata_raw_type_volatile;
+diff --git a/src/metadata/metadata_raw.c b/src/metadata/metadata_raw.c
+index 15287e7..0741be5 100644
+--- a/src/metadata/metadata_raw.c
++++ b/src/metadata/metadata_raw.c
+@@ -7,6 +7,7 @@
+ #include "metadata_segment_id.h"
+ #include "metadata_raw.h"
+ #include "metadata_io.h"
++#include "metadata_raw_pmem.h"
+ #include "metadata_raw_atomic.h"
+ #include "../ocf_def_priv.h"
+ #include "../ocf_priv.h"
+@@ -567,6 +568,19 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
+ 		.flush_mark		= _raw_ram_flush_mark,
+ 		.flush_do_asynch	= _raw_ram_flush_do_asynch,
+ 	},
++	[metadata_raw_type_ram_pmem] = {
++		.init			= _raw_ram_init_pmem,
++		.deinit			= _raw_ram_deinit_pmem,
++		.size_of		= _raw_ram_size_of,
++		.size_on_ssd		= _raw_ram_size_on_ssd,
++		.checksum		= _raw_ram_checksum,
++		.page			= _raw_ram_page,
++		.access			= _raw_ram_access,
++		.load_all		= _raw_ram_load_all,
++		.flush_all		= _raw_ram_flush_all,
++		.flush_mark		= _raw_ram_flush_mark,
++		.flush_do_asynch	= _raw_ram_flush_do_asynch,
++	},
+ 	[metadata_raw_type_dynamic] = {
+ 		.init			= raw_dynamic_init,
+ 		.deinit			= raw_dynamic_deinit,
+@@ -593,6 +607,19 @@ static const struct raw_iface IRAW[metadata_raw_type_max] = {
+ 		.flush_mark		= raw_volatile_flush_mark,
+ 		.flush_do_asynch	= raw_volatile_flush_do_asynch,
+ 	},
++	[metadata_raw_type_volatile_pmem] = {
++		.init			= _raw_ram_init_pmem,
++		.deinit			= _raw_ram_deinit_pmem,
++		.size_of		= _raw_ram_size_of,
++		.size_on_ssd		= raw_volatile_size_on_ssd,
++		.checksum		= raw_volatile_checksum,
++		.page			= _raw_ram_page,
++		.access			= _raw_ram_access,
++		.load_all		= raw_volatile_load_all,
++		.flush_all		= raw_volatile_flush_all,
++		.flush_mark		= raw_volatile_flush_mark,
++		.flush_do_asynch	= raw_volatile_flush_do_asynch,
++	},
+ 	[metadata_raw_type_atomic] = {
+ 		.init			= _raw_ram_init,
+ 		.deinit			= _raw_ram_deinit,
+diff --git a/src/metadata/metadata_raw.h b/src/metadata/metadata_raw.h
+index 0357774..10cd901 100644
+--- a/src/metadata/metadata_raw.h
++++ b/src/metadata/metadata_raw.h
+@@ -23,6 +23,7 @@ enum ocf_metadata_raw_type {
+ 	 * flushing to/landing from SSD
+ 	 */
+ 	metadata_raw_type_ram = 0,
++	metadata_raw_type_ram_pmem,
+ 
+ 	/**
+ 	 * @brief Dynamic implementation, elements are allocated when first
+@@ -35,6 +36,7 @@ enum ocf_metadata_raw_type {
+ 	 * Support loading from SSD
+ 	 */
+ 	metadata_raw_type_volatile,
++	metadata_raw_type_volatile_pmem,
+ 
+ 	/**
+ 	 * @brief Implementation for atomic device used as cache
+diff --git a/src/metadata/metadata_raw_pmem.c b/src/metadata/metadata_raw_pmem.c
+new file mode 100644
+index 0000000..7efeb5e
+--- /dev/null
++++ b/src/metadata/metadata_raw_pmem.c
+@@ -0,0 +1,86 @@
++/*
++ * Copyright(c) 2012-2022 Intel Corporation
++ * SPDX-License-Identifier: BSD-3-Clause
++ */
++
++#include "metadata_raw_pmem.h"
++#include "metadata_segment_id.h"
++#include "metadata_raw.h"
++#include "metadata_io.h"
++#include "metadata_raw_atomic.h"
++#include "../ocf_def_priv.h"
++#include "../ocf_priv.h"
++
++#define OCF_METADATA_RAW_DEBUG 0
++
++#if 1 == OCF_METADATA_RAW_DEBUG
++#define OCF_DEBUG_TRACE(cache) \
++	ocf_cache_log(log_info, "[Metadata][Raw] %s\n", __func__)
++
++#define OCF_DEBUG_MSG(cache, msg) \
++	ocf_cache_log(cache, log_info, "[Metadata][Raw] %s - %s\n", \
++			__func__, msg)
++
++#define OCF_DEBUG_PARAM(cache, format, ...) \
++	ocf_cache_log(cache, log_info, "[Metadata][Raw] %s - "format"\n", \
++			__func__, ##__VA_ARGS__)
++#else
++#define OCF_DEBUG_TRACE(cache)
++#define OCF_DEBUG_MSG(cache, msg)
++#define OCF_DEBUG_PARAM(cache, format, ...)
++#endif
++
++
++/*
++ * RAM Implementation - Initialize
++ */
++int _raw_ram_init_pmem(ocf_cache_t cache,
++	ocf_flush_page_synch_t lock_page_pfn,
++	ocf_flush_page_synch_t unlock_page_pfn,
++	struct ocf_metadata_raw *raw)
++{
++	size_t mem_pool_size;
++	int ret;
++
++	OCF_DEBUG_TRACE(cache);
++
++	/* TODO: caller should specify explicitly whether to init mio conc? */
++	if (lock_page_pfn) {
++		ret = ocf_mio_concurrency_init(&raw->mio_conc,
++			raw->ssd_pages_offset, raw->ssd_pages, cache);
++		if (ret)
++			return ret;
++	}
++
++	/* Allocate memory pool for entries */
++	mem_pool_size = raw->ssd_pages;
++	mem_pool_size *= PAGE_SIZE;
++	raw->mem_pool_limit = mem_pool_size;
++	raw->mem_pool = env_secure_alloc_pmem(mem_pool_size);
++	if (!raw->mem_pool) {
++		ocf_mio_concurrency_deinit(&raw->mio_conc);
++		return -OCF_ERR_NO_MEM;
++	}
++	ENV_BUG_ON(env_memset(raw->mem_pool, mem_pool_size, 0));
++
++	raw->lock_page = lock_page_pfn;
++	raw->unlock_page = unlock_page_pfn;
++
++	return 0;
++}
++
++
++int _raw_ram_deinit_pmem(ocf_cache_t cache,
++		struct ocf_metadata_raw *raw)
++{
++	OCF_DEBUG_TRACE(cache);
++
++	if (raw->mem_pool) {
++		env_secure_free_pmem(raw->mem_pool, raw->mem_pool_limit);
++		raw->mem_pool = NULL;
++	}
++
++	ocf_mio_concurrency_deinit(&raw->mio_conc);
++
++	return 0;
++}
+diff --git a/src/metadata/metadata_raw_pmem.h b/src/metadata/metadata_raw_pmem.h
+new file mode 100644
+index 0000000..c692522
+--- /dev/null
++++ b/src/metadata/metadata_raw_pmem.h
+@@ -0,0 +1,21 @@
++/*
++ * Copyright(c) 2012-2021 Intel Corporation
++ * SPDX-License-Identifier: BSD-3-Clause
++ */
++
++#ifndef __METADATA_RAW_PMEM_H__
++#define __METADATA_RAW_PMEM_H__
++
++#include <ocf/ocf_types.h>
++#include "metadata_raw.h"
++
++int _raw_ram_init_pmem(ocf_cache_t cache,
++	ocf_flush_page_synch_t lock_page_pfn,
++	ocf_flush_page_synch_t unlock_page_pfn,
++	struct ocf_metadata_raw *raw);
++
++
++int _raw_ram_deinit_pmem(ocf_cache_t cache,
++    struct ocf_metadata_raw *raw);
++
++#endif /*METADATA_RAW_PMEM_H_*/
+-- 
+2.25.1
+
