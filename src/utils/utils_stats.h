@@ -8,10 +8,8 @@
 
 #define _ocf_stats_zero(stats) \
     do { \
-        if (stats) { \
-            typeof(*stats) zero = { { 0 } }; \
-            *stats = zero; \
-        } \
+        if (stats) \
+            ENV_BUG_ON(env_memset(stats, sizeof(*stats), 0)); \
     } while (0)
 
 static inline uint64_t _fraction(uint64_t numerator, uint64_t denominator)

@@ -124,7 +124,7 @@ static void _fill_req_part(struct ocf_stats_requests *req,
 static void _fill_blocks(struct ocf_stats_blocks *blocks,
 		const struct ocf_stats_core *s)
 {
-	uint64_t rd, wr, total;
+	uint64_t rd, wr, total, core_total, cache_total;
 	uint64_t pf_rd, pf_wr;
 	uint64_t cl_rd, cl_wr;
 	ocf_pf_id_t pf_id;
@@ -132,28 +132,28 @@ static void _fill_blocks(struct ocf_stats_blocks *blocks,
 	/* Core volume */
 	rd = _bytes4k(s->core_volume.read);
 	wr = _bytes4k(s->core_volume.write);
-	total = rd + wr;
+	core_total = rd + wr;
 
 	for_each_pf(pf_id)
-		total += _bytes4k(s->prefetch_blocks[pf_id].read);
-	total += _bytes4k(s->cleaner_blocks.write);
+		core_total += _bytes4k(s->prefetch_blocks[pf_id].read);
+	core_total += _bytes4k(s->cleaner_blocks.write);
 
-	_set(&blocks->core_volume_rd, rd, total);
-	_set(&blocks->core_volume_wr, wr, total);
-	_set(&blocks->core_volume_total, total, total);
+	_set(&blocks->core_volume_rd, rd, core_total);
+	_set(&blocks->core_volume_wr, wr, core_total);
+	_set(&blocks->core_volume_total, core_total, core_total);
 
 	/* Cache volume */
 	rd = _bytes4k(s->cache_volume.read);
 	wr = _bytes4k(s->cache_volume.write);
-	total = rd + wr;
+	cache_total = rd + wr;
 
 	for_each_pf(pf_id)
-		total += _bytes4k(s->prefetch_blocks[pf_id].write);
-	total += _bytes4k(s->cleaner_blocks.read);
+		cache_total += _bytes4k(s->prefetch_blocks[pf_id].write);
+	cache_total += _bytes4k(s->cleaner_blocks.read);
 
-	_set(&blocks->cache_volume_rd, rd, total);
-	_set(&blocks->cache_volume_wr, wr, total);
-	_set(&blocks->cache_volume_total, total, total);
+	_set(&blocks->cache_volume_rd, rd, cache_total);
+	_set(&blocks->cache_volume_wr, wr, cache_total);
+	_set(&blocks->cache_volume_total, cache_total, cache_total);
 
 	/* Core (cache volume) */
 	rd = _bytes4k(s->core.read);
@@ -174,24 +174,24 @@ static void _fill_blocks(struct ocf_stats_blocks *blocks,
 	/* Prefetch */
 	for_each_pf(pf_id) {
 		pf_rd = _bytes4k(s->prefetch_blocks[pf_id].read);
-		_set(&blocks->prefetch_core_rd[pf_id], pf_rd, total);
+		_set(&blocks->prefetch_core_rd[pf_id], pf_rd, core_total);
 	}
 	for_each_pf(pf_id) {
 		pf_wr = _bytes4k(s->prefetch_blocks[pf_id].write);
-		_set(&blocks->prefetch_cache_wr[pf_id], pf_wr, total);
+		_set(&blocks->prefetch_cache_wr[pf_id], pf_wr, cache_total);
 	}
 
 	/* Cleaner */
 	cl_rd = _bytes4k(s->cleaner_blocks.read);
-	_set(&blocks->cleaner_cache_rd, cl_rd, total);
+	_set(&blocks->cleaner_cache_rd, cl_rd, cache_total);
 	cl_wr = _bytes4k(s->cleaner_blocks.write);
-	_set(&blocks->cleaner_core_wr, cl_wr, total);
+	_set(&blocks->cleaner_core_wr, cl_wr, core_total);
 }
 
 static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
 		const struct ocf_stats_io_class *s)
 {
-	uint64_t rd, wr, total;
+	uint64_t rd, wr, total, core_total, cache_total;
 	uint64_t pf_rd, pf_wr;
 	uint64_t cl_rd, cl_wr;
 	ocf_pf_id_t pf_id;
@@ -199,28 +199,28 @@ static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
 	/* Core volume */
 	rd = _bytes4k(s->core_blocks.read);
 	wr = _bytes4k(s->core_blocks.write);
-	total = rd + wr;
+	core_total = rd + wr;
 
 	for_each_pf(pf_id)
-		total += _bytes4k(s->prefetch_blocks[pf_id].read);
-	total += _bytes4k(s->cleaner_blocks.write);
+		core_total += _bytes4k(s->prefetch_blocks[pf_id].read);
+	core_total += _bytes4k(s->cleaner_blocks.write);
 
-	_set(&blocks->core_volume_rd, rd, total);
-	_set(&blocks->core_volume_wr, wr, total);
-	_set(&blocks->core_volume_total, total, total);
+	_set(&blocks->core_volume_rd, rd, core_total);
+	_set(&blocks->core_volume_wr, wr, core_total);
+	_set(&blocks->core_volume_total, core_total, core_total);
 
 	/* Cache volume */
 	rd = _bytes4k(s->cache_blocks.read);
 	wr = _bytes4k(s->cache_blocks.write);
-	total = rd + wr;
+	cache_total = rd + wr;
 
 	for_each_pf(pf_id)
-		total += _bytes4k(s->prefetch_blocks[pf_id].write);
-	total += _bytes4k(s->cleaner_blocks.read);
+		cache_total += _bytes4k(s->prefetch_blocks[pf_id].write);
+	cache_total += _bytes4k(s->cleaner_blocks.read);
 
-	_set(&blocks->cache_volume_rd, rd, total);
-	_set(&blocks->cache_volume_wr, wr, total);
-	_set(&blocks->cache_volume_total, total, total);
+	_set(&blocks->cache_volume_rd, rd, cache_total);
+	_set(&blocks->cache_volume_wr, wr, cache_total);
+	_set(&blocks->cache_volume_total, cache_total, cache_total);
 
 	/* Core (cache volume) */
 	rd = _bytes4k(s->blocks.read);
@@ -241,18 +241,18 @@ static void _fill_blocks_part(struct ocf_stats_blocks *blocks,
 	/* Prefetch */
 	for_each_pf(pf_id) {
 		pf_rd = _bytes4k(s->prefetch_blocks[pf_id].read);
-		_set(&blocks->prefetch_core_rd[pf_id], pf_rd, total);
+		_set(&blocks->prefetch_core_rd[pf_id], pf_rd, core_total);
 	}
 	for_each_pf(pf_id) {
 		pf_wr = _bytes4k(s->prefetch_blocks[pf_id].write);
-		_set(&blocks->prefetch_cache_wr[pf_id], pf_wr, total);
+		_set(&blocks->prefetch_cache_wr[pf_id], pf_wr, cache_total);
 	}
 
 	/* Cleaner */
 	cl_rd = _bytes4k(s->cleaner_blocks.read);
-	_set(&blocks->cleaner_cache_rd, cl_rd, total);
+	_set(&blocks->cleaner_cache_rd, cl_rd, cache_total);
 	cl_wr = _bytes4k(s->cleaner_blocks.write);
-	_set(&blocks->cleaner_core_wr, cl_wr, total);
+	_set(&blocks->cleaner_core_wr, cl_wr, core_total);
 }
 
 static void _fill_errors(struct ocf_stats_errors *errors,
