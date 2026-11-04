@@ -171,10 +171,8 @@ static void _ocf_read_wo_core_complete(struct ocf_request *req, int error)
 	ocf_queue_push_req(req, OCF_QUEUE_ALLOW_SYNC | OCF_QUEUE_PRIO_HIGH);
 }
 
-static int ocf_read_wo_do(struct ocf_request *req)
+static inline void _ocf_read_wo_process(struct ocf_request *req)
 {
-	ocf_req_get(req);
-
 	/* Lack of cacheline repartitioning here is deliberate. WO cache mode
 	 * reads should not affect cacheline status as reading data from the
 	 * cache is just an internal optimization. Also WO cache mode is
@@ -194,6 +192,13 @@ static int ocf_read_wo_do(struct ocf_request *req)
 
 	ocf_engine_update_request_stats(req);
 	ocf_engine_update_block_stats(req);
+}
+
+static int ocf_read_wo_do(struct ocf_request *req)
+{
+	ocf_req_get(req);
+
+	_ocf_read_wo_process(req);
 
 	ocf_req_put(req);
 	return 0;
@@ -247,4 +252,32 @@ int ocf_read_wo(struct ocf_request *req)
 	ocf_req_put(req);
 
 	return 0;
+}
+
+bool ocf_read_wo_fast(struct ocf_request *req)
+{
+	ocf_req_hash(req);
+	ocf_hb_req_prot_lock_rd(req);
+
+	ocf_engine_lookup(req);
+
+	if (ocf_engine_mapped_count(req) && !ocf_req_trylock_rd(
+				ocf_cache_line_concurrency(req->cache), req)) {
+		goto fallback;
+	}
+
+	ocf_engine_set_hot(req);
+
+	ocf_hb_req_prot_unlock_rd(req);
+
+	/* Released on completion */
+	ocf_req_get(req);
+
+	_ocf_read_wo_process(req);
+
+	return true;
+
+fallback:
+	ocf_hb_req_prot_unlock_rd(req);
+	return false;
 }

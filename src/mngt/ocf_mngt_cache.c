@@ -1115,7 +1115,7 @@ static int _ocf_mngt_init_prepare_cache(struct ocf_cache_mngt_init_params *param
 	cache->pt_unaligned_io = cfg->pt_unaligned_io;
 #endif
 
-	cache->use_submit_io_fast = cfg->use_submit_io_fast;
+	cache->use_sync_fastpath = cfg->use_sync_fastpath;
 
 	cache->metadata.is_volatile = cfg->metadata_volatile;
 

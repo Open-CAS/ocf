@@ -10,4 +10,6 @@ int ocf_write_wb(struct ocf_request *req);
 
 int ocf_write_wb_do(struct ocf_request *req);
 
+bool ocf_write_wb_fast(struct ocf_request *req);
+
 #endif /* __ENGINE_WB_H__ */

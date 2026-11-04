@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -184,4 +185,40 @@ int ocf_write_wb(struct ocf_request *req)
 	ocf_req_put(req);
 
 	return 0;
+}
+
+bool ocf_write_wb_fast(struct ocf_request *req)
+{
+	/* Requests to disabled partitions go in pass-through */
+	if (!ocf_user_part_is_enabled(&req->cache->user_parts[req->part_id]))
+		return ocf_write_wi_fast(req);
+
+	ocf_req_hash(req);
+	ocf_hb_req_prot_lock_rd(req);
+
+	ocf_engine_lookup(req);
+
+	if (!ocf_engine_is_mapped(req))
+		goto fallback;
+
+	if (!ocf_req_trylock_wr(ocf_cache_line_concurrency(req->cache), req))
+		goto fallback;
+
+	ocf_engine_set_hot(req);
+
+	ocf_hb_req_prot_unlock_rd(req);
+
+	/* Released on completion */
+	ocf_req_get(req);
+
+	_ocf_write_wb_submit(req);
+
+	ocf_engine_update_request_stats(req);
+	ocf_engine_update_block_stats(req);
+
+	return true;
+
+fallback:
+	ocf_hb_req_prot_unlock_rd(req);
+	return false;
 }

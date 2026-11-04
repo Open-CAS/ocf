@@ -102,7 +102,7 @@ class CacheConfig(Structure):
         ("_metadata_volatile", c_bool),
         ("_locked", c_bool),
         ("_pt_unaligned_io", c_bool),
-        ("_use_submit_io_fast", c_bool),
+        ("_use_sync_fastpath", c_bool),
         ("_backfill", Backfill),
     ]
 
@@ -262,7 +262,7 @@ class Cache:
     DEFAULT_BACKFILL_QUEUE_SIZE = 65536
     DEFAULT_BACKFILL_UNBLOCK = 60000
     DEFAULT_PT_UNALIGNED_IO = False
-    DEFAULT_USE_SUBMIT_FAST = False
+    DEFAULT_USE_SYNC_FASTPATH = True
 
     def __init__(
         self,
@@ -275,7 +275,7 @@ class Cache:
         max_queue_size: int = DEFAULT_BACKFILL_QUEUE_SIZE,
         queue_unblock_size: int = DEFAULT_BACKFILL_UNBLOCK,
         pt_unaligned_io: bool = DEFAULT_PT_UNALIGNED_IO,
-        use_submit_fast: bool = DEFAULT_USE_SUBMIT_FAST,
+        use_sync_fastpath: bool = DEFAULT_USE_SYNC_FASTPATH,
     ):
         self.device = None
         self.started = False
@@ -289,7 +289,7 @@ class Cache:
         self.max_queue_size = max_queue_size
         self.queue_unblock_size = queue_unblock_size
         self.pt_unaligned_io = pt_unaligned_io
-        self.use_submit_fast = use_submit_fast
+        self.use_sync_fastpath = use_sync_fastpath
 
         self.cache_handle = c_void_p()
         self._as_parameter_ = self.cache_handle
@@ -314,7 +314,7 @@ class Cache:
             ),
             _locked=locked,
             _pt_unaligned_io=self.pt_unaligned_io,
-            _use_submit_fast=self.use_submit_fast,
+            _use_sync_fastpath=self.use_sync_fastpath,
         )
 
         status = self.owner.lib.ocf_mngt_cache_start(

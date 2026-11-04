@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -52,4 +53,18 @@ int ocf_write_wa(struct ocf_request *req)
 	return 0;
 }
 
+bool ocf_write_wa_fast(struct ocf_request *req)
+{
+	bool hit;
 
+	ocf_req_hash(req);
+	ocf_hb_req_prot_lock_rd(req);
+
+	ocf_engine_lookup(req);
+
+	hit = ocf_engine_is_hit(req);
+
+	ocf_hb_req_prot_unlock_rd(req);
+
+	return hit ? ocf_write_wt_fast(req) : ocf_write_wi_fast(req);
+}

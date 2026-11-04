@@ -221,51 +221,12 @@ static void ocf_req_complete(struct ocf_request *req, int error)
 	ocf_req_put(req);
 }
 
-static inline ocf_req_cache_mode_t _ocf_core_req_resolve_fast_mode(
-		ocf_cache_t cache, struct ocf_request *req)
-{
-	switch (req->cache_mode) {
-		case ocf_req_cache_mode_wb:
-		case ocf_req_cache_mode_wo:
-			return ocf_req_cache_mode_fast;
-		default:
-			break;
-	}
-
-	if (!cache->use_submit_io_fast)
-		return ocf_req_cache_mode_max;
-
-	return ocf_req_cache_mode_fast;
-}
-
-static int ocf_core_submit_io_fast(struct ocf_request *req, ocf_cache_t cache)
-{
-	ocf_req_cache_mode_t original_mode, resolved_mode;
-	int ret;
-
-	if (req->cache_mode == ocf_req_cache_mode_pt)
-		return OCF_FAST_PATH_NO;
-
-	resolved_mode = _ocf_core_req_resolve_fast_mode(cache, req);
-	if (resolved_mode == ocf_req_cache_mode_max)
-		return OCF_FAST_PATH_NO;
-
-	original_mode = req->cache_mode;
-	req->cache_mode = resolved_mode;
-
-	ret = ocf_engine_hndl_fast_req(req);
-	if (ret == OCF_FAST_PATH_NO)
-		req->cache_mode = original_mode;
-
-	return ret;
-}
-
 static void ocf_core_volume_submit_io(ocf_io_t io)
 {
 	struct ocf_request *req = ocf_io_to_req(io);
 	ocf_core_t core;
 	ocf_cache_t cache;
-	int ret, fastpath;
+	int ret;
 
 	OCF_CHECK_NULL(io);
 
@@ -306,9 +267,7 @@ static void ocf_core_volume_submit_io(ocf_io_t io)
 	/* Prevent race condition with prefetch */
 	ocf_req_get(req);
 
-	fastpath = ocf_core_submit_io_fast(req, cache);
-
-	if (fastpath == OCF_FAST_PATH_YES)
+	if (cache->use_sync_fastpath && ocf_engine_hndl_fast_req(req))
 		goto prefetch;
 
 	ocf_req_clear_map(req);

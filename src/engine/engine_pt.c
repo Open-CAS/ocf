@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2023-2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "ocf/ocf.h"
@@ -43,23 +44,8 @@ static inline void _ocf_read_pt_submit(struct ocf_request *req)
 	ocf_engine_forward_core_io_req(req, _ocf_read_pt_complete);
 }
 
-int ocf_read_pt_do(struct ocf_request *req)
+static inline void _ocf_read_pt_process(struct ocf_request *req)
 {
-	/* Get OCF request - increase reference counter */
-	ocf_req_get(req);
-
-	if (req->info.dirty_any) {
-		ocf_hb_req_prot_lock_rd(req);
-		/* Need to clean, start it */
-		ocf_engine_clean(req);
-		ocf_hb_req_prot_unlock_rd(req);
-
-		/* Do not processing, because first we need to clean request */
-		ocf_req_put(req);
-
-		return 0;
-	}
-
 	if (ocf_engine_needs_repart(req)) {
 		OCF_DEBUG_RQ(req, "Re-Part");
 
@@ -84,6 +70,26 @@ int ocf_read_pt_do(struct ocf_request *req)
 
 	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
 			req->info.hit_no, req->core_line_count);
+}
+
+int ocf_read_pt_do(struct ocf_request *req)
+{
+	/* Get OCF request - increase reference counter */
+	ocf_req_get(req);
+
+	if (req->info.dirty_any) {
+		ocf_hb_req_prot_lock_rd(req);
+		/* Need to clean, start it */
+		ocf_engine_clean(req);
+		ocf_hb_req_prot_unlock_rd(req);
+
+		/* Do not processing, because first we need to clean request */
+		ocf_req_put(req);
+
+		return 0;
+	}
+
+	_ocf_read_pt_process(req);
 
 	/* Put OCF request - decrease reference counter */
 	ocf_req_put(req);
@@ -158,6 +164,37 @@ int ocf_read_pt(struct ocf_request *req)
 	ocf_req_put(req);
 
 	return 0;
+}
+
+bool ocf_read_pt_fast(struct ocf_request *req)
+{
+	ocf_req_hash(req);
+	ocf_hb_req_prot_lock_rd(req);
+
+	ocf_engine_lookup(req);
+
+	if (req->info.dirty_any)
+		goto fallback;
+
+	if (ocf_engine_mapped_count(req) && !ocf_req_trylock_rd(
+				ocf_cache_line_concurrency(req->cache), req)) {
+		goto fallback;
+	}
+
+	ocf_engine_set_hot(req);
+
+	ocf_hb_req_prot_unlock_rd(req);
+
+	/* Released on completion */
+	ocf_req_get(req);
+
+	_ocf_read_pt_process(req);
+
+	return true;
+
+fallback:
+	ocf_hb_req_prot_unlock_rd(req);
+	return false;
 }
 
 void ocf_queue_push_req_pt(struct ocf_request *req)

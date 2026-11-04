@@ -19,7 +19,6 @@
 #include "engine_wa.h"
 #include "engine_wb.h"
 #include "engine_wo.h"
-#include "engine_fast.h"
 #include "engine_flush.h"
 #include "engine_discard.h"
 #include "../utils/utils_user_part.h"
@@ -38,7 +37,6 @@ enum ocf_io_if_type {
 	OCF_IO_MAX_IF,
 
 	/* Private OCF interfaces */
-	OCF_IO_FAST_IF,
 	OCF_IO_FLUSH_IF,
 	OCF_IO_DISCARD_IF,
 	OCF_IO_PRIV_MAX_IF,
@@ -50,12 +48,20 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 			[OCF_READ] = ocf_read_generic,
 			[OCF_WRITE] = ocf_write_wt,
 		},
+		.fast = {
+			[OCF_READ] = ocf_read_generic_fast,
+			[OCF_WRITE] = ocf_write_wt_fast,
+		},
 		.name = "Write Through"
 	},
 	[OCF_IO_WB_IF] = {
 		.cbs = {
 			[OCF_READ] = ocf_read_generic,
 			[OCF_WRITE] = ocf_write_wb,
+		},
+		.fast = {
+			[OCF_READ] = ocf_read_generic_fast,
+			[OCF_WRITE] = ocf_write_wb_fast,
 		},
 		.name = "Write Back"
 	},
@@ -64,12 +70,20 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 			[OCF_READ] = ocf_read_generic,
 			[OCF_WRITE] = ocf_write_wa,
 		},
+		.fast = {
+			[OCF_READ] = ocf_read_generic_fast,
+			[OCF_WRITE] = ocf_write_wa_fast,
+		},
 		.name = "Write Around"
 	},
 	[OCF_IO_WI_IF] = {
 		.cbs = {
 			[OCF_READ] = ocf_read_generic,
 			[OCF_WRITE] = ocf_write_wi,
+		},
+		.fast = {
+			[OCF_READ] = ocf_read_generic_fast,
+			[OCF_WRITE] = ocf_write_wi_fast,
 		},
 		.name = "Write Invalidate"
 	},
@@ -78,6 +92,10 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 			[OCF_READ] = ocf_read_pt,
 			[OCF_WRITE] = ocf_write_wi,
 		},
+		.fast = {
+			[OCF_READ] = ocf_read_pt_fast,
+			[OCF_WRITE] = ocf_write_wi_fast,
+		},
 		.name = "Pass Through",
 	},
 	[OCF_IO_WO_IF] = {
@@ -85,14 +103,11 @@ static const struct ocf_io_if IO_IFS[OCF_IO_PRIV_MAX_IF] = {
 			[OCF_READ] = ocf_read_wo,
 			[OCF_WRITE] = ocf_write_wb,
 		},
-		.name = "Write Only",
-	},
-	[OCF_IO_FAST_IF] = {
-		.cbs = {
-			[OCF_READ] = ocf_read_fast,
-			[OCF_WRITE] = ocf_write_fast,
+		.fast = {
+			[OCF_READ] = ocf_read_wo_fast,
+			[OCF_WRITE] = ocf_write_wb_fast,
 		},
-		.name = "Fast",
+		.name = "Write Only",
 	},
 	[OCF_IO_FLUSH_IF] = {
 		.cbs = {
@@ -117,7 +132,6 @@ static const struct ocf_io_if *cache_mode_io_if_map[ocf_req_cache_mode_max] = {
 	[ocf_req_cache_mode_wi] = &IO_IFS[OCF_IO_WI_IF],
 	[ocf_req_cache_mode_wo] = &IO_IFS[OCF_IO_WO_IF],
 	[ocf_req_cache_mode_pt] = &IO_IFS[OCF_IO_PT_IF],
-	[ocf_req_cache_mode_fast] = &IO_IFS[OCF_IO_FAST_IF],
 };
 
 const char *ocf_get_io_iface_name(ocf_req_cache_mode_t cache_mode)
@@ -221,23 +235,21 @@ int ocf_engine_hndl_req(struct ocf_request *req)
 	return 0;
 }
 
-int ocf_engine_hndl_fast_req(struct ocf_request *req)
+/*
+ * Larger requests hold the hash bucket lock for long and are likely to fail
+ * the fast path requirements anyway.
+ */
+#define OCF_ENGINE_FAST_MAX_LINES 64
+
+bool ocf_engine_hndl_fast_req(struct ocf_request *req)
 {
-	ocf_req_cb engine_cb;
-	int ret;
+	if (req->core_line_count > OCF_ENGINE_FAST_MAX_LINES)
+		return false;
 
-	engine_cb = ocf_cache_mode_to_engine_cb(req->cache_mode, req->rw);
-	if (!engine_cb)
-		return -OCF_ERR_INVAL;
+	if (req->cache_mode == ocf_req_cache_mode_max)
+		return false;
 
-	ocf_req_get(req);
-
-	ret = engine_cb(req);
-
-	if (ret == OCF_FAST_PATH_NO)
-		ocf_req_put(req);
-
-	return ret;
+	return cache_mode_io_if_map[req->cache_mode]->fast[req->rw](req);
 }
 
 void ocf_engine_hndl_discard_req(struct ocf_request *req)

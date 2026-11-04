@@ -118,6 +118,23 @@ static void _ocf_write_wi_core_complete(struct ocf_request *req, int error)
 	}
 }
 
+static inline void _ocf_write_wi_submit(struct ocf_request *req)
+{
+	OCF_DEBUG_RQ(req, "Submit");
+
+	/* Submit write IO to the core */
+	ocf_engine_forward_core_io_req(req, _ocf_write_wi_core_complete);
+
+	/* Update statistics */
+	ocf_engine_update_block_stats(req);
+
+	ocf_core_stats_pt_block_update(req->core, req->part_id, req->rw,
+			req->bytes);
+
+	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
+			req->info.hit_no, req->core_line_count);
+}
+
 static int _ocf_write_wi_core_write(struct ocf_request *req)
 {
 	/* Get OCF request - increase reference counter */
@@ -136,19 +153,7 @@ static int _ocf_write_wi_core_write(struct ocf_request *req)
 		return 0;
 	}
 
-	OCF_DEBUG_RQ(req, "Submit");
-
-	/* Submit write IO to the core */
-	ocf_engine_forward_core_io_req(req, _ocf_write_wi_core_complete);
-
-	/* Update statistics */
-	ocf_engine_update_block_stats(req);
-
-	ocf_core_stats_pt_block_update(req->core, req->part_id, req->rw,
-			req->bytes);
-
-	ocf_core_stats_request_pt_update(req->core, req->part_id, req->rw,
-			req->info.hit_no, req->core_line_count);
+	_ocf_write_wi_submit(req);
 
 	/* Put OCF request - decrease reference counter */
 	ocf_req_put(req);
@@ -211,4 +216,35 @@ int ocf_write_wi(struct ocf_request *req)
 	ocf_req_put(req);
 
 	return 0;
+}
+
+bool ocf_write_wi_fast(struct ocf_request *req)
+{
+	ocf_req_hash(req);
+	ocf_hb_req_prot_lock_rd(req);
+
+	ocf_engine_lookup(req);
+
+	if (req->info.dirty_any)
+		goto fallback;
+
+	if (ocf_engine_mapped_count(req) && !ocf_req_trylock_wr(
+				ocf_cache_line_concurrency(req->cache), req)) {
+		goto fallback;
+	}
+
+	ocf_engine_set_hot(req);
+
+	ocf_hb_req_prot_unlock_rd(req);
+
+	/* Released on completion */
+	ocf_req_get(req);
+
+	_ocf_write_wi_submit(req);
+
+	return true;
+
+fallback:
+	ocf_hb_req_prot_unlock_rd(req);
+	return false;
 }

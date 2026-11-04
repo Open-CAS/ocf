@@ -191,6 +191,16 @@ int ocf_req_async_lock_wr(struct ocf_alock *alock,
 	return ocf_alock_lock_wr(alock, req, cmpl);
 }
 
+bool ocf_req_trylock_rd(struct ocf_alock *alock, struct ocf_request *req)
+{
+	return ocf_alock_trylock_rd(alock, req);
+}
+
+bool ocf_req_trylock_wr(struct ocf_alock *alock, struct ocf_request *req)
+{
+	return ocf_alock_trylock_wr(alock, req);
+}
+
 void ocf_req_unlock_rd(struct ocf_alock *alock, struct ocf_request *req)
 {
 	int32_t i;
