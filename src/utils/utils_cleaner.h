@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2021 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -54,30 +55,6 @@ struct flush_data {
 	ocf_core_id_t core_id;
 };
 
-typedef void (*ocf_flush_containter_coplete_t)(void *ctx);
-
-/**
- * @brief Flush table container
- */
-struct flush_container {
-	ocf_core_id_t core_id;
-	struct flush_data *flush_data;
-	uint32_t count;
-	uint32_t iter;
-
-	struct ocf_cleaner_attribs attribs;
-	ocf_cache_t cache;
-
-	struct ocf_request *req;
-
-	uint64_t flush_portion;
-	uint64_t ticks1;
-	uint64_t ticks2;
-
-	ocf_flush_containter_coplete_t end;
-	struct ocf_mngt_cache_flush_context *context;
-};
-
 typedef void (*ocf_cleaner_refcnt_zero_cb_t)(void *priv);
 
 /**
@@ -120,15 +97,6 @@ int ocf_cleaner_do_flush_data_async(struct ocf_cache *cache,
  * @param count Number of entries in flush_data
  */
 void ocf_cleaner_sort_flush_data(struct flush_data *flush_data, uint32_t count);
-
-/**
- * @brief Sort flush data in all flush containters
- *
- * @param fctbl Flush containers to sort
- * @param num Number of entries in fctbl
- */
-void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,
-		uint32_t num);
 
 /**
  * @brief Disable incrementing of cleaner reference counters
