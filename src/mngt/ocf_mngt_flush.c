@@ -26,25 +26,42 @@
 struct ocf_mngt_cache_flush_context;
 typedef void (*ocf_flush_complete_t)(struct ocf_mngt_cache_flush_context *, int);
 
-struct flush_containers_context
-{
-	/* array of container descriptors */
-	struct flush_container *fctbl;
-	/* fctbl array size */
-	uint32_t fcnum;
-	/* shared error for all concurrent container flushes */
+struct flush_sweep {
+	struct ocf_mngt_cache_flush_context *context;
+	ocf_cache_t cache;
+	/* next hash bucket to examine and the end of the slice */
+	ocf_cache_line_t bucket;
+	ocf_cache_line_t end;
+	/* portion being cleaned */
+	struct flush_data *data;
+	uint32_t count;
+	struct ocf_cleaner_attribs attribs;
+	struct ocf_request *req;
+	/* portion size, adapted to the time the last portion took */
+	uint64_t flush_portion;
+	uint64_t ticks1;
+	uint64_t ticks2;
+};
+
+struct flush_sweeps_context {
+	/* range of cache lines to flush */
+	ocf_cache_line_t begin;
+	ocf_cache_line_t end;
+	/* slices of the hash table, swept concurrently */
+	struct flush_sweep *sweeps;
+	uint32_t num;
+	/* shared error for all concurrent sweeps */
 	env_atomic error;
-	/* number of outstanding container flushes */
+	/* number of sweeps in progress, plus one while starting them */
 	env_atomic count;
-	/* first container flush to notice interrupt sets this to 1 */
+	/* first sweep to notice interrupt sets this to 1 */
 	env_atomic interrupt_seen;
-	/* completion to be called after all containers are flushed */
+	/* completion to be called after all sweeps are done */
 	ocf_flush_complete_t complete;
 };
 
 /* common struct for cache/core flush/purge pipeline priv */
-struct ocf_mngt_cache_flush_context
-{
+struct ocf_mngt_cache_flush_context {
 	/* pipeline for flush / purge */
 	ocf_pipeline_t pipeline;
 	/* target cache */
@@ -87,8 +104,8 @@ struct ocf_mngt_cache_flush_context
 		uint64_t core_id;
 	} purge;
 
-	/* context for flush containers logic */
-	struct flush_containers_context fcs;
+	/* context for the flush sweeps */
+	struct flush_sweeps_context fsc;
 };
 
 static void _ocf_mngt_begin_flush(ocf_pipeline_t pipeline, void *priv,
@@ -168,234 +185,140 @@ void ocf_mngt_cache_set_no_dirty(ocf_cache_t cache, bool no_dirty)
 }
 
 /************************FLUSH CORE CODE**************************************/
-/* Returns:
- * 0 if OK and tbl & num is filled:
- * * tbl - table with blocks&cacheline
- * * num - number of items in this table.
- * other value means error.
- * NOTE:
- * Table is not sorted.
- */
-static int _ocf_mngt_get_blocks(ocf_cache_t cache, ocf_core_id_t core_id,
-		struct flush_data **tbl, uint32_t *num)
+
+#define OCF_MNG_FLUSH_MIN (4*MiB / ocf_line_size(cache))
+#define OCF_MNG_FLUSH_MAX (100*MiB / ocf_line_size(cache))
+
+#define OCF_MNG_FLUSH_SLICES 16
+
+/* Hash buckets examined between reschedules */
+#define OCF_MNG_FLUSH_RESCHED_BUCKETS 131072
+
+static bool _ocf_mngt_flush_target(struct ocf_mngt_cache_flush_context *context,
+		ocf_core_id_t core_id)
 {
-	ocf_core_t core = ocf_cache_get_core(cache, core_id);
-	uint64_t core_line;
-	ocf_core_id_t i_core_id;
-	struct flush_data *elem;
-	uint32_t line, dirty_found = 0, dirty_total = 0;
-	unsigned ret = 0;
+	if (context->core)
+		return core_id == ocf_core_get_id(context->core);
 
-	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
-
-	dirty_total = env_atomic_read(&core->runtime_meta->dirty_clines);
-	if (!dirty_total) {
-		*num = 0;
-		*tbl = NULL;
-		goto unlock;
-	}
-
-	*tbl = env_vmalloc(dirty_total * sizeof(**tbl));
-	if (*tbl == NULL) {
-		ret = -OCF_ERR_NO_MEM;
-		goto unlock;
-	}
-
-	for (line = 0, elem = *tbl;
-			line < ocf_metadata_line_count(&cache->metadata);
-			line++) {
-		ocf_metadata_get_core_info(cache, line, &i_core_id,
-				&core_line);
-
-		if (i_core_id == core_id &&
-				metadata_test_valid_any(cache, line) &&
-				metadata_test_dirty(cache, line)) {
-			/* It's valid and dirty target core cacheline */
-			elem->cache_line = line;
-			elem->core_line = core_line;
-			elem->core_id = i_core_id;
-			elem++;
-			dirty_found++;
-
-			/* stop if all cachelines were found */
-			if (dirty_found == dirty_total)
-				break;
-		}
-
-		if ((line + 1) % 131072 == 0) {
-			ocf_metadata_end_exclusive_access(
-					&cache->metadata_lock);
-			env_cond_resched();
-			ocf_metadata_start_exclusive_access(
-					&cache->metadata_lock);
-		}
-	}
-
-	ocf_core_log(core, log_debug,
-			"%u dirty cache lines to clean\n", dirty_found);
-
-
-	*num = dirty_found;
-
-unlock:
-	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
-
-	return ret;
+	return core_id < OCF_CORE_NUM;
 }
 
-static int _ocf_mngt_get_flush_containers(ocf_cache_t cache,
-		struct flush_container **fctbl, uint32_t *fcnum,
-		ocf_cache_line_t begin, ocf_cache_line_t end)
+static uint32_t _ocf_mngt_flush_target_dirty(
+		struct ocf_mngt_cache_flush_context *context)
 {
-	struct flush_container *fc;
-	struct flush_container *curr;
-	uint32_t *core_revmap;
-	uint32_t core_count;
-	uint64_t core_line;
-	ocf_core_id_t core_id;
+	ocf_cache_t cache = context->cache;
 	ocf_core_t core;
-	uint32_t i, j = 0, line;
-	uint32_t dirty_found = 0, dirty_total = 0, dirty_cores = 0;
-	int ret = 0;
+	ocf_core_id_t core_id;
+	uint32_t dirty = 0;
 
-	end = OCF_MIN(ocf_metadata_line_count(&cache->metadata), end);
-
-	if (begin > end)
-		return -OCF_ERR_INVAL;
-
-	if (begin == end) {
-		ocf_cache_log(cache, log_warn, "Flush with 0 length\n");
-		return 0;
+	if (context->core) {
+		return env_atomic_read(
+				&context->core->runtime_meta->dirty_clines);
 	}
 
-	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
+	for_each_core(cache, core, core_id)
+		dirty += env_atomic_read(&core->runtime_meta->dirty_clines);
 
-	core_count = cache->conf_meta->core_count;
-	if (core_count == 0)
-		goto unlock;
-
-	core_revmap = env_vzalloc(sizeof(*core_revmap) * OCF_CORE_NUM);
-	if (!core_revmap) {
-		ret = -OCF_ERR_NO_MEM;
-		goto unlock;
-	}
-
-	/* TODO: Alloc fcs and data tables in single allocation */
-	fc = env_vzalloc(sizeof(**fctbl) * core_count);
-	if (!fc) {
-		ret = -OCF_ERR_NO_MEM;
-		goto free_core_revmap;
-	}
-
-	for_each_core(cache, core, core_id) {
-		fc[j].core_id = core_id;
-		core_revmap[core_id] = j;
-
-		/* Check for dirty blocks */
-		fc[j].count = env_atomic_read(
-				&core->runtime_meta->dirty_clines);
-		dirty_total += fc[j].count;
-
-		if (fc[j].count == 0)
-			continue;
-
-		fc[j].flush_data = env_vmalloc(fc[j].count *
-				sizeof(*fc[j].flush_data));
-		if (!fc[j].flush_data) {
-			ret = -OCF_ERR_NO_MEM;
-			goto free_flush_data;
-		}
-
-		if (++j == core_count)
-			break;
-	}
-
-	/* Set number of dirty cores found to flush. */
-	dirty_cores = j;
-
-	if (!dirty_total) {
-		*fcnum = 0;
-		goto free_fc;
-	}
-
-	ocf_cache_log(cache, log_debug,
-			"Range of cache lines to flush %u - %u\n",
-			begin, end);
-
-	for (line = begin; line < end; line++) {
-		ocf_metadata_get_core_info(cache, line, &core_id, &core_line);
-
-		if (metadata_test_valid_any(cache, line) &&
-				metadata_test_dirty(cache, line)) {
-			curr = &fc[core_revmap[core_id]];
-
-			ENV_BUG_ON(curr->iter >= curr->count);
-
-			curr->flush_data[curr->iter].cache_line = line;
-			curr->flush_data[curr->iter].core_line = core_line;
-			curr->flush_data[curr->iter].core_id = core_id;
-			curr->iter++;
-			dirty_found++;
-
-			if (dirty_found == dirty_total)
-				break;
-		}
-
-		if ((line + 1) % 131072 == 0) {
-			ocf_metadata_end_exclusive_access(
-					&cache->metadata_lock);
-			env_cond_resched();
-			ocf_metadata_start_exclusive_access(
-					&cache->metadata_lock);
-		}
-	}
-
-	if (dirty_total != dirty_found) {
-		for (i = 0; i < dirty_cores; i++)
-			fc[i].count = fc[i].iter;
-	}
-
-	for (i = 0; i < dirty_cores; i++)
-		fc[i].iter = 0;
-
-	*fctbl = fc;
-	*fcnum = dirty_cores;
-	goto free_core_revmap;
-
-free_flush_data:
-	for (i = 0; i < j; i++)
-		env_vfree(fc[i].flush_data);
-free_fc:
-	env_vfree(fc);
-free_core_revmap:
-	env_vfree(core_revmap);
-unlock:
-	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
-	return ret;
+	return dirty;
 }
 
-static void _ocf_mngt_free_flush_containers(struct flush_container *fctbl,
-	uint32_t num)
+static void _ocf_mngt_flush_collect(struct flush_sweep *sweep, uint32_t max)
 {
-	int i;
+	struct ocf_mngt_cache_flush_context *context = sweep->context;
+	struct flush_sweeps_context *fsc = &context->fsc;
+	ocf_cache_t cache = sweep->cache;
+	ocf_cache_line_t terminator =
+			ocf_metadata_terminator_line(&cache->metadata);
+	ocf_cache_line_t line, next;
+	ocf_core_id_t core_id;
+	uint64_t core_line;
+	uint32_t scanned = 0, bucket_start;
+	unsigned lock_idx;
+	bool bucket_done;
 
-	for (i = 0; i < num; i++)
-		env_vfree(fctbl[i].flush_data);
-	env_vfree(fctbl);
+	sweep->count = 0;
+
+	while (sweep->bucket < sweep->end && sweep->count < max) {
+		bucket_start = sweep->count;
+
+		lock_idx = ocf_metadata_concurrency_next_idx(cache->mngt_queue);
+		ocf_hb_id_prot_lock_rd(&cache->metadata_lock, lock_idx,
+				sweep->bucket);
+
+		bucket_done = true;
+		next = ocf_metadata_get_hash(cache, sweep->bucket);
+		while (next != terminator) {
+			line = next;
+			next = ocf_metadata_get_collision_next(cache, line);
+
+			ocf_metadata_get_core_info(cache, line, &core_id,
+					&core_line);
+
+			if (line < fsc->begin || line >= fsc->end)
+				continue;
+			if (!_ocf_mngt_flush_target(context, core_id))
+				continue;
+			if (!metadata_test_valid_any(cache, line))
+				continue;
+			if (!metadata_test_dirty(cache, line))
+				continue;
+			if (sweep->count == max) {
+				bucket_done = false;
+				break;
+			}
+			sweep->data[sweep->count].cache_line = line;
+			sweep->data[sweep->count].core_line = core_line;
+			sweep->data[sweep->count].core_id = core_id;
+			sweep->count++;
+		}
+
+		ocf_hb_id_prot_unlock_rd(&cache->metadata_lock, lock_idx,
+				sweep->bucket);
+
+		if (!bucket_done) {
+			if (bucket_start > 0)
+				sweep->count = bucket_start;
+			break;
+		}
+
+		sweep->bucket++;
+
+		if (++scanned % OCF_MNG_FLUSH_RESCHED_BUCKETS == 0)
+			env_cond_resched();
+	}
 }
+
+static void _ocf_mngt_flush_account(struct flush_sweep *sweep)
+{
+	ocf_cache_t cache = sweep->cache;
+	uint32_t i, run = 0;
+
+	for (i = 0; i < sweep->count; i++) {
+		run++;
+		if (i + 1 < sweep->count && sweep->data[i + 1].core_id ==
+				sweep->data[i].core_id) {
+			continue;
+		}
+
+		env_atomic_add(run, &ocf_cache_get_core(cache,
+					sweep->data[i].core_id)->flushed);
+		run = 0;
+	}
+}
+
+static void _ocf_mngt_flush_sweep_complete(struct flush_sweep *sweep);
 
 static void _ocf_mngt_flush_portion_end(void *private_data, int error)
 {
-	struct flush_container *fc = private_data;
-	struct ocf_mngt_cache_flush_context *context = fc->context;
-	struct flush_containers_context *fsc = &context->fcs;
+	struct flush_sweep *sweep = private_data;
+	struct ocf_mngt_cache_flush_context *context = sweep->context;
+	struct flush_sweeps_context *fsc = &context->fsc;
 	ocf_cache_t cache = context->cache;
-	ocf_core_t core = ocf_cache_get_core(cache, fc->core_id);
 	bool first_interrupt;
 
-	env_atomic_set(&core->flushed, fc->iter);
+	_ocf_mngt_flush_account(sweep);
 
-	fc->ticks2 = env_get_tick_count();
+	sweep->ticks2 = env_get_tick_count();
 
 	env_atomic_cmpxchg(&fsc->error, 0, error);
 
@@ -410,205 +333,213 @@ static void _ocf_mngt_flush_portion_end(void *private_data, int error)
 		}
 	}
 
-	if (fc->iter == fc->count || env_atomic_read(&fsc->error)) {
-		ocf_req_put(fc->req);
-		fc->end(context);
+	if (env_atomic_read(&fsc->error)) {
+		_ocf_mngt_flush_sweep_complete(sweep);
 		return;
 	}
 
-	ocf_queue_push_req(fc->req, 0);
+	ocf_queue_push_req(sweep->req, 0);
 }
 
-/*
- * OCF will try to guess disk speed etc. and adjust flushing block
- * size accordingly, however these bounds shall be respected regardless
- * of disk speed, cache line size configured etc.
- */
-#define OCF_MNG_FLUSH_MIN (4*MiB / ocf_line_size(cache))
-#define OCF_MNG_FLUSH_MAX (100*MiB / ocf_line_size(cache))
-
-static void _ocf_mngt_flush_portion(struct flush_container *fc)
+static int _ocf_mngt_flush_sweep_step(struct ocf_request *req)
 {
-	ocf_cache_t cache = fc->cache;
-	ocf_core_t core = ocf_cache_get_core(cache, fc->core_id);
+	struct flush_sweep *sweep = req->priv;
+	ocf_cache_t cache = sweep->cache;
 	uint64_t flush_portion_div;
-	uint32_t flush_data_offset = fc->iter;
-	uint32_t curr_flush_portion_size;
-	uint32_t core_dirty_count =
-		env_atomic_read(&core->runtime_meta->dirty_clines);
 
-	if (core_dirty_count == 0) {
-		fc->iter = fc->count;
-		_ocf_mngt_flush_portion_end(fc, 0);
-		return;
-	}
+	/* Nothing left to flush - skip the rest of the slice */
+	if (_ocf_mngt_flush_target_dirty(sweep->context) == 0)
+		sweep->bucket = sweep->end;
 
-	flush_portion_div = env_ticks_to_msecs(fc->ticks2 - fc->ticks1);
+	flush_portion_div = env_ticks_to_msecs(sweep->ticks2 - sweep->ticks1);
 	if (unlikely(!flush_portion_div))
 		flush_portion_div = 1;
 
-	fc->flush_portion = fc->flush_portion * 1000 / flush_portion_div;
-	fc->flush_portion &= ~0x3ffULL;
+	sweep->flush_portion = sweep->flush_portion * 1000 / flush_portion_div;
+	sweep->flush_portion &= ~0x3ffULL;
 
-	/* regardless those calculations, limit flush portion to be
+	/*
+	 * regardless those calculations, limit flush portion to be
 	 * between OCF_MNG_FLUSH_MIN and OCF_MNG_FLUSH_MAX
 	 */
-	fc->flush_portion = OCF_MIN(fc->flush_portion, OCF_MNG_FLUSH_MAX);
-	fc->flush_portion = OCF_MAX(fc->flush_portion, OCF_MNG_FLUSH_MIN);
+	sweep->flush_portion = OCF_MIN(sweep->flush_portion, OCF_MNG_FLUSH_MAX);
+	sweep->flush_portion = OCF_MAX(sweep->flush_portion, OCF_MNG_FLUSH_MIN);
 
-	curr_flush_portion_size = OCF_MIN(core_dirty_count, fc->flush_portion);
-	curr_flush_portion_size = OCF_MIN(curr_flush_portion_size,
-			fc->count - fc->iter);
+	_ocf_mngt_flush_collect(sweep, sweep->flush_portion);
 
-	ENV_BUG_ON(curr_flush_portion_size == 0);
+	if (sweep->count == 0) {
+		_ocf_mngt_flush_sweep_complete(sweep);
+		return 0;
+	}
 
-	fc->iter += curr_flush_portion_size;
+	/* The consecutive ranges are interleaved, we need to sort first */
+	ocf_cleaner_sort_flush_data(sweep->data, sweep->count);
 
-	fc->ticks1 = env_get_tick_count();
-
-	ocf_cleaner_do_flush_data_async(fc->cache,
-			&fc->flush_data[flush_data_offset],
-			curr_flush_portion_size, &fc->attribs);
-}
-
-static int _ofc_flush_container_step(struct ocf_request *req)
-{
-	struct flush_container *fc = req->priv;
-	ocf_cache_t cache = fc->cache;
+	sweep->ticks1 = env_get_tick_count();
 
 	ocf_metadata_start_exclusive_access(&cache->metadata_lock);
-	_ocf_mngt_flush_portion(fc);
+	ocf_cleaner_do_flush_data_async(cache, sweep->data, sweep->count,
+			&sweep->attribs);
 	ocf_metadata_end_exclusive_access(&cache->metadata_lock);
 
 	return 0;
 }
 
-static void _ocf_mngt_flush_container(
-		struct ocf_mngt_cache_flush_context *context,
-		struct flush_container *fc, ocf_flush_containter_coplete_t end)
+static void _ocf_mngt_flush_sweeps_free(struct flush_sweeps_context *fsc)
 {
-	ocf_cache_t cache = context->cache;
-	struct ocf_request *req;
-	int error = 0;
+	uint32_t i;
 
-	if (!fc->count)
-		goto finish;
-
-	fc->end = end;
-	fc->context = context;
-
-	req = ocf_req_new_mngt(cache, cache->mngt_queue);
-	if (!req) {
-		error = OCF_ERR_NO_MEM;
-		goto finish;
+	for (i = 0; i < fsc->num; i++) {
+		if (fsc->sweeps[i].req)
+			ocf_req_put(fsc->sweeps[i].req);
+		env_vfree(fsc->sweeps[i].data);
 	}
-
-	req->info.internal = true;
-	req->engine_handler = _ofc_flush_container_step;
-	req->priv = fc;
-
-	fc->req = req;
-	fc->attribs.lock_cacheline = true;
-	fc->attribs.cmpl_context = fc;
-	fc->attribs.cmpl_fn = _ocf_mngt_flush_portion_end;
-	fc->attribs.io_queue = cache->mngt_queue;
-	fc->cache = cache;
-	fc->flush_portion = OCF_MNG_FLUSH_MIN;
-	fc->ticks1 = 0;
-	fc->ticks2 = UINT_MAX;
-
-	ocf_queue_push_req(fc->req, OCF_QUEUE_ALLOW_SYNC);
-	return;
-
-finish:
-	env_atomic_cmpxchg(&context->fcs.error, 0, error);
-	end(context);
+	env_vfree(fsc->sweeps);
+	fsc->sweeps = NULL;
+	fsc->num = 0;
 }
 
-static void _ocf_flush_container_complete(void *ctx)
+static void _ocf_mngt_flush_sweeps_put(
+		struct ocf_mngt_cache_flush_context *context)
 {
-	struct ocf_mngt_cache_flush_context *context = ctx;
+	struct flush_sweeps_context *fsc = &context->fsc;
 
-	if (env_atomic_dec_return(&context->fcs.count)) {
+	if (env_atomic_dec_return(&fsc->count))
+		return;
+
+	_ocf_mngt_flush_sweeps_free(fsc);
+
+	fsc->complete(context, env_atomic_read(&fsc->error));
+}
+
+static void _ocf_mngt_flush_sweep_complete(struct flush_sweep *sweep)
+{
+	_ocf_mngt_flush_sweeps_put(sweep->context);
+}
+
+static uint32_t _ocf_mngt_flush_dirty_cores(
+		struct ocf_mngt_cache_flush_context *context)
+{
+	ocf_cache_t cache = context->cache;
+	ocf_core_t core;
+	ocf_core_id_t core_id;
+	uint32_t num = 0;
+
+	if (context->core)
+		return 1;
+
+	for_each_core(cache, core, core_id) {
+		if (env_atomic_read(&core->runtime_meta->dirty_clines))
+			num++;
+	}
+
+	return num;
+}
+
+static void _ocf_mngt_flush_sweeps(
+		struct ocf_mngt_cache_flush_context *context,
+		ocf_cache_line_t begin, ocf_cache_line_t end,
+		ocf_flush_complete_t complete)
+{
+	struct flush_sweeps_context *fsc = &context->fsc;
+	ocf_cache_t cache = context->cache;
+	struct flush_sweep *sweep;
+	uint32_t i, num;
+	uint64_t buckets = ocf_metadata_hash_entries(&cache->metadata);
+
+	end = OCF_MIN(ocf_metadata_line_count(&cache->metadata), end);
+
+	if (begin > end) {
+		complete(context, -OCF_ERR_INVAL);
 		return;
 	}
 
-	_ocf_mngt_free_flush_containers(context->fcs.fctbl,
-			context->fcs.fcnum);
-
-	context->fcs.complete(context,
-			env_atomic_read(&context->fcs.error));
-}
-
-static void _ocf_mngt_flush_containers(
-		struct ocf_mngt_cache_flush_context *context,
-		struct flush_container *fctbl,
-		uint32_t fcnum, ocf_flush_complete_t complete)
-{
-	int i;
-
-	if (fcnum == 0) {
+	if (begin == end) {
+		ocf_cache_log(cache, log_warn, "Flush with 0 length\n");
 		complete(context, 0);
 		return;
 	}
 
-	/* Sort data. Smallest blocks first (0...n). */
-	ocf_cleaner_sort_flush_containers(fctbl, fcnum);
-
-	env_atomic_set(&context->fcs.error, 0);
-	env_atomic_set(&context->fcs.count, 1);
-	context->fcs.complete = complete;
-	context->fcs.fctbl = fctbl;
-	context->fcs.fcnum = fcnum;
-
-	for (i = 0; i < fcnum; i++) {
-		if (fctbl[i].count == 0)
-			continue;
-		env_atomic_inc(&context->fcs.count);
-		_ocf_mngt_flush_container(context, &fctbl[i],
-			_ocf_flush_container_complete);
+	if (_ocf_mngt_flush_target_dirty(context) == 0) {
+		complete(context, 0);
+		return;
 	}
 
-	_ocf_flush_container_complete(context);
-}
+	fsc->begin = begin;
+	fsc->end = end;
 
+	num = _ocf_mngt_flush_dirty_cores(context);
+	num = OCF_MIN(num, OCF_MNG_FLUSH_SLICES);
+	num = OCF_MIN(num, buckets);
+	num = OCF_MAX(num, 1);
+
+	fsc->sweeps = env_vzalloc(sizeof(*fsc->sweeps) * num);
+	if (!fsc->sweeps)
+		goto err_nomem;
+	fsc->num = num;
+
+	for (i = 0; i < num; i++) {
+		sweep = &fsc->sweeps[i];
+
+		sweep->data = env_vmalloc(sizeof(*sweep->data) *
+				OCF_MNG_FLUSH_MAX);
+		if (!sweep->data)
+			goto err_free;
+
+		sweep->req = ocf_req_new_mngt(cache, cache->mngt_queue);
+		if (!sweep->req)
+			goto err_free;
+
+		sweep->req->info.internal = true;
+		sweep->req->engine_handler = _ocf_mngt_flush_sweep_step;
+		sweep->req->priv = sweep;
+
+		sweep->context = context;
+		sweep->cache = cache;
+		sweep->bucket = buckets * i / num;
+		sweep->end = buckets * (i + 1) / num;
+
+		sweep->attribs.lock_cacheline = true;
+		sweep->attribs.cmpl_context = sweep;
+		sweep->attribs.cmpl_fn = _ocf_mngt_flush_portion_end;
+		sweep->attribs.io_queue = cache->mngt_queue;
+
+		sweep->flush_portion = OCF_MNG_FLUSH_MIN;
+		sweep->ticks1 = 0;
+		sweep->ticks2 = UINT_MAX;
+	}
+
+	env_atomic_set(&fsc->error, 0);
+	env_atomic_set(&fsc->interrupt_seen, 0);
+	env_atomic_set(&fsc->count, num + 1);
+	fsc->complete = complete;
+
+	for (i = 0; i < num; i++)
+		ocf_queue_push_req(fsc->sweeps[i].req, OCF_QUEUE_ALLOW_SYNC);
+
+	_ocf_mngt_flush_sweeps_put(context);
+	return;
+
+err_free:
+	_ocf_mngt_flush_sweeps_free(fsc);
+err_nomem:
+	if (context->core) {
+		ocf_core_log(context->core, log_err,
+				"Flushing operation aborted, no memory\n");
+	} else {
+		ocf_cache_log(cache, log_err,
+				"Flushing operation aborted, no memory\n");
+	}
+	complete(context, -OCF_ERR_NO_MEM);
+}
 
 static void _ocf_mngt_flush_core(
 	struct ocf_mngt_cache_flush_context *context,
 	ocf_flush_complete_t complete)
 {
-	ocf_cache_t cache = context->cache;
-	ocf_core_t core = context->core;
-	ocf_core_id_t core_id = ocf_core_get_id(core);
-	struct flush_container *fc;
-	int ret;
-
-	fc = env_vzalloc(sizeof(*fc));
-	if (!fc) {
-		complete(context, -OCF_ERR_NO_MEM);
-		return;
-	}
-
-	ret = _ocf_mngt_get_blocks(cache, core_id,
-			&fc->flush_data, &fc->count);
-	if (ret) {
-		ocf_core_log(core, log_err, "Flushing operation aborted, "
-				"no memory\n");
-		env_vfree(fc);
-		complete(context, -OCF_ERR_NO_MEM);
-		return;
-	}
-
-	if (fc->count == 0) {
-		env_vfree(fc);
-		complete(context, 0);
-		return;
-	}
-
-	fc->core_id = core_id;
-	fc->iter = 0;
-
-	_ocf_mngt_flush_containers(context, fc, 1, complete);
+	_ocf_mngt_flush_sweeps(context, 0,
+			ocf_metadata_line_count(&context->cache->metadata),
+			complete);
 }
 
 static void _ocf_mngt_flush_all_cores(
@@ -616,9 +547,6 @@ static void _ocf_mngt_flush_all_cores(
 	ocf_flush_complete_t complete)
 {
 	ocf_cache_t cache = context->cache;
-	struct flush_container *fctbl = NULL;
-	uint32_t fcnum = 0;
-	int ret;
 
 	if (context->op == flush_cache)
 		ocf_cache_log(cache, log_info, "Flushing cache\n");
@@ -627,17 +555,7 @@ static void _ocf_mngt_flush_all_cores(
 
 	env_atomic_set(&cache->flush_in_progress, 1);
 
-	/* Get all 'dirty' blocks for all cores */
-	ret = _ocf_mngt_get_flush_containers(cache, &fctbl, &fcnum,
-			context->begin, context->end);
-	if (ret) {
-		ocf_cache_log(cache, log_err, "Flushing operation aborted, "
-				"no memory\n");
-		complete(context, ret);
-		return;
-	}
-
-	_ocf_mngt_flush_containers(context, fctbl, fcnum, complete);
+	_ocf_mngt_flush_sweeps(context, context->begin, context->end, complete);
 }
 
 static void _ocf_mngt_flush_all_cores_complete(
@@ -667,9 +585,6 @@ static void _ocf_mngt_flush_all_cores_complete(
 	ocf_pipeline_next(context->pipeline);
 }
 
-/**
- * Flush all the dirty data stored on cache (all the cores attached to it)
- */
 static void _ocf_mngt_cache_flush(ocf_pipeline_t pipeline, void *priv,
 		ocf_pipeline_arg_t arg)
 {

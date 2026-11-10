@@ -116,6 +116,11 @@ void ocf_hb_cline_prot_lock_wr(struct ocf_metadata_lock *metadata_lock,
 void ocf_hb_cline_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,
 		uint32_t lock_idx, uint32_t core_id, uint64_t core_line);
 
+void ocf_hb_id_prot_lock_rd(struct ocf_metadata_lock *metadata_lock,
+		unsigned lock_idx, ocf_cache_line_t hash);
+void ocf_hb_id_prot_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+		unsigned lock_idx, ocf_cache_line_t hash);
+
 void ocf_hb_id_prot_lock_wr(struct ocf_metadata_lock *metadata_lock,
 		unsigned lock_idx, ocf_cache_line_t hash);
 void ocf_hb_id_prot_unlock_wr(struct ocf_metadata_lock *metadata_lock,

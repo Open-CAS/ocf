@@ -838,17 +838,6 @@ void ocf_cleaner_sort_flush_data(struct flush_data *flush_data, uint32_t count)
 	}
 }
 
-void ocf_cleaner_sort_flush_containers(struct flush_container *fctbl,
-		uint32_t num)
-{
-	int i;
-
-	for (i = 0; i < num; i++) {
-		ocf_cleaner_sort_flush_data(fctbl[i].flush_data,
-				fctbl[i].count);
-	}
-}
-
 void ocf_cleaner_refcnt_freeze(ocf_cache_t cache)
 {
 	struct ocf_user_part *curr_part;

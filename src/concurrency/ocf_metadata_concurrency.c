@@ -358,6 +358,20 @@ void ocf_hb_cline_prot_unlock_rd(struct ocf_metadata_lock *metadata_lock,
 			hash, OCF_METADATA_RD);
 }
 
+void ocf_hb_id_prot_lock_rd(struct ocf_metadata_lock *metadata_lock,
+		unsigned lock_idx, ocf_cache_line_t hash)
+{
+	ocf_hb_id_prot_lock_common(metadata_lock, lock_idx, hash,
+			OCF_METADATA_RD);
+}
+
+void ocf_hb_id_prot_unlock_rd(struct ocf_metadata_lock *metadata_lock,
+		unsigned lock_idx, ocf_cache_line_t hash)
+{
+	ocf_hb_id_prot_unlock_common(metadata_lock, lock_idx, hash,
+			OCF_METADATA_RD);
+}
+
 void ocf_hb_id_prot_lock_wr(struct ocf_metadata_lock *metadata_lock,
 		unsigned lock_idx, ocf_cache_line_t hash)
 {
