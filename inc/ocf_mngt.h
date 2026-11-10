@@ -924,6 +924,31 @@ static inline bool ocf_mngt_cache_mode_has_lazy_write(ocf_cache_mode_t mode)
 int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode);
 
 /**
+ * @brief Set the maximum number of dirty cache lines
+ *
+ * @attention This changes only runtime state. To make changes persistent
+ *            use function ocf_mngt_cache_save().
+ *
+ * @param[in] cache Cache handle
+ * @param[in] max_lines Maximum number of dirty cache lines, 0 for no limit
+ *
+ * @retval 0 Limit has been set successfully
+ * @retval Non-zero Error occurred and the limit has not been set
+ */
+int ocf_mngt_cache_set_dirty_limit(ocf_cache_t cache, uint32_t max_lines);
+
+/**
+ * @brief Get the maximum number of dirty cache lines
+ *
+ * @param[in] cache Cache handle
+ * @param[out] max_lines Maximum number of dirty cache lines, 0 for no limit
+ *
+ * @retval 0 Limit has been retrieved successfully
+ * @retval Non-zero Error occurred
+ */
+int ocf_mngt_cache_get_dirty_limit(ocf_cache_t cache, uint32_t *max_lines);
+
+/**
  * @brief Completion callback of switch cleaning policy operation
  *
  * @param[in] priv Callback context

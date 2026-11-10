@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -10,6 +11,7 @@
 #include "engine_common.h"
 #include "engine_io.h"
 #include "engine_wb.h"
+#include "engine_wt.h"
 #include "engine_wi.h"
 #include "engine_inv.h"
 #include "../metadata/metadata.h"
@@ -125,6 +127,11 @@ static inline void _ocf_write_wb_submit(struct ocf_request *req)
 
 int ocf_write_wb_do(struct ocf_request *req)
 {
+	if (ocf_engine_dirty_limit_reached(req)) {
+		OCF_DEBUG_RQ(req, "Dirty limit reached - write through");
+		return ocf_write_wt_do(req);
+	}
+
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
 
