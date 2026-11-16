@@ -149,10 +149,12 @@ static void ocf_engine_update_req_info(struct ocf_cache *cache,
 			entry->status != LOOKUP_HIT_INVALID);
 
 	/* Handle return value */
-	if (entry->status == LOOKUP_HIT) {
+	if (entry->status == LOOKUP_HIT ||
+			entry->status == LOOKUP_HIT_INVALID) {
 		if (metadata_test_valid_sec(cache, entry->coll_idx,
 				start_block, end_block)) {
 			req->info.hit_no++;
+			entry->status = LOOKUP_HIT;
 		} else {
 			req->info.invalid_no++;
 			entry->status = LOOKUP_HIT_INVALID;
