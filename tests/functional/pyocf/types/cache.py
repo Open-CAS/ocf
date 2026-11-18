@@ -378,6 +378,30 @@ class Cache:
     def set_no_dirty(self, no_dirty: bool):
         self.owner.lib.ocf_mngt_cache_set_no_dirty(self.cache_handle, no_dirty)
 
+    def set_dirty_limit(self, max_lines: int):
+        self.write_lock()
+
+        status = self.owner.lib.ocf_mngt_cache_set_dirty_limit(self.cache_handle, max_lines)
+
+        self.write_unlock()
+        if status:
+            raise OcfError("Error setting dirty limit", status)
+
+    def get_dirty_limit(self):
+        max_lines = c_uint32()
+
+        self.read_lock()
+
+        status = self.owner.lib.ocf_mngt_cache_get_dirty_limit(
+            self.cache_handle, byref(max_lines)
+        )
+
+        self.read_unlock()
+        if status:
+            raise OcfError("Error getting dirty limit", status)
+
+        return max_lines.value
+
     def change_cache_mode(self, cache_mode: CacheMode):
         self.write_lock()
         status = self.owner.lib.ocf_mngt_cache_set_mode(self.cache_handle, cache_mode)
@@ -1289,6 +1313,10 @@ lib.ocf_mngt_cache_cleaning_set_policy.argtypes = [
     c_void_p,
 ]
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.argtypes = [c_void_p, c_uint32]
+lib.ocf_mngt_cache_set_dirty_limit.argtypes = [c_void_p, c_uint32]
+lib.ocf_mngt_cache_set_dirty_limit.restype = c_int
+lib.ocf_mngt_cache_get_dirty_limit.argtypes = [c_void_p, POINTER(c_uint32)]
+lib.ocf_mngt_cache_get_dirty_limit.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_policy_all.restype = c_int
 lib.ocf_mngt_core_set_seq_cutoff_threshold_all.argtypes = [c_void_p, c_uint32]
 lib.ocf_mngt_core_set_seq_cutoff_threshold_all.restype = c_int
