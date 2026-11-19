@@ -102,6 +102,12 @@ struct ocf_cache {
 
 	bool no_dirty;
 
+	struct {
+		/* Dirty cache lines of all cores, counted every millisecond */
+		env_atomic lines;
+		env_atomic counted_ms;
+	} dirty_limit;
+
 	env_atomic attach_pt;
 
 	struct ocf_cleaner cleaner;

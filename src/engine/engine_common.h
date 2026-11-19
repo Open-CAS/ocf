@@ -8,6 +8,7 @@
 #ifndef __ENGINE_COMMON_H__
 #define __ENGINE_COMMON_H__
 
+#include "../ocf_cache_priv.h"
 #include "../ocf_request.h"
 #include "../utils/utils_cache_line.h"
 
@@ -88,6 +89,40 @@ static inline bool ocf_engine_is_mapped(struct ocf_request *req)
 static inline bool ocf_engine_is_dirty_all(struct ocf_request *req)
 {
 	return req->info.dirty_all == req->core_line_count;
+}
+
+/*
+ * Dirty cache lines of all cores, counted at most once per millisecond
+ */
+uint32_t ocf_engine_get_dirty_lines_approx(ocf_cache_t cache);
+
+/**
+ * @brief Check if request reached dirty lines limit
+ *
+ * @param req OCF request after lookup
+ *
+ * @retval true request must be written through
+ * @retval false request may be written back
+ */
+static inline bool ocf_engine_dirty_limit_reached(struct ocf_request *req)
+{
+	uint32_t max_lines = req->cache->conf_meta->max_dirty_lines;
+	uint32_t new_lines;
+	uint64_t dirty_lines;
+
+	if (!max_lines)
+		return false;
+
+	/* Cache lines without any dirty sector become dirty */
+	new_lines = req->core_line_count - req->info.dirty_any;
+
+	/* Fully dirty request does not insert any new dirty data */
+	if (!new_lines)
+		return false;
+
+	dirty_lines = ocf_engine_get_dirty_lines_approx(req->cache);
+
+	return dirty_lines + new_lines > max_lines;
 }
 
 /**

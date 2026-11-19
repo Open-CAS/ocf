@@ -1,6 +1,7 @@
 /*
  * Copyright(c) 2012-2022 Intel Corporation
  * Copyright(c) 2024 Huawei Technologies
+ * Copyright(c) 2026 Unvertical
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
@@ -152,7 +153,7 @@ static inline void _ocf_write_wt_submit(struct ocf_request *req)
 	ocf_engine_forward_core_io_req(req, _ocf_write_wt_core_complete);
 }
 
-static int _ocf_write_wt_do(struct ocf_request *req)
+int ocf_write_wt_do(struct ocf_request *req)
 {
 	/* Get OCF request - increase reference counter */
 	ocf_req_get(req);
@@ -191,7 +192,7 @@ int ocf_write_wt(struct ocf_request *req)
 	ocf_req_get(req);
 
 	/* Set resume handler */
-	req->engine_handler = _ocf_write_wt_do;
+	req->engine_handler = ocf_write_wt_do;
 	req->engine_cbs = &_wt_engine_callbacks;
 
 	lock = ocf_engine_prepare_clines(req);
@@ -202,7 +203,7 @@ int ocf_write_wt(struct ocf_request *req)
 				/* WR lock was not acquired, need to wait for resume */
 				OCF_DEBUG_RQ(req, "NO LOCK");
 			} else {
-				_ocf_write_wt_do(req);
+				ocf_write_wt_do(req);
 			}
 		} else {
 			OCF_DEBUG_RQ(req, "LOCK ERROR %d\n", lock);

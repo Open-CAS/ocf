@@ -667,3 +667,24 @@ void ocf_engine_on_resume(struct ocf_request *req)
 
 	ocf_queue_push_req_cb(req, _ocf_engine_refresh, OCF_QUEUE_PRIO_HIGH);
 }
+
+uint32_t ocf_engine_get_dirty_lines_approx(ocf_cache_t cache)
+{
+	int now = env_ticks_to_msecs(env_get_tick_count());
+	int counted = env_atomic_read(&cache->dirty_limit.counted_ms);
+	uint32_t lines = 0;
+	ocf_core_id_t core_id;
+	ocf_core_t core;
+
+	if (now == counted || env_atomic_cmpxchg(&cache->dirty_limit.counted_ms,
+				counted, now) != counted) {
+		return env_atomic_read(&cache->dirty_limit.lines);
+	}
+
+	for_each_core_metadata(cache, core, core_id)
+		lines += env_atomic_read(&core->runtime_meta->dirty_clines);
+
+	env_atomic_set(&cache->dirty_limit.lines, lines);
+
+	return lines;
+}

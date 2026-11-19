@@ -1629,6 +1629,7 @@ static void _ocf_mngt_cache_init(ocf_cache_t cache,
 	 * Super block elements initialization
 	 */
 	cache->conf_meta->cache_mode = params->metadata.cache_mode;
+	cache->conf_meta->max_dirty_lines = 0;
 	cache->conf_meta->promotion_policy_type = params->metadata.promotion_policy;
 	cache->conf_meta->prefetch_mask = OCF_PF_MASK_DEFAULT;
 	ocf_prefetch_setup(cache);
@@ -3720,6 +3721,31 @@ int ocf_mngt_cache_set_mode(ocf_cache_t cache, ocf_cache_mode_t mode)
 	}
 
 	return result;
+}
+
+int ocf_mngt_cache_set_dirty_limit(ocf_cache_t cache, uint32_t max_lines)
+{
+	OCF_CHECK_NULL(cache);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
+	cache->conf_meta->max_dirty_lines = max_lines;
+
+	return 0;
+}
+
+int ocf_mngt_cache_get_dirty_limit(ocf_cache_t cache, uint32_t *max_lines)
+{
+	OCF_CHECK_NULL(cache);
+	OCF_CHECK_NULL(max_lines);
+
+	if (ocf_cache_is_standby(cache))
+		return -OCF_ERR_CACHE_STANDBY;
+
+	*max_lines = cache->conf_meta->max_dirty_lines;
+
+	return 0;
 }
 
 int ocf_mngt_cache_promotion_set_policy(ocf_cache_t cache, ocf_promotion_t type)
